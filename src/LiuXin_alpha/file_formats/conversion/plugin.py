@@ -7,7 +7,7 @@ for callers.
 Example:
     Exercise conversion through a consuming regression::
 
-        python -m pytest -q tests/customize/test_customize_base.py
+        python -m pytest -q tests/plugins/test_plugin_base.py
 """
 
 from __future__ import annotations
@@ -17,7 +17,7 @@ import re
 import shutil
 import typing as _typing
 
-from LiuXin_alpha.plugin_system.base import Plugin
+from LiuXin_alpha.plugins.base import Plugin
 from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode as unicode
 from LiuXin_alpha.utils.localization import trans as _
@@ -31,7 +31,7 @@ class ConversionOption:
     Example:
         Exercise ConversionOption through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugins/test_plugin_base.py
     """
 
     def __init__(
@@ -48,7 +48,7 @@ class ConversionOption:
         Example:
             Exercise ConversionOption.  init   through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugins/test_plugin_base.py
 
 
         :param name: Field, file, function or resource name addressed by the operation.
@@ -76,7 +76,7 @@ class ConversionOption:
         Example:
             Exercise ConversionOption.validate parameters through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugins/test_plugin_base.py
 
 
         :return: None; the operation mutates state, writes output or performs cleanup in
@@ -94,7 +94,7 @@ class ConversionOption:
         Example:
             Exercise ConversionOption.  hash   through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugins/test_plugin_base.py
 
 
         :return: The normalized value, metadata record, path, stream result or collection
@@ -109,7 +109,7 @@ class ConversionOption:
         Example:
             Exercise ConversionOption.  eq   through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugins/test_plugin_base.py
 
 
         :param other: Value supplied for other under the utility contract.
@@ -125,7 +125,7 @@ class ConversionOption:
         Example:
             Exercise ConversionOption.clone through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugins/test_plugin_base.py
 
 
         :return: The normalized value, metadata record, path, stream result or collection
@@ -147,7 +147,7 @@ class OptionRecommendation:
     Example:
         Exercise OptionRecommendation through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugins/test_plugin_base.py
     """
 
     LOW = 1
@@ -166,7 +166,7 @@ class OptionRecommendation:
         Example:
             Exercise OptionRecommendation.  init   through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugins/test_plugin_base.py
 
 
         :param recommended_value: Value supplied for recommended value under the utility
@@ -191,7 +191,7 @@ class OptionRecommendation:
         Example:
             Exercise OptionRecommendation.option help through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugins/test_plugin_base.py
 
 
         :return: The normalized value, metadata record, path, stream result or collection
@@ -206,7 +206,7 @@ class OptionRecommendation:
         Example:
             Exercise OptionRecommendation.clone through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugins/test_plugin_base.py
 
 
         :return: The normalized value, metadata record, path, stream result or collection
@@ -225,7 +225,7 @@ class OptionRecommendation:
         Example:
             Exercise OptionRecommendation.validate parameters through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugins/test_plugin_base.py
 
 
         :return: None; the operation mutates state, writes output or performs cleanup in
@@ -252,7 +252,7 @@ class DummyReporter:
     Example:
         Exercise DummyReporter through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugins/test_plugin_base.py
     """
 
     def __init__(self: _typing.Self) -> None:
@@ -262,7 +262,7 @@ class DummyReporter:
         Example:
             Exercise DummyReporter.  init   through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugins/test_plugin_base.py
 
 
         :return: None; validated state is stored on the receiving object.
@@ -276,7 +276,7 @@ class DummyReporter:
         Example:
             Exercise DummyReporter.  call   through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugins/test_plugin_base.py
 
 
         :param percent: Value supplied for percent under the utility contract.
@@ -297,7 +297,7 @@ class InputFormatPlugin(Plugin):
     Example:
         Exercise InputFormatPlugin through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugins/test_plugin_base.py
     """
 
     type = _("Conversion Input")
@@ -361,7 +361,7 @@ class InputFormatPlugin(Plugin):
         Example:
             Exercise InputFormatPlugin.  init   through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugins/test_plugin_base.py
 
 
         :param args: Positional values forwarded to the compatibility implementation.
@@ -377,7 +377,7 @@ class InputFormatPlugin(Plugin):
         Example:
             Exercise InputFormatPlugin.get images through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugins/test_plugin_base.py
 
 
         :return: None; the operation mutates state, writes output or performs cleanup in
@@ -399,7 +399,7 @@ class InputFormatPlugin(Plugin):
         Example:
             Exercise InputFormatPlugin.convert through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugins/test_plugin_base.py
 
 
         :param stream: Input or output stream wrapped by the terminal or compatibility
@@ -428,7 +428,7 @@ class InputFormatPlugin(Plugin):
         Example:
             Exercise InputFormatPlugin.  call   through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugins/test_plugin_base.py
 
 
         :param stream: Input or output stream wrapped by the terminal or compatibility
@@ -466,7 +466,7 @@ class InputFormatPlugin(Plugin):
         Example:
             Exercise InputFormatPlugin.postprocess book through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugins/test_plugin_base.py
 
 
         :param oeb: Value supplied for oeb under the utility contract.
@@ -490,7 +490,7 @@ class InputFormatPlugin(Plugin):
         Example:
             Exercise InputFormatPlugin.specialize through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugins/test_plugin_base.py
 
 
         :param oeb: Value supplied for oeb under the utility contract.
@@ -516,7 +516,7 @@ class InputFormatPlugin(Plugin):
         Example:
             Exercise InputFormatPlugin.gui configuration widget through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugins/test_plugin_base.py
 
 
         :param parent: Value supplied for parent under the utility contract.
@@ -542,7 +542,7 @@ class OutputFormatPlugin(Plugin):
     Example:
         Exercise OutputFormatPlugin through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugins/test_plugin_base.py
     """
 
     type = _("Conversion Output")
@@ -585,7 +585,7 @@ class OutputFormatPlugin(Plugin):
         Example:
             Exercise OutputFormatPlugin.description through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugins/test_plugin_base.py
 
 
         :return: The normalized value, metadata record, path, stream result or collection
@@ -600,7 +600,7 @@ class OutputFormatPlugin(Plugin):
         Example:
             Exercise OutputFormatPlugin.  init   through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugins/test_plugin_base.py
 
 
         :param args: Positional values forwarded to the compatibility implementation.
@@ -623,7 +623,7 @@ class OutputFormatPlugin(Plugin):
         Example:
             Exercise OutputFormatPlugin.convert through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugins/test_plugin_base.py
 
 
         :param oeb_book: Value supplied for oeb book under the utility contract.
@@ -644,7 +644,7 @@ class OutputFormatPlugin(Plugin):
         Example:
             Exercise OutputFormatPlugin.is periodical through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugins/test_plugin_base.py
 
 
         :return: True when the documented condition holds; otherwise False.
@@ -666,7 +666,7 @@ class OutputFormatPlugin(Plugin):
         Example:
             Exercise OutputFormatPlugin.specialize css for output through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugins/test_plugin_base.py
 
 
         :param log: Value supplied for log under the utility contract.
@@ -692,7 +692,7 @@ class OutputFormatPlugin(Plugin):
         Example:
             Exercise OutputFormatPlugin.gui configuration widget through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugins/test_plugin_base.py
 
 
         :param parent: Value supplied for parent under the utility contract.

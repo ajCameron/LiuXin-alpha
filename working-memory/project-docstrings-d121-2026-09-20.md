@@ -42,4 +42,4 @@ declarations**. D progress: **121/232 units**, **2,972/5,685 declarations**,
 - [Quality log](test-results/docstrings-d121-2026-09-20/quality.log)
 - [Inventory reconciliation](test-results/docstrings-d121-2026-09-20/reconciliation.json)
 - [Documentation diff](test-results/docstrings-d121-2026-09-20/docstrings.diff)
-- [Completion plan](../dev-docs/project-docstrings-completion-plan.md)
+- [Completion plan](../dev-docs/hacking/project-docstrings-completion-plan.md)

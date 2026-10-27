@@ -1,0 +1,562 @@
+# Mixed-format ingest operations
+
+Reviewed **2026-10-23**. Includes Linux source detection/read-only mounting and runtime resource protection. See the [local-ingest user guide](../../docs/local-ingest.md) and [next tasks](next_tasks.md). Dated benchmarks and suite counts below remain historical evidence.
+
+Updated: 2026-08-25
+
+## Purpose and data model
+
+`MixedFormatIngestCoordinator` is the run-level layer above LiuXin's hardened
+container Stores. It is intended for an untidy local tree containing loose
+ebooks and nested SquashFS, ISO/UDF, ZIP, TAR, RAR, or 7z files.
+
+A real run:
+
+1. registers the source directory as a read-only unmanaged Store;
+2. adopts every regular source file in place as a Digital Asset and UNMANAGED
+   Replica;
+3. exposes each recognized container as an immutable Asset-backed Store;
+4. adopts regular members as Digital Assets and ARCHIVE Replicas; and
+5. queues recognized nested members, materializing their exact Asset bytes into
+   a managed CACHE Store when a local file is required by the next driver.
+
+No member is extracted into the source tree or a caller-selected member path.
+Symlinks are skipped. Existing container bytes are not described as
+derivations: a derivation is recorded only when LiuXin knows a producing
+process. The workflow records technical filename, media, container, depth,
+parent-Asset, and member-path metadata; bibliographic Item matching and
+enrichment remain a later ingest stage.
+Applications can supply `source_metadata_factory` and
+`member_metadata_factory`; the latter receives a `ContainerMemberContext` with
+format, depth, parent Asset, and full container chain plus the Store's native
+inventory hints. This is the supported seam for richer technical or future
+bibliographic observations without putting implementation in the API models.
+
+EPUB, CBZ, CBR, MOBI, AZW, PDF, FB2/FBZ, LIT, PDB, DOCX, ODT, and HTMLZ are
+terminal ebook Assets by default. `--expand-ebook-containers` deliberately
+opts ZIP/RAR-like ebook containers into recursive expansion.
+
+## Command surface
+
+The shortest first-run workflow on Linux is:
+
+```bash
+liuxin init /srv/liuxin
+liuxin connect /srv/liuxin
+liuxin ingest /media/archive-drives/disk-01
+```
+
+After `liuxin connect /srv/liuxin`, the system selector can be omitted from
+this command and from `ingest runs` inspection/resume commands. An explicit
+selector or environment selector still takes precedence over that persisted
+connection.
+
+`init` creates the catalogue, managed primary Store, nested-materialization
+area, ingest log directory, and a non-secret system manifest. The concise
+`ingest SOURCE` form expands to the same bounded local operator described
+below, with automatic source detection and a verified read-only mount. It is
+intentionally different from `liuxin ingest disk`, which submits
+a managed job whose path belongs to the Core host.
+
+With a catalogue already selected for the invoking account, either a directory
+or a standalone SquashFS/ext4 filesystem image can be supplied directly:
+
+```bash
+sudo liuxin storage ingest "/media/book archives"
+sudo liuxin storage ingest "/archives/books.squashfs"
+```
+
+The command detects an existing directory, filesystem image or block device.
+Directories receive a recursive read-only bind; images/devices receive a
+read-only filesystem mount at an automatically managed destination. Detection
+never chooses or creates a catalogue. `sudo` may use a different account's
+configuration, so pass `--system-root /srv/liuxin` if that account has no saved
+connection. `liuxin ingest PATH` and `liuxin ingest --source PATH` use the same
+automatic path. Existing `--source-root PATH` scripts retain opt-in mounting;
+that explicit directory form remains available on other operating systems.
+
+For an attended first run, `liuxin init --wizard` guides the database choice
+and location. Mixed local ingest currently consumes the SQLite/APSW
+system-root manifest; choosing PostgreSQL initializes and checks that catalogue
+backend but does not silently change this CLI-host ingest transport contract.
+
+The detailed operational entry point is:
+
+```bash
+liuxin storage ingest --help
+```
+
+`python -m LiuXin_alpha.surfaces.cli storage ingest ...` is equivalent when an
+installation does not expose console scripts. The example script remains a
+thin compatibility wrapper, but production automation should use the packaged
+command. The current ingest catalogue target is SQLite; run the command on the
+host which can read the source tree. Remote operation means SSH, a service
+manager, or a batch scheduler starts this same local-filesystem command on that
+host rather than sending source paths to a remote LiuXin process.
+
+## Discovery and preflight without catalogue writes
+
+```bash
+liuxin storage ingest \
+  --source-root /media/archive-drives/disk-01 \
+  --discover-only
+```
+
+This bounded pass classifies top-level candidates by suffix or a small magic
+probe. It creates no Store, Asset, Replica, database, or cache file. A named but
+corrupt archive is still reported as a candidate; validity is established only
+by the real backend. Discovery-only does not claim to inventory members or find
+nested containers.
+
+Before a real unattended run, use `--preflight-only`. It requires the intended
+`--database`, performs the same non-mutating discovery, and checks source
+access, catalogue/cache parent writability and free space, plus the optional
+readers actually needed by the recognized top-level formats. It does not create
+the database or materialization cache:
+
+```bash
+liuxin storage ingest \
+  --source-root /media/archive-drives/disk-01 \
+  --database /srv/liuxin/catalogue.sqlite \
+  --materialization-root /srv/liuxin/ingest-materialized \
+  --log-directory /srv/liuxin/ingest-logs \
+  --report-file /srv/liuxin/reports/disk-01-preflight.json \
+  --preflight-only
+```
+
+The command also enforces `--min-free-mib` (default 2048) on catalogue, cache,
+temporary, log, report and lock filesystems, and on the WSL backing drive when
+applicable. Unknown capacity or insufficient headroom makes preflight unready.
+The path/dependency helper reports capacity observations; the shared runtime
+resource monitor owns threshold decisions. Neither reserves disk space.
+
+Warnings describe degraded optional coverage; failed error-severity checks make
+`preflight.ready` false and return exit 1. Preflight deliberately cannot prove
+that nested containers use no additional backend, so keep the complete archive
+extras installed for recursive runs.
+
+## Durable run and resume
+
+```bash
+liuxin storage ingest \
+  --source-root /media/archive-drives/disk-01 \
+  --database /srv/liuxin/catalogue.sqlite \
+  --materialization-root /srv/liuxin/ingest-materialized
+```
+
+The materialization directory must be outside the source root so cache output
+cannot become new input on a later scan. The Python API applies the same check
+when selecting an existing cache with `materialization_store_ref`: its configured
+local root is resolved and checked before source adoption and again before nested
+materialization. This also covers an existing symlink into the source tree and
+coordinators reused with a different source. The check does not lock paths against
+concurrent filesystem or Store configuration changes; retain the read-only source
+mount described below for operating-system enforcement.
+
+The cache is created lazily: top-level containers that already have a local
+unmanaged Replica do not get copied. If a
+nested container is found without a configured cache, its bytes remain safely
+catalogued and the report contains an actionable issue. Use
+`--no-nested-containers` when top-level inventory is the intended boundary.
+
+Resume by rerunning the same command with the same database, source, and cache.
+Operation UUIDs are stable across surrogate-escaped local filenames, Asset
+identity deduplicates equal bytes, backed Store UUIDs derive from content and
+durable safety options, and existing CACHE Replicas are reused. The JSON report
+distinguishes newly created catalogue records and materialized bytes from
+already-known ones. An isolated corrupt or unsupported container does not stop
+later work unless `--strict` is selected.
+
+Pass `--require-existing-database` after the first successful catalogue
+creation when an unexpected fresh database would be more dangerous than a
+failed job.
+
+The installed CLI indexes those durable artifacts directly:
+
+```bash
+liuxin ingest runs list --system-root /srv/liuxin
+liuxin ingest runs show RUN_UUID --system-root /srv/liuxin
+liuxin ingest runs issues RUN_UUID --system-root /srv/liuxin
+liuxin ingest runs resume RUN_UUID --system-root /srv/liuxin
+```
+
+`list` groups repeated attempts under their stable UUID. `show` preserves every
+attempt and returns the latest complete report. `issues` combines report issues
+with warning/error JSONL events. `resume` reconstructs the original paths,
+limits, backend settings and correlation UUID from the authoritative
+`cli_started` event, writes a fresh attempt log/report, and still takes the
+normal catalogue run lock. It refuses discovery/preflight attempts; rerunning a
+cleanly completed ingest requires `--yes`.
+
+## Unattended logging and run correlation
+
+Every invocation creates two LiuXin-native logs before it opens the catalogue
+or scans the source. The command prints their absolute paths and a UUID run ID
+to stderr immediately; stdout remains reserved for the final JSON report. The
+same `run_id` appears in the report and every workflow event, making concurrent
+or repeated runs distinguishable.
+
+- `mixed-ingest-<UTC timestamp>-<run ID>.jsonl` is the authoritative,
+  append-only forensic stream. It is not rotated. At the opt-in
+  `DEBUG` level it includes every classified/adopted source and member as well
+  as Store identities, nested-container transitions, deduplication, verification
+  results, safety decisions, issues, and tracebacks. Each event is flushed
+  before ingest continues.
+- The matching `.log` is the human-readable view. It rotates at 100 MiB and
+  retains ten backups by default. It includes UTC time, severity, process,
+  thread, logger, event name, and structured context.
+
+By default logs are stored in `<database>.ingest-logs`; discovery-only logs go
+in a hidden sibling of the source root. An explicit log directory must also be
+outside the source tree so log output can never become ingest input. For the
+first unattended run, make the destination a monitored filesystem with room
+for an unbounded JSONL audit:
+
+```bash
+liuxin storage ingest \
+  --source-root /media/archive-drives/disk-01 \
+  --database /srv/liuxin/catalogue.sqlite \
+  --materialization-root /srv/liuxin/ingest-materialized \
+  --log-directory /srv/liuxin/ingest-logs \
+  --report-file /srv/liuxin/reports/disk-01.json \
+  --run-id 018fd3c4-9916-7e37-bf41-a925436feeba \
+  --log-level DEBUG \
+  --log-checkpoint-every 1000 \
+  --log-max-mib 100 \
+  --log-backup-count 10
+```
+
+The complete, untruncated final report is written atomically. A default report
+is placed next to the run logs; `--report-file` gives schedulers a predictable
+artifact path. An existing explicit report is never overwritten unless
+`--replace-report` is supplied. Use `--no-stdout-report` when a scheduler only
+wants the durable file. Human progress and artifact paths remain on stderr, so
+stdout is either one JSON document or empty.
+
+A real ingest takes an advisory exclusive lock. Its default stable path is in
+the log directory and is derived from the catalogue name. `--lock-file` makes
+that path explicit and `--lock-timeout-seconds` allows a bounded wait. Avoid
+`--no-run-lock` unless a higher-level scheduler already provides equivalent
+single-writer exclusion. Discovery and preflight do not take the real-run lock.
+
+The first SIGINT or SIGTERM requests cooperative cancellation. The coordinator
+stops at a safe boundary, closes the catalogue, and writes a terminal report
+with exit 130 or 143. A second signal forces the Python workflow boundary to
+unwind; SIGKILL, host loss, or power failure cannot write a terminal report.
+
+`cli_started` records the resolved paths, safe command options, complete safety
+budget, LiuXin/Python/platform versions, host, process, and working directory.
+Legacy database-construction output is captured as `captured_output` rather
+than contaminating stdout. Existing Store reload produces an aggregate
+`store_bootstrap_complete` event plus one `store_bootstrap_issue` per problem.
+Ordinary isolated damage produces an exception event with a traceback and an
+`ingest_issue`, then work continues. `source_checkpoint` and
+`member_checkpoint` provide aggregate recovery markers. A normal workflow ends
+with `complete`, followed by `cli_complete`; a process-level exception ends
+with `cli_failed`, including its traceback. Absence of either CLI terminal
+event indicates termination outside normal Python handling (for example power
+loss or an unconditional process kill).
+
+The stable process exit contract is:
+
+| Exit | Meaning |
+| ---: | --- |
+| 0 | Ingest completed cleanly, or preflight is ready |
+| 1 | Ingest completed with issues, preflight is not ready, or runtime failed |
+| 2 | Invalid or unsafe command configuration |
+| 130 | Graceful cancellation requested with SIGINT |
+| 143 | Graceful cancellation requested with SIGTERM |
+
+Each JSONL line has stable top-level event-log fields (`id`, `ts`, `level`,
+`level_name`, `message`) and a `context` object. The LiuXin event name is
+`context.event`; workflow fields are under `context.details`. Useful first
+checks include:
+
+```bash
+# Terminal state and last durable events
+tail -n 20 /srv/liuxin/ingest-logs/mixed-ingest-*.jsonl | jq .
+
+# All warnings/errors with their event and workflow details
+jq -c 'select(.level >= 30) | {ts, level_name, event: .context.event,
+  details: .context.details, traceback: .context.traceback}' RUN.jsonl
+
+# Latest aggregate checkpoints
+jq -c 'select(.context.event == "source_checkpoint" or
+  .context.event == "member_checkpoint") | [.ts, .context.event,
+  .context.details]' RUN.jsonl
+```
+
+The logger deliberately records filenames and resolved Store/catalogue paths
+because they are required to diagnose a collection run. It does not dump the
+process environment, file contents, database rows, or credential values.
+`--log-level INFO` is now the default; it suppresses per-object DEBUG events,
+retaining checkpoints, lifecycle events and periodic resource samples.
+`--no-console-progress` affects stderr only and never durable logs or sampler
+activity context. JSONL always retains start/terminal and resource events even
+at WARNING/ERROR, so lower-volume logging still permits telemetry and resume.
+
+### Runtime headroom and resource telemetry
+
+`ingest.resource_monitor.ResourceMonitor` owns capacity observations and latched
+stop reasons. The CLI supplies output filesystem paths before catalogue startup;
+`MixedIngestApplicationRequest.resource_check_callback` forwards admission checks
+to the coordinator. Storage retains ownership of writes and copies. At safe
+boundaries a resource reason creates a fatal `resource_limit` issue, truncates the
+attempt and returns its partial report. No sampler thread touches the database.
+
+`--resource-interval-seconds` defaults to 5. Independent periodic sampling
+continues during blocking reads and hashes. `resource_sample`/`resource_stop`
+events include free space, Linux memory counters, current source/archive/member,
+and per-attempt reserved/confirmed cache bytes. Counters do not walk the cache or
+include extractor children in process RSS. The terminal `resources` summary is
+bounded; full history remains in JSONL. The cache and log volumes are monitored
+even when they differ from the catalogue volume.
+
+Known member size is admitted against temporary capacity before adoption (the
+SquashFS driver spools member reads). Nested materialization conservatively
+allows two cache copies plus a temporary copy, summing demands on shared devices.
+The reserve also applies to the Windows backing volume under WSL. Its registered
+location is discovered rather than assuming C:; missing interop/identity requires
+an explicit `--host-space-path` for the backing volume. The option is repeatable.
+
+A resource stop returns exit 1 and `status: resource_stopped`, retaining the run
+ID and replayable controls. After releasing space, use normal `ingest runs
+resume`. These are observations and cooperative admission checks, not hard
+quotas: active backend/database operations and other writers can outlast a check.
+There is no automatic cache deletion or log-history pruning.
+
+## Remote supervision
+
+Install the deployment bundle with its `archives` extra and the operating
+system's `squashfs-tools`. Run preflight interactively first. For a simple
+survivable SSH launch, a transient systemd unit keeps stdout, stderr, resource
+accounting, and exit status under the service manager while LiuXin retains its
+own authoritative logs and report:
+
+```bash
+RUN_ID="$(python3 -c 'import uuid; print(uuid.uuid4())')"
+sudo systemd-run \
+  --unit="liuxin-ingest-${RUN_ID}" \
+  --property=Type=exec \
+  --property=TimeoutStopSec=15min \
+  --collect \
+  /opt/liuxin/.venv/bin/liuxin storage ingest \
+    --source-root /media/archive-drives/disk-01 \
+    --database /srv/liuxin/catalogue.sqlite \
+    --materialization-root /srv/liuxin/ingest-materialized \
+    --log-directory /srv/liuxin/ingest-logs \
+    --report-file "/srv/liuxin/reports/${RUN_ID}.json" \
+    --run-id "${RUN_ID}" \
+    --require-existing-database \
+    --no-console-progress
+```
+
+Inspect it with `systemctl status liuxin-ingest-$RUN_ID` and
+`journalctl -fu liuxin-ingest-$RUN_ID`. Mount the source read-only where
+possible. Give the catalogue, cache, report, log and lock directories stable
+storage and ensure the service account can traverse the source and write only
+those destinations.
+
+## Linux read-only source mounts
+
+The positional `SOURCE` form automatically establishes and verifies a read-only
+view before opening the catalogue. For an existing directory or mount:
+
+```bash
+sudo liuxin storage ingest "/media/book archives" --system-root /srv/liuxin
+```
+
+With the explicit `--source-root` interface, request the same protection using
+`--mount-source-read-only`:
+
+```bash
+liuxin storage ingest \
+  --source-root /media/archive-drives/disk-01 \
+  --database /srv/liuxin/catalogue.sqlite \
+  --materialization-root /srv/liuxin/ingest-materialized \
+  --log-directory /srv/liuxin/ingest-logs \
+  --mount-source-read-only
+```
+
+For directory protection the launcher starts a worker in a new Linux mount
+namespace, makes propagation private, and recursively bind-mounts the source over
+its own pathname. Ordinary users also receive a new user namespace; privileged
+runs retain their current user namespace so root can still traverse directories
+owned by other users.
+It applies `MOUNT_ATTR_RDONLY` through
+[`mount_setattr(2)`](https://man7.org/linux/man-pages/man2/mount_setattr.2.html),
+then checks the visible mount and every cloned submount in `/proc/self/mountinfo`.
+Ingest starts only after verification succeeds. The source path recorded in Store
+and Replica declarations stays stable across attempts.
+
+This requires Linux 5.12 or later, a libc exposing `mount_setattr`, util-linux
+`unshare`, and permission to create mount namespaces (plus user namespaces for
+unprivileged directory binds). No automatic sudo or writable fallback is used.
+Unsupported systems and denied namespace/mount
+operations fail before catalogue startup. Protection also applies to discovery and
+preflight, so preflight can exercise the actual mount setup. Run reports include
+`source_mount` verification evidence, and `ingest runs resume` retains the option
+and creates a fresh protected view.
+
+Normal completion and exception cleanup detach only the bind mount created for
+that attempt. The kernel releases remaining private mounts when the last process
+in their namespace exits. SIGINT/SIGTERM are forwarded to the worker for normal
+ingest cancellation. A cleanup failure produces a nonzero process exit even if an
+ingest report was already published; inspect stderr as well as the report.
+
+The protection applies to access through this worker's source pathname and its
+descendants. Host mounts remain unchanged, other processes can still change the
+original files, and pre-existing descriptors or other writable aliases are not
+revoked. This is not a security sandbox or a consistent snapshot. Keep catalogue,
+cache, logs, reports, locks and temporary storage outside the source. A separate
+host-level read-only mount remains useful when the source must also be protected
+from other processes. See
+[`mount_namespaces(7)`](https://man7.org/linux/man-pages/man7/mount_namespaces.7.html).
+
+### Mount a filesystem image or block device
+
+Supply the path directly to detect its filesystem and manage its mount target:
+
+```bash
+sudo liuxin storage ingest /archives/books.squashfs --system-root /srv/liuxin
+sudo liuxin storage ingest /dev/disk/by-id/your-source-disk-part1 --system-root /srv/liuxin
+```
+
+Detection uses uncached `blkid --probe` against a read-only descriptor. It
+requires util-linux `blkid` and recognizes actual filesystem signatures, not
+filename extensions. Unknown/unsupported filesystems, ambiguous signatures,
+partition-table images and special files are refused before ingest starts.
+Choose a filesystem partition explicitly when a device has a partition table.
+
+Automatic targets are private directories under
+`/tmp/liuxin-ingest-mounts-<effective UID>/<source-path hash>`. The absolute source
+selector determines that hash; file contents, inode numbers and the current
+resolution of a device alias do not. Repeat/resumed runs under the same account
+reuse the pathname, recreating it after a reboot if necessary. Empty directories
+remain after unmounting. Symlinks, foreign owners and non-private permissions in
+these managed directories cause refusal rather than automatic repair.
+
+`--source-image` and `--source-device` remain available, with optional
+`--source-filesystem squashfs|ext4` to specify the type explicitly. These options
+always imply read-only mounting. For an operator-selected stable destination,
+create an empty directory outside the backing image location and pass
+`--mount-point`; the older `--source-root` spelling is also supported with these
+explicit image/device selectors. Existing mounts and nonempty targets are refused.
+
+```bash
+mkdir -p /mnt/liuxin-books
+
+# A standalone SquashFS filesystem image, mounted only for this ingest worker.
+sudo liuxin storage ingest \
+  --source-image /archives/books.squashfs \
+  --source-filesystem squashfs \
+  --mount-point /mnt/liuxin-books \
+  --database /srv/liuxin/catalogue.sqlite \
+  --materialization-root /srv/liuxin/ingest-materialized \
+  --log-directory /srv/liuxin/ingest-logs
+
+# An ext4 filesystem on an explicit partition; no partition auto-selection.
+sudo liuxin storage ingest \
+  --source-device /dev/disk/by-id/your-source-disk-part1 \
+  --source-filesystem ext4 \
+  --mount-point /mnt/liuxin-books \
+  --database /srv/liuxin/catalogue.sqlite \
+  --materialization-root /srv/liuxin/ingest-materialized \
+  --log-directory /srv/liuxin/ingest-logs
+```
+
+Direct mounts require existing Linux mount privileges (normally root), loop
+device support and `/dev/loop-control`. LiuXin creates a private mount namespace
+without changing user namespace in this mode; it never invokes sudo itself.
+Run with an account allowed to read the source and write the chosen catalogue
+and cache. Files created by an elevated invocation belong to that account.
+
+Both images and block devices are opened read-only and attached to a **new** loop
+device with read-only and autoclear flags set atomically by `LOOP_CONFIGURE`.
+LiuXin checks those flags and the backing identity before mounting, and keeps the
+loop descriptor open until its own filesystem mount is detached. It never changes
+the caller's device flags or reconfigures an existing loop. Images also receive a
+read-only bind over their original pathname. Explicit output collisions with the
+backing source, including existing hard links and SQLite sidecars, are rejected
+before logging starts. Other writable aliases and concurrent external writers
+remain outside this protection.
+[`loop(4)`](https://man7.org/linux/man-pages/man4/loop.4.html)
+
+The initial filesystem allowlist is **SquashFS and ext4**. Mounts use
+`ro,nosuid,nodev,noexec` from the first syscall; ext4 additionally uses `noload`
+to prevent journal replay. There is no repair, writable retry, arbitrary
+mount-option passthrough, partition-table traversal, or support
+for multi-device filesystems. A dirty ext4 filesystem may present inconsistent
+or inaccessible content when recovery is suppressed; inspect/repair a separate
+copy if needed. A plain `ro` filesystem mount alone does not prevent ext4 journal
+replay. [Kernel ext4 documentation](https://cdn.kernel.org/doc/html/latest/admin-guide/ext4.html)
+
+Reports include the backing source, kind, filesystem and verified loop/mount
+evidence. Saved-run resume retains the attachment options and establishes fresh
+protection, preserving stable device selectors such as `/dev/disk/by-id` rather
+than saving the current `/dev/sdX` resolution. Namespace teardown releases private
+mounts after process death;
+autoclear releases the owned loop when its last reference closes. The mount target
+is left as the original empty directory. Catalogue paths remain rooted at that
+target, so later file access requires the same content mounted at that path;
+this option does not install a persistent host mount or automatic retrieval mount.
+
+For a collection of SquashFS archives already held in a directory, use the first
+directory-bind example. Archive members continue to use `unsquashfs`; LiuXin does
+not allocate a mount and loop for each member archive.
+
+## Safety budgets
+
+`MixedIngestBudget` owns ceilings across the entire traversal as well as per
+container. Defaults are:
+
+| Budget | Default |
+| --- | ---: |
+| Source files | 1,000,000 |
+| Containers | 10,000 |
+| Nested container depth | 8 |
+| Members across the run | 1,000,000 |
+| Members per container | 100,000 |
+| One member | 4 GiB |
+| Expanded bytes per container | 64 GiB |
+| Expanded bytes across the run | 256 GiB |
+| Logical/container ratio | 200:1 |
+| CACHE materialization across the run | 64 GiB |
+| One spooled/materialized object | 4 GiB |
+| Wall time | 24 hours |
+| Recorded issues | 10,000 |
+| Member path depth | 256 components |
+| Member path bytes | 65,535 bytes |
+
+The coordinator passes compatible per-container ceilings into every new Store,
+so hostile metadata and expansion are bounded while a backend indexes. The
+driver layer additionally rejects unsafe paths, links, special entries,
+duplicates, overwrite topology, encryption/multi-volume forms it cannot safely
+represent, and format-specific parser excess. The coordinator adds cumulative
+member/byte accounting, ancestry-cycle detection, identical-container
+suppression, depth control, cancellation, and a wall clock.
+
+Limits are fail-closed but scoped where possible. A per-container member,
+ratio, or byte ceiling truncates that branch; a run-wide member, expanded-byte,
+time, cancellation, or issue ceiling halts further work and leaves a resumable
+report. Already committed Asset and Replica records remain valid.
+
+## Dependencies and operational caveats
+
+ZIP, TAR, and ISO 9660 support is dependency-free. SquashFS requires
+`unsquashfs`; 7z uses optional `py7zr`; UDF uses optional `pycdlib`; and some RAR
+members require maintained `rarfile` or an operator-configured `unrar`/`rar`
+extractor. Missing capabilities appear as contextual container issues rather
+than fabricated empty inventories.
+
+External SquashFS and RAR work receives a durable per-call timeout. The global
+wall clock is checked between backend operations. Python-hosted parser calls,
+notably optional 7z parsing, cannot be safely killed mid-call; their parser,
+header, entry, member, ratio, and byte budgets still apply, but one active call
+may return after the global deadline. Run untrusted collections under normal
+OS process/resource supervision as well as these application limits.
+
+The CACHE Replica is durable and restartable. Automatic eviction must not run
+concurrently with this coordinator until the cache layer has a live Store
+pin/lease contract. This is the remaining cache-composition follow-up; it is not
+worked around with an in-memory byte cache.

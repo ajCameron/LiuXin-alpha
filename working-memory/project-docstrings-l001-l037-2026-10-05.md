@@ -19,4 +19,4 @@ and a clean whole-manifest normalization check.
 - [Quality](test-results/docstrings-l001-l037-2026-10-05/quality.log)
 - [Reconciliation](test-results/docstrings-l001-l037-2026-10-05/reconciliation.json)
 - [Previous checkpoint](project-docstrings-s001-s028-2026-10-05.md)
-- [Completion plan](../dev-docs/project-docstrings-completion-plan.md)
+- [Completion plan](../dev-docs/hacking/project-docstrings-completion-plan.md)

@@ -85,10 +85,17 @@ def test_imageops_pillow_fallback_remove_borders_and_grayscale(monkeypatch: pyte
     trimmed = imageops.remove_borders(data, fuzz=0.1)
     assert isinstance(trimmed, (bytes, bytearray))
     assert trimmed[:8] == b"\x89PNG\r\n\x1a\n"
+    from PIL import Image
+
+    with Image.open(BytesIO(trimmed)) as result:
+        assert result.size == (48, 36)
 
     gray = imageops.grayscale(trimmed)
     assert isinstance(gray, (bytes, bytearray))
     assert gray[:8] == b"\x89PNG\r\n\x1a\n"
+    with Image.open(BytesIO(gray)) as result:
+        r, g, b = result.convert("RGB").getpixel((0, 0))
+        assert r == g == b
 
 
 def test_imageops_overlay_mutates_bytearray_canvas(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -107,13 +114,24 @@ def test_imageops_overlay_mutates_bytearray_canvas(monkeypatch: pytest.MonkeyPat
     """
     imageops = _force_pillow_backend(monkeypatch)
 
-    base = bytearray(_png_bytes((64, 48)))
-    stamp = _png_bytes((16, 16))
-    imageops.overlay(stamp, base, 10, 10)
-    assert base[:8] == b"\x89PNG\r\n\x1a\n"
+    from PIL import Image
+
+    def encode(color, size):
+        """Use solid pixels so an unchanged canvas cannot pass this regression."""
+        output = BytesIO()
+        Image.new("RGBA", size, color).save(output, format="PNG")
+        return output.getvalue()
+
+    base = bytearray(encode((0, 0, 255, 255), (8, 8)))
+    stamp = encode((255, 0, 0, 128), (2, 2))
+    assert imageops.overlay(stamp, base, 3, 4) is None
+    with Image.open(BytesIO(base)) as result:
+        assert result.getpixel((3, 4)) == (128, 0, 127, 255)
+        assert result.getpixel((0, 0)) == (0, 0, 255, 255)
 
 
-def test_imageops_cli_failure_falls_back_to_pillow(monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.parametrize("operation", ["grayscale", "trim", "overlay"])
+def test_imageops_cli_failure_falls_back_to_pillow(monkeypatch: pytest.MonkeyPatch, operation: str) -> None:
     """
     Perform the test imageops cli failure falls back to pillow utility operation under explicit compatibility rules.
 
@@ -149,6 +167,23 @@ def test_imageops_cli_failure_falls_back_to_pillow(monkeypatch: pytest.MonkeyPat
     monkeypatch.setattr(imageops.subprocess, "run", lambda *a, **k: CP())
 
     data = _png_bytes((64, 48))
-    out = imageops.grayscale(data)
+    if operation == "grayscale":
+        out = imageops.grayscale(data)
+    elif operation == "trim":
+        out = imageops.remove_borders(data, 0.1)
+    else:
+        out = imageops.overlay(data, data, 0, 0)
     assert isinstance(out, (bytes, bytearray))
     assert out[:8] == b"\x89PNG\r\n\x1a\n"
+
+
+def test_invalid_overlay_preserves_caller_canvas(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Failed decoding must leave the caller's original encoded image intact."""
+    from LiuXin_alpha.utils.image_tools.img_fallback import NotImage
+
+    imageops = _force_pillow_backend(monkeypatch)
+    original = _png_bytes()
+    canvas = bytearray(original)
+    with pytest.raises(NotImage):
+        imageops.overlay(b"not an image", canvas, 0, 0)
+    assert canvas == original

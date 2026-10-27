@@ -2,14 +2,15 @@
 Coordinate operator-visible indexing and checkpointed SquashFS pack production.
 
 The prototype composes Library, schema-dependent indexers, planning, execution, persistence,
-and Store registration without a transaction spanning those phases. The direct-FRBR path
-retains a legacy SHA-512-plus-size fingerprint in SHA-256-named columns. Progress and result
-values report observed incremental effects; failures can leave completed earlier work.
+and Store registration without a transaction spanning those phases. FRBR indexing uses the
+storage owner for byte identity and observations. Progress and result values report observed
+incremental effects; failures can leave completed earlier work.
 """
 
 from __future__ import annotations
 
 import dataclasses
+import mimetypes
 import pathlib
 import sys
 import time
@@ -19,7 +20,10 @@ from typing import Any, TYPE_CHECKING
 from uuid import UUID, uuid4
 
 from LiuXin_alpha.databases.row import Row
-from LiuXin_alpha.storage.api import BackupWorkflowDeclaration, WorkflowStatus
+from LiuXin_alpha.storage.api import (
+    BackupWorkflowDeclaration, DigitalAssetMetadata, Location, ReplicaMode,
+    ReplicaState, StoragePreconditionFailed, WorkflowStatus,
+)
 from LiuXin_alpha.storage.backup.backup_artifact_registry import BackupArtifactRegistry
 from LiuXin_alpha.storage.backup.backup_workflow_repository import BackupWorkflowRepository
 from LiuXin_alpha.storage.backup.squashfs_backup_workflow import SquashfsBackupWorkflow
@@ -27,7 +31,6 @@ from LiuXin_alpha.storage.backup.store_backup_planner import StoreBackupPlanner
 from LiuXin_alpha.storage.reconcile import register_existing_disk_as_unmanaged_store
 from LiuXin_alpha.storage.reconcile.models import UnmanagedDiskRegistrationReport
 from LiuXin_alpha.storage.store_backend_plugins.on_disk_existing_unmanaged_drive import OnDiskUnmanagedStorageBackend
-from LiuXin_alpha.utils.storage.local.file_properties import get_file_hash
 from LiuXin_alpha.utils.text.safe_path_to_name import safe_path_to_name
 
 if TYPE_CHECKING:
@@ -223,156 +226,103 @@ def _ensure_or_create_unmanaged_store_row(db, *, root: pathlib.Path, store_name:
     return Row.from_idless_row_dict(db, row_dict=row_dict, table="stores"), backend
 
 
-def _index_existing_disk_frbr(db, *, disk_path: pathlib.Path, store_name: str, ebook_extensions: Iterable[str] | None, progress_callback=None) -> UnmanagedDiskRegistrationReport:
+def _index_existing_disk_frbr(
+    db,
+    *,
+    disk_path: pathlib.Path,
+    store_name: str,
+    ebook_extensions: Iterable[str] | None,
+    progress_callback=None,
+) -> UnmanagedDiskRegistrationReport:
+    """Adopt source files and refresh observations through the database's storage owner.
+
+    New locations use real SHA-256 identity and storage's normal declaration/adoption
+    contracts. Existing live claims are verified without rewriting their Asset identity.
+    Changed or unavailable bytes retain an unhealthy observation and stop the scan before
+    backup planning; operator reconciliation must resolve the source discrepancy.
+
+    Counters describe completed per-file effects, not an atomic scan. Verification of an
+    existing claim counts as an update even when its bytes are unchanged. Missing paths
+    are not deleted. Backend, persistence and callback errors propagate; earlier adopted
+    files and observations remain committed. No bytes are copied or removed.
+
+    :param db: Borrowed FRBR database with its bound StorageManager.
+    :param disk_path: Source directory resolved before registration and traversal.
+    :param store_name: Source Store display label.
+    :param ebook_extensions: Accepted suffixes, or None for project defaults.
+    :param progress_callback: Optional synchronous start/scan/done observer.
+    :return: Completed incremental indexing report; failures can follow partial effects.
     """
-    Index a local tree directly into Digital Asset and Replica rows for the FRBR schema path.
-
-    Resolve the root, ensure its Store row, emit start, normalize extensions, and map existing
-    Replicas by storage key with the last match winning. Materialize/sort paths whose is_file
-    succeeds, count all scanned entries, and emit scan for excluded suffixes. File symlinks follow
-    ordinary stat/open behavior without a separate containment check.
-
-    For candidates, stat and hash the current path, guess MIME by filename, then insert an Asset
-    followed by its Replica or update the rows associated with the existing key. This reuses an
-    existing Asset identity when source bytes change. The legacy get_file_hash helper returns
-    SHA-512 hex followed by decimal byte length; that value is currently written to columns named
-    hash_sha256/observed_hash_sha256. Those column names do not make the value a SHA-256 digest.
-    Stat and hashing do not form a pinned byte snapshot.
-
-    Update counters according to Replica row mutation, so an Asset-only update is not counted as an
-    updated file; timestamp refresh can count even unchanged bytes. Missing files are not deleted,
-    and no cross-row transaction or manager refresh is performed here. Filesystem, database, hash,
-    and callback errors propagate after earlier effects rather than being appended to report.errors.
-    Finish time and done callback occur only after normal traversal.
-
-    Example:
-        >>> report = _index_existing_disk_frbr(  # doctest: +SKIP
-        ...     db, disk_path=pathlib.Path("/books"), store_name="source",
-        ...     ebook_extensions=("epub", "mobi"),
-        ... )
-
-
-    :param db: Borrowed FRBR database with Store, digital_assets, and asset_replicas tables.
-    :param disk_path: Local directory root resolved before backend creation and sorted recursive scanning.
-    :param store_name: Display name used for the source Store and report.
-    :param ebook_extensions: Optional accepted suffix iterable; None selects the project defaults.
-    :param progress_callback: Optional truthy callable receiving event, live mutable report, and detail mapping synchronously; its errors propagate.
-    :return: Finished UnmanagedDiskRegistrationReport after normal traversal, with counters describing incremental row effects.
-    """
+    manager = getattr(db, "storage", None)
+    if manager is None:
+        raise RuntimeError("FRBR indexing requires the database's StorageManager.")
     root = disk_path.resolve()
-    store_row, backend = _ensure_or_create_unmanaged_store_row(db, root=root, store_name=store_name)
-    store_id = int(store_row.row_id if store_row.row_id is not None else store_row["store_id"])
-    report = UnmanagedDiskRegistrationReport(store_row_id=store_id, store_root_uri=str(backend.root_path), store_name=store_row["store_name"] if "store_name" in store_row.allowed_columns else backend.configuration.store_name)
+    store_row, backend = _ensure_or_create_unmanaged_store_row(
+        db, root=root, store_name=store_name
+    )
+    store_id = int(store_row["store_id"])
+    store_ref = backend.store_ref
+    manager.load_from_database(startup=True, clear_existing=False)
+    # Resolve now so bootstrap failure cannot be mistaken for an empty source.
+    manager.get_store(store_ref)
+    report = UnmanagedDiskRegistrationReport(
+        store_row_id=store_id,
+        store_root_uri=str(root),
+        store_name=store_row["store_name"],
+    )
+    details = {"mode": "local-frbr", "store_id": store_id, "store_root_uri": str(root)}
     if progress_callback:
-        progress_callback("start", report, {"mode": "local-frbr", "store_id": store_id, "store_root_uri": str(root)})
+        progress_callback("start", report, details)
     ext_filter = _normalize_ebook_extensions(ebook_extensions)
-    replica_rows = db.search("asset_replicas", "asset_replica_store_id", store_id) if "asset_replicas" in set(db.get_tables()) else []
     existing_by_key = {}
-    for row in replica_rows:
-        key = row["asset_replica_storage_key"]
-        if key not in (None, ""):
-            existing_by_key[str(key)] = row
-    da_cols = _table_columns(db, "digital_assets")
-    ar_cols = _table_columns(db, "asset_replicas")
-    for path in sorted(p for p in root.rglob('*') if p.is_file()):
-        report.scanned_files += 1
-        ext = path.suffix.lower().lstrip('.')
-        if ext not in ext_filter:
-            report.skipped_non_ebook_files += 1
-            if progress_callback:
-                progress_callback("scan", report, {"path": str(path), "is_ebook": False})
+    for record in manager.iter_replica_records():
+        if record.location.store_ref != store_ref or record.state is ReplicaState.DELETED:
             continue
-        report.ebook_candidates += 1
-        stat = path.stat()
-        now = _now_ep_ms()
-        rel = path.relative_to(root).as_posix()
-        sha256 = get_file_hash(str(path))
-        import mimetypes
-        mime_type, _ = mimetypes.guess_type(path.name)
-        replica = existing_by_key.get(rel)
-        if replica is None:
-            da_payload = {
-                "digital_asset_name": path.name,
-                "digital_asset_base_name": path.stem,
-                "digital_asset_extension": ext,
-                "digital_asset_mime_type": mime_type,
-                "digital_asset_media_category": "ebook",
-                "digital_asset_size_bytes": int(stat.st_size),
-                "digital_asset_hash_sha256": sha256,
-                "digital_asset_integrity_status": "ok",
-                "digital_asset_last_seen_timestamp_ep_k": now,
-                "digital_asset_last_integrity_check_timestamp_ep_k": now,
-                "digital_asset_acquired_timestamp_ep_k": now,
-                "digital_asset_source": "on_disk_unmanaged_import",
-                "digital_asset_original_name": path.name,
-                "digital_asset_original_path": str(path),
-                "digital_asset_processed": 0,
-                "digital_asset_source_created_datestamp_ep_k": int(getattr(stat, "st_ctime", 0) * 1000) if getattr(stat, "st_ctime", None) is not None else None,
-                "digital_asset_source_modified_datestamp_ep_k": int(getattr(stat, "st_mtime", 0) * 1000) if getattr(stat, "st_mtime", None) is not None else None,
-            }
-            da = Row.from_idless_row_dict(db, row_dict={k: v for k, v in da_payload.items() if k in da_cols}, table="digital_assets")
-            ar_payload = {
-                "asset_replica_digital_asset_id": int(da["digital_asset_id"]),
-                "asset_replica_store_id": store_id,
-                "asset_replica_storage_key": rel,
-                "asset_replica_mode": "active",
-                "asset_replica_name": path.name,
-                "asset_replica_base_name": path.stem,
-                "asset_replica_extension": ext,
-                "asset_replica_presence_status": "present",
-                "asset_replica_integrity_status": "ok",
-                "asset_replica_last_seen_timestamp_ep_k": now,
-                "asset_replica_last_integrity_check_timestamp_ep_k": now,
-                "asset_replica_observed_size_bytes": int(stat.st_size),
-                "asset_replica_observed_hash_sha256": sha256,
-                "asset_replica_source_created_datestamp_ep_k": int(getattr(stat, "st_ctime", 0) * 1000) if getattr(stat, "st_ctime", None) is not None else None,
-                "asset_replica_source_modified_datestamp_ep_k": int(getattr(stat, "st_mtime", 0) * 1000) if getattr(stat, "st_mtime", None) is not None else None,
-            }
-            replica = Row.from_idless_row_dict(db, row_dict={k: v for k, v in ar_payload.items() if k in ar_cols}, table="asset_replicas")
-            existing_by_key[rel] = replica
-            report.inserted_files += 1
+        key = record.location.key
+        if key in existing_by_key:
+            raise StoragePreconditionFailed(
+                f"Multiple live claims for {key!r}; source reconciliation is required."
+            )
+        existing_by_key[key] = record
+    for path in sorted(p for p in root.rglob("*") if p.is_file()):
+        report.scanned_files += 1
+        is_ebook = path.suffix.lower().lstrip(".") in ext_filter
+        if not is_ebook:
+            report.skipped_non_ebook_files += 1
         else:
-            da_id = replica["asset_replica_digital_asset_id"]
-            da = db.get_row_from_id("digital_assets", int(da_id)) if da_id not in (None, "") else None
-            da_changed = False
-            if da is not None:
-                for key, value in {
-                    "digital_asset_size_bytes": int(stat.st_size),
-                    "digital_asset_hash_sha256": sha256,
-                    "digital_asset_integrity_status": "ok",
-                    "digital_asset_last_seen_timestamp_ep_k": now,
-                    "digital_asset_last_integrity_check_timestamp_ep_k": now,
-                    "digital_asset_original_path": str(path),
-                    "digital_asset_source_modified_datestamp_ep_k": int(getattr(stat, "st_mtime", 0) * 1000) if getattr(stat, "st_mtime", None) is not None else None,
-                }.items():
-                    if key in da.allowed_columns and da[key] != value:
-                        da[key] = value
-                        da_changed = True
-                if da_changed:
-                    da.sync()
-            rep_changed = False
-            for key, value in {
-                "asset_replica_presence_status": "present",
-                "asset_replica_integrity_status": "ok",
-                "asset_replica_last_seen_timestamp_ep_k": now,
-                "asset_replica_last_integrity_check_timestamp_ep_k": now,
-                "asset_replica_observed_size_bytes": int(stat.st_size),
-                "asset_replica_observed_hash_sha256": sha256,
-                "asset_replica_source_modified_datestamp_ep_k": int(getattr(stat, "st_mtime", 0) * 1000) if getattr(stat, "st_mtime", None) is not None else None,
-            }.items():
-                if key in replica.allowed_columns and replica[key] != value:
-                    replica[key] = value
-                    rep_changed = True
-            if rep_changed:
-                replica.sync()
-                report.updated_files += 1
+            report.ebook_candidates += 1
+            key = path.relative_to(root).as_posix()
+            replica = existing_by_key.get(key)
+            if replica is None:
+                mime_type, _ = mimetypes.guess_type(path.name)
+                adopted = manager.adopt_location(
+                    Location(store_ref, key),
+                    metadata=DigitalAssetMetadata(
+                        name=path.name,
+                        original_name=path.name,
+                        media_type=mime_type,
+                        attributes=(("original_path", str(path)),),
+                    ),
+                    replica_mode=ReplicaMode.ACTIVE,
+                    verify=True,
+                )
+                existing_by_key[key] = adopted.replica_record
+                report.inserted_files += int(adopted.replica_created)
+                report.updated_files += int(not adopted.replica_created)
+                healthy = adopted.verified
             else:
-                report.unchanged_files += 1
+                verification = manager.verify_replica(replica.replica_id)
+                report.updated_files += 1
+                healthy = verification.healthy
+            if not healthy:
+                raise StoragePreconditionFailed(
+                    f"Source {key!r} does not match its Asset; reconciliation is required."
+                )
         if progress_callback:
-            progress_callback("scan", report, {"path": str(path), "is_ebook": True})
+            progress_callback("scan", report, {"path": str(path), "is_ebook": is_ebook})
     report.finished_timestamp_ep_k = _now_ep_ms()
     if progress_callback:
-        progress_callback("done", report, {"mode": "local-frbr", "store_id": store_id, "store_root_uri": str(root)})
+        progress_callback("done", report, details)
     return report
 
 
@@ -687,8 +637,8 @@ class ExistingDriveSquashfsPrototype:
     """
     Coordinate local indexing, pack planning, checkpoint writes, and artifact Store registration.
 
-    This synchronous operator prototype opens its own Library for each run and borrows a reporter
-    and optional workflow factory. It chooses legacy-file or direct-FRBR indexing from the current
+    This synchronous operator prototype borrows its Library, reporter and optional workflow
+    factory. It chooses legacy-file or storage-owned FRBR indexing from the current
     schema, persists each workflow's effective initial declaration, and saves checkpoints after each
     returned unit. It does not resume existing workflow IDs or wrap the whole run in a transaction.
 
@@ -760,7 +710,8 @@ class ExistingDriveSquashfsPrototype:
         Use the caller-owned Library to ensure an output Store row, refresh manager
         Stores, then process inputs in supplied order. Pre-count files for display
         and derive an ordinal-based Store name. A files table selects the existing
-        legacy indexer; otherwise use the direct-FRBR fallback. Reports containing
+        legacy indexer; otherwise use storage-owned FRBR adoption/verification.
+        FRBR identity discrepancies stop the scan before planning. Reports containing
         legacy-indexer errors are displayed but do not automatically stop subsequent
         planning.
 

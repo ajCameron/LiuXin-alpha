@@ -9,7 +9,7 @@ for callers.
 Example:
     Exercise profiles through a consuming regression::
 
-        python -m pytest -q tests/customize/test_customize_base.py
+        python -m pytest -q tests/plugins/test_plugin_base.py
 """
 from __future__ import with_statement
 from __future__ import annotations
@@ -17,7 +17,7 @@ from __future__ import annotations
 import typing as _typing
 
 from LiuXin_alpha.utils.localization import trans as _
-from LiuXin_alpha.plugin_system.base import Plugin as BasePlugin
+from LiuXin_alpha.plugins.base import Plugin as BasePlugin
 from LiuXin_alpha.utils.libraries.liuxin_six import six_zip as izip
 
 
@@ -45,7 +45,7 @@ class IOProfilePluginBase(BasePlugin):
     Example:
         Exercise IOProfilePluginBase through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugins/test_plugin_base.py
     """
 
     fbase = 12  # Base font size.
@@ -60,7 +60,7 @@ class IOProfilePluginBase(BasePlugin):
         Example:
             Exercise IOProfilePluginBase.  init   through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugins/test_plugin_base.py
 
 
         :param args: Positional values forwarded to the compatibility implementation.
@@ -88,7 +88,7 @@ class InputProfile(IOProfilePluginBase):
     Example:
         Exercise InputProfile through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugins/test_plugin_base.py
     """
 
     author = "Kovid Goyal"
@@ -111,7 +111,7 @@ class SonyReaderInput(InputProfile):
     Example:
         Exercise SonyReaderInput through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugins/test_plugin_base.py
     """
 
     name = "Sony Reader"
@@ -131,7 +131,7 @@ class SonyReader300Input(SonyReaderInput):
     Example:
         Exercise SonyReader300Input through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugins/test_plugin_base.py
     """
 
     name = "Sony Reader 300"
@@ -148,7 +148,7 @@ class SonyReader900Input(SonyReaderInput):
     Example:
         Exercise SonyReader900Input through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugins/test_plugin_base.py
     """
 
     author = "John Schember"
@@ -166,7 +166,7 @@ class MSReaderInput(InputProfile):
     Example:
         Exercise MSReaderInput through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugins/test_plugin_base.py
     """
 
     name = "Microsoft Reader"
@@ -186,7 +186,7 @@ class MobipocketInput(InputProfile):
     Example:
         Exercise MobipocketInput through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugins/test_plugin_base.py
     """
 
     name = "Mobipocket Books"
@@ -208,7 +208,7 @@ class HanlinV3Input(InputProfile):
     Example:
         Exercise HanlinV3Input through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugins/test_plugin_base.py
     """
 
     name = "Hanlin V3"
@@ -229,7 +229,7 @@ class HanlinV5Input(HanlinV3Input):
     Example:
         Exercise HanlinV5Input through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugins/test_plugin_base.py
     """
 
     name = "Hanlin V5"
@@ -248,7 +248,7 @@ class CybookG3Input(InputProfile):
     Example:
         Exercise CybookG3Input through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugins/test_plugin_base.py
     """
 
     name = "Cybook G3"
@@ -269,7 +269,7 @@ class CybookOpusInput(InputProfile):
     Example:
         Exercise CybookOpusInput through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugins/test_plugin_base.py
     """
 
     author = "John Schember"
@@ -291,7 +291,7 @@ class KindleInput(InputProfile):
     Example:
         Exercise KindleInput through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugins/test_plugin_base.py
     """
 
     name = "Kindle"
@@ -312,7 +312,7 @@ class IlliadInput(InputProfile):
     Example:
         Exercise IlliadInput through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugins/test_plugin_base.py
     """
 
     name = "Illiad"
@@ -332,7 +332,7 @@ class IRexDR1000Input(InputProfile):
     Example:
         Exercise IRexDR1000Input through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugins/test_plugin_base.py
     """
 
     author = "John Schember"
@@ -354,7 +354,7 @@ class IRexDR800Input(InputProfile):
     Example:
         Exercise IRexDR800Input through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugins/test_plugin_base.py
     """
 
     author = "Eric Cronin"
@@ -375,7 +375,7 @@ class NookInput(InputProfile):
     Example:
         Exercise NookInput through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugins/test_plugin_base.py
     """
 
     author = "John Schember"
@@ -421,7 +421,7 @@ class OutputProfile(IOProfilePluginBase):
     Example:
         Exercise OutputProfile through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugins/test_plugin_base.py
     """
 
     author = "Kovid Goyal"
@@ -473,7 +473,7 @@ class iPadOutput(OutputProfile):
     Example:
         Exercise iPadOutput through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugins/test_plugin_base.py
     """
 
     name = "iPad"
@@ -642,7 +642,7 @@ class iPad3Output(iPadOutput):
     Example:
         Exercise iPad3Output through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugins/test_plugin_base.py
     """
 
     screen_size = comic_screen_size = (2048, 1536)
@@ -659,7 +659,7 @@ class TabletOutput(iPadOutput):
     Example:
         Exercise TabletOutput through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugins/test_plugin_base.py
     """
 
     name = "Tablet"
@@ -677,7 +677,7 @@ class SamsungGalaxy(TabletOutput):
     Example:
         Exercise SamsungGalaxy through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugins/test_plugin_base.py
     """
 
     name = "Samsung Galaxy"
@@ -693,7 +693,7 @@ class NookHD(TabletOutput):
     Example:
         Exercise NookHD through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugins/test_plugin_base.py
     """
 
     name = "Nook HD+"
@@ -709,7 +709,7 @@ class SonyReaderOutput(OutputProfile):
     Example:
         Exercise SonyReaderOutput through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugins/test_plugin_base.py
     """
 
     name = "Sony Reader"
@@ -733,7 +733,7 @@ class KoboReaderOutput(OutputProfile):
     Example:
         Exercise KoboReaderOutput through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugins/test_plugin_base.py
     """
 
     name = "Kobo Reader"
@@ -755,7 +755,7 @@ class SonyReader300Output(SonyReaderOutput):
     Example:
         Exercise SonyReader300Output through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugins/test_plugin_base.py
     """
 
     author = "John Schember"
@@ -773,7 +773,7 @@ class SonyReader900Output(SonyReaderOutput):
     Example:
         Exercise SonyReader900Output through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugins/test_plugin_base.py
     """
 
     author = "John Schember"
@@ -792,7 +792,7 @@ class SonyReaderT3Output(SonyReaderOutput):
     Example:
         Exercise SonyReaderT3Output through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugins/test_plugin_base.py
     """
 
     author = "Kovid Goyal"
@@ -811,7 +811,7 @@ class GenericEink(SonyReaderOutput):
     Example:
         Exercise GenericEink through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugins/test_plugin_base.py
     """
 
     name = "Generic e-ink"
@@ -827,7 +827,7 @@ class GenericEinkLarge(GenericEink):
     Example:
         Exercise GenericEinkLarge through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugins/test_plugin_base.py
     """
 
     name = "Generic e-ink large"
@@ -845,7 +845,7 @@ class JetBook5Output(OutputProfile):
     Example:
         Exercise JetBook5Output through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugins/test_plugin_base.py
     """
 
     name = "JetBook 5-inch"
@@ -863,7 +863,7 @@ class SonyReaderLandscapeOutput(SonyReaderOutput):
     Example:
         Exercise SonyReaderLandscapeOutput through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugins/test_plugin_base.py
     """
 
     name = "Sony Reader Landscape"
@@ -885,7 +885,7 @@ class MSReaderOutput(OutputProfile):
     Example:
         Exercise MSReaderOutput through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugins/test_plugin_base.py
     """
 
     name = "Microsoft Reader"
@@ -905,7 +905,7 @@ class MobipocketOutput(OutputProfile):
     Example:
         Exercise MobipocketOutput through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugins/test_plugin_base.py
     """
 
     name = "Mobipocket Books"
@@ -925,7 +925,7 @@ class HanlinV3Output(OutputProfile):
     Example:
         Exercise HanlinV3Output through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugins/test_plugin_base.py
     """
 
     name = "Hanlin V3"
@@ -946,7 +946,7 @@ class HanlinV5Output(HanlinV3Output):
     Example:
         Exercise HanlinV5Output through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugins/test_plugin_base.py
     """
 
     name = "Hanlin V5"
@@ -963,7 +963,7 @@ class CybookG3Output(OutputProfile):
     Example:
         Exercise CybookG3Output through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugins/test_plugin_base.py
     """
 
     name = "Cybook G3"
@@ -985,7 +985,7 @@ class CybookOpusOutput(SonyReaderOutput):
     Example:
         Exercise CybookOpusOutput through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugins/test_plugin_base.py
     """
 
     author = "John Schember"
@@ -1008,7 +1008,7 @@ class KindleOutput(OutputProfile):
     Example:
         Exercise KindleOutput through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugins/test_plugin_base.py
     """
 
     name = "Kindle"
@@ -1036,7 +1036,7 @@ class KindleDXOutput(OutputProfile):
     Example:
         Exercise KindleDXOutput through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugins/test_plugin_base.py
     """
 
     name = "Kindle DX"
@@ -1062,7 +1062,7 @@ class KindlePaperWhiteOutput(KindleOutput):
     Example:
         Exercise KindlePaperWhiteOutput through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugins/test_plugin_base.py
     """
 
     name = "Kindle PaperWhite"
@@ -1082,7 +1082,7 @@ class KindleVoyageOutput(KindleOutput):
     Example:
         Exercise KindleVoyageOutput through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugins/test_plugin_base.py
     """
 
     name = "Kindle Voyage"
@@ -1103,7 +1103,7 @@ class KindleFireOutput(KindleDXOutput):
     Example:
         Exercise KindleFireOutput through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugins/test_plugin_base.py
     """
 
     name = "Kindle Fire"
@@ -1122,7 +1122,7 @@ class IlliadOutput(OutputProfile):
     Example:
         Exercise IlliadOutput through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugins/test_plugin_base.py
     """
 
     name = "Illiad"
@@ -1143,7 +1143,7 @@ class IRexDR1000Output(OutputProfile):
     Example:
         Exercise IRexDR1000Output through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugins/test_plugin_base.py
     """
 
     author = "John Schember"
@@ -1166,7 +1166,7 @@ class IRexDR800Output(OutputProfile):
     Example:
         Exercise IRexDR800Output through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugins/test_plugin_base.py
     """
 
     author = "Eric Cronin"
@@ -1189,7 +1189,7 @@ class NookOutput(OutputProfile):
     Example:
         Exercise NookOutput through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugins/test_plugin_base.py
     """
 
     author = "John Schember"
@@ -1212,7 +1212,7 @@ class NookColorOutput(NookOutput):
     Example:
         Exercise NookColorOutput through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugins/test_plugin_base.py
     """
 
     name = "Nook Color"
@@ -1231,7 +1231,7 @@ class BambookOutput(OutputProfile):
     Example:
         Exercise BambookOutput through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugins/test_plugin_base.py
     """
 
     author = "Li Fanxi"
@@ -1255,7 +1255,7 @@ class PocketBook900Output(OutputProfile):
     Example:
         Exercise PocketBook900Output through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugins/test_plugin_base.py
     """
 
     author = "Chris Lockfort"
@@ -1275,7 +1275,7 @@ class PocketBookPro912Output(OutputProfile):
     Example:
         Exercise PocketBookPro912Output through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugins/test_plugin_base.py
     """
 
     author = "Daniele Pizzolli"

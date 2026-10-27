@@ -426,6 +426,32 @@ def run_ingest_remote_html_job(
     return cast(dict[str, Any], plain)
 
 
+def run_ingest_web_job(
+    *,
+    database_path: str,
+    db_type: str,
+    options: Mapping[str, Any] | None = None,
+    resume: str | None = None,
+) -> dict[str, Any]:
+    """Run registration or acquisition through existing Library lifecycle and storage owners."""
+    import json
+
+    from LiuXin_alpha.ingest.web.application import WebIngestApplication
+    from LiuXin_alpha.ingest.web.models import WebIngestOptions
+    from LiuXin_alpha.ingest.web.repository import WebIngestRepository
+
+    with _open_library_services(database_path=database_path, db_type=db_type, create=False) as lifecycle:
+        if resume:
+            saved = WebIngestRepository(lifecycle.library.database, create=False).run(str(UUID(resume)))
+            values = json.loads(saved["web_ingest_run_options_json"])
+        else:
+            values = dict(options or {})
+            if not values.get("state_directory") and str(db_type).lower() in {"sqlite", "apsw"}:
+                values["state_directory"] = str(Path(database_path).expanduser().resolve().parent / "web-ingest")
+        controls = WebIngestOptions.from_mapping(values)
+        return WebIngestApplication(lifecycle.library, controls, resume=resume).run().to_dict()
+
+
 def run_conversion_job(
     *,
     input_path: str,
@@ -1021,6 +1047,7 @@ __all__ = [
     "run_conversion_job",
     "run_ingest_disk_job",
     "run_ingest_remote_html_job",
+    "run_ingest_web_job",
     "run_metadata_cover_job",
     "run_metadata_identify_job",
     "run_persisted_backup_job",

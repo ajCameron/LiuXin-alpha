@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TextIO
 
+from LiuXin_alpha.core.library_services import LibraryServices
 from LiuXin_alpha.surfaces.core import SurfaceCoreSession
 from LiuXin_alpha.surfaces.terminal.presentation import (
     ask_text as _ask_text,
@@ -31,7 +32,8 @@ class DatabaseCreationWizardConfig:
     Hold a database target/backend and the approved backup/storage-bootstrap options.
 
     ``database_path`` is a filesystem target, ``db_type`` selects the backend,
-    and ``backup_existing`` requests backup during recreation. Storage options
+    and explicit replacement requires ``replace_existing`` plus ``backup_path``.
+    ``backup_existing`` remains a compatibility field, not replacement permission. Storage options
     request manager integration, strict bootstrap errors, and store startup checks
     on addition. This mutable record does not validate those values or create state.
 
@@ -47,6 +49,8 @@ class DatabaseCreationWizardConfig:
     enable_storage_manager: bool
     strict_storage_manager_bootstrap: bool
     storage_startup_on_add: bool
+    replace_existing: bool = False
+    backup_path: Path | None = None
 
 
 def run_database_creation_wizard(
@@ -61,7 +65,7 @@ def run_database_creation_wizard(
 
     Expand home-directory syntax and inspect whether the target/parent exists.
     Missing-parent approval is collected but not executed here. Existing targets
-    require recreation approval before offering backup. Storage choices and a printed
+    require replacement approval and a backup destination. Storage choices and a printed
     summary precede final confirmation. Backend names and path suitability are not
     validated; EOF uses each prompt's default, including final approval by default.
 
@@ -114,9 +118,11 @@ def run_database_creation_wizard(
             return None
 
     backup_existing = False
+    replace_existing = False
+    backup_path = None
     if db_path.exists():
         recreate = _ask_yes_no(
-            "Database file already exists. Recreate it?",
+            "Database file already exists. Replace it after stopping all database users?",
             default=False,
             input_stream=input_stream,
             output_stream=output_stream,
@@ -125,12 +131,16 @@ def run_database_creation_wizard(
             output_stream.write("Wizard canceled: existing database kept unchanged.\n")
             output_stream.flush()
             return None
-        backup_existing = _ask_yes_no(
-            "Backup existing database before recreate?",
-            default=True,
-            input_stream=input_stream,
-            output_stream=output_stream,
-        )
+        replace_existing = True
+        backup_existing = True
+        backup_path = Path(
+            _ask_text(
+                "Required recovery backup path",
+                default=str(db_path) + ".backup",
+                input_stream=input_stream,
+                output_stream=output_stream,
+            )
+        ).expanduser()
 
     enable_storage_manager = _ask_yes_no(
         "Enable storage manager integration?",
@@ -159,6 +169,8 @@ def run_database_creation_wizard(
                 ["database_path", db_path],
                 ["db_type", db_type],
                 ["backup_existing", backup_existing],
+                ["replace_existing", replace_existing],
+                ["backup_path", backup_path],
                 ["enable_storage_manager", enable_storage_manager],
                 ["strict_storage_manager_bootstrap", strict_storage_manager_bootstrap],
                 ["storage_startup_on_add", storage_startup_on_add],
@@ -187,6 +199,8 @@ def run_database_creation_wizard(
         enable_storage_manager=bool(enable_storage_manager),
         strict_storage_manager_bootstrap=bool(strict_storage_manager_bootstrap),
         storage_startup_on_add=bool(storage_startup_on_add),
+        replace_existing=replace_existing,
+        backup_path=backup_path,
     )
 
 
@@ -194,8 +208,8 @@ def create_database_from_wizard(config: DatabaseCreationWizardConfig) -> Path:
     """
     Create parent directories and open/close a Core database-creation session with the collected options.
 
-    The target is home-expanded but not resolved to an absolute path. Backup and
-    storage options are converted to booleans and forwarded to Core. Filesystem,
+    The target is home-expanded but not resolved to an absolute path. Replacement
+    requires an explicit flag and recovery path before opening Core. Filesystem,
     creation, bootstrap, or close errors propagate; created parents are not rolled back.
 
     Example:
@@ -206,11 +220,19 @@ def create_database_from_wizard(config: DatabaseCreationWizardConfig) -> Path:
     :return: Expanded database path after the creation session closes normally.
     """
     db_path = config.database_path.expanduser()
+    if config.replace_existing:
+        if config.backup_path is None:
+            raise ValueError("Explicit replacement requires a recovery backup path.")
+        LibraryServices.replace_database(
+            database_path=db_path,
+            db_type=config.db_type,
+            backup_path=config.backup_path,
+        )
     db_path.parent.mkdir(parents=True, exist_ok=True)
     with SurfaceCoreSession.open(
         database_path=db_path,
         db_type=config.db_type,
-        create=True,
+        create=not config.replace_existing,
         backup=bool(config.backup_existing),
         enable_storage_manager=bool(config.enable_storage_manager),
         strict_storage_manager_bootstrap=bool(config.strict_storage_manager_bootstrap),

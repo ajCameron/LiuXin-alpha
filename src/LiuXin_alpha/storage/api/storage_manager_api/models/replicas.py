@@ -56,7 +56,7 @@ class ReplicaState(StrEnum):
     Name a recorded or expected availability state for a Replica claim.
 
     The values distinguish staging, presence without complete verification, verified bytes,
-    missing/corrupt/unavailable observations, and deleted claims. An enum value alone is recorded
+    missing/corrupt/unavailable observations, pending deletion reservations, and deleted claims. An enum value alone is recorded
     evidence, not a fresh Store probe; consumers decide which states qualify for selection or policy
     counts.
 
@@ -72,6 +72,7 @@ class ReplicaState(StrEnum):
     MISSING = "missing"
     CORRUPT = "corrupt"
     UNAVAILABLE = "unavailable"
+    DELETING = "deleting"
     DELETED = "deleted"
 
 
@@ -586,6 +587,34 @@ class CompositeDigitalAssetVerificationReport:
 
 
 @dataclasses.dataclass(slots=True, frozen=True)
+class ReplicaDeletionRecovery:
+    """Identify a deletion phase whose byte and metadata outcomes need reconciliation.
+
+    Reservations retain DELETING claims until completion. ``bytes_deleted`` is
+    None when a backend failure leaves the physical outcome unknown, False before
+    a byte call, and True after a successful delete of an observed object. Stop
+    the original operation before privileged repair; inspect bytes and compare
+    these exact revisions before changing any claims. SQL rollback cannot undo
+    external deletion.
+
+    Example:
+        >>> evidence = ReplicaDeletionRecovery(Location(UUID(int=1), "book"), (), "bytes", None)
+        >>> evidence.bytes_deleted is None
+        True
+
+    :ivar location: Object addressed by the attempted physical deletion.
+    :ivar reservations: Replica IDs and exact revision tokens written or attempted.
+    :ivar phase: Reservation, bytes, or final metadata phase in which the error arose.
+    :ivar bytes_deleted: False before deletion, True after success, None for an unknown outcome.
+    """
+
+    location: Location
+    reservations: tuple[tuple[ReplicaID, str | None], ...]
+    phase: str
+    bytes_deleted: bool | None
+
+
+@dataclasses.dataclass(slots=True, frozen=True)
 class ReplicaRemovalReport:
     """
     Carry the reported outcome of byte deletion and Replica-record mutation.
@@ -647,6 +676,7 @@ __all__ = [
     "ReplicaObservation",
     "ReplicaRecord",
     "ReplicaRemovalReport",
+    "ReplicaDeletionRecovery",
     "ReplicaState",
     "ReplicaVerificationReport",
 ]

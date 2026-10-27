@@ -182,53 +182,51 @@ def storage_audit(
     offset = _optional_int(payload, "offset", default=0, minimum=0)
     assert limit is not None and offset is not None
     limit = min(limit, 10000)
-    manager = runtime.library.storage
-    records = sorted(
-        (
-            record
-            for record in manager.iter_replica_records()
-            if str(getattr(record.state, "value", record.state)) != "deleted"
-        ),
-        key=lambda record: int(record.replica_id),
+    from LiuXin_alpha.core.storage_audit_jobs import run_storage_audit
+
+    return run_storage_audit(
+        runtime.library.storage,
+        limit=limit,
+        offset=offset,
+        calculate_digests=bool(payload.get("calculate_digests", True)),
     )
-    selected = records[offset : offset + limit]
-    results: list[dict[str, Any]] = []
-    for record in selected:
-        try:
-            report = manager.verify_replica(
-                record.replica_id,
-                calculate_digests=bool(payload.get("calculate_digests", True)),
-            )
-        except Exception as error:
-            results.append(
-                {
-                    "replica_id": int(record.replica_id),
-                    "asset_id": int(record.digital_asset_id),
-                    "healthy": False,
-                    "error": str(error) or type(error).__name__,
-                    "error_type": type(error).__name__,
-                }
-            )
-        else:
-            results.append(
-                {
-                    "replica_id": int(record.replica_id),
-                    "asset_id": int(record.digital_asset_id),
-                    "healthy": bool(report.healthy),
-                    "report": plain(report),
-                }
-            )
-    healthy = sum(bool(item["healthy"]) for item in results)
+
+
+def storage_audit_start(runtime: CoreRuntime, command: CoreCommand) -> dict[str, Any]:
+    """Persist a bounded audit intent and return its job identity before verification.
+
+    A repeated request_key returns the original run. Selection is evaluated by
+    the worker when it starts; it uses its own library graph and storage owner.
+    Without an explicit key the command envelope ID is the delivery identity.
+
+    :param runtime: Runtime supplying the library-bound durable job service.
+    :param command: Command with optional limit, offset, calculate_digests and request_key.
+    :return: Durable job identity and its current state after accepting the audit.
+    :raises CoreDispatchError: If pagination, delivery identity or submission validation fails.
+    """
+    payload = _payload(command)
+    limit = _optional_int(payload, "limit", default=100, minimum=1)
+    offset = _optional_int(payload, "offset", default=0, minimum=0)
+    if limit is None or offset is None:
+        raise CoreDispatchError("Audit limit and offset cannot be null")
+    limit = min(limit, 10000)
+    key = payload.get("request_key", command.command_id)
+    if not isinstance(key, str) or not key.strip():
+        raise CoreDispatchError("request_key must be nonblank text")
+    try:
+        job_id = runtime.durable_jobs.submit_audit(
+            limit=limit,
+            offset=offset,
+            calculate_digests=bool(payload.get("calculate_digests", True)),
+            request_key=key,
+        )
+    except ValueError as error:
+        raise CoreDispatchError(str(error), code="job_submission_rejected") from error
     return {
-        "ok": healthy == len(results),
-        "offset": offset,
-        "limit": limit,
-        "total_replicas": len(records),
-        "checked": len(results),
-        "healthy": healthy,
-        "unhealthy": len(results) - healthy,
-        "has_more": offset + len(results) < len(records),
-        "results": results,
+        "job_id": job_id,
+        "request_key": key,
+        "backend": "durable",
+        "label": "Storage audit",
     }
 
 

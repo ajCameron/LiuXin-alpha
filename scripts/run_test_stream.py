@@ -40,7 +40,7 @@ SMOKE_SENTINELS_BY_AREA = {
     "root": "tests/test_constants.py",
     "catalog": "tests/catalog/test_catalog_imports.py",
     "core": "tests/core/test_core_runtime_phase1.py",
-    "customize": "tests/customize/test_customize_base.py",
+    "plugins": "tests/plugins/test_plugin_base.py",
     "ingest": "tests/ingest/test_store_ingest.py",
     "jobs": "tests/jobs/test_jobs_repository.py",
     "library": "tests/library/test_unified_library.py",

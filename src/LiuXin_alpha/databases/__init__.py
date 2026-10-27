@@ -23,5 +23,5 @@ a value was validated. Direct database and raw-macro writes remain intentionally
 outside the Catalog semantic-validity guarantee.
 
 See ``dev-docs/04 - Seperation of Concerns.md`` and
-``dev-docs/catalog-write-validation-contract.md``.
+``dev-docs/catalog/catalog-write-validation-contract.md``.
 """

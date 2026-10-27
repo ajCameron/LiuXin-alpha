@@ -1,3 +1,7 @@
+-- Historical design sketch; reviewed 2026-10-20. Not an installed schema or migration.
+-- Current authority: ../03 - Database Schema.md and the packaged database_generator_frbr tree.
+-- Original sketch body follows unchanged.
+
 -- LiuXin-alpha (FRBR + Storage) : Metadata & satellite tables
 -- Notes:
 --  - SQLite DDL

@@ -1,1037 +1,550 @@
+# Top-level structure
 
+Reviewed: **2026-10-20**, against the working tree based on `fc5de7af`.
+This is an implementation overview of this checkout, not a statement about which
+branch or release has incorporated it. The consolidated package, tests and
+documentation use `plugins`; `customize` and `plugin_system` are retired namespaces.
 
-LiuXin has two major persistent domains: metadata records and physical files.
-They meet in library workflows but retain separate owners.
+Status: **Current architecture overview, with remaining migrations identified.**
 
-- `metadata` defines metadata meaning and pure value rules.
-- `catalog` guarantees metadata-aware reads and valid public writes.
-- `databases` are the authoritative persisted record and structural guard.
-- `storage` manages the physical reality of files and replicas.
-- `library` coordinates Catalog and storage workflows.
-- `core` composes and owns the lifecycle of one or more libraries.
+Use this page to understand the major parts and find the owner of a change.
+The [separation-of-concerns guide][responsibilities] defines the policy for new
+code; subsystem contracts provide the detailed rules and API examples. The
+[structural review][structural-review] records the documentation reorganisation
+and remaining architectural work.
 
-The database is therefore the final arbiter of what was persisted, not the
-owner of bibliographic meaning. See
-[`04 - Seperation of Concerns.md`](<04 - Seperation of Concerns.md>) and the
-[`Catalog write-validation contract`](catalog-write-validation-contract.md).
+## The two persistent domains
 
-# Caches
+LiuXin manages bibliographic records and physical files. They meet in library
+workflows while retaining separate owners.
 
-High performance caches of various types, for various things that could/should be stored in memory.
-You might, for example, want to cache a catalog.
-Or, perhaps, files and covers.
+Bibliographic records describe Works, Expressions, Manifestations, Items, Agents,
+titles, identifiers and their relationships. `metadata` supplies their value
+types and meaning; `catalog` applies those meanings to persistent records.
+`databases` supplies the underlying rows, constraints and transactions.
 
-# Catalog
+Physical storage describes assets, stores, locations and replicas. `storage`
+manages their bytes, availability, integrity and placement. Linking an Item to an
+asset connects the two domains; a bibliographic identity, a file's content and a
+particular stored copy are different things. Copying bytes to another store does
+not, by itself, create a new Work or decide which bibliographic record they match.
 
-The raw database is of limited use.
-It stores objects in the form of text, but not much more.
-If you want to make a database store into something actually useful, you need a way to store and retrieve more
-structured data in the form of metadata.
-The catalog provides that structures.
-It's intended to store and retrieve metadata from the database - in various forms.
+`library` coordinates work spanning Catalog and storage. `core` composes the
+application, owns the resources it creates, and exposes operations to `surfaces`.
+Surfaces are the tools people and external programs use to interact with LiuXin.
 
-Every public Catalog mutation establishes semantic validity before persistence;
-it does not assume that a surface or earlier workflow already validated input.
-The supported boundary is repository CRUD and specialised mutations,
-`catalog.mutations.writer.*`, and the advanced
-`create_writer`/`write`/`write_one` trio. Row-oriented metadata tools remain
-supported compatibility but are deprecated for new code. Direct persistence
-and private `_apply_*` writer-host methods are outside the public boundary.
+## How the parts fit together
 
-# Core
+This diagram shows the principal application relationships. It is not a complete
+runtime call graph or a blanket permission to import any reachable package.
 
-The core orchestrates and exposes all the relevant things you might ever want to do with a LiuXin system.
-
-When you're talking to LiuXin, you're mostly talking to the core.
-It has access to one or many libraries.
-
-# Databases
-
-Persistent data stores.
-Exposes the _database_ class - which is responsible for talking to the databases.
-
-Read-heavy storage-facing access now also has an explicit cache backend layer.
-That sits between the live database and higher-level views/interfaces.
-For the current backend options and their intended semantics, see
-`dev-docs/08 - Storage Cache Backends.md`.
-
-The databases module is intended for low level object storage.
-Nothing more.
-
-It enforces structural and concurrency-safe invariants—types, nullability,
-foreign keys, uniqueness, stable checks, and transactions—but does not own
-bibliographic normalization or validation policy.
-
-# File formats
-
-Format readers, writers, container handling, and conversion implementations.
-Reusable input/output conversion contracts belong in
-`LiuXin_alpha.file_formats.conversion.plugin`. Format implementations must not
-depend on application plugin discovery or registry assembly.
-
-# Plugin system
-
-The passive, format-neutral lifecycle contract shared by loadable plugin
-families. `LiuXin_alpha.plugin_system` does not discover providers or assemble
-registries; application composition and historical compatibility remain under
-`customize`.
-
-# Jobs
-
-Long-running processes - of various sorts.
-Eventually will include metadata completers, downloaders, that sort of thing.
-
-# Library
-
-Brings storage and data together.
-As a rule, the library will have access to
- - one_ish_ databases (ish, because there might be backup or mirrors the library is responsible for keeping in sync)
- - many stores (through the storage class - which is responsible for load balancing and backup - that sorta thing)
-
-# Metadata
-
-Tools for reading, writing and manipulating metadata.
-
-Metadata presents a number of objects to store, present and manipulate metadata.
-It contains a wide range of relevant containers - which you should be able to access through the catalog.
-(Now I know that the catalog exists and can do things).
-
-It also owns persistence-free normalization and validation of metadata values.
-Catalog invokes those rules when it performs semantic writes.
-
-# Storage
-
-LiuXin is, at heart, two things.
- - A metadata store
- - A file store
-
-The job of storage is to store files and metadata somewhere persistent.
-Disc, TCP servers, tape archives.
-It doesn't matter. The interface should be compatible.
-
-Storage is also responsible for
- - space optimisation
- - backup
- - protecting from delete
-
-My view is that archival software should _never delete anything_.
-At least not without considerable checks.
-
-Exposes the _storage_ class - which is responsible for managing the backend stores.
-
-The storage class is aware of the database - it has to be to make sure that we're backing everything up properly.
-
-# Catalog Layer: Database + Metadata
-
-## Purpose
-
-The catalog layer is the place where raw database persistence becomes meaningful metadata.
-
-It sits between the low-level database module and the higher-level library workflows. 
-Its job is to combine database access with LiuXin's metadata semantics: WEMI objects, agents, identifiers, titles, notes, matching rules, metadata retrieval, and metadata mutation policy.
-
-The short version:
-
-```text
-databases  = raw persistence machinery
-metadata   = meanings, dataclasses, field semantics, WEMI concepts
-catalog    = metadata-aware persistence API
-storage    = files, replicas, stores, packs, physical locations
-library    = catalog + storage + workflows
-surfaces   = human/program interfaces on top
+```mermaid
+flowchart TD
+    S[Surfaces] -->|commands and queries| C[Core]
+    C -->|library workflows| L[Library]
+    C -->|named metadata operations| CA[Catalog]
+    C -->|named file operations| ST[Storage]
+    L --> CA
+    L --> ST
+    CA -->|pure value rules| M[Metadata]
+    CA -->|records and transactions| D[Databases]
+    ST -->|storage records| D
 ```
 
-The catalog is not a second database layer. It is the domain-facing API backed by the database layer.
+Core is the normal application entry point. Reusable in-process consumers can
+also use the documented Catalog and storage APIs directly, with explicit resource
+ownership. New surface operations should use the named Core command/query
+contract, rather than assemble their own database, cache and storage graph.
 
-## Dependency hierarchy
+Caches, ingest, jobs and plugin providers support these relationships. They do not
+gain ownership of bibliographic policy merely because they read, discover, schedule
+or transform the data. The [layer-direction rules][layer-rules] and
+[import-footprint checks][import-checks] enforce specific boundaries and record
+remaining exceptions; the diagram does not imply that all old crossings are gone.
 
-Preferred dependency direction:
+## Package responsibilities
 
-```text
-surfaces
-   |
-library
-   |
-   +-- catalog
-   |      |
-   |      +-- metadata
-   |      |
-   |      +-- databases
-   |
-   +-- storage
-          |
-          +-- databases, where needed
-```
+Paths below are relative to `src/LiuXin_alpha/`. There are **16 top-level
+packages** at the reviewed checkpoint. The table is a quick index; each package's
+section explains its role and points to its detailed contracts. The Python files
+beside these directories are covered under [root modules](#root-modules).
 
-A simpler way to remember it:
+| Package | Summary |
+| --- | --- |
+| [core](#core) | Application composition, lifecycle and public operations. |
+| [library](#library) | Workflows combining bibliographic records and files. |
+| [catalog](#catalog) | Metadata-aware persistence, identity and retrieval. |
+| [metadata](#metadata) | Metadata values, rules, codecs and providers. |
+| [databases](#databases) | Connections, schema, SQL and transactions. |
+| [storage](#storage) | Bytes, stores, replicas and recovery. |
+| [caches](#caches) | Derived reads and change reconciliation. |
+| [surfaces](#surfaces) | Interfaces for people and external programs. |
+| [ingest](#ingest) | Discovery, extraction and acquisition pipelines. |
+| [jobs](#jobs) | Durable task records and execution contracts. |
+| [file_formats](#file_formats) | File formats, containers and conversion. |
+| [plugins](#plugins) | Plugin mechanics, shared loading policy and application provider composition. |
+| [utils](#utils) | Shared primitives and vendored helpers. |
+| [constants](#constants) | Application constants and compatibility values. |
+| [resources](#resources) | Installed runtime assets and resource lookup. |
+| [startup_scripts](#startup_scripts) | Retained legacy startup integration. |
 
-```text
-databases -> metadata -> catalog -> library -> surfaces
-```
+Package-root docstrings are signposts. Import concrete implementations and
+contracts from their owning modules; do not expect passive roots such as
+`metadata`, `catalog`, `caches` or `storage` to assemble services.
 
-This is not a strict import graph in every case, but it is the architectural direction. Higher layers may call lower layers. Lower layers should not know about higher-layer policy.
+### core
 
-## Layer responsibilities
+Core is the application boundary: it selects configuration, composes services,
+owns the resources it creates and exposes commands and queries. Its application
+services dispatch domain work to Catalog, storage and the relevant workflows.
 
-### databases
-
-The `databases` module owns raw persistence machinery.
-
-It should contain:
-
-- database connections
-- driver wrappers
-- SQL execution
-- schema creation
-- migrations
-- triggers
-- generic row handling
-- transactions
-- low-level views
-- generic link-table helpers
-- database repair and integrity utilities
-
-It should not know:
-
-- what a Work title means
-- how an Agent should be resolved
-- how an imported candidate should be matched
-- which identifier type is bibliographically stronger
-- how to build a human-facing item summary
-
-The database layer should be boring, durable, and predictable.
-
-### metadata
-
-The `metadata` module owns metadata meanings and value types.
-
-It should contain:
-
-- dataclasses
-- protocols
-- WEMI concepts
-- field semantics
-- identifier types
-- title semantics
-- language metadata structures
-- agent metadata structures
-- validation helpers that do not require persistence
-
-It should not execute SQL or know where records are physically stored.
-
-### catalog
-
-The `catalog` module owns metadata-aware persistence.
-
-It should contain:
-
-- repositories
-- metadata matching
-- metadata mutation APIs
-- WEMI-aware retrieval
-- display-neutral projections
-- catalog-side mutation policy
-- duplicate resolution and merge helpers
-- metadata dirty-marking hooks, where appropriate
-
-It answers questions like:
-
-- Which Work does this identifier belong to?
-- Does this candidate match an existing Work?
-- What titles are attached to this Expression?
-- Which Agents are linked to this Work?
-- What coherent WEMI metadata bundle describes this Item?
-- What metadata records need to be updated after this merge?
-
-### storage
-
-The `storage` module owns physical and logical file storage.
-
-It should contain:
-
-- digital assets
-- digital asset replicas
-- composite digital assets
-- stores
-- physical paths
-- backup packs
-- storage policies
-- replica validation
-- pack creation and verification
-
-It should not decide bibliographic identity.
+Start with the [Core API][core-api], `core/factory.py`,
+`core/library_services.py` and `core/program_services/`. The
+[lifecycle section](#composition-and-lifecycle) explains which collaborators Core
+owns and which it borrows.
 
 ### library
 
-The `library` module owns high-level orchestration.
+Library brings bibliographic and file operations together. Its supported facade
+uses supplied Catalog, database and storage collaborators to coordinate library
+workflows; it does not reopen them or replace their domain rules.
 
-It combines catalog and storage operations into actual workflows:
+The facade lives in `library/library.py`. The unusable `library.legacy` and
+`library.backend` modules were retired and are not alternative application APIs.
+Keep workflow coordination here while leaving composition with Core, metadata
+validity with Catalog and physical operations with storage.
 
-- ingest
-- import
-- enrichment
-- indexing
-- backup planning
-- repair workflows
-- sidecar generation
-- user-facing library operations
+### catalog
 
-A useful slogan:
+Catalog turns persistence into bibliographic operations. It owns repositories,
+identity matching, semantic mutations and persistence-aware metadata retrieval.
+A domain operation can span several tables without exposing that storage layout
+to its caller.
 
-```text
-catalog = database + metadata
-library = catalog + storage
-```
+Use the [Catalog API guide][catalog-api] for entry points, the
+[write contract][write-contract] for validation boundaries and the
+[matching policy][matching-policy] for identity decisions. Its internal areas and
+their relationship to metadata and caches are explained under
+[metadata writes and reads](#metadata-writes-and-reads).
+
+### metadata
+
+Metadata defines values, containers, WEMI vocabulary, pure normalization and
+validation, codecs and file metadata providers. It supplies the meaning that
+Catalog applies to persistent records. Database/cache-backed hydration belongs
+to Catalog rather than to the value containers.
+
+Start with the [container guide][metadata-guide], `metadata/facade.py` for pure
+OPF/container transformations, and `metadata/file_sources/` for file metadata
+readers and writers. A metadata value object does not own a database transaction.
+
+### databases
+
+Databases owns connections, drivers, SQL execution, schema, structural constraints,
+transactions and low-level repair machinery. It persists both bibliographic and
+storage records while leaving their domain policy to Catalog and storage.
+
+The main entry points are `databases/database/` and
+`databases/database_driver_plugins/`; the [database field guide][database-guide]
+provides orientation. Database constraints remain necessary even when application
+code has validated a value, particularly for concurrent writes.
+
+### storage
+
+Storage manages bytes, assets, replicas, stores and physical placement. It performs
+verification, backup execution and recovery through backend contracts, and records
+the resulting storage state through the database layer.
+
+Start with the [storage overview](<06 - Storage.md>), then the
+[storage index][storage-guide] and [storage API][storage-api]. The application
+implementation is `storage.durable_manager.StorageManager`; the
+`storage.storage_manager` package owns its shared orchestration and persistence
+adapters. `StoreAPI` wraps one configured endpoint, and `StorageDriverAPI` owns
+raw byte mechanics. `Location` is a passive UUID/key value; bound handles delegate
+to a live router. Bibliographic identity remains with Catalog. Cross-domain workflows coordinate the two; storage
+does not decide which Work an imported file represents. Remaining deletion and
+recovery-policy boundaries are described below.
+
+### caches
+
+Caches supplies derived rows, relationships, indexes and read acceleration. A
+backend may serve loaded snapshots or live reads according to its capabilities.
+Reconciliation-aware write conveniences delegate semantic changes to Catalog.
+
+The [Catalog/cache contract][cache-contract] defines read, write and invalidation
+behaviour. Cache contents are derived state, not another authority for identity
+or validation. Direct persistence changes do not automatically refresh every
+independent cache instance.
 
 ### surfaces
 
-The `surfaces` module owns interfaces to people and external callers.
+Surfaces contains CLI, terminal, GUI and web adapters. It translates external
+input into application requests and turns results into presentation, progress
+updates or delivery responses. Domain rules remain behind the application API.
 
-It may contain:
+Start with [CLI composition][cli-composition] and
+[terminal composition][terminal-composition]. New operations should use named
+Core commands and queries, keeping interface-specific formatting and interaction
+out of Catalog, storage and their workflows.
 
-- terminal UI
-- GUI UI
-- HTTP/API surfaces
-- RSS interfaces
-- report rendering
-- human display formatting
-- command-line tools
+### ingest
 
-It may call into `library`, `catalog`, `storage`, or lower layers as appropriate, but display-specific rules should not leak downward into catalog objects.
+Ingest discovers inputs, extracts candidates and provenance, and runs acquisition
+pipelines. A candidate still needs Catalog acceptance; finding or parsing a file
+does not make its metadata valid or choose its storage policy.
 
-## Repository pattern
+See [mixed-ingest operations][ingest-guide] and `ingest/mixed_application.py`.
+Mixed ingest consumes an injected Library for application work. Coordinating
+acceptance, file operations, cancellation and recovery remains an explicit
+workflow responsibility.
 
-A repository is a catalog-facing object that provides a clean API for one metadata concept or aggregate.
+### jobs
 
-Repositories are not table classes.
+Jobs provides durable task records and scheduling/worker contracts. A job invokes
+the workflow that owns an action; scheduling a mutation does not transfer metadata
+validation or storage placement policy to the job system.
 
-A repository may use several SQL tables internally if that is what the domain concept requires. For example, `WorkRepository` may touch:
+Start with `jobs/api.py`, `jobs/repository.py` and the long-running-operation
+contract in the [Core API][core-api]. Core execution services and `utils.jobs`
+primitives still have distinct lifecycles; their consolidation remains work to do.
+
+### file_formats
+
+File formats owns format implementations, container handling, conversion contracts
+and profiles, and the native runtime for standalone format plugins. Reusable
+format code must not depend on application registry assembly or database-backed
+library composition.
+
+The [format index][format-guide] leads to individual format dossiers. Shared
+conversion code lives in `file_formats/conversion/`, and standalone plugin
+composition in `file_formats/plugin_runtime.py`. File metadata providers have
+their separate implementation home in `metadata.file_sources`.
+
+### plugins
+
+`plugins` owns generic plugin mechanics and application plugin composition in
+one top-level package. `base`, `file_types`, `configuration`, `loading` and
+`zipplugin` provide lifecycle, file-hook/metadata-stream contracts, persisted
+plugin settings and loading mechanics. These leaves do not select the
+application's providers.
+
+`application` selects and initializes application providers, manages installed
+plugins and binds the resulting instances into the standalone format runtime.
+Application families live in `contracts`, with the application provider catalogue
+in `builtins.registry`. Core retains ownership of the wider application lifecycle.
+
+Importing the package or application API is passive. Explicit startup or the first
+application lookup initializes providers. Dependency and cold-import checks keep
+neutral leaves and standalone format code independent of application assembly,
+including imports between modules within this package.
+
+The `customize` and `plugin_system` namespaces and their forwarding shims are
+removed. Import generic
+contracts from their owning leaves, such as `plugins.base.Plugin`, rather
+than from the passive package root. Retained cache/folder-driver modules and
+unsupported device providers still need cleanup. Start with the
+[plugin system index][plugin-index] and the [composition guide][plugin-guide]
+for startup policy, internal boundaries and external-plugin import migration.
+
+### utils
+
+Utils contains shared primitives, vendored libraries and compatibility helpers.
+The existing tree also retains some older configuration, execution and domain
+responsibilities, so placement here is not evidence that a helper is policy-free.
+
+Use the [responsibility guide][responsibilities] when deciding where shared code
+belongs. General mechanics can live in utilities; bibliographic normalization,
+application selection and storage policy belong to their named owners even when
+several callers need them.
+
+### constants
+
+Constants exposes application identity, platform/file-extension values and
+historical compatibility settings. `constants/file_extensions.py` groups extension
+sets; `constants/paths.py` retains path-related compatibility and scratch defaults.
+
+Application preference selection belongs to Core and the configuration layer,
+as described under [configuration](#configuration). The remaining path defaults
+are migration work, not a second configuration model to extend for new features.
+
+### resources
+
+Resources holds packaged runtime assets and resolves them through the installed
+package. Its lookup helpers use `importlib.resources` rather than assuming that a
+developer checkout exists. Inherited callers needing real paths require an
+unpacked installation.
+
+See the [packaging contract][packaging] and `resources/__init__.py`. Other resource
+owners, such as the database schema tree, remain with their packages; build
+configuration declares which assets ship. Instance data and mutable preferences
+do not belong in the installed resource tree.
+
+### startup_scripts
+
+Startup scripts retains legacy initialization for preferences, directory
+preparation and file opening. Importing its root still installs a legacy PyQt4
+import hook and replaces the `lopen` builtin; it is not a passive utility import.
+
+New application startup belongs to Core's explicit composition path. Existing
+startup hooks need caller and side-effect migration before retirement. Their
+presence does not establish that modern configuration or resource ownership
+should be implemented here.
+
+## Root modules
+
+Several supporting modules live directly under `LiuXin_alpha` alongside the
+package directories. They have narrower responsibilities than the application
+packages above.
+
+`configuration.py` owns immutable configuration paths and the selected settings
+context. `configuration_defaults.py` declares the application defaults;
+`preferences.py` implements the application store and its lazy view. Core selects
+and supplies that store. `plugins.configuration` separately owns persisted
+plugin settings within the component configuration namespace. See
+[configuration ownership][configuration-guide] for selection, persistence and
+worker propagation.
+
+`errors.py` contains shared exception definitions, but the project still has
+separate domain exception families; its presence does not mean the error hierarchy
+has been consolidated. `_version.py` supplies version information. The root
+`__init__.py` is passive and does not assemble services or re-export the concrete
+Catalog, Library or plugin APIs.
+
+## Composition and lifecycle
+
+Core owns startup and shutdown for the application resources it creates. The
+concrete owner for one open library graph is
+[`LibraryServices`][library-services]. It opens the database without implicit
+storage/maintenance startup, composes the required collaborators, and supplies
+them to Library and Core services. It unwinds partial startup and attempts every
+owned closer during teardown, including when an earlier closer fails.
+
+[`create_core`][core-factory] distinguishes construction from borrowing:
+
+| Input | Ownership |
+| --- | --- |
+| Database path/connection information | Core creates an owned LibraryServices graph and closes its owned resources. |
+| Existing database | The database remains caller-owned; resources Core creates around it are owned by that session. |
+| Existing Library | The Library remains caller-owned. Core does not implicitly acquire ownership of its entire graph. |
+| Explicit cache versus cache selected by type | An injected cache is borrowed; a cache constructed by Core is owned. |
+| Default job manager | The process-shared manager is not shut down by default. Closing it requires an explicit ownership choice. |
+
+The current Core runtime hosts one Library facade. Managing several deployments
+or library sessions requires separate resolved instances; this is not a promise
+of a single runtime coordinating arbitrary libraries or a cross-library transaction.
+
+Resource lifetime and transaction lifetime are different contracts. Closing a
+service graph is not evidence that every database context rolls back on error.
+Lower-layer path-opening wrappers and maintenance scheduling also retain migration
+work. See the [lifecycle review][lifecycle-review] for the opening-path decisions.
+
+### Configuration
+
+Core selects the deployment/profile and resolves
+application settings before opening the local resource graph. `core/settings.py`
+owns selection; `ConfigurationPaths` fixes the application and component paths;
+the lazy application Preferences view provides one application settings store.
+Ordinary application-setting writes go to its INI file. Database preferences and
+component configuration namespaces retain their separate purposes.
+
+Surfaces pass the selected settings into Core; a remote client does not redirect
+the server's preference files. Managed workers receive the selected configuration,
+but that propagation does not consolidate their job lifecycles. The detailed
+[configuration contract][configuration-guide] describes precedence, lazy loading,
+worker propagation and the separate database/component settings domains.
+
+## Metadata writes and reads
+
+### Writes have one semantic owner
+
+The public Catalog boundary is responsible for establishing the validity of a
+requested bibliographic mutation. It must not assume that a surface, container,
+annotation or earlier workflow already did so. The responsibilities accumulate:
 
 ```text
-works
-work_titles
-work_identifiers
-agent__works__links
-work__expression__links
-notes
+untrusted input
+    -> metadata normalization and pure value validation
+    -> Catalog operation/relationship validation
+    -> persistence adaptation
+    -> database transaction and constraints
 ```
 
-The caller should not need to know that.
-
-Instead of this:
-
-```python
-db.select("works", ...)
-db.join("agents", "agent__works__links", ...)
-db.query_identifier_tables(...)
-db.hand_roll_wemi_bundle(...)
-```
-
-callers should do this:
-
-```python
-catalog.works.get(work_id)
-catalog.agents.resolve_name("Mary Shelley")
-catalog.identifiers.find_by_value("isbn", "978...")
-catalog.items.get_metadata_bundle(item_id)
-```
-
-The repository owns the persistence logic for the domain concept. It hides the storage shape while exposing useful metadata operations.
-
-## Repository versus matcher versus retrieval
-
-The catalog package should not put every metadata operation into one giant object. A useful split is:
-
-```text
-repositories/
-    Own one domain area.
-    CRUD-ish methods, lookup methods, and local domain mutations.
-
-matching/
-    Decide whether candidate metadata refers to an existing thing.
-    May consult several repositories.
-
-retrieval/
-    Build useful read models, projections, bundles, and WEMI slices.
-
-storage/
-    Catalog-side mutation helpers and policies.
-    This is not physical file storage; physical storage remains top-level storage.
-```
-
-Example repository operations:
-
-```python
-catalog.works.create(candidate)
-catalog.works.get(work_id)
-catalog.works.add_title(work_id, title)
-catalog.works.link_agent(work_id, agent_id, role="author")
-```
-
-Example matching operation:
-
-```python
-match = catalog.matching.match_work(candidate)
-```
-
-Matching belongs outside the basic repository when it is policy-heavy or crosses domain boundaries. A Work matcher may need to inspect identifiers, titles, agents, languages, dates, manifestations, expressions, and existing WEMI links before making a decision.
-
-Example retrieval operation:
-
-```python
-bundle = catalog.items.get_metadata_bundle(item_id)
-```
-
-The `ItemRepository` may expose this as a convenience method, but internally it can delegate to a retrieval helper such as `ItemBundleRetriever`. That keeps repositories from turning into giant grab-bags.
-
-## Suggested package shape
-
-```text
-src/LiuXin_alpha/catalog/
-    __init__.py
-    catalog.py
-
-    api/
-        __init__.py
-        catalog.py
-        common.py
-        repositories.py
-        matching.py
-        retrieval.py
-        storage.py
-
-    repositories/
-        __init__.py
-        works.py
-        expressions.py
-        manifestations.py
-        items.py
-        agents.py
-        identifiers.py
-        titles.py
-        notes.py
-
-    matching/
-        __init__.py
-        work_matcher.py
-        agent_matcher.py
-        identifier_matcher.py
-
-    retrieval/
-        __init__.py
-        bundles.py
-        projections.py
-
-    storage/
-        __init__.py
-        metadata_writer.py
-        mutation_policy.py
-```
-
-The `api/` structure should mirror the implementation structure. The API layer defines the public protocols and value objects; the implementation layer provides concrete classes.
-
-## Suggested facade shape
-
-The top-level `Catalog` object should be a small facade that wires together repositories, matchers, and retrieval helpers.
-
-```python
-class Catalog:
-    def __init__(self, db: DatabaseAPI) -> None:
-        self.db = db
-
-        self.works = WorkRepository(db)
-        self.expressions = ExpressionRepository(db)
-        self.manifestations = ManifestationRepository(db)
-        self.items = ItemRepository(db)
-
-        self.agents = AgentRepository(db)
-        self.identifiers = IdentifierRepository(db)
-        self.titles = TitleRepository(db)
-        self.notes = NoteRepository(db)
-
-        self.matching = MatchingFacade(
-            works=WorkMatcher(db),
-            agents=AgentMatcher(db),
-            identifiers=IdentifierMatcher(db),
-        )
-
-        self.retrieval = RetrievalFacade(
-            bundles=BundleRetriever(db),
-            projections=ProjectionRetriever(db),
-        )
-```
-
-Callers should then write code like:
-
-```python
-catalog = Catalog(db)
-
-work = catalog.works.get(work_id)
-agent = catalog.agents.resolve_name("Mary Shelley")
-match = catalog.matching.works.match(candidate_work)
-bundle = catalog.items.get_metadata_bundle(item_id)
-```
-
-They should not write:
-
-```python
-db.get_work_metadata(...)
-db.resolve_agent(...)
-db.match_identifier_to_work(...)
-```
-
-Those are catalog operations, not raw database operations.
-
-## Worked examples
-
-### Example: creating a new Work from imported metadata
-
-Belongs in catalog:
-
-```python
-work_id = catalog.works.create(candidate)
-catalog.works.add_title(work_id, candidate.title)
-catalog.works.add_identifier(work_id, candidate.primary_identifier)
-catalog.works.link_agent(work_id, author_id, role="author")
-```
-
-Does not belong in catalog:
-
-- walking an import folder
-- hashing files
-- deciding backup policy
-- rendering a UI progress bar
-- creating a squashfs pack
-
-Those are library, storage, jobs, or surfaces concerns.
-
-### Example: resolving an Agent
-
-Belongs in catalog:
-
-```python
-agent = catalog.agents.find_by_name("Mary Shelley")
-match = catalog.matching.agents.match(candidate_agent)
-agent = catalog.agents.resolve_or_create(candidate_agent)
-```
-
-Does not belong in databases:
-
-```python
-db.resolve_author_name("Mary Shelley")
-```
-
-The raw database layer may provide generic select, insert, transaction, and constraint behaviour. It should not own Agent semantics.
-
-### Example: importing a folder of EPUB files
-
-Belongs in library:
-
-```python
-library.import_path(path)
-```
-
-The library workflow may call:
-
-```python
-asset_id = storage.assets.register_file(path)
-match = catalog.matching.works.match(candidate_work)
-work_id = catalog.works.create(candidate_work)
-item_id = catalog.items.create_for_manifestation(manifestation_id)
-catalog.items.link_digital_asset(item_id, asset_id)
-```
-
-The workflow itself does not belong in catalog because it combines metadata decisions with file and storage operations.
-
-### Example: fetching an Item metadata bundle
-
-Belongs in catalog retrieval:
-
-```python
-bundle = catalog.items.get_metadata_bundle(item_id)
-```
-
-This may gather:
-
-- Item fields
-- Manifestation fields
-- Expression fields
-- Work fields
-- titles
-- identifiers
-- agents
-- notes
-- relevant WEMI links
-
-It should return a display-neutral object. Human formatting belongs in `surfaces`.
-
-### Example: Calibre compatibility
-
-Belongs partly in catalog:
-
-- building a legacy-style metadata projection from WEMI records
-- deciding how catalog concepts map to compatibility shapes
-- exposing display-neutral compatibility records
-
-Belongs partly in databases:
-
-- SQL views that expose stable compatibility shapes
-- generic query support for those views
-
-Belongs outside catalog:
-
-- UI-specific column labels
-- interactive display formatting
-- import wizard behaviour
-- terminal table formatting
-
-### Example: duplicate Agent merge
-
-Belongs in catalog:
-
-```python
-catalog.agents.merge(primary_agent_id, duplicate_agent_id)
-```
-
-The merge may need to:
-
-- move links from the duplicate Agent to the primary Agent
-- preserve identifiers and notes
-- record provenance
-- mark affected metadata as dirty
-- ensure constraints are not violated
-
-Does not belong in databases:
-
-```python
-db.merge_agents(...)
-```
-
-The database layer can provide transactions and constraints. The catalog layer decides what it means to merge Agents.
-
-### Example: physical replica verification
-
-Belongs in storage:
-
-```python
-storage.replicas.verify(replica_id)
-```
-
-May call into databases for persistence. May update catalog or library state if metadata should be marked dirty. But the verification of files, stores, checksums, and physical replicas is not a catalog responsibility.
-
-### Example: generated display title
-
-A display-neutral title projection may belong in catalog:
-
-```python
-projection = catalog.retrieval.projections.item_title_projection(item_id)
-```
-
-Human display formatting belongs in surfaces:
-
-```python
-terminal.render_item_title(projection)
-```
-
-The catalog may provide the pieces. The surface decides how to show them.
-
-## Mutation policy
-
-Catalog mutation should be explicit.
-
-The catalog layer may provide helpers such as:
-
-- create Work
-- attach title
-- attach identifier
-- link Agent to Work
-- link Expression to Work
-- merge duplicate Agents
-- mark metadata dirty
-- update provenance
-- resolve or create a record
-
-Avoid implicit, surprising writes.
-
-For example, this is dangerous:
-
-```python
-agent = catalog.agents.find("Mary Shelley")
-```
-
-if `find()` secretly creates an Agent when none exists.
-
-Prefer clear method names:
-
-```python
-agent = catalog.agents.find_by_name("Mary Shelley")
-agent = catalog.agents.resolve_or_create(candidate_agent)
-```
-
-The method name should reveal whether mutation may occur.
-
-## Migration plan
-
-A safe migration path is:
-
-1. Create the `catalog/` package and importable API skeleton.
-2. Move the most obviously metadata-aware `Database` methods into matching catalog repositories.
-3. Leave deprecated pass-through methods on the old database class where needed.
-4. Add tests against the new `Catalog` API before deleting the old route.
-5. Gradually update callers from `db.resolve_agent(...)` to `catalog.agents.resolve(...)`.
-6. Keep pure SQL, driver, schema, trigger, transaction, and row logic in `databases`.
-7. Delete old pass-through methods once all tests are green.
-
-This should be a thin move first, not a grand rewrite.
-
-## Placement rules
-
-Use these rules when deciding where new code belongs.
-
-### Put it in databases if...
-
-- it is about SQL execution
-- it is about connection handling
-- it is about schema generation
-- it is about triggers
-- it is about generic rows
-- it is about transactions
-- it is about database integrity
-- it has no bibliographic meaning
-
-### Put it in metadata if...
-
-- it defines meaning
-- it defines a value object
-- it defines a metadata field
-- it validates a metadata object without persistence
-- it describes WEMI concepts
-- it describes identifiers, titles, agents, notes, or language semantics
-
-### Put it in catalog if...
-
-- it stores metadata records
-- it finds metadata records
-- it matches candidate metadata to existing records
-- it links WEMI objects
-- it mutates bibliographic records
-- it retrieves metadata bundles
-- it builds display-neutral catalog projections
-- it manages metadata merge policy
-
-### Put it in storage if...
-
-- it handles files
-- it handles digital assets
-- it handles replicas
-- it handles physical stores
-- it handles backup packs
-- it handles checksums for physical file validation
-- it handles storage policy
-
-### Put it in library if...
-
-- it performs a workflow
-- it coordinates catalog and storage
-- it imports files
-- it enriches metadata
-- it plans backup work
-- it repairs a library state
-- it runs a user-level operation
-
-### Put it in surfaces if...
-
-- it formats output for people
-- it renders terminal UI
-- it renders GUI UI
-- it handles external API presentation
-- it handles report layout
-- it turns display-neutral data into human-facing text
-
-## Anti-patterns
-
-### Anti-pattern: metadata_database
-
-Avoid creating a module that sounds like a second database layer.
-
-Bad names:
-
-```text
-metadata_database
-database_metadata
-metadata_db
-db_metadata
-```
-
-These names blur the boundary between raw persistence and metadata-aware persistence.
-
-Prefer:
-
-```text
-catalog
-```
-
-### Anti-pattern: table classes as repositories
-
-A repository is not a class wrapper around exactly one table.
-
-Bad shape:
-
-```python
-class WorksTable:
-    def insert(...): ...
-    def select(...): ...
-```
-
-Better shape:
-
-```python
-class WorkRepository:
-    def create(...): ...
-    def get(...): ...
-    def add_title(...): ...
-    def add_identifier(...): ...
-    def link_agent(...): ...
-```
-
-The repository exposes the domain concept, not the storage detail.
-
-### Anti-pattern: catalog as junk drawer
-
-Do not let catalog absorb:
-
-- ingest orchestration
-- backup planning
-- UI formatting
-- job scheduling
-- physical replica validation
-- terminal progress bars
-- Calibre import wizard flow
-
-Those are higher-layer or neighbouring-layer concerns.
-
-### Anti-pattern: lookup methods with hidden writes
-
-Avoid method names that sound read-only but mutate state.
-
-Bad:
-
-```python
-catalog.agents.find(name)
-```
-
-if it creates a missing Agent.
-
-Better:
-
-```python
-catalog.agents.find_by_name(name)
-catalog.agents.resolve_or_create(candidate)
-```
-
-## Design rules
-
-1. Keep databases boring.
-
-   The database layer should be durable, generic, and predictable. It should not accumulate bibliographic policy.
-
-2. Keep metadata pure.
-
-   Metadata classes should describe meaning. They should not execute queries.
-
-3. Keep catalog semantic.
-
-   Catalog APIs should be named in terms of Works, Expressions, Manifestations, Items, Agents, Titles, Identifiers, Notes, matching, retrieval, and mutation.
-
-4. Keep library workflow-oriented.
-
-   If an operation sounds like a task a user asked the program to perform, it probably belongs in library, not catalog.
-
-5. Keep surfaces out of catalog.
-
-   Catalog projections should be display-neutral. Formatting for humans, terminal output, GUI tables, and reports belongs in surfaces.
-
-6. Prefer explicit writes.
-
-   Avoid lookup methods that secretly create records. Use clear names such as `resolve_or_create_*` when mutation may occur.
-
-7. Prefer repositories over table classes.
-
-   Repositories model domain concepts. Tables model storage details.
-
-8. Keep matching policy visible.
-
-   Matching is complicated enough to deserve named objects, tests, and explicit confidence results.
-
-9. Keep retrieval display-neutral.
-
-   Catalog may build a projection. Surfaces decide how to present it.
-
-10. Let library orchestrate.
-
-    Catalog should do metadata-aware persistence. Library should combine catalog, storage, jobs, and surfaces into workflows.
-
-## Pasteable module docstring
-
-This docstring can be used in `src/LiuXin_alpha/catalog/__init__.py` or `src/LiuXin_alpha/catalog/catalog.py`.
-
-```python
-"""
-LiuXin catalog layer.
-
-The catalog layer is the metadata-aware persistence API for LiuXin.
-
-It sits above the raw database layer and below the higher-level library
-workflows. Its job is to combine database access with metadata semantics:
-WEMI objects, agents, identifiers, titles, notes, matching rules, and
-metadata retrieval.
-
-Layer responsibilities
-----------------------
-
-    databases
-        Raw persistence machinery.
-
-        This layer owns connections, drivers, SQL execution, schema creation,
-        migrations, transactions, triggers, generic row handling, and low-level
-        database utilities.
-
-        It should not know what a Work title means, how an Agent should be
-        resolved, or how to match an imported book candidate to an existing
-        bibliographic record.
-
-    metadata
-        Metadata meanings and value types.
-
-        This layer owns dataclasses, protocols, field meanings, WEMI concepts,
-        identifier types, title semantics, and other domain vocabulary.
-
-        It should not execute SQL or know where records are physically stored.
-
-    catalog
-        Metadata-aware persistence.
-
-        This layer owns repository APIs, metadata matching, metadata mutation,
-        WEMI-aware retrieval, and catalog projections.
-
-        It answers questions like:
-
-            * Which Work does this identifier belong to?
-            * Does this candidate match an existing Work?
-            * What titles are attached to this Expression?
-            * Which Agents are linked to this Work?
-            * What coherent WEMI metadata bundle describes this Item?
-
-    storage
-        Physical and logical file storage.
-
-        This layer owns digital assets, replicas, stores, storage policies,
-        backup packs, and physical file locations.
-
-        It should not decide bibliographic identity.
-
-    library
-        High-level orchestration.
-
-        This layer combines catalog and storage operations into workflows:
-        ingest, import, enrichment, backup planning, repair, indexing, and
-        user-facing library operations.
-
-Repository pattern
-------------------
-
-A repository is a catalog-facing object that provides a clean API for one
-metadata concept or aggregate.
-
-Repositories are not table classes. A repository may use several SQL tables
-internally if that is what the domain concept requires.
-
-For example, WorkRepository may touch tables for works, titles, identifiers,
-agent links, notes, and WEMI links. Callers should not need to know that.
-
-Typical repository usage::
-
-    catalog = Catalog(db)
-
-    work = catalog.works.get(work_id)
-    work_id = catalog.works.create(candidate_work)
-    catalog.works.add_title(work_id, title)
-    catalog.works.add_identifier(work_id, identifier)
-
-    agent = catalog.agents.resolve_name("Mary Shelley")
-    catalog.works.link_agent(work_id, agent.id, role="author")
-
-    item_bundle = catalog.items.get_metadata_bundle(item_id)
-
-Matching
---------
-
-Matching is separated from basic repositories because it is policy-heavy and
-often crosses repository boundaries.
-
-A Work matcher may need to consult identifiers, titles, agents, languages,
-dates, manifestations, and existing WEMI links before deciding whether a
-candidate describes an existing Work or a new Work.
-
-Typical matching usage::
-
-    result = catalog.matching.match_work(candidate)
-
-    if result.is_confident:
-        work_id = result.matched_id
-    else:
-        work_id = catalog.works.create(candidate)
-
-Retrieval and projections
--------------------------
-
-Retrieval helpers build useful read models from several underlying records.
-
-Examples include:
-
-    * an Item metadata bundle
-    * a WEMI slice
-    * a display-neutral title projection
-    * a contributor summary
-    * a legacy compatibility projection
-
-These helpers may use repositories internally, but they should not perform
-large ingest workflows or physical storage operations.
-
-Typical retrieval usage::
-
-    bundle = catalog.retrieval.items.bundle_for_item(item_id)
-    summary = catalog.retrieval.projections.item_summary(item_id)
-
-Mutation policy
----------------
-
-Catalog mutation should be explicit.
-
-The catalog layer may provide helpers such as:
-
-    * create Work
-    * attach title
-    * attach identifier
-    * link Agent to Work
-    * link Expression to Work
-    * merge duplicate Agents
-    * mark metadata dirty
-
-But it should avoid implicit, surprising writes.
-
-For example, a lookup method should not silently create a new Agent unless its
-name makes that behaviour clear, such as resolve_or_create_agent().
-
-Design rules
-------------
-
-1. Keep databases boring.
-2. Keep metadata pure.
-3. Keep catalog semantic.
-4. Keep library workflow-oriented.
-5. Keep surfaces out of catalog.
-6. Prefer explicit writes.
-7. Prefer repositories over table classes.
-"""
-```
+Catalog exposes repository CRUD and specialised mutations,
+`catalog.mutations.writer.*`, and the advanced schema-driven
+`catalog.create_writer` / `write` / `write_one` APIs. Library, Core and cache
+conveniences use those owners. Row-shaped `add`, `ensure`, `apply` and `intralink`
+remain compatibility routes; new code should prefer the semantic APIs.
+
+Normalization rules belong to metadata. Stored identity keys follow declared
+identity policies, while approximate matching and display/title sorting remain
+different operations. Do not reuse whichever string-cleaning function is nearest
+when writing a `*_norm` column.
+
+Database types, foreign keys, uniqueness and transactions remain necessary,
+including for concurrent writers. Direct SQL, drivers, macros, `catalog.db` and
+private `_apply_*` writer-host methods are outside Catalog's semantic guarantee.
+The guarantee is bounded by the available validators: it does not establish that
+every conceivable field rule has been implemented. Reads must still be able to
+inspect historical data; repair is an explicit operation, not a hidden read effect.
+
+The [write contract][write-contract] owns the policy. Use the
+[Catalog API guide][catalog-api] for actual call signatures and examples instead
+of treating a design sketch as an implemented API.
+
+### Repositories, matching and retrieval do different work
+
+Within Catalog, `repositories/` exposes domain entities and their operations;
+`matching/` evaluates identity; `retrieval/` builds bundles, graphs and projections;
+`mutations/` coordinates semantic changes; and `write/` implements schema-driven
+writers. These are existing areas, not a proposed package skeleton.
+
+A repository presents a domain concept, not just a SQL table. Its operation may
+span entity, title, identifier and relationship tables. Matching can consult
+several repositories without becoming an implicit write. Retrieval returns
+display-neutral metadata; human layout and interface wording belong to surfaces.
+
+Pure OPF/container transformations belong in `metadata.facade`.
+Database/cache-backed hydration and persistence-aware overlays belong in
+`catalog.retrieval.metadata` and its hydration helpers. Putting a value in a
+metadata container does not make persistence a responsibility of that container.
+
+### Core selects the application read source
+
+Core composes a structured read source over the database or configured cache.
+Category count, ordering and membership semantics are shared by the application
+surfaces; the recent category work does not unify every other read projection.
+Surfaces page and render those results rather than calculate competing counts.
+
+Caches accelerate reads and reconcile authoritative changes. They do not define
+another bibliographic identity or write policy. Use the composed cache-aware route
+where reconciliation is required; a direct Catalog call does not automatically
+refresh an unrelated snapshot cache. Database fallback is an explicit adapter
+capability, not permission to turn failed required reads into empty results.
+See the [cache contract][cache-contract] and [read-failure rules][read-failures].
+
+## Files, acquisition and background work
+
+Storage manages bytes through backend contracts: a disk, network service or archive
+can have different capabilities while exposing a defined storage interface.
+Checksums, replica placement, backup execution and verification belong here.
+Bibliographic matching and merges belong to Catalog. SQL stores the relevant
+records without becoming the owner of either domain's policy.
+
+For example, importing an EPUB folder involves several owners:
+
+1. A surface parses the request and invokes an application operation.
+2. Ingest discovers inputs and extracts candidates/provenance using the relevant
+   format and metadata providers.
+3. The application/Library workflow coordinates Catalog acceptance and storage
+   operations using its supplied collaborators.
+4. Catalog validates and persists bibliographic changes; storage records and
+   performs the required physical operations. Jobs report execution progress and
+   results when the operation runs in the background.
+
+This is a responsibility sequence, not a promise that a database transaction can
+atomically undo a remote upload or every filesystem change. Recovery, cancellation
+and failure reporting need explicit workflow contracts. Mixed ingest now consumes
+an injected Library rather than owning a competing durable-service graph.
+
+Jobs invoke domain workflows; they do not inherit metadata validity or placement
+policy. The durable jobs layer, Core execution services and `utils.jobs` execution
+primitives are still distinct. Consolidating state, restart/cancellation behaviour
+and ownership across those pieces remains work to do.
+
+Preserving recoverable copies is a storage goal. It must be enforced at the actual
+destructive operation boundary. Last-copy/read-only checks and staging-directory
+ownership still have identified gaps; a higher-level evacuation safeguard does
+not prove that every low-level deletion route is safe.
+
+## Formats and plugin composition
+
+Plugin mechanics and application plugin composition share `plugins`;
+format and metadata implementations retain their domain owners:
+
+- `plugins` contains neutral plugin mechanics and application assembly.
+  Its package import does not discover providers or start application services.
+- `file_formats` owns conversion input/output contracts, implementations and a
+  native runtime for standalone format use. `metadata.file_sources` owns file
+  metadata readers and writers.
+- `plugins.application` explicitly composes application plugins and binds
+  their instances into the format runtime. Neutral plugin modules and standalone
+  format modules cannot import this owner or its application provider families.
+
+Standalone file operations initialize their providers on first use through
+`file_formats.plugin_defaults` and the shared loader. Application startup extends
+that same file-provider catalogue with application families, initializes the
+providers and binds its instances into `file_formats.plugin_runtime`. Subsequent
+file operations use those bound instances. This keeps provider selection and
+execution available to standalone consumers without importing the application
+host.
+
+Both startup paths use stable descending priority, with installed providers first
+at equal priority. A shared startup lock prevents duplicate first initialization;
+an interrupted refresh restores the previous registry binding. Registry state is
+still process-wide, and this startup contract does not make concurrent conversions
+or arbitrary provider initialization side effects transactional.
+
+Format implementations must not reach back into Core, Library, persistence or
+application registry assembly. Cold-import and dependency checks enforce the
+internal boundary even when modules share the `plugins` package. Database,
+storage and terminal registries remain separate domain owners; the package merger
+does not consolidate jobs or ingest coordination. Unsupported providers and
+retained plugin interfaces still need follow-up.
+
+Keep format behaviour in the [format dossiers][format-guide] and shared composition
+rules in the [plugin guide][plugin-guide]. External plugins that imported
+`customize` must follow its migration table; no compatibility namespace remains.
+
+## Where a new change belongs
+
+| Change | Primary owner |
+| --- | --- |
+| Define a metadata value, vocabulary or pure normalization rule | `metadata` |
+| Accept, link, match, merge or retrieve bibliographic records | `catalog`, using metadata rules and database constraints |
+| Change connections, schema, SQL or transaction mechanics | `databases` |
+| Move, verify, retain or recover bytes and replicas | `storage` |
+| Coordinate Catalog and storage in a library operation | The Library/application workflow owner; Core exposes and composes it |
+| Change deployment selection, owned resources or public operations | `core` |
+| Change plugin loading, priority, installation or application provider selection | `plugins`, preserving its internal foundation/application boundary |
+| Discover/extract candidates or coordinate durable execution | `ingest` or `jobs`, with the domain action delegated to its owner |
+| Add a parser, format converter or provider | The relevant format/metadata implementation, registered by its composition owner |
+| Parse interface input, render results or frame delivery | `surfaces` |
+
+Prefer a focused change to the existing owner over a second implementation under
+another package. Retained compatibility is migration debt with real callers, not
+a model for new code. Conversely, a dynamic or plugin path is not dead merely
+because a simple import graph cannot reach it.
+
+The main unresolved boundaries are transport/read-only capabilities, destructive
+storage policy, low-level transaction/creation safety, jobs/ingest/registry
+ownership and retained compatibility islands. Keep their status explicit when
+changing this overview. The [dated structural review][structural-review] supplies
+the change trail and priorities; [quality gates][quality-gates] identifies the
+enforced scopes, not a claim of universal architectural correctness.
+
+[responsibilities]: <04 - Seperation of Concerns.md>
+[structural-review]: architectural_reviews/documentation-structural-review-2026-10-18.md
+[layer-rules]: architectural_reviews/layer-direction-ratchet.md
+[import-checks]: architectural_reviews/import-footprint-ratchet.md
+[core-api]: core/core-api.md
+[configuration-guide]: core/configuration-ownership.md
+[catalog-api]: catalog/catalog-api-usage.md
+[write-contract]: catalog/catalog-write-validation-contract.md
+[matching-policy]: catalog/catalog-matching-policy.md
+[metadata-guide]: metadata_container/metadata_container_system_guide.md
+[database-guide]: databases/LiuXin_database_field_guide.md
+[storage-guide]: storage_and_backup/README.md
+[storage-api]: storage_and_backup/storage_api.md
+[cache-contract]: catalog/catalog-cache-boundary.md
+[cli-composition]: surfaces/cli/cli-composition.md
+[terminal-composition]: surfaces/terminal/terminal-composition.md
+[ingest-guide]: storage_and_backup/mixed_ingest_operations.md
+[format-guide]: file_formats/README.md
+[plugin-index]: plugins/README.md
+[plugin-guide]: plugins/plugin-composition.md
+[packaging]: hacking/packaging.md
+[library-services]: ../src/LiuXin_alpha/core/library_services.py
+[core-factory]: ../src/LiuXin_alpha/core/factory.py
+[lifecycle-review]: architectural_reviews/lifecycle-opening-path-review-2026-10-09.md
+[read-failures]: surfaces/read-model-failures.md
+[quality-gates]: architectural_reviews/maintainability-quality-gates.md

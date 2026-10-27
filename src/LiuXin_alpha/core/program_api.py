@@ -73,6 +73,7 @@ class CoreProgramAPI:
         install_program_endpoints(self, runtime)
 
     capabilities_list = staticmethod(discovery.capabilities_list)
+    jobs_events = staticmethod(discovery.jobs_events)
     jobs_result = staticmethod(discovery.jobs_result)
     jobs_log_read = staticmethod(discovery.jobs_log_read)
 
@@ -275,6 +276,7 @@ class CoreProgramAPI:
     storage_replica_verify = staticmethod(storage_integrity.storage_replica_verify)
     storage_asset_verify = staticmethod(storage_integrity.storage_asset_verify)
     storage_audit = staticmethod(storage_integrity.storage_audit)
+    storage_audit_start = staticmethod(storage_integrity.storage_audit_start)
     storage_reconcile_apply = staticmethod(storage_integrity.storage_reconcile_apply)
 
     _storage_repair_plan_payload = staticmethod(
@@ -320,6 +322,9 @@ class CoreProgramAPI:
     ingest_formats = staticmethod(ingest.ingest_formats)
     ingest_disk_start = staticmethod(ingest.ingest_disk_start)
     ingest_remote_html_start = staticmethod(ingest.ingest_remote_html_start)
+    ingest_web_start = staticmethod(ingest.ingest_web_start)
+    ingest_web_files = staticmethod(ingest.ingest_web_files)
+    ingest_web_status = staticmethod(ingest.ingest_web_status)
 
     backup_plan = staticmethod(backup.backup_plan)
     backup_workflows_list = staticmethod(backup.backup_workflows_list)

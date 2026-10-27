@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from LiuXin_alpha.core.authorization import CoreTransportPolicy
+
 import argparse
 import json
 import os
@@ -218,13 +220,18 @@ def test_profile_reaches_real_core_database_and_remote_preferences(
             runtime.database._initialise_runtime_collaborators(enable_maintenance=False)
             assert runtime.services.preferences is runtime.database.preferences
             runtime.register_query_handler(
-                "test.sort", lambda _runtime, _query: title_to_title_sort("The Book")
+                "test.sort", lambda _runtime, _query: title_to_title_sort("The Book"),
+                remote_capabilities=("read",)
             )
         first, second = [s.runtime for s in sessions]
-        daemon = CoreHttpDaemon(first)
+        daemon = CoreHttpDaemon(
+            first, policy=CoreTransportPolicy.trusted("test-core-parity")
+        )
         daemon.start()
         try:
-            remote = RemoteCoreClient(endpoint=daemon.base_url)
+            remote = RemoteCoreClient(
+                endpoint=daemon.base_url, bearer_token="test-core-parity"
+            )
             result = remote.execute_command(
                 CoreCommand(
                     "preferences.set",

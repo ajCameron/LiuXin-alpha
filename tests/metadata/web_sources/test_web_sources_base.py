@@ -604,7 +604,7 @@ def test_source_cache_helpers_and_module_cache_roundtrip(monkeypatch) -> None:
         state.
     :return: None; the function records state or raises through its assertions.
     """
-    import LiuXin_alpha.customize.ui as ui
+    import LiuXin_alpha.plugins.application as ui
     import LiuXin_alpha.metadata.web_sources.base as base
 
     class PluginSource(base.Source):

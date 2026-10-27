@@ -310,43 +310,22 @@ class SchemaBackedLinkTable(
             return [deepcopy(row.row_dict) for row in rows]
 
     def _unique_single_columns(self) -> set[str]:
+        """Use the backend's unique-index metadata for cardinality fallback.
+
+        Single-column groups imply uniqueness; composite, partial and expression
+        indexes do not. Hosts without the metadata capability fall back to the
+        observed records. Backend errors propagate instead of leaving a borrowed
+        transaction silently aborted by an unsupported SQL probe.
         """
-        Discover SQLite single-column unique indexes for cardinality fallback.
-
-        Use database.conn cursor PRAGMA index_list/index_info. Multi-column and
-        non-unique indexes are ignored. Any Exception discards even previously found
-        columns; the cursor is not explicitly closed here. This best-effort probe
-        does not constitute portable schema discovery or primary-key inference.
-
-        Example:
-            A two-column unique index over both endpoint columns does not mark either
-            column individually unique.
-
-
-        :return: Set of uniquely indexed column names, or empty when unavailable or any probe fails.
-        """
-
-        conn = getattr(self.db, "conn", None)
-        if conn is None:
+        driver = getattr(self.db, "driver", None)
+        getter = getattr(type(driver), "_get_unique_column_groups", None)
+        if not callable(getter):
             return set()
-
-        unique_columns: set[str] = set()
-        try:
-            cursor = conn.cursor()
-            cursor.execute(f"PRAGMA index_list('{self.table}')")
-            indexes = cursor.fetchall()
-            for index in indexes:
-                is_unique = bool(index[2])
-                if not is_unique:
-                    continue
-                index_name = index[1]
-                cursor.execute(f"PRAGMA index_info('{index_name}')")
-                columns = [row[2] for row in cursor.fetchall()]
-                if len(columns) == 1:
-                    unique_columns.add(columns[0])
-        except Exception:
-            return set()
-        return unique_columns
+        return {
+            columns[0]
+            for columns in getter(driver, self.table)
+            if len(columns) == 1
+        }
 
     def _infer_table_type(self, records: Sequence[_CachedLinkRecord]) -> TableTypes:
         """

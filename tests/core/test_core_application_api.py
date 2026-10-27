@@ -10,6 +10,8 @@ database cases mutate the pytest-provided library rather than a user library.
 
 from __future__ import annotations
 
+from LiuXin_alpha.core.authorization import CoreTransportPolicy
+
 import base64
 import datetime
 import hashlib
@@ -1332,9 +1334,13 @@ def test_local_and_rpc_core_clients_have_envelope_and_result_parity() -> None:
     """
     runtime = _fake_runtime()
     local = LocalCoreClient(runtime)
-    daemon = CoreHttpDaemon(runtime, endpoint_namespace="core-v1")
+    daemon = CoreHttpDaemon(
+        runtime,
+        endpoint_namespace="core-v1",
+        policy=CoreTransportPolicy.trusted("test-core-parity"),
+    )
     daemon.start()
-    remote = RemoteCoreClient(endpoint=daemon.base_url)
+    remote = RemoteCoreClient(endpoint=daemon.base_url, bearer_token="test-core-parity")
     try:
         assert isinstance(runtime, CoreClientAPI)
         assert isinstance(local, CoreClientAPI)
@@ -1379,9 +1385,13 @@ def test_rpc_core_client_subscribes_to_typed_events() -> None:
     :return: None after receiving completion and the expected Catalog write event.
     """
     runtime = _fake_runtime()
-    daemon = CoreHttpDaemon(runtime, endpoint_namespace="core-events")
+    daemon = CoreHttpDaemon(
+        runtime,
+        endpoint_namespace="core-events",
+        policy=CoreTransportPolicy.trusted("test-core-parity"),
+    )
     daemon.start()
-    remote = RemoteCoreClient(endpoint=daemon.base_url)
+    remote = RemoteCoreClient(endpoint=daemon.base_url, bearer_token="test-core-parity")
     received = []
     finished = threading.Event()
 
@@ -1457,6 +1467,7 @@ def test_reconciliation_receipt_survives_direct_and_rpc_errors() -> None:
     runtime.register_command_handler(
         "test.reconciliation-failure",
         _fail_reconciliation,
+        remote_capabilities=("write",),
     )
     with pytest.raises(CoreHandlerError) as direct_error:
         runtime.command("test.reconciliation-failure")
@@ -1469,10 +1480,16 @@ def test_reconciliation_receipt_survives_direct_and_rpc_errors() -> None:
         "canonical_write_committed": True,
     }
 
-    daemon = CoreHttpDaemon(runtime, endpoint_namespace="core-errors")
+    daemon = CoreHttpDaemon(
+        runtime,
+        endpoint_namespace="core-errors",
+        policy=CoreTransportPolicy.trusted("test-core-parity"),
+    )
     daemon.start()
     try:
-        remote = RemoteCoreClient(endpoint=daemon.base_url)
+        remote = RemoteCoreClient(
+            endpoint=daemon.base_url, bearer_token="test-core-parity"
+        )
         with pytest.raises(RemoteProxyError) as remote_error:
             remote.command("test.reconciliation-failure")
         assert remote_error.value.code == "cache_reconciliation_failed"
@@ -1802,9 +1819,12 @@ def test_catalog_conveniences_have_direct_and_rpc_parity(db) -> None:
         daemon = CoreHttpDaemon(
             runtime,
             endpoint_namespace="catalog-conveniences",
+            policy=CoreTransportPolicy.trusted("test-core-parity"),
         )
         daemon.start()
-        remote = RemoteCoreClient(endpoint=daemon.base_url)
+        remote = RemoteCoreClient(
+            endpoint=daemon.base_url, bearer_token="test-core-parity"
+        )
         linked = remote.command(
             "catalog.wemi.link",
             {

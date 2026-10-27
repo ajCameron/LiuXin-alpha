@@ -62,4 +62,4 @@ unavailable in this session.
 - [Documentation checks](test-results/docstrings-d106-d115-2026-09-17/documentation-checks.json)
 - [Reconciliation](test-results/docstrings-d106-d115-2026-09-17/reconciliation.json)
 - [Batch diff](test-results/docstrings-d106-d115-2026-09-17/docstrings.diff)
-- [Plan](../dev-docs/project-docstrings-completion-plan.md)
+- [Plan](../dev-docs/hacking/project-docstrings-completion-plan.md)

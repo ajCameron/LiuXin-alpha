@@ -30,7 +30,7 @@ Individual static/regression/example results are linked from the D handoff and
 inventory. Earlier results retain their historical scope; no new full subsystem
 signoff is claimed before its milestone gates run.
 
-Execution follows the [bounded completion plan](../dev-docs/project-docstrings-completion-plan.md).
+Execution follows the [bounded completion plan](../dev-docs/hacking/project-docstrings-completion-plan.md).
 The user paused the D range on 2026-09-15 because token cost was too high.
 D081 remains queued; resume only on a new user request.
 No commit or publication is requested. Previous source/test modifications and the
@@ -1157,7 +1157,7 @@ retains the earlier checkpoint's decision, not the current documentation scope.
 
 ## Remaining work and next actions
 
-Use the [bounded plan](../dev-docs/project-docstrings-completion-plan.md) and exact
+Use the [bounded plan](../dev-docs/hacking/project-docstrings-completion-plan.md) and exact
 work inventory for current scheduling; C033 is next after the completed thirty-module
 batch. Stop for token-spend review, then resume only explicitly requested modules. The historical backlog below describes remaining subject areas,
 not authorization to resume an unbounded pass:

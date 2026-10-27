@@ -14,7 +14,6 @@ from __future__ import annotations
 
 import dataclasses
 import time
-
 from enum import StrEnum
 from typing import Any
 
@@ -122,12 +121,17 @@ class JobEventKind(StrEnum):
     CANCEL_REQUESTED = "cancel_requested"
     CANCELLED = "cancelled"
     LOG = "log"
+    ABORTED = "aborted"
 
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class JobDefinition:
     """
     Durable configuration describing what, when, and how a job should run.
+
+    Timeout/retry settings are stored declarations; the current worker does not
+    enforce execution deadlines or automatically retry work. Its lease duration
+    controls ownership and recovery independently.
 
     Example:
         Exercise JobDefinition through a consuming regression::
@@ -160,6 +164,12 @@ class JobRun:
     """
     Durable state for one leased or completed execution attempt.
 
+    Kind, label and payload are captured at enqueue. Explicit retries retain those
+    inputs and record their immediate parent and incremented attempt number.
+    A lease token belongs to one claim,
+    including before execution, and is cleared at terminal completion. Reclaiming
+    unstarted work creates a new token even when the worker name is unchanged.
+
     Example:
         Exercise JobRun through a consuming regression::
 
@@ -172,7 +182,11 @@ class JobRun:
     state: JobRunState = JobRunState.QUEUED
     attempt_number: int = 1
     job_run_id: int | None = None
+    job_name: str | None = None
+    retry_of_job_run_id: int | None = None
     worker_id: str | None = None
+    lease_token: str | None = None
+    payload_json: str | None = None
     lease_expires_timestamp_ep_k: int | None = None
     cancel_requested: bool = False
     not_before_timestamp_ep_k: int | None = None
@@ -239,7 +253,6 @@ class JobResult:
     ok: bool
     result: dict[str, Any] | None = None
     error_text: str | None = None
-
 
 
 def now_ep_k() -> int:

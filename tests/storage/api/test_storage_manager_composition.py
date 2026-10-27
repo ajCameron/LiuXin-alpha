@@ -33,6 +33,7 @@ from LiuXin_alpha.storage.storage_manager.mixins import (
     DigitalAssetRetrievalMixin,
     ItemDigitalAssetLinkMixin,
     ReplicaLifecycleMixin,
+    StorageDeletionMixin,
     StorageOperationalStatusMixin,
     StoragePolicyMixin,
     StorageReconciliationMixin,
@@ -148,7 +149,16 @@ def test_each_component_owns_its_abstract_contract_methods() -> None:
     :return: None when every paired component directly owns the required names; failures identify missing methods.
     """
     for implementation, contract in COMPONENTS:
-        missing = contract.__abstractmethods__.difference(implementation.__dict__)
+        # Deletion has one policy owner shared by the router and Replica contracts.
+        required = contract.__abstractmethods__
+        deletion_methods = required.intersection({"delete", "remove_replica"})
+        for method in deletion_methods:
+            assert method in StorageDeletionMixin.__dict__
+            assert getattr(TransientStorageManager, method) is getattr(
+                StorageDeletionMixin, method
+            )
+            assert method not in implementation.__dict__
+        missing = required.difference(deletion_methods, implementation.__dict__)
         assert not missing, (
             f"{implementation.__name__} does not implement {sorted(missing)}"
         )

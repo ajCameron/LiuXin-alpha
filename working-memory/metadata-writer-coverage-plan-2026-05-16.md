@@ -11,7 +11,7 @@ so the next high-value lane should be metadata writers.
 
 Durable docs:
 
-- `dev-docs/metadata-writer-coverage-contract.md`
+- `dev-docs/metadata/metadata-writer-coverage-contract.md`
 
 ## Writer Contract
 

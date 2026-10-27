@@ -67,4 +67,4 @@ against this completed batch.
 - [Inventory reconciliation](test-results/docstrings-m137-m146-2026-10-03/reconciliation.json)
 - [Documentation diff](test-results/docstrings-m137-m146-2026-10-03/docstrings.diff)
 - [Previous checkpoint](project-docstrings-m127-m136-2026-09-29.md)
-- [Completion plan](../dev-docs/project-docstrings-completion-plan.md)
+- [Completion plan](../dev-docs/hacking/project-docstrings-completion-plan.md)

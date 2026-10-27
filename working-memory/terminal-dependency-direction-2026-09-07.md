@@ -29,7 +29,7 @@ complete rewrite of the large terminal implementations.
   A single local, documented B024 lint exception protects this existing API
   without making optional hooks abstract or introducing a file-wide suppression.
 
-Canonical guide: [terminal composition](../dev-docs/terminal-composition.md).
+Canonical guide: [terminal composition](../dev-docs/surfaces/terminal/terminal-composition.md).
 
 ## Enforcement
 

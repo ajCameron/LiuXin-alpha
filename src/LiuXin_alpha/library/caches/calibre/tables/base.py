@@ -14,7 +14,7 @@ from __future__ import unicode_literals
 
 from typing import Optional, TypeVar, Mapping, Union, Iterable
 
-from LiuXin_alpha.customize.cache.base_tables import BaseTable, BaseVirtualTable
+from LiuXin_alpha.plugins.cache.base_tables import BaseTable, BaseVirtualTable
 from LiuXin_alpha.databases.db_types import (
     MetadataDict,
     MainTableName,

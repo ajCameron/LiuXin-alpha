@@ -13,11 +13,13 @@ Example:
 from __future__ import annotations
 
 import contextlib
+import dataclasses
 import json
+import math
 import pathlib
 import sqlite3
-
-from typing import Iterable
+import uuid
+from collections.abc import Iterable, Iterator
 
 from LiuXin_alpha.jobs.models import (
     JobConcurrencyPolicy,
@@ -32,7 +34,6 @@ from LiuXin_alpha.jobs.models import (
     JobTriggerKind,
     now_ep_k,
 )
-
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS job_definitions (
@@ -63,6 +64,10 @@ CREATE TABLE IF NOT EXISTS job_runs (
     state TEXT NOT NULL,
     attempt_number INTEGER NOT NULL DEFAULT 1,
     worker_id TEXT,
+    lease_token TEXT,
+    payload_json TEXT,
+    job_name TEXT,
+    retry_of_job_run_id INTEGER,
     lease_expires_timestamp_ep_k INTEGER,
     cancel_requested INTEGER NOT NULL DEFAULT 0,
     not_before_timestamp_ep_k INTEGER,
@@ -91,12 +96,35 @@ CREATE TABLE IF NOT EXISTS job_run_events (
     FOREIGN KEY(job_run_id) REFERENCES job_runs(job_run_id)
 );
 CREATE INDEX IF NOT EXISTS idx_job_run_events_run ON job_run_events(job_run_id, created_timestamp_ep_k);
+CREATE TABLE IF NOT EXISTS job_ledger_identity (
+    singleton INTEGER PRIMARY KEY CHECK(singleton=1),
+    ledger_uuid TEXT NOT NULL,
+    owner_key TEXT
+);
+CREATE TABLE IF NOT EXISTS job_requests (
+    request_key TEXT PRIMARY KEY,
+    request_json TEXT NOT NULL,
+    job_run_id INTEGER NOT NULL REFERENCES job_runs(job_run_id)
+);
 """
+
+
+class JobLeaseLost(RuntimeError):
+    """The caller no longer owns an unexpired claim and must stop reporting effects."""
+
+
+class JobRequestConflict(ValueError):
+    """A delivery key already names different work; no new work was accepted."""
 
 
 class JobRepository:
     """
     SQLite-backed store for durable jobs and job runs.
+
+    Each operation owns and closes its connection. Enqueue policy, claims and
+    worker transitions use immediate transactions; their events commit with
+    their state. A worker name is descriptive, while the per-claim token fences
+    all worker-originated mutations.
 
     Example:
         Exercise JobRepository through a consuming regression::
@@ -123,84 +151,141 @@ class JobRepository:
 
     def connect(self) -> sqlite3.Connection:
         """
-        Perform the connect operation under explicit file-format and conversion rules.
+        Open a raw SQLite connection whose lifetime belongs to the caller.
 
         Example:
             Exercise JobRepository.connect through a consuming regression::
 
-                python -m pytest -q tests/jobs/test_jobs_repository.py
+                with contextlib.closing(repository.connect()) as conn, conn:
+                    rows = conn.execute("SELECT * FROM job_runs").fetchall()
 
 
-        :return: The normalized value, metadata record, path, stream result or collection
-            described above.
+        :return: An open connection. Its transaction context alone does not close it.
         """
         conn = sqlite3.connect(str(self.sqlite_path))
         conn.row_factory = sqlite3.Row
         return conn
 
     def ensure_schema(self) -> None:
+        """Create or upgrade the ledger, preserving its stable identity and runs.
+
+        Legacy runs capture their current definition payload/name once on upgrade;
+        historical inputs and retry ancestry cannot be reconstructed.
         """
-        Perform the ensure schema operation under explicit file-format and conversion rules.
-
-        Example:
-            Exercise JobRepository.ensure schema through a consuming regression::
-
-                python -m pytest -q tests/jobs/test_jobs_repository.py
-
-
-        :return: None; the operation mutates state, writes output or performs cleanup in
-            place.
-        """
-        with self.connect() as conn:
+        with self._connection() as conn:
             conn.executescript(_SCHEMA)
-            conn.commit()
+            conn.execute("BEGIN IMMEDIATE")
+            columns = {
+                row["name"] for row in conn.execute("PRAGMA table_info(job_runs)")
+            }
+            additions = {
+                "lease_token": "TEXT",
+                "payload_json": "TEXT",
+                "job_name": "TEXT",
+                "retry_of_job_run_id": "INTEGER",
+            }
+            for name, sql_type in additions.items():
+                if name not in columns:
+                    conn.execute(f"ALTER TABLE job_runs ADD COLUMN {name} {sql_type}")
+            conn.execute("""
+                UPDATE job_runs SET payload_json=(
+                    SELECT payload_json FROM job_definitions
+                    WHERE job_definitions.job_definition_id=job_runs.job_definition_id
+                ) WHERE payload_json IS NULL
+            """)
+            conn.execute("""
+                UPDATE job_runs SET job_name=(
+                    SELECT job_name FROM job_definitions
+                    WHERE job_definitions.job_definition_id=job_runs.job_definition_id
+                ) WHERE job_name IS NULL
+            """)
+            conn.execute("""
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_job_runs_retry_parent
+                ON job_runs(retry_of_job_run_id)
+                WHERE retry_of_job_run_id IS NOT NULL
+            """)
+            conn.execute(
+                "INSERT OR IGNORE INTO job_ledger_identity(singleton, ledger_uuid) VALUES (1, ?)",
+                (uuid.uuid4().hex,),
+            )
+            identity_columns = {
+                row["name"]
+                for row in conn.execute("PRAGMA table_info(job_ledger_identity)")
+            }
+            if "owner_key" not in identity_columns:
+                conn.execute(
+                    "ALTER TABLE job_ledger_identity ADD COLUMN owner_key TEXT"
+                )
+
+    @property
+    def ledger_uuid(self) -> str:
+        """Return this ledger's persistent identity; a copied ledger retains it."""
+        with self._connection() as conn:
+            return str(
+                conn.execute(
+                    "SELECT ledger_uuid FROM job_ledger_identity WHERE singleton=1"
+                ).fetchone()[0]
+            )
+
+    def bind_owner(self, owner_key: str) -> None:
+        """Bind a dedicated ledger once; refuse reuse for another application/library."""
+        self._validate_request_key(owner_key)
+        with self._connection(write=True) as conn:
+            current = conn.execute(
+                "SELECT owner_key FROM job_ledger_identity WHERE singleton=1"
+            ).fetchone()[0]
+            if current is not None and current != owner_key:
+                raise ValueError("Job ledger belongs to a different owner")
+            if (
+                current is None
+                and conn.execute("SELECT 1 FROM job_definitions LIMIT 1").fetchone()
+                is not None
+            ):
+                raise ValueError(
+                    "Nonempty job ledger has no owner; use a dedicated ledger"
+                )
+            conn.execute(
+                "UPDATE job_ledger_identity SET owner_key=? WHERE singleton=1",
+                (owner_key,),
+            )
 
     def create_definition(self, definition: JobDefinition) -> JobDefinition:
-        """
-        Create definition under the format's safety and compatibility rules.
+        """Persist a reusable definition without scheduling an execution."""
+        with self._connection(write=True) as conn:
+            definition_id = self._insert_definition(conn, definition)
+            return self._definition_from_row(self._definition_row(conn, definition_id))
 
-        Example:
-            Exercise JobRepository.create definition through a consuming regression::
-
-                python -m pytest -q tests/jobs/test_jobs_repository.py
-
-
-        :param definition: Value supplied for definition under the utility contract.
-        :return: The normalized value, metadata record, path, stream result or collection
-            described above.
-        """
+    @staticmethod
+    def _insert_definition(conn: sqlite3.Connection, definition: JobDefinition) -> int:
+        """Insert inside the caller's transaction, including atomic first submission."""
         now = now_ep_k()
-        with self.connect() as conn:
-            cur = conn.execute(
-                """
-                INSERT INTO job_definitions(
-                    job_kind, job_name, state, payload_json, schedule_json, priority,
-                    concurrency_policy, result_policy, timeout_s, max_retries,
-                    retry_backoff_s, heartbeat_timeout_s,
-                    created_timestamp_ep_k, modified_timestamp_ep_k
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    definition.job_kind,
-                    definition.job_name,
-                    definition.state.value,
-                    definition.payload_json,
-                    definition.schedule_json,
-                    int(definition.priority),
-                    definition.concurrency_policy.value,
-                    definition.result_policy.value,
-                    definition.timeout_s,
-                    int(definition.max_retries),
-                    float(definition.retry_backoff_s),
-                    definition.heartbeat_timeout_s,
-                    now,
-                    now,
-                ),
-            )
-            conn.commit()
-            job_definition_id = int(cur.lastrowid)
-        self.append_definition_event(job_definition_id, "created", f"Created definition {definition.job_name}")
-        return self.get_definition(job_definition_id)
+        cur = conn.execute(
+            """
+            INSERT INTO job_definitions(
+                job_kind, job_name, state, payload_json, schedule_json, priority,
+                concurrency_policy, result_policy, timeout_s, max_retries,
+                retry_backoff_s, heartbeat_timeout_s,
+                created_timestamp_ep_k, modified_timestamp_ep_k
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                definition.job_kind,
+                definition.job_name,
+                definition.state.value,
+                definition.payload_json,
+                definition.schedule_json,
+                int(definition.priority),
+                definition.concurrency_policy.value,
+                definition.result_policy.value,
+                definition.timeout_s,
+                int(definition.max_retries),
+                float(definition.retry_backoff_s),
+                definition.heartbeat_timeout_s,
+                now,
+                now,
+            ),
+        )
+        return int(cur.lastrowid)
 
     def update_definition(self, definition: JobDefinition) -> JobDefinition:
         """
@@ -219,7 +304,7 @@ class JobRepository:
         if definition.job_definition_id is None:
             raise ValueError("update_definition requires job_definition_id")
         now = now_ep_k()
-        with self.connect() as conn:
+        with self._connection() as conn:
             conn.execute(
                 """
                 UPDATE job_definitions
@@ -263,13 +348,18 @@ class JobRepository:
         :return: The normalized value, metadata record, path, stream result or collection
             described above.
         """
-        with self.connect() as conn:
-            row = conn.execute("SELECT * FROM job_definitions WHERE job_definition_id=?", (int(job_definition_id),)).fetchone()
+        with self._connection() as conn:
+            row = conn.execute(
+                "SELECT * FROM job_definitions WHERE job_definition_id=?",
+                (int(job_definition_id),),
+            ).fetchone()
         if row is None:
             raise KeyError(f"Unknown job definition id: {job_definition_id!r}")
         return self._definition_from_row(row)
 
-    def list_definitions(self, *, states: Iterable[JobDefinitionState] | None = None) -> list[JobDefinition]:
+    def list_definitions(
+        self, *, states: Iterable[JobDefinitionState] | None = None
+    ) -> list[JobDefinition]:
         """
         Perform the list definitions operation under explicit file-format and conversion rules.
 
@@ -286,349 +376,463 @@ class JobRepository:
         sql = "SELECT * FROM job_definitions"
         params: list[object] = []
         if states is not None:
-            states_list = [str(s.value if isinstance(s, JobDefinitionState) else s) for s in states]
+            states_list = [
+                str(s.value if isinstance(s, JobDefinitionState) else s) for s in states
+            ]
             if states_list:
                 placeholders = ", ".join("?" for _ in states_list)
                 sql += f" WHERE state IN ({placeholders})"
                 params.extend(states_list)
         sql += " ORDER BY priority ASC, job_definition_id ASC"
-        with self.connect() as conn:
+        with self._connection() as conn:
             rows = conn.execute(sql, tuple(params)).fetchall()
         return [self._definition_from_row(row) for row in rows]
 
-    def enqueue_run(self, *, job_definition_id: int, trigger_kind: JobTriggerKind = JobTriggerKind.MANUAL, not_before_timestamp_ep_k: int | None = None) -> JobRun:
+    def submit_job(self, definition: JobDefinition, *, request_key: str) -> JobRun:
+        """Atomically create a definition and its first run, deduplicating delivery.
+
+        Keys are exact, ledger-wide identifiers shared with enqueue/retry. Repeating
+        the same request returns its current run, even after completion. Reusing a
+        key with changed configuration raises JobRequestConflict. Canonical JSON
+        ignores object ordering/whitespace but preserves array and numeric forms.
+        This prevents duplicate queue entry, not arbitrary handler side effects.
         """
-        Perform the enqueue run operation under explicit file-format and conversion rules.
+        self._validate_request_key(request_key)
+        if definition.job_definition_id is not None:
+            raise ValueError("submit_job requires a new definition without an ID")
+        request = self._request_json(
+            {"operation": "submit", "definition": self._definition_request(definition)}
+        )
+        with self._connection(write=True) as conn:
+            previous = self._repeated_request(conn, request_key, request)
+            if previous is not None:
+                return previous
+            definition_id = self._insert_definition(conn, definition)
+            saved = self._definition_from_row(self._definition_row(conn, definition_id))
+            run = self._enqueue(conn, saved, trigger_kind=JobTriggerKind.MANUAL)
+            self._remember_request(conn, request_key, request, run)
+            return run
 
-        Example:
-            Exercise JobRepository.enqueue run through a consuming regression::
+    def enqueue_run(
+        self,
+        *,
+        job_definition_id: int,
+        trigger_kind: JobTriggerKind = JobTriggerKind.MANUAL,
+        not_before_timestamp_ep_k: int | None = None,
+        request_key: str | None = None,
+    ) -> JobRun:
+        """Atomically check policy, capture inputs and enqueue, optionally deduplicating.
 
-                python -m pytest -q tests/jobs/test_jobs_repository.py
-
-
-        :param job_definition_id: Value supplied for job definition id under the utility
-            contract.
-        :param trigger_kind: Value supplied for trigger kind under the utility contract.
-        :param not_before_timestamp_ep_k: Value supplied for not before timestamp ep k under
-            the utility contract.
-        :return: The normalized value, metadata record, path, stream result or collection
-            described above.
+        Without a key each call requests new work. A keyed repeat compares the
+        current definition and scheduling inputs; editing them requires a new key.
+        Deduplication precedes concurrency policy and does not cancel or requeue
+        the previously accepted run.
         """
-        definition = self.get_definition(job_definition_id)
-        self._apply_concurrency_policy_on_enqueue(definition)
+        if request_key is not None:
+            self._validate_request_key(request_key)
+        with self._connection(write=True) as conn:
+            definition = self._definition_from_row(
+                self._definition_row(conn, job_definition_id)
+            )
+            request = None
+            if request_key is not None:
+                request = self._request_json(
+                    {
+                        "operation": "enqueue",
+                        "definition_id": job_definition_id,
+                        "definition": self._definition_request(definition),
+                        "trigger_kind": trigger_kind.value,
+                        "not_before": not_before_timestamp_ep_k,
+                    }
+                )
+                previous = self._repeated_request(conn, request_key, request)
+                if previous is not None:
+                    return previous
+            run = self._enqueue(
+                conn,
+                definition,
+                trigger_kind=trigger_kind,
+                not_before=not_before_timestamp_ep_k,
+            )
+            if request_key is not None and request is not None:
+                self._remember_request(conn, request_key, request, run)
+            return run
+
+    def retry_run(
+        self,
+        job_run_id: int,
+        *,
+        request_key: str,
+        acknowledge_possible_effects: bool = False,
+    ) -> JobRun:
+        """Create one explicit successor of a failed/cancelled/interrupted attempt.
+
+        Retry preserves the parent's captured kind, label and payload, increments
+        its attempt number and records the immediate parent. Started work requires
+        explicit acknowledgement that effects may already have occurred; callers
+        must inspect domain evidence and stop stale workers before requesting it.
+        That acknowledgement is not a claim of rollback or exactly-once effects.
+        A parent has at most one successor; retry that successor for a later attempt.
+        Current definition concurrency and result-retention policies still apply.
+        """
+        self._validate_request_key(request_key)
+        if type(acknowledge_possible_effects) is not bool:
+            raise ValueError("acknowledge_possible_effects must be a bool")
+        request = self._request_json(
+            {
+                "operation": "retry",
+                "parent_run_id": job_run_id,
+                "acknowledge_possible_effects": acknowledge_possible_effects,
+            }
+        )
+        with self._connection(write=True) as conn:
+            previous = self._repeated_request(conn, request_key, request)
+            if previous is not None:
+                return previous
+            parent = self._run_from_row(self._run_row(conn, job_run_id))
+            if parent.state not in (
+                JobRunState.FAILED,
+                JobRunState.TIMED_OUT,
+                JobRunState.CANCELLED,
+                JobRunState.ABORTED,
+            ):
+                raise ValueError(
+                    "Only failed, timed-out, cancelled or aborted runs can be retried"
+                )
+            if (
+                parent.started_timestamp_ep_k is not None
+                and not acknowledge_possible_effects
+            ):
+                raise ValueError(
+                    "Retry requires acknowledgement of possible effects from the started run"
+                )
+            if conn.execute(
+                "SELECT 1 FROM job_runs WHERE retry_of_job_run_id=?", (job_run_id,)
+            ).fetchone():
+                raise ValueError("Run already has a retry; retry its successor instead")
+            if parent.payload_json is None or parent.job_name is None:
+                raise ValueError("Run has no captured inputs for retry")
+            definition = self._definition_from_row(
+                self._definition_row(conn, parent.job_definition_id)
+            )
+            captured = dataclasses.replace(
+                definition,
+                job_kind=parent.job_kind,
+                job_name=parent.job_name,
+                payload_json=parent.payload_json,
+            )
+            run = self._enqueue(
+                conn, captured, trigger_kind=JobTriggerKind.REPAIR, parent=parent
+            )
+            self._remember_request(conn, request_key, request, run)
+            return run
+
+    def _enqueue(
+        self,
+        conn: sqlite3.Connection,
+        definition: JobDefinition,
+        *,
+        trigger_kind: JobTriggerKind,
+        not_before: int | None = None,
+        parent: JobRun | None = None,
+    ) -> JobRun:
+        """Insert a captured attempt and event in the caller's write unit."""
+        self._apply_concurrency_policy_on_enqueue(definition, connection=conn)
         now = now_ep_k()
-        with self.connect() as conn:
-            cur = conn.execute(
-                """
-                INSERT INTO job_runs(
-                    job_definition_id, job_kind, trigger_kind, state, attempt_number,
-                    not_before_timestamp_ep_k, queued_timestamp_ep_k
-                ) VALUES (?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    int(job_definition_id),
-                    definition.job_kind,
-                    trigger_kind.value,
-                    JobRunState.QUEUED.value,
-                    1,
-                    not_before_timestamp_ep_k,
-                    now,
-                ),
+        parent_id = None if parent is None else parent.job_run_id
+        attempt = 1 if parent is None else parent.attempt_number + 1
+        cur = conn.execute(
+            """
+            INSERT INTO job_runs(job_definition_id, job_kind, job_name, payload_json,
+                trigger_kind, state, attempt_number, not_before_timestamp_ep_k,
+                queued_timestamp_ep_k, retry_of_job_run_id)
+            VALUES (?, ?, ?, ?, ?, 'queued', ?, ?, ?, ?)
+            """,
+            (
+                definition.job_definition_id,
+                definition.job_kind,
+                definition.job_name,
+                definition.payload_json,
+                trigger_kind.value,
+                attempt,
+                not_before,
+                now,
+                parent_id,
+            ),
+        )
+        run_id = int(cur.lastrowid)
+        conn.execute(
+            "UPDATE job_definitions SET last_queued_timestamp_ep_k=?, modified_timestamp_ep_k=? WHERE job_definition_id=?",
+            (now, now, definition.job_definition_id),
+        )
+        self._append_event(
+            conn,
+            run_id,
+            JobEventKind.QUEUED,
+            f"Queued via {trigger_kind.value}",
+            event_json=None
+            if parent is None
+            else self._request_json(
+                {
+                    "retry_of_job_run_id": parent_id,
+                    "attempt_number": attempt,
+                    "possible_effects_acknowledged": parent.started_timestamp_ep_k
+                    is not None,
+                }
+            ),
+        )
+        return self._run_from_row(self._run_row(conn, run_id))
+
+    @staticmethod
+    def _validate_request_key(key: str) -> None:
+        if not isinstance(key, str) or not key.strip() or len(key) > 200:
+            raise ValueError(
+                "request key must be nonblank text of at most 200 characters"
             )
-            conn.execute(
-                "UPDATE job_definitions SET last_queued_timestamp_ep_k=?, modified_timestamp_ep_k=? WHERE job_definition_id=?",
-                (now, now, int(job_definition_id)),
-            )
-            conn.commit()
-            job_run_id = int(cur.lastrowid)
-        self.append_event(job_run_id, JobEventKind.QUEUED, f"Queued via {trigger_kind.value}")
-        return self.get_run(job_run_id)
+
+    @staticmethod
+    def _request_json(value: object) -> str:
+        return json.dumps(value, sort_keys=True, separators=(",", ":"), allow_nan=False)
+
+    @staticmethod
+    def _definition_request(definition: JobDefinition) -> dict[str, object]:
+        fields = dataclasses.asdict(definition)
+        # Bookkeeping changes after enqueue/finish do not change submission intent.
+        fields.pop("job_definition_id")
+        for name in list(fields):
+            if name.endswith("_timestamp_ep_k"):
+                fields.pop(name)
+        fields["payload_json"] = json.loads(definition.payload_json)
+        fields["schedule_json"] = (
+            None
+            if definition.schedule_json is None
+            else json.loads(definition.schedule_json)
+        )
+        return fields
+
+    def _repeated_request(
+        self,
+        conn: sqlite3.Connection,
+        key: str,
+        request: str,
+    ) -> JobRun | None:
+        row = conn.execute(
+            "SELECT * FROM job_requests WHERE request_key=?", (key,)
+        ).fetchone()
+        if row is None:
+            return None
+        if row["request_json"] != request:
+            raise JobRequestConflict("request key already identifies different work")
+        return self._run_from_row(self._run_row(conn, int(row["job_run_id"])))
+
+    @staticmethod
+    def _remember_request(
+        conn: sqlite3.Connection,
+        key: str,
+        request: str,
+        run: JobRun,
+    ) -> None:
+        conn.execute(
+            "INSERT INTO job_requests(request_key, request_json, job_run_id) VALUES (?, ?, ?)",
+            (key, request, run.job_run_id),
+        )
 
     def lease_next_run(self, *, worker_id: str, lease_for_s: float) -> JobRun | None:
+        """Claim once under a write transaction; replace expired unstarted claims.
+
+        Expired running attempts become aborted with uncertain effects. They are
+        never silently replayed. Each new claim has a fresh fencing token, even
+        when the same worker name is reused.
         """
-        Perform the lease next run operation under explicit file-format and conversion rules.
-
-        Example:
-            Exercise JobRepository.lease next run through a consuming regression::
-
-                python -m pytest -q tests/jobs/test_jobs_repository.py
-
-
-        :param worker_id: Value supplied for worker id under the utility contract.
-        :param lease_for_s: Value supplied for lease for s under the utility contract.
-        :return: The normalized value, metadata record, path, stream result or collection
-            described above.
-        """
-        now = now_ep_k()
-        lease_expires = now + int(max(1.0, float(lease_for_s)) * 1000)
-        with self.connect() as conn:
+        duration = self._lease_milliseconds(lease_for_s)
+        if not str(worker_id).strip():
+            raise ValueError("worker_id cannot be blank")
+        with self._connection(write=True) as conn:
+            now = now_ep_k()
+            self._recover_expired(conn, now)
+            # Older ledgers may contain cancellation flags on unstarted runs.
+            for pending in conn.execute(
+                "SELECT * FROM job_runs WHERE cancel_requested=1 AND state IN ('queued', 'leased')"
+            ).fetchall():
+                self._finish(
+                    conn,
+                    pending,
+                    JobRunState.CANCELLED,
+                    error_text="Cancelled before execution",
+                )
             row = conn.execute(
                 """
-                SELECT * FROM job_runs
-                WHERE (
-                    state = ? OR
-                    (state = ? AND lease_expires_timestamp_ep_k IS NOT NULL AND lease_expires_timestamp_ep_k < ?)
-                )
-                AND (not_before_timestamp_ep_k IS NULL OR not_before_timestamp_ep_k <= ?)
-                ORDER BY job_run_id ASC
-                LIMIT 1
+                SELECT * FROM job_runs WHERE (
+                    state='queued' OR (state='leased' AND lease_expires_timestamp_ep_k <= ?)
+                ) AND (not_before_timestamp_ep_k IS NULL OR not_before_timestamp_ep_k <= ?)
+                ORDER BY job_run_id LIMIT 1
                 """,
-                (JobRunState.QUEUED.value, JobRunState.LEASED.value, now, now),
+                (now, now),
             ).fetchone()
             if row is None:
                 return None
-            conn.execute(
-                """
-                UPDATE job_runs
-                SET state=?, worker_id=?, lease_expires_timestamp_ep_k=?, heartbeat_timestamp_ep_k=?
-                WHERE job_run_id=?
-                """,
-                (JobRunState.LEASED.value, str(worker_id), lease_expires, now, int(row["job_run_id"])),
-            )
-            conn.commit()
             run_id = int(row["job_run_id"])
-        self.append_event(run_id, JobEventKind.LEASED, f"Leased to {worker_id}")
-        return self.get_run(run_id)
-
-    def mark_running(self, job_run_id: int, *, worker_id: str) -> JobRun:
-        """
-        Perform the mark running operation under explicit file-format and conversion rules.
-
-        Example:
-            Exercise JobRepository.mark running through a consuming regression::
-
-                python -m pytest -q tests/jobs/test_jobs_repository.py
-
-
-        :param job_run_id: Value supplied for job run id under the utility contract.
-        :param worker_id: Value supplied for worker id under the utility contract.
-        :return: The normalized value, metadata record, path, stream result or collection
-            described above.
-        """
-        now = now_ep_k()
-        run = self.get_run(job_run_id)
-        with self.connect() as conn:
             conn.execute(
-                """
-                UPDATE job_runs
-                SET state=?, worker_id=?, started_timestamp_ep_k=?, heartbeat_timestamp_ep_k=?
-                WHERE job_run_id=?
-                """,
-                (JobRunState.RUNNING.value, str(worker_id), now, now, int(job_run_id)),
+                "UPDATE job_runs SET state='leased', worker_id=?, lease_token=?, lease_expires_timestamp_ep_k=?, heartbeat_timestamp_ep_k=? WHERE job_run_id=?",
+                (str(worker_id), uuid.uuid4().hex, now + duration, now, run_id),
+            )
+            self._append_event(
+                conn, run_id, JobEventKind.LEASED, f"Leased to {worker_id}"
+            )
+            return self._run_from_row(self._run_row(conn, run_id))
+
+    def mark_running(
+        self, job_run_id: int, *, worker_id: str, lease_token: str
+    ) -> JobRun:
+        """Start only the current unexpired claim and record its transition atomically."""
+        with self._connection(write=True) as conn:
+            run = self._require_claim(
+                conn, job_run_id, worker_id, lease_token, states=("leased",)
+            )
+            now = now_ep_k()
+            conn.execute(
+                "UPDATE job_runs SET state='running', started_timestamp_ep_k=?, heartbeat_timestamp_ep_k=? WHERE job_run_id=?",
+                (now, now, job_run_id),
             )
             conn.execute(
-                """
-                UPDATE job_definitions
-                SET last_started_timestamp_ep_k=?, modified_timestamp_ep_k=?
-                WHERE job_definition_id=?
-                """,
-                (now, now, int(run.job_definition_id)),
+                "UPDATE job_definitions SET last_started_timestamp_ep_k=?, modified_timestamp_ep_k=? WHERE job_definition_id=?",
+                (now, now, run["job_definition_id"]),
             )
-            conn.commit()
-        self.append_event(int(job_run_id), JobEventKind.STARTED, f"Started on worker {worker_id}")
-        return self.get_run(int(job_run_id))
-
-    def heartbeat(self, job_run_id: int, *, worker_id: str, message: str | None = None, lease_for_s: float | None = 60.0) -> None:
-        """
-        Perform the heartbeat operation under explicit file-format and conversion rules.
-
-        Example:
-            Exercise JobRepository.heartbeat through a consuming regression::
-
-                python -m pytest -q tests/jobs/test_jobs_repository.py
-
-
-        :param job_run_id: Value supplied for job run id under the utility contract.
-        :param worker_id: Value supplied for worker id under the utility contract.
-        :param message: Value supplied for message under the utility contract.
-        :param lease_for_s: Value supplied for lease for s under the utility contract.
-        :return: None; the operation mutates state, writes output or performs cleanup in
-            place.
-        """
-        now = now_ep_k()
-        lease_expires = None if lease_for_s is None else now + int(max(1.0, float(lease_for_s)) * 1000)
-        with self.connect() as conn:
-            conn.execute(
-                "UPDATE job_runs SET heartbeat_timestamp_ep_k=?, worker_id=?, lease_expires_timestamp_ep_k=COALESCE(?, lease_expires_timestamp_ep_k) WHERE job_run_id=?",
-                (now, str(worker_id), lease_expires, int(job_run_id)),
+            self._append_event(
+                conn, job_run_id, JobEventKind.STARTED, f"Started on worker {worker_id}"
             )
-            conn.commit()
-        self.append_event(int(job_run_id), JobEventKind.HEARTBEAT, message or "Heartbeat")
+            return self._run_from_row(self._run_row(conn, job_run_id))
 
-    def refresh_lease(self, job_run_id: int, *, worker_id: str, lease_for_s: float) -> None:
-        """
-        Perform the refresh lease operation under explicit file-format and conversion rules.
-
-        Example:
-            Exercise JobRepository.refresh lease through a consuming regression::
-
-                python -m pytest -q tests/jobs/test_jobs_repository.py
-
-
-        :param job_run_id: Value supplied for job run id under the utility contract.
-        :param worker_id: Value supplied for worker id under the utility contract.
-        :param lease_for_s: Value supplied for lease for s under the utility contract.
-        :return: None; the operation mutates state, writes output or performs cleanup in
-            place.
-        """
-        now = now_ep_k()
-        lease_expires = now + int(max(1.0, float(lease_for_s)) * 1000)
-        with self.connect() as conn:
+    def heartbeat(
+        self,
+        job_run_id: int,
+        *,
+        worker_id: str,
+        lease_token: str,
+        message: str | None = None,
+        lease_for_s: float | None = 60.0,
+    ) -> None:
+        """Renew only a live claim; never steal or revive an expired lease."""
+        duration = (
+            None if lease_for_s is None else self._lease_milliseconds(lease_for_s)
+        )
+        with self._connection(write=True) as conn:
+            self._require_claim(conn, job_run_id, worker_id, lease_token)
+            now = now_ep_k()
+            expires = None if duration is None else now + duration
             conn.execute(
-                "UPDATE job_runs SET worker_id=?, lease_expires_timestamp_ep_k=?, heartbeat_timestamp_ep_k=? WHERE job_run_id=?",
-                (str(worker_id), lease_expires, now, int(job_run_id)),
+                "UPDATE job_runs SET heartbeat_timestamp_ep_k=?, lease_expires_timestamp_ep_k=COALESCE(?, lease_expires_timestamp_ep_k) WHERE job_run_id=?",
+                (now, expires, job_run_id),
             )
-            conn.commit()
+            self._append_event(
+                conn, job_run_id, JobEventKind.HEARTBEAT, message or "Heartbeat"
+            )
 
-    def update_progress(self, job_run_id: int, update: JobProgressUpdate) -> None:
-        """
-        Perform the update progress operation under explicit file-format and conversion rules.
+    def refresh_lease(
+        self, job_run_id: int, *, worker_id: str, lease_token: str, lease_for_s: float
+    ) -> None:
+        """Refresh through the same fenced heartbeat owner."""
+        self.heartbeat(
+            job_run_id,
+            worker_id=worker_id,
+            lease_token=lease_token,
+            lease_for_s=lease_for_s,
+        )
 
-        Example:
-            Exercise JobRepository.update progress through a consuming regression::
-
-                python -m pytest -q tests/jobs/test_jobs_repository.py
-
-
-        :param job_run_id: Value supplied for job run id under the utility contract.
-        :param update: Value supplied for update under the utility contract.
-        :return: None; the operation mutates state, writes output or performs cleanup in
-            place.
-        """
-        with self.connect() as conn:
+    def update_progress(
+        self,
+        job_run_id: int,
+        update: JobProgressUpdate,
+        *,
+        worker_id: str,
+        lease_token: str,
+    ) -> None:
+        """Persist a running owner's progress and cursor event in one transaction."""
+        with self._connection(write=True) as conn:
+            self._require_claim(
+                conn, job_run_id, worker_id, lease_token, states=("running",)
+            )
             conn.execute(
-                """
-                UPDATE job_runs
-                SET progress_current=?, progress_total=?, progress_unit=?, progress_message=?, heartbeat_timestamp_ep_k=?
-                WHERE job_run_id=?
-                """,
+                "UPDATE job_runs SET progress_current=?, progress_total=?, progress_unit=?, progress_message=? WHERE job_run_id=?",
                 (
                     update.progress_current,
                     update.progress_total,
                     update.progress_unit,
                     update.progress_message,
-                    now_ep_k(),
-                    int(job_run_id),
+                    job_run_id,
                 ),
             )
-            conn.commit()
-        self.append_event(int(job_run_id), JobEventKind.PROGRESS, update.progress_message or "Progress", event_json=json.dumps({
-            "progress_current": update.progress_current,
-            "progress_total": update.progress_total,
-            "progress_unit": update.progress_unit,
-        }))
-
-    def mark_succeeded(self, job_run_id: int, *, result_json: str | None = None) -> JobRun:
-        """
-        Perform the mark succeeded operation under explicit file-format and conversion rules.
-
-        Example:
-            Exercise JobRepository.mark succeeded through a consuming regression::
-
-                python -m pytest -q tests/jobs/test_jobs_repository.py
-
-
-        :param job_run_id: Value supplied for job run id under the utility contract.
-        :param result_json: Value supplied for result json under the utility contract.
-        :return: The normalized value, metadata record, path, stream result or collection
-            described above.
-        """
-        now = now_ep_k()
-        run = self.get_run(job_run_id)
-        with self.connect() as conn:
-            conn.execute(
-                "UPDATE job_runs SET state=?, result_json=?, finished_timestamp_ep_k=?, lease_expires_timestamp_ep_k=NULL WHERE job_run_id=?",
-                (JobRunState.SUCCEEDED.value, result_json, now, int(job_run_id)),
+            self._append_event(
+                conn,
+                job_run_id,
+                JobEventKind.PROGRESS,
+                update.progress_message or "Progress",
+                event_json=json.dumps(
+                    {
+                        "progress_current": update.progress_current,
+                        "progress_total": update.progress_total,
+                        "progress_unit": update.progress_unit,
+                    }
+                ),
             )
-            conn.execute(
-                "UPDATE job_definitions SET last_finished_timestamp_ep_k=?, modified_timestamp_ep_k=? WHERE job_definition_id=?",
-                (now, now, int(run.job_definition_id)),
+
+    def mark_succeeded(
+        self,
+        job_run_id: int,
+        *,
+        worker_id: str,
+        lease_token: str,
+        result_json: str | None = None,
+    ) -> JobRun:
+        """Record the current running owner's terminal receipt and event atomically."""
+        with self._connection(write=True) as conn:
+            run = self._require_claim(
+                conn, job_run_id, worker_id, lease_token, states=("running",)
             )
-            conn.commit()
-        self.append_event(int(job_run_id), JobEventKind.SUCCEEDED, "Succeeded", event_json=result_json)
-        self._apply_result_policy(run.job_definition_id)
-        return self.get_run(int(job_run_id))
-
-    def mark_failed(self, job_run_id: int, *, error_text: str) -> JobRun:
-        """
-        Perform the mark failed operation under explicit file-format and conversion rules.
-
-        Example:
-            Exercise JobRepository.mark failed through a consuming regression::
-
-                python -m pytest -q tests/jobs/test_jobs_repository.py
-
-
-        :param job_run_id: Value supplied for job run id under the utility contract.
-        :param error_text: Value supplied for error text under the utility contract.
-        :return: The normalized value, metadata record, path, stream result or collection
-            described above.
-        """
-        now = now_ep_k()
-        run = self.get_run(job_run_id)
-        with self.connect() as conn:
-            conn.execute(
-                "UPDATE job_runs SET state=?, error_text=?, finished_timestamp_ep_k=?, lease_expires_timestamp_ep_k=NULL WHERE job_run_id=?",
-                (JobRunState.FAILED.value, str(error_text), now, int(job_run_id)),
+            return self._finish(
+                conn, run, JobRunState.SUCCEEDED, result_json=result_json
             )
-            conn.execute(
-                "UPDATE job_definitions SET last_finished_timestamp_ep_k=?, modified_timestamp_ep_k=? WHERE job_definition_id=?",
-                (now, now, int(run.job_definition_id)),
+
+    def mark_failed(
+        self, job_run_id: int, *, worker_id: str, lease_token: str, error_text: str
+    ) -> JobRun:
+        """Record the current running owner's terminal receipt and event atomically."""
+        with self._connection(write=True) as conn:
+            run = self._require_claim(
+                conn, job_run_id, worker_id, lease_token, states=("running",)
             )
-            conn.commit()
-        self.append_event(int(job_run_id), JobEventKind.FAILED, str(error_text))
-        self._apply_result_policy(run.job_definition_id)
-        return self.get_run(int(job_run_id))
+            return self._finish(conn, run, JobRunState.FAILED, error_text=error_text)
 
-    def mark_cancelled(self, job_run_id: int, *, error_text: str | None = None) -> JobRun:
-        """
-        Perform the mark cancelled operation under explicit file-format and conversion rules.
-
-        Example:
-            Exercise JobRepository.mark cancelled through a consuming regression::
-
-                python -m pytest -q tests/jobs/test_jobs_repository.py
-
-
-        :param job_run_id: Value supplied for job run id under the utility contract.
-        :param error_text: Value supplied for error text under the utility contract.
-        :return: The normalized value, metadata record, path, stream result or collection
-            described above.
-        """
-        now = now_ep_k()
-        run = self.get_run(job_run_id)
-        with self.connect() as conn:
-            conn.execute(
-                "UPDATE job_runs SET state=?, error_text=?, finished_timestamp_ep_k=?, lease_expires_timestamp_ep_k=NULL WHERE job_run_id=?",
-                (JobRunState.CANCELLED.value, error_text, now, int(job_run_id)),
+    def mark_cancelled(
+        self,
+        job_run_id: int,
+        *,
+        worker_id: str,
+        lease_token: str,
+        error_text: str | None = None,
+        result_json: str | None = None,
+    ) -> JobRun:
+        """Record the current running owner's terminal receipt and event atomically."""
+        with self._connection(write=True) as conn:
+            run = self._require_claim(
+                conn, job_run_id, worker_id, lease_token, states=("running",)
             )
-            conn.execute(
-                "UPDATE job_definitions SET last_finished_timestamp_ep_k=?, modified_timestamp_ep_k=? WHERE job_definition_id=?",
-                (now, now, int(run.job_definition_id)),
+            return self._finish(
+                conn,
+                run,
+                JobRunState.CANCELLED,
+                error_text=error_text,
+                result_json=result_json,
             )
-            conn.commit()
-        self.append_event(int(job_run_id), JobEventKind.CANCELLED, error_text or "Cancelled")
-        self._apply_result_policy(run.job_definition_id)
-        return self.get_run(int(job_run_id))
 
-    def request_cancel(self, job_run_id: int) -> None:
+    def request_cancel(self, job_run_id: int) -> bool:
+        """Cancel unstarted work immediately; request cooperation from running work.
+
+        Terminal runs are unchanged. True acknowledges a new or existing request,
+        not reversal of effects already performed by a running handler.
         """
-        Perform the request cancel operation under explicit file-format and conversion rules.
-
-        Example:
-            Exercise JobRepository.request cancel through a consuming regression::
-
-                python -m pytest -q tests/jobs/test_jobs_repository.py
-
-
-        :param job_run_id: Value supplied for job run id under the utility contract.
-        :return: None; the operation mutates state, writes output or performs cleanup in
-            place.
-        """
-        with self.connect() as conn:
-            conn.execute("UPDATE job_runs SET cancel_requested=1 WHERE job_run_id=?", (int(job_run_id),))
-            conn.commit()
-        self.append_event(int(job_run_id), JobEventKind.CANCEL_REQUESTED, "Cancellation requested")
+        with self._connection(write=True) as conn:
+            return self._request_cancel(conn, self._run_row(conn, job_run_id))
 
     def get_run(self, job_run_id: int) -> JobRun:
         """
@@ -644,13 +848,20 @@ class JobRepository:
         :return: The normalized value, metadata record, path, stream result or collection
             described above.
         """
-        with self.connect() as conn:
-            row = conn.execute("SELECT * FROM job_runs WHERE job_run_id=?", (int(job_run_id),)).fetchone()
+        with self._connection() as conn:
+            row = conn.execute(
+                "SELECT * FROM job_runs WHERE job_run_id=?", (int(job_run_id),)
+            ).fetchone()
         if row is None:
             raise KeyError(f"Unknown job run id: {job_run_id!r}")
         return self._run_from_row(row)
 
-    def list_runs(self, *, job_definition_id: int | None = None, states: Iterable[JobRunState] | None = None) -> list[JobRun]:
+    def list_runs(
+        self,
+        *,
+        job_definition_id: int | None = None,
+        states: Iterable[JobRunState] | None = None,
+    ) -> list[JobRun]:
         """
         Perform the list runs operation under explicit file-format and conversion rules.
 
@@ -673,7 +884,9 @@ class JobRepository:
             clauses.append("job_definition_id=?")
             params.append(int(job_definition_id))
         if states is not None:
-            state_values = [str(s.value if isinstance(s, JobRunState) else s) for s in states]
+            state_values = [
+                str(s.value if isinstance(s, JobRunState) else s) for s in states
+            ]
             if state_values:
                 placeholders = ", ".join("?" for _ in state_values)
                 clauses.append(f"state IN ({placeholders})")
@@ -681,74 +894,63 @@ class JobRepository:
         if clauses:
             sql += " WHERE " + " AND ".join(clauses)
         sql += " ORDER BY job_run_id ASC"
-        with self.connect() as conn:
+        with self._connection() as conn:
             rows = conn.execute(sql, tuple(params)).fetchall()
         return [self._run_from_row(row) for row in rows]
 
-    def list_events(self, job_run_id: int) -> list[JobRunEvent]:
-        """
-        Perform the list events operation under explicit file-format and conversion rules.
+    def list_events(
+        self, job_run_id: int, *, after_event_id: int = 0, limit: int | None = None
+    ) -> list[JobRunEvent]:
+        """Read a stable event-ID cursor, optionally bounded for remote polling."""
+        if after_event_id < 0 or (limit is not None and limit < 1):
+            raise ValueError("Event cursor must be nonnegative and limit positive")
+        sql = "SELECT * FROM job_run_events WHERE job_run_id=? AND event_id>? ORDER BY event_id"
+        params = [job_run_id, after_event_id]
+        if limit is not None:
+            sql += " LIMIT ?"
+            params.append(limit)
+        with self._connection() as conn:
+            return [
+                self._event_from_row(row)
+                for row in conn.execute(sql, params).fetchall()
+            ]
 
-        Example:
-            Exercise JobRepository.list events through a consuming regression::
-
-                python -m pytest -q tests/jobs/test_jobs_repository.py
-
-
-        :param job_run_id: Value supplied for job run id under the utility contract.
-        :return: The normalized value, metadata record, path, stream result or collection
-            described above.
-        """
-        with self.connect() as conn:
-            rows = conn.execute(
-                "SELECT * FROM job_run_events WHERE job_run_id=? ORDER BY event_id ASC",
-                (int(job_run_id),),
-            ).fetchall()
-        return [self._event_from_row(row) for row in rows]
-
-    def append_log(self, job_run_id: int, *, message: str, event_json: str | None = None) -> None:
-        """
-        Perform the append log operation under explicit file-format and conversion rules.
-
-        Example:
-            Exercise JobRepository.append log through a consuming regression::
-
-                python -m pytest -q tests/jobs/test_jobs_repository.py
-
-
-        :param job_run_id: Value supplied for job run id under the utility contract.
-        :param message: Value supplied for message under the utility contract.
-        :param event_json: Value supplied for event json under the utility contract.
-        :return: None; the operation mutates state, writes output or performs cleanup in
-            place.
-        """
-        self.append_event(job_run_id, JobEventKind.LOG, message, event_json=event_json)
-
-    def append_event(self, job_run_id: int, event_kind: JobEventKind, message: str | None = None, *, event_json: str | None = None) -> None:
-        """
-        Perform the append event operation under explicit file-format and conversion rules.
-
-        Example:
-            Exercise JobRepository.append event through a consuming regression::
-
-                python -m pytest -q tests/jobs/test_jobs_repository.py
-
-
-        :param job_run_id: Value supplied for job run id under the utility contract.
-        :param event_kind: Value supplied for event kind under the utility contract.
-        :param message: Value supplied for message under the utility contract.
-        :param event_json: Value supplied for event json under the utility contract.
-        :return: None; the operation mutates state, writes output or performs cleanup in
-            place.
-        """
-        with self.connect() as conn:
-            conn.execute(
-                "INSERT INTO job_run_events(job_run_id, event_kind, event_message, event_json, created_timestamp_ep_k) VALUES (?, ?, ?, ?, ?)",
-                (int(job_run_id), event_kind.value, message, event_json, now_ep_k()),
+    def append_log(
+        self,
+        job_run_id: int,
+        *,
+        worker_id: str,
+        lease_token: str,
+        message: str,
+        event_json: str | None = None,
+    ) -> None:
+        """Append a log observation only for the current running owner."""
+        with self._connection(write=True) as conn:
+            self._require_claim(
+                conn, job_run_id, worker_id, lease_token, states=("running",)
             )
-            conn.commit()
+            self._append_event(
+                conn, job_run_id, JobEventKind.LOG, message, event_json=event_json
+            )
 
-    def append_definition_event(self, job_definition_id: int, event_kind: str, message: str) -> None:
+    def append_event(
+        self,
+        job_run_id: int,
+        event_kind: JobEventKind,
+        message: str | None = None,
+        *,
+        event_json: str | None = None,
+    ) -> None:
+        """Append an operator observation; lifecycle owners use their own transaction."""
+        with self._connection(write=True) as conn:
+            self._run_row(conn, job_run_id)
+            self._append_event(
+                conn, job_run_id, event_kind, message, event_json=event_json
+            )
+
+    def append_definition_event(
+        self, job_definition_id: int, event_kind: str, message: str
+    ) -> None:
         """
         Perform the append definition event operation under explicit file-format and conversion rules.
 
@@ -768,7 +970,9 @@ class JobRepository:
         del job_definition_id, event_kind, message
         # Placeholder for later definition-event stream; run events cover the MVP.
 
-    def get_due_definitions_for_scheduling(self, *, now_timestamp_ep_k: int | None = None) -> list[JobDefinition]:
+    def get_due_definitions_for_scheduling(
+        self, *, now_timestamp_ep_k: int | None = None
+    ) -> list[JobDefinition]:
         """
         Return due definitions for scheduling under the format's safety and compatibility rules.
 
@@ -783,7 +987,9 @@ class JobRepository:
         :return: The normalized value, metadata record, path, stream result or collection
             described above.
         """
-        now_value = now_ep_k() if now_timestamp_ep_k is None else int(now_timestamp_ep_k)
+        now_value = (
+            now_ep_k() if now_timestamp_ep_k is None else int(now_timestamp_ep_k)
+        )
         due: list[JobDefinition] = []
         for definition in self.list_definitions(states=[JobDefinitionState.ENABLED]):
             schedule = self._load_schedule_json(definition.schedule_json)
@@ -791,7 +997,11 @@ class JobRepository:
             if interval_s in (None, "", 0):
                 continue
             every_ms = int(float(interval_s) * 1000)
-            baseline = definition.last_queued_timestamp_ep_k or definition.created_timestamp_ep_k or 0
+            baseline = (
+                definition.last_queued_timestamp_ep_k
+                or definition.created_timestamp_ep_k
+                or 0
+            )
             if baseline <= 0 or now_value >= baseline + every_ms:
                 due.append(definition)
         return due
@@ -799,70 +1009,202 @@ class JobRepository:
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
-    def _apply_concurrency_policy_on_enqueue(self, definition: JobDefinition) -> None:
-        """
-        Perform the apply concurrency policy on enqueue operation under explicit file-format and conversion rules.
-
-        Example:
-            Exercise JobRepository. apply concurrency policy on enqueue through a consuming regression::
-
-                python -m pytest -q tests/jobs/test_jobs_repository.py
-
-
-        :param definition: Value supplied for definition under the utility contract.
-        :return: None; the operation mutates state, writes output or performs cleanup in
-            place.
-        """
-        active = self.list_runs(
-            job_definition_id=int(definition.job_definition_id or 0),
-            states=[JobRunState.QUEUED, JobRunState.LEASED, JobRunState.RUNNING],
-        )
+    def _apply_concurrency_policy_on_enqueue(
+        self, definition: JobDefinition, *, connection: sqlite3.Connection
+    ) -> None:
+        """Check and apply enqueue policy inside the same write unit as insertion."""
+        active = connection.execute(
+            "SELECT * FROM job_runs WHERE job_definition_id=? AND state IN ('queued', 'leased', 'running')",
+            (definition.job_definition_id,),
+        ).fetchall()
         policy = definition.concurrency_policy
-        if policy is JobConcurrencyPolicy.ALLOW_PARALLEL:
-            return
-        if policy is JobConcurrencyPolicy.SKIP_IF_RUNNING and active:
-            raise RuntimeError(f"Job definition {definition.job_name!r} is already active")
-        if policy is JobConcurrencyPolicy.QUEUE_ONE and active:
-            raise RuntimeError(f"Job definition {definition.job_name!r} already has a queued/running run")
+        if (
+            policy
+            in (JobConcurrencyPolicy.SKIP_IF_RUNNING, JobConcurrencyPolicy.QUEUE_ONE)
+            and active
+        ):
+            raise RuntimeError(
+                f"Job definition {definition.job_name!r} already has a queued/running run"
+            )
         if policy is JobConcurrencyPolicy.REPLACE_RUNNING:
             for run in active:
-                self.request_cancel(int(run.job_run_id))
+                self._request_cancel(connection, run)
 
-    def _apply_result_policy(self, job_definition_id: int) -> None:
-        """
-        Perform the apply result policy operation under explicit file-format and conversion rules.
-
-        Example:
-            Exercise JobRepository. apply result policy through a consuming regression::
-
-                python -m pytest -q tests/jobs/test_jobs_repository.py
-
-
-        :param job_definition_id: Value supplied for job definition id under the utility
-            contract.
-        :return: None; the operation mutates state, writes output or performs cleanup in
-            place.
-        """
-        definition = self.get_definition(int(job_definition_id))
+    def _apply_result_policy(
+        self, connection: sqlite3.Connection, job_definition_id: int
+    ) -> None:
+        """Prune terminal result payloads, never live runs, identity or event cursors."""
+        definition = self._definition_from_row(
+            self._definition_row(connection, job_definition_id)
+        )
         if definition.result_policy is JobResultPolicy.KEEP_ALL:
             return
-        runs = self.list_runs(job_definition_id=int(job_definition_id))
+        rows = connection.execute(
+            "SELECT * FROM job_runs WHERE job_definition_id=? AND state NOT IN ('queued', 'leased', 'running') ORDER BY job_run_id",
+            (job_definition_id,),
+        ).fetchall()
         if definition.result_policy is JobResultPolicy.KEEP_FAILURES:
-            doomed = [r for r in runs if r.state is JobRunState.SUCCEEDED][:-1]
-        elif definition.result_policy is JobResultPolicy.KEEP_LATEST_ONLY:
-            doomed = runs[:-1]
-        else:
-            doomed = []
-        if not doomed:
-            return
-        doomed_ids = tuple(int(r.job_run_id) for r in doomed if r.job_run_id is not None)
-        if not doomed_ids:
-            return
-        placeholders = ", ".join("?" for _ in doomed_ids)
-        with self.connect() as conn:
-            conn.execute(f"DELETE FROM job_run_events WHERE job_run_id IN ({placeholders})", doomed_ids)
-            conn.execute(f"DELETE FROM job_runs WHERE job_run_id IN ({placeholders})", doomed_ids)
-            conn.commit()
+            rows = [row for row in rows if row["state"] == "succeeded"]
+        for row in rows[:-1]:
+            connection.execute(
+                "UPDATE job_runs SET result_json=NULL WHERE job_run_id=?",
+                (row["job_run_id"],),
+            )
+            connection.execute(
+                "UPDATE job_run_events SET event_json=NULL WHERE job_run_id=? AND event_kind IN ('succeeded', 'failed', 'cancelled', 'aborted')",
+                (row["job_run_id"],),
+            )
+
+    @contextlib.contextmanager
+    def _connection(self, *, write: bool = False) -> Iterator[sqlite3.Connection]:
+        """Own connection lifetime and, for transitions, one immediate transaction."""
+        with contextlib.closing(self.connect()) as conn:
+            if write:
+                conn.execute("BEGIN IMMEDIATE")
+            with conn:
+                yield conn
+
+    @staticmethod
+    def _lease_milliseconds(seconds: float) -> int:
+        value = float(seconds)
+        if not math.isfinite(value) or value <= 0:
+            raise ValueError("Lease duration must be finite and positive")
+        return int(max(1.0, value) * 1000)
+
+    @staticmethod
+    def _definition_row(conn: sqlite3.Connection, definition_id: int) -> sqlite3.Row:
+        row = conn.execute(
+            "SELECT * FROM job_definitions WHERE job_definition_id=?", (definition_id,)
+        ).fetchone()
+        if row is None:
+            raise KeyError(f"Unknown job definition id: {definition_id!r}")
+        return row
+
+    @staticmethod
+    def _run_row(conn: sqlite3.Connection, run_id: int) -> sqlite3.Row:
+        row = conn.execute(
+            "SELECT * FROM job_runs WHERE job_run_id=?", (run_id,)
+        ).fetchone()
+        if row is None:
+            raise KeyError(f"Unknown job run id: {run_id!r}")
+        return row
+
+    def _require_claim(
+        self,
+        conn: sqlite3.Connection,
+        run_id: int,
+        worker_id: str,
+        lease_token: str,
+        *,
+        states: tuple[str, ...] = ("leased", "running"),
+    ) -> sqlite3.Row:
+        row = self._run_row(conn, run_id)
+        if (
+            not lease_token
+            or row["lease_token"] != lease_token
+            or row["worker_id"] != worker_id
+            or row["state"] not in states
+            or (row["lease_expires_timestamp_ep_k"] or 0) <= now_ep_k()
+        ):
+            raise JobLeaseLost(
+                f"Lease for run {run_id} is no longer owned by this claim"
+            )
+        return row
+
+    def check_claim(
+        self, job_run_id: int, *, worker_id: str, lease_token: str
+    ) -> JobRun:
+        """Validate ownership at a handler checkpoint without extending its lease."""
+        with self._connection() as conn:
+            return self._run_from_row(
+                self._require_claim(conn, job_run_id, worker_id, lease_token)
+            )
+
+    @staticmethod
+    def _append_event(
+        conn: sqlite3.Connection,
+        run_id: int,
+        kind: JobEventKind,
+        message: str | None,
+        *,
+        event_json: str | None = None,
+    ) -> None:
+        conn.execute(
+            "INSERT INTO job_run_events(job_run_id, event_kind, event_message, event_json, created_timestamp_ep_k) VALUES (?, ?, ?, ?, ?)",
+            (run_id, kind.value, message, event_json, now_ep_k()),
+        )
+
+    def _finish(
+        self,
+        conn: sqlite3.Connection,
+        row: sqlite3.Row,
+        state: JobRunState,
+        *,
+        result_json: str | None = None,
+        error_text: str | None = None,
+    ) -> JobRun:
+        run_id = int(row["job_run_id"])
+        # A late request is acknowledged only after handler execution has ended.
+        if state is JobRunState.SUCCEEDED and row["cancel_requested"]:
+            state = JobRunState.CANCELLED
+            error_text = "Cancellation acknowledged after handler returned; receipt retains completed effects"
+        now = now_ep_k()
+        conn.execute(
+            "UPDATE job_runs SET state=?, result_json=?, error_text=?, finished_timestamp_ep_k=?, lease_expires_timestamp_ep_k=NULL, lease_token=NULL WHERE job_run_id=?",
+            (state.value, result_json, error_text, now, run_id),
+        )
+        conn.execute(
+            "UPDATE job_definitions SET last_finished_timestamp_ep_k=?, modified_timestamp_ep_k=? WHERE job_definition_id=?",
+            (now, now, row["job_definition_id"]),
+        )
+        self._append_event(
+            conn,
+            run_id,
+            JobEventKind(state.value),
+            error_text or state.value.capitalize(),
+            event_json=result_json,
+        )
+        self._apply_result_policy(conn, int(row["job_definition_id"]))
+        return self._run_from_row(self._run_row(conn, run_id))
+
+    def _request_cancel(self, conn: sqlite3.Connection, row: sqlite3.Row) -> bool:
+        if row["state"] not in ("queued", "leased", "running"):
+            return False
+        run_id = int(row["job_run_id"])
+        if not row["cancel_requested"]:
+            conn.execute(
+                "UPDATE job_runs SET cancel_requested=1 WHERE job_run_id=?", (run_id,)
+            )
+            self._append_event(
+                conn, run_id, JobEventKind.CANCEL_REQUESTED, "Cancellation requested"
+            )
+        if row["state"] in ("queued", "leased"):
+            self._finish(
+                conn,
+                row,
+                JobRunState.CANCELLED,
+                error_text="Cancelled before execution",
+            )
+        return True
+
+    def _recover_expired(self, conn: sqlite3.Connection, now: int) -> list[int]:
+        rows = conn.execute(
+            "SELECT * FROM job_runs WHERE state='running' AND (lease_expires_timestamp_ep_k IS NULL OR lease_expires_timestamp_ep_k <= ?)",
+            (now,),
+        ).fetchall()
+        for row in rows:
+            self._finish(
+                conn,
+                row,
+                JobRunState.ABORTED,
+                error_text="Worker lease expired; effects may have occurred. Inspect domain evidence before an explicit retry.",
+            )
+        return [int(row["job_run_id"]) for row in rows]
+
+    def recover_expired_runs(self) -> list[int]:
+        """Record interrupted running attempts without automatically replaying them."""
+        with self._connection(write=True) as conn:
+            return self._recover_expired(conn, now_ep_k())
 
     @staticmethod
     def _load_schedule_json(schedule_json: str | None) -> dict[str, object]:
@@ -912,15 +1254,41 @@ class JobRepository:
             priority=int(row["priority"]),
             concurrency_policy=JobConcurrencyPolicy(str(row["concurrency_policy"])),
             result_policy=JobResultPolicy(str(row["result_policy"])),
-            timeout_s=(float(row["timeout_s"]) if row["timeout_s"] is not None else None),
+            timeout_s=(
+                float(row["timeout_s"]) if row["timeout_s"] is not None else None
+            ),
             max_retries=int(row["max_retries"]),
             retry_backoff_s=float(row["retry_backoff_s"]),
-            heartbeat_timeout_s=(float(row["heartbeat_timeout_s"]) if row["heartbeat_timeout_s"] is not None else None),
-            created_timestamp_ep_k=(int(row["created_timestamp_ep_k"]) if row["created_timestamp_ep_k"] is not None else None),
-            modified_timestamp_ep_k=(int(row["modified_timestamp_ep_k"]) if row["modified_timestamp_ep_k"] is not None else None),
-            last_queued_timestamp_ep_k=(int(row["last_queued_timestamp_ep_k"]) if row["last_queued_timestamp_ep_k"] is not None else None),
-            last_started_timestamp_ep_k=(int(row["last_started_timestamp_ep_k"]) if row["last_started_timestamp_ep_k"] is not None else None),
-            last_finished_timestamp_ep_k=(int(row["last_finished_timestamp_ep_k"]) if row["last_finished_timestamp_ep_k"] is not None else None),
+            heartbeat_timeout_s=(
+                float(row["heartbeat_timeout_s"])
+                if row["heartbeat_timeout_s"] is not None
+                else None
+            ),
+            created_timestamp_ep_k=(
+                int(row["created_timestamp_ep_k"])
+                if row["created_timestamp_ep_k"] is not None
+                else None
+            ),
+            modified_timestamp_ep_k=(
+                int(row["modified_timestamp_ep_k"])
+                if row["modified_timestamp_ep_k"] is not None
+                else None
+            ),
+            last_queued_timestamp_ep_k=(
+                int(row["last_queued_timestamp_ep_k"])
+                if row["last_queued_timestamp_ep_k"] is not None
+                else None
+            ),
+            last_started_timestamp_ep_k=(
+                int(row["last_started_timestamp_ep_k"])
+                if row["last_started_timestamp_ep_k"] is not None
+                else None
+            ),
+            last_finished_timestamp_ep_k=(
+                int(row["last_finished_timestamp_ep_k"])
+                if row["last_finished_timestamp_ep_k"] is not None
+                else None
+            ),
         )
 
     @staticmethod
@@ -941,25 +1309,61 @@ class JobRepository:
         return JobRun(
             job_run_id=int(row["job_run_id"]),
             job_definition_id=int(row["job_definition_id"]),
+            job_name=row["job_name"],
+            retry_of_job_run_id=row["retry_of_job_run_id"],
             job_kind=str(row["job_kind"]),
             trigger_kind=JobTriggerKind(str(row["trigger_kind"])),
             state=JobRunState(str(row["state"])),
             attempt_number=int(row["attempt_number"]),
             worker_id=row["worker_id"],
-            lease_expires_timestamp_ep_k=(int(row["lease_expires_timestamp_ep_k"]) if row["lease_expires_timestamp_ep_k"] is not None else None),
+            lease_token=row["lease_token"],
+            payload_json=row["payload_json"],
+            lease_expires_timestamp_ep_k=(
+                int(row["lease_expires_timestamp_ep_k"])
+                if row["lease_expires_timestamp_ep_k"] is not None
+                else None
+            ),
             cancel_requested=bool(int(row["cancel_requested"] or 0)),
-            not_before_timestamp_ep_k=(int(row["not_before_timestamp_ep_k"]) if row["not_before_timestamp_ep_k"] is not None else None),
-            progress_current=(int(row["progress_current"]) if row["progress_current"] is not None else None),
-            progress_total=(int(row["progress_total"]) if row["progress_total"] is not None else None),
+            not_before_timestamp_ep_k=(
+                int(row["not_before_timestamp_ep_k"])
+                if row["not_before_timestamp_ep_k"] is not None
+                else None
+            ),
+            progress_current=(
+                int(row["progress_current"])
+                if row["progress_current"] is not None
+                else None
+            ),
+            progress_total=(
+                int(row["progress_total"])
+                if row["progress_total"] is not None
+                else None
+            ),
             progress_unit=row["progress_unit"],
             progress_message=row["progress_message"],
             result_json=row["result_json"],
             error_text=row["error_text"],
             log_path=row["log_path"],
-            queued_timestamp_ep_k=(int(row["queued_timestamp_ep_k"]) if row["queued_timestamp_ep_k"] is not None else None),
-            started_timestamp_ep_k=(int(row["started_timestamp_ep_k"]) if row["started_timestamp_ep_k"] is not None else None),
-            heartbeat_timestamp_ep_k=(int(row["heartbeat_timestamp_ep_k"]) if row["heartbeat_timestamp_ep_k"] is not None else None),
-            finished_timestamp_ep_k=(int(row["finished_timestamp_ep_k"]) if row["finished_timestamp_ep_k"] is not None else None),
+            queued_timestamp_ep_k=(
+                int(row["queued_timestamp_ep_k"])
+                if row["queued_timestamp_ep_k"] is not None
+                else None
+            ),
+            started_timestamp_ep_k=(
+                int(row["started_timestamp_ep_k"])
+                if row["started_timestamp_ep_k"] is not None
+                else None
+            ),
+            heartbeat_timestamp_ep_k=(
+                int(row["heartbeat_timestamp_ep_k"])
+                if row["heartbeat_timestamp_ep_k"] is not None
+                else None
+            ),
+            finished_timestamp_ep_k=(
+                int(row["finished_timestamp_ep_k"])
+                if row["finished_timestamp_ep_k"] is not None
+                else None
+            ),
         )
 
     @staticmethod
@@ -983,8 +1387,12 @@ class JobRepository:
             event_kind=JobEventKind(str(row["event_kind"])),
             event_message=row["event_message"],
             event_json=row["event_json"],
-            created_timestamp_ep_k=(int(row["created_timestamp_ep_k"]) if row["created_timestamp_ep_k"] is not None else None),
+            created_timestamp_ep_k=(
+                int(row["created_timestamp_ep_k"])
+                if row["created_timestamp_ep_k"] is not None
+                else None
+            ),
         )
 
 
-__all__ = ["JobRepository"]
+__all__ = ["JobRepository", "JobLeaseLost", "JobRequestConflict"]

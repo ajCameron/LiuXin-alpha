@@ -4,7 +4,7 @@ Date: 2026-07-25
 
 > Superseded for current interface work by the Core API `2.0`
 > [whole-program audit](core-program-api-audit-2026-07-28.md) and
-> [Core API contract](../dev-docs/core-api.md). This note remains the
+> [Core API contract](../dev-docs/core/core-api.md). This note remains the
 > historical v1 foundation checkpoint.
 
 ## Outcome
@@ -15,7 +15,7 @@ stable handlers return the same transport-shaped values on both paths.
 
 The foundational v1 API phase was complete enough to begin interface
 consolidation. The current durable contract is:
-[Core API contract](../dev-docs/core-api.md).
+[Core API contract](../dev-docs/core/core-api.md).
 
 ## Implemented
 

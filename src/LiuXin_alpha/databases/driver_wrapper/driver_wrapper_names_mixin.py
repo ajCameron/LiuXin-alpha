@@ -191,8 +191,9 @@ class DriverWrapperNamesMixin:
 
         Requires get_link_table_name() to find a table, otherwise raises
         InputIntegrityError. Appends the stringified column_type to that table's column
-        base. A heading absent from the link table raises DatabaseIntegrityError; no False
-        sentinel is returned.
+        base. Backends may resolve a generated name to their physical identifier
+        representation, but the result must be an actual discovered heading.
+        Missing headings raise DatabaseIntegrityError; no False sentinel is returned.
 
         Example:
             >>> wrapper.get_link_column("agents", "works", "type")  # doctest: +SKIP
@@ -223,6 +224,11 @@ class DriverWrapperNamesMixin:
         link_col = link_col_base + "_" + six_unicode(column_type)
 
         allowed_columns = self.get_column_headings(link_table)
+        if link_col not in allowed_columns:
+            # Inspect the class: legacy drivers synthesize missing instance attributes.
+            resolver = getattr(type(self.driver), "_physical_identifier", None)
+            if callable(resolver):
+                link_col = resolver(self.driver, link_col)
         if link_col not in allowed_columns:
             err_str = "column_type not recognized"
             err_str = default_log.log_variables(

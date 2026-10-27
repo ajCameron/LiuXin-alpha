@@ -13,7 +13,7 @@ Example:
 
 from collections import defaultdict, OrderedDict
 
-from LiuXin_alpha.customize.cache.base_tables import (
+from LiuXin_alpha.plugins.cache.base_tables import (
     BaseOneToOneTable,
     BasePathTable,
     BaseSizeTable,
@@ -26,8 +26,8 @@ from LiuXin_alpha.errors import InvalidCacheUpdate
 from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems
 from LiuXin_alpha.utils.logging import default_log
 
-from LiuXin_alpha.customize.cache.base_tables import ONE_ONE, null
-from LiuXin_alpha.customize.cache.base_tables import BaseCoversTable
+from LiuXin_alpha.plugins.cache.base_tables import ONE_ONE, null
+from LiuXin_alpha.plugins.cache.base_tables import BaseCoversTable
 
 from LiuXin_alpha.utils.language_tools import plural_singular_mapper
 

@@ -1,7 +1,7 @@
 # P00 — bounded documentation programme, 2026-09-12
 
-Saved the [completion plan](../dev-docs/project-docstrings-completion-plan.md) and
-[exact work inventory](../dev-docs/project-docstrings-work-units.json), linked from
+Saved the [completion plan](../dev-docs/hacking/project-docstrings-completion-plan.md) and
+[exact work inventory](../dev-docs/hacking/project-docstrings-work-units.json), linked from
 the developer index. Reconciled the
 [paused twelve-file batch](project-docstrings-catalog-exact-repositories-2026-09-12.md)
 and refreshed the current memory/index counts. No production or test source edits.

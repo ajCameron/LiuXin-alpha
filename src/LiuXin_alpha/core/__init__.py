@@ -22,6 +22,7 @@ from __future__ import annotations
 
 from .api import CoreAPI, CoreClientAPI
 from .application_api import CoreApplicationAPI
+from .authorization import CoreAuthorizationError, CoreTransportPolicy
 from .commands import CoreCommand, CoreCommandResult
 from .description import (
     CoreEndpointDescription,
@@ -53,11 +54,16 @@ from .proxies import (
 )
 from .queries import CoreQuery, CoreQueryResult
 from .runtime import CoreRuntime
+from .readonly import CoreReadClientAPI, ReadOnlyCoreClient
 from .services import CoreServiceReconciliationError, CoreServices
 from .transport import CoreHttpDaemon
 from .wire import CoreWireError, to_wire
 
 __all__ = [
+    "CoreReadClientAPI",
+    "ReadOnlyCoreClient",
+    "CoreAuthorizationError",
+    "CoreTransportPolicy",
     "CoreRuntime",
     "CoreAPI",
     "CoreClientAPI",

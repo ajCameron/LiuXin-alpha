@@ -1,491 +1,303 @@
-
-As it transpires, as I'm sure will be familiar to anyone who has engaged in any archival work at all, designing a 
-database to comprehensively store metadata is very hard.
-
-LiuXin has taken inspiration from Functional Requirements for Bibliographic Records (FRBR).
-
-As such, LiuXin includes the following top level tables.
-
-Work – “distinct intellectual or artistic creation”
-Expression – “intellectual or artistic realization of a work”
-Manifestation – “physical embodiment of an expression”
-Item (exemplaire [copy]) – “single exemplar of a manifestation”
-
-# Top Level Tables
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-There are a number of link tables - the reason for the existence of some of them is obvious. Some of them less so.
-
-########################################################################################################################
-
-book_cover_links
-
-Covers from the covers table can be linked to a book - it's assumed that this is the cover for the work in question. Any
-number of covers can be linked to the same work - but the priority of that entry must be unique
-CONSTRAINTS
-- cover_title_link_cover_id & cover_title_link_title_id must be a unique combination (cover can only be assigned to a
-- title once and only once)
-- as must cover_title_link_title_id & cover_title_link_priority - no two covers linked to the same title can have the
-  same priority.
-COLUMNS
- - priority - Used to determine the display cover for a book - the one with the highest priority is displayed
- - type - from_file, from_web - where the file comes from
-
-book-file_links
-
-Files can be moved around the FolderStores - they don't need to stay in the books that they where originally entered
-into. So some way of finding all the files associated with a book is needed - this link table links every file to one
-and only one book.
-CONSTRAINTS
-- the combination of book_file_link_book_id & book_file_link_file_id must be unique (no file is assigned to the same
-  book twice)
-- book_file_link_file_id must be unique (each file is assigned to a maximum of one book)
-- Todo: priority for a file in a book must be unique (if the priority is not None)
-COLUMNS
- - priority - Used to provide a global order for the files and formats
-
-book-folder_links
-
-Books are also linked to folders - which are the default places to put new formats when they are added to a book (so
-you can link a single folder to every book in a series and have any new formats added to any of those books turn up in
-the series folder instead)
-CONSTRAINTS
-- the combination of book_folder_link_book_id & book_folder_link_folder_id must be unique (no folder is assigned to the
-  same book twice)
-COLUMNS
- - priority - Used to order the folders linked to a book - tells you where to preferentially put new formats when
-              they're added to the book. Also provides an ordering for the book folders when they're displayed
-
-
-########################################################################################################################
-
-Comments will be eventually renamed to reviews
-
-comment_creator_links
-
-Reviews for a creator
-CONSTRAINTS
- - comment_creator_link_comment_id must be unique - a comment can be assigned to one and only one creator
-COLUMNS
- - priority - Provides a good ordering of the comments linked to a creator
- - type - Where did the review come from?
-
-comment_series_links
-
-Reviews for a series
-CONSTRAINTS
- - comment_series_link_comment_id must be unique - a comment can be assigned to one and only one series
-COLUMNS
- - priority - Provides a good ordering of the comments linked to a series
- - type - Where did the review come from?
-
-comment_title_links
-
-Reviews for a title
-CONSTRAINTS
- - comment_title_link_comment_id must be unique - a comment can be assigned to one and only one title
-COLUMNS
- - priority - Provides a good ordering for the comments linked to a title
- - type - Where did the review come from?
-
-########################################################################################################################
-
-cover_creator_links
-
-Covers can also be assigned to creators - in this case it might be an image of the creator. Any number of covers can be
-assigned to the same creator - but the priority of those covers must be unique
-CONSTRAINTS
- - cover_creator_link_cover_id & cover_creator_link_creator_id must be a unique combination
- - cover_creator_link_creator_id & cover_creator_link_priority - ensures that two covers with the same priority are not
-   applied to the same creator
-COLUMNS
- - priority
-
-cover_series_links
-
-Covers can also be applied to series as well. Because why not? Same restrictions apply.
-CONSTRAINTS
- - cover_series_link_series_id & cover_series_link_cover_id must be a unique combination
- - cover_series_link_series_id & cover_series_link_priority must be a unique combination
-COLUMNS
- - priority
-
-########################################################################################################################
-
-# Todo: Merge
-creator_folder_links
-
-Stores the relationship between the creators table and the folders table - creators can be linked to folders which is
-where new books by them will be created by default.
-CONSTRAINTS
-- creator_folder_link_creator_id & creator_folder_link_folder_id must be a unique combination
-COLUMNS
- - priority - Order of the creators linked to the folder. Used to determine the creator folder to be returned.
-
-creator-folder_links
-
-Creators, and combinations of creators (i.e. books with multiple authors) can be assigned to folders. By default books
-by these creators are placed inside their corresponding folders.
-A single creator can have multiple folders in different folder_stores (but, ideally, not multiple folders in the same
-folder store)
-CONSTRAINTS
-- creator_folder_link_creator_id & creator_folder_link_folder_id must be unique (folders can be assigned to multiple
-  creators, but not the same creator twice)
-- creator_folder_link_folder_id & creator_folder_link_priority must be unique - folders are linked to a creator with
-  unique priority
-COLUMNS
- - priority - Used to find the folder with the highest priority link to the creator
-
-creator-language_links
-
-Creators can be linked with a language - to indicate the language that they work in most often.
-There is no need for additional details.
-CONSTRAINTS
-- creator_language_link_creator_id must be unique - Each creator can work in one and only one language
-COLUMNS
- - None - No additional columns are needed to parametrize the link
-
-creator_note_links
-
-Creators can be tagged with a note. Can include information such as their bibliography or their biography.
-CONSTRAINTS
- - creator_note_link_creator_id & creator_note_link_note_id combination must be unique (the same note can be applied
-   once and only once the same creator)
- - creator_note_link_note_id - Each note can be applied to one, and only one, creator
-COLUMNS
- - priority - Provides a strict ordering of the notes assigned to a creator
- - type - There are different types of note - bio, e.t.c
-
-creator_series_links
-
-One and only one creator can be linked to a series as the principle creator of that series - this serves to uniquely id
-the series - the name and the principle author combination should be unique
-CONSTRAINTS
- - creator_series_link_creator_id & creator_series_link_series_id must be a unique combination
- - creator_series_link_series_id must be unique - each series can have one and only one designated creator
-COLUMNS
- - None
-
-creator_tag_links
-
-Tags can be applied to a creator which describe them.
-CONSTRAINTS
- - creator_tag_link_creator_id & creator_tag_link_tag_id must be a unique combination
-COLUMNS
- - None
-
-creator_title_links
-
-The creators of a work - the type informs what role the creator played in the work, for example 'author', 'editor' e.t.c
-CONSTRAINTS
- - creator_title_link_creator_id & creator_title_link_title_id must be a unique combination
- - creator_title_link_title_id & creator_title_link_priority must be unique - every
-   creator attached to a work MUST have a defined priority.
-COLUMNS
- - priority - Order of the creators in the title
- - type - The role the creator played in the work
-
-########################################################################################################################
-
-device_file_links
-
-Notes if a file is present on a given device or not.
-CONSTRAINTS
- - device_file_link_file_id & device_file_link_device_id must be a unique combination - the file can either be on the
-   device or not.
-COLUMNS
- - None
-
-device_note_links
-
-Any device recognized by the devices table can have a note applied to it. One and only one note.
-CONSTRAINTS
- - device_note_link_device_id & device_note_link_note_id must be a unique combination
- - device_note_link_note_id - A note can be applied once
- - device_note_link_device_id & device_note_link_priority - Must be a consistent ordering of priority for notes attached
-   to a device
-COLUMNS
- - Priority - Strict order for any notes assigned to the file
-
-########################################################################################################################
-
-file_folder_links
-
-Files are physically organized into folders on the file system. This indicated where the database believes the file
-should be - which allows it to be indexed and retrieved.
-CONSTRAINTS
-- file_folder_link_file_id & file_folder_link_folder_id must be a unique combination - the file can be in one and only
-  one folder at the same time.
-COLUMNS
- - None - Just an indicator of which file is in which folder
-
-file_identifier_links
-
-# Todo: Pull the type column from the identifiers table
-This is separate from the identifier_title_links because it's possible that there are different versions of the book
-present in the files. This marks then with their unique identifiers - thus allowing them to be distinguished.
-CONSTRAINTS
-- file_identifier_link_identifier_id & file_identifier_link_file_id must be different
-COLUMNS
- - type - The type of identifier
- - priority - Used to delineate a primary id for a column (for compatibility)
-
-file_language_links
-
-The language of a file - should be the primary language of a file.
-CONSTRAINTS
-- file_language_link_file_id & file_language_link_language_id must be a unique combination
-COLUMNS
- - None
-
-file_publisher_links
-
-The publisher of a file. The people responsible for actually putting it out the door.
-CONSTRAINTS
-- file_publisher_link_file_id & file_publisher_link_publisher_id - the file can have one and only one publisher
-COLUMNS
- - None
-
-########################################################################################################################
-
-folder_series_links
-
-Folders can be assigned to series - used to represent the series structure on disk.
-CONSTRAINTS
- - folder_series_link_folder_id & folder_series_link_series_id - folder can only be linked to a series once
-COLUMNS
- - priority - Used to set the order in which series linked to the folder should be retrieved
-
-Todo: Why can;t you put things in alpahbetical order?
-
-series_folder_links
-
-Series can also be associated with folders - this is where books in that series are placed by default.
-The usual structure of a folder tree is creators - series tree folders - books
-Each series can be associated with multiple folders - they might be in the folders associated with different authors,
-for example
-A folder can also be linked to multiple series - which might happen if you'd decided to merge the physical location of
-two series while retaining their separation on the database.
-CONSTRAINTS
-- series_folder_link_series_id & series_folder_link_folder_id - One folder cannot be linked to a series more than once.
-  It confuses the system.
-COLUMNS
- - priority -
-
-########################################################################################################################
-
-folder_store_note_links
-
-Allows you to apply a note to a folder_store.
-CONSTRAINTS
-- folder_store_note_link_folder_store_id & folder_store_note_link_note_id must be a unique combination - each folder
-  store can have one and only one note applied to it.
-- folder_store_note_link_note_id - A note can be applied once to a folder_store (and, ideally, universally, but that
-  is hard to check in SQL).
-COLUMNS
- - priority - Used to order the notes assigned to the folder_store
-
-########################################################################################################################
-
-genre_series_links
-
-The genre a series falls into.
-CONSTRAINTS
-- genre_series_link_genre_id & genre_series_link_series_id combination must be unique - apply the same genre to a series
-  once and only once
-COLUMNS
- - priority - Display order for the genre of the series
-
-genre_title_links
-
-Links titles to the genre they fall under.
-CONSTRAINTS
-- genre_title_link_genre_id & genre_title_link_title_id combination must be unique - apply the same genre to a title
-  once and only once
-COLUMNS
- - priority - Used to order the genres assigned to the title
-
-########################################################################################################################
-
-identifier_title_links
-
-Links which indicate identifiers for the title - the type of identifier is stores over in the identifiers table.
-CONSTRAINTS
-- identifier_title_link_identifier_id & identifier_title_link_title_id must be different
-- identifier_title_link_identifier_id must be unique - identifiers can only be linked to a single title
-COLUMNS
- - priority - Need for compatibility
- - type - The type of identifier linked to the title
-
-########################################################################################################################
-
-language_title_links
-
-The language that the title was originally published in (
-CONSTRAINTS
- - language_title_link_language_id & language_title_link_title_id & language_title_link_type must be unique -
-   apply the same language to the title in the same way once and only once
-COLUMNS
- - type - The way in which the language is involved with the title
-
-########################################################################################################################
-
-note_publisher_links
-
-Make a note about a publisher.
-CONSTRAINTS
-- note_publisher_link_note_id & note_publisher_link_publisher_id - the same note cannot be applied to the same publisher
-  twice
-- note_publisher_link_note_id - A note can be applied once and only once (also accomplishes the above)
-- note_publisher_link_publisher_id & note_publisher_link_priority - Any notes applied to a given publisher must have a
-  unique priority.
-COLUMNS
- - priority - Gives an ordering for the notes associated with a publisher
- - type - What does the note represent?
-
-note_series_links
-
-Make a note about a series - could be a synopsis of it - something like that.
-CONSTRAINTS
-- note_series_link_note_id & note_series_link_series_id - note is applied to a series once and only once
-- note_series_link_note_id - Each note is applied once and only once.
-- note_series_link_series_id & note_series_link_priority - the priority of a note applied to a given series must be
-  unique
-COLUMNS
- - priority - Gives an ordering for the notes associated with the series
- - type - What does the note represent?
-
-note_title_links
-
-Make a note about a title - could be a synopsis, or a general note
-CONSTRAINTS
-- note_title_link_note_id & note_title_link_title_id - note is applied to a title once and only once
-- note_title_link_note_id - Each note is applied once and only once
-- note_title_link_title_id & note_title_link_priority - the priority of a note applied to a given title must be unique
-COLUMNS
- - priority - Gives an ordering for the notes associated with the title
- - type - What does the note represent?
-
-########################################################################################################################
-
-publisher_title_links
-
-Which publishers where responsible for getting the title into print?
-Priority is not especially important - thus there are no restrictions placed on the priority column (and it might not
-even exist)
-CONSTRAINTS
-- publisher_title_link_title_id & publisher_title_link_publisher_id - publisher is to be applied once and only once to
-- each title
-COLUMNS
- - priority - Orders the title associated with the publisher
-
-
-########################################################################################################################
-
-rating_title_links
-
-Ratings for the title - can include multiple different ratings from multiple different sources.
-The ratings table comes pre-filled - what matters is the combination of the rating source and the title_id
-CONSTRAINTS
- - rating_title_link_title_id & rating_title_link_type - the combination must be unique (so you can have up to one
-   rating of each type associated with a given title record)
-COLUMNS
- - type - Priority is not needed - as each type of rating should appear once and only once.
-
-########################################################################################################################
-
-series_synopsis_links
-Todo: The three types of comment should be note, review and synopsis - changed comment to be review
-Todo: Make synopsis just another type of note
-Series can have synopsis assigned to them
-CONSTRAINTS
-- series_synopsis_link_synopsis_id - synopsis can be linked to one and only one title
-COLUMNS
- - priority - used to order the synopsis linked to the series
-
-series_tag_links
-Series can have tags applied to them - said tag is then used when searching for any books in the series
-CONSTRAINTS
-- series_tag_link_series_id & series_tag_link_tag_id - the same tag can't be applied to a series more than once
-COLUMNS
- - None - None are needed
-
-series_title_links
-
-Titles can be in series. Did not see this coming.
-CONSTRAINTS
- - title_series_link_title_id & title_series_link_series_id - a title cannot appear in the same series twice. Even in
-   different positions.
- - title_series_link_title_id & title_series_link_priority - Each title must have a well defined priority order.
-COLUMNS
- - priority - Used to order the series linked to the title
- - index - The position of the title in the series
-
-########################################################################################################################
-
-subject_title_links
-
-titles can be linked into the subject tree - they can be linked in in multiple places (as a book may have many different
-topics).
-CONSTRAINTS
-- subject_title_link_title_id & subject_title_link_subject_id - Each title can be linked to a subject a maximum of once
-COLUMNS
- - priority - Used to order the subjects in the title
-
-
-########################################################################################################################
-
-synopsis_title_links
-Todo: Synopsis is not just another kind of note - split down into the three note, review and synopsis
-Titles can have synopsis. Links titles and synopsis
-CONSTRAINTS
- - synopsis_title_link_synopsis_id - synopsis can be linked to one and only one title
-COLUMNS
- - priority - Orders the synopsis linked to the title
-
-
-########################################################################################################################
-
-tag_title_links
-
-Tags can be applied to titles.
-CONSTRAINTS
-- tag_title_link_tag_id & tag_title_link_title_id - the same tag cannot be applied more than once to the same title
-COLUMNS
- - None - None are needed
-
-
-## Storage-facing payload graph
-
-The storage-facing side of the schema now uses `items -> digital_assets -> asset_replicas`.
-
-This replaces the older temptation to let one `files` table stand in for:
-
-- the library-facing exemplar
-- the storage-managed payload
-- the concrete copy on a store
-
-That split is now explicit.
-
-See `dev-docs/database/04 - Digital assets, replicas and storage policy.md` for the detailed rationale and table breakdown.
+# Database schema
+
+Source review: **2026-10-20**, against the working tree based on `fc5de7af`.
+The fresh-build inventory below was recorded on **2026-10-19** from the packaged
+FRBR SQLite generator; it is a dated snapshot, not a migration/version identifier.
+
+Status: **Current schema overview; backend and migration limits are explicit.**
+
+The schema separates bibliographic identity from physical storage. Work,
+Expression, Manifestation and Item records describe what a library holds.
+Digital assets describe payloads; replicas describe copies on particular stores.
+Catalog owns bibliographic operations, storage owns physical operations, and
+databases supplies persistence and structural constraints. See the
+[ownership guide](<04 - Seperation of Concerns.md>) for those boundaries.
+
+This page describes the generated schema, not every column or every backend.
+The packaged SQL, TOML declarations and backend builders are the authority for
+physical tables and constraints. Historical database files may have different
+columns; opening one does not imply that every current schema change was applied.
+
+## Where the schema is defined
+
+The [FRBR generator][generator] builds an empty SQLite database in stages:
+
+| Input | Responsibility |
+| --- | --- |
+| [Table SQL][table-sql] | Explicit entity, storage, policy, workflow and database-metadata tables. |
+| [Interlink declarations][interlinks] | Relations between table families, cardinality, optional relation columns and allowed roles. |
+| [Intralink declarations][intralinks] | Relations within an entity family, including typed and symmetric relations. |
+| [Trigger SQL][trigger-sql] | Additional structural, timestamp, storage and workflow guards. |
+| [Aggregate configuration][aggregates] and [view SQL][views] | Enabled read projections and compatibility views. |
+| [Column policies][column-policy-source] and [identity declarations][identity-source] | Seeded per-column policy and derived row-identity contracts. |
+
+The builder also seeds reference data such as languages. It commits between
+stages: a full build is not an atomic schema migration and must not be used as
+an upgrade routine on an existing library.
+
+PostgreSQL has its own [schema builder][postgres-schema] and
+[Catalog relationship generator][postgres-links], which reuse supported shared
+declarations. The SQLite views, triggers and complete object inventory below do
+not establish PostgreSQL parity. Use the [PostgreSQL runbook](databases/postgresql-backend.md)
+and backend contract tests for that deployment.
+
+## The bibliographic graph
+
+| Table | Meaning | Typical facts |
+| --- | --- | --- |
+| `works` | An intellectual or artistic creation | Canonical title, original context, broad classification. |
+| `expressions` | A realization of a Work | Translation, revision, narration, language and mode. |
+| `manifestations` | A publication or product embodiment | Edition, format, publication date and stable product characteristics. |
+| `items` | An individual owned or observed copy | Acquisition, inventory, condition, source and lifecycle. |
+
+For example, a novel is a Work; an English text and an audiobook narration can
+be different Expressions; an EPUB edition and an audiobook release can be
+Manifestations; a particular acquired copy is an Item.
+
+```mermaid
+flowchart LR
+    W[works] -->|expression_work_links: many to many| E[expressions]
+    E -->|expression_manifestation_links: many to many| M[manifestations]
+    M -->|items.item_manifestation_id| I[items]
+    I -->|digital_asset_item_links| A[digital_assets]
+    I -->|composite_digital_asset_item_links| C[composite_digital_assets]
+    C -->|ordered member links| A
+    A -->|asset_replicas.asset_replica_digital_asset_id| R[asset_replicas]
+    R -->|asset_replica_store_id| S[stores]
+```
+
+Arrows show navigation between records, not Python dependencies or an operation's
+transaction boundary.
+
+### Work, Expression and Manifestation links
+
+`expression_work_links` and `expression_manifestation_links` are many-to-many.
+An Expression can participate in more than one Work, and a Manifestation can
+embody several Expressions. These relations support compilations, shared
+realizations and multi-expression editions; the schema is not a strict tree.
+
+Both link tables carry `priority`, `primary` and `origin` fields, along with the
+standard source/timestamp/scratch fields. A `primary` marker supports selection
+of a preferred path; its presence does not turn the relation into a one-to-one
+foreign key.
+
+`items.item_manifestation_id` is a direct foreign key, so an Item has at most
+one Manifestation. It is nullable to support staged/blank-row construction.
+A structurally insertable placeholder is not necessarily a complete Catalog
+record. Catalog workflows establish the required bibliographic relationships.
+
+The [worked link examples](databases/wemi-link-examples.md) show the actual rows
+for translations, bilingual editions, a novel with a separate introduction,
+omnibuses, shared Expressions, primary selection and individual copies. They also
+distinguish default-view selection from Catalog bundle retrieval and follow an
+Item through its asset and replicas.
+
+### Agents and credits
+
+`agents` represents people, organisations, groups and pseudonyms. Optional
+`human_agents` and `org_agents` sidecars hold subtype-specific facts; each populated
+sidecar reference is unique to its Agent. `org_agent_relations` holds relationships
+between organisation Agents.
+
+Credits connect the Agent to the relevant WEMI level through generated tables such
+as `agent_work_links` and `agent_manifestation_links`. The relation's type carries
+the role, such as author, translator or publisher; priority orders credits where
+supported. Role vocabularies come from the shared metadata contracts. New code
+must not reconstruct a separate `creators` or `publishers` entity model from the
+old link-table descriptions.
+
+### Identifiers and other metadata
+
+`entity_identifiers` stores curated identifiers with an entity type and entity ID;
+`item_identifiers` stores identifiers observed on a particular Item, with their
+source. Observed input and curated identity are distinct contracts. Metadata owns
+scheme/value rules and Catalog validates semantic writes; SQL checks alone do not
+prove that an ISBN, DOI or other value is valid.
+
+Tags, labels, genres, subjects, series, ratings, comments, synopses, notes and
+annotations retain separate entity tables. Relations attach them at the declared
+levels. The hierarchy fields on genres, subjects and series have their own
+contracts; do not assume every pair of metadata tables has a generated link.
+See the [Catalog API](catalog/catalog-api-usage.md) for supported operations.
+
+## Digital assets and physical copies
+
+### Atomic assets
+
+`digital_assets` holds atomic payload metadata: names, media information, size,
+hashes, source, integrity observations and policy references. An asset does not
+contain its one authoritative store path; the same payload can have several
+replicas.
+
+`digital_asset_item_links` associates an asset with an Item. Its type records the
+attachment role, for example `primary_payload`, `cover`, `metadata_sidecar` or
+`derived_output`. The relation can also carry priority, primary selection and
+provenance. An asset can have different roles for different Items.
+
+### Composite assets
+
+`composite_digital_assets` is a separate table for multipart assemblies, such as
+an audiobook whose chapters are individual audio files. It connects to Items
+through `composite_digital_asset_item_links` and to atomic members through
+`composite_digital_asset_digital_asset_links`.
+
+Membership carries `sequence_number`, `is_required`, a role/type and provenance.
+Replicas refer to the atomic members, not to the composite row. The current schema
+does not use a `digital_asset_kind` discriminator or a `digital_asset_compositions`
+table; those belong to an earlier design.
+
+Composition says which assets form an assembly. Derivation says that one asset
+was produced from another. `digital_asset_derivations`, `transform_runs`,
+`transform_run_inputs` and `transform_run_outputs` retain execution/lineage data.
+Their presence alone does not establish a complete reproducible-build record.
+The durable storage repository also persists typed recipes/provenance in versioned
+envelopes; not every field is projected into a dedicated SQL column. The
+[storage API](storage_and_backup/storage_api.md#derivation-and-exact-recreation)
+defines recipe completeness, recoverable inputs and the remaining execution limits.
+
+### Replicas, stores and folders
+
+`asset_replicas` connects an atomic asset to a store and a store-relative key.
+It records mode, presence, observed hashes and verification state. The mode is
+one of `active`, `backup`, `archive`, `cache`, `transient` or `unmanaged`.
+
+`stores` records backend location/configuration, capabilities, failure domain,
+region, tags and default policy references. `folders` is an optional hierarchy
+within a store. A replica can name a folder; a populated folder reference must
+agree with the replica's store.
+
+The SQLite schema includes a unique `(store, storage_key)` index, guards against
+blank keys, URI schemes and leading path separators, and checks that active/backup/archive modes
+are supported by the selected store. Several foreign-key fields remain nullable
+for staged records. These guards do not replace storage's path containment,
+backend capability checks, transfer execution or integrity verification.
+
+### Storage policy and operational state
+
+`replication_policies` and `backup_policies` describe desired copies, placement
+constraints and verification/retention inputs. Assets and composites have policy
+references; stores and folders have default policy references. Resolving and
+applying defaults is storage behaviour, not an inference from foreign keys alone.
+
+Current SQLite copy minima permit zero (`>= 0`), while a supplied target must be
+at least its minimum. This does not by itself encode the full retention/loss
+semantics of every storage API. Consult the [storage status](storage_and_backup/storage_component_status.md)
+and [policy design notes](<databases/04 - Digital assets, replicas and storage policy.md>)
+when changing those contracts.
+
+Storage ingest journals, schema-migration records, backup workflow/state/output
+tables and item/asset workflow events support recovery and execution tracking.
+They do not transfer task scheduling or bibliographic policy into the database.
+A table's existence also does not prove that every proposed workflow is implemented.
+
+## How to read a relationship table
+
+Generated interlinks normally use singular endpoint prefixes in a physical name
+such as `agent_work_links`. Intralinks connect rows of the same family, for example
+`work_work_intralinks`. Their TOML declarations decide cardinality and capabilities;
+a name alone does not tell you whether a relation is typed, ordered or exclusive.
+
+| Relation field | Meaning |
+| --- | --- |
+| Endpoint IDs | The related entity rows. |
+| `type` | A semantic role or relation kind, when requested. Typed relations can have a generated `__types` vocabulary table. |
+| `priority` | Relation ordering, when requested. It is independent of type. |
+| `primary` | Preferred-selection information for declarations that request it. |
+| `origin` / `source` | Provenance fields; they do not replace the semantic role. |
+| `sequence_number` / `is_required` | Ordered composite membership and required-member information on that relation. |
+
+Not every relation has every column, and cardinality/uniqueness rules vary.
+Use schema introspection and [link capabilities](databases/link-capabilities.md)
+rather than inventing table/column names. Even a one-to-one relation does not
+by itself prove that the destination row is owned and may be deleted with its
+source; Catalog writers use explicit ownership metadata.
+
+## Column policy and normalized identity
+
+`column_metadata` describes physical columns: semantic role, comparison,
+normalization, empty-value handling, merge policy and presentation hints. A stored
+validation-profile name is declarative metadata; Catalog still has to invoke the
+validator before a semantic write.
+
+`normalized_identities` declares the subset of values whose derived keys identify
+rows, including scope and uniqueness. Current tags, labels, genres, subjects and
+series use `unicode_nfkc_whitespace_casefold`: NFKC, case folding and whitespace
+collapse, retaining punctuation and all words. Genres and subjects also retain
+parent scope. Names such as `tag_phash` are historical column spellings, not a
+reason to substitute a different identity algorithm.
+
+Supported write adapters derive those keys from source values, and unique indexes
+provide the final collision guard. Approximate matching and display sorting remain
+separate policies. Reads do not silently repair historical keys. See
+[column metadata](databases/column-metadata.md) and the
+[Catalog write contract](catalog/catalog-write-validation-contract.md).
+
+Other administrative tables hold library/database identity, versions, database-local
+preferences, custom-column declarations and plugin data. Database-local preferences
+are distinct from Core's [application configuration](core/configuration-ownership.md).
+
+## Views and retained compatibility tables
+
+The enabled aggregate SQL creates read projections over the graph:
+
+- `wemi_rays_v`: Work–Expression–Manifestation paths.
+- `wemi_primary_rays_v`: one selected default path per Work.
+- `wemi_ray_items_v` and `wemi_work_stats_v`: Item expansion and summary counts.
+- `titles_v`, `books_v`, `identifiers_v`, `agent_credits_v` and related views:
+  compatibility/display projections.
+- `digital_asset_inventory_v`: direct and composite-member asset attachments with
+  their storage inventory information.
+
+In this schema, `titles`, `books` and `identifiers` are view aliases, not the old
+physical entity tables. A projected `book_id` can be a WEMI path identifier rather
+than an integer Work or Item ID. These projections are intentionally lossy; they
+are not an alternative semantic write API.
+
+Some legacy tables do remain: `files`, `file_derivations`, `new_books` and
+`compressed_files`, for example. Their presence supports retained compatibility
+paths and does not collapse Item, asset and replica responsibilities back into
+one file row. The previous version of this page's `book_*`, `creator_*`,
+`cover_*` and `*_title_links` catalogue described an older schema, not the current
+FRBR generator.
+
+## Inspecting and changing the schema
+
+For an existing SQLite database, inspect the actual object type and columns
+before relying on a guide or a remembered table name:
+
+```sql
+SELECT type, name FROM sqlite_master
+WHERE name IN ('works', 'expression_work_links', 'digital_assets', 'books', 'titles');
+
+PRAGMA table_info('items');
+PRAGMA foreign_key_list('asset_replicas');
+SELECT * FROM normalized_identities;
+```
+
+For a schema change, update the owning SQL/TOML or backend builder, preserve the
+Catalog/storage contract, and define any migration for existing data explicitly.
+A successful fresh build is not evidence that an older library has been upgraded.
+Schema tests cover [WEMI generation][schema-tests], [relation constraints][link-tests],
+[views][view-tests] and [storage modes/composites][storage-tests]. Use the
+[testing guide](hacking/testing/README.md) for environment and fixture setup.
+
+The [field guide](databases/LiuXin_database_field_guide.md) is a detailed reference
+with older design material still awaiting reconciliation. The
+[schema draft](<databases/00 - Schema Draft.md>) and older SQL notes preserve design
+history; neither overrides the generated schema described here.
+
+[generator]: ../src/LiuXin_alpha/databases/database_driver_plugins/SQL/database_generator_frbr/database_generator.py
+[table-sql]: ../src/LiuXin_alpha/databases/database_driver_plugins/SQL/database_generator_frbr/table_sql/
+[interlinks]: ../src/LiuXin_alpha/databases/database_driver_plugins/SQL/database_generator_frbr/interlink_table_requests.toml
+[intralinks]: ../src/LiuXin_alpha/databases/database_driver_plugins/SQL/database_generator_frbr/intralink_table_requests.toml
+[trigger-sql]: ../src/LiuXin_alpha/databases/database_driver_plugins/SQL/database_generator_frbr/trigger_sql/
+[aggregates]: ../src/LiuXin_alpha/databases/database_driver_plugins/SQL/database_generator_frbr/aggregate_tables.toml
+[views]: ../src/LiuXin_alpha/databases/database_driver_plugins/SQL/database_generator_frbr/aggregate_sql/wemi_views.sql
+[column-policy-source]: ../src/LiuXin_alpha/databases/column_metadata.py
+[identity-source]: ../src/LiuXin_alpha/databases/normalized_identities.py
+[postgres-schema]: ../src/LiuXin_alpha/databases/database_driver_plugins/PostgreSQL/schema.py
+[postgres-links]: ../src/LiuXin_alpha/databases/database_driver_plugins/PostgreSQL/catalog_schema.py
+[schema-tests]: ../tests/databases/test_frbr_wemi_smoke.py
+[link-tests]: ../tests/databases/test_frbr_interlink_constraints.py
+[view-tests]: ../tests/databases/test_frbr_aggregate_views_wemi.py
+[storage-tests]: ../tests/databases/test_frbr_storage_policy_store_modes.py

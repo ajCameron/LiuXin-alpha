@@ -8,7 +8,7 @@ Importing this root does not transfer those responsibilities or establish a
 trusted write path.
 
 See ``dev-docs/04 - Seperation of Concerns.md`` and
-``dev-docs/catalog-write-validation-contract.md`` for the canonical boundaries.
+``dev-docs/catalog/catalog-write-validation-contract.md`` for the canonical boundaries.
 
 Example:
     Exercise   init   through a consuming regression::

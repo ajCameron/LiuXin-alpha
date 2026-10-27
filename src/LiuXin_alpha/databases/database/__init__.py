@@ -187,7 +187,7 @@ class Database(
     """
     Own a database driver, its row facade and optional runtime services.
 
-    Construction may create a schema, repair sentinel rows, start maintenance and load Stores. Most row helpers delegate backend work through driver_wrapper. Use close or a context manager to release database handles; closing attempts to commit pending work, including after a context-body exception. Backend operations and construction are not one atomic transaction.
+    Construction may create a schema, repair sentinel rows, start maintenance and load Stores. Most row helpers delegate backend work through driver_wrapper. Use close or a context manager to release database handles; cleanup rolls back pending work. Explicit semantic write units own their commits. Backend operations and construction are not one atomic transaction.
 
     Database is intentionally not a semantic metadata boundary. Direct row,
     macro, or driver writes may persist any value accepted by storage constraints.
@@ -203,7 +203,7 @@ class Database(
 
     # Legacy convenience aliases (kept for backwards compatibility / test contracts):
     # - conn: primary driver connection
-    # - lock: wrapper lock connection
+    # - lock: wrapper's reentrant mutex; it does not control SQL transactions
     # - execute / executemany / executescript / get: direct-SQL escape hatches
     #   NOTE: these are meaningful only for SQL-like backends (SQLite/sqlite3/apsw, etc.).
     #   Non-SQL drivers may leave them unset.
@@ -246,8 +246,8 @@ class Database(
 
         :param metadata: Connection metadata; None selects the configured default database when no driver is supplied.
         :param db_type: Backend registry name, default SQLite.
-        :param create: Explicitly request schema creation; an existing file may be replaced.
-        :param backup: Back up an existing path before explicit recreation when True.
+        :param create: Explicitly request new schema creation; existing targets are rejected.
+        :param backup: Retained compatibility argument; creation never replaces or backs up an existing target.
         :param existing_driver: Already constructed driver; requires metadata=None.
         :param enable_storage_manager: Load configured Stores after database initialization when True.
         :param strict_storage_manager_bootstrap: Propagate storage loading failures and reject failed reports when True.
@@ -320,10 +320,10 @@ class Database(
     @property
     def driver_wrapper(self) -> DatabaseDriverWrapperAPI:
         """
-        Return the wrapper that provides facade operations and the lock connection.
+        Return the wrapper that provides facade operations and the reentrant mutex.
 
         Example:
-            For an open SQL db, db.driver_wrapper.lock is the wrapper connection rather than the primary driver connection.
+            For an open db, db.driver_wrapper.lock is shared with db.lock; use get_connection() for caller-owned SQL.
 
 
         :return: Current wrapper, or None after cleanup.
@@ -400,7 +400,10 @@ class Database(
         """
         Bind an existing driver, classify its schema and initialize runtime helpers.
 
-        This internal constructor path assumes existence, refreshes metadata and shares table categories before optional repairs. It does not copy the driver metadata or backend type to the facade. Constructor telemetry and queue setup must already exist.
+        This internal constructor path assumes existence and binds the driver/macros
+        before schema discovery and transactional bootstrap repairs. It does not
+        copy the driver metadata or backend type to the facade. Constructor
+        telemetry and queue setup must already exist.
 
         Example:
             Database(existing_driver=driver, enable_storage_manager=False) invokes this path after setting up the facade state.
@@ -414,6 +417,10 @@ class Database(
         # Load the driver constructor - use this to make the driver instance for this database
         self.set_driver(existing_driver)
         self.set_macros(existing_driver.macros)
+        # A standalone driver's macros have no facade yet. Bootstrap repair uses
+        # the facade's transaction owner, so bind it before any repair can run.
+        self.driver.db = self
+        self.macros.db = self
 
         # Load the backend with the driver.
         self.lock = self.driver_wrapper.lock
@@ -478,7 +485,10 @@ class Database(
         """
         Select a backend and create its schema when explicit or required for a new file.
 
-        Capture path existence before loading the driver. Server metadata bypasses file-based automatic creation; explicit create still requests schema creation. Recreating an existing file can back it up and delete it; a new path skips those steps. Reload the driver after creation. Table metadata and repairs require a positive existence check, but runtime wiring is attempted regardless.
+        Capture path existence before opening a driver. Build missing files privately
+        and publish create-only, so a competing creation cannot be overwritten.
+        Explicit server creation requires an absent or empty schema. Only after creation succeeds
+        open the ordinary driver and attach its wrapper.
 
         Example:
             The constructor calls this method for Database(metadata={"database_path": new_path}); a missing file path triggers creation even with create=False.
@@ -486,8 +496,8 @@ class Database(
 
         :param metadata: Connection hints, defaulting to the configured library path.
         :param db_type: Backend registry name.
-        :param create: Force schema creation even when the backend already exists.
-        :param backup: Back up an existing file before recreation.
+        :param create: Request new schema creation, rejecting existing targets.
+        :param backup: Compatibility argument; use replace_database for intentional replacement.
         :param repair_bootstrap_rows: Repair rating and null rows after schema discovery.
         :param enable_maintenance: Enable the background maintenance service.
         :return: None; binds the driver and runtime collaborators.
@@ -498,21 +508,20 @@ class Database(
         db_path = metadata.get("database_path")
         server_database = _metadata_uses_server_database(metadata, db_type)
         path_backed = not server_database
-        path_existed = bool(db_path) and path_backed and db_path != ":memory:" and os.path.exists(db_path)
+        path_existed = bool(db_path) and path_backed and db_path != ":memory:" and os.path.lexists(db_path)
 
         self.metadata = metadata
         self.type = db_type
-        self.set_driver(load_database_driver(db_type)(self.metadata, self))
+        driver_type = load_database_driver(db_type)
 
         if create or (path_backed and not path_existed and db_path not in (None, ":memory:")):
-            if path_existed:
-                self.create_new_database(blank=True, backup=backup)
-            else:
-                self.create_new_database(blank=False, backup=False)
+            initializer = driver_type(self.metadata, self, set_conn=False)
+            try:
+                initializer.direct_create_new_database()
+            finally:
+                initializer.close()
 
-            # reload driver after schema creation
-            self.set_driver(load_database_driver(db_type)(self.metadata, self))
-            self.lock = self.driver_wrapper.lock
+        self.set_driver(driver_type(self.metadata, self))
 
         # Check to see if the database currently exists
         self._exists = self.check_exists()
@@ -638,7 +647,7 @@ class Database(
         """
         Replace the driver and rebuild wrapper, macros and metadata SQL bindings.
 
-        Close the old wrapper first. For a different driver, try committing its primary connection, roll back only if commit fails, then close it and call the driver's close method to release its other connections. Auxiliary transactions are not committed. Cleanup errors are suppressed. Install the new wrapper and convenience aliases, including storage aliases, which may become None. This does not rerun schema discovery, queue wiring or all runtime back-references; failures during new setup leave partial state.
+        Close the old wrapper first. For a different driver, discard pending primary work with rollback, then close it and call the driver's close method to release its other connections. Auxiliary transactions are not committed. Cleanup errors are suppressed. Install the new wrapper and convenience aliases, including storage aliases, which may become None. This does not rerun schema discovery, queue wiring or all runtime back-references; failures during new setup leave partial state.
 
         Example:
             For a compatible open replacement driver, db.set_driver(replacement) releases the previous database connections before constructing its new wrapper.
@@ -647,7 +656,7 @@ class Database(
         :param new_driver: Driver to install; supplying the current driver retains its primary connection.
         :return: None.
         """
-        # Close any existing wrapper (it holds its own SQLite connection for locking)
+        # Release the old wrapper and mutex references without committing SQL.
         old_wrapper = getattr(self, "_driver_wrapper", None)
         if old_wrapper is not None:
             try:
@@ -662,12 +671,9 @@ class Database(
                 conn = getattr(old_driver, "conn", None)
                 if conn is not None:
                     try:
-                        conn.commit()
+                        conn.rollback()
                     except Exception:
-                        try:
-                            conn.rollback()
-                        except Exception:
-                            pass
+                        pass
                     try:
                         conn.close()
                     except Exception:
@@ -684,7 +690,7 @@ class Database(
                 pass
 
         self._driver = new_driver
-        # The wrapper is coupled to the driver and provides a locking connection.
+        # The wrapper is coupled to the driver and provides a reentrant mutex.
         self._driver_wrapper = DriverWrapper(self._driver)
         self.set_macros(self._driver.macros)
         self.set_metadata_sql(MetadataSQL(self))
@@ -761,10 +767,14 @@ class Database(
         """
         Stop maintenance and release database connections with best-effort cleanup.
 
-        Request maintenance stop and wait at most one second for its thread. Close the wrapper or fallback lock, then attempt to commit and close the primary connection; roll back only if that commit fails. Call the driver's close method to release its other connections without committing auxiliary transactions. Suppress ordinary cleanup errors. Repeated calls tolerate cleared state. This does not call StorageManager.close and cannot guarantee every reference cycle is removed.
+        Stop maintenance, release the wrapper, and roll back pending primary work
+        before closing connections. Cleanup never requests a commit. Auxiliary
+        connections belong to the driver and are closed through it. Ordinary cleanup
+        errors are suppressed so later resources still receive cleanup attempts.
+        Callers must finish active operations before closing the facade.
 
         Example:
-            Use db.close() in a finally block to release an open facade; pending primary-connection changes may be committed.
+            Use db.close() in a finally block; commit intended writes explicitly first.
 
 
         :return: None; connection aliases and selected collaborator references are cleared.
@@ -787,7 +797,7 @@ class Database(
         except Exception:
             pass
 
-        # Close the wrapper's lock connection
+        # Release the wrapper. The current lock is a mutex, not a connection.
         try:
             if wrapper is not None and hasattr(wrapper, "close"):
                 wrapper.close()
@@ -795,7 +805,7 @@ class Database(
                 lock = getattr(self, "lock", None)
                 if lock is not None:
                     try:
-                        lock.commit()
+                        lock.rollback()
                     except Exception:
                         pass
                     try:
@@ -811,13 +821,9 @@ class Database(
                 conn = getattr(driver, "conn", None)
                 if conn is not None:
                     try:
-                        conn.commit()
+                        conn.rollback()
                     except Exception:
-                        # If commit fails, try rollback then close
-                        try:
-                            conn.rollback()
-                        except Exception:
-                            pass
+                        pass
                     try:
                         conn.close()
                     except Exception:
@@ -878,10 +884,12 @@ class Database(
         """
         Close the facade and allow a context-body exception to propagate.
 
-        Exception details are ignored by close; pending work may be committed even on an exceptional exit.
+        Both normal and exceptional exits discard pending work. Already committed
+        operations remain durable; this resource context does not group writes.
 
         Example:
-            An exception raised inside with db: propagates after cleanup; use an explicit transaction API when rollback is required.
+            An exception inside with db: propagates after rollback and cleanup;
+            use macros.transaction() to group supported semantic writes.
 
 
         :param exc_type: Exception class passed by the context protocol, or None.
@@ -1090,26 +1098,28 @@ class Database(
         self.driver.make_scratch()
 
     def create_new_database(self, blank: bool = True, backup: bool = True) -> None:
+        """Request create-only initialization; never delete an existing database.
+
+        ``blank`` and ``backup`` remain accepted for source compatibility but cannot
+        authorize replacement. Use the separately named offline replacement operation.
         """
-        Optionally back up and delete the database before requesting schema creation.
-
-        Operations run in backup, deletion, creation order. No rollback, driver reload or metadata refresh occurs here; backend failures propagate after any earlier side effects.
-
-        Example:
-            On a disposable configured backend, db.create_new_database(blank=False, backup=False) requests creation without first backing up or deleting it.
-
-
-        :param blank: Delete the existing database through the driver before creation.
-        :param backup: Request a backup before any deletion or creation.
-        :return: None.
-        """
-        if backup:
-            self.driver.direct_backup()
-
-        if blank:
-            self.driver.direct_self_delete()
-
         self.driver.direct_create_new_database()
+
+    @classmethod
+    def replace_database(cls, metadata, *, backup_path, db_type: str = "SQLite"):
+        """Replace an offline file database after preparing a verified recovery backup.
+
+        Stop all database users first. The required backup path must be absent and
+        separate from the target. Preparation/backup failures preserve the original;
+        a published backup remains available if the final atomic replacement fails.
+        PostgreSQL replacement is unsupported by this file operation.
+        No facade is opened or returned; open the resulting database normally afterward.
+        """
+        driver = load_database_driver(db_type)(metadata, db=None, set_conn=False)
+        try:
+            return driver.direct_replace_database(backup_path=backup_path)
+        finally:
+            driver.close()
 
     # ----------------------------------------------------------------------------------------------------------------------
     #

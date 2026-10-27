@@ -2,7 +2,9 @@
 
 Public, development fork of LiuXin. Alpha. DO NOT USE IN PROD.
 
-Start with the [developer documentation index](dev-docs/README.md) for
+Start with the [user guides and manual pages](docs/README.md) for installed
+commands, including [web registration and downloads](docs/web-ingest.md).
+Use the [developer documentation index](dev-docs/README.md) for
 architecture, subsystem guides, testing, and CI ownership. Dated implementation
 handoffs live in the [working-memory index](working-memory/index.md).
 
@@ -31,7 +33,7 @@ The wheel owns its database schema and complete Calibre compatibility-resource
 bundle. Installed HTML-to-EPUB conversion is part of the packaging gate. An
 operator can overlay bundle files with `LIUXIN_CALIBRE_RESOURCES_DIR`; existing
 resource layouts below `LIUXIN_BASE_DIR` remain compatible. See
-`dev-docs/packaging.md` for the exact resolution and dependency boundaries.
+`dev-docs/hacking/packaging.md` for the exact resolution and dependency boundaries.
 
 Activate it with:
 
@@ -53,7 +55,7 @@ smoke coverage across the rest of the project—run:
 ```
 
 The runner also exposes `database` and `smoke` streams; omitting `--stream`
-still runs the full suite. See `dev-docs/test-streams.md` for the
+still runs the full suite. See `dev-docs/hacking/test-streams.md` for the
 selection and maintenance rules.
 
 The full-suite helper also expects this repo-local venv:
@@ -75,11 +77,11 @@ ratcheted modules with Ruff, and runs `basedpyright` and `mypy` over a
 zero-error target. Use `--install` when the `typing` extra still needs to be
 installed or updated. The target is deliberately ratcheted rather than
 claiming that inherited compatibility code is already strict. See
-`dev-docs/maintainability-quality-gates.md` for scope and expansion rules.
+`dev-docs/architectural_reviews/maintainability-quality-gates.md` for scope and expansion rules.
 
 ## Storage ingest CLI
 
-For a new local deployment, initialise a self-contained system root and then
+For a new local Linux deployment, initialise a self-contained system root and then
 point LiuXin at a mounted drive or untidy source tree:
 
 ```bash
@@ -97,7 +99,19 @@ database/login and runs the full backend readiness checker.
 `init` creates the catalogue, a managed primary Store, materialization and log
 directories, plus a non-secret `liuxin-system.json` manifest. It is idempotent
 and does not delete existing catalogue or Store state. The concise `ingest`
-form uses the bounded recursive mixed-file pipeline.
+form uses the bounded recursive mixed-file pipeline and requires a verified
+read-only source mount on Linux. It detects existing directories, SquashFS/ext4
+filesystem images and block devices:
+
+```bash
+sudo liuxin storage ingest "/archives/books.squashfs" --system-root /srv/liuxin
+```
+
+The system selector can be omitted when the invoking account has a saved
+connection; `sudo` may select a different account's configuration. Images and
+devices receive stable, automatically managed mount targets. The explicit
+`--source-root PATH` directory interface retains opt-in mounting and is also
+available on other operating systems.
 
 The full mixed-file ingest surface remains available after installation:
 
@@ -108,7 +122,7 @@ liuxin storage ingest --help
 Use `--discover-only` for classification with no catalogue writes and
 `--preflight-only` to check an intended remote-host run before creating its
 SQLite catalogue or materialization cache. See
-`dev-docs/storage/mixed_ingest_operations.md` for the full run, resume,
+`dev-docs/storage_and_backup/mixed_ingest_operations.md` for the full run, resume,
 logging, locking, signals, reports, and service-supervision contract.
 Completed and interrupted attempts can be inspected without reading JSONL by
 hand:
@@ -118,6 +132,20 @@ liuxin ingest runs list --system-root /srv/liuxin
 liuxin ingest runs issues RUN_UUID --system-root /srv/liuxin
 liuxin ingest runs resume RUN_UUID --system-root /srv/liuxin
 ```
+
+## Web ingest CLI
+
+Web sources can be recorded without mirroring, then downloaded selectively:
+
+```bash
+liuxin ingest web https://example.org/books/ --system-root /srv/liuxin
+liuxin ingest web https://example.org/books/ --download --registered-only \
+  --extension epub --system-root /srv/liuxin
+```
+
+See the [web-ingest guide](docs/web-ingest.md) and `man liuxin-ingest-web` for
+native and wget discovery, limits, provenance and resume. Registration records observed
+links; only verified acquisitions become managed Assets and Replicas.
 
 ## Metadata CLI
 
@@ -133,7 +161,7 @@ liuxin metadata dump-json --database catalogue.sqlite --all --output metadata.js
 
 Every command can instead use `--core-endpoint`. File paths always refer to the
 CLI host and are transferred as bounded bytes; embedded writes create a new
-artifact by default. See `dev-docs/metadata-cli.md` for the complete command,
+artifact by default. See `dev-docs/metadata/metadata-cli.md` for the complete command,
 JSON, atomic-output, in-place safety, and remote-operation contracts.
 
 ## Operational CLI
@@ -168,7 +196,7 @@ explains the selected deployment and
 transfer paths belong to the CLI host; ingest, conversion, and backup workflow
 paths belong to the Core host. HTTP services default to loopback because they
 do not provide built-in authentication or TLS. See
-`dev-docs/operational-cli.md` for the command map and safety contract.
+`dev-docs/surfaces/operational-cli.md` for the command map and safety contract.
 
 ## PostgreSQL Backend
 
@@ -184,5 +212,5 @@ already exist. Server-level role/database provisioning remains explicit in the
 runbook.
 
 ```text
-dev-docs/postgresql-backend.md
+dev-docs/databases/postgresql-backend.md
 ```

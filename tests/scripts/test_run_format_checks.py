@@ -20,6 +20,7 @@ import tomllib
 from pathlib import Path
 
 import pytest
+from ruff import find_ruff_bin
 
 from scripts.run_format_checks import format_paths
 
@@ -71,7 +72,9 @@ def checkout(tmp_path: Path) -> Path:
     (root / "src").mkdir()
     (root / "src/example.py").write_text("answer = 42\n")
     shutil.copyfile(SCRIPT, root / "scripts/run_format_checks.py")
-    (root / ".venv/bin/ruff").symlink_to(REPO_ROOT / ".venv/bin/ruff")
+    # The suite may run with setup-python/global Python rather than a repo .venv.
+    # The fixture still exercises the runner's repository-local executable policy.
+    (root / ".venv/bin/ruff").symlink_to(find_ruff_bin())
     _config(root, ["src"])
     return root
 
@@ -505,4 +508,5 @@ def test_ruff_install_and_runtime_requirements_use_the_same_exact_version() -> N
     requirement = config["tool"]["ruff"]["required-version"]
     assert requirement.startswith("==") and "*" not in requirement
     assert f"ruff{requirement}" in config["project"]["optional-dependencies"]["typing"]
+    assert f"ruff{requirement}" in config["project"]["optional-dependencies"]["test"]
     assert config["tool"]["ruff"]["format"]["line-ending"] == "lf"

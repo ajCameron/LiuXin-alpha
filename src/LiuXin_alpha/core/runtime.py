@@ -1,11 +1,13 @@
 """
 Compose Core services and dispatch named command/query envelopes with events, introspection, and job control.
 
-Handler bodies share one reentrant lock; registration/subscriber maps use a
-separate lock. Event delivery and result conversion are outside the handler lock.
+Handler bodies share one reentrant lock by default; explicitly concurrent job
+waits use only the thread-safe manager. Registration/subscriber maps use a
+separate lock. Result conversion is outside the handler lock.
 Transport-stable endpoints normalize results even for direct calls, while generic
-invoke retains compatibility values. These boundaries do not add transactions,
-authorization, or proof that a query cannot mutate its target.
+invoke retains compatibility values. Serialization does not add transactions or
+prove that a query cannot mutate its target. Endpoint registrations declare
+remote authority separately.
 """
 
 # pyright: reportImportCycles=false
@@ -16,10 +18,13 @@ import inspect
 import threading
 import uuid
 
-from typing import Any, Callable, Mapping, Optional, cast
+from contextlib import ExitStack
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any, Callable, Mapping, Optional, cast
 
 from LiuXin_alpha.configuration import use_preferences
 from LiuXin_alpha.core.api import CoreAPI
+from LiuXin_alpha.core.authorization import KNOWN_CAPABILITIES, authorize_endpoint
 from LiuXin_alpha.core.commands import CoreCommand, CoreCommandResult
 from LiuXin_alpha.core.description import (
     CoreEndpointDescription,
@@ -43,9 +48,22 @@ from LiuXin_alpha.utils.jobs import JobRequest, default_job_manager
 from LiuXin_alpha.utils.jobs.manager import JobManagerAPI, JobState
 
 
+if TYPE_CHECKING:
+    from LiuXin_alpha.core.durable_jobs import DurableJobService
+
+
 CommandHandler = Callable[["CoreRuntime", CoreCommand], Any]
 QueryHandler = Callable[["CoreRuntime", CoreQuery], Any]
 EventSubscriber = Callable[[CoreEvent], None]
+
+
+@dataclass(frozen=True)
+class _QueryRegistration:
+    """Keep one handler's authority, execution policy and result contract together."""
+
+    handler: QueryHandler
+    description: CoreEndpointDescription
+    serialized: bool
 
 
 class CoreRuntime(CoreAPI):
@@ -70,6 +88,7 @@ class CoreRuntime(CoreAPI):
         core_version: str = "2.0.0",
         api_version: str = "2.0",
         job_manager: JobManagerAPI | None = None,
+        durable_jobs: DurableJobService | None = None,
         catalog: Any | None = None,
         cache: Any | None = None,
         cache_type: str | None = None,
@@ -103,7 +122,8 @@ class CoreRuntime(CoreAPI):
         :param core_uuid: Optional advertised identity; a falsey value generates a fresh UUID4 string.
         :param core_version: Runtime version label converted to text.
         :param api_version: Named-API contract version label converted to text.
-        :param job_manager: Optional borrowed manager; omission selects the process-global default.
+        :param job_manager: Optional borrowed manager supporting concurrent wait/result/state calls; omission selects the process-global default.
+        :param durable_jobs: Optional owned library ledger/worker adapter; shutdown stops its polling without cancelling accepted work.
         :param catalog: Optional semantic Catalog facade injected into CoreServices.
         :param cache: Optional cache facade/backend injected instead of selecting a cache type.
         :param cache_type: Optional selector for a cache constructed by CoreServices.
@@ -155,18 +175,23 @@ class CoreRuntime(CoreAPI):
         self._job_manager: JobManagerAPI = (
             job_manager if job_manager is not None else default_job_manager()
         )
+        self._durable_jobs = durable_jobs
+        if durable_jobs is not None:
+            from LiuXin_alpha.core.durable_jobs import RoutedJobManager
+
+            self._job_manager = RoutedJobManager(self._job_manager, durable_jobs)
         if close_job_manager_on_shutdown is None:
             close_job_manager_on_shutdown = owns_job_manager
         self._close_job_manager_on_shutdown = bool(close_job_manager_on_shutdown)
 
         self._command_handlers: dict[str, CommandHandler] = {}
-        self._query_handlers: dict[str, QueryHandler] = {}
+        self._query_handlers: dict[str, _QueryRegistration] = {}
         self._command_descriptions: dict[str, CoreEndpointDescription] = {}
-        self._query_descriptions: dict[str, CoreEndpointDescription] = {}
         self._event_subscribers: list[EventSubscriber] = []
 
         # SQLite-backed runtimes may be reached from HTTP request threads.
-        # Serialize every handler against the shared local service graph.
+        # Serialize shared-graph access. Only explicitly independent queries
+        # (currently managed job waits/results) may bypass this lock.
         self._command_lock = threading.RLock()
         # Protects handler and subscriber maps.
         self._state_lock = threading.RLock()
@@ -188,12 +213,14 @@ class CoreRuntime(CoreAPI):
             ),
             tags=("generic", "invoke"),
             transport_stable=False,
+            remote_capabilities=("invoke",),
         )
         self.register_command_handler(
             "shutdown",
             self._handle_shutdown_command,
             summary="Shut the runtime down.",
             tags=("lifecycle",),
+            remote_capabilities=("admin",),
         )
         self.register_command_handler(
             "sync.store.start",
@@ -209,6 +236,7 @@ class CoreRuntime(CoreAPI):
                 CorePayloadFieldDescription(name="label", field_type="string"),
             ),
             tags=("sync", "jobs"),
+            remote_capabilities=("admin",),
         )
         self.register_command_handler(
             "sync.store.cancel",
@@ -220,6 +248,7 @@ class CoreRuntime(CoreAPI):
                 ),
             ),
             tags=("sync", "jobs"),
+            remote_capabilities=("admin",),
         )
         self.register_command_handler(
             "jobs.cancel",
@@ -231,6 +260,7 @@ class CoreRuntime(CoreAPI):
                 ),
             ),
             tags=("jobs",),
+            remote_capabilities=("admin",),
         )
         self.register_command_handler(
             "jobs.retry",
@@ -244,8 +274,13 @@ class CoreRuntime(CoreAPI):
                 CorePayloadFieldDescription(
                     name="allow_succeeded", field_type="boolean"
                 ),
+                CorePayloadFieldDescription(name="request_key", field_type="string"),
+                CorePayloadFieldDescription(
+                    name="acknowledge_possible_effects", field_type="boolean"
+                ),
             ),
             tags=("jobs", "write"),
+            remote_capabilities=("admin",),
         )
         self.register_command_handler(
             "metadata.write",
@@ -265,6 +300,7 @@ class CoreRuntime(CoreAPI):
                 CorePayloadFieldDescription(name="mark_dirty", field_type="boolean"),
             ),
             tags=("metadata", "write"),
+            remote_capabilities=("write",),
         )
         self.register_command_handler(
             "metadata.tags.replace",
@@ -280,6 +316,7 @@ class CoreRuntime(CoreAPI):
                 CorePayloadFieldDescription(name="kind", field_type="string"),
             ),
             tags=("metadata", "tags", "write"),
+            remote_capabilities=("write",),
         )
         self.register_command_handler(
             "metadata.labels.replace",
@@ -295,6 +332,7 @@ class CoreRuntime(CoreAPI):
                 CorePayloadFieldDescription(name="kind", field_type="string"),
             ),
             tags=("metadata", "labels", "write"),
+            remote_capabilities=("write",),
         )
         self.register_command_handler(
             "metadata.genre.replace",
@@ -310,6 +348,7 @@ class CoreRuntime(CoreAPI):
                 CorePayloadFieldDescription(name="kind", field_type="string"),
             ),
             tags=("metadata", "genre", "write"),
+            remote_capabilities=("write",),
         )
         self.register_command_handler(
             "metadata.series.replace",
@@ -325,6 +364,7 @@ class CoreRuntime(CoreAPI):
                 CorePayloadFieldDescription(name="kind", field_type="string"),
             ),
             tags=("metadata", "series", "write"),
+            remote_capabilities=("write",),
         )
         self.register_command_handler(
             "metadata.identifiers.replace",
@@ -340,6 +380,7 @@ class CoreRuntime(CoreAPI):
                 CorePayloadFieldDescription(name="kind", field_type="string"),
             ),
             tags=("metadata", "identifiers", "write"),
+            remote_capabilities=("write",),
         )
         self.register_query_handler(
             "invoke",
@@ -358,12 +399,14 @@ class CoreRuntime(CoreAPI):
             ),
             tags=("generic", "invoke"),
             transport_stable=False,
+            remote_capabilities=("invoke",),
         )
         self.register_query_handler(
             "health",
             self._handle_health_query,
             summary="Return runtime health and registration state.",
             tags=("lifecycle", "health"),
+            remote_capabilities=("read",),
         )
         self.register_query_handler(
             "api.describe",
@@ -376,6 +419,7 @@ class CoreRuntime(CoreAPI):
                 CorePayloadFieldDescription(name="target", field_type="string"),
             ),
             tags=("api", "introspection"),
+            remote_capabilities=("read",),
         )
         self.register_query_handler(
             "jobs.list",
@@ -387,6 +431,7 @@ class CoreRuntime(CoreAPI):
                 CorePayloadFieldDescription(name="offset", field_type="integer"),
             ),
             tags=("jobs",),
+            remote_capabilities=("admin",),
         )
         self.register_query_handler(
             "jobs.get",
@@ -398,6 +443,7 @@ class CoreRuntime(CoreAPI):
                 ),
             ),
             tags=("jobs",),
+            remote_capabilities=("admin",),
         )
         self.register_query_handler(
             "jobs.wait",
@@ -410,6 +456,8 @@ class CoreRuntime(CoreAPI):
                 CorePayloadFieldDescription(name="timeout_s", field_type="number"),
             ),
             tags=("jobs",),
+            remote_capabilities=("admin",),
+            serialized=False,
         )
         from LiuXin_alpha.core.application_api import install_application_api
 
@@ -580,6 +628,16 @@ class CoreRuntime(CoreAPI):
         """
         return bool(self._shutdown)
 
+    @property
+    def durable_jobs(self) -> DurableJobService:
+        """Return the configured library job owner or explain missing composition."""
+        if self._durable_jobs is None:
+            raise CoreDispatchError(
+                "Durable jobs require a path-backed Core library and a configured ledger.",
+                code="capability_unavailable",
+            )
+        return self._durable_jobs
+
     def shutdown(self) -> int:
         """
         Mark shutdown, close configured services, optionally stop the job manager, and emit core.shutdown on success.
@@ -588,7 +646,9 @@ class CoreRuntime(CoreAPI):
         retrying failed cleanup. Opted-in manager shutdown runs in finally with
         wait false/cancel_pending true; its error can replace a service-close error.
         Cleanup failure prevents the shutdown event. Cleanup acquires the same
-        lock as command/query dispatch, but does not await managed jobs.
+        lock as serialized command/query dispatch, but does not await managed
+        jobs or concurrent waits on a borrowed manager. Queued serialized
+        handlers recheck the flag before touching services.
 
         Example:
             >>> exit_code = runtime.shutdown()  # doctest: +SKIP
@@ -601,6 +661,8 @@ class CoreRuntime(CoreAPI):
         self._shutdown = True
         with self._command_lock:
             try:
+                if self._durable_jobs is not None:
+                    self._durable_jobs.stop(wait=False)
                 if self._library_services is not None:
                     self._library_services.close()
                 else:
@@ -698,14 +760,15 @@ class CoreRuntime(CoreAPI):
         | None = None,
         tags: tuple[str, ...] | list[str] | None = None,
         transport_stable: bool = True,
+        remote_capabilities: tuple[str, ...] | None = None,
     ) -> None:
         """
         Register or replace a normalized command route and its descriptive endpoint metadata.
 
         Names are stringified, stripped, and lowercased. Existing registrations are
         overwritten without collision checks or callable/signature validation.
-        Handler assignment precedes description construction, so a metadata error
-        can leave a new handler with old/missing metadata. Payload fields describe
+        Metadata is constructed before the handler/description pair is replaced,
+        so failed registration cannot inherit an old route's authority. Payload fields describe
         expectations; this registration does not install payload validation.
 
         Example:
@@ -718,6 +781,7 @@ class CoreRuntime(CoreAPI):
         :param description: Longer descriptive text; falsey input becomes empty text.
         :param payload_fields: Optional ordered field descriptions converted to a tuple without schema enforcement.
         :param tags: Optional tag values stringified in order without stripping or deduplication.
+        :param remote_capabilities: Explicit remote grants; None keeps this registration local-only.
         :param transport_stable: Truth-converted flag selecting result wire conversion during execution.
         :return: None after updating the command handler and description maps under their state lock.
         :raises ValueError: If the normalized route name is blank.
@@ -725,19 +789,23 @@ class CoreRuntime(CoreAPI):
         token = str(name).strip().lower()
         if not token:
             raise ValueError("Command name cannot be blank.")
+        if remote_capabilities is not None:
+            remote_capabilities = tuple(remote_capabilities)
+            if not set(remote_capabilities) <= KNOWN_CAPABILITIES:
+                raise ValueError("Unknown transport capability.")
+        metadata = CoreEndpointDescription(
+            name=token,
+            kind="command",
+            summary=str(summary if summary is not None else self._doc_summary(handler)),
+            description=str(description or ""),
+            payload_fields=self._normalize_payload_fields(payload_fields),
+            tags=tuple(str(tag) for tag in (tags or ())),
+            transport_stable=bool(transport_stable),
+            remote_capabilities=remote_capabilities,
+        )
         with self._state_lock:
             self._command_handlers[token] = handler
-            self._command_descriptions[token] = CoreEndpointDescription(
-                name=token,
-                kind="command",
-                summary=str(
-                    summary if summary is not None else self._doc_summary(handler)
-                ),
-                description=str(description or ""),
-                payload_fields=self._normalize_payload_fields(payload_fields),
-                tags=tuple(str(tag) for tag in (tags or ())),
-                transport_stable=bool(transport_stable),
-            )
+            self._command_descriptions[token] = metadata
 
     def register_query_handler(
         self,
@@ -751,13 +819,21 @@ class CoreRuntime(CoreAPI):
         | None = None,
         tags: tuple[str, ...] | list[str] | None = None,
         transport_stable: bool = True,
+        remote_capabilities: tuple[str, ...] | None = None,
+        serialized: bool = True,
     ) -> None:
         """
         Register or replace a normalized query route and its description without proving read-only behavior.
 
         Registration accepts repeated names and does not verify callability,
-        signature, or declared payload fields. The handler map changes before
-        metadata construction, so a later metadata error is not rolled back.
+        signature, or declared payload fields. Metadata construction precedes
+        atomic replacement of the handler, authority and execution/result policies;
+        a failed declaration leaves the old registration unchanged.
+
+        Serialized execution is the default for every registration, including
+        replacement of a concurrent route. Opting out is a trusted composition
+        decision: the handler must use independently thread-safe resources and
+        must never access the shared database connection or closing service graph.
 
         Example:
             >>> runtime.register_query_handler("example.lookup", handler, summary="Read an example.")  # doctest: +SKIP
@@ -769,25 +845,35 @@ class CoreRuntime(CoreAPI):
         :param description: Longer metadata text, with falsey values represented as empty text.
         :param payload_fields: Ordered descriptive field records, not executable validation rules.
         :param tags: Optional ordered tags stringified without deduplication.
+        :param remote_capabilities: Explicit remote grants; None keeps this registration local-only.
         :param transport_stable: Whether query results should be normalized by the Core wire encoder.
+        :param serialized: Hold the shared handler lock; False is only for independently safe handlers.
         :return: None after replacing the route and metadata under the state lock.
         :raises ValueError: If name normalization yields blank text.
+        :raises TypeError: If serialized is not a bool.
         """
         token = str(name).strip().lower()
         if not token:
             raise ValueError("Query name cannot be blank.")
+        if not isinstance(serialized, bool):
+            raise TypeError("serialized must be a bool.")
+        if remote_capabilities is not None:
+            remote_capabilities = tuple(remote_capabilities)
+            if not set(remote_capabilities) <= KNOWN_CAPABILITIES:
+                raise ValueError("Unknown transport capability.")
+        metadata = CoreEndpointDescription(
+            name=token,
+            kind="query",
+            summary=str(summary if summary is not None else self._doc_summary(handler)),
+            description=str(description or ""),
+            payload_fields=self._normalize_payload_fields(payload_fields),
+            tags=tuple(str(tag) for tag in (tags or ())),
+            transport_stable=bool(transport_stable),
+            remote_capabilities=remote_capabilities,
+        )
         with self._state_lock:
-            self._query_handlers[token] = handler
-            self._query_descriptions[token] = CoreEndpointDescription(
-                name=token,
-                kind="query",
-                summary=str(
-                    summary if summary is not None else self._doc_summary(handler)
-                ),
-                description=str(description or ""),
-                payload_fields=self._normalize_payload_fields(payload_fields),
-                tags=tuple(str(tag) for tag in (tags or ())),
-                transport_stable=bool(transport_stable),
+            self._query_handlers[token] = _QueryRegistration(
+                handler, metadata, serialized
             )
 
     def subscribe(self, callback: EventSubscriber) -> Callable[[], None]:
@@ -877,14 +963,18 @@ class CoreRuntime(CoreAPI):
                 continue
         return event
 
-    def execute_command(self, command: CoreCommand) -> CoreCommandResult:
+    def execute_command(
+        self, command: CoreCommand, *, capabilities: frozenset[str] | None = None
+    ) -> CoreCommandResult:
         """
         Execute a registered command under the handler lock, wire-normalize stable results, and emit lifecycle events.
 
         Shutdown/name/handler checks precede command.started and acquiring the
-        handler lock; shutdown is not rechecked after waiting. Ordinary handler
-        and wire-conversion failures emit command.failed and raise CoreHandlerError
-        when error classification succeeds. No rollback or automatic retry occurs.
+        handler lock; shutdown is rechecked after waiting. A queued command
+        rejected at that point emits command.failed and raises CoreShutdownError.
+        Ordinary handler and wire-conversion failures emit command.failed and
+        raise CoreHandlerError when error classification succeeds. No rollback or
+        automatic retry occurs.
 
         Conversion and completion events happen after releasing the handler lock.
         Stability metadata is looked up again after execution, so concurrent
@@ -896,9 +986,10 @@ class CoreRuntime(CoreAPI):
             >>> response = runtime.execute_command(CoreCommand("jobs.cancel", {"job_id": "job-1"}))  # doctest: +SKIP
 
 
+        :param capabilities: Server-established authority; None is trusted in-process execution.
         :param command: Envelope passed unchanged to the handler; only routing uses a normalized name.
         :return: Successful command envelope with the original request/correlation IDs and final result value.
-        :raises CoreShutdownError: If shutdown was already flagged when execution began.
+        :raises CoreShutdownError: If shutdown is flagged before handler execution.
         :raises CoreDispatchError: For a blank or unregistered command name.
         :raises CoreHandlerError: For ordinary handler or stable-result conversion failure after error classification.
         """
@@ -911,6 +1002,10 @@ class CoreRuntime(CoreAPI):
 
         with self._state_lock:
             handler = self._command_handlers.get(token)
+            if capabilities is not None:
+                authorize_endpoint(
+                    self._command_descriptions.get(token), capabilities, command.payload
+                )
         if handler is None:
             raise CoreDispatchError(
                 "Unknown command handler: {!r}".format(command.name)
@@ -926,6 +1021,17 @@ class CoreRuntime(CoreAPI):
         )
 
         with self._command_lock:
+            if self._shutdown:
+                self.emit_event(
+                    "command.failed",
+                    {
+                        "command_id": command.command_id,
+                        "name": token,
+                        "error": "Core is shut down.",
+                        "correlation_id": command.correlation_id,
+                    },
+                )
+                raise CoreShutdownError("Core is shut down.")
             try:
                 with use_preferences(self.services.preferences):
                     result = handler(self, command)
@@ -1050,22 +1156,27 @@ class CoreRuntime(CoreAPI):
         payload["method"] = method
         return payload
 
-    def execute_query(self, query: CoreQuery) -> CoreQueryResult:
+    def execute_query(
+        self, query: CoreQuery, *, capabilities: frozenset[str] | None = None
+    ) -> CoreQueryResult:
         """
-        Execute a query under the same lock as commands and convert stable results without command lifecycle events.
+        Execute a captured query registration and convert stable results without command lifecycle events.
 
-        Query classification does not enforce read-only effects. Shutdown is tested
-        before waiting on the handler lock, not afterward. A long-running wait query
-        can therefore block other command/query handlers. Result conversion occurs
-        outside that lock using metadata read after the handler returns.
+        Query classification does not enforce read-only effects. By default the
+        handler shares the command lock and rechecks shutdown after acquiring it.
+        Explicitly concurrent registrations release that lock after resolving the
+        preference context; an admitted wait may finish after shutdown. Result
+        conversion uses the same registration captured for authorization, even if
+        the route is replaced during execution.
 
         Example:
             >>> response = runtime.execute_query(CoreQuery("health"))  # doctest: +SKIP
 
 
+        :param capabilities: Server-established authority; None is trusted in-process execution.
         :param query: Envelope passed unchanged to the selected handler after normalized-name routing.
         :return: Successful query envelope with request/correlation IDs and the optionally wire-converted result.
-        :raises CoreShutdownError: If shutdown is already flagged at the initial check.
+        :raises CoreShutdownError: If shutdown is flagged before handler execution.
         :raises CoreDispatchError: For a blank or unknown query route.
         :raises CoreHandlerError: For ordinary handler or stable-result conversion failure after error classification.
         """
@@ -1077,14 +1188,28 @@ class CoreRuntime(CoreAPI):
             raise CoreDispatchError("Query name cannot be blank.")
 
         with self._state_lock:
-            handler = self._query_handlers.get(token)
-        if handler is None:
+            registration = self._query_handlers.get(token)
+            if capabilities is not None:
+                authorize_endpoint(
+                    registration.description if registration is not None else None,
+                    capabilities,
+                    query.payload,
+                )
+        if registration is None:
             raise CoreDispatchError("Unknown query handler: {!r}".format(query.name))
 
-        with self._command_lock:
+        with ExitStack() as handler_scope:
+            handler_scope.enter_context(self._command_lock)
+            if self._shutdown:
+                raise CoreShutdownError("Core is shut down.")
             try:
-                with use_preferences(self.services.preferences):
-                    result = handler(self, query)
+                # Preference resolution may inspect the shared database facade.
+                # Retain the selected object before allowing independent waiting.
+                preferences = self.services.preferences
+                if not registration.serialized:
+                    handler_scope.close()
+                with use_preferences(preferences):
+                    result = registration.handler(self, query)
             except Exception as exc:
                 error_code, error_details = core_error_details(exc)
                 raise CoreHandlerError(
@@ -1092,9 +1217,7 @@ class CoreRuntime(CoreAPI):
                     code=error_code,
                     details=error_details,
                 ) from exc
-        with self._state_lock:
-            description = self._query_descriptions.get(token)
-        if description is not None and description.transport_stable:
+        if registration.description.transport_stable:
             try:
                 result = to_wire(result)
             except Exception as exc:
@@ -1432,8 +1555,8 @@ class CoreRuntime(CoreAPI):
                 for name in sorted(self._command_descriptions)
             ]
             queries = [
-                self._query_descriptions[name].to_dict()
-                for name in sorted(self._query_descriptions)
+                self._query_handlers[name].description.to_dict()
+                for name in sorted(self._query_handlers)
             ]
 
         payload: dict[str, Any] = {
@@ -1808,7 +1931,9 @@ class CoreRuntime(CoreAPI):
         """
         del runtime
         payload = dict(query.payload or {})
-        include_targets = bool(payload.get("include_targets", True))
+        include_targets = bool(
+            payload.get("include_targets", bool(payload.get("target")))
+        )
         target = payload.get("target", None)
         return self.describe_api(
             include_targets=include_targets,
@@ -1929,7 +2054,7 @@ class CoreRuntime(CoreAPI):
                 "cwd": str(getattr(request, "cwd", "") or ""),
                 "has_env": bool(getattr(request, "env", None)),
             }
-        return {
+        result = {
             "job_id": str(getattr(info, "job_id", "") or ""),
             "label": str(getattr(info, "label", "") or ""),
             "retry_of_job_id": (
@@ -1949,6 +2074,10 @@ class CoreRuntime(CoreAPI):
             "request": request_payload,
             "execution": cls._serialize_job_execution(getattr(info, "execution", None)),
         }
+        durable = getattr(info, "durable", None)
+        if durable is not None:
+            result["durable"] = durable
+        return result
 
     @staticmethod
     def _normalize_job_id(payload: Mapping[str, Any], *, field: str = "job_id") -> str:
@@ -2198,8 +2327,9 @@ class CoreRuntime(CoreAPI):
         """
         Delegate waiting to the manager and serialize the observed job, which may still be nonterminal after timeout.
 
-        When dispatched normally, this wait holds the shared command/query handler
-        lock. No second worker timeout or success-state assertion is added here.
+        The built-in registration waits outside the shared database handler lock.
+        It uses only the job manager; no second worker timeout or success-state
+        assertion is added here.
 
         Example:
             >>> payload = runtime._handle_jobs_wait_query(runtime, CoreQuery("jobs.wait", {"job_id": "job-1", "timeout_s": 1}))  # doctest: +SKIP
@@ -2467,11 +2597,24 @@ class CoreRuntime(CoreAPI):
         label_raw = payload.get("label")
         label = None if label_raw in (None, "") else str(label_raw)
         try:
-            retried_job_id = self.job_manager.retry(
-                job_id,
-                label=label,
-                allow_succeeded=bool(payload.get("allow_succeeded", False)),
-            )
+            if self._durable_jobs is not None and self._durable_jobs.handles(job_id):
+                if label is not None or bool(payload.get("allow_succeeded", False)):
+                    raise ValueError(
+                        "Durable retries preserve their label and refuse successful runs"
+                    )
+                retried_job_id = self._durable_jobs.retry(
+                    job_id,
+                    request_key=payload.get("request_key", command.command_id),
+                    acknowledge_possible_effects=payload.get(
+                        "acknowledge_possible_effects", False
+                    ),
+                )
+            else:
+                retried_job_id = self.job_manager.retry(
+                    job_id,
+                    label=label,
+                    allow_succeeded=bool(payload.get("allow_succeeded", False)),
+                )
             info = self.job_manager.get(retried_job_id)
         except KeyError as exc:
             raise CoreDispatchError("Unknown job id: {!r}".format(job_id)) from exc

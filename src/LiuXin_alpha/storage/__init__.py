@@ -14,5 +14,5 @@ Library workflows coordinate Catalog and storage without moving either domain's
 rules into this package.
 
 See ``dev-docs/04 - Seperation of Concerns.md`` and
-``dev-docs/storage/README.md``.
+``dev-docs/storage_and_backup/README.md``.
 """

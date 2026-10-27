@@ -487,7 +487,7 @@ class ContentWorkflowsHandlers(Protocol):
         self, runtime: CoreRuntime, query: CoreQuery
     ) -> Mapping[str, object]:
         """
-        List conversion input/output formats advertised by the current customization registry.
+        List conversion input/output formats advertised by the file-format runtime.
 
         See :func:`LiuXin_alpha.core.program_services.conversion.conversion_formats`
         for the maintained implementation's validation and failure boundaries.
@@ -496,7 +496,7 @@ class ContentWorkflowsHandlers(Protocol):
             >>> result = handler.conversion_formats(runtime, query)  # doctest: +SKIP
 
 
-        :param runtime: Unused runtime; discovery uses the process-wide customization registry.
+        :param runtime: Unused runtime; discovery uses the process-wide file-plugin registry.
         :param query: Unused query envelope; no payload filters are consumed.
         :return: input and output format-name lists; discovery/import failures propagate.
         """
@@ -595,6 +595,49 @@ class ContentWorkflowsHandlers(Protocol):
         :param command: Command with kind, required Mapping options, and shared job submission fields.
         :return: run_ingest_remote_html_job submission receipt with the normalized kind in the fallback label.
         :raises CoreDispatchError: If kind/options validation fails or a database path is unavailable.
+        """
+        ...
+
+    def ingest_web_start(
+        self, runtime: CoreRuntime, command: CoreCommand
+    ) -> Mapping[str, object]:
+        """Validate a bounded web registration/acquisition request and submit its managed job.
+
+        See :func:`LiuXin_alpha.core.program_services.ingest.ingest_web_start`.
+
+        :param runtime: Runtime supplying a path-backed catalogue identity and job manager.
+        :param command: Command with validated options or a saved resume UUID, plus shared job controls.
+        :return: Managed-job submission receipt; the completed result contains the web run UUID.
+        :raises ValueError: Invalid web controls or resume UUID.
+        :raises CoreDispatchError: Resume replacements or unavailable catalogue/job services.
+        """
+        ...
+
+    def ingest_web_files(
+        self, runtime: CoreRuntime, query: CoreQuery
+    ) -> Mapping[str, object]:
+        """Read remote observations and their last capture receipts without network requests.
+
+        See :func:`LiuXin_alpha.core.program_services.ingest.ingest_web_files`.
+
+        :param runtime: Runtime supplying the catalogue; no storage backend is probed.
+        :param query: Query containing the root_url whose recorded candidates are requested.
+        :return: Normalized root, observed files with historical last_capture evidence, and saved run summaries.
+        :raises ValueError: The source URL fails web option validation.
+        """
+        ...
+
+    def ingest_web_status(
+        self, runtime: CoreRuntime, query: CoreQuery
+    ) -> Mapping[str, object]:
+        """Inspect a saved web run and its object states, including interrupted attempts.
+
+        See :func:`LiuXin_alpha.core.program_services.ingest.ingest_web_status`.
+
+        :param runtime: Runtime supplying the catalogue for read-only workflow inspection.
+        :param query: Query containing a saved web run_id UUID, distinct from the managed-job ID.
+        :return: Saved options, lease, byte counters, last report and per-file capture states.
+        :raises ValueError: The UUID is malformed or no matching web run exists.
         """
         ...
 
@@ -1130,6 +1173,21 @@ class StorageHandlers(Protocol):
         """
         ...
 
+    def storage_audit_start(
+        self, runtime: CoreRuntime, command: CoreCommand
+    ) -> Mapping[str, object]:
+        """Persist a bounded audit intent and return its job identity before verification.
+
+        See :func:`LiuXin_alpha.core.program_services.storage_integrity.storage_audit_start`
+        for the maintained implementation's validation and failure boundaries.
+
+        :param runtime: Runtime supplying the library-bound durable job service.
+        :param command: Command with optional limit, offset, calculate_digests and request_key.
+        :return: Durable job identity and its current state after accepting the audit.
+        :raises CoreDispatchError: If pagination, delivery identity or submission validation fails.
+        """
+        ...
+
     def storage_audit(
         self, runtime: CoreRuntime, command: CoreCommand
     ) -> Mapping[str, object]:
@@ -1625,6 +1683,21 @@ class SystemJobsHandlers(Protocol):
         :param query: Query with job_id, optional offset=0, and max_bytes=65536.
         :return: Decoded text, requested/current next byte offsets, read-time eof, and path-availability flag.
         :raises CoreDispatchError: For invalid request bounds/ID or KeyError from job lookup.
+        """
+        ...
+
+    def jobs_events(
+        self, runtime: CoreRuntime, query: CoreQuery
+    ) -> Mapping[str, object]:
+        """Read durable progress/log events with a stable, bounded event-ID cursor.
+
+        See :func:`LiuXin_alpha.core.program_services.discovery.jobs_events`
+        for the maintained implementation's validation and failure boundaries.
+
+        :param runtime: Runtime supplying the library-bound durable job service.
+        :param query: Query with job_id, optional after_event_id and a limit capped at 1,000.
+        :return: Ordered events, next cursor and whether more events are available.
+        :raises CoreDispatchError: If the cursor/bounds are invalid or the job is unknown.
         """
         ...
 

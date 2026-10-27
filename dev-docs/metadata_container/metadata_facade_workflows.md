@@ -1,5 +1,7 @@
 # Catalog Metadata Retrieval and Metadata OPF Workflows
 
+Reviewed **2026-10-20**. Value containers remain passive. Hydration belongs to Catalog; current API roots and the follow-up work are linked in [next tasks](next_tasks.md). Stage numbers and historical test totals below describe their original campaign.
+
 Date: 2026-05-07; ownership revised 2026-10-12
 Status: working guide / current caller contract
 

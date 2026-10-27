@@ -97,6 +97,15 @@ class _OperatorCore:
         """
         values = dict(payload or {})
         self.queries.append((name, values))
+        if name == "jobs.wait":
+            return {"job": {"state": "succeeded"}}
+        if name == "jobs.result":
+            return {
+                "execution": {
+                    "ok": True,
+                    "result": {"ok": True, "checked": 1, "results": []},
+                }
+            }
         if name == "health":
             return {"ok": True, "shutdown": False}
         if name == "database.info":
@@ -247,8 +256,8 @@ class _OperatorCore:
             return {"registered": True, **values}
         if name in {"storage.replica.verify", "storage.asset.verify"}:
             return {"healthy": True, "report": values}
-        if name == "storage.audit":
-            return {"ok": True, "checked": 1, "results": []}
+        if name == "storage.audit.start":
+            return {"job_id": "durable:test:1"}
         if name == "storage.reconcile.apply":
             return {"ok": True, "actions": []}
         if name == "storage.repair.apply":

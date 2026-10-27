@@ -55,7 +55,9 @@ def test_read_model_preserves_direct_and_rpc_error_codes_and_details() -> None:
             },
         ]
     }
-    runtime.register_query_handler("schema.tables", lambda _runtime, _query: schema)
+    runtime.register_query_handler(
+        "schema.tables", lambda _runtime, _query: schema, remote_capabilities=("read",)
+    )
 
     def fail_read(_runtime, query):
         """
@@ -77,7 +79,7 @@ def test_read_model_preserves_direct_and_rpc_error_codes_and_details() -> None:
         )
 
     for name in ("rows.get", "rows.query", "relations.list"):
-        runtime.register_query_handler(name, fail_read)
+        runtime.register_query_handler(name, fail_read, remote_capabilities=("read",))
     daemon = CoreHttpDaemon(runtime, endpoint_namespace="read-errors")
     try:
         daemon.start()

@@ -217,9 +217,9 @@ def _get_provision_fixture(request) -> Any:
 @pytest.fixture()
 def calibre_backend_db(tmp_path: Path, request):
     """
-    Provision test_db_0 and attach the legacy cache tables, lock, filesystem, preferences, and metadata shims.
+    Provision test_db_0 and attach the legacy cache tables, SQL connection, filesystem, preferences, and metadata shims.
 
-    Return an open Database without a local cleanup finalizer. On TypeError, retry
+    Return an open Database with explicit resource cleanup after the test. On TypeError, retry
     provisioning without dst_dir.
 
     Example:
@@ -241,10 +241,11 @@ def calibre_backend_db(tmp_path: Path, request):
         prov = provision(name="test_db_0")
 
     db = Database(metadata={"database_path": str(prov.db_path)})
+    request.addfinalizer(db.close)
 
     # CalibreCache expects these attributes to exist on the backend
     db.tables = {}
-    db.conn = db.driver_wrapper.lock  # used as `with backend.conn:`
+    db.conn = db.get_connection()  # explicit SQL context; the driver closes it
     db.fsm = DummyFSM(tmp_path / "fsm_root")
 
     # prefs the cache reads immediately + ones used by categories.py
@@ -498,7 +499,7 @@ def test_get_categories_includes_custom_column_when_make_category_true(calibre_b
 
 
     :param calibre_backend_db: Provisioned Database carrying the legacy cache backend
-        shims; the local fixture has no close finalizer.
+        shims; the backend fixture closes all driver connections after the test.
     :return: None; failed expectations raise AssertionError.
     """
     db = calibre_backend_db
@@ -535,7 +536,7 @@ def test_get_categories_excludes_custom_columns_attached_to_non_books_tables(cal
 
 
     :param calibre_backend_db: Provisioned Database carrying the legacy cache backend
-        shims; the local fixture has no close finalizer.
+        shims; the backend fixture closes all driver connections after the test.
     :return: None; failed expectations raise AssertionError.
     """
     db = calibre_backend_db
@@ -570,7 +571,7 @@ def test_composite_custom_column_respects_make_category_and_can_generate_categor
 
 
     :param calibre_backend_db: Provisioned Database carrying the legacy cache backend
-        shims; the local fixture has no close finalizer.
+        shims; the backend fixture closes all driver connections after the test.
     :return: None; failed expectations raise AssertionError.
     """
     db = calibre_backend_db

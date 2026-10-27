@@ -75,7 +75,8 @@ def test_full_suite_has_one_workflow_owner() -> None:
                     command = shlex.split(line)
                     if "pytest" in command and "tests" in command:
                         owners.append((path.name, job_id, command))
-    assert owners == [(PRIMARY, "full", ["pytest", "-q", "tests"])]
+    assert [(path, job) for path, job, _ in owners] == [(PRIMARY, "full")]
+    assert owners[0][2][:3] == ["pytest", "-q", "tests"]
     assert not (WORKFLOW_ROOT / "review.yml").exists()
 
 
@@ -103,9 +104,8 @@ def test_workflow_preserves_event_selection_and_dependency_extras() -> None:
     assert jobs["smoke"]["if"] == "github.event_name == 'push'"
     for name in ("full", "smoke", "file-formats-fast", "file-formats-heavy"):
         commands = [step.get("run", "") for step in jobs[name]["steps"]]
-        assert any(
-            'python -m pip install ".[test,conversion]"' in cmd for cmd in commands
-        )
+        extras = "test,conversion,encryption" if name == "full" else "test,conversion"
+        assert any(f'python -m pip install ".[{extras}]"' in cmd for cmd in commands)
     quality_commands = [step.get("run", "") for step in jobs["quality-modern"]["steps"]]
     assert any(
         'python -m pip install ".[test,typing]"' in cmd for cmd in quality_commands
@@ -139,6 +139,45 @@ def test_summary_requires_all_merge_jobs_even_after_failure() -> None:
     for job in jobs.values():
         assert "continue-on-error" not in job
         assert all("continue-on-error" not in item for item in job["steps"])
+
+
+def test_full_suite_preserves_telemetry_and_releases_scratch() -> None:
+    """Failing CI runs retain diagnostics while each completed test frees scratch."""
+    steps = _workflow()["jobs"]["full"]["steps"]
+    run = next(step for step in steps if step.get("name") == "Run full test suite")
+    options = shlex.split(run["run"])
+    assert options[:5] == ["pytest", "-q", "tests", "-n", "0"]
+    # Child pytest probes disable plugins. Flags for this run must not leak into
+    # their environment, even though xdist and telemetry are available here.
+    for owner in (_workflow(), _workflow()["jobs"]["full"], run):
+        assert "PYTEST_ADDOPTS" not in owner.get("env", {})
+    assert "tmp_path_retention_policy=none" in options
+    assert "tmp_path_retention_count=0" in options
+    assert "--telemetry-dir=${{ runner.temp }}/liuxin-test-telemetry" in run["run"]
+    upload = next(
+        step for step in steps if step.get("uses") == "actions/upload-artifact@v4"
+    )
+    assert upload["if"] == "always()"
+    assert upload["with"]["path"] == "${{ runner.temp }}/liuxin-test-telemetry"
+
+
+def test_web_ingest_requires_real_wget_coverage_with_bounded_scratch() -> None:
+    """A green quality lane must exercise the optional crawler, not silently skip it."""
+    steps = _workflow()["jobs"]["quality-modern"]["steps"]
+    commands = [step.get("run", "") for step in steps]
+    assert any(
+        "apt-get install" in command and "wget" in command for command in commands
+    )
+    step = next(
+        item
+        for item in steps
+        if item.get("name") == "Verify remote registration and managed acquisition"
+    )
+    assert step["env"]["LIUXIN_REQUIRE_WGET_TESTS"] == "1"
+    command = shlex.split(step["run"])
+    assert "tests/ingest/test_web_acquisition.py" in command
+    assert "tmp_path_retention_policy=none" in command
+    assert "--telemetry-dir=/tmp/liuxin-web-ingest-telemetry" in command
 
 
 def _run_summary(results: list[str]) -> subprocess.CompletedProcess[str]:
@@ -244,12 +283,32 @@ def test_quality_job_owns_syntax_lint_and_closeout_contracts() -> None:
     assert syntax[0]["run"] == ".venv/bin/python -m compileall -q src tests scripts"
     assert "syntax" in syntax[0]["name"].lower()
     assert "lint" not in syntax[0]["name"].lower()
-    contracts = next(step["run"] for step in steps if "pytest" in step.get("run", ""))
+    contracts = next(
+        step["run"]
+        for step in steps
+        if step.get("name") == "Enforce application-surface ownership"
+    )
     for path in (
         "test_ci_workflow_contracts.py",
         "test_developer_documentation_links.py",
     ):
         assert f"tests/scripts/{path}" in contracts
+
+
+def test_quality_requires_live_readonly_mount_coverage() -> None:
+    """Require privileged disposable-fixture coverage instead of accepting mount skips."""
+    steps = _workflow()["jobs"]["quality-modern"]["steps"]
+    mount_step = next(
+        step
+        for step in steps
+        if step.get("name") == "Verify Linux read-only source mounts"
+    )
+    assert "continue-on-error" not in mount_step
+    assert "LIUXIN_REQUIRE_MOUNT_TESTS=1" in mount_step["run"]
+    assert "LIUXIN_REQUIRE_IMAGE_MOUNT_TESTS=1" in mount_step["run"]
+    assert "tests/ingest/test_source_mount_live.py" in mount_step["run"]
+    assert "tests/ingest/test_source_filesystem_mount_live.py" in mount_step["run"]
+    assert "-n 0" in mount_step["run"]
 
 
 def test_workflow_shell_bodies_are_valid_bash() -> None:

@@ -32,6 +32,7 @@ from LiuXin_alpha.core.program_services.evacuation_models import (
 )
 from LiuXin_alpha.core.program_services.evacuation_planning import build_evacuation_plan
 from LiuXin_alpha.core.queries import CoreQuery
+from LiuXin_alpha.core.readonly import CoreReadClientAPI, ReadOnlyCoreClient
 from LiuXin_alpha.core.runtime import CoreRuntime
 from LiuXin_alpha.storage.storage_manager.manager import TransientStorageManager
 from LiuXin_alpha.storage.storage_manager.mixins._state import _StorageManagerState
@@ -50,6 +51,21 @@ from LiuXin_alpha.surfaces.terminal.commands.base import TerminalCommandAPI
 from LiuXin_alpha.surfaces.terminal.plugins.base import TerminalLifecyclePluginAPI
 from LiuXin_alpha.surfaces.terminal.windowed_components.models import CursesWindow
 from LiuXin_alpha.surfaces.terminal.windowed_ui import _CursesUiDriver
+
+
+def readonly_client_contracts(
+    reader: CoreReadClientAPI,
+    implementation: ReadOnlyCoreClient,
+) -> None:
+    """Accept named reads while hiding mutation from the narrow surface contract.
+
+    Example:
+        >>> readonly_client_contracts(reader, implementation)  # doctest: +SKIP
+    """
+    restricted: CoreReadClientAPI = implementation
+    restricted.query("schema.tables")
+    reader.query("health")
+    reader.command("shutdown")  # expect-error: reportAttributeAccessIssue attr-defined
 
 
 def terminal_component_contracts(

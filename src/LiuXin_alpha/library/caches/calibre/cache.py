@@ -40,7 +40,7 @@ from LiuXin_alpha.constants import preferred_encoding
 from LiuXin_alpha.utils.language_tools.pluralizers import plural_singular_mapper
 
 try:
-    from LiuXin_alpha.customize.ui import run_plugins_on_import
+    from LiuXin_alpha.file_formats.plugin_runtime import run_plugins_on_import
 except ImportError:
 
     def run_plugins_on_import(file):
@@ -61,7 +61,7 @@ except ImportError:
 
 
 try:
-    from LiuXin_alpha.customize.ui import run_plugins_on_postimport
+    from LiuXin_alpha.file_formats.plugin_runtime import run_plugins_on_postimport
 except ImportError:
 
     def run_plugins_on_postimport(file):
@@ -82,7 +82,7 @@ except ImportError:
 
 
 try:
-    from LiuXin_alpha.customize.ui import run_plugins_on_postadd
+    from LiuXin_alpha.file_formats.plugin_runtime import run_plugins_on_postadd
 except ImportError:
 
     def run_plugins_on_postadd(file, *args, **kwargs):
@@ -166,7 +166,7 @@ from collections import defaultdict
 
 from typing import Any, TypeVar, Optional
 
-from LiuXin_alpha.customize.cache import BaseCache
+from LiuXin_alpha.plugins.cache import BaseCache
 
 from LiuXin_alpha.library.caches.utils import read_api, write_api
 from LiuXin_alpha.catalog.search import Search
@@ -4630,7 +4630,7 @@ class CalibreCache(BaseCalibreCache):
         :return: None; the operation mutates state, writes output or performs cleanup in
             place.
         """
-        from LiuXin_alpha.customize.ui import available_library_closed_plugins
+        from LiuXin_alpha.plugins.application import available_library_closed_plugins
 
         for plugin in available_library_closed_plugins():
             try:
@@ -4768,7 +4768,7 @@ class CalibreCache(BaseCalibreCache):
         """
         field = self.fields["formats"]
         from LiuXin_alpha.file_formats.opf.opf2 import pretty_print
-        from LiuXin_alpha.customize.ui import apply_null_metadata
+        from LiuXin_alpha.file_formats.plugin_runtime import apply_null_metadata
         from LiuXin_alpha.metadata.meta import set_metadata
 
         if only_fmts:

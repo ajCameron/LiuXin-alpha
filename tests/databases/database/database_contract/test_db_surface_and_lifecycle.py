@@ -101,7 +101,7 @@ def _rename_db_file(db_path: Path) -> Path:
 
 def test_database_construction_surface(open_db):
     """
-    Check driver, wrapper, macros, convenience aliases, and a distinct shared lock connection are wired.
+    Check driver, wrapper, macros, convenience aliases, and a shared reentrant mutex are wired.
 
     Example:
         Run the owning tests with pytest::
@@ -613,7 +613,7 @@ def test_close_clears_convenience_aliases(open_db):
 
 def test_close_releases_driver_and_wrapper_connections(open_db):
     """
-    Check close clears the driver and wrapper connection references and the captured handles satisfy the best-effort closed-resource probe.
+    Check close clears driver and wrapper references and the captured handles satisfy the best-effort closed-resource probe.
 
     Example:
         Run the owning tests with pytest::
@@ -630,10 +630,10 @@ def test_close_releases_driver_and_wrapper_connections(open_db):
     driver = db.driver
     wrapper = db.driver_wrapper
     conn = driver.conn
-    lock_conn = wrapper.lock
+    extra_conn = wrapper.get_connection()
 
     assert conn is not None
-    assert lock_conn is not None
+    assert extra_conn is not None
 
     db.close()
 
@@ -643,7 +643,7 @@ def test_close_releases_driver_and_wrapper_connections(open_db):
 
     # The captured connection objects should behave like closed resources.
     _assert_any_operation_fails(conn)
-    _assert_any_operation_fails(lock_conn)
+    _assert_any_operation_fails(extra_conn)
 
 
 def test_close_allows_renaming_db_file(db_path: Path, driver_spec, db_metadata: dict):
@@ -957,7 +957,7 @@ def test_set_driver_replaces_wrapper_and_closes_old_resources(open_db, db_metada
     assert getattr(old_driver, "conn", None) is None
     assert getattr(old_wrapper, "lock", None) is None
     _assert_any_operation_fails(old_conn)
-    _assert_any_operation_fails(old_lock)
+    assert not hasattr(old_lock, "execute")
     try:
         with pytest.raises(sqlite3.ProgrammingError, match="closed"):
             old_extra.execute("SELECT 1")
@@ -976,7 +976,7 @@ def test_set_driver_with_same_driver_keeps_primary_conn(open_db):
     """
     Reinstall the same driver and check primary-connection identity is retained while the wrapper and lock are replaced.
 
-    Probe the old lock for closure; the retained primary connection is not queried here.
+    Check the old mutex is distinct; the retained primary connection is not queried here.
 
     Example:
         Run the owning tests with pytest::
@@ -1004,11 +1004,11 @@ def test_set_driver_with_same_driver_keeps_primary_conn(open_db):
     assert driver.conn is not None
     assert extra.execute("SELECT 1").fetchall() == [(1,)]
 
-    # But the wrapper lock conn should have been replaced (old one closed).
+    # The wrapper and its mutex should have been replaced.
     assert db.driver_wrapper is not old_wrapper
     assert db.driver_wrapper.lock is not None
     assert db.driver_wrapper.lock is not old_lock
-    _assert_any_operation_fails(old_lock)
+    assert not hasattr(old_lock, "execute")
 
 
 def test_set_driver_then_close_cleans_new_driver(open_db, db_metadata: dict, driver_spec):
@@ -1040,14 +1040,14 @@ def test_set_driver_then_close_cleans_new_driver(open_db, db_metadata: dict, dri
 
     # Capture new connection objects before close.
     conn = new_driver.conn
-    lock_conn = db.driver_wrapper.lock
+    extra_conn = db.get_connection()
 
     db.close()
 
     assert getattr(new_driver, "conn", None) is None
     assert getattr(db.driver_wrapper, "lock", None) is None
     _assert_any_operation_fails(conn)
-    _assert_any_operation_fails(lock_conn)
+    _assert_any_operation_fails(extra_conn)
 
 
 def test_wrapper_derived_schema_caches_reset_on_force_refresh(open_db, monkeypatch):

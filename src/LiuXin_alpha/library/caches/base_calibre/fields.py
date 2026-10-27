@@ -19,7 +19,7 @@ from functools import partial
 
 from typing import Optional, Callable, Any, TypeVar, Union, Iterable, Generic, Iterator, Mapping
 
-from LiuXin_alpha.customize.cache.base_field import BaseField
+from LiuXin_alpha.plugins.cache.base_field import BaseField
 
 from LiuXin_alpha.library.tag_classes import BaseTagClass
 from LiuXin_alpha.databases.utils import force_to_bool

@@ -1,6 +1,272 @@
 # Working Memory Index
 
-Current branch: **configuration-ownership**, ready
+Active work, **2026-10-20**: [Composite ownership](storage-composite-owner-2026-10-20.md)
+continues A10 on `storage-owned-composite-mutations`, based on policy PR #143
+at `527301bf`. Composite CRUD now delegates to storage and raw member writes are
+refused. All 90 combined regression cases, 38 final creation/documentation/tooling
+checks and all quality gates pass (overlapping selections). The discovered SQLite repeated-member constraint requires
+a separate schema repair. Audit/policy CI corrections are pushed; the full
+programme remains open and unrelated staged storage work is preserved.
+
+Active work, **2026-10-20**: [policy-definition ownership](storage-policy-owner-2026-10-20.md)
+continues A10 on `storage-owned-policy-mutations`, based on published audit PR #142
+(`8e57d575`). Fourteen reproduced failures are corrected; initial regressions
+passed 41 tests; 32 final contract cases, 36 docs/tooling checks and all quality gates passed. The full programme remains
+open and main's unrelated staged storage edits are preserved.
+
+Active work, **2026-10-20**: [durable Core audit](core-durable-audit-2026-10-20.md) passed 91 final regression checks, 70 compatibility checks and full quality gates on `core-durable-storage-audit`, based on published storage-ownership PR #141 (`7f67a4d1`). PRs #139 and #140 have green full suites. The full A01–A16 programme remains open; preserve the six unrelated staged storage edits.
+
+Active implementation checkpoint, **2026-10-20**:
+[storage record ownership](storage-record-owner-2026-10-20.md) implements A10's
+first admin/scanner family as a prerequisite for the durable Core audit.
+Branch `storage-owned-record-mutations` is based on PR #140 (`5cbd7a6b`).
+The full programme remains open; main's unrelated staged storage work is preserved.
+
+Active implementation checkpoint, **2026-10-20**:
+[durable submissions](durable-job-submissions-2026-10-20.md) continues A09 on
+`durable-job-submissions`, based on lease PR #139 at `ac3a6728`.
+Atomic delivery identity and explicit retry ancestry are implemented for review.
+Production Core workflow integration and the full A01–A16 programme remain open.
+The six unrelated staged storage files and dirty data submodule are preserved.
+No PR has been merged.
+
+Active implementation checkpoint, **2026-10-20**:
+[durable job leases](durable-job-leases-2026-10-20.md) continues A09 on
+`durable-job-leases`, based on JOB01 PR #138 at `1e98ecf5`. Claim fencing,
+atomic transitions/events and explicit interruption pass all 32 durable-job
+cases. Final regressions passed 154 tests; the complete quality gates passed.
+Production workflow integration, submission
+identity and retry ancestry remain open; the full A01–A16 programme is unfinished.
+Unrelated staged storage work is preserved and no PR has been merged.
+
+Active implementation checkpoint, **2026-10-20**:
+[job wait dispatch](job-wait-dispatch-2026-10-20.md) continues JOB01/A09 on
+`core-job-wait-dispatch`, based on rating PR #137 at `875065b7`. All 16 new
+dispatch cases pass after nine reproduced failures on the parent. Broader
+regressions passed 234 tests; final checks passed 86 tests; full quality gates
+passed (overlapping selections). The focused PR targets `catalog-rating-validation`;
+`gh pr view core-job-wait-dispatch` reports its current review/CI status. A09's
+durable workflow integration and the full A01–A16 programme remain open.
+No PR has been merged; the six unrelated staged storage edits are preserved.
+
+Parent PR #137 full CI is green at `875065b7`: 7,525 passed, 289 skipped,
+17 xfailed. JOB01 PR #138 is also fully green: 7,540 passed, 290 skipped,
+17 xfailed (run `39486510953`).
+
+Active implementation checkpoint, **2026-10-20**:
+[rating validation](rating-validation-2026-10-20.md) continues A08 on
+`catalog-rating-validation`, based on PostgreSQL prerequisite PR #136 (`ce43fccd`).
+Its shared value rules and metadata-import transaction pass 29 pure cases, all
+26 supported integration cases and the two existing aggregate cases. Broader
+caller checks passed 175 tests; final import/docs/boundary checks passed 47 tests;
+all quality gates passed. Counts overlap. Published as PR #137; its CI exposed
+existing-driver bootstrap ordering, now fixed with all 56 lifecycle tests passing.
+The confidence rerun passed 304 tests with three skips. A09 job dispatch follows.
+The prerequisite's [handoff](postgres-discovery-2026-10-20.md) records native
+identifier discovery and cache index ownership: 81 checks, 21 final controls/docs
+checks, and full quality passed. PR #136 full CI is green.
+The six unrelated staged storage files remain preserved. The full A01–A16
+programme is open; no PR has been merged.
+
+Latest implementation checkpoint, **2026-10-20**:
+[WEMI selection](wemi-selection-2026-10-20.md) implements A07 on
+`catalog-wemi-selection`, based on A06 PR #134 (`13d6e5aa`). Catalog bundles now
+match SQL complete-ray ranking and retain partial paths explicitly. Exact worked
+examples and the separate hydration relation contract pass 22 final parity tests;
+55 documentation checks and the complete quality runner also pass. Publication
+is complete as [PR #135](https://github.com/ajCameron/LiuXin-alpha/pull/135).
+Its full CI is green: 7,487 passed, 269 skipped, 17 xfailed. A08 follows.
+The full A01–A16 programme remains open; unrelated staged storage edits are preserved.
+
+Latest implementation checkpoint, **2026-10-20**:
+[transport permissions](transport-permissions-2026-10-20.md) implements A06 on
+`core-transport-permissions`, based on A05 `47c5c0d3`. Server-owned authority,
+authentication and restricted read-only clients pass 67 final checks and all
+quality gates, including both 38-example negative type contracts. Published as
+[PR #134](https://github.com/ajCameron/LiuXin-alpha/pull/134); a CI boundary correction
+centralizes deployment roles in Core (41 checks and the quality runner passed).
+Its full CI is green: 7,476 passed, 269 skipped, 17 xfailed. A07 follows. The full
+A01–A16 programme remains open; no PR has been merged.
+
+Latest implementation checkpoint, **2026-10-20**:
+[deletion policy](deletion-policy-2026-10-20.md) implements A05 on
+`storage-deletion-policy`, based on `e9efedc4`. Both manager deletion routes share
+policy, durable reservations and recovery evidence. The final isolated selection
+passed 110 tests with live PostgreSQL, SQLite, Core and CLI; full quality gates
+passed. Published as PR #133, now `47c5c0d3` after Library/SquashFS CI corrections
+(10 and 18 passing targeted checks). Its full PR CI is green: 7,438 passed, 269 skipped, 17 xfailed. The full A01–A16 programme remains open.
+
+[A04 transaction ownership](transaction-ownership-2026-10-20.md), PR #132, is green
+on `e9efedc4`: full CI passed 7,403 tests, 259 skipped, 17 xfailed. A15 PR #131 is
+also green on `a0e4d2ed`: 7,388 passed, 249 skipped, 17 xfailed. Neither is merged.
+The six unrelated staged storage files and dirty data submodule remain preserved.
+
+Earlier implementation checkpoint, **2026-10-20**:
+[CI baseline repair](ci-baseline-repair-2026-10-20.md) continues the full A01–A16
+programme under A15 on `ci-baseline-repair`. It repairs the shared forty-failure
+groups, removes about 98 MiB of generated benchmark scratch, adds CI telemetry
+and validates the clean quality/installed-wheel gates. Focused evidence and its
+limits are recorded in the handoff; the full suite is pending. Next runtime work
+is A04. Unrelated staged storage edits and the data submodule remain preserved.
+
+Earlier implementation checkpoint, **2026-10-20**:
+[database creation safety](database-create-safety-2026-10-20.md) continues the
+user-authorized full A01–A16 programme on `database-create-safety`. A03 adds
+create-only file publication, explicit backed-up offline replacement and
+PostgreSQL empty-schema enforcement. Full quality gates, 105 initial regressions,
+123 isolated checks, the final 60-test follow-up and nine live PostgreSQL checks
+passed. The note records the shared 40-failure CI baseline on #128/#129 and the
+preserved unrelated edits. Repair that baseline under A15 before continuing A04.
+
+Earlier implementation checkpoint, **2026-10-20**:
+[Store read-only intent](store-read-only-intent-2026-10-20.md) implements A02/STOR02
+on `store-read-only-intent`, based on `75b266ed`. The four affected local builders
+preserve read-only policy through drivers and catalogue reopen/reload. SQLite
+opens existing schema without initialization writes and closes each connection.
+All 139 targeted runtime checks passed. The final run also passed all 24 new
+regressions with Asset/Replica assertions and 22 documentation checks.
+The focused PR depends on backup PR #128 while it remains open. Next is A03,
+nondestructive database creation. Unrelated staged edits and the data submodule
+remain separate.
+
+Earlier implementation checkpoint, **2026-10-20**:
+[backup staging ownership](backup-staging-ownership-2026-10-20.md) implements
+A01/STOR01 on `backup-staging-ownership`, based on `a5406cf8`. Backup runs now own
+private workspaces, preserve their ownership through checkpoints, and retain
+borrowed legacy staging. All 60 backup/builder/workflow checks passed, including
+real SquashFS readback. The focused PR depends on documentation PR #127 while it
+remains open. Unrelated staged storage edits and the data submodule are preserved.
+
+Earlier documentation checkpoint:
+
+Latest checkpoint, **2026-10-20**: the
+[subsystem documentation review](documentation-subsystems-2026-10-20.md) continues
+the top-level and architecture passes on `docs-ownership-contracts` at `fc5de7af`.
+All seventeen developer-documentation folders now have indexes and `next_tasks.md`;
+jobs, ingest and caches have dedicated documentation homes. The field guide matches
+all 67 explicit generated SQLite tables. Thirty focused checks passed, including
+the tracked-content link check after staging. The review belongs to
+[PR #127](https://github.com/ajCameron/LiuXin-alpha/pull/127); runtime safety findings
+remain implementation work. Unrelated staged source edits and the dirty data
+submodule remain separate. The previous PR head had CI failures; the new head
+needs its own CI result.
+
+Earlier checkpoint on the same branch:
+
+Current branch: **docs-ownership-contracts**, based on `15080c6e` after PR #126
+merged into `configuration-ownership`. The
+[ownership documentation pass](documentation-ownership-contracts-2026-10-19.md)
+reconciles guide 04, Catalog API/cache/write contracts and migration status with
+source. It records current work separately from historical findings and leaves
+jobs/ingest/registry consolidation explicit. The user-requested schema follow-up
+rewrites guide 03 against a fresh generated database, marks older linked models,
+updates normalized profiles and fixes one missed test/documentation path. All 42
+schema/documentation checks pass after that correction; the earlier 25-check
+ownership pass also passed. The follow-up adds seven worked WEMI/link examples,
+verified against a fresh schema and real Catalog calls, with 22 documentation
+checks passing. It documents the existing SQL-view/bundle default-selection
+difference and corrects the claimed unique upward Item path. The latest examples
+show a novel with a separately authored introduction and an omnibus sharing
+Manifestations across distinct Works; all seven scenarios and 22 documentation
+checks pass. The next slice rewrites guide 05 and the Calibre mapping/policy guides,
+separating current readers/projections from the proposed canonical importer and
+distinguishing source, ray and web Work IDs. Both guide snippets and all 45 focused
+checks pass; guide 06's mixed storage models are next. The user approved publishing
+this documentation review, with six unrelated storage edits preserved separately.
+
+Previous branch: **rename-plugins-package**, based on merge `a5f77cfd`.
+The [package rename](plugins-package-rename-2026-10-19.md) makes `plugins` the sole
+owner, migrating source, tests, documentation, quality scopes and distribution
+checks. Both `customize` and `plugin_system` are retired namespaces; persisted
+plugin settings keep their existing names. The main checkout contains the change,
+with the six unrelated storage edits excluded from the rename commit.
+All 328 focused regressions, complete quality gates and the installed-wheel gate
+pass. The handoff records an existing mismatch in the additional legacy wheel
+checker, reproduced against the previous artifact.
+
+Previous workspace synchronization: **plugin-system-workspace**, based on merge `a5f77cfd`.
+The [workspace synchronization](workspace-plugin-sync-2026-10-19.md) brings the
+merged plugin retirement and documentation into the main checkout. `customize`
+is absent from source and tests, including stale bytecode. The latest guide 02
+edit is present here; six unrelated local storage edits are preserved unchanged.
+The original index/worktree are retained in a recovery stash. Continue work in
+this checkout rather than leaving its source behind the isolated review worktree.
+All 57 focused plugin/runtime/documentation tests, the dependency check and 25
+cold-import budgets pass from the main checkout.
+
+Previous plugin review branch: **plugin-composition-ownership**, completing
+[PR #125](https://github.com/ajCameron/LiuXin-alpha/pull/125). The user's follow-up
+[consolidates both plugin packages](plugin-package-merge-2026-10-19.md) under
+`plugin_system` and removes `customize` and its forwarding shims entirely.
+Internal layer/cold-import rules preserve standalone formats and neutral loading;
+repository callers and installed-wheel checks use the new namespace. The 319-test
+regression run, 35 follow-up tests, full quality gates and installed wheel verifier
+pass. External plugins must migrate old imports using the documented table.
+The documentation follow-up moves the canonical composition/migration guide to
+`dev-docs/plugin_system/`, adds a subsystem index, updates incoming links and
+source signposts, and separates current enforcement from historical measurements.
+See the [merger note](plugin-package-merge-2026-10-19.md#documentation-follow-up).
+
+Earlier startup checkpoint (namespace decision superseded above): following documentation commit
+`7d854316`. The [plugin ownership follow-up](plugin-composition-ownership-2026-10-19.md)
+makes application startup explicit, shares file membership/loading/priority policy,
+and leaves `customize.ui` as a passive compatibility export. Production callers
+name the actual owners, and cold-import/dependency gates enforce the split.
+Documentation is published as [PR #124](https://github.com/ajCameron/LiuXin-alpha/pull/124).
+Targeted regression/follow-up tests and all quality gates pass. The main checkout's
+staging and unrelated edits remain untouched.
+
+Previous documentation branch: **architecture-review-followup**, based on `ce239fd4` from
+`configuration-ownership`. The [navigation migration](documentation-navigation-2026-10-19.md)
+now reconciles the working checkout's folder moves with the newer guides on this
+branch. The [developer index](../dev-docs/README.md) reaches all 126 developer
+Markdown documents through task routes and subsystem indexes. Eighty-one moves,
+twelve new indexes, portable evidence references and packaging/test/source path
+consumers are integrated. All 54 focused documentation/deployment/CI-contract tests
+pass, the complete quality runner passes, and an export of staged documentation
+and referenced targets validates without ignored local evidence. The main working
+checkout's staging and unrelated edits remain untouched;
+the integrated result lives in the isolated review worktree.
+
+Earlier documentation checkpoint on this branch: the
+[top-level structure guide](<../dev-docs/02 - Top Level Structure.md>) was rewritten
+on 2026-10-19 as a current overview: package ownership, a relationship diagram,
+owned versus borrowed resources, configuration, writes/reads, ingest/jobs and
+plugin composition. A follow-up replaces the dense package table with a short
+linked summary and a dedicated section for each of the 17 top-level packages,
+including separate utils/constants/resources/startup sections. The obsolete Catalog
+proposal, speculative APIs and starter migration plan were removed. The user's
+surface/lifecycle additions are retained
+with the ownership limits made explicit. Both checkouts have the same guide content;
+reference-link destinations match their different documentation layouts. All 53
+local link occurrences resolve in each tree, including 20 checked heading links;
+all 25 existing documentation checks pass in the isolated checkout.
+Main-checkout changes in this step are limited to
+the requested guide. Evidence is local-only under
+`working-memory/test-results/top-level-structure-20261019/` and the follow-up
+`working-memory/test-results/top-level-modules-20261019/`.
+
+The new
+[documentation and project structural review](../dev-docs/architectural_reviews/documentation-structural-review-2026-10-18.md)
+covers both the pending documentation layout and current package architecture.
+It recommends preserving subsystem grouping, completing the existing path migration,
+and separating current contracts from decisions and history. The dated audit found
+47 missing local links, 86 links to locally available untracked evidence, and old
+path consumers in packaging, tests and source. The full report is also copied into
+the main checkout's requested `dev-docs/architectural_reviews/` folder; no existing
+user files or moves were changed. All 25 documentation tests pass in this isolated
+checkout, and the report's five links resolve in both trees. Next: reconcile newer
+contracts with pending moves, then complete and validate that path migration.
+
+The [September architecture review](../dev-docs/architectural_reviews/architecture-review-2026-09-26.md)
+now has dated status/evidence/remaining-work notes for all 68 findings, a concrete
+commit trail, current priorities and freshly checked graph/artifact/protection
+facts. All 25 existing documentation checks pass; all 53 review links resolve.
+This is a documentation-only branch. #122/#123 remain open; implemented work is
+explicitly distinguished from main. Work uses the isolated checkout so the main
+checkout's pending documentation moves and user edits remain intact.
+
+Previous branch: **configuration-ownership**, ready
 [PR #123](https://github.com/ajCameron/LiuXin-alpha/pull/123), based on #122.
 Core now owns profile selection and composes a single application preference store;
 profile paths and settings reach database bootstrap, dispatch and managed workers.
@@ -63,7 +329,7 @@ The documentation inventory campaign completed on 2026-10-05: 1,372 units,
 Its [final checkpoint](project-docstrings-l001-l037-2026-10-05.md) retains the
 historical verification and review-hash observations.
 
-Updated: 2026-10-18
+Updated: 2026-10-19
 
 Start here for active handoff notes. This index should stay short.
 
@@ -941,24 +1207,24 @@ Start here for active handoff notes. This index should stay short.
   layer, strict wrapper validation, PalmDOC/zTXT hostile subreader hardening,
   eReader, Plucker, and Haodoo hostile subreader hardening.
   Durable docs:
-  `dev-docs/file-format-unicode-conversion.md` and
-  `dev-docs/file-formats/pdb/README.md`.
+  `dev-docs/file_formats/file-format-unicode-conversion.md` and
+  `dev-docs/file_formats/pdb/README.md`.
 
 - [file-formats-mobi-hardening-2026-05-23.md](file-formats-mobi-hardening-2026-05-23.md)
   Current branch note for the MOBI/KF8/AZW-style hardening pass: reusable
   PalmDB/MOBI fixtures, hostile PalmDB/MOBI/EXTH parser coverage, deep
   HUFF/CDIC and KF8 index/resource hardening, verification, and remaining
   decompression/resource follow-ups. Durable docs:
-  `dev-docs/file-format-unicode-conversion.md` and
-  `dev-docs/file-formats/mobi/README.md`.
+  `dev-docs/file_formats/file-format-unicode-conversion.md` and
+  `dev-docs/file_formats/mobi/README.md`.
 
 - [file-formats-fbz-hardening-2026-05-22.md](file-formats-fbz-hardening-2026-05-22.md)
   Current branch note for the zipped-FB2 hardening pass: reusable zip fixture
   helpers, first-class `.fbz` conversion/metadata registration, strict
   single-FB2-member archive selection, hostile path/budget coverage, and
   unicode conversion-product checks for UTF-8/UTF-16 zipped FB2. Durable docs:
-  `dev-docs/file-format-unicode-conversion.md` and
-  `dev-docs/file-formats/fb2/README.md`.
+  `dev-docs/file_formats/file-format-unicode-conversion.md` and
+  `dev-docs/file_formats/fb2/README.md`.
 
 - [file-formats-cbr-rar-hardening-2026-05-22.md](file-formats-cbr-rar-hardening-2026-05-22.md)
   Current branch note for the CBR/RAR continuation of the comic hardening pass:
@@ -966,8 +1232,8 @@ Start here for active handoff notes. This index should stay short.
   fake-RAR fixtures, lower-level `unrar` safe extraction-boundary coverage, and
   the tiny `databases.row` import-cycle unblocker needed after the database
   review merge. Durable docs:
-  `dev-docs/file-format-unicode-conversion.md` and
-  `dev-docs/file-formats/comic/README.md`.
+  `dev-docs/file_formats/file-format-unicode-conversion.md` and
+  `dev-docs/file_formats/comic/README.md`.
 
 - [file-formats-lit-hostile-hardening-2026-05-22.md](file-formats-lit-hostile-hardening-2026-05-22.md)
   Current branch note for the LIT legacy binary-container parser pass:
@@ -976,39 +1242,39 @@ Start here for active handoff notes. This index should stay short.
   `LitError` instead of raw parser failures or hangs, plus conversion-facing
   unicode checks for input products, `postprocess_book`, `ReBinary`, and writer
   manifest serialization. Durable docs:
-  `dev-docs/file-format-unicode-conversion.md` and
-  `dev-docs/file-formats/lit/README.md`.
+  `dev-docs/file_formats/file-format-unicode-conversion.md` and
+  `dev-docs/file_formats/lit/README.md`.
 
 - [file-formats-fb2-unicode-hostile-2026-05-21.md](file-formats-fb2-unicode-hostile-2026-05-21.md)
   Current branch note for the FB2 XML/input-output pass: reusable FB2 fixtures,
   UTF-8/UTF-16 valid conversion coverage, recoverable malformed XML cases,
   unsafe embedded-binary ID sanitization, corrupted base64 warnings, output
   unicode serialization coverage, and the zipped-FB2/reporting follow-ups.
-  Durable docs: `dev-docs/file-format-unicode-conversion.md` and
-  `dev-docs/file-formats/fb2/README.md`.
+  Durable docs: `dev-docs/file_formats/file-format-unicode-conversion.md` and
+  `dev-docs/file_formats/fb2/README.md`.
 
 - [file-formats-comic-container-2026-05-21.md](file-formats-comic-container-2026-05-21.md)
   Current branch note for the comic CBZ/CBC archive/container pass: reusable
   comic fixtures, valid multilingual plugin-path coverage, CBC `comics.txt`
   decoding and missing-member warning behavior, nested CBZ preflight, hostile
   archive limits, and the explicit CBR/RAR follow-up boundary. Durable docs:
-  `dev-docs/file-format-unicode-conversion.md` and
-  `dev-docs/file-formats/comic/README.md`.
+  `dev-docs/file_formats/file-format-unicode-conversion.md` and
+  `dev-docs/file_formats/comic/README.md`.
 
 - [file-formats-htmlz-container-2026-05-21.md](file-formats-htmlz-container-2026-05-21.md)
   Current branch note for the HTMLZ archive/container pass: reusable HTMLZ
   fixtures, valid multilingual plugin-path coverage, malformed optional
   OPF/cover warning behavior, required top-level HTML failures, hostile archive
   limits, and the HTMLZ-specific salvage/reporting boundary. Durable docs:
-  `dev-docs/file-format-unicode-conversion.md` and
-  `dev-docs/file-formats/htmlz/README.md`.
+  `dev-docs/file_formats/file-format-unicode-conversion.md` and
+  `dev-docs/file_formats/htmlz/README.md`.
 
 - [file-formats-docx-container-2026-05-21.md](file-formats-docx-container-2026-05-21.md)
   Current branch note for the DOCX archive/XML container pass: reusable DOCX
   fixtures first, then valid conversion coverage, malformed package cases,
   hostile archive limits, nested media paths, and salvage/reporting docs.
-  Durable docs: `dev-docs/file-format-unicode-conversion.md` and
-  `dev-docs/file-formats/docx/README.md`.
+  Durable docs: `dev-docs/file_formats/file-format-unicode-conversion.md` and
+  `dev-docs/file_formats/docx/README.md`.
 
 - [file-formats-epub-container-2026-05-21.md](file-formats-epub-container-2026-05-21.md)
   Current note for the EPUB archive/XML container pass and salvage/reporting
@@ -1016,28 +1282,28 @@ Start here for active handoff notes. This index should stay short.
   OCF/OPF malformed-container cases, hostile archive limits, nested asset paths,
   preflight rejection diagnostics, and the explicit future salvage boundary.
   Durable docs:
-  `dev-docs/file-format-unicode-conversion.md` and
-  `dev-docs/file-formats/epub/README.md`.
+  `dev-docs/file_formats/file-format-unicode-conversion.md` and
+  `dev-docs/file_formats/epub/README.md`.
 
 - [file-formats-odt-container-2026-05-21.md](file-formats-odt-container-2026-05-21.md)
   Current branch note for the ODT archive/XML container pass: reusable ODT
   fixtures, required-member validation, hostile picture-path hardening,
   multilingual Extract/ODTInput coverage, generated OPF/XHTML/CSS/assets,
   bounded archive preflight checks, and the guarded-override docs direction.
-  Durable docs: `dev-docs/file-format-unicode-conversion.md` and
-  `dev-docs/file-formats/odt/README.md`.
+  Durable docs: `dev-docs/file_formats/file-format-unicode-conversion.md` and
+  `dev-docs/file_formats/odt/README.md`.
 
 - [file-formats-markup-hostile-2026-05-21.md](file-formats-markup-hostile-2026-05-21.md)
   Current branch note for the optional lightweight-markup hostile-input pass:
   shared malformed Markdown/Textile fixtures, TXTInput extension-path coverage,
   delimiter stress, and the direct/external converter pipeline follow-up.
-  Durable doc: `dev-docs/file-format-unicode-conversion.md`.
+  Durable doc: `dev-docs/file_formats/file-format-unicode-conversion.md`.
 
 - [file-formats-pml-unicode-2026-05-20.md](file-formats-pml-unicode-2026-05-20.md)
   Current branch note for the PML pass after PR #69: shared OEB fixture
   coverage for `PMLMLizer`/`PMLOutput`, deterministic `.pmlz` output, and the
   explicit supported-versus-lossy PML unicode boundary. Durable doc:
-  `dev-docs/file-format-unicode-conversion.md`.
+  `dev-docs/file_formats/file-format-unicode-conversion.md`.
 
 - [file-formats-text-unicode-2026-05-20.md](file-formats-text-unicode-2026-05-20.md)
   Current branch note for the text/unicode file-format pass: reusable
@@ -1055,14 +1321,14 @@ Start here for active handoff notes. This index should stay short.
   Current web-source hardening and expansion note: provider parser/backoff
   coverage, Google Images rendered-browser fallback, the new Library of
   Congress source slice, live-probe behavior, and next source candidates.
-  Durable doc: `dev-docs/metadata-web-sources.md`.
+  Durable doc: `dev-docs/metadata/metadata-web-sources.md`.
 
 - [metadata-wemi-container-hardening-plan-2026-05-17.md](metadata-wemi-container-hardening-plan-2026-05-17.md)
   Current branch note for the planned WEMI container/conversion hardening pass:
   conversion contracts, identity-spine versus full-graph invariants,
   lazy/eager projection parity, writer safety, and relation-container torture
   coverage. Durable doc:
-  `dev-docs/metadata-wemi-container-hardening.md`.
+  `dev-docs/metadata/metadata-wemi-container-hardening.md`.
 
 - [metadata-utils-coverage-2026-05-17.md](metadata-utils-coverage-2026-05-17.md)
   Current branch note for the metadata helper coverage pass:
@@ -1116,7 +1382,7 @@ Start here for active handoff notes. This index should stay short.
   Next high-value lane after extractor coverage: metadata writer tests as
   corruption-prevention checks, with round-trip readability, container
   validity, payload preservation, hostile unicode/escaping, and clean failure
-  behavior. Durable doc: `dev-docs/metadata-writer-coverage-contract.md`.
+  behavior. Durable doc: `dev-docs/metadata/metadata-writer-coverage-contract.md`.
 
 - [metadata-ingest-source-coverage-plan-2026-05-16.md](metadata-ingest-source-coverage-plan-2026-05-16.md)
   Coverage plan for production-heavy metadata file-source ingest readers, with
@@ -1135,7 +1401,7 @@ Start here for active handoff notes. This index should stay short.
   the new WEMI projection/relation/lazy-value tests, 100% focused coverage
   across the six metadata hydrator modules, and the post-merge bzzdec malformed
   payload fix. Durable malformed-input testing docs:
-  `dev-docs/malformed-input-fuzzing.md`.
+  `dev-docs/hacking/testing/malformed-input-fuzzing.md`.
 
 - [coverage-syntax-warning-cleanup-2026-05-15.md](coverage-syntax-warning-cleanup-2026-05-15.md)
   Coverage-runner and SyntaxWarning cleanup note: adds the dedicated coverage

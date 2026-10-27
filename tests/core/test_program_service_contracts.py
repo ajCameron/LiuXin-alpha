@@ -494,7 +494,7 @@ def test_metadata_writer_error_can_follow_partial_file_change(
     :param tmp_path: Isolated pytest directory holding the disposable book file.
     :return: None after checking the reported error and retained partial bytes on disk.
     """
-    from LiuXin_alpha.customize import ui
+    from LiuXin_alpha.file_formats import plugin_runtime as ui
 
     def failing_writer(
         stream: BinaryIO,
@@ -686,7 +686,7 @@ def test_program_protocol_documentation_matches_its_service_owners() -> None:
         >>> test_program_protocol_documentation_matches_its_service_owners()
 
 
-    :return: None after checking all 80 declared endpoint methods and the facade's static alias documentation.
+    :return: None after checking all 85 declared endpoint methods and the facade's static alias documentation.
     """
     from LiuXin_alpha.core.program_api import CoreProgramAPI
     from LiuXin_alpha.core.program_endpoints import handlers
@@ -717,7 +717,7 @@ def test_program_protocol_documentation_matches_its_service_owners() -> None:
                 inspect.signature(owner).parameters
             )
             checked += 1
-    assert checked == 80
+    assert checked == 85
     for name, alias in vars(CoreProgramAPI).items():
         if isinstance(alias, staticmethod):
             function = getattr(CoreProgramAPI, name)

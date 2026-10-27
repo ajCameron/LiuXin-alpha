@@ -216,6 +216,8 @@ def _remove_sources(
             )
         except Exception as error:
             receipt.update(ok=False, error=str(error) or type(error).__name__)
+            if isinstance(error, api.StorageDeletionError):
+                receipt["recovery"] = plain(error.recovery)
         else:
             receipt.update(ok=True, result=plain(result))
         execution.actions.append(receipt)

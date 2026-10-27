@@ -503,7 +503,7 @@ Validation:
 
 Durable doc:
 
-- `dev-docs/metadata-web-sources.md`
+- `dev-docs/metadata/metadata-web-sources.md`
 
 ## Wikidata Source Slice
 

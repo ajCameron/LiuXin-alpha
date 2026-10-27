@@ -1,0 +1,174 @@
+# Top-level architecture review
+
+**Follow-up — 2026-10-19:** PR #125 consolidated `customize` into `plugin_system`;
+that package is now named `plugins`. Both former namespaces are retired.
+Application assembly lives in `plugins.application`, with module-level dependency
+and cold-import checks separating it from neutral mechanics. Earlier package
+names and counts below describe their dated checkpoints. See the current
+[plugin composition contract](../plugins/plugin-composition.md).
+
+
+Date: 2026-09-17
+
+Status: **Historical recommendations with implemented follow-ups.** The initial
+review itself changed no architecture; the October 20 disposition below describes
+the later source, based on working tree `fc5de7af`.
+
+This note records the supplied architectural review and its follow-up. It is
+not a fresh repository-wide dependency audit. Verification findings below are
+attributed to the reviews that reported them.
+
+## Current disposition — 2026-10-20
+
+| Original theme | Implemented | Remaining work |
+| --- | --- | --- |
+| Core, Library and ingest ownership | `core.library_services.LibraryServices` owns graph lifecycle; Library borrows collaborators and mixed ingest requires an open Library. | Remove lower-layer path wrappers; decide durable maintenance and job/ingest execution ownership. |
+| Database storage bootstrap | Database defaults disable implicit storage and maintenance. Core composition creates owned services explicitly. | Retire opt-ins/back-references with their callers; transaction-on-close and creation safety remain separate issues. |
+| Metadata persistence | Pure value rules stay in metadata; Catalog owns hydration, semantic writes and stored identity preparation. ReadCache separates reads from the writable cache's Catalog bridge. | Fill validator coverage, reconcile other read projections and residual field-metadata coupling. |
+| Configuration | Core supplies resolved paths and one application preference store; DBPrefs and component options have distinct scopes. | Remove remaining startup hooks and implicit scratch defaults; make component lifetimes explicit. |
+| Plugin naming/composition | `plugins` unifies neutral mechanics and application composition. Both `customize` and `plugin_system` are removed. | Retire/report unsupported providers and clarify domain registries; no further top-level rename is needed. |
+
+See the [decision record](target-architecture.md),
+[opening-path review](lifecycle-opening-path-review-2026-10-09.md),
+[configuration contract](../core/configuration-ownership.md) and
+[plugin composition contract](../plugins/plugin-composition.md).
+The [annotated whole-repository review](architecture-review-2026-09-26.md)
+retains the broader safety and ownership findings. This follow-up does not mark
+all five themes complete or revalidate every original defect.
+
+## Overall assessment
+
+The remaining sections preserve the earlier review and its dated October 13
+amendment. Their requests and module names describe those checkpoints. The
+module table includes that later `plugin_system` addition; use the current
+[package overview](<../02 - Top Level Structure.md>) for today's inventory.
+
+
+The essential modules are present and their broad responsibilities are sensible.
+The main opportunity is to clarify ownership and dependency boundaries within
+the existing structure. The review did not identify a need for additional
+top-level packages.
+
+| Module | Broad responsibility |
+|---|---|
+| `databases` | Persistence and database access |
+| `catalog` | Bibliographic operations |
+| `metadata` | Metadata models and tooling |
+| `storage` | Assets and replicas |
+| `file_formats` | Format handling and conversion |
+| `plugin_system` | Passive, format-neutral plugin lifecycle contracts |
+| `ingest` | Acquisition workflows |
+| `jobs` | Durable execution |
+| `caches` | Acceleration |
+| `surfaces` | External interfaces |
+
+## Findings and recommendations
+
+### 1. Clarify core, library and ingest ownership
+
+The distinction between `core` runtime/API responsibilities, `library`
+orchestration and `ingest` workflows needs to be explicit.
+
+Document which layer owns application lifecycle, coordinates library operations
+and runs acquisition workflows. Use concrete call paths to establish where one
+responsibility ends and the next begins before considering code moves.
+
+### 2. Reconsider storage bootstrapping inside Database
+
+Storage bootstrapping inside `Database` deserves review because it connects
+persistence initialization with storage lifecycle responsibilities.
+
+Determine which application component should create and connect these services,
+and whether database construction needs to perform that orchestration. Treat
+relocation as a proposal to validate against callers and startup behavior.
+
+### 3. Clarify metadata persistence ownership
+
+The boundary between metadata models/tooling in `metadata` and bibliographic
+persistence operations in `catalog` needs a clear contract.
+
+Identify the owner of metadata reads and writes, including validation and
+transaction boundaries. Document how metadata objects reach persistence and
+which layer callers should use for mutations.
+
+### 4. Consolidate configuration ownership
+
+Configuration ownership appears scattered. Review where settings are defined,
+loaded and applied, then establish clear owners and consistent precedence rules.
+
+Consolidation need not mean a single configuration module; the objective is to
+make each setting's source, lifetime and responsible subsystem predictable.
+
+### 5. Give customize a clearer plugin-oriented name
+
+Consider whether `customize` accurately communicates its plugin responsibilities.
+A clearer name could make discovery and ownership easier.
+
+Any rename should follow confirmation of the package's actual scope and an
+inventory of its callers. This review does not select a replacement name or
+authorize a migration.
+
+## Follow-up priorities — 2026-09-17
+
+The follow-up review recommends the following order of work. These are proposed
+next steps; this documentation update does not implement them.
+
+1. **Establish lifecycle ownership across core, library and ingest.** Start with
+   storage bootstrapping inside `Database`. Identify which component creates,
+   starts and closes the database and storage services. Add startup and shutdown
+   regression coverage before changing that ownership, including cleanup after
+   partial initialization failures.
+2. **Make configuration precedence explicit.** Document the supported sources of
+   configuration, their override order and when values take effect. Verify that
+   competing settings resolve consistently with the documented rules.
+3. **Strengthen typed subsystem contracts.** Define the interfaces at the
+   ownership boundaries so callers depend on explicit capabilities and resource
+   responsibilities. Use those contracts to make integration expectations
+   reviewable and checkable.
+4. **Expand quality checks one tested subsystem at a time.** Extend the existing
+   formatting, type and dependency checks alongside focused behavioral coverage.
+   Verify each subsystem before broadening the enforced scope.
+
+Favor end-to-end examples and ownership documentation that explain how the
+components work together. Blanket docstring additions and package renames have
+lower priority than clarifying lifecycle behavior and testing the contracts.
+The earlier `customize` naming suggestion remains a secondary consideration.
+
+## Implementation update — 2026-10-13
+
+Later dependency evidence justified one narrow top-level addition:
+`plugin_system` now owns the format-neutral plugin lifecycle that was previously
+embedded in `customize`. Conversion-specific contracts moved to
+`file_formats.conversion.plugin`, while `customize` retains compatibility exports
+and application registry composition. This makes the ownership boundary explicit
+without renaming the broad historical package or removing plugin behavior.
+
+## Evidence and limits
+
+The following results belong to the original reviews; the folder
+[layer guide](layer-direction-ratchet.md) records the fresh October 20 checks.
+
+The review reported that the dependency check passed for **215 protected
+modules**. That result applies to the check's configured scope; it does not
+establish clean layering across the entire repository or replace behavioral
+tests.
+
+The initial review reported that no source patch was present in its context,
+so it could not assess introduced defects.
+
+The follow-up review identified **no defects in the current documentation and
+docstring-only changes**. It reported that changed documentation links resolve,
+executable syntax is unchanged, and the dependency check passes for 215 protected
+modules. These findings describe the reviewed changes and the configured check
+scope; they do not establish repository-wide architectural correctness.
+
+The recommendations above are architectural follow-up items, not confirmed
+regressions or evidence that a particular refactor is safe. No new behavioral
+or dependency test run was performed merely to record these findings.
+
+## Related documentation
+
+- [Top-level structure](<../02 - Top Level Structure.md>)
+- [Responsibility boundaries](<../04 - Seperation of Concerns.md>)
+- [Core workflow ownership](../core/core-program-workflows.md)
+- [Maintainability quality gates](maintainability-quality-gates.md)

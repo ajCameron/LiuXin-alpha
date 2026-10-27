@@ -6,9 +6,9 @@
 CREATE TABLE IF NOT EXISTS `ratings` (
   `rating_id` INTEGER PRIMARY KEY,
 
-  `rating` FLOAT NULL,
-  `rating_out_of` INT NULL, -- Is the rating out of five or ten? (might be a bad idea - just normalize)
-  `rating_for_calibre_tag_viewer` INT NULL, -- Just cast the rating to float.
+  `rating` FLOAT NULL, -- Catalog validates finite nonnegative scores; NULL means unrated.
+  `rating_out_of` INT NULL, -- Optional positive integral maximum; NULL leaves the scale unknown.
+  `rating_for_calibre_tag_viewer` INT NULL, -- Separately supplied compatibility display value; not derived.
 
   `rating_source` TEXT NULL,
 

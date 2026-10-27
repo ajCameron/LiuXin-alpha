@@ -111,6 +111,11 @@ class JobManagerAPI:
     """
     Abstract shape for job manager implementations.
 
+    Implementations must support concurrent calls: Core waits/results can overlap
+    status, cancellation and submission. Protect manager state independently and
+    never hold its state lock throughout a blocking wait. Core's shared database
+    handler lock is not a synchronization mechanism for this interface.
+
     Example:
         Exercise JobManagerAPI through a consuming regression::
 

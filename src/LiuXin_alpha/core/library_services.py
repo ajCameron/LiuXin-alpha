@@ -98,6 +98,26 @@ class LibraryServices:
         self._close_failures = close_failures
         self._closed = False
 
+    @staticmethod
+    def replace_database(
+        *,
+        database_path: str | pathlib.Path,
+        backup_path: str | pathlib.Path,
+        db_type: str = "SQLite",
+    ) -> pathlib.Path:
+        """Replace an offline file database with an explicit recovery destination.
+
+        No library graph may be using the target. Opening the replacement is a
+        separate operation; a failed later bootstrap does not remove its backup.
+        """
+        from LiuXin_alpha.databases.database import Database
+
+        return Database.replace_database(
+            {"database_path": str(pathlib.Path(database_path).expanduser())},
+            backup_path=backup_path,
+            db_type=db_type,
+        )
+
     @classmethod
     def open(
         cls,
@@ -124,7 +144,11 @@ class LibraryServices:
         field_metadata: Any | None = None,
         maintenance: Any | None = None,
     ) -> Self:
-        """Open one library graph and roll it back completely if any step fails."""
+        """Open one library graph and unwind its resources on failure.
+
+        ``create=True`` requires an absent file or empty server schema. Replacement
+        is a separate offline operation with a mandatory recovery backup.
+        """
 
         if database is None and database_path is None:
             raise ValueError("Provide either `database` or `database_path`.")

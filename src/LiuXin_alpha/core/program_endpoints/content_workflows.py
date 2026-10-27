@@ -19,7 +19,7 @@ def install_queries(
     api: ContentWorkflowsHandlers, runtime: ProgramEndpointRegistrar
 ) -> None:
     """
-    Install six queries for ingest/metadata/conversion formats, file metadata inspection, online sources, and conversion options.
+    Install queries for ingest state, formats, metadata inspection, online sources and conversion options.
 
     Metadata inspection advertises path/base64/type alternatives without enforcing
     their exclusivity here. Conversion options advertise an input/output path pair;
@@ -30,21 +30,39 @@ def install_queries(
         >>> registrar = Mock()
         >>> install_queries(Mock(), registrar)
         >>> registrar.register_query_handler.call_count
-        6
+        8
 
 
     :param api: Handler provider for content capability discovery and synchronous metadata/option inspection.
-    :param runtime: Registrar accepting six ordered query bindings and their advertised payload fields and tags.
+    :param runtime: Registrar accepting query bindings and their advertised payload fields and tags.
     :return: None after installation, with a late registration error propagated rather than rolling back earlier bindings.
     """
 
     query = runtime.register_query_handler
 
     query(
+        "ingest.web.files",
+        api.ingest_web_files,
+        summary="List recorded remote files and last capture evidence.",
+        payload_fields=(field("root_url", required=True, field_type="string"),),
+        tags=("ingest", "remote", "read"),
+        remote_capabilities=("admin",),
+    )
+    query(
+        "ingest.web.status",
+        api.ingest_web_status,
+        summary="Inspect a saved web ingest run.",
+        payload_fields=(field("run_id", required=True, field_type="string"),),
+        tags=("ingest", "remote", "read"),
+        remote_capabilities=("admin",),
+    )
+
+    query(
         "ingest.formats",
         api.ingest_formats,
         summary="List recognised ebook and metadata ingest extensions.",
         tags=("ingest", "capabilities"),
+        remote_capabilities=("admin",),
     )
 
     query(
@@ -52,6 +70,7 @@ def install_queries(
         api.metadata_file_formats,
         summary="List metadata file reader and writer support.",
         tags=("metadata", "files", "capabilities"),
+        remote_capabilities=("admin",),
     )
 
     query(
@@ -64,6 +83,7 @@ def install_queries(
             field("file_type", field_type="string"),
         ),
         tags=("metadata", "files", "read"),
+        remote_capabilities=("execute",),
     )
 
     query(
@@ -71,6 +91,7 @@ def install_queries(
         api.metadata_online_sources,
         summary="List configured online metadata and cover sources.",
         tags=("metadata", "online", "capabilities"),
+        remote_capabilities=("admin",),
     )
 
     query(
@@ -78,6 +99,7 @@ def install_queries(
         api.conversion_formats,
         summary="List available conversion input and output formats.",
         tags=("conversion", "capabilities"),
+        remote_capabilities=("admin",),
     )
 
     query(
@@ -89,6 +111,7 @@ def install_queries(
             field("output_path", required=True, field_type="string"),
         ),
         tags=("conversion", "capabilities"),
+        remote_capabilities=("execute",),
     )
 
 
@@ -96,7 +119,7 @@ def install_commands(
     api: ContentWorkflowsHandlers, runtime: ProgramEndpointRegistrar
 ) -> None:
     """
-    Bind metadata-file writing and five job-start routes for online metadata, cover lookup, ingestion, and conversion.
+    Bind metadata-file writing and six job-start routes for online metadata, cover lookup, ingestion, and conversion.
 
     The file-write route is distinct from managed-job submission. Job controls
     accepted by shared submission helpers are not exhaustively listed in these
@@ -108,11 +131,11 @@ def install_commands(
         >>> registrar = Mock()
         >>> install_commands(Mock(), registrar)
         >>> registrar.register_command_handler.call_count
-        6
+        7
 
 
     :param api: Provider of file-write and asynchronous content-workflow submission handlers.
-    :param runtime: Registrar receiving six command bindings, explicit summaries, payload metadata, and tags.
+    :param runtime: Registrar receiving seven command bindings, explicit summaries, payload metadata, and tags.
     :return: None after sequential registration; failures propagate without provider-level cleanup of prior registrations.
     """
 
@@ -130,6 +153,7 @@ def install_commands(
             field("metadata", field_type="object"),
         ),
         tags=("metadata", "files", "write"),
+        remote_capabilities=("execute",),
     )
 
     command(
@@ -144,6 +168,7 @@ def install_commands(
             field("allowed_plugins", field_type="array|null"),
         ),
         tags=("metadata", "online", "jobs", "write"),
+        remote_capabilities=("execute",),
     )
 
     command(
@@ -157,6 +182,7 @@ def install_commands(
             field("timeout_s", field_type="number"),
         ),
         tags=("metadata", "online", "jobs", "write"),
+        remote_capabilities=("execute",),
     )
 
     command(
@@ -174,6 +200,7 @@ def install_commands(
             field("refresh_storage_manager", field_type="boolean"),
         ),
         tags=("ingest", "jobs", "write"),
+        remote_capabilities=("execute",),
     )
 
     command(
@@ -185,6 +212,19 @@ def install_commands(
             field("options", required=True, field_type="object"),
         ),
         tags=("ingest", "remote", "jobs", "write"),
+        remote_capabilities=("execute",),
+    )
+
+    command(
+        "ingest.web.start",
+        api.ingest_web_start,
+        summary="Register remote files or download selected content into managed storage.",
+        payload_fields=(
+            field("options", field_type="object"),
+            field("resume", field_type="string"),
+        ),
+        tags=("ingest", "remote", "jobs", "write"),
+        remote_capabilities=("execute",),
     )
 
     command(
@@ -197,4 +237,5 @@ def install_commands(
             field("options", field_type="object"),
         ),
         tags=("conversion", "jobs", "write"),
+        remote_capabilities=("execute",),
     )

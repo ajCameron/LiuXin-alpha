@@ -1,0 +1,70 @@
+# Plugins
+
+Reviewed **2026-10-20** against the working tree based on `fc5de7af`.
+
+`LiuXin_alpha.plugins` owns plugin mechanics and application plugin
+composition. On 2026-10-19, the former `customize` package was consolidated in
+`78a01b61`; the subsequent naming follow-up renames `plugin_system` to `plugins`.
+Neither old namespace remains as a compatibility alias. Import contracts and
+operations from their owning modules; the package root is passive and does not
+re-export them.
+
+Start with the [composition contract](plugin-composition.md) for startup,
+provider ordering, refresh and failure handling. Its
+[import migration table](plugin-composition.md#import-migration) covers repository
+and external ZIP-plugin callers of the retired namespace.
+
+## Where changes belong
+
+| Change | Owner |
+| --- | --- |
+| Generic lifecycle, resources and preferences contract | `plugins.base` |
+| File-hook and metadata-stream contracts | `plugins.file_types` |
+| Persisted plugin customization and enabled state | `plugins.configuration` |
+| ZIP loading and shared initialization/ordering policy | `plugins.zipplugin`, `plugins.loading` |
+| Application startup, lookups and installation/removal | `plugins.application` |
+| Application plugin families and bundled catalogue | `plugins.contracts`, `plugins.builtins` |
+| Conversion contracts, implementations and standalone dispatch | `file_formats.conversion`, `file_formats.plugin_runtime` |
+| File metadata readers and writers | `metadata.file_sources` |
+
+Sharing one package does not give generic mechanics permission to import the
+application host or concrete providers. Internal dependency checks enforce that
+direction. The application host extends the standalone file-provider catalogue
+and binds its initialized instances into the format runtime; both use the same
+loading and priority policy.
+
+Conversion-specific guidance remains in [file formats](../file_formats/README.md)
+and the [conversion pipeline](../conversion_pipeline/README.md). The persisted
+plugin settings are a component namespace within the broader
+[configuration model](../core/configuration-ownership.md).
+
+## Remaining work
+
+The moved `cache`, `folder_store_driver` and abstract `api` modules retain legacy
+contracts. Unsupported device providers still refer to the removed device
+package. Their relocation does not restore those integrations. Provider failure
+reporting and process-wide registry/conversion state also need follow-up.
+
+Database, storage and terminal registries remain with their domain owners;
+this merger does not unify every registry in the project. The
+[architecture review](../architectural_reviews/architecture-review-2026-09-26.md)
+tracks those separate decisions.
+
+## Checks
+
+From the repository root, use the active environment and an absolute source path:
+
+```bash
+PYTHONPATH="$PWD/src" python -m pytest -q tests/plugins tests/file_formats/test_plugin_runtime.py -o tmp_path_retention_policy=none
+PYTHONPATH="$PWD/src" python scripts/check_layer_direction.py
+PYTHONPATH="$PWD/src" python scripts/check_import_footprint.py
+```
+
+Package-structure tests reject the retired namespace; the
+[installed-wheel checks](../hacking/packaging.md) verify the distributed boundary.
+For resource telemetry and broader lanes, see [test streams](../hacking/test-streams.md).
+
+[Next tasks](next_tasks.md) records proposed changes, dependencies and completion
+checks. No runtime change is implied by this documentation review.
+
+Return to the [developer index](../README.md).

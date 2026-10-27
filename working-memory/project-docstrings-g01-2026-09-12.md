@@ -3,7 +3,7 @@
 Implemented and reviewed the two files assigned to G01:
 [shared helper](../tests/support/docstring_ownership.py) and
 [focused regression tests](../tests/scripts/test_docstring_ownership.py).
-The [inventory](../dev-docs/project-docstrings-work-units.json) records their full
+The [inventory](../dev-docs/hacking/project-docstrings-work-units.json) records their full
 declaration selections and verification. G02 guard integrations remain queued.
 
 ## Contract for G02

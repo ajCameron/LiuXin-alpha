@@ -1,8 +1,19 @@
+
 # Project-level goals
+
+Reviewed: **2026-10-20**.
 
 These goals guide design and review across LiuXin. They are not a release
 checklist; subsystem contracts and tests remain the authority for concrete
 behaviour.
+
+## Rich metadata
+
+We want to expose the entire WEMI stack - as elegantly as possible.
+
+The aim is to fully express all information about an object.
+Works have a number of roles and places within an information hierarchy.
+LiuXin aims to express those.
 
 ## Preserve information safely
 
@@ -14,8 +25,11 @@ preconditions, observable outcomes, and recoverable failure boundaries.
 
 Application-facing APIs should express what a caller is trying to accomplish.
 Infrastructure details, persistence rows, backend quirks, and orchestration
-steps should remain behind the boundary that owns them. Lower-level APIs remain
-available when their additional control is useful.
+steps should remain behind the boundary that owns them. 
+
+Lower-level APIs remain available when their additional control is useful.
+
+LiuXin should be usable as a component or service in a larger product.
 
 ## Make the code and APIs readable to humans and AI systems
 
@@ -49,9 +63,33 @@ Important behaviour should be expressible in tests and static checks. Public
 types distinguish intent from persisted facts and observed physical state.
 Compatibility surfaces should be deliberate, bounded, and tested.
 
+## Make recovery and scale observable
+
+A successful write or backup job should report what was persisted, published and
+verified, plus any work still needed. Rehearse recovery rather than equating a
+completed transfer with a recoverable collection. Keep physical-copy evidence
+separate from bibliographic identity and desired retention policy.
+
+Bound memory, scratch space, expansion and concurrent work. Ordinary correctness
+tests should use small representative fixtures; larger performance and failure
+campaigns should be explicit, measured and cleaned up. Claims about scale need
+an environment, workload and result.
+
+## State compatibility and uncertainty precisely
+
+Preserve source/provenance where a narrower representation loses meaning. Name
+which fields, operations, backends and versions an adapter supports. Separate
+unknown or unavailable state from known absence, and expose required-operation
+failures rather than presenting an empty successful result.
+
 ## Evolve incrementally
 
 LiuXin is an alpha project with substantial inherited code. Improvements should
 move ownership toward the documented architecture while preserving useful data,
 tests, and compatibility paths. Transitional adapters should identify their
 purpose and intended removal condition.
+
+Reduce technical debt as the owning behaviour is reviewed. Compatibility shims
+have ongoing costs; retain them for identified callers and a stated migration,
+not as an indefinite alternative architecture. The [ownership guide](<04 - Seperation of Concerns.md>)
+and [cross-project work list](global_todo.md) connect these goals to current work.

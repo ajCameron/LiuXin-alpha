@@ -4,7 +4,7 @@ Discover file-like links through a cached, breadth-first stdlib HTTP/HTML crawl.
 URL scope, page/link limits, per-instance rate slots, and permissive robots checks
 govern discovery; accepted links are not fetched as ebooks or proven readable.
 Callbacks may publish side effects before a later limit failure. Ordinary callback
-errors are ignored, while BaseException cancellation propagates. This module has
+errors are ignored unless strict_callbacks is enabled; BaseException propagates. This module has
 no explicit cancellation token or all-crawl rollback.
 """
 
@@ -15,8 +15,10 @@ import time
 import urllib.error
 import urllib.request
 from collections import deque
+from collections.abc import Callable
 from dataclasses import dataclass
 from html.parser import HTMLParser
+from typing import Any
 from urllib.parse import urljoin, urlparse
 from urllib.robotparser import RobotFileParser
 
@@ -87,6 +89,7 @@ class NativeHtmlBackendOptions:
     :ivar max_html_bytes: Positive HTML-body limit; fetch uses a minimum of 1024 bytes.
     :ivar max_pages: Positive cap on unique dequeued normalized URLs counted as crawled.
     :ivar max_observed_urls: Positive cap on raw parsed link occurrences before deduplication.
+    :ivar strict_callbacks: Propagate callback failures for durable consumers; default keeps legacy best-effort behavior.
     """
 
     timeout_s: float | None = 30.0
@@ -100,6 +103,7 @@ class NativeHtmlBackendOptions:
     max_html_bytes: int = 2_000_000
     max_pages: int = 10_000
     max_observed_urls: int = 100_000
+    strict_callbacks: bool = False
 
     def __post_init__(self) -> None:
         """
@@ -240,7 +244,13 @@ class NativeHtmlDiscoverySource(DiscoverySourceAPI):
         'https://example.test/books/'
     """
 
-    def __init__(self, url: str, *, options: NativeHtmlBackendOptions | None = None) -> None:
+    def __init__(
+        self,
+        url: str,
+        *,
+        options: NativeHtmlBackendOptions | None = None,
+        request_opener: Callable[[urllib.request.Request, float | None], Any] | None = None,
+    ) -> None:
         """
         Normalize the root and initialize options, logs, crawl cache, and rate/robots state.
 
@@ -254,6 +264,7 @@ class NativeHtmlDiscoverySource(DiscoverySourceAPI):
 
         :param url: HTTP(S) root accepted by the shared normalization policy.
         :param options: Caller-owned options, or None to construct preference-backed defaults.
+        :param request_opener: Optional shared HTTP policy/transport accepting a request and timeout.
         :return: None after initializing an uncrawled source.
         :raises ValueError: Root URL normalization rejects the input.
         """
@@ -262,6 +273,8 @@ class NativeHtmlDiscoverySource(DiscoverySourceAPI):
             raise ValueError("native HTML discovery requires a valid HTTP(S) root URL.")
         super().__init__(url=normalized)
         self.options = options or NativeHtmlBackendOptions()
+        self._request_opener = request_opener
+        self.last_errors: list[str] = []
         self._event_log = InMemoryEventLog()
         self._crawl_cache_urls: list[str] | None = None
         self._rate_limit_lock = threading.Lock()
@@ -360,6 +373,8 @@ class NativeHtmlDiscoverySource(DiscoverySourceAPI):
         """
         self._acquire_rate_limit_slot()
         request = urllib.request.Request(url=url, headers=self._request_headers(), method=method)
+        if self._request_opener is not None:
+            return self._request_opener(request, self.options.timeout_s)
         return urllib.request.urlopen(request, timeout=self.options.timeout_s)
 
     @staticmethod
@@ -557,7 +572,10 @@ class NativeHtmlDiscoverySource(DiscoverySourceAPI):
         Count raw link occurrences before normalization/deduplication. Accepted
         in-scope dotted leaves are emitted even when page-like; recursion depth
         restricts page queuing, not those discoveries. Callback Exceptions are
-        swallowed; BaseException propagates. Limit failures abort without caching
+        swallowed unless strict_callbacks is enabled; BaseException propagates.
+        Fetch/parse failures are also retained in last_errors for the latest fresh crawl.
+        Fresh observations include the referring page; cache replay has URLs only.
+        Limit failures abort without caching
         the partial result, but prior callbacks and any old cache survive. An
         empty successful crawl is cached and does not prove the remote site empty.
 
@@ -566,7 +584,7 @@ class NativeHtmlDiscoverySource(DiscoverySourceAPI):
 
 
         :param force: Ignore an existing crawl cache, without clearing robots/rate state.
-        :param log_line_callback: Optional pre-fetch diagnostic consumer; ordinary errors ignored.
+        :param log_line_callback: Optional pre-fetch consumer; errors propagate with strict_callbacks.
         :param discovered_url_callback: Optional accepted-URL consumer, potentially causing partial effects.
         :param observed_url_callback: Optional unique-valid-link classification consumer or cache replay consumer.
         :return: New list of accepted URLs in discovery/cache order, not validated ebook files.
@@ -579,15 +597,18 @@ class NativeHtmlDiscoverySource(DiscoverySourceAPI):
                     try:
                         observed_url_callback({"url": url, "accepted": True, "reason": "accepted"})
                     except Exception:
-                        pass
+                        if self.options.strict_callbacks:
+                            raise
             if discovered_url_callback is not None:
                 for url in cached:
                     try:
                         discovered_url_callback(url)
                     except Exception:
-                        pass
+                        if self.options.strict_callbacks:
+                            raise
             return cached
 
+        self.last_errors = []
         root = normalize_http_url(self.url) or self.url
         pending: deque[tuple[str, int]] = deque([(root, 0)])
         queued = {root}
@@ -615,14 +636,17 @@ class NativeHtmlDiscoverySource(DiscoverySourceAPI):
                 try:
                     log_line_callback("native fetch depth={} {}".format(depth, normalized_current))
                 except Exception:
-                    pass
+                    if self.options.strict_callbacks:
+                        raise
             try:
                 fetched = self._fetch_url(normalized_current)
             except Exception as exc:
+                self.last_errors.append("crawl failed for {}: {!r}".format(normalized_current, exc))
                 self._event_log.put("crawl failed for {}: {!r}".format(normalized_current, exc))
                 continue
 
             if not self._usable_fetch_result(fetched):
+                self.last_errors.append("crawl rejected response for {}: status={}".format(normalized_current, fetched.status))
                 self._event_log.put(
                     "crawl rejected unusable response for {}: status={} final={!r}".format(
                         normalized_current,
@@ -637,6 +661,7 @@ class NativeHtmlDiscoverySource(DiscoverySourceAPI):
             if not self._looks_like_html_content_type(fetched.content_type):
                 continue
             if fetched.truncated:
+                self.last_errors.append("crawl rejected oversized HTML for {}".format(page_url))
                 self._event_log.put(
                     "crawl rejected oversized HTML for {}".format(page_url)
                 )
@@ -657,6 +682,7 @@ class NativeHtmlDiscoverySource(DiscoverySourceAPI):
                 parser.feed(html_text)
                 parser.close()
             except Exception as exc:
+                self.last_errors.append("html parse failed for {}: {!r}".format(page_url, exc))
                 self._event_log.put("html parse failed for {}: {!r}".format(page_url, exc))
                 continue
 
@@ -689,6 +715,7 @@ class NativeHtmlDiscoverySource(DiscoverySourceAPI):
                         observed_url_callback(
                             {
                                 "url": normalized,
+                                "referrer": page_url,
                                 "accepted": accepted,
                                 "within_scope": within_scope,
                                 "file_like": file_like,
@@ -697,14 +724,16 @@ class NativeHtmlDiscoverySource(DiscoverySourceAPI):
                             }
                         )
                     except Exception:
-                        pass
+                        if self.options.strict_callbacks:
+                            raise
                 if accepted:
                     filtered.append(normalized)
                     if discovered_url_callback is not None:
                         try:
                             discovered_url_callback(normalized)
                         except Exception:
-                            pass
+                            if self.options.strict_callbacks:
+                                raise
                 if can_descend and within_scope and page_like and normalized not in queued and normalized not in crawled:
                     queued.add(normalized)
                     pending.append((normalized, next_depth))

@@ -59,7 +59,10 @@ REQUIRED_SCHEMA_SPECS = (
     "interlink_table_requests.toml",
     "intralink_table_requests.toml",
 )
+REQUIRED_MAN_PAGES = ("liuxin.1", "liuxin-ingest.1", "liuxin-ingest-web.1")
 EXCLUDED_PACKAGE_PREFIXES = (
+    "LiuXin_alpha/customize/",
+    "LiuXin_alpha/plugin_system/",
     "LiuXin_tests/",
     "LiuXin_alpha/library/api/",
     "LiuXin_alpha/library/caches/memory_sqlite/",
@@ -105,18 +108,33 @@ def _origin_check_program(install_root: Path) -> str:
     return "\n".join(
         (
             "import importlib",
+            "import importlib.util",
             "import json",
             "from pathlib import Path",
             f"root = Path({str(install_root)!r}).resolve()",
             (
-                "names = ('LiuXin_alpha', 'chardet', 'cssselect', 'cssutils', "
-                "'lxml', 'numpy', 'PIL', 'regex')"
+                "names = ('LiuXin_alpha', 'LiuXin_alpha.plugins.application', "
+                "'LiuXin_alpha.plugins.contracts', 'chardet', 'cssselect', 'cssutils', "
+                "'lxml', 'numpy', 'PIL', 'regex', 'past', 'past.builtins', "
+                "'LiuXin_alpha.utils.image_tools.img')"
             ),
             "origins = {}",
             "for name in names:",
             "    module = importlib.import_module(name)",
             "    origins[name] = str(Path(module.__file__).resolve())",
             "assert all(Path(path).is_relative_to(root) for path in origins.values())",
+            "assert importlib.util.find_spec('LiuXin_alpha.customize') is None",
+            "assert importlib.util.find_spec('LiuXin_alpha.plugin_system') is None",
+            "host = importlib.import_module('LiuXin_alpha.plugins.application')",
+            "assert host._initialized_plugins is None",
+            "from LiuXin_alpha.utils.image_tools import img",
+            "from PIL import Image",
+            "from io import BytesIO",
+            "image = BytesIO()",
+            "Image.new('RGBA', (20, 10), (255, 0, 0, 128)).save(image, format='PNG')",
+            "width, height, data = img.scale_image(image.getvalue(), width=10, height=10, as_png=True)",
+            "assert (width, height) == (10, 5)",
+            "assert Image.open(BytesIO(data)).size == (10, 5)",
             "print(json.dumps(origins, sort_keys=True))",
         )
     )
@@ -223,11 +241,22 @@ def inspect_wheel(wheel: Path, repo_root: Path = REPO_ROOT) -> dict[str, object]
             + ", ".join(missing_compatibility)
         )
 
+    missing_manuals = [
+        page
+        for page in REQUIRED_MAN_PAGES
+        if not any(name.endswith(f".data/data/share/man/man1/{page}") for name in names)
+    ]
+    if missing_manuals:
+        raise WheelVerificationError(
+            "Wheel is missing installed manual pages: " + ", ".join(missing_manuals)
+        )
+
     python_files = sum(name.endswith(".py") for name in names)
     return {
         "wheel": str(wheel),
         "entries": len(names),
         "python_files": python_files,
+        "man_pages": len(REQUIRED_MAN_PAGES),
         "runtime_assets": len(expected_runtime_assets(repo_root)),
         "calibre_resource_assets": sum(
             name.startswith(CALIBRE_RESOURCE_PACKAGE.as_posix() + "/") for name in names

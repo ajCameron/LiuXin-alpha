@@ -1,5 +1,5 @@
 """
-Check lock-connection transactions, savepoints, file locking, and direct Database SQL helper calls.
+Check explicit-connection transactions, savepoints, file locking, and direct Database SQL helper calls.
 
 External sqlite3 connections fail immediately on lock contention and are closed by
 their callers. SQL-helper tests exercise the current API without asserting helper
@@ -171,16 +171,26 @@ def _safe_rollback(conn) -> None:
         pass
 
 
-def test_lock_connection_is_separate_and_points_to_same_db(open_db, db_path: Path):
+@pytest.fixture
+def explicit_connection(open_db):
+    """Own a real auxiliary SQL connection separately from the facade mutex."""
+    connection = open_db.get_connection()
+    try:
+        yield connection
+    finally:
+        connection.close()
+
+
+def test_explicit_connection_is_separate_and_points_to_same_db(open_db, explicit_connection, db_path: Path):
     """
-    Check lock and primary connections are distinct, report the expected database basename, and the lock can run a query.
+    Check explicit and primary connections are distinct, report the expected database basename, and the explicit connection can run a query.
 
     Only basenames are compared; full path equality is not asserted.
 
     Example:
         Run the owning tests with pytest::
 
-            python -m pytest -q tests/databases/database/database_contract/test_db_transactions_locking.py::test_lock_connection_is_separate_and_points_to_same_db
+            python -m pytest -q tests/databases/database/database_contract/test_db_transactions_locking.py::test_explicit_connection_is_separate_and_points_to_same_db
 
 
     :param open_db: Open Database for the selected driver; its fixture attempts close at
@@ -188,34 +198,34 @@ def test_lock_connection_is_separate_and_points_to_same_db(open_db, db_path: Pat
     :param db_path: Isolated provisioned database file used by this test.
     :return: None; failed expectations raise AssertionError.
     """
-    lock_conn = open_db.lock
+    transaction_conn = explicit_connection
     driver_conn = open_db.driver.conn
 
-    assert lock_conn is not None
+    assert transaction_conn is not None
     assert driver_conn is not None
-    assert lock_conn is not driver_conn
+    assert transaction_conn is not driver_conn
 
     # Both connections should point at the same on-disk DB file.
-    lock_file = _get_main_dbfile(lock_conn)
+    transaction_file = _get_main_dbfile(transaction_conn)
     driver_file = _get_main_dbfile(driver_conn)
 
     # Path strings can differ across platforms; assert basename match + suffix path match.
-    assert Path(lock_file).name == db_path.name
+    assert Path(transaction_file).name == db_path.name
     assert Path(driver_file).name == db_path.name
 
-    # Quick sanity: lock_conn can run a basic query.
-    rows = _rows(lock_conn, "SELECT name FROM sqlite_master LIMIT 1")
+    # Quick sanity: transaction_conn can run a basic query.
+    rows = _rows(transaction_conn, "SELECT name FROM sqlite_master LIMIT 1")
     assert isinstance(rows, list)
 
 
-def test_lock_connection_context_manager_commits(open_db, db_path: Path):
+def test_explicit_connection_context_manager_commits(open_db, explicit_connection, db_path: Path):
     """
-    Insert within the lock-connection context and check an external connection sees one committed row.
+    Insert within the explicit connection context and check an external connection sees one committed row.
 
     Example:
         Run the owning tests with pytest::
 
-            python -m pytest -q tests/databases/database/database_contract/test_db_transactions_locking.py::test_lock_connection_context_manager_commits
+            python -m pytest -q tests/databases/database/database_contract/test_db_transactions_locking.py::test_explicit_connection_context_manager_commits
 
 
     :param open_db: Open Database for the selected driver; its fixture attempts close at
@@ -223,12 +233,12 @@ def test_lock_connection_context_manager_commits(open_db, db_path: Path):
     :param db_path: Isolated provisioned database file used by this test.
     :return: None; failed expectations raise AssertionError.
     """
-    lock_conn = open_db.lock
+    transaction_conn = explicit_connection
     table = _mk_table_name()
-    _ensure_test_table(lock_conn, table)
+    _ensure_test_table(transaction_conn, table)
 
-    with lock_conn:
-        lock_conn.execute(f"INSERT INTO {table} (payload) VALUES (?)", ("ok",))
+    with transaction_conn:
+        transaction_conn.execute(f"INSERT INTO {table} (payload) VALUES (?)", ("ok",))
 
     ext = _external_conn(db_path)
     try:
@@ -237,14 +247,14 @@ def test_lock_connection_context_manager_commits(open_db, db_path: Path):
         ext.close()
 
 
-def test_lock_connection_context_manager_rolls_back_on_exception(open_db, db_path: Path):
+def test_explicit_connection_context_manager_rolls_back_on_exception(open_db, explicit_connection, db_path: Path):
     """
-    Raise RuntimeError after insertion in the lock context and check an external connection sees zero rows.
+    Raise RuntimeError after insertion in the explicit connection context and check an external connection sees zero rows.
 
     Example:
         Run the owning tests with pytest::
 
-            python -m pytest -q tests/databases/database/database_contract/test_db_transactions_locking.py::test_lock_connection_context_manager_rolls_back_on_exception
+            python -m pytest -q tests/databases/database/database_contract/test_db_transactions_locking.py::test_explicit_connection_context_manager_rolls_back_on_exception
 
 
     :param open_db: Open Database for the selected driver; its fixture attempts close at
@@ -252,13 +262,13 @@ def test_lock_connection_context_manager_rolls_back_on_exception(open_db, db_pat
     :param db_path: Isolated provisioned database file used by this test.
     :return: None; failed expectations raise AssertionError.
     """
-    lock_conn = open_db.lock
+    transaction_conn = explicit_connection
     table = _mk_table_name()
-    _ensure_test_table(lock_conn, table)
+    _ensure_test_table(transaction_conn, table)
 
     with pytest.raises(RuntimeError):
-        with lock_conn:
-            lock_conn.execute(f"INSERT INTO {table} (payload) VALUES (?)", ("nope",))
+        with transaction_conn:
+            transaction_conn.execute(f"INSERT INTO {table} (payload) VALUES (?)", ("nope",))
             raise RuntimeError("boom")
 
     ext = _external_conn(db_path)
@@ -268,14 +278,14 @@ def test_lock_connection_context_manager_rolls_back_on_exception(open_db, db_pat
         ext.close()
 
 
-def test_lock_connection_savepoint_partial_rollback(open_db, db_path: Path):
+def test_explicit_connection_savepoint_partial_rollback(open_db, explicit_connection, db_path: Path):
     """
     Roll back the second insertion to a savepoint and check one row remains visible externally after context exit.
 
     Example:
         Run the owning tests with pytest::
 
-            python -m pytest -q tests/databases/database/database_contract/test_db_transactions_locking.py::test_lock_connection_savepoint_partial_rollback
+            python -m pytest -q tests/databases/database/database_contract/test_db_transactions_locking.py::test_explicit_connection_savepoint_partial_rollback
 
 
     :param open_db: Open Database for the selected driver; its fixture attempts close at
@@ -283,16 +293,16 @@ def test_lock_connection_savepoint_partial_rollback(open_db, db_path: Path):
     :param db_path: Isolated provisioned database file used by this test.
     :return: None; failed expectations raise AssertionError.
     """
-    lock_conn = open_db.lock
+    transaction_conn = explicit_connection
     table = _mk_table_name()
-    _ensure_test_table(lock_conn, table)
+    _ensure_test_table(transaction_conn, table)
 
-    with lock_conn:
-        lock_conn.execute(f"INSERT INTO {table} (payload) VALUES ('a')")
-        lock_conn.execute("SAVEPOINT sp1")
-        lock_conn.execute(f"INSERT INTO {table} (payload) VALUES ('b')")
-        lock_conn.execute("ROLLBACK TO sp1")
-        lock_conn.execute("RELEASE sp1")
+    with transaction_conn:
+        transaction_conn.execute(f"INSERT INTO {table} (payload) VALUES ('a')")
+        transaction_conn.execute("SAVEPOINT sp1")
+        transaction_conn.execute(f"INSERT INTO {table} (payload) VALUES ('b')")
+        transaction_conn.execute("ROLLBACK TO sp1")
+        transaction_conn.execute("RELEASE sp1")
 
     ext = _external_conn(db_path)
     try:
@@ -301,7 +311,7 @@ def test_lock_connection_savepoint_partial_rollback(open_db, db_path: Path):
         ext.close()
 
 
-def test_begin_immediate_blocks_external_writer_but_allows_reader(open_db, db_path: Path):
+def test_begin_immediate_blocks_external_writer_but_allows_reader(open_db, explicit_connection, db_path: Path):
     """
     Hold BEGIN IMMEDIATE, allow an external count query, and require an external insert to raise sqlite3.OperationalError.
 
@@ -318,17 +328,17 @@ def test_begin_immediate_blocks_external_writer_but_allows_reader(open_db, db_pa
     :param db_path: Isolated provisioned database file used by this test.
     :return: None; failed expectations raise AssertionError.
     """
-    lock_conn = open_db.lock
+    transaction_conn = explicit_connection
     table = _mk_table_name()
-    _ensure_test_table(lock_conn, table)
+    _ensure_test_table(transaction_conn, table)
 
     # Ensure we're not inside any transaction before taking the write lock.
     try:
-        lock_conn.commit()
+        transaction_conn.commit()
     except Exception:
         pass
 
-    lock_conn.execute("BEGIN IMMEDIATE")
+    transaction_conn.execute("BEGIN IMMEDIATE")
     try:
         # Reader should still work.
         reader = _external_conn(db_path)
@@ -345,10 +355,10 @@ def test_begin_immediate_blocks_external_writer_but_allows_reader(open_db, db_pa
         finally:
             writer.close()
     finally:
-        _safe_rollback(lock_conn)
+        _safe_rollback(transaction_conn)
 
 
-def test_begin_immediate_blocks_external_writer_in_other_thread(open_db, db_path: Path):
+def test_begin_immediate_blocks_external_writer_in_other_thread(open_db, explicit_connection, db_path: Path):
     """
     Hold BEGIN IMMEDIATE and require a separate writer thread to terminate within five seconds with sqlite3.OperationalError.
 
@@ -365,17 +375,17 @@ def test_begin_immediate_blocks_external_writer_in_other_thread(open_db, db_path
     :param db_path: Isolated provisioned database file used by this test.
     :return: None; failed expectations raise AssertionError.
     """
-    lock_conn = open_db.lock
+    transaction_conn = explicit_connection
     table = _mk_table_name()
-    _ensure_test_table(lock_conn, table)
+    _ensure_test_table(transaction_conn, table)
 
     # Ensure clean state.
     try:
-        lock_conn.commit()
+        transaction_conn.commit()
     except Exception:
         pass
 
-    lock_conn.execute("BEGIN IMMEDIATE")
+    transaction_conn.execute("BEGIN IMMEDIATE")
 
     result = {"exc": None}
 
@@ -408,7 +418,7 @@ def test_begin_immediate_blocks_external_writer_in_other_thread(open_db, db_path
         assert not t.is_alive(), "worker thread hung (possible lock release issue)"
         assert isinstance(result["exc"], sqlite3.OperationalError)
     finally:
-        _safe_rollback(lock_conn)
+        _safe_rollback(transaction_conn)
 
 
 # -------------------------------------------------------------------------------------------------

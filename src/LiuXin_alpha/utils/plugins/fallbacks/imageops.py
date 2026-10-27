@@ -229,6 +229,35 @@ def _restore_out(out_png: bytes, c: _Coerced) -> Any:
     return out_png
 
 
+def _pillow_process_one(inp: _Coerced, operation: str, *args: Any) -> Any:
+    """Reuse the headless image owner, retaining encoded/mutable output semantics."""
+    from LiuXin_alpha.utils.image_tools import img_fallback
+
+    image = img_fallback.image_from_data(inp.data)
+    result = getattr(img_fallback, operation)(image, *args)
+    return _restore_out(img_fallback.image_to_data(result, fmt="PNG"), inp)
+
+
+def _cli_or_pillow(
+    inp: _Coerced, cli_args: Sequence[str], operation: str, *args: Any
+) -> Any:
+    """Try ImageMagick, then Pillow if it is absent or fails at runtime."""
+    try:
+        return _cli_convert(inp, cli_args)
+    except (RuntimeError, OSError):
+        return _pillow_process_one(inp, operation, *args)
+
+
+def _pillow_overlay(a: _Coerced, b: _Coerced, left: int, top: int) -> Any:
+    """Composite pixels with alpha and update mutable canvases only after success."""
+    from LiuXin_alpha.utils.image_tools import img_fallback
+
+    base = img_fallback.image_from_data(a.data).convert("RGBA")
+    stamp = img_fallback.image_from_data(b.data).convert("RGBA")
+    base.alpha_composite(stamp, (int(left), int(top)))
+    return _restore_out(img_fallback.image_to_data(base, fmt="PNG"), a)
+
+
 def _wand_process_one(inp: _Coerced, fn) -> Any:
     """
     Perform the wand process one utility operation under explicit compatibility rules.
@@ -538,7 +567,13 @@ def remove_borders(image: Any, fuzz: float) -> Any:
             fuzz_arg = ["-fuzz", str(fuzz)]
     except Exception:
         fuzz_arg = []
-    return _cli_convert(inp, [*fuzz_arg, "-trim", "+repage"])
+    # The plugin accepts fractions in [0, 1]; the Pillow owner takes 0–255.
+    tolerance = float(fuzz)
+    if 0.0 <= tolerance <= 1.0:
+        tolerance *= 255
+    return _cli_or_pillow(
+        inp, [*fuzz_arg, "-trim", "+repage"], "remove_borders_from_image", tolerance
+    )
 
 
 def grayscale(image: Any) -> Any:
@@ -590,7 +625,7 @@ def grayscale(image: Any) -> Any:
             return _wand_process_one(inp, op)
         except Exception:
             pass
-    return _cli_convert(inp, ["-colorspace", "Gray"])
+    return _cli_or_pillow(inp, ["-colorspace", "Gray"], "grayscale_image")
 
 
 def gaussian_sharpen(image: Any, radius: float, sigma: float, high_quality: bool = True) -> Any:
@@ -735,7 +770,7 @@ def despeckle(image: Any) -> Any:
     return _cli_convert(inp, ["-despeckle"])
 
 
-def overlay(image: Any, canvas: Any, left: int, top: int) -> None:
+def overlay(image: Any, canvas: Any, left: int, top: int) -> Any:
     """
     Overlay `image` on top of `canvas` at (left, top).
 
@@ -793,14 +828,15 @@ def overlay(image: Any, canvas: Any, left: int, top: int) -> None:
                     base.composite(over, int(left), int(top), operator="over")
                 except Exception:
                     pass
-        out = _wand_process_two(a, b, op)
-        # If canvas was bytes, return bytes; if canvas was bytearray, updated in-place and returns None.
-        return out  # type: ignore[return-value]
+        try:
+            return _wand_process_two(a, b, op)
+        except (RuntimeError, OSError):
+            pass
 
     # CLI fallback: composite
     exe = _magick_convert()
     if not exe:
-        raise RuntimeError("No ImageMagick backend found (install Wand or provide `magick`/`convert` on PATH)")
+        return _pillow_overlay(a, b, left, top)
     base = os.path.basename(exe).lower()
     if base == "magick":
         cmd = [exe, "convert", "png:-", "png:-", "-geometry", f"+{int(left)}+{int(top)}", "-composite", "png:-"]
@@ -821,8 +857,9 @@ def overlay(image: Any, canvas: Any, left: int, top: int) -> None:
         if cp.returncode != 0:
             msg = (cp.stderr or b"").decode("utf-8", "ignore").strip()
             raise RuntimeError(msg or f"convert failed with code {cp.returncode}")
-        _restore_out(bytes(cp.stdout or b""), a)
-        return None
+        return _restore_out(bytes(cp.stdout or b""), a)
+    except (RuntimeError, OSError):
+        return _pillow_overlay(a, b, left, top)
     finally:
         for p in (p1, p2):
             try:

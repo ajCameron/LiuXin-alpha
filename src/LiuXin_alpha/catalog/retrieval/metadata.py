@@ -10,7 +10,7 @@ read-source adapters. The ``LiuXin_alpha.metadata`` package remains persistence-
 OPF-specific tooling is resolved lazily when a conversion wrapper runs.
 
 See ``dev-docs/04 - Seperation of Concerns.md`` and
-``dev-docs/catalog-write-validation-contract.md``.
+``dev-docs/catalog/catalog-write-validation-contract.md``.
 
 Example:
     Exercise the owning behavior with pytest::

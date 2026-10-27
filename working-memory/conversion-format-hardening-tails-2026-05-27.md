@@ -18,8 +18,8 @@ Updated:
 
 - `src/LiuXin_alpha/file_formats/pdb/haodoo/reader.py`
 - `tests/file_formats/pdb/test_pdb_binary_framework.py`
-- `dev-docs/file-formats/pdb/README.md`
-- `dev-docs/file-format-unicode-conversion.md`
+- `dev-docs/file_formats/pdb/README.md`
+- `dev-docs/file_formats/file-format-unicode-conversion.md`
 - `dev-docs/conversion_pipeline/conversion_pipeline_todo.md`
 
 Behavior:
@@ -73,8 +73,8 @@ Updated:
 - `src/LiuXin_alpha/file_formats/mobi/reader/mobi6.py`
 - `src/LiuXin_alpha/file_formats/mobi/huffcdic.py`
 - `tests/file_formats/mobi/test_mobi_deep_hostile.py`
-- `dev-docs/file-formats/mobi/README.md`
-- `dev-docs/file-format-unicode-conversion.md`
+- `dev-docs/file_formats/mobi/README.md`
+- `dev-docs/file_formats/file-format-unicode-conversion.md`
 - `dev-docs/conversion_pipeline/conversion_pipeline_todo.md`
 
 Behavior:
@@ -116,8 +116,8 @@ Updated:
 
 - `src/LiuXin_alpha/file_formats/lit/writer.py`
 - `tests/file_formats/lit/test_lit_conversion_unicode_framework.py`
-- `dev-docs/file-formats/lit/README.md`
-- `dev-docs/file-format-unicode-conversion.md`
+- `dev-docs/file_formats/lit/README.md`
+- `dev-docs/file_formats/file-format-unicode-conversion.md`
 - `working-memory/file-formats-lit-hostile-hardening-2026-05-22.md`
 - `dev-docs/conversion_pipeline/conversion_pipeline_todo.md`
 

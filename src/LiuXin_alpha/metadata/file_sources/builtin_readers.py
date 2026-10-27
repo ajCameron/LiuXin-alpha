@@ -7,9 +7,9 @@ for callers.
 Example:
     Exercise metadata readers through a consuming regression::
 
-        python -m pytest -q tests/customize/test_customize_base.py
+        python -m pytest -q tests/plugins/test_plugin_base.py
 """
-from LiuXin_alpha.plugin_system.file_types import MetadataReaderPlugin
+from LiuXin_alpha.plugins.file_types import MetadataReaderPlugin
 
 from LiuXin_alpha.utils.localization import trans as _
 from LiuXin_alpha.utils.logging import default_log
@@ -34,7 +34,7 @@ else:
         Example:
             Exercise ComicMetadataReader through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugins/test_plugin_base.py
         """
         name = "Read comic metadata"
         file_types = frozenset(["cbr", "cbz"])
@@ -47,7 +47,7 @@ else:
             Example:
                 Exercise ComicMetadataReader.customization help through a consuming regression::
 
-                    python -m pytest -q tests/customize/test_customize_base.py
+                    python -m pytest -q tests/plugins/test_plugin_base.py
 
 
             :param gui: Value supplied for gui under the utility contract.
@@ -66,7 +66,7 @@ else:
             Example:
                 Exercise ComicMetadataReader.get metadata through a consuming regression::
 
-                    python -m pytest -q tests/customize/test_customize_base.py
+                    python -m pytest -q tests/plugins/test_plugin_base.py
 
 
             :param stream: Input or output stream wrapped by the terminal or compatibility
@@ -88,7 +88,7 @@ else:
             Example:
                 Exercise ComicMetadataReader.get metadata inplace through a consuming regression::
 
-                    python -m pytest -q tests/customize/test_customize_base.py
+                    python -m pytest -q tests/plugins/test_plugin_base.py
 
 
             :param file_path: Value supplied for file path under the utility contract.
@@ -120,7 +120,7 @@ else:
         Example:
             Exercise CHMMetadataReader through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugins/test_plugin_base.py
         """
         name = "Read CHM metadata"
         file_types = frozenset(["chm"])
@@ -133,7 +133,7 @@ else:
             Example:
                 Exercise CHMMetadataReader.get metadata through a consuming regression::
 
-                    python -m pytest -q tests/customize/test_customize_base.py
+                    python -m pytest -q tests/plugins/test_plugin_base.py
 
 
             :param stream: Input or output stream wrapped by the terminal or compatibility
@@ -166,7 +166,7 @@ else:
         Example:
             Exercise DocXMetadataReader through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugins/test_plugin_base.py
         """
         name = "Read DOCX metadata"
         file_types = frozenset(["docx"])
@@ -179,7 +179,7 @@ else:
             Example:
                 Exercise DocXMetadataReader.get metadata through a consuming regression::
 
-                    python -m pytest -q tests/customize/test_customize_base.py
+                    python -m pytest -q tests/plugins/test_plugin_base.py
 
 
             :param stream: Input or output stream wrapped by the terminal or compatibility
@@ -197,7 +197,7 @@ else:
             Example:
                 Exercise DocXMetadataReader.get metadata inplace through a consuming regression::
 
-                    python -m pytest -q tests/customize/test_customize_base.py
+                    python -m pytest -q tests/plugins/test_plugin_base.py
 
 
             :param file_path: Value supplied for file path under the utility contract.
@@ -233,7 +233,7 @@ else:
         Example:
             Exercise EPUBMetadataReader through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugins/test_plugin_base.py
         """
         name = "Read EPUB metadata"
         file_types = frozenset(["epub"])
@@ -247,7 +247,7 @@ else:
             Example:
                 Exercise EPUBMetadataReader.get metadata through a consuming regression::
 
-                    python -m pytest -q tests/customize/test_customize_base.py
+                    python -m pytest -q tests/plugins/test_plugin_base.py
 
 
             :param stream: Input or output stream wrapped by the terminal or compatibility
@@ -267,7 +267,7 @@ else:
             Example:
                 Exercise EPUBMetadataReader.get metadata inplace through a consuming regression::
 
-                    python -m pytest -q tests/customize/test_customize_base.py
+                    python -m pytest -q tests/plugins/test_plugin_base.py
 
 
             :param file_path: Value supplied for file path under the utility contract.
@@ -301,7 +301,7 @@ else:
         Example:
             Exercise FB2MetadataReader through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugins/test_plugin_base.py
         """
         name = "Read FB2 metadata"
         file_types = frozenset(["fb2", "fbz"])
@@ -314,7 +314,7 @@ else:
             Example:
                 Exercise FB2MetadataReader.get metadata through a consuming regression::
 
-                    python -m pytest -q tests/customize/test_customize_base.py
+                    python -m pytest -q tests/plugins/test_plugin_base.py
 
 
             :param stream: Input or output stream wrapped by the terminal or compatibility
@@ -347,7 +347,7 @@ else:
         Example:
             Exercise HTMLMetadataReader through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugins/test_plugin_base.py
         """
         name = "Read HTML metadata"
         file_types = frozenset(["html"])
@@ -360,7 +360,7 @@ else:
             Example:
                 Exercise HTMLMetadataReader.get metadata through a consuming regression::
 
-                    python -m pytest -q tests/customize/test_customize_base.py
+                    python -m pytest -q tests/plugins/test_plugin_base.py
 
 
             :param stream: Input or output stream wrapped by the terminal or compatibility
@@ -392,7 +392,7 @@ else:
         Example:
             Exercise HTMLZMetadataReader through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugins/test_plugin_base.py
         """
         name = "Read HTMLZ metadata"
         file_types = frozenset(["htmlz"])
@@ -406,7 +406,7 @@ else:
             Example:
                 Exercise HTMLZMetadataReader.get metadata through a consuming regression::
 
-                    python -m pytest -q tests/customize/test_customize_base.py
+                    python -m pytest -q tests/plugins/test_plugin_base.py
 
 
             :param stream: Input or output stream wrapped by the terminal or compatibility
@@ -439,7 +439,7 @@ else:
         Example:
             Exercise IMPMetadataReader through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugins/test_plugin_base.py
         """
         name = "Read IMP metadata"
         file_types = frozenset(["imp"])
@@ -453,7 +453,7 @@ else:
             Example:
                 Exercise IMPMetadataReader.get metadata through a consuming regression::
 
-                    python -m pytest -q tests/customize/test_customize_base.py
+                    python -m pytest -q tests/plugins/test_plugin_base.py
 
 
             :param stream: Input or output stream wrapped by the terminal or compatibility
@@ -486,7 +486,7 @@ else:
         Example:
             Exercise LITMetadataReader through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugins/test_plugin_base.py
         """
         name = "Read LIT metadata"
         file_types = frozenset(["lit"])
@@ -499,7 +499,7 @@ else:
             Example:
                 Exercise LITMetadataReader.get metadata through a consuming regression::
 
-                    python -m pytest -q tests/customize/test_customize_base.py
+                    python -m pytest -q tests/plugins/test_plugin_base.py
 
 
             :param stream: Input or output stream wrapped by the terminal or compatibility
@@ -532,7 +532,7 @@ else:
         Example:
             Exercise LRFMetadataReader through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugins/test_plugin_base.py
         """
         name = "Read LRF metadata"
         file_types = frozenset(["lrf"])
@@ -545,7 +545,7 @@ else:
             Example:
                 Exercise LRFMetadataReader.get metadata through a consuming regression::
 
-                    python -m pytest -q tests/customize/test_customize_base.py
+                    python -m pytest -q tests/plugins/test_plugin_base.py
 
 
             :param stream: Input or output stream wrapped by the terminal or compatibility
@@ -564,7 +564,7 @@ else:
             Example:
                 Exercise LRFMetadataReader.get metadata inplace through a consuming regression::
 
-                    python -m pytest -q tests/customize/test_customize_base.py
+                    python -m pytest -q tests/plugins/test_plugin_base.py
 
 
             :param file_path: Value supplied for file path under the utility contract.
@@ -596,7 +596,7 @@ else:
         Example:
             Exercise LRXMetadataReader through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugins/test_plugin_base.py
         """
         name = "Read LRX metadata"
         file_types = frozenset(["lrx"])
@@ -609,7 +609,7 @@ else:
             Example:
                 Exercise LRXMetadataReader.get metadata through a consuming regression::
 
-                    python -m pytest -q tests/customize/test_customize_base.py
+                    python -m pytest -q tests/plugins/test_plugin_base.py
 
 
             :param stream: Input or output stream wrapped by the terminal or compatibility
@@ -645,7 +645,7 @@ else:
         Example:
             Exercise MOBIMetadataReader through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugins/test_plugin_base.py
         """
         name = "Read MOBI metadata"
         file_types = frozenset(["mobi", "prc", "azw", "azw3", "azw4", "pobi"])
@@ -658,7 +658,7 @@ else:
             Example:
                 Exercise MOBIMetadataReader.get metadata through a consuming regression::
 
-                    python -m pytest -q tests/customize/test_customize_base.py
+                    python -m pytest -q tests/plugins/test_plugin_base.py
 
 
             :param stream: Input or output stream wrapped by the terminal or compatibility
@@ -677,7 +677,7 @@ else:
             Example:
                 Exercise MOBIMetadataReader.get metadata inplace through a consuming regression::
 
-                    python -m pytest -q tests/customize/test_customize_base.py
+                    python -m pytest -q tests/plugins/test_plugin_base.py
 
 
             :param file_path: Value supplied for file path under the utility contract.
@@ -710,7 +710,7 @@ else:
         Example:
             Exercise ODTMetadataReader through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugins/test_plugin_base.py
         """
         name = "Read ODT metadata"
         file_types = frozenset(["odt"])
@@ -723,7 +723,7 @@ else:
             Example:
                 Exercise ODTMetadataReader.get metadata through a consuming regression::
 
-                    python -m pytest -q tests/customize/test_customize_base.py
+                    python -m pytest -q tests/plugins/test_plugin_base.py
 
 
             :param stream: Input or output stream wrapped by the terminal or compatibility
@@ -742,7 +742,7 @@ else:
             Example:
                 Exercise ODTMetadataReader.get metadata inplace through a consuming regression::
 
-                    python -m pytest -q tests/customize/test_customize_base.py
+                    python -m pytest -q tests/plugins/test_plugin_base.py
 
 
             :param file_path: Value supplied for file path under the utility contract.
@@ -774,7 +774,7 @@ else:
         Example:
             Exercise OPFMetadataReader through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugins/test_plugin_base.py
         """
         name = "Read OPF metadata"
         file_types = frozenset(["opf"])
@@ -787,7 +787,7 @@ else:
             Example:
                 Exercise OPFMetadataReader.get metadata through a consuming regression::
 
-                    python -m pytest -q tests/customize/test_customize_base.py
+                    python -m pytest -q tests/plugins/test_plugin_base.py
 
 
             :param stream: Input or output stream wrapped by the terminal or compatibility
@@ -805,7 +805,7 @@ else:
             Example:
                 Exercise OPFMetadataReader.get metadata inplace through a consuming regression::
 
-                    python -m pytest -q tests/customize/test_customize_base.py
+                    python -m pytest -q tests/plugins/test_plugin_base.py
 
 
             :param file_path: Value supplied for file path under the utility contract.
@@ -837,7 +837,7 @@ else:
         Example:
             Exercise PDBMetadataReader through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugins/test_plugin_base.py
         """
         name = "Read PDB metadata"
         file_types = frozenset(["pdb", "updb"])
@@ -851,7 +851,7 @@ else:
             Example:
                 Exercise PDBMetadataReader.get metadata through a consuming regression::
 
-                    python -m pytest -q tests/customize/test_customize_base.py
+                    python -m pytest -q tests/plugins/test_plugin_base.py
 
 
             :param stream: Input or output stream wrapped by the terminal or compatibility
@@ -869,7 +869,7 @@ else:
             Example:
                 Exercise PDBMetadataReader.get metadata inplace through a consuming regression::
 
-                    python -m pytest -q tests/customize/test_customize_base.py
+                    python -m pytest -q tests/plugins/test_plugin_base.py
 
 
             :param file_path: Value supplied for file path under the utility contract.
@@ -906,7 +906,7 @@ else:
         Example:
             Exercise PDFMetadataReader through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugins/test_plugin_base.py
         """
         name = "Read PDF metadata"
         file_types = frozenset(["pdf"])
@@ -919,7 +919,7 @@ else:
             Example:
                 Exercise PDFMetadataReader.get metadata through a consuming regression::
 
-                    python -m pytest -q tests/customize/test_customize_base.py
+                    python -m pytest -q tests/plugins/test_plugin_base.py
 
 
             :param stream: Input or output stream wrapped by the terminal or compatibility
@@ -939,7 +939,7 @@ else:
             Example:
                 Exercise PDFMetadataReader.get metadata inplace through a consuming regression::
 
-                    python -m pytest -q tests/customize/test_customize_base.py
+                    python -m pytest -q tests/plugins/test_plugin_base.py
 
 
             :param file_path: Value supplied for file path under the utility contract.
@@ -973,7 +973,7 @@ else:
         Example:
             Exercise PMLMetadataReader through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugins/test_plugin_base.py
         """
         name = "Read PML metadata"
         file_types = frozenset(["pml", "pmlz"])
@@ -987,7 +987,7 @@ else:
             Example:
                 Exercise PMLMetadataReader.get metadata through a consuming regression::
 
-                    python -m pytest -q tests/customize/test_customize_base.py
+                    python -m pytest -q tests/plugins/test_plugin_base.py
 
 
             :param stream: Input or output stream wrapped by the terminal or compatibility
@@ -1020,7 +1020,7 @@ else:
         Example:
             Exercise RARMetadataReader through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugins/test_plugin_base.py
         """
         name = "Read RAR metadata"
         file_types = frozenset(["rar"])
@@ -1033,7 +1033,7 @@ else:
             Example:
                 Exercise RARMetadataReader.get metadata through a consuming regression::
 
-                    python -m pytest -q tests/customize/test_customize_base.py
+                    python -m pytest -q tests/plugins/test_plugin_base.py
 
 
             :param stream: Input or output stream wrapped by the terminal or compatibility
@@ -1066,7 +1066,7 @@ else:
         Example:
             Exercise RBMetadataReader through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugins/test_plugin_base.py
         """
         name = "Read RB metadata"
         file_types = frozenset(["rb"])
@@ -1080,7 +1080,7 @@ else:
             Example:
                 Exercise RBMetadataReader.get metadata through a consuming regression::
 
-                    python -m pytest -q tests/customize/test_customize_base.py
+                    python -m pytest -q tests/plugins/test_plugin_base.py
 
 
             :param stream: Input or output stream wrapped by the terminal or compatibility
@@ -1098,7 +1098,7 @@ else:
             Example:
                 Exercise RBMetadataReader.get metadata inplace through a consuming regression::
 
-                    python -m pytest -q tests/customize/test_customize_base.py
+                    python -m pytest -q tests/plugins/test_plugin_base.py
 
 
             :param file_path: Value supplied for file path under the utility contract.
@@ -1130,7 +1130,7 @@ else:
         Example:
             Exercise RTFMetadataReader through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugins/test_plugin_base.py
         """
         name = "Read RTF metadata"
         file_types = frozenset(["rtf"])
@@ -1143,7 +1143,7 @@ else:
             Example:
                 Exercise RTFMetadataReader.get metadata through a consuming regression::
 
-                    python -m pytest -q tests/customize/test_customize_base.py
+                    python -m pytest -q tests/plugins/test_plugin_base.py
 
 
             :param stream: Input or output stream wrapped by the terminal or compatibility
@@ -1161,7 +1161,7 @@ else:
             Example:
                 Exercise RTFMetadataReader.get metadata inplace through a consuming regression::
 
-                    python -m pytest -q tests/customize/test_customize_base.py
+                    python -m pytest -q tests/plugins/test_plugin_base.py
 
 
             :param file_path: Value supplied for file path under the utility contract.
@@ -1193,7 +1193,7 @@ else:
         Example:
             Exercise SNBMetadataReader through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugins/test_plugin_base.py
         """
         name = "Read SNB metadata"
         file_types = frozenset(["snb"])
@@ -1207,7 +1207,7 @@ else:
             Example:
                 Exercise SNBMetadataReader.get metadata through a consuming regression::
 
-                    python -m pytest -q tests/customize/test_customize_base.py
+                    python -m pytest -q tests/plugins/test_plugin_base.py
 
 
             :param stream: Input or output stream wrapped by the terminal or compatibility
@@ -1240,7 +1240,7 @@ else:
         Example:
             Exercise TOPAZMetadataReader through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugins/test_plugin_base.py
         """
         name = "Read Topaz metadata"
         file_types = frozenset(["tpz", "azw1"])
@@ -1253,7 +1253,7 @@ else:
             Example:
                 Exercise TOPAZMetadataReader.get metadata through a consuming regression::
 
-                    python -m pytest -q tests/customize/test_customize_base.py
+                    python -m pytest -q tests/plugins/test_plugin_base.py
 
 
             :param stream: Input or output stream wrapped by the terminal or compatibility
@@ -1286,7 +1286,7 @@ else:
         Example:
             Exercise TXTMetadataReader through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugins/test_plugin_base.py
         """
         name = "Read TXT metadata"
         file_types = frozenset(["txt"])
@@ -1300,7 +1300,7 @@ else:
             Example:
                 Exercise TXTMetadataReader.get metadata through a consuming regression::
 
-                    python -m pytest -q tests/customize/test_customize_base.py
+                    python -m pytest -q tests/plugins/test_plugin_base.py
 
 
             :param stream: Input or output stream wrapped by the terminal or compatibility
@@ -1318,7 +1318,7 @@ else:
             Example:
                 Exercise TXTMetadataReader.get metadata inplace through a consuming regression::
 
-                    python -m pytest -q tests/customize/test_customize_base.py
+                    python -m pytest -q tests/plugins/test_plugin_base.py
 
 
             :param file_path: Value supplied for file path under the utility contract.
@@ -1350,7 +1350,7 @@ else:
         Example:
             Exercise TXTZMetadataReader through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugins/test_plugin_base.py
         """
         name = "Read TXTZ metadata"
         file_types = frozenset(["txtz"])
@@ -1364,7 +1364,7 @@ else:
             Example:
                 Exercise TXTZMetadataReader.get metadata through a consuming regression::
 
-                    python -m pytest -q tests/customize/test_customize_base.py
+                    python -m pytest -q tests/plugins/test_plugin_base.py
 
 
             :param stream: Input or output stream wrapped by the terminal or compatibility
@@ -1397,7 +1397,7 @@ else:
         Example:
             Exercise ZipMetadataReader through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugins/test_plugin_base.py
         """
         name = "Read ZIP metadata"
         file_types = frozenset(["zip", "oebzip"])
@@ -1410,7 +1410,7 @@ else:
             Example:
                 Exercise ZipMetadataReader.get metadata through a consuming regression::
 
-                    python -m pytest -q tests/customize/test_customize_base.py
+                    python -m pytest -q tests/plugins/test_plugin_base.py
 
 
             :param stream: Input or output stream wrapped by the terminal or compatibility
@@ -1431,7 +1431,7 @@ def get_metadata_reader_plugins() -> list[type[MetadataReaderPlugin]]:
     Example:
         Exercise get metadata reader plugins through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugins/test_plugin_base.py
 
 
     :return: The normalized value, metadata record, path, stream result or collection

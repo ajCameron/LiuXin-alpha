@@ -192,6 +192,10 @@ class CatalogTableValueLinkWriter(CatalogLinkWriter[Any, Any]):
         if repository is not None:
             existing = self.find_destination(value)
             if existing is not None:
+                repository._prepare_reference(
+                    {self.destination_column.name: value},
+                    existing=repository.require(existing),
+                )
                 return existing
             return repository.create({self.destination_column.name: value})
         return self.catalog.db.macros.ensure_table_value(

@@ -1,0 +1,78 @@
+.TH LIUXIN 1 "2026-10-23" "LiuXin-alpha" "User Commands"
+.SH NAME
+liuxin \- manage a LiuXin catalogue, storage and workflows
+.SH SYNOPSIS
+.B liuxin
+.I command
+.RI [ options ]
+.br
+.B liuxin init
+.I SYSTEM_ROOT
+.br
+.B liuxin
+.I command
+.B \-\-help
+.SH DESCRIPTION
+LiuXin provides named commands for catalogue operations, managed storage,
+metadata and acquisition workflows.
+Use
+.B liuxin \-\-help
+to list command families and a family's
+.B \-\-help
+to inspect its current subcommands.
+.PP
+For remote-file registration and optional downloads, see
+.BR liuxin-ingest-web (1).
+For the distinction between web and local-file ingest, see
+.BR liuxin-ingest (1).
+.SH CONNECTION SELECTION
+Core-backed commands accept one of
+.BR \-\-system-root " " DIRECTORY ,
+.BR \-\-profile " " PROFILE ,
+.BR \-\-database " " PATH ,
+or
+.BR \-\-core-endpoint " " URL .
+A saved connection from
+.B liuxin connect
+can supply the default. Explicit selectors take precedence over environment
+selectors and saved connections.
+.PP
+.B \-\-core-token-file PATH
+supplies a remote Core bearer token.
+Remote web-ingest execution requires trusted Core authority.
+Local filesystem paths used by managed workflows belong to the Core host;
+CLI output files belong to the CLI host.
+.SH OUTPUT
+Operational commands return JSON. Use
+.B \-\-compact
+for compact JSON and
+.B \-\-output PATH
+for a CLI-host output file.
+.B \-\-replace-output
+permits replacement of an existing output file.
+.SH EXAMPLES
+.nf
+liuxin init "$HOME/LiuXin"
+liuxin storage status \-\-system-root "$HOME/LiuXin"
+liuxin ingest web https://example.org/books/ \e
+  \-\-system-root "$HOME/LiuXin"
+liuxin ingest web \-\-help
+.fi
+.SH ENVIRONMENT
+.TP
+.B LIUXIN_SYSTEM_ROOT
+Select a system root when no explicit selector is supplied.
+.TP
+.B LIUXIN_PROFILE
+Select a configured profile.
+.TP
+.B XDG_CONFIG_HOME
+Parent of LiuXin's profile and saved-connection configuration.
+.SH SEE ALSO
+.BR liuxin-ingest (1),
+.BR liuxin-ingest-web (1)
+.PP
+The source checkout contains user guides in
+.B docs/
+and implementation documentation in
+.BR dev-docs/ .

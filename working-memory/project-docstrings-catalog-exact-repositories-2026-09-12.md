@@ -61,7 +61,7 @@ descriptions, and 28 summaries. These are not additive undocumented totals.
 ## Resume
 
 Use [P00](project-docstrings-p00-2026-09-12.md) and the
-[bounded plan](../dev-docs/project-docstrings-completion-plan.md). G01 is next;
+[bounded plan](../dev-docs/hacking/project-docstrings-completion-plan.md). G01 is next;
 stop after each requested module. Preserve the three runtime-doc exceptions and
 all seven unresolved ownership-guard failures. Their separate repair is approved
 but remains queued. The whole-project goal is unfinished; no commit or push.

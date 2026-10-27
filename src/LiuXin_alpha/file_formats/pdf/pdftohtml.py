@@ -24,8 +24,8 @@ import subprocess
 import sys
 from functools import partial
 
-from LiuXin_alpha.constants import isosx, iswindows
-from LiuXin_alpha.utils.which_os import islinux, isbsd
+from LiuXin_alpha.constants import iswindows
+from LiuXin_alpha.utils.image_tools.executable_paths import bundled_executable_directory
 
 from LiuXin_alpha.file_formats import ConversionError, DRMError
 
@@ -39,17 +39,14 @@ __docformat__ = "restructuredtext en"
 
 
 # Todo: Sort/modify - install pdftohtml - make finding it more robust
-PDFTOHTML = "pdftohtml"
+PDFTOHTML = os.path.join(
+    bundled_executable_directory(),
+    "pdftohtml.exe" if iswindows and hasattr(sys, "frozen") else "pdftohtml",
+)
 popen = subprocess.Popen
-if isosx and hasattr(sys, "frameworks_dir"):
-    PDFTOHTML = os.path.join(getattr(sys, "frameworks_dir"), PDFTOHTML)
 
 if iswindows and hasattr(sys, "frozen"):
-    PDFTOHTML = os.path.join(os.path.dirname(sys.executable), "pdftohtml.exe")
     popen = partial(subprocess.Popen, creationflags=0x08)  # CREATE_NO_WINDOW=0x08 so that no ugly console is popped up
-
-if (islinux or isbsd) and getattr(sys, "frozen", False):
-    PDFTOHTML = os.path.join(sys.executables_location, "bin", "pdftohtml")
 
 
 def pdftohtml(output_dir: _typing.Any, pdf_path: _typing.Any, no_images: _typing.Any, as_xml: bool = False) -> None:

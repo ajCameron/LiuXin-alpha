@@ -66,4 +66,4 @@ not be replayed against this completed batch.
 - [Inventory reconciliation](test-results/docstrings-m127-m136-2026-09-29/reconciliation.json)
 - [Documentation diff](test-results/docstrings-m127-m136-2026-09-29/docstrings.diff)
 - [Previous checkpoint](project-docstrings-m117-m126-2026-09-29.md)
-- [Completion plan](../dev-docs/project-docstrings-completion-plan.md)
+- [Completion plan](../dev-docs/hacking/project-docstrings-completion-plan.md)

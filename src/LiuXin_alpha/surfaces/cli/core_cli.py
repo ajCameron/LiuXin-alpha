@@ -3,8 +3,7 @@ Expose Core health/contracts and a guarded, locally owned HTTP daemon through th
 
 Inspection commands borrow a composed client and publish JSON after session exit.
 Daemon serving requires a local owned runtime and refuses non-loopback binding
-unless explicitly acknowledged; that override adds neither authentication nor
-TLS. Readiness output, signals, and shutdown belong to the serve handler, whose
+unless authenticated and explicitly acknowledged; that override adds no TLS. Readiness output, signals, and shutdown belong to the serve handler, whose
 cleanup guarantees begin after daemon construction.
 """
 
@@ -21,6 +20,7 @@ from pathlib import Path
 from types import FrameType
 from typing import Any
 
+from LiuXin_alpha.core.authorization import CoreTransportPolicy, read_bearer_token_file
 from LiuXin_alpha.core.transport.http import CoreHttpDaemon
 from LiuXin_alpha.surfaces.cli.common import (
     add_connection_arguments,
@@ -155,7 +155,7 @@ def cmd_core_serve(args: argparse.Namespace) -> int:
 
     Finally restore recorded signal handlers, stop the daemon, and close the
     session in sequence. An earlier cleanup exception can prevent later cleanup
-    and mask the body error. The remote-bind override never adds auth or TLS.
+    and mask the body error. The remote-bind override never adds TLS.
 
     Example:
         >>> status = cmd_core_serve(args)  # doctest: +SKIP
@@ -166,10 +166,19 @@ def cmd_core_serve(args: argparse.Namespace) -> int:
     :raises ValueError: A non-loopback bind lacks acknowledgement or the size limit is nonpositive.
     :raises RuntimeError: The composed session lacks a locally owned runtime.
     """
+    token = read_bearer_token_file(getattr(args, "auth_token_file", None))
+    access = getattr(args, "access", "read-only")
+    policy = CoreTransportPolicy.for_access(
+        access,
+        bearer_token=token,
+        allowed_hosts=tuple(getattr(args, "allowed_host", None) or ()),
+    )
+    if not _is_loopback_bind(args.host) and token is None:
+        raise ValueError("Non-loopback Core serving requires --auth-token-file.")
     if not _is_loopback_bind(args.host) and not args.allow_unsafe_remote_bind:
         raise ValueError(
-            "Refusing a non-loopback Core bind: this transport has no TLS or "
-            "authentication. Use an SSH tunnel, or pass "
+            "Refusing a non-loopback Core bind: this transport has no TLS. "
+            "Use an SSH tunnel, or pass "
             "--allow-unsafe-remote-bind after protecting the network boundary."
         )
     if args.max_request_mib <= 0:
@@ -192,6 +201,7 @@ def cmd_core_serve(args: argparse.Namespace) -> int:
         port=args.port,
         endpoint_namespace=args.namespace,
         max_request_bytes=int(float(args.max_request_mib) * 1024 * 1024),
+        policy=policy,
     )
     stopped = threading.Event()
     previous: dict[int, Any] = {}
@@ -218,8 +228,13 @@ def cmd_core_serve(args: argparse.Namespace) -> int:
         readiness = {
             "endpoint": daemon.base_url,
             "health_url": daemon.health_url,
-            "bind": {"host": daemon.server_address[0], "port": daemon.server_address[1]},
-            "authentication": False,
+            "bind": {
+                "host": daemon.server_address[0],
+                "port": daemon.server_address[1],
+            },
+            "authentication": policy.bearer_token is not None,
+            "access": access,
+            "capabilities": sorted(policy.capabilities),
             "tls": False,
             "max_request_bytes": daemon.max_request_bytes,
         }
@@ -231,8 +246,8 @@ def cmd_core_serve(args: argparse.Namespace) -> int:
                 replace=bool(args.replace_ready_file),
             )
         print(
-            "Core transport has no authentication or TLS; keep it loopback-only "
-            "or behind a protected tunnel.",
+            "Core HTTP does not terminate TLS; protect remote traffic with TLS "
+            "or an SSH tunnel.",
             file=sys.stderr,
         )
         if threading.current_thread() is threading.main_thread():
@@ -309,12 +324,15 @@ def build_core_parser(
 
     api = commands.add_parser("api", help="Describe the stable Core API contract.")
     _connection_json(api)
-    api.add_argument("--target", help="Describe one named operation.")
+    api.add_argument(
+        "--target",
+        help="Describe one generic invocation target; requires trusted remote authority.",
+    )
     api.add_argument(
         "--include-targets",
         action=argparse.BooleanOptionalAction,
-        default=True,
-        help="Include per-operation targets. Default: true",
+        default=False,
+        help="Include generic invocation targets; requires trusted remote authority.",
     )
     api.set_defaults(handler=cmd_core_api)
 
@@ -322,8 +340,8 @@ def build_core_parser(
         "serve",
         help="Serve one local database through the Core HTTP transport.",
         description=(
-            "Serve Core HTTP. The transport has no TLS or authentication and "
-            "therefore defaults to loopback; use SSH tunnelling for remote use."
+            "Serve Core HTTP with read-only authority by default. Writable roles "
+            "require a token file; use TLS termination or SSH tunnelling remotely."
         ),
     )
     serve.add_argument("--database", required=True, help="Database path on this host.")
@@ -331,14 +349,31 @@ def build_core_parser(
     serve.add_argument("--host", default="127.0.0.1")
     serve.add_argument("--port", type=int, default=8765)
     serve.add_argument("--namespace", default="")
+    serve.add_argument(
+        "--access",
+        choices=("read-only", "read-write", "trusted"),
+        default="read-only",
+        help="Server-enforced authority; writable modes require a token file.",
+    )
+    serve.add_argument(
+        "--auth-token-file",
+        help="Private bearer-token file; never printed in readiness output.",
+    )
+    serve.add_argument(
+        "--allowed-host",
+        action="append",
+        help="Additional exact HTTP Host authority, including port, for a protected proxy.",
+    )
     serve.add_argument("--max-request-mib", type=float, default=1024.0)
     serve.add_argument("--enable-maintenance", action="store_true")
     serve.add_argument(
         "--allow-unsafe-remote-bind",
         action="store_true",
-        help="Acknowledge that a non-loopback bind has no built-in auth/TLS.",
+        help="Acknowledge that a non-loopback bind has no built-in TLS.",
     )
-    serve.add_argument("--ready-file", help="Also atomically write readiness JSON here.")
+    serve.add_argument(
+        "--ready-file", help="Also atomically write readiness JSON here."
+    )
     serve.add_argument("--replace-ready-file", action="store_true")
     serve.add_argument(
         "--stop-after",

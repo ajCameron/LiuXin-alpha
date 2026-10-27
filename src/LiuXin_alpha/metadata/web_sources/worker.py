@@ -214,7 +214,7 @@ def _iter_identify_plugins():
         above.
     """
     try:
-        from LiuXin_alpha.customize.ui import metadata_plugins
+        from LiuXin_alpha.plugins.application import metadata_plugins
     except Exception:
         return []
     try:

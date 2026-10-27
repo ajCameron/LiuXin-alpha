@@ -127,6 +127,8 @@ class ReadWriteWebApplication(ReadOnlyWebApplication):
         >>> app.close()  # doctest: +SKIP
     """
 
+    _READ_ONLY_CORE = False
+
     _WORK_LINK_SPECS: dict[str, dict[str, Any]] = {
         "agents": {
             "title": "Manage credits",

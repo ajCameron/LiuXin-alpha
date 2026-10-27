@@ -24,7 +24,7 @@ records subsequent PR publication.
   endpoint-provider indentation; the extracted workflow owners were already
   clean. No application behavior is intentionally changed.
 
-Canonical guide: [maintainability quality gates](../dev-docs/maintainability-quality-gates.md#incremental-formatting).
+Canonical guide: [maintainability quality gates](../dev-docs/architectural_reviews/maintainability-quality-gates.md#incremental-formatting).
 
 ## Line-sensitive negative type examples
 

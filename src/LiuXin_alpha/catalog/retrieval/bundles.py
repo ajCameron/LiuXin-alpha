@@ -4,17 +4,20 @@ Assemble one selected WEMI path and its attached metadata.
 
 from __future__ import annotations
 
-from typing import Any, Iterable, Mapping
+from collections.abc import Iterable, Mapping
+from typing import Any
 
 from ..api.common import DatabaseHandle, EntityId, RowMapping, WemiBundle, WemiLevel
+from .selection import WemiPath
 
 
 class BundleRetriever:
     """
     Combine repository reads into a path with optional WEMI levels.
 
-    Each branch follows the first repository-ordered relationship. This is neither
-    a full descendant graph nor a transactional snapshot.
+    All branches use Catalog's WEM path selection policy, independently of repository
+    list ordering. Complete paths precede partial paths. This returns a preferred
+    path, not a full descendant graph or a transactional snapshot.
 
     Example:
         Read ``catalog.retrieval.bundles.for_item(item_id)`` to collect the Item's path and attachments.
@@ -37,171 +40,151 @@ class BundleRetriever:
         self.repositories = repositories
 
     def for_item(self, item_id: EntityId) -> WemiBundle:
-        """
-        Read one WEMI path through an existing Item.
+        """Read the preferred ancestor path through the requested Item.
 
-        Follow the Item's Manifestation, then the first linked Expression and Work. Repository ordering determines each first choice. Missing relationships leave
-        levels as None. Metadata collection and path reads do not share a snapshot transaction.
-        Missing owners and database errors propagate.
+        Keep the Item fixed. Rank all available ancestor paths by the Catalog WEM
+        selection policy; retain partial ancestors if no complete path exists.
+        Reads and metadata assembly do not share a snapshot transaction.
 
         Example:
-            For an existing Item, call ``catalog.retrieval.bundles.for_item(item_id)``;
-            check optional ancestor and descendant rows before reading their columns.
+            An Item embodying a novel and its introduction selects one path;
+            hierarchy/graph reads still expose both Works.
 
-
-        :param item_id: Existing Item ID; validation is delegated to its repository.
-        :return: Bundle containing the requested row, available path rows, and their attached metadata.
+        :param item_id: Existing Item ID; missing-owner errors propagate.
+        :return: Selected path and its attached metadata, including the requested Item.
         """
-
         item = self.repositories.items.require(item_id)
         manifestation = self.repositories.items.manifestation_for_item(item_id)
-        expression = None
-        work = None
-        if manifestation is not None:
-            expression = self._first(
-                self.repositories.manifestations.list_expressions(
-                    manifestation["manifestation_id"]
-                )
-            )
-        if expression is not None:
-            work = self._first(
-                self.repositories.expressions.list_works(expression["expression_id"])
-            )
-        return self._assemble(
-            work=work,
-            expression=expression,
-            manifestation=manifestation,
-            item=item,
+        path = (
+            WemiPath()
+            if manifestation is None
+            else self._path_for_manifestation(manifestation)
         )
+        return self._assemble_path(path, item=item)
 
     def for_manifestation(self, manifestation_id: EntityId) -> WemiBundle:
-        """
-        Read one WEMI path through an existing Manifestation.
+        """Read the preferred ancestor path through the requested Manifestation.
 
-        Choose the first linked Expression, its first Work, and this Manifestation's first Item. Repository ordering determines each first choice. Missing relationships leave
-        levels as None. Metadata collection and path reads do not share a snapshot transaction.
-        Missing owners and database errors propagate.
+        Rank complete paths first, then available partial paths using the same
+        WEM selection key. Choose the lowest Item ID on this Manifestation.
+        Other Works embodied in it remain available through hierarchy/graph reads.
 
         Example:
-            For an existing Manifestation, call ``catalog.retrieval.bundles.for_manifestation(manifestation_id)``;
-            check optional ancestor and descendant rows before reading their columns.
+            A shared edition returns one preferred Work without removing its
+            introduction's separate Work from the catalogue.
 
-
-        :param manifestation_id: Existing Manifestation ID; validation is delegated to its repository.
-        :return: Bundle containing the requested row, available path rows, and their attached metadata.
+        :param manifestation_id: Existing Manifestation ID; missing-owner errors propagate.
+        :return: Selected path and its attached metadata, with optional ancestors/Item.
         """
-
         manifestation = self.repositories.manifestations.require(manifestation_id)
-        expression = self._first(
-            self.repositories.manifestations.list_expressions(manifestation_id)
-        )
-        work = None
-        if expression is not None:
-            work = self._first(
-                self.repositories.expressions.list_works(expression["expression_id"])
-            )
-        item = self._first(self.repositories.items.list_for_manifestation(manifestation_id))
-        return self._assemble(
-            work=work,
-            expression=expression,
-            manifestation=manifestation,
-            item=item,
-        )
+        return self._assemble_path(self._path_for_manifestation(manifestation))
 
     def for_expression(self, expression_id: EntityId) -> WemiBundle:
-        """
-        Read one WEMI path through an existing Expression.
+        """Read the preferred path through the requested Expression.
 
-        Choose the first linked Work and Manifestation, then that Manifestation's first Item. Repository ordering determines each first choice. Missing relationships leave
-        levels as None. Metadata collection and path reads do not share a snapshot transaction.
-        Missing owners and database errors propagate.
+        Rank its linked Works and Manifestations using the Catalog WEM policy,
+        then choose the lowest Item ID on the selected Manifestation. Missing
+        relationships remain None; selection does not cross a missing edge.
 
         Example:
-            For an existing Expression, call ``catalog.retrieval.bundles.for_expression(expression_id)``;
-            check optional ancestor and descendant rows before reading their columns.
+            An untranslated Expression with no edition still returns its Work
+            and Expression rather than disappearing from a complete-ray view.
 
-
-        :param expression_id: Existing Expression ID; validation is delegated to its repository.
-        :return: Bundle containing the requested row, available path rows, and their attached metadata.
+        :param expression_id: Existing Expression ID; missing-owner errors propagate.
+        :return: Selected path and its metadata; reads are not a snapshot transaction.
         """
-
         expression = self.repositories.expressions.require(expression_id)
-        work = self._first(self.repositories.expressions.list_works(expression_id))
-        manifestation = self._first(
-            self.repositories.manifestations.list_for_expression(expression_id)
+        works = self.repositories.expressions.list_works(expression_id)
+        manifestations = self.repositories.manifestations.list_for_expression(
+            expression_id
         )
-        item = None
-        if manifestation is not None:
-            item = self._first(
-                self.repositories.items.list_for_manifestation(
-                    manifestation["manifestation_id"]
-                )
-            )
-        return self._assemble(
-            work=work,
-            expression=expression,
-            manifestation=manifestation,
-            item=item,
+        paths = (
+            WemiPath(work, expression, manifestation, work, manifestation)
+            for work in works or (None,)
+            for manifestation in manifestations or (None,)
         )
+        return self._assemble_path(min(paths, key=WemiPath.selection_key))
 
     def for_work(self, work_id: EntityId) -> WemiBundle:
-        """
-        Read one WEMI path through an existing Work.
+        """Read the preferred path for a Work using SQL primary-ray semantics.
 
-        Choose the first Expression, its first Manifestation, and that Manifestation's first Item. Repository ordering determines each first choice. Missing relationships leave
-        levels as None. Metadata collection and path reads do not share a snapshot transaction.
-        Missing owners and database errors propagate.
+        Rank complete WEM paths by primary flags, ascending priorities and IDs.
+        A preferred Expression without an edition cannot hide another complete
+        path. If none is complete, retain the fullest available partial path.
+        The lowest Item ID on the selected Manifestation wins; Item availability
+        never changes bibliographic preference.
 
         Example:
-            For an existing Work, call ``catalog.retrieval.bundles.for_work(work_id)``;
-            check optional ancestor and descendant rows before reading their columns.
+            ``for_work(work_id)`` and ``wemi_primary_rays_v`` select the same
+            Expression and Manifestation whenever a complete ray exists.
 
-
-        :param work_id: Existing Work ID; validation is delegated to its repository.
-        :return: Bundle containing the requested row, available path rows, and their attached metadata.
+        :param work_id: Existing Work ID; missing-owner errors propagate.
+        :return: Selected path and its metadata; reads are not a snapshot transaction.
         """
-
         work = self.repositories.works.require(work_id)
-        expression = self._first(self.repositories.expressions.list_for_work(work_id))
-        manifestation = None
-        item = None
-        if expression is not None:
-            manifestation = self._first(
-                self.repositories.manifestations.list_for_expression(
+        return self._assemble_path(
+            min(self._paths_for_work(work), key=WemiPath.selection_key)
+        )
+
+    def _paths_for_work(self, work: RowMapping) -> Iterable[WemiPath]:
+        """Enumerate available descendants, retaining a missing level explicitly."""
+        expressions = self.repositories.expressions.list_for_work(work["work_id"])
+        for expression in expressions or (None,):
+            manifestations = (
+                ()
+                if expression is None
+                else self.repositories.manifestations.list_for_expression(
                     expression["expression_id"]
                 )
             )
-        if manifestation is not None:
-            item = self._first(
-                self.repositories.items.list_for_manifestation(
-                    manifestation["manifestation_id"]
+            for manifestation in manifestations or (None,):
+                yield WemiPath(
+                    work, expression, manifestation, expression, manifestation
                 )
+
+    def _path_for_manifestation(self, manifestation: RowMapping) -> WemiPath:
+        """Select among all ancestors of this Manifestation without following siblings."""
+
+        def paths() -> Iterable[WemiPath]:
+            expressions = self.repositories.manifestations.list_expressions(
+                manifestation["manifestation_id"]
+            )
+            for expression in expressions or (None,):
+                works = (
+                    ()
+                    if expression is None
+                    else self.repositories.expressions.list_works(
+                        expression["expression_id"]
+                    )
+                )
+                for work in works or (None,):
+                    yield WemiPath(work, expression, manifestation, work, expression)
+
+        return min(paths(), key=WemiPath.selection_key)
+
+    def _assemble_path(
+        self, path: WemiPath, *, item: RowMapping | None = None
+    ) -> WemiBundle:
+        """Add the lowest Item ID unless the caller supplied its requested Item."""
+        if item is None and path.manifestation is not None:
+            item = min(
+                self.repositories.items.list_for_manifestation(
+                    path.manifestation["manifestation_id"]
+                ),
+                key=lambda row: row["item_id"],
+                default=None,
             )
         return self._assemble(
-            work=work,
-            expression=expression,
-            manifestation=manifestation,
+            work=path.work,
+            expression=path.expression,
+            manifestation=path.manifestation,
             item=item,
         )
 
     @staticmethod
-    def _first(rows: Iterable[RowMapping]) -> RowMapping | None:
-        """
-        Take one row from an iterable without consuming its remainder.
-
-        Example:
-            >>> BundleRetriever._first([]) is None
-            True
-
-
-        :param rows: Rows in their existing order.
-        :return: First row, or None when empty.
-        """
-
-        return next(iter(rows), None)
-
-    @staticmethod
-    def _deduplicate(rows: Iterable[RowMapping], id_column: str) -> tuple[RowMapping, ...]:
+    def _deduplicate(
+        rows: Iterable[RowMapping], id_column: str
+    ) -> tuple[RowMapping, ...]:
         """
         Keep the first row for each ID, preserving encounter order.
 

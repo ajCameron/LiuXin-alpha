@@ -50,4 +50,4 @@ Token usage is unavailable in this session.
 - [Quality log](test-results/docstrings-d118-2026-09-20/quality.log)
 - [Inventory reconciliation](test-results/docstrings-d118-2026-09-20/reconciliation.json)
 - [Final documentation diff](test-results/docstrings-d118-2026-09-20/docstrings.diff)
-- [Completion plan](../dev-docs/project-docstrings-completion-plan.md)
+- [Completion plan](../dev-docs/hacking/project-docstrings-completion-plan.md)

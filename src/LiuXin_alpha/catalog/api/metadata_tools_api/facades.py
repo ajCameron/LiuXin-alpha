@@ -968,16 +968,17 @@ class ApplyAPI(Protocol):
         self, rating: RowAPI | int | float, rating_type: str, resource_row: RowAPI
     ) -> RowAPI:
         """
-        Resolve a Rating and replace same-type links after an integrity error.
+        Resolve a validated Rating and attach it through the relationship owner.
 
-        Requests priority=not_set. Recovery is not wrapped in a transaction, so a
-        retry failure can leave existing same-type links removed.
+        Preserve fractional values. Existing Rating Rows are validated against
+        their stored pair before use. Resolution and linking share the macro
+        transaction; Catalog-owned resources do not use the raw retry fallback.
 
         Example:
-            On DatabaseIntegrityError, unlink all Ratings of rating_type and retry once.
+            Applying 4.25 creates or reuses 4.25 and rolls it back if linking fails.
 
 
-        :param rating: Concrete Row or numeric value; floats truncate to int and bool is accepted.
+        :param rating: Rating Row or finite nonnegative number; bool is rejected.
         :param rating_type: Link type used in creation and recovery deletion.
         :param resource_row: Resource Row used as a link endpoint; table compatibility is checked by the database.
         :return: Database link Row, not the attached metadata Row.
@@ -1209,16 +1210,18 @@ class EnsureAPI(Protocol):
 
     def rating(self, rating: int | float) -> RowAPI:
         """
-        Look up the prepopulated Rating Row at int(value)+1.
+        Resolve a validated Rating by value through the semantic repository.
 
-        No range validation or repair of missing Rating rows occurs.
+        Preserve fractional values and create a row when no match exists. IDs are
+        opaque; they are never calculated from a score. Existing scale metadata
+        participates in validation before reuse.
 
         Example:
-            A rating of 3.9 looks up row ID 4.
+            A rating of 3.9 resolves or creates a row whose rating remains 3.9.
 
 
-        :param rating: Numeric/coercible value; int() truncation and conversion errors apply.
-        :return: Database lookup result, possibly None; no row is inserted.
+        :param rating: Required finite, nonnegative score; booleans are rejected.
+        :return: Existing or newly created Rating Row in one macro transaction.
         """
         ...
 

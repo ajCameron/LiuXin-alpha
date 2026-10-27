@@ -1,4 +1,20 @@
-# Why `cache` should be a top-level module
+
+# Historical rationale for a top-level cache
+
+Status: **Superseded design note; reviewed 2026-10-20**.
+
+The rationale below predates Catalog becoming the owner of bibliographic
+semantics. Retained material explains why caching has a separate package; it
+does not assign current semantic policy, compatibility or presentation ownership.
+The current package is `caches`, with a Catalog-independent `ReadCache` and a
+writable `Cache` that delegates to Catalog. UI state belongs above both.
+
+Use the [package overview](<02 - Top Level Structure.md>),
+[ownership policy](<04 - Seperation of Concerns.md>) and
+[cache backend guide](<08 - Storage Cache Backends.md>) for new work. The
+three-layer responsibility split and proposed layout below are historical.
+
+## Earlier rationale
 
 As the rewrite has progressed, the cache has stopped looking like a thin database helper and started looking like its own architectural **couche [layer]**. It now has its own **objets [objects]**, **règles [rules]**, **état [state]**, and update **logique [logic]**: field objects, views, projections, ordering, filtering, invalidation, and refresh behaviour. That is a different concern from raw persistence. For that reason, cache should be treated as a first-class module rather than continuing to live half-inside `databases` and half-inside `library`.
 
@@ -10,7 +26,9 @@ The cleanest boundary is:
 - `cache` owns semantic in-memory behaviour
 - `library` owns higher-level user-facing behaviour and compatibility shims
 
-Put another way: `databases` should answer “what is stored, and how do we read or write it?” The `cache` layer should answer “how is that data exposed as fields, views, projections, and ordered id sets?” The `library` layer should answer “how do callers use that machinery in a convenient and domain-friendly way?” This keeps the architectural **frontière [boundary]** **claire [clear]** and stops low-level persistence code from accreting view state and field semantics.
+Put another way: `databases` should answer “what is stored, and how do we read or write it?”
+The `cache` layer should answer “how is that data exposed as fields, views, projections, and ordered id sets?”
+The `library` layer should answer “how do callers use that machinery in a convenient and domain-friendly way?” This keeps the architectural **frontière [boundary]** **claire [clear]** and stops low-level persistence code from accreting view state and field semantics.
 
 ## What belongs in `databases`
 

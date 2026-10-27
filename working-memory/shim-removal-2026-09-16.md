@@ -4,7 +4,7 @@ The user requested removal of the remaining shims after the storage-root cleanup
 The repository-wide import/alias cleanup is complete. The unrelated documentation
 campaign remains paused after D095; D096 starts only on a new request.
 
-[Plan and audit decisions](../dev-docs/shim-removal-plan.md).
+[Plan and audit decisions](../dev-docs/architectural_reviews/shim-removal-plan.md).
 [Final evidence](test-results/shim-removal-2026-09-15/final-observations.json).
 
 61 forwarding/stub modules were deleted, 212 live Python files were modified,

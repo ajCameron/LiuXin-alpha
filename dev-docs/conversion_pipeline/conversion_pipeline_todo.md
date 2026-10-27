@@ -1,5 +1,7 @@
 # Conversion Pipeline TODO
 
+Reviewed **2026-10-20**. **Historical May/June campaign record.** The current [pipeline guide](<00 - Conversion Pipeline.md>) and [next tasks](next_tasks.md) supersede its work ordering. In particular, format fixture sign-off did not close the DOCX EMF provider gap, process-CWD isolation or job-result loss reporting.
+
 Date: 2026-05-24
 
 ## Purpose
@@ -136,7 +138,7 @@ A format or pipeline edge can be treated as signed off when it has:
    - Keep the table in a durable development doc once the first edge/reporting
      slice is implemented.
    - Initial table created 2026-05-28:
-     `dev-docs/conversion_pipeline_signoff.md`. It separates candidate,
+     [sign-off record](conversion_pipeline_signoff.md). It separates candidate,
      provisional, blocked, and open rows so format sign-off decisions can be
      reviewed deliberately instead of inferred from the fast lane alone.
    - First signed-off row, 2026-05-31: FB2/FBZ input/output/metadata for the

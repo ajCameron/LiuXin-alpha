@@ -54,4 +54,4 @@ ignored run artifacts.
 - PostgreSQL scratch-database switching and unsupported generic macro paths
   still raise explicit not-implemented errors.
 - The PostgreSQL runbook is canonical at
-  `dev-docs/postgresql-backend.md`.
+  `dev-docs/databases/postgresql-backend.md`.

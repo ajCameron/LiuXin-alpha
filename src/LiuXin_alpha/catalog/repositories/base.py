@@ -399,6 +399,17 @@ class BaseRepository:
             existing=existing,
         )
 
+    def _prepare_reference(
+        self, data: RowInput, *, existing: RowMapping
+    ) -> dict[str, Any]:
+        """Validate supplied values before reusing an existing row in a value link.
+
+        Reuse must not bypass the same field rules that would validate creation.
+        This prepares a comparison input only; callers do not persist the result.
+        Immutable reference repositories can retain their separate lookup policy.
+        """
+        return self._prepare_write(data, existing=existing)
+
     @staticmethod
     def _as_mapping(row: object) -> dict[str, Any]:
         """

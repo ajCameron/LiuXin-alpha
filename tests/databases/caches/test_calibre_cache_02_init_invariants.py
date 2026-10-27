@@ -228,9 +228,9 @@ def _get_provision_fixture(request) -> Any:
 @pytest.fixture()
 def calibre_backend_db(tmp_path: Path, request):
     """
-    Provision test_db_0 and attach the legacy cache tables, lock, filesystem, preferences, and metadata shims.
+    Provision test_db_0 and attach the legacy cache tables, SQL connection, filesystem, preferences, and metadata shims.
 
-    Return an open Database without a local cleanup finalizer. On TypeError, retry
+    Return an open Database with explicit resource cleanup after the test. On TypeError, retry
     provisioning without dst_dir.
 
     Example:
@@ -255,10 +255,11 @@ def calibre_backend_db(tmp_path: Path, request):
         prov = provision(name="test_db_0")
 
     db = Database(metadata={"database_path": str(prov.db_path)})
+    request.addfinalizer(db.close)
 
     # CalibreCache expects these attributes to exist on the backend
     db.tables = {}
-    db.conn = db.driver_wrapper.lock  # used as `with backend.conn:`
+    db.conn = db.get_connection()  # explicit SQL context; the driver closes it
     db.fsm = DummyFSM(tmp_path / "fsm_root")
 
     # Preferences CalibreCache reads early
@@ -314,7 +315,7 @@ def calibre_backend_db(tmp_path: Path, request):
 @pytest.fixture()
 def live_calibre_cache(calibre_backend_db):
     """
-    Construct the legacy cache, call init, and return it without a local close finalizer.
+    Construct and initialize the cache; the backend fixture owns connection cleanup.
 
     Example:
         Run the owning tests with pytest::
@@ -323,7 +324,7 @@ def live_calibre_cache(calibre_backend_db):
 
 
     :param calibre_backend_db: Provisioned Database carrying the legacy cache backend
-        shims; the local fixture has no close finalizer.
+        shims; the backend fixture closes all driver connections after the test.
     :return: Initialized CalibreCache; setup errors propagate.
     """
     cache = CalibreCache(backend=calibre_backend_db)

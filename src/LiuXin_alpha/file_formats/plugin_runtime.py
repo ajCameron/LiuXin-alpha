@@ -14,6 +14,7 @@ import sys
 import traceback
 import typing as _typing
 from collections.abc import Callable, Iterable, Iterator
+from contextlib import contextmanager
 from threading import RLock
 from typing import Any, BinaryIO
 
@@ -22,15 +23,15 @@ from LiuXin_alpha.file_formats.conversion.plugin import (
     OutputFormatPlugin,
 )
 from LiuXin_alpha.file_formats.conversion.profiles import InputProfile, OutputProfile
-from LiuXin_alpha.plugin_system.base import Plugin
-from LiuXin_alpha.plugin_system.configuration import config, is_disabled
-from LiuXin_alpha.plugin_system.configuration import (
+from LiuXin_alpha.plugins.base import Plugin
+from LiuXin_alpha.plugins.configuration import config, is_disabled
+from LiuXin_alpha.plugins.configuration import (
     customize_plugin as customize_plugin,
 )
-from LiuXin_alpha.plugin_system.configuration import (
+from LiuXin_alpha.plugins.configuration import (
     plugin_customization as plugin_customization,
 )
-from LiuXin_alpha.plugin_system.file_types import (
+from LiuXin_alpha.plugins.file_types import (
     FileTypePlugin,
     MetadataReaderPlugin,
     MetadataWriterPlugin,
@@ -46,20 +47,42 @@ _initialized_plugins: list[Plugin] | None = None
 _initialization_lock = RLock()
 
 
+@contextmanager
+def initialization_scope() -> Iterator[None]:
+    """Serialize host and standalone startup, allowing same-thread callbacks."""
+    with _initialization_lock:
+        yield
+
+
+def replace_plugins(builder: Callable[[], Iterable[Plugin]]) -> tuple[Plugin, ...]:
+    """Build and bind a fleet, restoring the previous binding if startup aborts.
+
+    Reentrant format lookups see an empty fleet while building. Other threads
+    wait for publication instead of starting a second standalone registry.
+    """
+    with _initialization_lock:
+        previous = _initialized_plugins
+        bind_plugins(())
+        try:
+            plugins = tuple(builder())
+            bind_plugins(plugins)
+            return plugins
+        except BaseException:
+            if previous is None:
+                reset_plugins()
+            else:
+                bind_plugins(previous)
+            raise
+
+
 def _ensure_plugins() -> None:
     """Initialize the standalone file-plugin fleet on first use."""
-    global _initialized_plugins
     with _initialization_lock:
         if _initialized_plugins is not None:
             return
         from LiuXin_alpha.file_formats.plugin_defaults import build_plugins
 
-        _initialized_plugins = []
-        try:
-            bind_plugins(build_plugins())
-        except BaseException:
-            _initialized_plugins = None
-            raise
+        replace_plugins(build_plugins)
 
 
 def bind_plugins(plugins: Iterable[Plugin]) -> None:
@@ -86,8 +109,10 @@ def reset_plugins() -> None:
 
 def initialized_plugins() -> Iterator[Plugin]:
     """Yield the active file-plugin instances in their established order."""
-    _ensure_plugins()
-    yield from _initialized_plugins or ()
+    with _initialization_lock:
+        _ensure_plugins()
+        plugins = tuple(_initialized_plugins or ())
+    yield from plugins
 
 
 _on_import: dict[str, list[Plugin]] = {}
@@ -109,7 +134,7 @@ def reread_filetype_plugins() -> None:
     Example:
         Exercise reread filetype plugins through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugins/test_plugin_base.py
 
 
     :return: None; the operation mutates state, writes output or performs cleanup in
@@ -163,7 +188,7 @@ def _run_filetype_plugins(
     Example:
         Exercise  run filetype plugins through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugins/test_plugin_base.py
 
 
     :param path_to_file: Value supplied for path to file under the utility contract.
@@ -239,7 +264,7 @@ def run_plugins_on_postimport(db: Any, book_id: int, fmt: str) -> None:
     Example:
         Exercise run plugins on postimport through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugins/test_plugin_base.py
 
 
     :param db: Value supplied for db under the utility contract.
@@ -274,7 +299,7 @@ def input_profiles() -> Iterator[InputProfile]:
     Example:
         Exercise input profiles through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugins/test_plugin_base.py
 
 
     :return: An iterator yielding the normalized values described above.
@@ -292,7 +317,7 @@ def output_profiles() -> Iterator[OutputProfile]:
     Example:
         Exercise output profiles through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugins/test_plugin_base.py
 
 
     :return: An iterator yielding the normalized values described above.
@@ -315,7 +340,7 @@ def reread_metadata_plugins() -> None:
     Example:
         Exercise reread metadata plugins through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugins/test_plugin_base.py
 
 
     :return: None; the operation mutates state, writes output or performs cleanup in
@@ -352,7 +377,7 @@ def metadata_readers() -> set[MetadataReaderPlugin]:
     Example:
         Exercise metadata readers through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugins/test_plugin_base.py
 
 
     :return: The normalized value, metadata record, path, stream result or collection
@@ -374,7 +399,7 @@ def metadata_writers() -> set[MetadataWriterPlugin]:
     Example:
         Exercise metadata writers through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugins/test_plugin_base.py
 
 
     :return: The normalized value, metadata record, path, stream result or collection
@@ -396,7 +421,7 @@ class QuickMetadata:
     Example:
         Exercise QuickMetadata through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugins/test_plugin_base.py
     """
 
     def __init__(self: _typing.Self) -> None:
@@ -406,7 +431,7 @@ class QuickMetadata:
         Example:
             Exercise QuickMetadata.  init   through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugins/test_plugin_base.py
 
 
         :return: None; validated state is stored on the receiving object.
@@ -420,7 +445,7 @@ class QuickMetadata:
         Example:
             Exercise QuickMetadata.  enter   through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugins/test_plugin_base.py
 
 
         :return: None; the operation mutates state, writes output or performs cleanup in
@@ -435,7 +460,7 @@ class QuickMetadata:
         Example:
             Exercise QuickMetadata.  exit   through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugins/test_plugin_base.py
 
 
         :param args: Positional values forwarded to the compatibility implementation.
@@ -455,7 +480,7 @@ class ApplyNullMetadata:
     Example:
         Exercise ApplyNullMetadata through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugins/test_plugin_base.py
     """
 
     def __init__(self: _typing.Self) -> None:
@@ -465,7 +490,7 @@ class ApplyNullMetadata:
         Example:
             Exercise ApplyNullMetadata.  init   through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugins/test_plugin_base.py
 
 
         :return: None; validated state is stored on the receiving object.
@@ -479,7 +504,7 @@ class ApplyNullMetadata:
         Example:
             Exercise ApplyNullMetadata.  enter   through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugins/test_plugin_base.py
 
 
         :return: None; the operation mutates state, writes output or performs cleanup in
@@ -494,7 +519,7 @@ class ApplyNullMetadata:
         Example:
             Exercise ApplyNullMetadata.  exit   through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugins/test_plugin_base.py
 
 
         :param args: Positional values forwarded to the compatibility implementation.
@@ -514,7 +539,7 @@ class ForceIdentifiers:
     Example:
         Exercise ForceIdentifiers through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugins/test_plugin_base.py
     """
 
     def __init__(self: _typing.Self) -> None:
@@ -524,7 +549,7 @@ class ForceIdentifiers:
         Example:
             Exercise ForceIdentifiers.  init   through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugins/test_plugin_base.py
 
 
         :return: None; validated state is stored on the receiving object.
@@ -538,7 +563,7 @@ class ForceIdentifiers:
         Example:
             Exercise ForceIdentifiers.  enter   through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugins/test_plugin_base.py
 
 
         :return: None; the operation mutates state, writes output or performs cleanup in
@@ -553,7 +578,7 @@ class ForceIdentifiers:
         Example:
             Exercise ForceIdentifiers.  exit   through a consuming regression::
 
-                python -m pytest -q tests/customize/test_customize_base.py
+                python -m pytest -q tests/plugins/test_plugin_base.py
 
 
         :param args: Positional values forwarded to the compatibility implementation.
@@ -575,7 +600,7 @@ def get_file_type_metadata(
     Example:
         Exercise get file type metadata through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugins/test_plugin_base.py
 
 
     :param stream: Input or output stream wrapped by the terminal or compatibility
@@ -646,7 +671,7 @@ def set_file_type_metadata(
     Example:
         Exercise set file type metadata through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugins/test_plugin_base.py
 
 
     :param stream: Input or output stream wrapped by the terminal or compatibility
@@ -694,7 +719,7 @@ def can_set_metadata(ftype: str) -> bool:
     Example:
         Exercise can set metadata through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugins/test_plugin_base.py
 
 
     :param ftype: Value supplied for ftype under the utility contract.
@@ -718,7 +743,7 @@ def input_format_plugins() -> Iterator[InputFormatPlugin]:
     Example:
         Exercise input format plugins through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugins/test_plugin_base.py
 
 
     :return: An iterator yielding the normalized values described above.
@@ -735,7 +760,7 @@ def plugin_for_input_format(fmt: str) -> Plugin | None:
     Example:
         Exercise plugin for input format through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugins/test_plugin_base.py
 
 
     :param fmt: Date, number or template format specification.
@@ -756,7 +781,7 @@ def all_input_formats() -> set[str]:
     Example:
         Exercise all input formats through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugins/test_plugin_base.py
 
 
     :return: The normalized value, metadata record, path, stream result or collection
@@ -776,7 +801,7 @@ def available_input_formats() -> set[str]:
     Example:
         Exercise available input formats through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugins/test_plugin_base.py
 
 
     :return: The normalized value, metadata record, path, stream result or collection
@@ -798,7 +823,7 @@ def output_format_plugins() -> Iterator[OutputFormatPlugin]:
     Example:
         Exercise output format plugins through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugins/test_plugin_base.py
 
 
     :return: An iterator yielding the normalized values described above.
@@ -815,7 +840,7 @@ def plugin_for_output_format(fmt: str) -> Plugin | None:
     Example:
         Exercise plugin for output format through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugins/test_plugin_base.py
 
 
     :param fmt: Date, number or template format specification.
@@ -836,7 +861,7 @@ def available_output_formats() -> set[str]:
     Example:
         Exercise available output formats through a consuming regression::
 
-            python -m pytest -q tests/customize/test_customize_base.py
+            python -m pytest -q tests/plugins/test_plugin_base.py
 
 
     :return: The normalized value, metadata record, path, stream result or collection
@@ -847,3 +872,24 @@ def available_output_formats() -> set[str]:
         if not is_disabled(plugin):
             formats.add(plugin.file_type)
     return formats
+
+
+def run_import_plugins(path_or_stream: str | os.PathLike[str] | BinaryIO, fmt: str) -> str:
+    """Run file-import hooks for a path or a binary stream.
+
+    Streams are rewound and copied to a persistent temporary file with the
+    supplied format extension; the returned path belongs to the caller. Path
+    inputs are passed to the hooks directly. This does not start application plugins.
+    """
+    from LiuXin_alpha.utils.ptempfiles import PersistentTemporaryFile
+
+    fmt = fmt.lower()
+    if hasattr(path_or_stream, "seek"):
+        path_or_stream.seek(0)
+        pt = PersistentTemporaryFile("_import_plugin." + fmt)
+        shutil.copyfileobj(path_or_stream, pt, 1024**2)
+        pt.close()
+        path = pt.name
+    else:
+        path = path_or_stream
+    return run_plugins_on_import(path)

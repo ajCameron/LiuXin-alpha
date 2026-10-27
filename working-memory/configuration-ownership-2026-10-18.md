@@ -59,7 +59,7 @@ integration PR into main first, then retarget/merge the configuration PR.
   Domain prohibitions are unchanged. One unresolved-dynamic baseline line moves
   with the existing job callable import; no new dynamic import is allowed.
 
-The public contract is in [configuration ownership](../dev-docs/configuration-ownership.md).
+The public contract is in [configuration ownership](../dev-docs/core/configuration-ownership.md).
 Jobs lifecycle composition, ingest coordination and plugin-registry consolidation
 remain separate focused follow-ups. Some component-level singleton integrations
 (e.g. cover/plugin option objects) retain their construction-bound lifetime; this

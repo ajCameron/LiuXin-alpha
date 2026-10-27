@@ -10,6 +10,8 @@ the writable surface, so the checks share intentionally evolving catalogue state
 
 from __future__ import annotations
 
+from LiuXin_alpha.core.authorization import CoreTransportPolicy
+
 import io
 import urllib.parse
 from pathlib import Path
@@ -156,19 +158,24 @@ def _exercise_surface_client(client, *, label: str, tmp_path: Path) -> None:
     assert "Seed Work" in output.getvalue()
 
     # Exercise identity derivation and scoped resolution over both transports.
-    assert browser.run_commands(
-        (
-            f'on works 1 tag "{label} Space Opera, {label} SpaceOpera"',
-            f'on works 1 genre "{label} Science Fiction"',
-            f'on works 1 genre "{label} Science Fiction"',
+    assert (
+        browser.run_commands(
+            (
+                f'on works 1 tag "{label} Space Opera, {label} SpaceOpera"',
+                f'on works 1 genre "{label} Science Fiction"',
+                f'on works 1 genre "{label} Science Fiction"',
+            )
         )
-    ) == 0
+        == 0
+    )
     spaced = search_tag_rows(browser.db, "tags", f"{label} Ｓｐａｃｅ Ｏｐｅｒａ")
     compact = search_tag_rows(browser.db, "tags", f"{label} SpaceOpera")
     assert len(spaced) == len(compact) == 1
     assert spaced[0]["tag_id"] != compact[0]["tag_id"]
     genre = browser.db.find_identity_row(
-        "genres", "genre", f"{label} SCIENCE FICTION",
+        "genres",
+        "genre",
+        f"{label} SCIENCE FICTION",
         scope_values={"genre_parent_id": None},
     )
     assert genre is not None
@@ -177,9 +184,7 @@ def _exercise_surface_client(client, *, label: str, tmp_path: Path) -> None:
     session = TkGuiSession.from_client(
         client,
         config=TkGuiConfig(
-            core_endpoint="http://core.invalid"
-            if label == "rpc"
-            else None,
+            core_endpoint="http://core.invalid" if label == "rpc" else None,
         ),
     )
     backend = TkGuiBackend.from_session(session)
@@ -228,6 +233,7 @@ def test_all_application_surfaces_accept_direct_and_rpc_core(
     daemon = CoreHttpDaemon(
         runtime,
         endpoint_namespace="surface-acceptance",
+        policy=CoreTransportPolicy.trusted("test-core-parity"),
     )
     daemon.start()
     try:
@@ -240,6 +246,7 @@ def test_all_application_surfaces_accept_direct_and_rpc_core(
             RemoteCoreClient(
                 endpoint=daemon.base_url,
                 timeout_seconds=30.0,
+                bearer_token="test-core-parity",
             ),
             label="rpc",
             tmp_path=tmp_path,

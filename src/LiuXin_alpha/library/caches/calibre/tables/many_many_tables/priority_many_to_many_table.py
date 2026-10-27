@@ -20,7 +20,7 @@ try:
 except ImportError:
     from typing import Self
 
-from LiuXin_alpha.customize.cache.base_tables import (
+from LiuXin_alpha.plugins.cache.base_tables import (
     MANY_MANY,
 )
 

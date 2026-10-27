@@ -17,7 +17,7 @@ Added:
 Updated:
 
 - `dev-docs/global_todo.md`
-- `dev-docs/file-format-unicode-conversion.md`
+- `dev-docs/file_formats/file-format-unicode-conversion.md`
 
 ## Current Decision
 

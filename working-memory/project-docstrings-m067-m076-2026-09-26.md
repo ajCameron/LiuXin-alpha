@@ -109,4 +109,4 @@ finalization scripts against this completed batch.
 - [Inventory reconciliation](test-results/docstrings-m067-m076-2026-09-26/reconciliation.json)
 - [Documentation diff](test-results/docstrings-m067-m076-2026-09-26/docstrings.diff)
 - [Previous checkpoint](project-docstrings-m057-m066-2026-09-26.md)
-- [Completion plan](../dev-docs/project-docstrings-completion-plan.md)
+- [Completion plan](../dev-docs/hacking/project-docstrings-completion-plan.md)

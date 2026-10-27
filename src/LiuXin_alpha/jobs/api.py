@@ -10,7 +10,12 @@ Example:
         python -m pytest -q tests/jobs/test_jobs_repository.py
 """
 
-from LiuXin_alpha.jobs.handler_api import JobHandlerAPI, JobHandlerRegistry, JobRunContext
+from LiuXin_alpha.jobs.handler_api import (
+    JobCancelled,
+    JobHandlerAPI,
+    JobHandlerRegistry,
+    JobRunContext,
+)
 from LiuXin_alpha.jobs.models import (
     JobConcurrencyPolicy,
     JobDefinition,
@@ -25,12 +30,15 @@ from LiuXin_alpha.jobs.models import (
     JobTriggerKind,
     now_ep_k,
 )
-from LiuXin_alpha.jobs.repository import JobRepository
+from LiuXin_alpha.jobs.repository import JobLeaseLost, JobRepository, JobRequestConflict
 from LiuXin_alpha.jobs.scheduler import JobScheduler
 from LiuXin_alpha.jobs.worker import JobWorker
 
 __all__ = [
     "JobHandlerAPI",
+    "JobCancelled",
+    "JobLeaseLost",
+    "JobRequestConflict",
     "JobHandlerRegistry",
     "JobRunContext",
     "JobConcurrencyPolicy",

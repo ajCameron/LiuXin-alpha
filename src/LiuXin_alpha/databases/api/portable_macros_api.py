@@ -25,23 +25,30 @@ class PortableMacrosAPI(abc.ABC):
     """
     Specify schema-aware row, relationship and identity operations for SQL backends.
 
-    Values are bound separately from validated identifiers. Reads use the active portable transaction connection when present; otherwise they use the driver connection. Ordinary compound writes open or join transaction(). Temporary-table contexts instead use connection contexts directly, so their commit behavior must be considered separately. Backend constraint and connection errors propagate unless a method describes a narrower translation.
+    Values are bound separately from validated identifiers. Reads use the active portable transaction connection when present; otherwise they use the driver connection. Ordinary compound writes open or join transaction(). Temporary-table contexts use the active connection and an owned transaction or borrowed savepoint covering their body and cleanup. Backend constraint and connection errors propagate unless a method describes a narrower translation.
 
     Example:
         Given an open database db, use db.driver.macros.get_rows("tags", order_by=("tag_id",)) to retrieve tag rows in ID order.
     """
 
     @abc.abstractmethod
-    def transaction(self) -> AbstractContextManager[Any]:
+    def transaction(self, *, serialized: bool = False, require_outermost: bool = False) -> AbstractContextManager[Any]:
         """
         Open or join the transaction shared by nested portable macro calls.
 
-        The outer context uses a dedicated connection when the driver can create one, otherwise its persistent connection. It commits on success, rolls back on an escaping exception, closes an owned connection, and invalidates driver caches after success. Nested calls share that connection without an independent savepoint: catching an inner error inside the outer block does not undo inner writes. The persistent-connection fallback can also commit or roll back earlier work on that connection.
+        The outer context uses a dedicated connection when available, otherwise the persistent connection. It starts and owns a transaction only on a fresh or idle connection; an already active persistent transaction is borrowed through a savepoint and remains pending. Each nested call uses a savepoint on the shared connection, so a caught inner failure undoes only that unit. Only an owned transaction commits on success or rolls back wholesale on failure. Owned connections close separately; successful outer exits invalidate driver caches. The facade mutex serializes cooperating threads without committing SQL.
 
         Example:
             With concrete macros, place insert_row("tags", {"tag": "Travel"}) and a following update_row call inside one with macros.transaction(): block to commit them together.
 
 
+        :param serialized: Reserve SQLite's writer boundary or a shared PostgreSQL
+            advisory transaction lock before reading. Requires an owned outer unit,
+            or nesting inside an already serialized unit. Ordinary and borrowed
+            transactions cannot be upgraded. External bytes and privileged direct
+            SQL writers are outside the advisory locking contract.
+        :param require_outermost: Refuse nesting/borrowing so successful exit commits
+            before a caller performs irreversible external effects.
         :return: Context manager yielding the connection used by portable reads and writes in this thread.
         :raises DatabaseIntegrityError: The driver cannot provide a transaction connection.
         """
@@ -617,20 +624,44 @@ class PortableMacrosAPI(abc.ABC):
         prefix: str = "liuxin_values",
     ) -> AbstractContextManager[str]:
         """
-        Populate a connection-local temporary table and drop it on context exit.
+        Return a context manager that populates a uniquely named connection-local
+        temporary table.
 
-        Use the same connection to query the table. PostgreSQL maps BLOB to BYTEA. Creation/insertion and removal use connection contexts, which can commit work on that connection; this helper does not join writes through transaction() in the usual way. Cleanup retries after rollback when its first drop fails, and a final cleanup error can replace an error from the body. Values are bound directly without Python-level type coercion.
+        On entry, validate a simple column/prefix, require a prefix of at most 30
+        characters, and accept only BLOB, INTEGER, NUMERIC, REAL or TEXT after
+        trimming/uppercasing. Schema-bearing drivers map BLOB to BYTEA. Append a UUID to
+        the prefix, create the table and consume values through executemany, preserving
+        duplicates and nulls subject to backend conversion. Yield the unqualified name.
+
+        An explicit transaction or borrowed savepoint covers creation, population,
+        the body and removal. Success drops the table; failure rolls back this
+        boundary, including table creation and body writes on this connection. Existing
+        caller work remains pending. Never commit or roll back a caller's whole
+        transaction to recover a failed drop. The connection stays open.
 
         Example:
-            With concrete macros outside a portable write transaction, use with macros.temporary_value_table(("a", "b")) as name: and query that table on the driver connection inside the block.
+            >>> import sqlite3
+            >>> from types import SimpleNamespace
+            >>> conn = sqlite3.connect(":memory:")
+            >>> macros = SQLPortableMacrosMixin()
+            >>> macros.db = SimpleNamespace(driver=SimpleNamespace(conn=conn))
+            >>> with macros.temporary_value_table(("a", "a", None)) as table:
+            ...     print(conn.execute(f'SELECT COUNT(*) FROM temp."{table}"').fetchone()[0])
+            3
+            >>> conn.execute("SELECT COUNT(*) FROM sqlite_temp_master WHERE name=?", (table,)).fetchone()[0]
+            0
+            >>> conn.close()
 
 
-        :param values: Iterable of values inserted into the single column; duplicates and None are retained.
-        :param column: Validated column name, default value.
-        :param declared_type: Portable type BLOB, INTEGER, NUMERIC, REAL or TEXT; surrounding whitespace/case are normalized.
-        :param prefix: Validated table-name prefix, at most 30 characters, followed by a random UUID.
-        :return: Context manager yielding the generated unqualified table name.
-        :raises InputIntegrityError: An identifier, schema column, link specification or supplied value violates the operation’s validation rules.
+        :param values: Iterable consumed once during context entry, one value per
+            inserted row.
+        :param column: Validated temporary-column name, default value.
+        :param declared_type: Allowlisted backend datatype name; values themselves are
+            not pre-coerced.
+        :param prefix: Validated table-name prefix, at most 30 characters before the
+            UUID suffix.
+        :return: A context manager yielding the generated table-name string while the
+            table exists.
         """
 
     @abc.abstractmethod
@@ -641,18 +672,25 @@ class PortableMacrosAPI(abc.ABC):
         prefix: str = "liuxin_ids",
     ) -> AbstractContextManager[str]:
         """
-        Create a temporary single-column INTEGER table using the value-table helper.
+        Return the temporary-value context manager configured with an INTEGER column
+        named id.
 
-        Lifetime, connection ownership, commit and cleanup behavior are those of temporary_value_table. INTEGER is the database declaration, not a Python input validator.
+        Forward values and prefix without eagerly consuming or validating them. Context
+        entry, transaction ownership, cleanup and error behavior are those of
+        temporary_value_table. Duplicates and None are not
+        rejected, and Python integer types are not independently enforced.
 
         Example:
-            With concrete macros, use with macros.temporary_id_table((1, 2, 2)) as name: to query the three inserted ID rows on the same connection.
+            ``with macros.temporary_id_table((10, 11, 11)) as table: ...``
+            creates three rows in the id column for the duration of the context.
 
 
-        :param values: Iterable of IDs passed directly to the database, without coercion or deduplication.
-        :param prefix: Validated prefix of at most 30 characters, default liuxin_ids.
-        :return: Context manager yielding a temporary table name whose sole column is id.
-        :raises InputIntegrityError: An identifier, schema column, link specification or supplied value violates the operation’s validation rules.
+        :param values: Iterable of backend-compatible ID values, consumed on context
+            entry.
+        :param prefix: Simple temporary-table prefix, checked on entry and limited to 30
+            characters.
+        :return: The delegated context manager yielding an unqualified temporary-table
+            name.
         """
 
     @abc.abstractmethod

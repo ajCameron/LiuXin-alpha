@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 from scripts.check_layer_direction import (
+    PLUGIN_HOST_PREFIXES,
     baseline_payload,
     check,
     direction_reason,
@@ -30,7 +31,32 @@ def test_repository_matches_reviewed_layer_baseline() -> None:
 
 
 @pytest.mark.parametrize("context", tuple(ImportKind))
-@pytest.mark.parametrize("source", ("metadata", "file_formats", "plugin_system"))
+@pytest.mark.parametrize(
+    "source",
+    ("file_formats.owner", "plugins.loading", "plugins.future_module"),
+)
+@pytest.mark.parametrize("target", PLUGIN_HOST_PREFIXES)
+def test_plugin_package_merge_preserves_internal_layer_direction(
+    tmp_path: Path, context: ImportKind, source: str, target: str
+) -> None:
+    """Moving packages must not make host imports legal in neutral code."""
+    statement = f"import {target}\n"
+    if context == ImportKind.DEFERRED:
+        statement = "def load():\n    " + statement
+    elif context == ImportKind.TYPE_ONLY:
+        statement = (
+            "from typing import TYPE_CHECKING\nif TYPE_CHECKING:\n    " + statement
+        )
+    _write(tmp_path / (target.replace(".", "/") + ".py"), "")
+    _write(tmp_path / ("LiuXin_alpha/" + source.replace(".", "/") + ".py"), statement)
+    inventory = collect_imports(tmp_path, protected_prefixes=("LiuXin_alpha",))
+    edge = next(edge for edge in inventory.edges if edge.target == target)
+    assert edge.kind == context
+    assert "must not depend on application plugin modules" in direction_reason(edge)
+
+
+@pytest.mark.parametrize("context", tuple(ImportKind))
+@pytest.mark.parametrize("source", ("metadata", "file_formats", "plugins"))
 def test_new_backward_edge_fails_with_context(
     tmp_path: Path, context: ImportKind, source: str
 ) -> None:

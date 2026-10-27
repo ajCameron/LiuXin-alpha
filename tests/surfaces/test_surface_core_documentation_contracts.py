@@ -113,8 +113,12 @@ def test_session_open_routes_and_normalizes_only_the_selected_source(
             SurfaceCoreSession.open(**kwargs)
     factory.assert_not_called()
     selector.assert_not_called()
-    remote = SurfaceCoreSession.open(endpoint="", timeout_seconds="2.5", create=True)
-    selector.assert_called_once_with(endpoint="", timeout_seconds=2.5)
+    remote = SurfaceCoreSession.open(
+        endpoint="", timeout_seconds="2.5", create=True, bearer_token="session-token"
+    )
+    selector.assert_called_once_with(
+        endpoint="", timeout_seconds=2.5, bearer_token="session-token"
+    )
     factory.assert_not_called()
     assert (
         remote.client is client and remote.runtime is None and not remote.owns_runtime
@@ -146,6 +150,7 @@ def test_session_open_routes_and_normalizes_only_the_selected_source(
             db_type=driver,
             database_metadata=metadata,
             configuration_paths=None,
+            durable_job_path=None,
             create=True,
             backup=False,
             cache_type="test-cache",
