@@ -14,6 +14,7 @@ import json
 import logging
 import os
 import socket
+import stat
 from collections.abc import Generator
 from contextlib import contextmanager
 from datetime import datetime
@@ -24,6 +25,55 @@ from LiuXin_alpha.surfaces.cli.storage_commands.constants import CLIUsageError
 from LiuXin_alpha.surfaces.cli.storage_commands.filesystem import _path_is_within
 from LiuXin_alpha.surfaces.cli.storage_commands.ingest_reporting import _log
 from LiuXin_alpha.utils.lock import ExclusiveFile, LockError
+
+
+def _validate_backing_destinations(
+    args: argparse.Namespace, log_directory: Path
+) -> None:
+    """Refuse output collisions with an attached image/device before opening logs.
+
+    Include SQLite sidecars and existing hard-link/device aliases. These checks
+    do not reserve paths against replacement by another process.
+    """
+    backing = getattr(args, "source_image", None) or getattr(
+        args, "source_device", None
+    )
+    if not backing:
+        return
+    source = Path(backing).expanduser().resolve(strict=True)
+    original = source.stat()
+    destinations = [log_directory]
+    for key in (
+        "database",
+        "materialization_root",
+        "log_directory",
+        "report_file",
+        "lock_file",
+    ):
+        value = getattr(args, key, None)
+        if value:
+            destinations.append(Path(value).expanduser().resolve(strict=False))
+    if args.database:
+        database = Path(args.database).expanduser().resolve(strict=False)
+        destinations.extend(
+            Path(str(database) + suffix) for suffix in ("-wal", "-shm", "-journal")
+        )
+    for path in destinations:
+        if path == source or _same_backing(path, original):
+            raise CLIUsageError(
+                f"ingest output would overwrite the backing source: {path}"
+            )
+
+
+def _same_backing(path: Path, original: os.stat_result) -> bool:
+    """Compare regular-file inode identity or block-device identity where a path exists."""
+    try:
+        candidate = path.stat()
+    except FileNotFoundError:
+        return False
+    if stat.S_ISBLK(original.st_mode) and stat.S_ISBLK(candidate.st_mode):
+        return candidate.st_rdev == original.st_rdev
+    return (candidate.st_dev, candidate.st_ino) == (original.st_dev, original.st_ino)
 
 
 def _validate_paths(

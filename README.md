@@ -79,7 +79,7 @@ claiming that inherited compatibility code is already strict. See
 
 ## Storage ingest CLI
 
-For a new local deployment, initialise a self-contained system root and then
+For a new local Linux deployment, initialise a self-contained system root and then
 point LiuXin at a mounted drive or untidy source tree:
 
 ```bash
@@ -97,7 +97,19 @@ database/login and runs the full backend readiness checker.
 `init` creates the catalogue, a managed primary Store, materialization and log
 directories, plus a non-secret `liuxin-system.json` manifest. It is idempotent
 and does not delete existing catalogue or Store state. The concise `ingest`
-form uses the bounded recursive mixed-file pipeline.
+form uses the bounded recursive mixed-file pipeline and requires a verified
+read-only source mount on Linux. It detects existing directories, SquashFS/ext4
+filesystem images and block devices:
+
+```bash
+sudo liuxin storage ingest "/archives/books.squashfs" --system-root /srv/liuxin
+```
+
+The system selector can be omitted when the invoking account has a saved
+connection; `sudo` may select a different account's configuration. Images and
+devices receive stable, automatically managed mount targets. The explicit
+`--source-root PATH` directory interface retains opt-in mounting and is also
+available on other operating systems.
 
 The full mixed-file ingest surface remains available after installation:
 

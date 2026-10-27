@@ -562,7 +562,7 @@ def test_concise_ingest_source_expands_to_mixed_ingest_surface(
     assert (
         cli_main(["ingest", str(source), "--system-root", str(root), "--strict"]) == 0
     )
-    assert received["source_root"] == str(source)
+    assert received["source"] == str(source)
     assert received["system_root"] == str(root)
     assert received["strict"] is True
     assert received["storage_command"] == "ingest"
@@ -580,7 +580,7 @@ def test_concise_ingest_source_expands_to_mixed_ingest_surface(
         )
         == 0
     )
-    assert received["source_root"] == str(source)
+    assert received["source"] == str(source)
     assert received["system_root"] == str(root)
 
 
@@ -616,6 +616,7 @@ def test_init_rejects_database_inside_managed_store(
 def test_real_init_then_concise_ingest_round_trip(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """
     Initialize real local Core, ingest one file, and reopen without losing later Stores.
@@ -630,6 +631,7 @@ def test_real_init_then_concise_ingest_round_trip(
 
 
     :param tmp_path: Isolated parent for the actual catalogue, Store, source, and logs.
+    :param monkeypatch: Bypass the mount launcher; real mount coverage has its own Linux tests.
     :param capsys: Capture used to decode each init/ingest command's JSON result.
     :return: None after initial creation, adoption, report paths, and repeat-open checks.
     """
@@ -637,6 +639,14 @@ def test_real_init_then_concise_ingest_round_trip(
     source = tmp_path / "incoming"
     source.mkdir()
     (source / "book.epub").write_bytes(b"first-run-book")
+
+    # This test owns real initialization/catalogue persistence. Actual kernel
+    # mount protection is exercised in the required Linux live-mount suite.
+    from LiuXin_alpha.surfaces.cli.storage_commands import ingest, ingest_mount
+
+    monkeypatch.setattr(
+        ingest_mount, "launch_mounted_ingest", ingest._cmd_storage_ingest
+    )
 
     assert cli_main(["init", str(root), "--compact"]) == 0
     initialized = json.loads(capsys.readouterr().out)
