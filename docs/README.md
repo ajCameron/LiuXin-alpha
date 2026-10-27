@@ -4,8 +4,9 @@ Updated **2026-10-23**. These guides describe installed commands and everyday
 workflows. Start with [web ingest](web-ingest.md) to record files on a website
 without mirroring it, then acquire selected copies when needed.
 
-For local directories and SquashFS images, see the
-[mixed-ingest runbook](../dev-docs/storage_and_backup/mixed_ingest_operations.md).
+For local directories and SquashFS collections, see
+[local ingest](local-ingest.md), including disk headroom, WSL host protection,
+resource telemetry and resume after a resource stop.
 The [operational CLI guide](../dev-docs/surfaces/operational-cli.md) covers other
 command families and connection settings. Implementation and ownership notes
 belong in [developer documentation](../dev-docs/README.md).

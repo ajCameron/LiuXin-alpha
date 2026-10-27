@@ -20,7 +20,6 @@ from uuid import UUID, uuid4
 from LiuXin_alpha.surfaces.cli.storage_commands.constants import (
     EXIT_INTERRUPTED,
     EXIT_ISSUES,
-    EXIT_OK,
     EXIT_USAGE,
     CLIUsageError,
 )
@@ -46,6 +45,10 @@ from LiuXin_alpha.surfaces.cli.storage_commands.ingest_reporting import (
     _log_cli_start,
     _print_payload,
     _write_report,
+)
+from LiuXin_alpha.surfaces.cli.storage_commands.ingest_resources import (
+    apply_resource_result,
+    resource_monitor,
 )
 from LiuXin_alpha.surfaces.cli.storage_commands.ingest_run import _run_ingest
 from LiuXin_alpha.surfaces.cli.storage_commands.signals import SignalCancellation
@@ -152,6 +155,16 @@ def _cmd_storage_ingest(args: argparse.Namespace) -> int:
             level=int(getattr(logging, str(args.log_level))),
             max_text_bytes=int(args.log_max_mib) * 1024 * 1024,
             text_backup_count=int(args.log_backup_count),
+            always_events=(
+                "cli_started",
+                "resource_sample",
+                "resource_stop",
+                "cli_complete",
+                "cli_cancelled",
+                "cli_failed",
+                "cli_interrupted",
+                "cli_configuration_error",
+            ),
         )
         with session_context as log_session:
             assert log_session.paths is not None
@@ -196,7 +209,10 @@ def _run_logged_command(
     """
     Validate/log a run, execute under signal and lock scopes, then publish its terminal receipt.
 
-    Validation precedes the start event. The signal scope enters before the lock;
+    Validation precedes the start event. Resource monitoring begins before the lock
+    and catalogue startup, then supplies cooperative workflow admission checks.
+    Low/unknown capacity retains a resource_stopped receipt and replayable options.
+    The signal scope enters before the lock;
     both exit before terminal enrichment/reporting. A latched first signal overrides
     normal application status with cancelled and 128+signal, without undoing work.
     Otherwise status is complete for zero, issues for any nonzero application code.
@@ -243,13 +259,38 @@ def _run_logged_command(
             if lock_path is not None
             else nullcontext()
         )
-        with controller, lock_context:
-            exit_code, payload = _run_ingest(
-                args,
-                source_root=source_root,
-                run_id=run_id,
-                cancellation_callback=controller.requested,
-            )
+        resources = resource_monitor(
+            args,
+            run_id=run_id,
+            report_path=report_path,
+            event_log=event_log,
+            lock_path=lock_path,
+            log_session=log_session,
+        )
+        exit_code = EXIT_ISSUES
+        payload: dict[str, object] = {
+            "ok": False,
+            "mode": "preflight"
+            if args.preflight_only
+            else "discovery"
+            if args.discover_only
+            else "ingest",
+            "database": args.database,
+        }
+        with controller, resources:
+            if resources.check() is None:
+                with lock_context:
+                    # Waiting for another writer can consume the initial headroom.
+                    resources.sample()
+                    if resources.check() is None:
+                        exit_code, payload = _run_ingest(
+                            args,
+                            source_root=source_root,
+                            run_id=run_id,
+                            cancellation_callback=controller.requested,
+                            resources=resources,
+                        )
+        exit_code = apply_resource_result(args, payload, resources, exit_code)
 
         received_signal = controller.signal_number
         if received_signal is not None:
@@ -257,8 +298,6 @@ def _run_logged_command(
             payload["ok"] = False
             payload["status"] = "cancelled"
             payload["signal"] = received_signal
-        else:
-            payload["status"] = "complete" if exit_code == EXIT_OK else "issues"
         _enrich_terminal_payload(
             payload,
             args=args,

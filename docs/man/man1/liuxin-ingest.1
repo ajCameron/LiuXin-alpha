@@ -61,6 +61,34 @@ and
 .TP
 .B formats
 Report available ingest format information.
+.SH LOCAL RESOURCE PROTECTION
+Local mixed ingest enforces a free-space reserve before catalogue startup and
+at safe boundaries during the run. It checks the catalogue, cache, temporary,
+log, report and lock filesystems, plus the WSL backing drive when applicable.
+.TP
+.BI \-\-min-free-mib " N"
+Positive reserve on each output volume; default 2048 MiB.
+Known member spools and nested-container copies require additional headroom.
+.TP
+.BI \-\-resource-interval-seconds " SECONDS"
+Independent resource sampling interval; default 5, minimum 0.1.
+JSONL resource samples include capacity, Linux memory counters, current
+source/archive/member and per-attempt cache reservation/materialization bytes.
+.TP
+.BI \-\-host-space-path " PATH"
+Repeatable existing host-drive directory. Explicit paths override automatic WSL
+backing-drive discovery. Use the volume containing the distribution's virtual
+disk; it is not necessarily C:. Unavailable host detection requires this option.
+.PP
+The default log level is INFO, retaining aggregate checkpoints and resource
+samples. DEBUG adds per-object audit records. The human log rotates; JSONL
+remains append-only and its volume is protected by the free-space reserve.
+.PP
+A resource stop returns exit 1 and status resource_stopped. Release space and
+use liuxin ingest runs resume RUN_UUID with the original system selector and
+mount privileges. Completed records deduplicate. These are cooperative checks,
+not disk reservations: running backend operations and unrelated writers can
+consume space before the next boundary. No automatic cache or log deletion occurs.
 .SH CONNECTIONS
 Use
 .BR \-\-system-root " " DIRECTORY

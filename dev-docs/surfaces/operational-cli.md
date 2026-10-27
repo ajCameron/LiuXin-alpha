@@ -109,7 +109,10 @@ There are two intentionally different path contracts:
 - `ingest SOURCE --system-root ROOT` is the concise local-host entry point for
   a bounded recursive mixed tree. It expands to the mature `storage ingest`
   operator, including archive-bomb budgets, logging, locking, reports, and
-  graceful cancellation. `ingest disk ...` remains the distinct managed-job
+  graceful cancellation. Local runs enforce disk headroom with `--min-free-mib`
+  and retain periodic resource telemetry, including the WSL backing volume.
+  See [local ingest](../../docs/local-ingest.md) for controls and resource-stop
+  recovery. `ingest disk ...` remains the distinct managed-job
   form for a source path visible to Core.
 - `core health|capabilities|api` inspects one Core. `core serve` owns a local
   database and publishes the Core RPC transport with read-only authority by

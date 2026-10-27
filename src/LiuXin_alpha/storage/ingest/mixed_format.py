@@ -49,6 +49,8 @@ _DEBUG_LOG_EVENTS = frozenset(
         "member_adopted",
         "source_file_adopted",
         "source_file_classified",
+        "source_file_started",
+        "member_started",
         "symlink_skipped",
     }
 )
@@ -74,6 +76,7 @@ _EBOOK_CONTAINER_FORMATS = {".epub": "zip", ".cbz": "zip", ".cbr": "rar"}
 
 ProgressCallback = Callable[[str, Mapping[str, object]], None]
 CancellationCallback = Callable[[], bool]
+ResourceCheckCallback = Callable[[int, int], str | None]
 RangeReader = Callable[[int, int], bytes]
 SourceMetadataFactory = Callable[
     [Path, str, "ContainerHandler | None"], manager_api.DigitalAssetMetadata
@@ -728,6 +731,7 @@ class MixedFormatIngestCoordinator:
         backend_timeout_s: float = 60.0,
         progress_callback: ProgressCallback | None = None,
         cancellation_callback: CancellationCallback | None = None,
+        resource_check_callback: ResourceCheckCallback | None = None,
         source_metadata_factory: SourceMetadataFactory | None = None,
         member_metadata_factory: MemberMetadataFactory | None = None,
         log_checkpoint_every: int = 1_000,
@@ -763,6 +767,7 @@ class MixedFormatIngestCoordinator:
         :param backend_timeout_s: Finite positive per-call backend ceiling, bounded by the wall-time budget rather than its remaining time.
         :param progress_callback: Optional synchronous event/details observer; exceptions follow the enclosing boundary.
         :param cancellation_callback: Optional boolean cancellation poll; its exceptions propagate.
+        :param resource_check_callback: Optional admission check of cache/temp bytes; a reason halts the run cooperatively.
         :param source_metadata_factory: Truthy source metadata hook, otherwise the built-in name/provenance factory.
         :param member_metadata_factory: Truthy member metadata hook, otherwise the built-in context/hint factory.
         :param log_checkpoint_every: Positive value int-converted for periodic successful-source/member logging.
@@ -809,6 +814,7 @@ class MixedFormatIngestCoordinator:
         self.backend_timeout_s = float(backend_timeout_s)
         self.progress_callback = progress_callback
         self.cancellation_callback = cancellation_callback
+        self.resource_check_callback = resource_check_callback
         self.source_metadata_factory = source_metadata_factory or _source_metadata
         self.member_metadata_factory = member_metadata_factory or _member_metadata
         self.log_checkpoint_every = int(log_checkpoint_every)
@@ -958,6 +964,7 @@ class MixedFormatIngestCoordinator:
         queue: deque[_ContainerCandidate] = deque()
         source_store = self.manager.get_store(source_configuration.store_uuid)
         for source_number, path in enumerate(discovery.files, start=1):
+            self._progress("source_file_started", path=str(path))
             if self._should_halt(state):
                 break
             relative = path.relative_to(root).as_posix()
@@ -1318,6 +1325,10 @@ class MixedFormatIngestCoordinator:
                         + "or materialization_root"
                     )
                 if not self._has_cache_replica(candidate.digital_asset_id, cache_ref):
+                    if self._resource_halt(
+                        state, candidate.size_bytes, candidate.size_bytes
+                    ):
+                        raise _ResourceStop
                     if candidate.size_bytes > self.budget.max_temporary_bytes:
                         raise storage_errors.StoragePreconditionFailed(
                             f"nested container is {candidate.size_bytes} bytes, above "
@@ -1422,6 +1433,15 @@ class MixedFormatIngestCoordinator:
                     state.members_discovered += 1
                     expanded_bytes += size
                     state.expanded_bytes += size
+                    self._progress(
+                        "member_started",
+                        container_path=candidate.display_path,
+                        member_path=entry.location.key,
+                        size_bytes=size,
+                    )
+                    if self._resource_halt(state, 0, size):
+                        truncated = True
+                        break
                     existed = self._has_replica_at(entry.location)
                     result = self.manager.adopt_location(
                         entry.location,
@@ -1575,6 +1595,8 @@ class MixedFormatIngestCoordinator:
                     self._record_issue(state, issue)
                     if not self.continue_on_error:
                         raise
+        except _ResourceStop:
+            truncated = True
         except Exception as error:
             self._log_exception(
                 "container_error",
@@ -2326,7 +2348,7 @@ class MixedFormatIngestCoordinator:
 
     def _should_halt(self, state: _RunState) -> bool:
         """
-        Honor an existing halt, then poll cancellation and elapsed time in that order.
+        Honor an existing halt, then poll resource pressure, cancellation and elapsed time.
 
         A truthy cancellation result or time strictly greater than the wall budget records a fatal
         issue and marks truncation. Polling is cooperative; callback/clock/logging errors propagate
@@ -2340,6 +2362,8 @@ class MixedFormatIngestCoordinator:
         :return: Whether subsequent orchestration should stop, potentially after mutating halt/issues.
         """
         if state.halt_reason is not None:
+            return True
+        if self._resource_halt(state):
             return True
         if self.cancellation_callback is not None and self.cancellation_callback():
             self._halt(state, "ingest cancelled by callback")
@@ -2368,6 +2392,24 @@ class MixedFormatIngestCoordinator:
             )
             return True
         return False
+
+    def _resource_halt(
+        self, state: _RunState, cache_bytes: int = 0, temporary_bytes: int = 0
+    ) -> bool:
+        """Latch an application resource stop before admitting further writes or temporary copies."""
+        callback = self.resource_check_callback
+        reason = None if callback is None else callback(cache_bytes, temporary_bytes)
+        if reason is None:
+            return False
+        self._halt(state, reason)
+        self._record_issue(
+            state,
+            MixedIngestIssue(
+                "resource_limit", str(state.source_root), reason,
+                "ResourceLimitReached", fatal=True,
+            ),
+        )
+        return True
 
     def _halt(self, state: _RunState, reason: str) -> None:
         """
@@ -2631,6 +2673,10 @@ class MixedFormatIngestCoordinator:
         return report
 
 
+class _ResourceStop(Exception):
+    """Unwind container setup after the run already recorded a cooperative resource stop."""
+
+
 class _ContainerLimit(Exception):
     """
     Signal a branch-local member-size/path/expanded-byte ceiling inside container processing.
@@ -2672,6 +2718,7 @@ class _MixedIngestOptions(TypedDict, total=False):
     :ivar backend_timeout_s: Finite positive per-call backend ceiling, bounded by the wall-time budget rather than its remaining time.
     :ivar progress_callback: Optional synchronous event/details observer; exceptions follow the enclosing boundary.
     :ivar cancellation_callback: Optional boolean cancellation poll; its exceptions propagate.
+    :ivar resource_check_callback: Optional cache/temp byte admission check returning a halt reason.
     :ivar source_metadata_factory: Truthy source metadata hook, otherwise the built-in name/provenance factory.
     :ivar member_metadata_factory: Truthy member metadata hook, otherwise the built-in context/hint factory.
     :ivar log_checkpoint_every: Positive value int-converted for periodic successful-source/member logging.
@@ -2692,6 +2739,7 @@ class _MixedIngestOptions(TypedDict, total=False):
     backend_timeout_s: float
     progress_callback: ProgressCallback | None
     cancellation_callback: CancellationCallback | None
+    resource_check_callback: ResourceCheckCallback | None
     source_metadata_factory: SourceMetadataFactory | None
     member_metadata_factory: MemberMetadataFactory | None
     log_checkpoint_every: int
