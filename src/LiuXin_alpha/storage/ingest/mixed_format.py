@@ -756,8 +756,8 @@ class MixedFormatIngestCoordinator:
         :param continue_on_error: Whether ordinary handled source/member/container errors become issues instead of re-raising.
         :param verify_source_files: Verification policy forwarded to source adoption.
         :param verify_members: Verification policy forwarded to member adoption.
-        :param materialization_store_ref: Existing local writable CACHE Store identity, mutually exclusive with a root at construction.
-        :param materialization_root: Local cache path expanded/resolved at construction; created lazily for nested work.
+        :param materialization_store_ref: Existing local writable CACHE Store identity whose configured root must be outside each source tree; mutually exclusive with a root at construction.
+        :param materialization_root: Local cache path expanded/resolved at construction and checked outside each source tree; created lazily for nested work.
         :param unsquashfs_exe: Executable selector supplied to SquashFS backend options.
         :param rar_extractor_exe: Optional extractor selector supplied to RAR backend options.
         :param backend_timeout_s: Finite positive per-call backend ceiling, bounded by the wall-time budget rather than its remaining time.
@@ -1310,7 +1310,7 @@ class MixedFormatIngestCoordinator:
         )
         try:
             if not candidate.top_level:
-                cache_ref = self._ensure_materialization_store()
+                cache_ref = self._ensure_materialization_store(state.source_root)
                 if cache_ref is None:
                     raise storage_errors.StoragePreconditionFailed(
                         "nested container expansion requires a local writable "
@@ -1873,21 +1873,24 @@ class MixedFormatIngestCoordinator:
         self._require_available(configuration)
         return configuration, True
 
-    def _ensure_materialization_store(self) -> UUID | None:
+    def _ensure_materialization_store(self, source_root: Path) -> UUID | None:
         """
         Resolve, validate, or lazily create the local writable CACHE Store for nested bytes.
 
-        An explicit Store reference is preferred. Otherwise create the configured directory before
-        root lookup and cache its resulting Store identity on the coordinator. This selection
-        survives subsequent calls. Validation/creation/event failures do not remove earlier
-        filesystem or manager effects. No selector returns None.
+        Recheck source exclusion before probing or creating the cache. An explicit Store reference
+        is preferred. Otherwise create the configured directory before root lookup and cache its
+        resulting Store identity on the coordinator. This selection survives subsequent calls.
+        Validation/creation/event failures do not remove earlier filesystem or manager effects.
+        No selector returns None.
 
         Example:
-            >>> cache_ref = coordinator._ensure_materialization_store()  # doctest: +SKIP
+            >>> cache_ref = coordinator._ensure_materialization_store(source_root)  # doctest: +SKIP
 
 
+        :param source_root: Resolved source directory that must not contain the selected cache.
         :return: Available cache Store UUID, or None when neither selector is configured.
         """
+        self._validate_materialization_root(source_root)
         if self.materialization_store_ref is not None:
             configuration = self.manager.get_store_configuration(
                 self.materialization_store_ref
@@ -2138,26 +2141,36 @@ class MixedFormatIngestCoordinator:
         """
         Reject a configured cache path equal to or below the resolved source directory.
 
-        Check only materialization_root, not an explicit materialization_store_ref's location. The
-        comparison is lexical between already-resolved paths and does not protect against later
-        symlink/filesystem changes.
+        Resolve either the explicit cache path or the current declaration of a selected Store ID.
+        Store lookup and policy checks do not start the Store or create directories. Re-resolve
+        paths to follow existing symlinks on each run and before nested materialization. These
+        observations do not protect against concurrent filesystem or Store configuration changes.
 
         Example:
             >>> coordinator._validate_materialization_root(root)  # doctest: +SKIP
 
 
         :param source_root: Resolved source directory that must not contain the configured cache root.
-        :return: None for absent/outside cache roots; otherwise raise ValueError.
+        :return: None for absent/outside cache roots; containment raises ValueError and invalid Store declarations raise typed storage errors.
         """
         root = self.materialization_root
+        if self.materialization_store_ref is not None:
+            configuration = self.manager.get_store_configuration(
+                self.materialization_store_ref
+            )
+            self._validate_cache_configuration(configuration)
+            parsed = urlparse(_canonical_local_uri(configuration.store_root_uri))
+            if parsed.scheme != "file" or parsed.netloc not in {"", "localhost"}:
+                raise storage_errors.StoragePreconditionFailed(
+                    "materialization Store must have a local filesystem root"
+                )
+            root = Path(os.fsdecode(unquote_to_bytes(parsed.path)))
         if root is None:
             return
-        try:
-            _ = root.relative_to(source_root)
-        except ValueError:
+        if not root.resolve(strict=False).is_relative_to(source_root):
             return
         raise ValueError(
-            "materialization_root must be outside source_root so cache files "
+            "materialization Store root must be outside source_root so cache files "
             + "cannot be rediscovered as new input"
         )
 
@@ -2652,8 +2665,8 @@ class _MixedIngestOptions(TypedDict, total=False):
     :ivar continue_on_error: Whether ordinary handled source/member/container errors become issues instead of re-raising.
     :ivar verify_source_files: Verification policy forwarded to source adoption.
     :ivar verify_members: Verification policy forwarded to member adoption.
-    :ivar materialization_store_ref: Existing local writable CACHE Store identity, mutually exclusive with a root at construction.
-    :ivar materialization_root: Local cache path expanded/resolved at construction; created lazily for nested work.
+    :ivar materialization_store_ref: Existing local writable CACHE Store identity whose configured root must be outside each source tree; mutually exclusive with a root at construction.
+    :ivar materialization_root: Local cache path expanded/resolved at construction and checked outside each source tree; created lazily for nested work.
     :ivar unsquashfs_exe: Executable selector supplied to SquashFS backend options.
     :ivar rar_extractor_exe: Optional extractor selector supplied to RAR backend options.
     :ivar backend_timeout_s: Finite positive per-call backend ceiling, bounded by the wall-time budget rather than its remaining time.
