@@ -26,14 +26,15 @@ class CMTagsMixin:
         """
         Resolve a canonical tag identity, delete its row if found and commit.
 
-        An absent identity returns without committing. Does not itself remove linked rows;
-        schema constraints/cascades apply.
+        An absent identity returns without committing. Does not itself remove linked
+        rows; schema constraints/cascades apply.
 
         Example:
             >>> metadata_sql.delete_tag_by_value("example")  # doctest: +SKIP
 
 
-        :param tag: Tag spelling resolved through the database canonical-identity service.
+        :param tag: Tag spelling resolved through the database canonical-identity
+            service.
         :return: None.
         """
         identity = self.db.get_canonical_identity("tags", "tag", tag)
@@ -53,7 +54,8 @@ class CMTagsMixin:
             >>> metadata_sql.get_tag_id_from_value("example")  # doctest: +SKIP
 
 
-        :param tag: Tag spelling resolved through the database canonical-identity service.
+        :param tag: Tag spelling resolved through the database canonical-identity
+            service.
         :return: Canonical row ID, or None when no identity matches.
         """
         identity = self.db.get_canonical_identity("tags", "tag", tag)
@@ -70,7 +72,7 @@ class CMTagsMixin:
 
         :param tag_value: Value passed to ensure_table_value for canonical tag
             lookup/insertion.
-        :return: Identifier returned by ensure_table_value; an existing canonical match may
-            be reused.
+        :return: Identifier returned by ensure_table_value; an existing canonical match
+            may be reused.
         """
         return self.db.macros.ensure_table_value("tags", "tag", tag_value)

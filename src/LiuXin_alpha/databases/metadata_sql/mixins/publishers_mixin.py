@@ -26,8 +26,8 @@ class CMPublisherMacros:
         """
         Insert a publisher-ID-zero link using global maximum priority plus one.
 
-        An empty link table yields NULL priority. Suppresses every DatabaseDriverError as if
-        a null link already existed, including unrelated driver failures.
+        An empty link table yields NULL priority. Suppresses every DatabaseDriverError
+        as if a null link already existed, including unrelated driver failures.
 
         Example:
             >>> metadata_sql.link_publisher_to_null_publisher_row(1)  # doctest: +SKIP

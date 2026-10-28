@@ -150,10 +150,10 @@ class Connection(apsw.Connection):
         """
         Register an initially empty membership filter as a scalar SQL function.
 
-        Create a DynamicFilter with no allowed IDs and register it under the requested name
-        with arity one. Its Python instance is retained by SQLite but is not returned or
-        stored on this wrapper, so this method exposes no handle for changing its
-        membership. Re-registering a name replaces its callback.
+        Create a DynamicFilter with no allowed IDs and register it under the requested
+        name with arity one. Its Python instance is retained by SQLite but is not
+        returned or stored on this wrapper, so this method exposes no handle for
+        changing its membership. Re-registering a name replaces its callback.
 
         Example:
             >>> conn = Connection(":memory:")
@@ -163,8 +163,8 @@ class Connection(apsw.Connection):
             >>> conn.close()
 
 
-        :param name: Scalar-function name passed directly to APSW, without application-level
-            validation.
+        :param name: Scalar-function name passed directly to APSW, without
+            application-level validation.
         :return: None; subsequent calls to the registered filter return zero until its
             hidden membership changes.
         """
@@ -175,11 +175,11 @@ class Connection(apsw.Connection):
         """
         Execute through a new APSW cursor and fetch all rows or one scalar.
 
-        Only the all keyword is read; it defaults to True, and other keywords are ignored.
-        False mode uses the legacy cursor.next method and catches only StopIteration or
-        IndexError to return None. APSW versions without that cursor method raise
-        AttributeError instead, even for empty results. No explicit transaction or cursor
-        cleanup is added.
+        Only the all keyword is read; it defaults to True, and other keywords are
+        ignored. False mode uses the legacy cursor.next method and catches only
+        StopIteration or IndexError to return None. APSW versions without that cursor
+        method raise AttributeError instead, even for empty results. No explicit
+        transaction or cursor cleanup is added.
 
         Example:
             >>> conn = Connection(":memory:")
@@ -188,8 +188,8 @@ class Connection(apsw.Connection):
             >>> conn.close()
 
 
-        :param args: Arguments passed unchanged to cursor.execute, normally SQL followed by
-            optional bindings.
+        :param args: Arguments passed unchanged to cursor.execute, normally SQL followed
+            by optional bindings.
         :param kw: all selects all-row mode when truthy and the legacy scalar branch
             otherwise.
         :return: Fetched row list by default; first-column value or None in the legacy
@@ -219,8 +219,8 @@ class Connection(apsw.Connection):
 
 
         :param sql: SQL text interpreted by APSW; use placeholders for bound data.
-        :param bindings: Optional sequence or mapping accepted by APSW; forwarded unchanged
-            despite the narrow tuple annotation.
+        :param bindings: Optional sequence or mapping accepted by APSW; forwarded
+            unchanged despite the narrow tuple annotation.
         :return: The result cursor returned by APSW execute.
         """
         cursor = self.cursor()
@@ -230,11 +230,11 @@ class Connection(apsw.Connection):
         """
         Execute binding rows within an APSW connection transaction context.
 
-        Enter the connection context before calling cursor.executemany and leave it before
-        returning the cursor. Normal context exit commits or releases its savepoint;
-        exceptions inside the context roll back. If a result-producing statement leaves lazy
-        cursor work, that later iteration occurs outside this wrapper context. Inputs and
-        execution errors are passed through to APSW.
+        Enter the connection context before calling cursor.executemany and leave it
+        before returning the cursor. Normal context exit commits or releases its
+        savepoint; exceptions inside the context roll back. If a result-producing
+        statement leaves lazy cursor work, that later iteration occurs outside this
+        wrapper context. Inputs and execution errors are passed through to APSW.
 
         Example:
             >>> conn = Connection(":memory:")
@@ -246,8 +246,8 @@ class Connection(apsw.Connection):
 
 
         :param sql: Statement to repeat with each binding row.
-        :param sequence_of_bindings: Iterable of parameter sequences or mappings accepted by
-            cursor.executemany.
+        :param sequence_of_bindings: Iterable of parameter sequences or mappings
+            accepted by cursor.executemany.
         :return: The APSW cursor result; the surrounding connection context has already
             exited.
         """
@@ -421,7 +421,9 @@ class DatabaseDriver(
         Example:
             >>> metadata = {"database_path": ":memory:"}
             >>> queue = []
-            >>> driver = DatabaseDriver(metadata, set_conn=False, dirty_records_queue=queue)
+            >>> driver = DatabaseDriver(
+            ...     metadata, set_conn=False, dirty_records_queue=queue
+            ... )
             >>> driver.db_metadata is metadata and driver.dirty_records_queue is queue
             True
             >>> driver.event_count, driver.conn
@@ -560,7 +562,9 @@ class DatabaseDriver(
             0
             >>> conn.get("PRAGMA foreign_keys", all=False)
             1
-            >>> conn.get_row("SELECT 'abc' REGEXP 'b', books_list_filter(999)", all=False)
+            >>> conn.get_row(
+            ...     "SELECT 'abc' REGEXP 'b', books_list_filter(999)", all=False
+            ... )
             (1, 1)
             >>> driver.conn is None and conn in driver._open_connections
             True
@@ -714,7 +718,9 @@ class DatabaseDriver(
         Example:
             >>> import tempfile
             >>> with tempfile.NamedTemporaryFile() as file:
-            ...     driver = DatabaseDriver({"database_path": file.name}, set_conn=False)
+            ...     driver = DatabaseDriver(
+            ...         {"database_path": file.name}, set_conn=False
+            ...     )
             ...     modified = driver.last_modified()
             >>> modified.utcoffset().total_seconds()
             0.0
@@ -730,8 +736,9 @@ class DatabaseDriver(
         """
         Reserve the legacy millisecond modification-time hook.
 
-        The method currently has only a docstring body: it does not stat the file, compute
-        an epoch or inspect the driver. It returns None despite its int annotation.
+        The method currently has only a docstring body: it does not stat the file,
+        compute an epoch or inspect the driver. It returns None despite its int
+        annotation.
 
         Example:
             >>> DatabaseDriver.last_modified_epoch_k(object()) is None
@@ -846,30 +853,33 @@ class DatabaseDriver(
         Rebuild the database file through the bundled APSW shell.
 
         Read user_version from the primary stdlib connection, then write a complete APSW
-        .dump to a temporary UTF-8 SQL file, optionally preceded by extra SQL. Restore with
-        .read into a temporary file beside database_path and restore user_version afterward.
-        Connection contexts close both APSW handles. The shell accepts SQL and dot commands,
-        so the prefix must be trusted. The .read filename is appended without quoting;
-        scratch paths containing spaces or shell-token quoting characters can fail to parse.
+        .dump to a temporary UTF-8 SQL file, optionally preceded by extra SQL. Restore
+        with .read into a temporary file beside database_path and restore user_version
+        afterward. Connection contexts close both APSW handles. The shell accepts SQL
+        and dot commands, so the prefix must be trusted. The .read filename is appended
+        without quoting; scratch paths containing spaces or shell-token quoting
+        characters can fail to parse.
 
-        After restoration, close all tracked driver handles, atomically replace the original
-        file and attempt reopen even if renaming fails. A reopen failure can mask the rename
-        error. Reopen uses stdlib SQLite again and does not refresh schema caches. There is
-        no backup or exclusive-use lock. Commit pending writes and coordinate other
-        connections first: the separate dump connection cannot see uncommitted work and
-        closing handles can discard it.
+        After restoration, close all tracked driver handles, atomically replace the
+        original file and attempt reopen even if renaming fails. A reopen failure can
+        mask the rename error. Reopen uses stdlib SQLite again and does not refresh
+        schema caches. There is no backup or exclusive-use lock. Commit pending writes
+        and coordinate other connections first: the separate dump connection cannot see
+        uncommitted work and closing handles can discard it.
 
-        Callback, decoding, shell and filesystem errors propagate. Temporary-file contexts
-        remove their files; failures before replacement leave the original file in place,
-        while replacement cannot be rolled back by this method.
+        Callback, decoding, shell and filesystem errors propagate. Temporary-file
+        contexts remove their files; failures before replacement leave the original file
+        in place, while replacement cannot be rolled back by this method.
 
         Example:
             With committed data and a shell-compatible scratch path:
-            >>> driver.dump_and_restore(callback=print, sql="CREATE TABLE restore_note (value TEXT);")  # doctest: +SKIP
+            >>> driver.dump_and_restore(
+            ...     callback=print, sql="CREATE TABLE restore_note (value TEXT);"
+            ... )  # doctest: +SKIP
 
 
-        :param callback: Callable receiving localized dumping and restoring messages; return
-            values are ignored. None selects an identity callback.
+        :param callback: Callable receiving localized dumping and restoring messages;
+            return values are ignored. None selects an identity callback.
         :param sql: Optional trusted prefix: bytes are decoded as UTF-8, other non-None
             values converted with str; this augments the full dump.
         :return: None; replaces the file and reopens the primary stdlib connection on

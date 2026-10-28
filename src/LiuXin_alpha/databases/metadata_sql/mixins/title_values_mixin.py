@@ -18,7 +18,9 @@ class TileMacrosMixin:
     propagate except where a method explicitly documents suppression.
 
     Example:
-        >>> metadata_sql.set_title_identifier(1, "isbn", "9780306406157")  # doctest: +SKIP
+        >>> metadata_sql.set_title_identifier(
+        ...     1, "isbn", "9780306406157"
+        ... )  # doctest: +SKIP
     """
 
 
@@ -26,26 +28,29 @@ class TileMacrosMixin:
         """
         Set a primary Work identifier through portable macros in a transaction.
 
-        Requires a nonempty string scheme and a string or false value. For the umbrella isbn
-        scheme, strips separators only to count 10/13 digit-or-X characters and select
-        isbn10/isbn13 storage; the original value is stored without normalization or
-        checksum validation. False isbn clears both concrete and underscore alias schemes.
+        Requires a nonempty string scheme and a string or false value. For the umbrella
+        isbn scheme, strips separators only to count 10/13 digit-or-X characters and
+        select isbn10/isbn13 storage; the original value is stored without normalization
+        or checksum validation. False isbn clears both concrete and underscore alias
+        schemes.
 
-        Requires the Work to exist, otherwise DatabaseIntegrityError. False values delete
-        matching rows; nonempty values demote all matches and promote the first exact-value
-        match by ascending ID, or insert a new primary row. Other values remain as
-        nonprimary identifiers. Catalog policy-aware callers should use
+        Requires the Work to exist, otherwise DatabaseIntegrityError. False values
+        delete matching rows; nonempty values demote all matches and promote the first
+        exact-value match by ascending ID, or insert a new primary row. Other values
+        remain as nonprimary identifiers. Catalog policy-aware callers should use
         IdentifierRepository.
 
         Example:
-            >>> metadata_sql.set_title_identifier(1, "isbn", "9780306406157")  # doctest: +SKIP
+            >>> metadata_sql.set_title_identifier(
+            ...     1, "isbn", "9780306406157"
+            ... )  # doctest: +SKIP
 
 
         :param title_id: Work ID exposed through the compatibility titles surface.
         :param id_type: Nonempty scheme string; casefolded/compacted isbn selects
             compatibility handling, other spelling is stored unchanged.
-        :param id_val: Unnormalized identifier string, or a false value to clear matching
-            schemes.
+        :param id_val: Unnormalized identifier string, or a false value to clear
+            matching schemes.
         :return: None.
         """
 
@@ -156,9 +161,9 @@ class TileMacrosMixin:
         """
         Replace user-type rating links using rating-row ID int(rating)+1.
 
-        Deletes existing user links first. A false rating returns before committing; truthy
-        values are converted without checking a 0–10 range, inserted and committed.
-        Conversion/insertion errors can leave the deletion pending.
+        Deletes existing user links first. A false rating returns before committing;
+        truthy values are converted without checking a 0–10 range, inserted and
+        committed. Conversion/insertion errors can leave the deletion pending.
 
         Example:
             >>> metadata_sql.set_title_rating(1, 4)  # doctest: +SKIP
@@ -166,8 +171,8 @@ class TileMacrosMixin:
 
         :param title_id: Title identifier bound to the operation; batch handling, where
             supported, is described above.
-        :param rating: False value to clear user links; otherwise int(rating)+1 selects the
-            rating row, without range validation.
+        :param rating: False value to clear user links; otherwise int(rating)+1 selects
+            the rating row, without range validation.
         :return: None.
         """
         # Clear the ratings table of any current user_ratings for the title

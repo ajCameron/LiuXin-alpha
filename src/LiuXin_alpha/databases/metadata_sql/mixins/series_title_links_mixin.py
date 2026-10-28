@@ -63,8 +63,8 @@ class SeriesTitleLinkMacros:
         :param series_id: Series row identifier.
         :param title_id: Title identifier bound to the operation; batch handling, where
             supported, is described above.
-        :return: Connection.get_row(all=False) result, normally one two-cell row or None,
-            not a bool.
+        :return: Connection.get_row(all=False) result, normally one two-cell row or
+            None, not a bool.
         """
         stmt = (
             "SELECT series_title_link_id, series_title_link_index "
@@ -77,7 +77,8 @@ class SeriesTitleLinkMacros:
     # Todo: What happens if there are no series?
     def get_primary_series_index(self, title_id: int) -> Optional[int]:
         """
-        Read the first index after ordering a title's series links by descending priority.
+        Read the first index after ordering a title's series links by descending
+        priority.
 
         Example:
             >>> metadata_sql.get_primary_series_index(1)  # doctest: +SKIP
@@ -85,7 +86,8 @@ class SeriesTitleLinkMacros:
 
         :param title_id: Title identifier bound to the operation; batch handling, where
             supported, is described above.
-        :return: Stored index scalar or the adapter's missing result; ties are unspecified.
+        :return: Stored index scalar or the adapter's missing result; ties are
+            unspecified.
         """
         stmt = (
             "SELECT series_title_link_index "
@@ -125,10 +127,11 @@ class SeriesTitleLinkMacros:
             title_id: int,
             series_index: Optional[Union[int, float]]) -> None:
         """
-        Insert a series-ID-zero link with the requested index and global maximum priority plus one.
+        Insert a series-ID-zero link with the requested index and global maximum
+        priority plus one.
 
-        Empty tables yield NULL priority. Suppresses every DatabaseDriverError; an existing
-        link's index is not updated.
+        Empty tables yield NULL priority. Suppresses every DatabaseDriverError; an
+        existing link's index is not updated.
 
         Example:
             >>> metadata_sql.link_null_series_to_title(1, 2)  # doctest: +SKIP
@@ -136,7 +139,8 @@ class SeriesTitleLinkMacros:
 
         :param title_id: Title identifier bound to the operation; batch handling, where
             supported, is described above.
-        :param series_index: Index stored on the null-series link; None is bound unchanged.
+        :param series_index: Index stored on the null-series link; None is bound
+            unchanged.
         :return: None.
         """
         stmt = (
@@ -178,7 +182,9 @@ class SeriesTitleLinkMacros:
         annotation.
 
         Example:
-            >>> metadata_sql.update_index_for_series_title_link(1, 1, 2)  # doctest: +SKIP
+            >>> metadata_sql.update_index_for_series_title_link(
+            ...     1, 1, 2
+            ... )  # doctest: +SKIP
 
 
         :param title_id: Title identifier bound to the operation; batch handling, where
@@ -206,7 +212,8 @@ class SeriesTitleLinkMacros:
         Collect distinct series IDs from every link belonging to one title.
 
         Transaction and cache behavior for delegated SQL follows the host
-        execute/executemany implementation; this method adds no separate transaction guard.
+        execute/executemany implementation; this method adds no separate transaction
+        guard.
 
         Example:
             >>> metadata_sql.get_title_series_ids_set(1)  # doctest: +SKIP
@@ -214,8 +221,8 @@ class SeriesTitleLinkMacros:
 
         :param title_id: Title identifier bound to the operation; batch handling, where
             supported, is described above.
-        :return: Set of first-cell values, including any null/sentinel values supplied by
-            the schema.
+        :return: Set of first-cell values, including any null/sentinel values supplied
+            by the schema.
         """
         stmt = "SELECT series_title_link_series_id FROM series_title_links WHERE series_title_link_title_id = ?;"
         return set(row[0] for row in self.execute(stmt, (title_id,)))

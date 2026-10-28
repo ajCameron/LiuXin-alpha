@@ -1,7 +1,12 @@
 """
-Define column-policy defaults, schema-based inference and immutable presentation options.
+Define column-policy defaults, schema-based inference and immutable presentation
+options.
 
-Explicit display-column registries determine comparison, normalization, empty-value, merge and validation policies. Machine-column defaults are inferred from schema facts and naming rules. These records describe policy; this module does not normalize stored values or execute database writes. Import-time checks require disjoint case-sensitivity sets and complete, non-overlapping display-role groups.
+Explicit display-column registries determine comparison, normalization, empty-value,
+merge and validation policies. Machine-column defaults are inferred from schema facts
+and naming rules. These records describe policy; this module does not normalize stored
+values or execute database writes. Import-time checks require disjoint case-sensitivity
+sets and complete, non-overlapping display-role groups.
 """
 
 from __future__ import annotations
@@ -40,7 +45,11 @@ def _freeze_column_option_value(
     """
     Validate one option subtree and return an immutable copy of its containers.
 
-    Accept exact built-in str/int/bool/None and finite floats. Mapping keys must be exact strings; mappings become MappingProxyType over new dictionaries. Sequences other than strings/bytes/bytearray/memoryview become tuples. Unsupported objects and non-finite numbers are rejected. Cycles have no special detection and can exhaust recursion.
+    Accept exact built-in str/int/bool/None and finite floats. Mapping keys must be
+    exact strings; mappings become MappingProxyType over new dictionaries. Sequences
+    other than strings/bytes/bytearray/memoryview become tuples. Unsupported objects and
+    non-finite numbers are rejected. Cycles have no special detection and can exhaust
+    recursion.
 
     Example:
         >>> value = _freeze_column_option_value({"sizes": [1, 2]}, path="options")
@@ -50,7 +59,8 @@ def _freeze_column_option_value(
 
     :param value: JSON-like scalar, mapping or non-text sequence to freeze.
     :param path: Diagnostic path extended with mapping keys and sequence indexes.
-    :return: An accepted scalar, a read-only mapping copy, or a tuple of recursively frozen values.
+    :return: An accepted scalar, a read-only mapping copy, or a tuple of recursively
+        frozen values.
     :raises TypeError: A key or value has an unsupported type.
     :raises ValueError: A float is NaN or infinite.
     """
@@ -93,7 +103,9 @@ def freeze_column_options(
     """
     Validate an option mapping and deeply copy its containers into immutable forms.
 
-    Nested dictionaries and sequences are recursively copied, so subsequent mutation of supplied containers does not change the result. Scalar subclasses, non-string keys, sets and non-finite floats are rejected by the recursive validator.
+    Nested dictionaries and sequences are recursively copied, so subsequent mutation of
+    supplied containers does not change the result. Scalar subclasses, non-string keys,
+    sets and non-finite floats are rejected by the recursive validator.
 
     Example:
         >>> raw = {"sizes": [1, 2]}
@@ -105,8 +117,10 @@ def freeze_column_options(
 
     :param options: Option mapping or None, which means an empty mapping.
     :param field_name: Root name included in nested validation error messages.
-    :return: Read-only string-keyed mapping containing only accepted immutable option values.
-    :raises TypeError: The root is not a mapping or a nested key/value type is unsupported.
+    :return: Read-only string-keyed mapping containing only accepted immutable option
+        values.
+    :raises TypeError: The root is not a mapping or a nested key/value type is
+        unsupported.
     :raises ValueError: A nested float is NaN or infinite.
     """
 
@@ -124,9 +138,11 @@ def freeze_column_options(
 
 def _mutable_column_option_value(value: ColumnOptionValue) -> object:
     """
-    Convert frozen option containers to ordinary JSON-serializable dictionaries and lists.
+    Convert frozen option containers to ordinary JSON-serializable dictionaries and
+    lists.
 
-    Mappings recurse into dictionaries and tuples recurse into lists. This helper does not validate unsupported values; callers freeze the input first.
+    Mappings recurse into dictionaries and tuples recurse into lists. This helper does
+    not validate unsupported values; callers freeze the input first.
 
     Example:
         >>> _mutable_column_option_value(freeze_column_options({"sizes": [1, 2]}))
@@ -134,7 +150,8 @@ def _mutable_column_option_value(value: ColumnOptionValue) -> object:
 
 
     :param value: Previously validated frozen option value.
-    :return: New dictionaries/lists for containers; scalar values are returned unchanged.
+    :return: New dictionaries/lists for containers; scalar values are returned
+        unchanged.
     """
 
     if isinstance(value, Mapping):
@@ -151,7 +168,9 @@ def column_options_to_json(options: Mapping[str, object] | None) -> str:
     """
     Validate and serialize an option mapping as compact, deterministic Unicode JSON.
 
-    Freeze the input first, convert frozen containers to JSON containers, then encode with allow_nan=False. This rejects unsupported objects rather than stringifying them.
+    Freeze the input first, convert frozen containers to JSON containers, then encode
+    with allow_nan=False. This rejects unsupported objects rather than stringifying
+    them.
 
     Example:
         >>> column_options_to_json({"width": 42, "label": "Title"})
@@ -159,7 +178,8 @@ def column_options_to_json(options: Mapping[str, object] | None) -> str:
 
 
     :param options: Option mapping or None, interpreted as an empty object.
-    :return: JSON object text with sorted keys, no formatting whitespace and unescaped Unicode characters.
+    :return: JSON object text with sorted keys, no formatting whitespace and unescaped
+        Unicode characters.
     :raises TypeError: The input or a nested value is not an accepted option type.
     :raises ValueError: An option float is not finite.
     """
@@ -183,17 +203,21 @@ def column_options_from_json(
     """
     Decode an option object and freeze its nested containers.
 
-    Decode byte-like inputs as UTF-8 and strings with json.loads. An already-decoded mapping is also accepted. The resulting root must be an object: JSON null, arrays and scalars are rejected even though a direct None input means empty options.
+    Decode byte-like inputs as UTF-8 and strings with json.loads. An already-decoded
+    mapping is also accepted. The resulting root must be an object: JSON null, arrays
+    and scalars are rejected even though a direct None input means empty options.
 
     Example:
         >>> column_options_from_json('{"sizes":[1,2]}')["sizes"]
         (1, 2)
 
 
-    :param value: JSON text, UTF-8 bytes/bytearray/memoryview, an existing mapping, or None.
+    :param value: JSON text, UTF-8 bytes/bytearray/memoryview, an existing mapping, or
+        None.
     :param field_name: Root name included in validation diagnostics.
     :return: A deeply immutable option mapping; None produces an empty mapping.
-    :raises ValueError: JSON is malformed, its root is not an object, or an option float is non-finite.
+    :raises ValueError: JSON is malformed, its root is not an object, or an option float
+        is non-finite.
     :raises TypeError: Decoded options contain an unsupported key/value type.
     :raises UnicodeDecodeError: A byte-like input is not valid UTF-8.
     """
@@ -217,7 +241,8 @@ class ColumnSemanticRole(str, Enum):
     """
     Classify the application meaning of a physical column.
 
-    Members are string-valued policy labels. The enum itself performs no normalization, merge or validation operation on column data.
+    Members are string-valued policy labels. The enum itself performs no normalization,
+    merge or validation operation on column data.
 
     Example:
         >>> ColumnSemanticRole("title") is ColumnSemanticRole.TITLE
@@ -251,10 +276,13 @@ class ColumnNormalizationProfile(str, Enum):
     """
     Name the normalization policy used before column-value comparison.
 
-    Members are string-valued policy labels. The enum itself performs no normalization, merge or validation operation on column data.
+    Members are string-valued policy labels. The enum itself performs no normalization,
+    merge or validation operation on column data.
 
     Example:
-        >>> ColumnNormalizationProfile("unicode_nfc") is ColumnNormalizationProfile.UNICODE_NFC
+        >>> ColumnNormalizationProfile(
+        ...     "unicode_nfc"
+        ... ) is ColumnNormalizationProfile.UNICODE_NFC
         True
     """
 
@@ -270,10 +298,13 @@ class ColumnEmptyValuePolicy(str, Enum):
     """
     Describe how missing or blank values are treated by a column policy.
 
-    Members are string-valued policy labels. The enum itself performs no normalization, merge or validation operation on column data.
+    Members are string-valued policy labels. The enum itself performs no normalization,
+    merge or validation operation on column data.
 
     Example:
-        >>> ColumnEmptyValuePolicy("null_or_blank_is_missing") is ColumnEmptyValuePolicy.NULL_OR_BLANK_IS_MISSING
+        >>> ColumnEmptyValuePolicy(
+        ...     "null_or_blank_is_missing"
+        ... ) is ColumnEmptyValuePolicy.NULL_OR_BLANK_IS_MISSING
         True
     """
 
@@ -286,10 +317,13 @@ class ColumnMergePolicy(str, Enum):
     """
     Name the policy for combining an incoming and existing column value.
 
-    Members are string-valued policy labels. The enum itself performs no normalization, merge or validation operation on column data.
+    Members are string-valued policy labels. The enum itself performs no normalization,
+    merge or validation operation on column data.
 
     Example:
-        >>> ColumnMergePolicy("preserve_existing") is ColumnMergePolicy.PRESERVE_EXISTING
+        >>> ColumnMergePolicy(
+        ...     "preserve_existing"
+        ... ) is ColumnMergePolicy.PRESERVE_EXISTING
         True
     """
 
@@ -303,7 +337,8 @@ class ColumnValidationProfile(str, Enum):
     """
     Name the semantic validation policy assigned to a column.
 
-    Members are string-valued policy labels. The enum itself performs no normalization, merge or validation operation on column data.
+    Members are string-valued policy labels. The enum itself performs no normalization,
+    merge or validation operation on column data.
 
     Example:
         >>> ColumnValidationProfile("identifier") is ColumnValidationProfile.IDENTIFIER
@@ -331,7 +366,10 @@ class ColumnMetadata:
     """
     Hold the semantic and writer policy for one physical database column.
 
-    This frozen, slotted dataclass stores table/column names, case sensitivity, role, normalization/comparison, empty-value, merge and validation policies. Construction deep-freezes both option maps; it does not independently validate the other fields, compare values or enforce database constraints.
+    This frozen, slotted dataclass stores table/column names, case sensitivity, role,
+    normalization/comparison, empty-value, merge and validation policies. Construction
+    deep-freezes both option maps; it does not independently validate the other fields,
+    compare values or enforce database constraints.
 
     Example:
         >>> metadata = default_column_metadata("tags", "tag")
@@ -359,11 +397,15 @@ class ColumnMetadata:
         """
         Replace both presentation option maps with validated immutable copies.
 
-        Use object.__setattr__ during frozen-dataclass initialization. Invalid nested values fail construction; no validation of the other policy fields occurs here.
+        Use object.__setattr__ during frozen-dataclass initialization. Invalid nested
+        values fail construction; no validation of the other policy fields occurs here.
 
         Example:
             >>> from dataclasses import replace
-            >>> metadata = replace(default_column_metadata("works", "work_title"), display_options={"sizes": [1, 2]})
+            >>> metadata = replace(
+            ...     default_column_metadata("works", "work_title"),
+            ...     display_options={"sizes": [1, 2]},
+            ... )
             >>> metadata.display_options["sizes"]
             (1, 2)
 
@@ -668,14 +710,16 @@ def _semantic_role(key: tuple[str, str]) -> ColumnSemanticRole:
     """
     Select the display role for a configured column pair.
 
-    Check title, label, sort key, taxonomy, verbatim and resource-name groups in that order. This helper does not validate that the pair belongs to DISPLAY_COLUMNS.
+    Check title, label, sort key, taxonomy, verbatim and resource-name groups in that
+    order. This helper does not validate that the pair belongs to DISPLAY_COLUMNS.
 
     Example:
         >>> _semantic_role(("tags", "tag")).value
         'taxonomy_term'
 
 
-    :param key: Physical (table, column) pair, matched exactly against the configured registries.
+    :param key: Physical (table, column) pair, matched exactly against the configured
+        registries.
     :return: The first matching display-role enum, defaulting to DISPLAY_NAME.
     """
 
@@ -698,15 +742,18 @@ def _normalization_profile(key: tuple[str, str]) -> ColumnNormalizationProfile:
     """
     Select a comparison override or the configured display normalization fallback.
 
-    A COMPARISON_COLUMNS entry takes precedence over case-sensitivity and verbatim defaults. This only chooses a policy; it does not transform text.
+    A COMPARISON_COLUMNS entry takes precedence over case-sensitivity and verbatim
+    defaults. This only chooses a policy; it does not transform text.
 
     Example:
         >>> _normalization_profile(("tags", "tag")).value
         'tag_search_term'
 
 
-    :param key: Physical (table, column) pair, matched exactly against the configured registries.
-    :return: Configured comparison profile, case-insensitive NFC/trim/casefold, verbatim NFC, or NONE.
+    :param key: Physical (table, column) pair, matched exactly against the configured
+        registries.
+    :return: Configured comparison profile, case-insensitive NFC/trim/casefold, verbatim
+        NFC, or NONE.
     """
 
     comparison = COMPARISON_COLUMNS.get(key)
@@ -728,7 +775,8 @@ def _merge_policy(key: tuple[str, str]) -> ColumnMergePolicy:
         'append'
 
 
-    :param key: Physical (table, column) pair, matched exactly against the configured registries.
+    :param key: Physical (table, column) pair, matched exactly against the configured
+        registries.
     :return: SET_UNION for its registry, APPEND for its registry, otherwise REPLACE.
     """
 
@@ -745,7 +793,8 @@ def _validation_profile(
     """
     Choose the validation label associated with a display semantic role.
 
-    This helper supplies display defaults. Machine-role validation uses _machine_validation_profile instead; no value is validated here.
+    This helper supplies display defaults. Machine-role validation uses
+    _machine_validation_profile instead; no value is validated here.
 
     Example:
         >>> _validation_profile(ColumnSemanticRole.TITLE).value
@@ -753,7 +802,8 @@ def _validation_profile(
 
 
     :param semantic_role: Role enum used for identity comparisons.
-    :return: Taxonomy, verbatim or resource-name validation for those roles; DISPLAY_TEXT otherwise.
+    :return: Taxonomy, verbatim or resource-name validation for those roles;
+        DISPLAY_TEXT otherwise.
     """
 
     if semantic_role is ColumnSemanticRole.TAXONOMY_TERM:
@@ -769,15 +819,20 @@ def _display_column_metadata(key: tuple[str, str]) -> ColumnMetadata:
     """
     Build a complete display-policy record from the configured registries.
 
-    Case sensitivity is membership in CASE_SENSITIVE_DISPLAY_COLUMNS; semantic, normalization and merge helpers determine the other policies. The optional comparison column comes from COMPARISON_COLUMNS. Intended for registered display pairs; unregistered input is not rejected.
+    Case sensitivity is membership in CASE_SENSITIVE_DISPLAY_COLUMNS; semantic,
+    normalization and merge helpers determine the other policies. The optional
+    comparison column comes from COMPARISON_COLUMNS. Intended for registered display
+    pairs; unregistered input is not rejected.
 
     Example:
         >>> _display_column_metadata(("tags", "tag")).comparison_column
         'tag_phash'
 
 
-    :param key: Physical (table, column) pair, matched exactly against the configured registries.
-    :return: New ColumnMetadata with blank/null treated as missing and empty presentation options.
+    :param key: Physical (table, column) pair, matched exactly against the configured
+        registries.
+    :return: New ColumnMetadata with blank/null treated as missing and empty
+        presentation options.
     """
 
     semantic_role = _semantic_role(key)
@@ -895,7 +950,9 @@ def _declared_type_family(declared_type: str | None) -> str:
     """
     Reduce the first SQL type token to a known family or a lowercase fallback.
 
-    Stringify, trim and uppercase the declaration, then stop at whitespace or an opening parenthesis. Classification uses explicit token sets, not SQLite affinity substring rules; for example DECIMAL is not in the numeric token set.
+    Stringify, trim and uppercase the declaration, then stop at whitespace or an opening
+    parenthesis. Classification uses explicit token sets, not SQLite affinity substring
+    rules; for example DECIMAL is not in the numeric token set.
 
     Example:
         >>> _declared_type_family("VARCHAR(80)")
@@ -905,7 +962,8 @@ def _declared_type_family(declared_type: str | None) -> str:
 
 
     :param declared_type: SQL type declaration, or None/empty input.
-    :return: number, boolean, date_time, blob, text, an unrecognized lowercase token, or an empty string.
+    :return: number, boolean, date_time, blob, text, an unrecognized lowercase token, or
+        an empty string.
     """
 
     text = str(declared_type or "").strip().upper()
@@ -936,14 +994,25 @@ def _machine_role(
     """
     Infer a machine column role using ordered schema and naming heuristics.
 
-    Precedence is scratch, primary/conventional/identifier names, relationship keys, date/time, boolean names, ordering, hashes, normalized keys, locators, structured suffixes, code tokens, declared boolean/number types, then provenance. Thus a naming rule can override declared type or foreign-key evidence. Declared text/blob alone does not imply a display role.
+    Precedence is scratch, primary/conventional/identifier names, relationship keys,
+    date/time, boolean names, ordering, hashes, normalized keys, locators, structured
+    suffixes, code tokens, declared boolean/number types, then provenance. Thus a naming
+    rule can override declared type or foreign-key evidence. Declared text/blob alone
+    does not imply a display role.
 
     Example:
-        >>> _machine_role("works", "work_id", "INTEGER", is_primary_key=False, is_foreign_key=False).value
+        >>> _machine_role(
+        ...     "works",
+        ...     "work_id",
+        ...     "INTEGER",
+        ...     is_primary_key=False,
+        ...     is_foreign_key=False,
+        ... ).value
         'identifier'
 
 
-    :param table: Table name used for conventional primary-key and last-read-position recognition.
+    :param table: Table name used for conventional primary-key and last-read-position
+        recognition.
     :param column: Column name casefolded for token/suffix rules.
     :param declared_type: SQL declaration used for fallback type-family rules.
     :param is_primary_key: Whether schema inspection identifies this as a primary key.
@@ -1048,7 +1117,9 @@ def _looks_like_conventional_primary_key(table: str, column: str) -> bool:
     """
     Recognize a table-name stem followed by the column suffix _id.
 
-    Try the original table name, ies-to-y, removal of es after ch/sh/ss/x/z endings, and removal of a final s. This is a naming heuristic and does not inspect schema constraints or irregular plurals.
+    Try the original table name, ies-to-y, removal of es after ch/sh/ss/x/z endings, and
+    removal of a final s. This is a naming heuristic and does not inspect schema
+    constraints or irregular plurals.
 
     Example:
         >>> _looks_like_conventional_primary_key("policies", "policy_id")
@@ -1059,7 +1130,8 @@ def _looks_like_conventional_primary_key(table: str, column: str) -> bool:
 
     :param table: Table name stringified and casefolded before simple suffix rules.
     :param column: Column name stringified and casefolded; must end in _id.
-    :return: True if the column stem matches the full table name or a supported singularized form.
+    :return: True if the column stem matches the full table name or a supported
+        singularized form.
     """
 
     lowered_table = str(table).casefold()
@@ -1083,7 +1155,9 @@ def _machine_validation_profile(
     """
     Map an inferred machine role to its validation-policy enum.
 
-    Both identifiers and relationship keys use identifier validation; ordering shares number validation, and structured data uses JSON. This returns a label without checking any stored value.
+    Both identifiers and relationship keys use identifier validation; ordering shares
+    number validation, and structured data uses JSON. This returns a label without
+    checking any stored value.
 
     Example:
         >>> _machine_validation_profile(ColumnSemanticRole.RELATIONSHIP_KEY).value
@@ -1120,10 +1194,17 @@ def infer_column_metadata(
     """
     Return an explicit display override or infer a machine-column default policy.
 
-    Exact display overrides take precedence over all supplied schema facts. Machine defaults are case-sensitive with no normalization/comparison column and empty option maps. Scratch preserves empty values; other machine roles treat null as missing. Identifiers, tables ending exactly in _events and columns containing created_timestamp or source_created_datestamp preserve existing values; other inferred columns replace. No database existence check or value normalization occurs.
+    Exact display overrides take precedence over all supplied schema facts. Machine
+    defaults are case-sensitive with no normalization/comparison column and empty option
+    maps. Scratch preserves empty values; other machine roles treat null as missing.
+    Identifiers, tables ending exactly in _events and columns containing
+    created_timestamp or source_created_datestamp preserve existing values; other
+    inferred columns replace. No database existence check or value normalization occurs.
 
     Example:
-        >>> metadata = infer_column_metadata("works", "work_id", "INTEGER", is_primary_key=True)
+        >>> metadata = infer_column_metadata(
+        ...     "works", "work_id", "INTEGER", is_primary_key=True
+        ... )
         >>> metadata.merge_policy.value
         'preserve_existing'
 
@@ -1133,7 +1214,8 @@ def infer_column_metadata(
     :param declared_type: Optional SQL type declaration for machine-role inference.
     :param is_primary_key: Primary-key fact passed to the ordered machine-role rules.
     :param is_foreign_key: Foreign-key fact passed to the ordered machine-role rules.
-    :return: Existing configured ColumnMetadata for an exact override, otherwise a new inferred record.
+    :return: Existing configured ColumnMetadata for an exact override, otherwise a new
+        inferred record.
     """
 
     key = (str(table), str(column))
@@ -1186,7 +1268,8 @@ def default_column_metadata(table: str, column: str) -> ColumnMetadata:
 
     :param table: Physical table name passed to infer_column_metadata.
     :param column: Physical column name passed to infer_column_metadata.
-    :return: Configured display metadata or machine metadata inferred without SQL type/key facts.
+    :return: Configured display metadata or machine metadata inferred without SQL
+        type/key facts.
     """
 
     return infer_column_metadata(table, column)
@@ -1234,7 +1317,8 @@ def iter_column_case_sensitivity_defaults() -> Iterator[tuple[str, str, bool]]:
     """
     Yield configured display case-sensitivity rows in sorted table/column order.
 
-    Machine-column inferred defaults are absent. Iteration reads the current COLUMN_CASE_SENSITIVITY_DEFAULTS registry.
+    Machine-column inferred defaults are absent. Iteration reads the current
+    COLUMN_CASE_SENSITIVITY_DEFAULTS registry.
 
     Example:
         >>> rows = list(iter_column_case_sensitivity_defaults())
@@ -1242,7 +1326,8 @@ def iter_column_case_sensitivity_defaults() -> Iterator[tuple[str, str, bool]]:
         True
 
 
-    :return: Iterator of (table, column, case_sensitive) tuples for explicit defaults only.
+    :return: Iterator of (table, column, case_sensitive) tuples for explicit defaults
+        only.
     """
 
     for (table, column), case_sensitive in sorted(COLUMN_CASE_SENSITIVITY_DEFAULTS.items()):
@@ -1253,7 +1338,8 @@ def iter_column_metadata_defaults() -> Iterator[ColumnMetadata]:
     """
     Yield explicit display-policy records in sorted table/column order.
 
-    These are display overrides only. Schema generators must call infer_column_metadata for other physical columns to obtain machine defaults.
+    These are display overrides only. Schema generators must call infer_column_metadata
+    for other physical columns to obtain machine defaults.
 
     Example:
         >>> rows = list(iter_column_metadata_defaults())
@@ -1261,7 +1347,8 @@ def iter_column_metadata_defaults() -> Iterator[ColumnMetadata]:
         True
 
 
-    :return: Iterator of existing configured ColumnMetadata objects, without copying them.
+    :return: Iterator of existing configured ColumnMetadata objects, without copying
+        them.
     """
 
     for key in sorted(COLUMN_METADATA_DEFAULTS):

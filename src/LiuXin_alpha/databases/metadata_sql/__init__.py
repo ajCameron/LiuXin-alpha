@@ -105,7 +105,8 @@ class MetadataSQL(
         """
         Resolve the owner's current get callable.
 
-        Returns db.get without invoking it; missing host attributes raise AttributeError.
+        Returns db.get without invoking it; missing host attributes raise
+        AttributeError.
 
         Example:
             >>> metadata_sql.get  # doctest: +SKIP
@@ -120,8 +121,8 @@ class MetadataSQL(
         """
         Resolve the owner's current execute callable.
 
-        Returns db.driver_wrapper.execute without invoking it; missing host attributes raise
-        AttributeError.
+        Returns db.driver_wrapper.execute without invoking it; missing host attributes
+        raise AttributeError.
 
         Example:
             >>> metadata_sql.execute  # doctest: +SKIP
@@ -136,8 +137,8 @@ class MetadataSQL(
         """
         Resolve the owner's current executemany callable.
 
-        Returns db.driver_wrapper.executemany without invoking it; missing host attributes
-        raise AttributeError.
+        Returns db.driver_wrapper.executemany without invoking it; missing host
+        attributes raise AttributeError.
 
         Example:
             >>> metadata_sql.executemany  # doctest: +SKIP

@@ -1,4 +1,9 @@
-"""SQL transaction ownership independent of connection and facade lifetime."""
+
+# Todo: This feels like it's a driver thing - not this high level
+
+"""
+SQL transaction ownership independent of connection and facade lifetime.
+"""
 
 from __future__ import annotations
 
@@ -8,8 +13,14 @@ from typing import Any
 from uuid import uuid4
 
 
+# Todo: This should be more strictly typeable
 def transaction_active(connection: Any) -> bool:
-    """Inspect supported connection state without starting or ending a transaction."""
+    """
+    Inspect supported connection state without starting or ending a transaction.
+
+    :param connection:
+    :return:
+    """
     active = getattr(connection, "in_transaction", None)
     if isinstance(active, bool):
         return active
@@ -29,12 +40,18 @@ def transaction_active(connection: Any) -> bool:
 def transaction_scope(
     connection: Any, *, owns_transaction: bool, immediate: bool = False
 ) -> Generator[Any, None, None]:
-    """Commit an owned unit, or isolate a nested/borrowed unit with a savepoint.
+    """
+    Commit an owned unit, or isolate a nested/borrowed unit with a savepoint.
 
     This never closes the connection. A connection owner must do so separately.
     An owned unit starts BEGIN explicitly: releasing a root SQLite savepoint
     would otherwise publish before the intended commit operation.
     ``immediate`` reserves SQLite's writer before any read and requires ownership.
+
+    :param connection:
+    :param owns_transaction:
+    :param immediate:
+    :return:
     """
     if immediate and not owns_transaction:
         raise ValueError("An immediate unit must own its transaction")

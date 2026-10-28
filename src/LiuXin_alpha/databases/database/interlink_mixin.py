@@ -2,7 +2,10 @@
 """
 Read and mutate relationships between rows in different database tables.
 
-Queries distinguish relationship Rows from their endpoint Rows. Priority handling varies by operation; mutations use several backend calls without a surrounding transaction. Callers must account for schema constraints, duplicate relationships and partial failure.
+Queries distinguish relationship Rows from their endpoint Rows. Priority handling varies
+by operation; mutations use several backend calls without a surrounding transaction.
+Callers must account for schema constraints, duplicate relationships and partial
+failure.
 """
 
 from __future__ import annotations
@@ -30,10 +33,14 @@ class DatabaseInterlinkRowsMixin:
     """
     Provide relationship lookup, creation, ordering and deletion through a facade.
 
-    Requires Row/search factories, schema capabilities and a driver wrapper. Methods retain legacy naming and some inconsistent ordering conventions; read each operation contract before composing mutations.
+    Requires Row/search factories, schema capabilities and a driver wrapper. Methods
+    retain legacy naming and some inconsistent ordering conventions; read each operation
+    contract before composing mutations.
 
     Example:
-        For two existing compatible Rows, link = db.interlink_rows(primary_row=agent, secondary_row=work, type="author") creates their relationship when allowed by the schema.
+        For two existing compatible Rows, link = db.interlink_rows(primary_row=agent,
+        secondary_row=work, type="author") creates their relationship when allowed by
+        the schema.
     """
 
     # ----------------------------------------------------------------------------------------------------------------------
@@ -49,17 +56,22 @@ class DatabaseInterlinkRowsMixin:
         """
         Find relationship Rows connecting one ordered endpoint pair.
 
-        Reject same-table or unlinked schemas. Search by the primary ID and compare secondary IDs as text; this does not filter relationship types.
+        Reject same-table or unlinked schemas. Search by the primary ID and compare
+        secondary IDs as text; this does not filter relationship types.
 
         Example:
-            For compatible rows, links = db.get_interlink_row(agent, work, onelink=False) returns every matching relationship or None.
+            For compatible rows, links = db.get_interlink_row(agent, work,
+            onelink=False) returns every matching relationship or None.
 
 
         :param primary_row: Primary endpoint Row.
         :param secondary_row: Secondary endpoint Row in a different table.
-        :param onelink: Require at most one match when True; otherwise return all matches.
-        :return: None for no matches; one Row when onelink=True, otherwise a nonempty list.
-        :raises InputIntegrityError: The tables are identical or have no relationship table.
+        :param onelink: Require at most one match when True; otherwise return all
+            matches.
+        :return: None for no matches; one Row when onelink=True, otherwise a nonempty
+            list.
+        :raises InputIntegrityError: The tables are identical or have no relationship
+            table.
         :raises DatabaseIntegrityError: Multiple matches exist while onelink=True.
         """
         primary_table = primary_row.table
@@ -131,15 +143,18 @@ class DatabaseInterlinkRowsMixin:
         """
         Return relationship Rows from one endpoint to a target table.
 
-        A DatabaseIntegrityError resolving priority leaves search order intact; missing keys or incomparable sort values are not suppressed.
+        A DatabaseIntegrityError resolving priority leaves search order intact; missing
+        keys or incomparable sort values are not suppressed.
 
         Example:
-            For a compatible schema, db.get_interlink_rows(agent, "works") returns link records rather than work records.
+            For a compatible schema, db.get_interlink_rows(agent, "works") returns link
+            records rather than work records.
 
 
         :param primary_row: Primary endpoint Row.
         :param secondary_table: Different table whose relationship Rows are requested.
-        :return: List of relationship Rows, sorted by ascending priority when that column resolves.
+        :return: List of relationship Rows, sorted by ascending priority when that
+            column resolves.
         :raises InputIntegrityError: Same-table or unavailable interlink schema.
         """
         primary_table = primary_row.table
@@ -186,19 +201,27 @@ class DatabaseInterlinkRowsMixin:
         """
         Resolve endpoint Rows reached through inter-table relationships.
 
-        Validate keywords, target table argument, concrete Row type, target category and different endpoint tables in that order. Only a missing priority key suppresses sorting. Duplicate target IDs are preserved; type values are compared without normalization.
+        Validate keywords, target table argument, concrete Row type, target category and
+        different endpoint tables in that order. Only a missing priority key suppresses
+        sorting. Duplicate target IDs are preserved; type values are compared without
+        normalization.
 
         Example:
-            For an existing agent Row, works = db.get_interlinked_rows(primary_row=agent, secondary_table="works", type_filter="author") follows only author links.
+            For an existing agent Row, works =
+            db.get_interlinked_rows(primary_row=agent, secondary_table="works",
+            type_filter="author") follows only author links.
 
 
         :param target_row: Concrete Row used as the primary endpoint.
         :param secondary_table: Required target main/helper table name.
         :param type_filter: Optional exact relationship-type filter.
-        :param kwargs: Compatibility primary_row alias accepted only when target_row is None; all other keywords fail.
-        :return: Endpoint Row list, descending by link priority when available; [] when no link table or matches exist.
+        :param kwargs: Compatibility primary_row alias accepted only when target_row is
+            None; all other keywords fail.
+        :return: Endpoint Row list, descending by link priority when available; [] when
+            no link table or matches exist.
         :raises TypeError: Keywords are unexpected or secondary_table is missing.
-        :raises InputIntegrityError: The seed is not a concrete Row, the target category is invalid, or the tables match.
+        :raises InputIntegrityError: The seed is not a concrete Row, the target category
+            is invalid, or the tables match.
         """
 
         # Backwards/forwards compatibility: some callers (notably contract tests) use
@@ -289,7 +312,8 @@ class DatabaseInterlinkRowsMixin:
         Collect distinct column values from linked endpoint Rows.
 
         Example:
-            For an agent linked to works, db.get_interlink_values(agent, "work_title") collects linked title values.
+            For an agent linked to works, db.get_interlink_values(agent, "work_title")
+            collects linked title values.
 
 
         :param target_row: Seed Row.
@@ -315,10 +339,12 @@ class DatabaseInterlinkRowsMixin:
         """
         Cache whether resolved relationship capabilities declare a priority column.
 
-        A new result requires matching table identity and a true priority capability. This does not invalidate an earlier cached result after schema changes.
+        A new result requires matching table identity and a true priority capability.
+        This does not invalidate an earlier cached result after schema changes.
 
         Example:
-            During relationship creation, db.check_for_link_table_priority(link_table, "agents", "works") determines whether priority should be populated.
+            During relationship creation, db.check_for_link_table_priority(link_table,
+            "agents", "works") determines whether priority should be populated.
 
 
         :param link_table_name: Relationship table used as the cache key.
@@ -353,20 +379,31 @@ class DatabaseInterlinkRowsMixin:
         """
         Allocate a relationship record, populate endpoint fields and synchronize it.
 
-        Check link-table existence and endpoint IDs before allocation. Highest/lowest use whole-column integer extrema plus/minus one, with an empty-table fallback of one. For not_set, a colliding non-null default may be replaced by the next priority for this primary/type. On sync DatabaseIntegrityError delete the allocated row and reraise; other failures can leave partial state. Reload failures are suppressed.
+        Check link-table existence and endpoint IDs before allocation. Highest/lowest
+        use whole-column integer extrema plus/minus one, with an empty-table fallback of
+        one. For not_set, a colliding non-null default may be replaced by the next
+        priority for this primary/type. On sync DatabaseIntegrityError delete the
+        allocated row and reraise; other failures can leave partial state. Reload
+        failures are suppressed.
 
         Example:
-            For a compatible writable schema, link = db.interlink_rows(agent, work, priority="highest", type="author") creates a relationship above the current global priority maximum.
+            For a compatible writable schema, link = db.interlink_rows(agent, work,
+            priority="highest", type="author") creates a relationship above the current
+            global priority maximum.
 
 
         :param primary_row: Primary endpoint with a non-None ID.
         :param secondary_row: Secondary endpoint with a non-None ID.
-        :param priority: Number, None for zero, highest/lowest, or the exact not_set sentinel.
+        :param priority: Number, None for zero, highest/lowest, or the exact not_set
+            sentinel.
         :param type: Optional type value stored unchanged when non-None.
         :param col_value_pairs: Additional relationship columns resolved by the wrapper.
-        :return: Persisted generic Row for the relationship, with defaults reloaded when possible.
-        :raises InputIntegrityError: No relationship table, a missing endpoint ID, or an unsupported active priority value.
-        :raises DatabaseIntegrityError: Nonempty-table extrema cannot be converted, or synchronization violates a constraint.
+        :return: Persisted generic Row for the relationship, with defaults reloaded when
+            possible.
+        :raises InputIntegrityError: No relationship table, a missing endpoint ID, or an
+            unsupported active priority value.
+        :raises DatabaseIntegrityError: Nonempty-table extrema cannot be converted, or
+            synchronization violates a constraint.
         """
         # Check that the tables can be interlinked
         primary_row_table = primary_row.table
@@ -578,19 +615,27 @@ class DatabaseInterlinkRowsMixin:
             force_priority: Optional[str] = None,
     ):
         """
-        Recreate a source row relationships on a destination using the normal link writer.
+        Recreate a source row relationships on a destination using the normal link
+        writer.
 
-        Reverse each target list before creation. Original type and extra relationship attributes are not copied. Writes are incremental and not rolled back as a group; duplicate relationships and the legacy swap limitation still apply.
+        Reverse each target list before creation. Original type and extra relationship
+        attributes are not copied. Writes are incremental and not rolled back as a
+        group; duplicate relationships and the legacy swap limitation still apply.
 
         Example:
-            For compatible rows in the same table, db.dupe_interlinks(source, destination, restrict_to_tables=["works"]) recreates links to works using default relationship attributes.
+            For compatible rows in the same table, db.dupe_interlinks(source,
+            destination, restrict_to_tables=["works"]) recreates links to works using
+            default relationship attributes.
 
 
         :param src_row: Row whose linked endpoints are read.
         :param dst_row: Row that will acquire new relationships.
-        :param swap_priorities: Invoke the legacy priority-swap helper after each creation.
-        :param restrict_to_tables: Target table iterable, or all main tables except the source table.
-        :param force_priority: Priority argument for new links, or None for the normal highest default.
+        :param swap_priorities: Invoke the legacy priority-swap helper after each
+            creation.
+        :param restrict_to_tables: Target table iterable, or all main tables except the
+            source table.
+        :param force_priority: Priority argument for new links, or None for the normal
+            highest default.
         :return: None.
         """
         # So this method only tries to handle interlinks
@@ -626,10 +671,15 @@ class DatabaseInterlinkRowsMixin:
         """
         Apply the legacy two-link priority update sequence.
 
-        Read both priorities, then overwrite the first link priority with None and sync it twice. The second link receives the original first priority; the intended first replacement is never restored. This is not currently a correct two-way swap and has no grouped rollback.
+        Read both priorities, then overwrite the first link priority with None and sync
+        it twice. The second link receives the original first priority; the intended
+        first replacement is never restored. This is not currently a correct two-way
+        swap and has no grouped rollback.
 
         Example:
-            Inspect and correct priorities explicitly when a true exchange is needed; db.swap_priorities(seed, first, second) retains the legacy first-priority-to-None behavior.
+            Inspect and correct priorities explicitly when a true exchange is needed;
+            db.swap_priorities(seed, first, second) retains the legacy
+            first-priority-to-None behavior.
 
 
         :param src_row: Common endpoint.
@@ -666,19 +716,25 @@ class DatabaseInterlinkRowsMixin:
         """
         Modify the unique relationship Row and synchronize requested fields.
 
-        Resolve a priority column even when unchanged is requested. Highest/lowest use whole-column integer extrema; extra keyword columns can override earlier assignments. No rollback is added around sync. Missing links are not explicitly checked before subsequent Row use.
+        Resolve a priority column even when unchanged is requested. Highest/lowest use
+        whole-column integer extrema; extra keyword columns can override earlier
+        assignments. No rollback is added around sync. Missing links are not explicitly
+        checked before subsequent Row use.
 
         Example:
-            For an existing unique relationship, db.update_interlink(agent, work, priority=10) persists its new priority.
+            For an existing unique relationship, db.update_interlink(agent, work,
+            priority=10) persists its new priority.
 
 
         :param primary_row: Primary endpoint.
         :param secondary_row: Secondary endpoint.
         :param priority: unchanged, highest, lowest, a Number, or None for zero.
-        :param col_value_pairs: Other link-column values, resolved after priority processing.
+        :param col_value_pairs: Other link-column values, resolved after priority
+            processing.
         :return: Updated relationship Row.
         :raises InputIntegrityError: The priority value is unsupported.
-        :raises DatabaseIntegrityError: The pair is ambiguous, extrema are invalid, or synchronization fails.
+        :raises DatabaseIntegrityError: The pair is ambiguous, extrema are invalid, or
+            synchronization fails.
         """
         interlink_row = self.get_interlink_row(primary_row=primary_row, secondary_row=secondary_row)
         primary_row_table = primary_row.table
@@ -741,10 +797,14 @@ class DatabaseInterlinkRowsMixin:
         """
         Assign successive global highest priorities in reverse requested ID order.
 
-        Require only equal list lengths, then map current endpoints by integer ID and process a reversed copy of ordered_ids. Duplicate or unknown IDs are not prevalidated; repeated updates can fail after earlier changes.
+        Require only equal list lengths, then map current endpoints by integer ID and
+        process a reversed copy of ordered_ids. Duplicate or unknown IDs are not
+        prevalidated; repeated updates can fail after earlier changes.
 
         Example:
-            For three uniquely linked endpoints, db.update_interlink_priority(agent, "works", [third_id, first_id, second_id]) makes that the descending-priority order.
+            For three uniquely linked endpoints, db.update_interlink_priority(agent,
+            "works", [third_id, first_id, second_id]) makes that the descending-priority
+            order.
 
 
         :param primary_row: Seed whose linked endpoints will be reordered.
@@ -777,16 +837,19 @@ class DatabaseInterlinkRowsMixin:
         """
         Delete the unique relationship Row connecting an endpoint pair.
 
-        Uses the single-link lookup; multiple matches raise and a missing match reaches delete(None). Endpoint records are retained.
+        Uses the single-link lookup; multiple matches raise and a missing match reaches
+        delete(None). Endpoint records are retained.
 
         Example:
-            For an existing unique relationship, db.unlink_interlink(agent, work) deletes its link Row.
+            For an existing unique relationship, db.unlink_interlink(agent, work)
+            deletes its link Row.
 
 
         :param primary_row: Primary endpoint.
         :param secondary_row: Secondary endpoint.
         :return: None.
-        :raises DatabaseIntegrityError: The endpoint pair has multiple relationship Rows.
+        :raises DatabaseIntegrityError: The endpoint pair has multiple relationship
+            Rows.
         :raises AttributeError: No relationship exists and delete receives None.
         """
         link_row = self.get_interlink_row(primary_row=primary_row, secondary_row=secondary_row)
@@ -803,10 +866,16 @@ class DatabaseInterlinkRowsMixin:
         """
         Delete relationships from a seed to a target table, optionally by type.
 
-        Initially fetch endpoints without filtering. The typed path retries ambiguous single-link lookups in multi-link mode; the unfiltered path does not. Repeated endpoints can revisit already deleted links, so missing-link failures and partial deletion remain possible. No group transaction or endpoint deletion is performed.
+        Initially fetch endpoints without filtering. The typed path retries ambiguous
+        single-link lookups in multi-link mode; the unfiltered path does not. Repeated
+        endpoints can revisit already deleted links, so missing-link failures and
+        partial deletion remain possible. No group transaction or endpoint deletion is
+        performed.
 
         Example:
-            For a schema with suitable relationship multiplicity, db.unlink_all(agent, "works", type_filter="author") removes author links while retaining endpoint Rows.
+            For a schema with suitable relationship multiplicity, db.unlink_all(agent,
+            "works", type_filter="author") removes author links while retaining endpoint
+            Rows.
 
 
         :param primary_row: Primary endpoint.

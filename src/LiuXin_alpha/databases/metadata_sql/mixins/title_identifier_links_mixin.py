@@ -25,14 +25,16 @@ class CMIdentifierTitleLinks:
 
     def delete_title_identifiers(self, title_id, id_type=None):
         """
-        Delete identifier value rows linked to a title, optionally filtering identifier_type.
+        Delete identifier value rows linked to a title, optionally filtering
+        identifier_type.
 
-        This deletes shared value rows, not merely title links; foreign-key effects belong
-        to the schema. The unfiltered path forwards a scalar title binding, while the
-        filtered path binds title and type together.
+        This deletes shared value rows, not merely title links; foreign-key effects
+        belong to the schema. The unfiltered path forwards a scalar title binding, while
+        the filtered path binds title and type together.
 
         Transaction and cache behavior for delegated SQL follows the host
-        execute/executemany implementation; this method adds no separate transaction guard.
+        execute/executemany implementation; this method adds no separate transaction
+        guard.
 
         Example:
             >>> metadata_sql.delete_title_identifiers(1)  # doctest: +SKIP
@@ -40,8 +42,8 @@ class CMIdentifierTitleLinks:
 
         :param title_id: Title identifier bound to the operation; batch handling, where
             supported, is described above.
-        :param id_type: Identifier scheme/type; normalization and validation depend on this
-            method.
+        :param id_type: Identifier scheme/type; normalization and validation depend on
+            this method.
         :return: None.
         """
         if id_type is None:
@@ -75,13 +77,15 @@ class CMIdentifierTitleLinks:
         operations, so linking failure can leave the new identifier row behind.
 
         Example:
-            >>> metadata_sql.add_title_identifier(1, "isbn", "9780306406157")  # doctest: +SKIP
+            >>> metadata_sql.add_title_identifier(
+            ...     1, "isbn", "9780306406157"
+            ... )  # doctest: +SKIP
 
 
         :param title_id: Title identifier bound to the operation; batch handling, where
             supported, is described above.
-        :param id_type: Identifier scheme/type; normalization and validation depend on this
-            method.
+        :param id_type: Identifier scheme/type; normalization and validation depend on
+            this method.
         :param id_val: Identifier value; false-value clearing applies only to
             set_title_identifier.
         :return: None.

@@ -27,7 +27,9 @@ class CMPublisherTitleLinkMacros:
         Delete all publisher relationships for the selected title through its wrapper.
 
         Example:
-            >>> metadata_sql.clear_publisher_title_links_by_title_id(1)  # doctest: +SKIP
+            >>> metadata_sql.clear_publisher_title_links_by_title_id(
+            ...     1
+            ... )  # doctest: +SKIP
 
 
         :param title_id: Title identifier bound to the operation; batch handling, where
@@ -44,7 +46,9 @@ class CMPublisherTitleLinkMacros:
         Priority is descending; ties are not otherwise ordered.
 
         Example:
-            >>> metadata_sql.check_for_title_id_publisher_id_link(1, 1)  # doctest: +SKIP
+            >>> metadata_sql.check_for_title_id_publisher_id_link(
+            ...     1, 1
+            ... )  # doctest: +SKIP
 
 
         :param pub_id: Publisher row identifier.

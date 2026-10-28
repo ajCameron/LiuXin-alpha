@@ -126,13 +126,19 @@ class TempTablesMacrosMixin:
         Example:
             >>> import sqlite3
             >>> conn = sqlite3.connect(":memory:")
-            >>> _ = conn.execute('CREATE TABLE selected_ids (id INTEGER PRIMARY KEY)')
+            >>> _ = conn.execute("CREATE TABLE selected_ids (id INTEGER PRIMARY KEY)")
             >>> macros = TempTablesMacrosMixin()
             >>> macros.create_cc_temp_tables(("selected_ids",), conn=conn)
-            >>> macros.destroy_cc_temp_tables(("selected_ids", "selected_ids"), conn=conn)
-            >>> conn.execute("SELECT COUNT(*) FROM sqlite_temp_master WHERE name='selected_ids'").fetchone()[0]
+            >>> macros.destroy_cc_temp_tables(
+            ...     ("selected_ids", "selected_ids"), conn=conn
+            ... )
+            >>> conn.execute(
+            ...     "SELECT COUNT(*) FROM sqlite_temp_master WHERE name='selected_ids'"
+            ... ).fetchone()[0]
             0
-            >>> conn.execute("SELECT COUNT(*) FROM sqlite_master WHERE name='selected_ids'").fetchone()[0]
+            >>> conn.execute(
+            ...     "SELECT COUNT(*) FROM sqlite_master WHERE name='selected_ids'"
+            ... ).fetchone()[0]
             1
             >>> conn.close()
 
@@ -175,22 +181,32 @@ class TempTablesMacrosMixin:
             >>> conn = sqlite3.connect(":memory:")
             >>> macros = TempTablesMacrosMixin()
             >>> macros.create_cc_temp_tables(("selected_ids",), conn=conn)
-            >>> macros.insert_values_into_temp_table("selected_ids", (1, 2, None), conn=conn)
-            >>> conn.execute('SELECT id FROM temp."selected_ids" ORDER BY id').fetchall()
+            >>> macros.insert_values_into_temp_table(
+            ...     "selected_ids", (1, 2, None), conn=conn
+            ... )
+            >>> conn.execute(
+            ...     'SELECT id FROM temp."selected_ids" ORDER BY id'
+            ... ).fetchall()
             [(1,), (2,), (3,)]
             >>> try:
-            ...     macros.insert_values_into_temp_table("selected_ids", (4, 2), conn=conn)
+            ...     macros.insert_values_into_temp_table(
+            ...         "selected_ids", (4, 2), conn=conn
+            ...     )
             ... except sqlite3.IntegrityError:
             ...     print("duplicate")
             duplicate
-            >>> conn.execute('SELECT id FROM temp."selected_ids" ORDER BY id').fetchall()
+            >>> conn.execute(
+            ...     'SELECT id FROM temp."selected_ids" ORDER BY id'
+            ... ).fetchall()
             [(1,), (2,), (3,), (4,)]
             >>> conn.rollback()
             >>> conn.close()
 
 
-        :param temp_table: Simple name of an existing one-column table in the temp schema.
-        :param values: Iterable of scalar binding values, fully materialized into a list.
+        :param temp_table: Simple name of an existing one-column table in the temp
+            schema.
+        :param values: Iterable of scalar binding values, fully materialized into a
+            list.
         :param conn: Connection supporting executemany, or None to use db.driver.conn.
         :return: None; the execution result is discarded.
         """

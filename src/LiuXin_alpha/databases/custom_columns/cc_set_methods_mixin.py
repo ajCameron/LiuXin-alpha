@@ -2,7 +2,9 @@
 """
 Mutate legacy custom-column SQL values and their results-cache projections.
 
-Hosts supply metadata, adapters, macros, cache access and notification hooks. SQL writes, cache updates, dirtying and commits have separate failure boundaries; these methods do not provide a rollback context spanning the whole operation.
+Hosts supply metadata, adapters, macros, cache access and notification hooks. SQL
+writes, cache updates, dirtying and commits have separate failure boundaries; these
+methods do not provide a rollback context spanning the whole operation.
 """
 
 from __future__ import annotations
@@ -22,10 +24,14 @@ class CCSetMethodsMixin:
     """
     Coordinate custom value writes with legacy cache and notification hooks.
 
-    Single and bulk writers delegate to _set_custom; the specialized text/multiple path uses temporary SQL tables. Existing adapter, macro and host-interface limitations propagate.
+    Single and bulk writers delegate to _set_custom; the specialized text/multiple path
+    uses temporary SQL tables. Existing adapter, macro and host-interface limitations
+    propagate.
 
     Example:
-        On a compatible host, set_custom(owner_id, 4, num=column_id, commit=False) stages a scalar update and dirtying while leaving the final explicit commit to its caller.
+        On a compatible host, set_custom(owner_id, 4, num=column_id, commit=False)
+        stages a scalar update and dirtying while leaving the final explicit commit to
+        its caller.
     """
     def set_custom_bulk_multiple(
         self: "CustomColumnsAPI",
@@ -39,18 +45,26 @@ class CCSetMethodsMixin:
         """
         Apply additions and removals to several editable text/multiple values.
 
-        Validate column editability/type, then clean both tag lists before checking empty owners or a no-op. Tag normalization accepts text and bytes. Exact additions win over identical removals, new values are inserted, fixed-name TEMP tables drive link changes, then owners are dirtied and committed before cache refresh. Temporary tables are not removed in a finally block, and one-shot owner iterators can be exhausted before later steps.
+        Validate column editability/type, then clean both tag lists before checking
+        empty owners or a no-op. Tag normalization accepts text and bytes. Exact
+        additions win over identical removals, new values are inserted, fixed-name TEMP
+        tables drive link changes, then owners are dirtied and committed before cache
+        refresh. Temporary tables are not removed in a finally block, and one-shot owner
+        iterators can be exhausted before later steps.
 
         Example:
-            With a host supplying a reusable ID list, set_custom_bulk_multiple([1, 2], add=["Travel"], num=column_id) adds the tag to both owners.
+            With a host supplying a reusable ID list, set_custom_bulk_multiple([1, 2],
+            add=["Travel"], num=column_id) adds the tag to both owners.
 
 
-        :param cc_row_ids: Reusable owner-ID iterable; consumed by several database/cache/notification steps.
+        :param cc_row_ids: Reusable owner-ID iterable; consumed by several
+            database/cache/notification steps.
         :param add: Tags to add, or None for none.
         :param remove: Tags to remove, or None for none.
         :param label: Optional custom-column label; takes precedence over num.
         :param num: Numeric metadata key used when label is None.
-        :param notify: Whether to notify after committing and refreshing the cache, default False.
+        :param notify: Whether to notify after committing and refreshing the cache,
+            default False.
         :return: None; no affected-owner result is returned.
         :raises NotImplementedError: Neither label nor num is supplied.
         :raises KeyError: The selected metadata record is absent.
@@ -130,10 +144,14 @@ class CCSetMethodsMixin:
         """
         Call the single-owner worker in sequence, then dirty and commit the batch.
 
-        A failure can follow earlier SQL/cache changes; no batch rollback is supplied. After a successful loop, dirty the requested IDs and commit even for an empty sequence. The worker’s additional case-change refresh IDs are not merged into that final dirtying call.
+        A failure can follow earlier SQL/cache changes; no batch rollback is supplied.
+        After a successful loop, dirty the requested IDs and commit even for an empty
+        sequence. The worker’s additional case-change refresh IDs are not merged into
+        that final dirtying call.
 
         Example:
-            On a compatible host, set_custom_bulk([1, 2], "Saga", num=series_column, extras=[1.0, 2.0]) supplies a separate series position for each owner.
+            On a compatible host, set_custom_bulk([1, 2], "Saga", num=series_column,
+            extras=[1.0, 2.0]) supplies a separate series position for each owner.
 
 
         :param cc_row_ids: Sized sequence of owner IDs, retained for final dirtying.
@@ -141,8 +159,10 @@ class CCSetMethodsMixin:
         :param label: Optional custom-column label; takes precedence over num.
         :param num: Numeric metadata key used when label is None.
         :param append: Forward append behavior to each worker.
-        :param notify: Forward notification policy to each worker, which can notify before the final commit.
-        :param extras: Optional sequence of per-owner extras, required to match the ID count.
+        :param notify: Forward notification policy to each worker, which can notify
+            before the final commit.
+        :param extras: Optional sequence of per-owner extras, required to match the ID
+            count.
         :return: None; additional owners returned by individual workers are discarded.
         :raises ValueError: extras and cc_row_ids have different lengths.
         """
@@ -171,10 +191,15 @@ class CCSetMethodsMixin:
         """
         Write one owner’s custom value, dirty affected IDs and optionally commit.
 
-        Dirty the union of the requested ID and worker result with commit=False, then optionally commit. A composite worker returns an empty set without writing, but this wrapper still dirties the requested ID and may commit. Errors can follow partial writes or notification.
+        Dirty the union of the requested ID and worker result with commit=False, then
+        optionally commit. A composite worker returns an empty set without writing, but
+        this wrapper still dirties the requested ID and may commit. Errors can follow
+        partial writes or notification.
 
         Example:
-            Given a compatible host, changed = set_custom(owner_id, "Draft", num=column_id, commit=False) returns extra owners requiring refresh without an explicit wrapper commit.
+            Given a compatible host, changed = set_custom(owner_id, "Draft",
+            num=column_id, commit=False) returns extra owners requiring refresh without
+            an explicit wrapper commit.
 
 
         :param cc_row_id: Owner ID passed to the worker.
@@ -185,8 +210,10 @@ class CCSetMethodsMixin:
         :param notify: Let the worker notify before this method’s dirtying/commit step.
         :param extra: Optional series position; None permits parsing/defaulting.
         :param commit: Commit self.conn after dirtying when True.
-        :param allow_case_change: Allow the worker’s legacy case-change path for reused normalized values.
-        :return: Worker set of additional affected owner IDs; the requested ID is not automatically added to this return value.
+        :param allow_case_change: Allow the worker’s legacy case-change path for reused
+            normalized values.
+        :return: Worker set of additional affected owner IDs; the requested ID is not
+            automatically added to this return value.
         """
         rv = self._set_custom(
             cc_row_id,
@@ -217,11 +244,21 @@ class CCSetMethodsMixin:
         """
         Adapt and persist one custom value, then refresh its cached projection.
 
-        Composite values return an empty set before editability checks. Other writes require editable metadata. Normalized replacement clears links and cached value before adding truthy requested values; an existing series link does not update its extra. Unnormalized storage deletes the old owner value and inserts a non-None replacement. Reload the value through legacy meta2 SQL and update the cache. Current allow_case_change calls update_cc_value(table, value, id), reversing that macro’s ID/value parameters and omitting the explicit connection. No complete-operation commit or rollback is supplied here; delegated macros can have independent effects.
+        Composite values return an empty set before editability checks. Other writes
+        require editable metadata. Normalized replacement clears links and cached value
+        before adding truthy requested values; an existing series link does not update
+        its extra. Unnormalized storage deletes the old owner value and inserts a
+        non-None replacement. Reload the value through legacy meta2 SQL and update the
+        cache. Current allow_case_change calls update_cc_value(table, value, id),
+        reversing that macro’s ID/value parameters and omitting the explicit connection.
+        No complete-operation commit or rollback is supplied here; delegated macros can
+        have independent effects.
 
         Example:
             >>> from types import SimpleNamespace
-            >>> host = SimpleNamespace(custom_column_num_map={1: {"datatype": "composite"}})
+            >>> host = SimpleNamespace(
+            ...     custom_column_num_map={1: {"datatype": "composite"}}
+            ... )
             >>> CCSetMethodsMixin._set_custom(host, 7, "ignored", num=1)
             set()
 
@@ -230,10 +267,13 @@ class CCSetMethodsMixin:
         :param val: Value passed through the datatype adapter.
         :param label: Optional custom-column label; takes precedence over num.
         :param num: Numeric metadata key used when label is None.
-        :param append: Preserve existing links only for multiple normalized storage when True.
+        :param append: Preserve existing links only for multiple normalized storage when
+            True.
         :param notify: Emit metadata notification for this owner after cache refresh.
-        :param extra: Series position; when None, parse it from the adapted value or use 1.0.
-        :param allow_case_change: Permit case-change updates to an already stored normalized value.
+        :param extra: Series position; when None, parse it from the adapted value or use
+            1.0.
+        :param allow_case_change: Permit case-change updates to an already stored
+            normalized value.
         :return: Set of other owner IDs found when a shared normalized spelling changes.
         :raises NotImplementedError: Neither label nor num is supplied.
         :raises KeyError: The selected metadata record is absent.

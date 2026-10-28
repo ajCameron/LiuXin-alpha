@@ -28,7 +28,8 @@ class CMSeriesMacrosMixin:
         Delete all links matching the supplied title and series IDs.
 
         Transaction and cache behavior for delegated SQL follows the host
-        execute/executemany implementation; this method adds no separate transaction guard.
+        execute/executemany implementation; this method adds no separate transaction
+        guard.
 
         Example:
             >>> metadata_sql.library_unset_series(1, 1)  # doctest: +SKIP

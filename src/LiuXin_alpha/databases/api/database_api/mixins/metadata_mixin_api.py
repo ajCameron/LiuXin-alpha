@@ -1,7 +1,8 @@
 """
 Declare DatabaseMetadataMixinAPI operations for database facade implementations.
 
-Abstract bodies perform no backend work. Concrete behavior and its limitations are described for callers without changing that implementation.
+Abstract bodies perform no backend work. Concrete behavior and its limitations are
+described for callers without changing that implementation.
 """
 
 from __future__ import annotations
@@ -30,7 +31,10 @@ class DatabaseMetadataMixinAPI(abc.ABC):
     """
     Specify schema metadata, cached identifiers and column/identity policies.
 
-    Implement every abstract member before instantiating this interface. Backend resource and transaction policies remain the concrete implementation responsibility. Unlike the abstract hooks, the two case-sensitivity aliases have concrete forwarding bodies.
+    Implement every abstract member before instantiating this interface. Backend
+    resource and transaction policies remain the concrete implementation responsibility.
+    Unlike the abstract hooks, the two case-sensitivity aliases have concrete forwarding
+    bodies.
 
     Example:
         >>> import inspect
@@ -44,10 +48,12 @@ class DatabaseMetadataMixinAPI(abc.ABC):
         """
         Delegate table discovery and optional schema-cache refresh to the wrapper.
 
-        Abstract hook; subclasses supply the operation. Concrete Database behavior: Delegate table discovery and optional schema-cache refresh to the wrapper.
+        Abstract hook; subclasses supply the operation. Concrete Database behavior:
+        Delegate table discovery and optional schema-cache refresh to the wrapper.
 
         Example:
-            For an open db, db.get_tables(force_refresh=True) requests refreshed schema names.
+            For an open db, db.get_tables(force_refresh=True) requests refreshed schema
+            names.
 
 
         :param force_refresh: Request fresh backend discovery when True.
@@ -59,10 +65,12 @@ class DatabaseMetadataMixinAPI(abc.ABC):
         """
         Delegate ordered column discovery for a table.
 
-        Abstract hook; subclasses supply the operation. Concrete Database behavior: Delegate ordered column discovery for a table.
+        Abstract hook; subclasses supply the operation. Concrete Database behavior:
+        Delegate ordered column discovery for a table.
 
         Example:
-            For an open db, db.get_column_headings("works") identifies available work fields.
+            For an open db, db.get_column_headings("works") identifies available work
+            fields.
 
 
         :param table: Target table name.
@@ -74,10 +82,12 @@ class DatabaseMetadataMixinAPI(abc.ABC):
         """
         Read the backend-declared type name for one column.
 
-        Abstract hook; subclasses supply the operation. Concrete Database behavior: Read the backend-declared type name for one column.
+        Abstract hook; subclasses supply the operation. Concrete Database behavior: Read
+        the backend-declared type name for one column.
 
         Example:
-            For the current schema, db.get_declared_column_datatype("database_metadata", "database_metadata_unique_id") returns "TEXT".
+            For the current schema, db.get_declared_column_datatype("database_metadata",
+            "database_metadata_unique_id") returns "TEXT".
 
 
         :param table: Table containing the column.
@@ -96,10 +106,12 @@ class DatabaseMetadataMixinAPI(abc.ABC):
         """
         Retrieve the schema capabilities of an interlink or self-link.
 
-        Abstract hook; subclasses supply the operation. Concrete Database behavior: Retrieve the schema capabilities of an interlink or self-link.
+        Abstract hook; subclasses supply the operation. Concrete Database behavior:
+        Retrieve the schema capabilities of an interlink or self-link.
 
         Example:
-            For an open db, capabilities = db.get_link_capabilities("agents", "works") describes its type/priority columns.
+            For an open db, capabilities = db.get_link_capabilities("agents", "works")
+            describes its type/priority columns.
 
 
         :param table1: First endpoint table.
@@ -119,10 +131,12 @@ class DatabaseMetadataMixinAPI(abc.ABC):
         """
         Ask the wrapper whether a relationship supports a type column.
 
-        Abstract hook; subclasses supply the operation. Concrete Database behavior: Ask the wrapper whether a relationship supports a type column.
+        Abstract hook; subclasses supply the operation. Concrete Database behavior: Ask
+        the wrapper whether a relationship supports a type column.
 
         Example:
-            For an open db, db.is_link_typed("agents", "works") tests schema capability rather than a particular stored link type.
+            For an open db, db.is_link_typed("agents", "works") tests schema capability
+            rather than a particular stored link type.
 
 
         :param table1: First endpoint table.
@@ -142,10 +156,12 @@ class DatabaseMetadataMixinAPI(abc.ABC):
         """
         Ask the wrapper whether a relationship supports priority ordering.
 
-        Abstract hook; subclasses supply the operation. Concrete Database behavior: Ask the wrapper whether a relationship supports priority ordering.
+        Abstract hook; subclasses supply the operation. Concrete Database behavior: Ask
+        the wrapper whether a relationship supports priority ordering.
 
         Example:
-            For an open db, db.is_link_priority("agents", "works") checks whether its relationship schema supports priority.
+            For an open db, db.is_link_priority("agents", "works") checks whether its
+            relationship schema supports priority.
 
 
         :param table1: First endpoint table.
@@ -159,10 +175,13 @@ class DatabaseMetadataMixinAPI(abc.ABC):
         """
         Read the case-sensitive comparison flag.
 
-        Abstract hook; subclasses supply the operation. Concrete Database behavior: Read behavior and legacy defaults belong to the driver; this facade forwards the table and column unchanged.
+        Abstract hook; subclasses supply the operation. Concrete Database behavior: Read
+        behavior and legacy defaults belong to the driver; this facade forwards the
+        table and column unchanged.
 
         Example:
-            For an open db, db.get_case_sensitivity("works", "work_title") reads that column setting.
+            For an open db, db.get_case_sensitivity("works", "work_title") reads that
+            column setting.
 
 
         :param table: Table containing the column.
@@ -175,15 +194,18 @@ class DatabaseMetadataMixinAPI(abc.ABC):
         """
         Retrieve the effective policy record for a database column.
 
-        Abstract hook; subclasses supply the operation. Concrete Database behavior: Retrieve the effective policy record for a database column.
+        Abstract hook; subclasses supply the operation. Concrete Database behavior:
+        Retrieve the effective policy record for a database column.
 
         Example:
-            For an open db, policy = db.get_column_metadata("works", "work_title") combines normalization, merge and presentation settings.
+            For an open db, policy = db.get_column_metadata("works", "work_title")
+            combines normalization, merge and presentation settings.
 
 
         :param table: Table containing the column.
         :param column: Column name within that table.
-        :return: ColumnMetadata returned by the wrapper, including driver-supported legacy read fallbacks.
+        :return: ColumnMetadata returned by the wrapper, including driver-supported
+            legacy read fallbacks.
         """
 
     @abc.abstractmethod
@@ -191,13 +213,18 @@ class DatabaseMetadataMixinAPI(abc.ABC):
         """
         Delegate persistence of a complete column-policy record.
 
-        Abstract hook; subclasses supply the operation. Concrete Database behavior: No validation or schema migration is added at this facade boundary; driver errors propagate. Legacy read fallbacks do not imply an old schema supports policy writes.
+        Abstract hook; subclasses supply the operation. Concrete Database behavior: No
+        validation or schema migration is added at this facade boundary; driver errors
+        propagate. Legacy read fallbacks do not imply an old schema supports policy
+        writes.
 
         Example:
-            After deriving an updated policy with dataclasses.replace, db.set_column_metadata(policy) delegates its persistence.
+            After deriving an updated policy with dataclasses.replace,
+            db.set_column_metadata(policy) delegates its persistence.
 
 
-        :param metadata: ColumnMetadata identifying its table/column and replacement policy.
+        :param metadata: ColumnMetadata identifying its table/column and replacement
+            policy.
         :return: None.
         """
 
@@ -206,10 +233,13 @@ class DatabaseMetadataMixinAPI(abc.ABC):
         """
         Read the semantic role of the stored value.
 
-        Abstract hook; subclasses supply the operation. Concrete Database behavior: Read behavior and legacy defaults belong to the driver; this facade forwards the table and column unchanged.
+        Abstract hook; subclasses supply the operation. Concrete Database behavior: Read
+        behavior and legacy defaults belong to the driver; this facade forwards the
+        table and column unchanged.
 
         Example:
-            For an open db, db.get_semantic_role("works", "work_title") reads that column setting.
+            For an open db, db.get_semantic_role("works", "work_title") reads that
+            column setting.
 
 
         :param table: Table containing the column.
@@ -227,15 +257,20 @@ class DatabaseMetadataMixinAPI(abc.ABC):
         """
         Delegate storage of the semantic role of the stored value.
 
-        Abstract hook; subclasses supply the operation. Concrete Database behavior: The facade does not validate, normalize or migrate the supplied policy; wrapper/driver errors propagate.
+        Abstract hook; subclasses supply the operation. Concrete Database behavior: The
+        facade does not validate, normalize or migrate the supplied policy;
+        wrapper/driver errors propagate.
 
         Example:
-            For an open writable db with a current policy schema, db.set_semantic_role("works", "work_title", ColumnSemanticRole.LABEL) requests the new setting.
+            For an open writable db with a current policy schema,
+            db.set_semantic_role("works", "work_title", ColumnSemanticRole.LABEL)
+            requests the new setting.
 
 
         :param table: Table containing the column.
         :param column: Column name within that table.
-        :param semantic_role: ColumnSemanticRole describing the value meaning to persist.
+        :param semantic_role: ColumnSemanticRole describing the value meaning to
+            persist.
         :return: None.
         """
 
@@ -248,10 +283,13 @@ class DatabaseMetadataMixinAPI(abc.ABC):
         """
         Read the normalization profile for comparable values.
 
-        Abstract hook; subclasses supply the operation. Concrete Database behavior: Read behavior and legacy defaults belong to the driver; this facade forwards the table and column unchanged.
+        Abstract hook; subclasses supply the operation. Concrete Database behavior: Read
+        behavior and legacy defaults belong to the driver; this facade forwards the
+        table and column unchanged.
 
         Example:
-            For an open db, db.get_normalization_profile("works", "work_title") reads that column setting.
+            For an open db, db.get_normalization_profile("works", "work_title") reads
+            that column setting.
 
 
         :param table: Table containing the column.
@@ -269,10 +307,14 @@ class DatabaseMetadataMixinAPI(abc.ABC):
         """
         Delegate storage of the normalization profile for comparable values.
 
-        Abstract hook; subclasses supply the operation. Concrete Database behavior: The facade does not validate, normalize or migrate the supplied policy; wrapper/driver errors propagate.
+        Abstract hook; subclasses supply the operation. Concrete Database behavior: The
+        facade does not validate, normalize or migrate the supplied policy;
+        wrapper/driver errors propagate.
 
         Example:
-            For an open writable db with a current policy schema, db.set_normalization_profile("works", "work_title", ColumnNormalizationProfile.UNICODE_NFC) requests the new setting.
+            For an open writable db with a current policy schema,
+            db.set_normalization_profile("works", "work_title",
+            ColumnNormalizationProfile.UNICODE_NFC) requests the new setting.
 
 
         :param table: Table containing the column.
@@ -286,10 +328,13 @@ class DatabaseMetadataMixinAPI(abc.ABC):
         """
         Read the companion column used for comparisons.
 
-        Abstract hook; subclasses supply the operation. Concrete Database behavior: Read behavior and legacy defaults belong to the driver; this facade forwards the table and column unchanged.
+        Abstract hook; subclasses supply the operation. Concrete Database behavior: Read
+        behavior and legacy defaults belong to the driver; this facade forwards the
+        table and column unchanged.
 
         Example:
-            For an open db, db.get_comparison_column("works", "work_title") reads that column setting.
+            For an open db, db.get_comparison_column("works", "work_title") reads that
+            column setting.
 
 
         :param table: Table containing the column.
@@ -306,10 +351,12 @@ class DatabaseMetadataMixinAPI(abc.ABC):
         """
         Read the normalized-identity declaration for a display-value column.
 
-        Abstract hook; subclasses supply the operation. Concrete Database behavior: Read the normalized-identity declaration for a display-value column.
+        Abstract hook; subclasses supply the operation. Concrete Database behavior: Read
+        the normalized-identity declaration for a display-value column.
 
         Example:
-            For the current schema, db.get_normalized_identity_spec("tags", "tag") returns the declaration used to identify canonical tag rows.
+            For the current schema, db.get_normalized_identity_spec("tags", "tag")
+            returns the declaration used to identify canonical tag rows.
 
 
         :param table: Table containing the value column.
@@ -322,10 +369,13 @@ class DatabaseMetadataMixinAPI(abc.ABC):
         """
         Yield normalized-identity declarations from the wrapper iterator.
 
-        Abstract hook; subclasses supply the operation. Concrete Database behavior: Iteration is lazy: wrapper iteration and its errors occur when the returned generator is consumed.
+        Abstract hook; subclasses supply the operation. Concrete Database behavior:
+        Iteration is lazy: wrapper iteration and its errors occur when the returned
+        generator is consumed.
 
         Example:
-            For an open db, specs = tuple(db.iter_normalized_identity_specs()) consumes all current declarations.
+            For an open db, specs = tuple(db.iter_normalized_identity_specs()) consumes
+            all current declarations.
 
 
         :return: Iterator yielding NormalizedIdentitySpec objects.
@@ -341,10 +391,13 @@ class DatabaseMetadataMixinAPI(abc.ABC):
         """
         Normalize a display value using its declared identity profile.
 
-        Abstract hook; subclasses supply the operation. Concrete Database behavior: The macros layer validates identifiers and requires an applicable normalized-identity declaration.
+        Abstract hook; subclasses supply the operation. Concrete Database behavior: The
+        macros layer validates identifiers and requires an applicable
+        normalized-identity declaration.
 
         Example:
-            For an open db, key = db.derive_identity_value("tags", "tag", " Example ") derives the key used for canonical lookup.
+            For an open db, key = db.derive_identity_value("tags", "tag", " Example ")
+            derives the key used for canonical lookup.
 
 
         :param table: Table containing the display value.
@@ -366,10 +419,13 @@ class DatabaseMetadataMixinAPI(abc.ABC):
         """
         Normalize a display value and look up its unique canonical identity.
 
-        Abstract hook; subclasses supply the operation. Concrete Database behavior: Delegates normalization and scoped lookup to macros; multiple matches raise DatabaseIntegrityError. This does not insert missing values.
+        Abstract hook; subclasses supply the operation. Concrete Database behavior:
+        Delegates normalization and scoped lookup to macros; multiple matches raise
+        DatabaseIntegrityError. This does not insert missing values.
 
         Example:
-            For an open db, identity = db.get_canonical_identity("tags", "tag", " EXAMPLE ") finds the stored spelling and row ID for an equivalent value.
+            For an open db, identity = db.get_canonical_identity("tags", "tag", "
+            EXAMPLE ") finds the stored spelling and row ID for an equivalent value.
 
 
         :param table: Table containing the canonical row.
@@ -393,10 +449,14 @@ class DatabaseMetadataMixinAPI(abc.ABC):
         """
         Resolve an already-derived identity key without normalizing it again.
 
-        Abstract hook; subclasses supply the operation. Concrete Database behavior: Macros enforce scope and ID-column validity and reject ambiguous matches; the facade forwards all arguments unchanged.
+        Abstract hook; subclasses supply the operation. Concrete Database behavior:
+        Macros enforce scope and ID-column validity and reject ambiguous matches; the
+        facade forwards all arguments unchanged.
 
         Example:
-            After key = db.derive_identity_value("tags", "tag", text), db.get_canonical_identity_by_key("tags", "tag", key) performs the canonical lookup.
+            After key = db.derive_identity_value("tags", "tag", text),
+            db.get_canonical_identity_by_key("tags", "tag", key) performs the canonical
+            lookup.
 
 
         :param table: Table containing the canonical row.
@@ -419,10 +479,12 @@ class DatabaseMetadataMixinAPI(abc.ABC):
         """
         Return the stored spelling matching a normalized display-value lookup.
 
-        Abstract hook; subclasses supply the operation. Concrete Database behavior: Return the stored spelling matching a normalized display-value lookup.
+        Abstract hook; subclasses supply the operation. Concrete Database behavior:
+        Return the stored spelling matching a normalized display-value lookup.
 
         Example:
-            For an existing canonical tag, db.get_canonical_value("tags", "tag", alternate_spelling) returns its stored spelling.
+            For an existing canonical tag, db.get_canonical_value("tags", "tag",
+            alternate_spelling) returns its stored spelling.
 
 
         :param table: Table containing the canonical value.
@@ -444,10 +506,13 @@ class DatabaseMetadataMixinAPI(abc.ABC):
         """
         Return the stored spelling matching an already-derived identity key.
 
-        Abstract hook; subclasses supply the operation. Concrete Database behavior: Return the stored spelling matching an already-derived identity key.
+        Abstract hook; subclasses supply the operation. Concrete Database behavior:
+        Return the stored spelling matching an already-derived identity key.
 
         Example:
-            For an open db and derived tag key, db.get_canonical_value_by_identity("tags", "tag", key) reads the canonical spelling without re-normalizing the key.
+            For an open db and derived tag key,
+            db.get_canonical_value_by_identity("tags", "tag", key) reads the canonical
+            spelling without re-normalizing the key.
 
 
         :param table: Table containing the canonical value.
@@ -460,15 +525,20 @@ class DatabaseMetadataMixinAPI(abc.ABC):
     @abc.abstractmethod
     def audit_normalized_identities(self) -> NormalizedIdentityMigrationReport:
         """
-        Delegate inspection of stale identity keys and collisions without migration writes.
+        Delegate inspection of stale identity keys and collisions without migration
+        writes.
 
-        Abstract hook; subclasses supply the operation. Concrete Database behavior: Delegate inspection of stale identity keys and collisions without migration writes.
+        Abstract hook; subclasses supply the operation. Concrete Database behavior:
+        Delegate inspection of stale identity keys and collisions without migration
+        writes.
 
         Example:
-            For an open db, report = db.audit_normalized_identities() reports collisions before a planned migration.
+            For an open db, report = db.audit_normalized_identities() reports collisions
+            before a planned migration.
 
 
-        :return: NormalizedIdentityMigrationReport describing examined declarations and rows.
+        :return: NormalizedIdentityMigrationReport describing examined declarations and
+            rows.
         """
 
     @abc.abstractmethod
@@ -476,10 +546,15 @@ class DatabaseMetadataMixinAPI(abc.ABC):
         """
         Delegate transactional identity-catalog installation, backfill and indexing.
 
-        Abstract hook; subclasses supply the operation. Concrete Database behavior: The macros layer inspects for collisions before applying changes and raises DatabaseIntegrityError when collisions prevent migration. The facade adds no outer transaction or cache management.
+        Abstract hook; subclasses supply the operation. Concrete Database behavior: The
+        macros layer inspects for collisions before applying changes and raises
+        DatabaseIntegrityError when collisions prevent migration. The facade adds no
+        outer transaction or cache management.
 
         Example:
-            After reviewing an identity audit, report = db.migrate_normalized_identities() applies the macros migration to a writable database.
+            After reviewing an identity audit, report =
+            db.migrate_normalized_identities() applies the macros migration to a
+            writable database.
 
 
         :return: NormalizedIdentityMigrationReport describing completed changes.
@@ -495,10 +570,14 @@ class DatabaseMetadataMixinAPI(abc.ABC):
         """
         Delegate storage of the companion column used for comparisons.
 
-        Abstract hook; subclasses supply the operation. Concrete Database behavior: The facade does not validate, normalize or migrate the supplied policy; wrapper/driver errors propagate.
+        Abstract hook; subclasses supply the operation. Concrete Database behavior: The
+        facade does not validate, normalize or migrate the supplied policy;
+        wrapper/driver errors propagate.
 
         Example:
-            For an open writable db with a current policy schema, db.set_comparison_column("works", "work_title", "work_sort_title") requests the new setting.
+            For an open writable db with a current policy schema,
+            db.set_comparison_column("works", "work_title", "work_sort_title") requests
+            the new setting.
 
 
         :param table: Table containing the column.
@@ -516,10 +595,13 @@ class DatabaseMetadataMixinAPI(abc.ABC):
         """
         Read the policy for empty input values.
 
-        Abstract hook; subclasses supply the operation. Concrete Database behavior: Read behavior and legacy defaults belong to the driver; this facade forwards the table and column unchanged.
+        Abstract hook; subclasses supply the operation. Concrete Database behavior: Read
+        behavior and legacy defaults belong to the driver; this facade forwards the
+        table and column unchanged.
 
         Example:
-            For an open db, db.get_empty_value_policy("works", "work_title") reads that column setting.
+            For an open db, db.get_empty_value_policy("works", "work_title") reads that
+            column setting.
 
 
         :param table: Table containing the column.
@@ -537,10 +619,14 @@ class DatabaseMetadataMixinAPI(abc.ABC):
         """
         Delegate storage of the policy for empty input values.
 
-        Abstract hook; subclasses supply the operation. Concrete Database behavior: The facade does not validate, normalize or migrate the supplied policy; wrapper/driver errors propagate.
+        Abstract hook; subclasses supply the operation. Concrete Database behavior: The
+        facade does not validate, normalize or migrate the supplied policy;
+        wrapper/driver errors propagate.
 
         Example:
-            For an open writable db with a current policy schema, db.set_empty_value_policy("works", "work_title", ColumnEmptyValuePolicy.PRESERVE) requests the new setting.
+            For an open writable db with a current policy schema,
+            db.set_empty_value_policy("works", "work_title",
+            ColumnEmptyValuePolicy.PRESERVE) requests the new setting.
 
 
         :param table: Table containing the column.
@@ -554,10 +640,13 @@ class DatabaseMetadataMixinAPI(abc.ABC):
         """
         Read the policy for combining an incoming value with existing data.
 
-        Abstract hook; subclasses supply the operation. Concrete Database behavior: Read behavior and legacy defaults belong to the driver; this facade forwards the table and column unchanged.
+        Abstract hook; subclasses supply the operation. Concrete Database behavior: Read
+        behavior and legacy defaults belong to the driver; this facade forwards the
+        table and column unchanged.
 
         Example:
-            For an open db, db.get_merge_policy("works", "work_title") reads that column setting.
+            For an open db, db.get_merge_policy("works", "work_title") reads that column
+            setting.
 
 
         :param table: Table containing the column.
@@ -573,12 +662,17 @@ class DatabaseMetadataMixinAPI(abc.ABC):
         merge_policy: ColumnMergePolicy,
     ) -> None:
         """
-        Delegate storage of the policy for combining an incoming value with existing data.
+        Delegate storage of the policy for combining an incoming value with existing
+        data.
 
-        Abstract hook; subclasses supply the operation. Concrete Database behavior: The facade does not validate, normalize or migrate the supplied policy; wrapper/driver errors propagate.
+        Abstract hook; subclasses supply the operation. Concrete Database behavior: The
+        facade does not validate, normalize or migrate the supplied policy;
+        wrapper/driver errors propagate.
 
         Example:
-            For an open writable db with a current policy schema, db.set_merge_policy("works", "work_title", ColumnMergePolicy.PRESERVE_EXISTING) requests the new setting.
+            For an open writable db with a current policy schema,
+            db.set_merge_policy("works", "work_title",
+            ColumnMergePolicy.PRESERVE_EXISTING) requests the new setting.
 
 
         :param table: Table containing the column.
@@ -596,10 +690,13 @@ class DatabaseMetadataMixinAPI(abc.ABC):
         """
         Read the validation profile for incoming values.
 
-        Abstract hook; subclasses supply the operation. Concrete Database behavior: Read behavior and legacy defaults belong to the driver; this facade forwards the table and column unchanged.
+        Abstract hook; subclasses supply the operation. Concrete Database behavior: Read
+        behavior and legacy defaults belong to the driver; this facade forwards the
+        table and column unchanged.
 
         Example:
-            For an open db, db.get_validation_profile("works", "work_title") reads that column setting.
+            For an open db, db.get_validation_profile("works", "work_title") reads that
+            column setting.
 
 
         :param table: Table containing the column.
@@ -617,10 +714,14 @@ class DatabaseMetadataMixinAPI(abc.ABC):
         """
         Delegate storage of the validation profile for incoming values.
 
-        Abstract hook; subclasses supply the operation. Concrete Database behavior: The facade does not validate, normalize or migrate the supplied policy; wrapper/driver errors propagate.
+        Abstract hook; subclasses supply the operation. Concrete Database behavior: The
+        facade does not validate, normalize or migrate the supplied policy;
+        wrapper/driver errors propagate.
 
         Example:
-            For an open writable db with a current policy schema, db.set_validation_profile("works", "work_title", ColumnValidationProfile.VERBATIM_TEXT) requests the new setting.
+            For an open writable db with a current policy schema,
+            db.set_validation_profile("works", "work_title",
+            ColumnValidationProfile.VERBATIM_TEXT) requests the new setting.
 
 
         :param table: Table containing the column.
@@ -638,10 +739,13 @@ class DatabaseMetadataMixinAPI(abc.ABC):
         """
         Read the options for formatting a value.
 
-        Abstract hook; subclasses supply the operation. Concrete Database behavior: Read behavior and legacy defaults belong to the driver; this facade forwards the table and column unchanged.
+        Abstract hook; subclasses supply the operation. Concrete Database behavior: Read
+        behavior and legacy defaults belong to the driver; this facade forwards the
+        table and column unchanged.
 
         Example:
-            For an open db, db.get_formatting_options("works", "work_title") reads that column setting.
+            For an open db, db.get_formatting_options("works", "work_title") reads that
+            column setting.
 
 
         :param table: Table containing the column.
@@ -659,15 +763,20 @@ class DatabaseMetadataMixinAPI(abc.ABC):
         """
         Delegate storage of the options for formatting a value.
 
-        Abstract hook; subclasses supply the operation. Concrete Database behavior: The facade does not validate, normalize or migrate the supplied policy; wrapper/driver errors propagate.
+        Abstract hook; subclasses supply the operation. Concrete Database behavior: The
+        facade does not validate, normalize or migrate the supplied policy;
+        wrapper/driver errors propagate.
 
         Example:
-            For an open writable db with a current policy schema, db.set_formatting_options("works", "work_title", {"template": "{value}"}) requests the new setting.
+            For an open writable db with a current policy schema,
+            db.set_formatting_options("works", "work_title", {"template": "{value}"})
+            requests the new setting.
 
 
         :param table: Table containing the column.
         :param column: Column name within that table.
-        :param formatting_options: Mapping of formatting option names to values to persist.
+        :param formatting_options: Mapping of formatting option names to values to
+            persist.
         :return: None.
         """
 
@@ -680,10 +789,13 @@ class DatabaseMetadataMixinAPI(abc.ABC):
         """
         Read the presentation options for the column.
 
-        Abstract hook; subclasses supply the operation. Concrete Database behavior: Read behavior and legacy defaults belong to the driver; this facade forwards the table and column unchanged.
+        Abstract hook; subclasses supply the operation. Concrete Database behavior: Read
+        behavior and legacy defaults belong to the driver; this facade forwards the
+        table and column unchanged.
 
         Example:
-            For an open db, db.get_display_options("works", "work_title") reads that column setting.
+            For an open db, db.get_display_options("works", "work_title") reads that
+            column setting.
 
 
         :param table: Table containing the column.
@@ -701,15 +813,20 @@ class DatabaseMetadataMixinAPI(abc.ABC):
         """
         Delegate storage of the presentation options for the column.
 
-        Abstract hook; subclasses supply the operation. Concrete Database behavior: The facade does not validate, normalize or migrate the supplied policy; wrapper/driver errors propagate.
+        Abstract hook; subclasses supply the operation. Concrete Database behavior: The
+        facade does not validate, normalize or migrate the supplied policy;
+        wrapper/driver errors propagate.
 
         Example:
-            For an open writable db with a current policy schema, db.set_display_options("works", "work_title", {"label": "Title", "visible": True}) requests the new setting.
+            For an open writable db with a current policy schema,
+            db.set_display_options("works", "work_title", {"label": "Title", "visible":
+            True}) requests the new setting.
 
 
         :param table: Table containing the column.
         :param column: Column name within that table.
-        :param display_options: Mapping of presentation option names to values to persist.
+        :param display_options: Mapping of presentation option names to values to
+            persist.
         :return: None.
         """
 
@@ -723,10 +840,14 @@ class DatabaseMetadataMixinAPI(abc.ABC):
         """
         Delegate storage of the case-sensitive comparison flag.
 
-        Abstract hook; subclasses supply the operation. Concrete Database behavior: The facade does not validate, normalize or migrate the supplied policy; wrapper/driver errors propagate.
+        Abstract hook; subclasses supply the operation. Concrete Database behavior: The
+        facade does not validate, normalize or migrate the supplied policy;
+        wrapper/driver errors propagate.
 
         Example:
-            For an open writable db with a current policy schema, db.set_case_sensitivity("works", "work_title", True) requests the new setting.
+            For an open writable db with a current policy schema,
+            db.set_case_sensitivity("works", "work_title", True) requests the new
+            setting.
 
 
         :param table: Table containing the column.
@@ -740,7 +861,8 @@ class DatabaseMetadataMixinAPI(abc.ABC):
         Read the case-sensitivity flag through the facade alias.
 
         Example:
-            For an open db, db.is_column_case_sensitive("works", "work_title") uses the same read path as db.get_case_sensitivity(...).
+            For an open db, db.is_column_case_sensitive("works", "work_title") uses the
+            same read path as db.get_case_sensitivity(...).
 
 
         :param table: Table containing the column.
@@ -760,7 +882,8 @@ class DatabaseMetadataMixinAPI(abc.ABC):
         Set the case-sensitivity flag through the facade alias.
 
         Example:
-            For an open writable db, db.set_column_case_sensitive("works", "work_title", True) delegates to set_case_sensitivity.
+            For an open writable db, db.set_column_case_sensitive("works", "work_title",
+            True) delegates to set_case_sensitivity.
 
 
         :param table: Table containing the column.
@@ -776,10 +899,12 @@ class DatabaseMetadataMixinAPI(abc.ABC):
         """
         Delegate ordered column discovery for a view.
 
-        Abstract hook; subclasses supply the operation. Concrete Database behavior: Delegate ordered column discovery for a view.
+        Abstract hook; subclasses supply the operation. Concrete Database behavior:
+        Delegate ordered column discovery for a view.
 
         Example:
-            For an open db with the compatibility view, db.get_view_column_headings("titles") lists its projected fields.
+            For an open db with the compatibility view,
+            db.get_view_column_headings("titles") lists its projected fields.
 
 
         :param view: Target view name.
@@ -791,13 +916,16 @@ class DatabaseMetadataMixinAPI(abc.ABC):
         """
         Return the wrapper mapping of tables to column collections.
 
-        Abstract hook; subclasses supply the operation. Concrete Database behavior: Iterate items() to receive table/column pairs rather than table-name keys.
+        Abstract hook; subclasses supply the operation. Concrete Database behavior:
+        Iterate items() to receive table/column pairs rather than table-name keys.
 
         Example:
-            For an open db, columns = db.get_tables_and_columns()["works"] retrieves its known work columns.
+            For an open db, columns = db.get_tables_and_columns()["works"] retrieves its
+            known work columns.
 
 
-        :return: Table-to-columns mapping; concrete backend collections may differ from the list annotation.
+        :return: Table-to-columns mapping; concrete backend collections may differ from
+            the list annotation.
         """
 
     @abc.abstractmethod
@@ -805,10 +933,12 @@ class DatabaseMetadataMixinAPI(abc.ABC):
         """
         Delegate the current row count of a table.
 
-        Abstract hook; subclasses supply the operation. Concrete Database behavior: Delegate the current row count of a table.
+        Abstract hook; subclasses supply the operation. Concrete Database behavior:
+        Delegate the current row count of a table.
 
         Example:
-            For an open db, db.get_record_count("works") counts its current work records.
+            For an open db, db.get_record_count("works") counts its current work
+            records.
 
 
         :param target_table: Target table name.
@@ -820,10 +950,12 @@ class DatabaseMetadataMixinAPI(abc.ABC):
         """
         Delegate a column maximum directly to the backend driver.
 
-        Abstract hook; subclasses supply the operation. Concrete Database behavior: Delegate a column maximum directly to the backend driver.
+        Abstract hook; subclasses supply the operation. Concrete Database behavior:
+        Delegate a column maximum directly to the backend driver.
 
         Example:
-            For an open db, db.get_max("work_id") queries the driver maximum rather than inspecting loaded Rows.
+            For an open db, db.get_max("work_id") queries the driver maximum rather than
+            inspecting loaded Rows.
 
 
         :param column: Column identifier understood by the driver.
@@ -835,7 +967,8 @@ class DatabaseMetadataMixinAPI(abc.ABC):
         """
         Delegate a column minimum directly to the backend driver.
 
-        Abstract hook; subclasses supply the operation. Concrete Database behavior: Delegate a column minimum directly to the backend driver.
+        Abstract hook; subclasses supply the operation. Concrete Database behavior:
+        Delegate a column minimum directly to the backend driver.
 
         Example:
             For an open db, db.get_min("work_id") queries its driver minimum.
@@ -848,12 +981,17 @@ class DatabaseMetadataMixinAPI(abc.ABC):
     @abc.abstractmethod
     def row_counts(self) -> str:
         """
-        Format record counts for each cached main, interlink, self-link and helper table.
+        Format record counts for each cached main, interlink, self-link and helper
+        table.
 
-        Abstract hook; subclasses supply the operation. Concrete Database behavior: Sort table names within each category and query them individually. This is not an atomic snapshot; absent cached categories or missing tables can fail. The result is returned, not printed.
+        Abstract hook; subclasses supply the operation. Concrete Database behavior: Sort
+        table names within each category and query them individually. This is not an
+        atomic snapshot; absent cached categories or missing tables can fail. The result
+        is returned, not printed.
 
         Example:
-            For a fully initialized db, report = db.row_counts() captures the categorized table counts as text.
+            For a fully initialized db, report = db.row_counts() captures the
+            categorized table counts as text.
 
 
         :return: Multiline string summarizing table counts.
@@ -868,10 +1006,13 @@ class DatabaseMetadataMixinAPI(abc.ABC):
         """
         Return the cached database UUID or load it once from the wrapper.
 
-        Abstract hook; subclasses supply the operation. Concrete Database behavior: A None cache triggers another load. The _uuid attribute must already exist; this getter does not generate a missing UUID itself.
+        Abstract hook; subclasses supply the operation. Concrete Database behavior: A
+        None cache triggers another load. The _uuid attribute must already exist; this
+        getter does not generate a missing UUID itself.
 
         Example:
-            For an initialized concrete db, db.uuid reads its cached value or follows the documented backend lookup path.
+            For an initialized concrete db, db.uuid reads its cached value or follows
+            the documented backend lookup path.
 
 
         :return: Cached wrapper UUID value.
@@ -883,10 +1024,12 @@ class DatabaseMetadataMixinAPI(abc.ABC):
         """
         Assign the UUID cache before asking the wrapper to persist it.
 
-        Abstract hook; subclasses supply the operation. Concrete Database behavior: If persistence fails, the assigned cache is not restored.
+        Abstract hook; subclasses supply the operation. Concrete Database behavior: If
+        persistence fails, the assigned cache is not restored.
 
         Example:
-            For an open db, db.uuid = replacement_uuid updates the local cache and delegates storage.
+            For an open db, db.uuid = replacement_uuid updates the local cache and
+            delegates storage.
 
 
         :param value: UUID value passed unchanged to the wrapper.
@@ -901,10 +1044,15 @@ class DatabaseMetadataMixinAPI(abc.ABC):
         """
         Read a cached library identifier, generating one when the query returns None.
 
-        Abstract hook; subclasses supply the operation. Concrete Database behavior: The nonempty query result is retained directly without extracting its first column; its shape therefore depends on wrapper.get(all=False). A missing value invokes the setter and writes through macros. Reading this property is not always read-only.
+        Abstract hook; subclasses supply the operation. Concrete Database behavior: The
+        nonempty query result is retained directly without extracting its first column;
+        its shape therefore depends on wrapper.get(all=False). A missing value invokes
+        the setter and writes through macros. Reading this property is not always
+        read-only.
 
         Example:
-            For an initialized concrete db, db.library_id reads its cached value or follows the documented backend lookup path.
+            For an initialized concrete db, db.library_id reads its cached value or
+            follows the documented backend lookup path.
 
 
         :return: Cached wrapper query result, or generated UUID text.
@@ -916,13 +1064,16 @@ class DatabaseMetadataMixinAPI(abc.ABC):
         """
         Cache the textual library identifier and delegate storage of the original value.
 
-        Abstract hook; subclasses supply the operation. Concrete Database behavior: The cache changes before storage and is not restored on failure.
+        Abstract hook; subclasses supply the operation. Concrete Database behavior: The
+        cache changes before storage and is not restored on failure.
 
         Example:
-            For an open db, db.library_id = replacement_uuid caches its text and calls the library-ID macro.
+            For an open db, db.library_id = replacement_uuid caches its text and calls
+            the library-ID macro.
 
 
-        :param value: Identifier converted to text for the cache but passed unchanged to macros.
+        :param value: Identifier converted to text for the cache but passed unchanged to
+            macros.
         :return: None.
         """
 
@@ -932,12 +1083,16 @@ class DatabaseMetadataMixinAPI(abc.ABC):
     @abc.abstractmethod
     def database_version(self) -> str:
         """
-        Return the cached version or read the last version row from the primary connection.
+        Return the cached version or read the last version row from the primary
+        connection.
 
-        Abstract hook; subclasses supply the operation. Concrete Database behavior: A None result is queried again on the next access. This method does not create a version row or explicitly close its cursor.
+        Abstract hook; subclasses supply the operation. Concrete Database behavior: A
+        None result is queried again on the next access. This method does not create a
+        version row or explicitly close its cursor.
 
         Example:
-            For an initialized concrete db, db.database_version reads its cached value or follows the documented backend lookup path.
+            For an initialized concrete db, db.database_version reads its cached value
+            or follows the documented backend lookup path.
 
 
         :return: Last queried version value, or None when there are no rows.
@@ -949,13 +1104,17 @@ class DatabaseMetadataMixinAPI(abc.ABC):
         """
         Cache version text before passing the original value to its storage macro.
 
-        Abstract hook; subclasses supply the operation. Concrete Database behavior: The cached value remains changed if the macro rejects a protected version table or otherwise fails.
+        Abstract hook; subclasses supply the operation. Concrete Database behavior: The
+        cached value remains changed if the macro rejects a protected version table or
+        otherwise fails.
 
         Example:
-            When the backend permits version changes, db.database_version = version delegates persistence after updating the cache.
+            When the backend permits version changes, db.database_version = version
+            delegates persistence after updating the cache.
 
 
-        :param value: Version converted to text for the cache and passed unchanged to macros.
+        :param value: Version converted to text for the cache and passed unchanged to
+            macros.
         :return: None.
         """
 

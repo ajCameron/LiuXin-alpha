@@ -278,7 +278,9 @@ class DatabaseDriver(
         Example:
             >>> metadata = {"database_path": ":memory:"}
             >>> queue = []
-            >>> driver = DatabaseDriver(metadata, set_conn=False, dirty_records_queue=queue)
+            >>> driver = DatabaseDriver(
+            ...     metadata, set_conn=False, dirty_records_queue=queue
+            ... )
             >>> driver.db_metadata is metadata and driver.dirty_records_queue is queue
             True
             >>> driver.event_count, driver.conn
@@ -416,7 +418,9 @@ class DatabaseDriver(
             0
             >>> conn.get("PRAGMA foreign_keys", all=False)
             1
-            >>> conn.get_row("SELECT 'abc' REGEXP 'b', books_list_filter(999)", all=False)
+            >>> conn.get_row(
+            ...     "SELECT 'abc' REGEXP 'b', books_list_filter(999)", all=False
+            ... )
             (1, 1)
             >>> driver.conn is None and conn in driver._open_connections
             True
@@ -570,7 +574,9 @@ class DatabaseDriver(
         Example:
             >>> import tempfile
             >>> with tempfile.NamedTemporaryFile() as file:
-            ...     driver = DatabaseDriver({"database_path": file.name}, set_conn=False)
+            ...     driver = DatabaseDriver(
+            ...         {"database_path": file.name}, set_conn=False
+            ...     )
             ...     modified = driver.last_modified()
             >>> modified.utcoffset().total_seconds()
             0.0
@@ -707,7 +713,9 @@ class DatabaseDriver(
 
         Example:
             With a committed file-backed database and an available scratch directory:
-            >>> driver.dump_and_restore(callback=print, sql="CREATE TABLE restore_note (value TEXT);")  # doctest: +SKIP
+            >>> driver.dump_and_restore(
+            ...     callback=print, sql="CREATE TABLE restore_note (value TEXT);"
+            ... )  # doctest: +SKIP
 
 
         :param callback: Callable receiving two localized progress strings, before

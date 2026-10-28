@@ -4,7 +4,10 @@
 """
 Provide reentrant shared/exclusive thread locks and database lock adapters.
 
-SHLock coordinates readers and writers in one process; it is separate from database transaction/file locks. Wrappers supply context-manager entry/exit, optional diagnostics and guarded shared access while a writer is already owned. wrap_simple copies the wrapped callable metadata with functools.wraps.
+SHLock coordinates readers and writers in one process; it is separate from database
+transaction/file locks. Wrappers supply context-manager entry/exit, optional diagnostics
+and guarded shared access while a writer is already owned. wrap_simple copies the
+wrapped callable metadata with functools.wraps.
 """
 
 # Todo: Move this over to utils? Not really database specific.
@@ -30,7 +33,8 @@ class LockingError(RuntimeError):
     """
     Report invalid lock ownership or an unsupported mode transition.
 
-    A RuntimeError carrying is_locking_error=True and optional locking_debug_msg context. The extra context is stored separately from the exception message.
+    A RuntimeError carrying is_locking_error=True and optional locking_debug_msg
+    context. The extra context is stored separately from the exception message.
 
     Example:
         >>> error = LockingError("unheld", extra="worker")
@@ -61,7 +65,8 @@ class DowngradeLockError(LockingError):
     """
     Signal an attempt to acquire a shared lock while owning its exclusive mode.
 
-    This LockingError subtype allows safe-read adapters to recognize an already-held writer. Shared-to-exclusive upgrades raise the base LockingError instead.
+    This LockingError subtype allows safe-read adapters to recognize an already-held
+    writer. Shared-to-exclusive upgrades raise the base LockingError instead.
 
     Example:
         >>> issubclass(DowngradeLockError, LockingError)
@@ -75,7 +80,10 @@ def create_locks() \
     """
     Create read and write context-manager wrappers over one new SHLock.
 
-    Select debug wrappers when newdb_debug_locking is enabled in preferences. Both modes are reentrant within one thread, but ordinary wrappers reject switching modes while the other mode is held. Release every acquisition before changing mode, or use the dedicated safe-read adapter when already holding the writer.
+    Select debug wrappers when newdb_debug_locking is enabled in preferences. Both modes
+    are reentrant within one thread, but ordinary wrappers reject switching modes while
+    the other mode is held. Release every acquisition before changing mode, or use the
+    dedicated safe-read adapter when already holding the writer.
 
     Example:
         >>> read_lock, write_lock = create_locks()
@@ -83,7 +91,8 @@ def create_locks() \
         True
 
 
-    :return: A (read_lock, write_lock) pair, sharing the same ownership counters and wait queues.
+    :return: A (read_lock, write_lock) pair, sharing the same ownership counters and
+        wait queues.
     """
     l = SHLock()
     wrapper = DebugRWLockWrapper if tweaks.get("newdb_debug_locking", False) else RWLockWrapper
@@ -94,7 +103,11 @@ class SHLock:  # {{{
     """
     Coordinate multiple readers or one writer with per-thread reentrancy.
 
-    A thread may repeatedly acquire its current mode, with one release required per acquisition. Upgrades and downgrades are rejected. New readers wait behind queued writers; a departing writer hands ownership to all queued readers before the next writer. Queues manage handoff without a timeout API; these rules are not a formal starvation guarantee.
+    A thread may repeatedly acquire its current mode, with one release required per
+    acquisition. Upgrades and downgrades are rejected. New readers wait behind queued
+    writers; a departing writer hands ownership to all queued readers before the next
+    writer. Queues manage handoff without a timeout API; these rules are not a formal
+    starvation guarantee.
 
     Example:
         >>> lock = SHLock()
@@ -139,7 +152,9 @@ class SHLock:  # {{{
         """
         Acquire shared or exclusive ownership for the current thread.
 
-        Serialize ownership bookkeeping with the internal mutex, then delegate to the selected mode helper. Reentrant acquisition succeeds immediately. Mode-change errors still raise when blocking=False.
+        Serialize ownership bookkeeping with the internal mutex, then delegate to the
+        selected mode helper. Reentrant acquisition succeeds immediately. Mode-change
+        errors still raise when blocking=False.
 
         Example:
             >>> lock = SHLock()
@@ -148,10 +163,13 @@ class SHLock:  # {{{
             >>> lock.release()
 
 
-        :param blocking: Whether to wait when another owner or an eligible queue prevents acquisition.
-        :param shared: True for reader mode; False, the default, for exclusive writer mode.
+        :param blocking: Whether to wait when another owner or an eligible queue
+            prevents acquisition.
+        :param shared: True for reader mode; False, the default, for exclusive writer
+            mode.
         :return: True on acquisition, or False for a nonblocking contention failure.
-        :raises DowngradeLockError: This thread owns the exclusive mode and requests shared mode.
+        :raises DowngradeLockError: This thread owns the exclusive mode and requests
+            shared mode.
         :raises LockingError: This thread owns shared mode and requests exclusive mode.
         """
         with self._lock:
@@ -164,7 +182,8 @@ class SHLock:  # {{{
         """
         Check whether the current thread holds either mode of this coordinator.
 
-        Read ownership while holding the internal mutex; ownership by another thread is insufficient.
+        Read ownership while holding the internal mutex; ownership by another thread is
+        insufficient.
 
         Example:
             >>> SHLock().owns_lock()
@@ -181,7 +200,10 @@ class SHLock:  # {{{
         """
         Release one acquisition owned by the current thread and hand off if necessary.
 
-        The last writer release grants ownership to all waiting readers, or the first waiting writer if no readers wait. The last reader release grants ownership to the first waiting writer. A remaining reentrant count keeps ownership without waking another group.
+        The last writer release grants ownership to all waiting readers, or the first
+        waiting writer if no readers wait. The last reader release grants ownership to
+        the first waiting writer. A remaining reentrant count keeps ownership without
+        waking another group.
 
         Example:
             >>> lock = SHLock()
@@ -243,7 +265,9 @@ class SHLock:  # {{{
         """
         Acquire reader ownership while the caller holds the internal mutex.
 
-        Existing readers may reenter despite queued writers. Other readers wait on a recycled condition and rely on release to assign their ownership before notification. Do not call this helper without self._lock held.
+        Existing readers may reenter despite queued writers. Other readers wait on a
+        recycled condition and rely on release to assign their ownership before
+        notification. Do not call this helper without self._lock held.
 
         Example:
             >>> lock = SHLock()
@@ -254,8 +278,10 @@ class SHLock:  # {{{
             >>> lock.release()
 
 
-        :param blocking: Whether to queue and wait when a writer owns or is waiting for the lock.
-        :return: True after acquiring or reentering reader mode; False for nonblocking contention.
+        :param blocking: Whether to queue and wait when a writer owns or is waiting for
+            the lock.
+        :return: True after acquiring or reentering reader mode; False for nonblocking
+            contention.
         :raises DowngradeLockError: The calling thread already owns exclusive mode.
         """
         me = current_thread()
@@ -287,7 +313,9 @@ class SHLock:  # {{{
         """
         Acquire writer ownership while the caller holds the internal mutex.
 
-        Reenter for the current exclusive owner; otherwise reject a current reader before considering blocking. Waiting writers enter a FIFO queue and rely on release to assign ownership before notification.
+        Reenter for the current exclusive owner; otherwise reject a current reader
+        before considering blocking. Waiting writers enter a FIFO queue and rely on
+        release to assign ownership before notification.
 
         Example:
             >>> lock = SHLock()
@@ -298,7 +326,8 @@ class SHLock:  # {{{
             >>> lock.release()
 
 
-        :param blocking: Whether to queue and wait for existing readers or another writer.
+        :param blocking: Whether to queue and wait for existing readers or another
+            writer.
         :return: True after acquisition or reentry; False for nonblocking contention.
         :raises LockingError: The calling thread already owns shared mode.
         """
@@ -331,7 +360,8 @@ class SHLock:  # {{{
         """
         Take a reusable condition or create one bound to the internal mutex.
 
-        Caller must synchronize access to the pool with self._lock. Conditions are reused in last-returned-first order.
+        Caller must synchronize access to the pool with self._lock. Conditions are
+        reused in last-returned-first order.
 
         Example:
             >>> lock = SHLock()
@@ -340,7 +370,8 @@ class SHLock:  # {{{
             ...     lock._return_waiter(waiter)
 
 
-        :return: A Condition using self._lock; it is not yet added to an ownership queue.
+        :return: A Condition using self._lock; it is not yet added to an ownership
+            queue.
         """
         try:
             return self._free_waiters.pop()
@@ -351,7 +382,8 @@ class SHLock:  # {{{
         """
         Put a finished condition back in the reusable waiter pool.
 
-        Caller must hold self._lock. This helper only appends to the pool; it does not notify threads or remove queue entries.
+        Caller must hold self._lock. This helper only appends to the pool; it does not
+        notify threads or remove queue entries.
 
         Example:
             >>> lock = SHLock()
@@ -362,7 +394,8 @@ class SHLock:  # {{{
             1
 
 
-        :param waiter: Condition previously taken from this coordinator and no longer actively waiting.
+        :param waiter: Condition previously taken from this coordinator and no longer
+            actively waiting.
         :return: None.
         """
         self._free_waiters.append(waiter)
@@ -375,7 +408,9 @@ class RWLockWrapper:
     """
     Expose one fixed SHLock mode as a blocking context manager.
 
-    Read and write wrappers may share one coordinator. Entry returns None; exit releases one acquisition and does not suppress body exceptions. owns_lock asks about either underlying mode, not only this wrapper’s selected mode.
+    Read and write wrappers may share one coordinator. Entry returns None; exit releases
+    one acquisition and does not suppress body exceptions. owns_lock asks about either
+    underlying mode, not only this wrapper’s selected mode.
 
     Example:
         >>> wrapper = RWLockWrapper(SHLock())
@@ -405,7 +440,8 @@ class RWLockWrapper:
         """
         Block until the underlying coordinator grants this wrapper’s mode.
 
-        The coordinator’s boolean result is discarded. Reentrancy and mode-transition errors follow SHLock.acquire.
+        The coordinator’s boolean result is discarded. Reentrancy and mode-transition
+        errors follow SHLock.acquire.
 
         Example:
             >>> wrapper = RWLockWrapper(SHLock())
@@ -452,7 +488,8 @@ class RWLockWrapper:
             >>> writer.release()
 
 
-        :return: Underlying SHLock.owns_lock result, irrespective of this wrapper’s fixed mode.
+        :return: Underlying SHLock.owns_lock result, irrespective of this wrapper’s
+            fixed mode.
         """
 
         return self._shlock.owns_lock()
@@ -462,7 +499,9 @@ class DebugRWLockWrapper(RWLockWrapper):
     """
     Add stderr ownership diagnostics and stack traces around wrapper operations.
 
-    Acquire/release delegate to RWLockWrapper after printing their call context, then print completion details on success. Errors propagate and omit the completion message. Context-manager aliases use these diagnostic methods.
+    Acquire/release delegate to RWLockWrapper after printing their call context, then
+    print completion details on success. Errors propagate and omit the completion
+    message. Context-manager aliases use these diagnostic methods.
 
     Example:
         debug_lock = DebugRWLockWrapper(SHLock(), is_shared=False)
@@ -490,7 +529,8 @@ class DebugRWLockWrapper(RWLockWrapper):
         """
         Print the calling thread and stack, then acquire the configured mode.
 
-        Diagnostics go to stderr and include whether this wrapper requests shared access.
+        Diagnostics go to stderr and include whether this wrapper requests shared
+        access.
 
         Example:
             debug_lock.acquire()
@@ -519,7 +559,8 @@ class DebugRWLockWrapper(RWLockWrapper):
         """
         Print release diagnostics around one underlying release.
 
-        After a successful release, print shared/exclusive counts. Invalid-owner errors propagate after the initial diagnostics.
+        After a successful release, print shared/exclusive counts. Invalid-owner errors
+        propagate after the initial diagnostics.
 
         Example:
             debug_lock.acquire()
@@ -558,7 +599,10 @@ class SafeReadLock:
     """
     Skip a redundant read acquisition when this thread already owns the writer.
 
-    Only DowngradeLockError from read acquisition is swallowed. Body exceptions still propagate; exit prints its positional exception arguments to stdout. The acquired flag tracks a single outstanding acquisition, so use a separate adapter for nested entries rather than reentering one instance.
+    Only DowngradeLockError from read acquisition is swallowed. Body exceptions still
+    propagate; exit prints its positional exception arguments to stdout. The acquired
+    flag tracks a single outstanding acquisition, so use a separate adapter for nested
+    entries rather than reentering one instance.
 
     Example:
         >>> reader = RWLockWrapper(SHLock())
@@ -586,7 +630,9 @@ class SafeReadLock:
         """
         Acquire the reader unless the coordinator reports an already-held writer.
 
-        Set acquired=True after a successful underlying acquire. A caught DowngradeLockError leaves the flag unchanged; use a fresh or fully released adapter. Other errors propagate.
+        Set acquired=True after a successful underlying acquire. A caught
+        DowngradeLockError leaves the flag unchanged; use a fresh or fully released
+        adapter. Other errors propagate.
 
         Example:
             >>> coordinator = SHLock()
@@ -615,7 +661,9 @@ class SafeReadLock:
         """
         Release the reader only when this adapter recorded an acquisition.
 
-        Reset acquired=False after any needed release succeeds. Repeated release with no acquisition does nothing except optional printing. If underlying release raises, the flag remains set.
+        Reset acquired=False after any needed release succeeds. Repeated release with no
+        acquisition does nothing except optional printing. If underlying release raises,
+        the flag remains set.
 
         Example:
             >>> safe = SafeReadLock(RWLockWrapper(SHLock()))
@@ -624,7 +672,8 @@ class SafeReadLock:
             False
 
 
-        :param args: Optional context-exit arguments; a nonempty argument tuple is printed to stdout.
+        :param args: Optional context-exit arguments; a nonempty argument tuple is
+            printed to stdout.
         :return: None; body exceptions are not suppressed.
         """
 
@@ -648,7 +697,11 @@ def wrap_simple(lock: Lock, func: Callable[P, R]) -> Callable[P, R]:
     """
     Wrap a callable in a lock context with an already-held-writer fallback.
 
-    Catch DowngradeLockError from the entire with block and call func again outside that context. This includes errors raised by func or context exit, so a partially executed function can be invoked twice. Other exceptions propagate according to the context manager. functools.wraps copies func.__doc__ over the nested wrapper’s source docstring.
+    Catch DowngradeLockError from the entire with block and call func again outside that
+    context. This includes errors raised by func or context exit, so a partially
+    executed function can be invoked twice. Other exceptions propagate according to the
+    context manager. functools.wraps copies func.__doc__ over the nested wrapper’s
+    source docstring.
 
     Example:
         >>> wrapped = wrap_simple(Lock(), lambda value: value + 1)
@@ -656,7 +709,8 @@ def wrap_simple(lock: Lock, func: Callable[P, R]) -> Callable[P, R]:
         5
 
 
-    :param lock: Context manager protecting the call, typically a thread lock or read wrapper.
+    :param lock: Context manager protecting the call, typically a thread lock or read
+        wrapper.
     :param func: Callable whose arguments, result and metadata are preserved.
     :return: Wrapped callable using the supplied lock on each invocation.
     """
@@ -666,7 +720,9 @@ def wrap_simple(lock: Lock, func: Callable[P, R]) -> Callable[P, R]:
         """
         Invoke the captured callable under its captured lock, retrying a downgrade.
 
-        On DowngradeLockError anywhere in the with block, invoke func outside the context. A failure from that retry propagates. The decorator replaces this source documentation with the wrapped callable’s runtime metadata.
+        On DowngradeLockError anywhere in the with block, invoke func outside the
+        context. A failure from that retry propagates. The decorator replaces this
+        source documentation with the wrapped callable’s runtime metadata.
 
         Example:
             >>> wrapped = wrap_simple(Lock(), lambda left, right=0: left + right)
@@ -676,7 +732,8 @@ def wrap_simple(lock: Lock, func: Callable[P, R]) -> Callable[P, R]:
 
         :param args: Positional arguments forwarded unchanged to func.
         :param kwargs: Keyword arguments forwarded unchanged to func.
-        :return: func’s result, or None if the context manager suppresses an exception before a return.
+        :return: func’s result, or None if the context manager suppresses an exception
+            before a return.
         """
         try:
             with lock:

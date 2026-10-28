@@ -30,8 +30,8 @@ class CMCreatorMacrosMixin:
         """
         Read creator_sort from the first returned row.
 
-        Expects self.get() to return indexable rows; IndexError becomes None, while other
-        shape/query errors propagate.
+        Expects self.get() to return indexable rows; IndexError becomes None, while
+        other shape/query errors propagate.
 
         Example:
             >>> metadata_sql.get_creator_sort(1)  # doctest: +SKIP
@@ -50,8 +50,8 @@ class CMCreatorMacrosMixin:
         """
         Read creator_link from the first returned row.
 
-        Expects self.get() to return indexable rows; IndexError becomes None, while other
-        shape/query errors propagate.
+        Expects self.get() to return indexable rows; IndexError becomes None, while
+        other shape/query errors propagate.
 
         Example:
             >>> metadata_sql.get_creator_link(1)  # doctest: +SKIP
@@ -74,18 +74,26 @@ class CMCreatorMacrosMixin:
         Forwards the iterable unchanged; the earlier ID-first description was incorrect.
 
         Transaction and cache behavior for delegated SQL follows the host
-        execute/executemany implementation; this method adds no separate transaction guard.
+        execute/executemany implementation; this method adds no separate transaction
+        guard.
 
         Example:
             >>> import sqlite3
             >>> from types import SimpleNamespace
-            >>> conn = sqlite3.connect(':memory:')
-            >>> _ = conn.execute('CREATE TABLE creators (creator_id INTEGER PRIMARY KEY, creator_link TEXT, creator_sort TEXT)')
+            >>> conn = sqlite3.connect(":memory:")
+            >>> _ = conn.execute(
+            ...     "CREATE TABLE creators (creator_id INTEGER PRIMARY KEY, "
+            ...     "creator_link TEXT, creator_sort TEXT)"
+            ... )
             >>> _ = conn.execute("INSERT INTO creators VALUES (1, 'old', 'Old')")
             >>> conn.commit()
             >>> host = SimpleNamespace(executemany=conn.executemany)
-            >>> CMCreatorMacrosMixin.update_creator_links(host, [('https://example.org/jane', 1)])
-            >>> conn.execute('SELECT creator_link FROM creators WHERE creator_id=1').fetchone()
+            >>> CMCreatorMacrosMixin.update_creator_links(
+            ...     host, [("https://example.org/jane", 1)]
+            ... )
+            >>> conn.execute(
+            ...     "SELECT creator_link FROM creators WHERE creator_id=1"
+            ... ).fetchone()
             ('https://example.org/jane',)
             >>> conn.close()
 
@@ -102,18 +110,24 @@ class CMCreatorMacrosMixin:
         Batch-write creator_sort from (new_sort, creator_id) bindings.
 
         Transaction and cache behavior for delegated SQL follows the host
-        execute/executemany implementation; this method adds no separate transaction guard.
+        execute/executemany implementation; this method adds no separate transaction
+        guard.
 
         Example:
             >>> import sqlite3
             >>> from types import SimpleNamespace
-            >>> conn = sqlite3.connect(':memory:')
-            >>> _ = conn.execute('CREATE TABLE creators (creator_id INTEGER PRIMARY KEY, creator_link TEXT, creator_sort TEXT)')
+            >>> conn = sqlite3.connect(":memory:")
+            >>> _ = conn.execute(
+            ...     "CREATE TABLE creators (creator_id INTEGER PRIMARY KEY, "
+            ...     "creator_link TEXT, creator_sort TEXT)"
+            ... )
             >>> _ = conn.execute("INSERT INTO creators VALUES (1, 'old', 'Old')")
             >>> conn.commit()
             >>> host = SimpleNamespace(executemany=conn.executemany)
-            >>> CMCreatorMacrosMixin.update_creator_sorts(host, [('Doe, Jane', 1)])
-            >>> conn.execute('SELECT creator_sort FROM creators WHERE creator_id=1').fetchone()
+            >>> CMCreatorMacrosMixin.update_creator_sorts(host, [("Doe, Jane", 1)])
+            >>> conn.execute(
+            ...     "SELECT creator_sort FROM creators WHERE creator_id=1"
+            ... ).fetchone()
             ('Doe, Jane',)
             >>> conn.close()
 
@@ -135,7 +149,8 @@ class CMCreatorMacrosMixin:
         Read every creator ID, name, sort value and link without explicit ordering.
 
         Transaction and cache behavior for delegated SQL follows the host
-        execute/executemany implementation; this method adds no separate transaction guard.
+        execute/executemany implementation; this method adds no separate transaction
+        guard.
 
         Example:
             >>> metadata_sql.read_creator_with_sort_and_link()  # doctest: +SKIP

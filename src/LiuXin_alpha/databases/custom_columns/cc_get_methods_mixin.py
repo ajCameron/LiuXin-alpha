@@ -2,7 +2,9 @@
 """
 Read legacy custom values from results-cache rows and custom SQL tables.
 
-Hosts must supply metadata maps, FIELD_MAP and compatible data/id accessors for cached reads, plus naming and macro helpers for SQL-backed reads. These helpers do not refresh the cache before accessing it.
+Hosts must supply metadata maps, FIELD_MAP and compatible data/id accessors for cached
+reads, plus naming and macro helpers for SQL-backed reads. These helpers do not refresh
+the cache before accessing it.
 """
 
 from __future__ import annotations
@@ -20,10 +22,14 @@ class CCGetMethodsMixin:
     """
     Expose cached custom values, series extras and stored value inventories.
 
-    Select metadata by label before num. A configured results cache is required for positional/ID reads; the plain empty data dictionary used by standalone CustomColumns construction does not provide the complete interface. Multiple text reads use stable case-insensitive sorting when sort_alpha is enabled.
+    Select metadata by label before num. A configured results cache is required for
+    positional/ID reads; the plain empty data dictionary used by standalone
+    CustomColumns construction does not provide the complete interface. Multiple text
+    reads use stable case-insensitive sorting when sort_alpha is enabled.
 
     Example:
-        A host with a populated results cache can call get_custom(book_id, num=column_id, index_is_id=True) to read that owner’s current cached value.
+        A host with a populated results cache can call get_custom(book_id,
+        num=column_id, index_is_id=True) to read that owner’s current cached value.
     """
 
     # Begin Convenience methods for getting and setting custom data - {{{
@@ -36,20 +42,31 @@ class CCGetMethodsMixin:
         """
         Read one custom value from a positional or ID-indexed cache row.
 
-        Locate the slot through FIELD_MAP[data["num"]]. If display.sort_alpha is true for multiple text, sort the new list by lowercase form. Other datatypes return the stored object unchanged.
+        Locate the slot through FIELD_MAP[data["num"]]. If display.sort_alpha is true
+        for multiple text, sort the new list by lowercase form. Other datatypes return
+        the stored object unchanged.
 
         Example:
             >>> from types import SimpleNamespace
-            >>> host = SimpleNamespace(custom_column_num_map={1: {"num": 1, "is_multiple": False, "datatype": "int"}}, data=[[7]], FIELD_MAP={1: 0})
+            >>> host = SimpleNamespace(
+            ...     custom_column_num_map={
+            ...         1: {"num": 1, "is_multiple": False, "datatype": "int"}
+            ...     },
+            ...     data=[[7]],
+            ...     FIELD_MAP={1: 0},
+            ... )
             >>> CCGetMethodsMixin.get_custom(host, 0, num=1)
             7
 
 
         :param idx: Cache position, or owner ID when index_is_id=True.
-        :param label: Optional label selecting custom_column_label_map; takes precedence over num.
+        :param label: Optional label selecting custom_column_label_map; takes precedence
+            over num.
         :param num: Numeric custom-column ID used when label is None.
-        :param index_is_id: Use self.data._data[idx] instead of self.data[idx] when True.
-        :return: Cached value, with text/multiple strings split into a new list; empty such values become [].
+        :param index_is_id: Use self.data._data[idx] instead of self.data[idx] when
+            True.
+        :return: Cached value, with text/multiple strings split into a new list; empty
+            such values become [].
         :raises NotImplementedError: Neither label nor num is supplied.
         :raises KeyError: The chosen metadata key is absent.
         """
@@ -78,7 +95,9 @@ class CCGetMethodsMixin:
         """
         Read the link-table extra value for a series column.
 
-        Use stored in_table or books to derive the link-table name, then direct_get_custom_extra on the host’s connection. No cached custom value is read here.
+        Use stored in_table or books to derive the link-table name, then
+        direct_get_custom_extra on the host’s connection. No cached custom value is read
+        here.
 
         Example:
             >>> from types import SimpleNamespace
@@ -88,10 +107,13 @@ class CCGetMethodsMixin:
 
 
         :param idx: Cache position or owner ID.
-        :param label: Optional label selecting custom_column_label_map; takes precedence over num.
+        :param label: Optional label selecting custom_column_label_map; takes precedence
+            over num.
         :param num: Numeric custom-column ID used when label is None.
-        :param index_is_id: Treat idx as an owner ID when True; otherwise resolve it through self.id.
-        :return: Delegated series extra, usually a scalar or None; None immediately for non-series columns.
+        :param index_is_id: Treat idx as an owner ID when True; otherwise resolve it
+            through self.id.
+        :return: Delegated series extra, usually a scalar or None; None immediately for
+            non-series columns.
         :raises NotImplementedError: Neither label nor num is supplied.
         :raises KeyError: The chosen metadata key is absent.
         """
@@ -121,14 +143,19 @@ class CCGetMethodsMixin:
         """
         Return a cached custom value together with its optional series extra.
 
-        Resolve owner ID first and read data._data. Apply the same multiple-text splitting and case-insensitive sorting as get_custom. For series, query the link extra separately, so cached value and SQL extra need not form a consistent snapshot.
+        Resolve owner ID first and read data._data. Apply the same multiple-text
+        splitting and case-insensitive sorting as get_custom. For series, query the link
+        extra separately, so cached value and SQL extra need not form a consistent
+        snapshot.
 
         Example:
-            Given a populated host cache, get_custom_and_extra(owner_id, num=column_id, index_is_id=True) returns (cached_value, None) for a non-series column.
+            Given a populated host cache, get_custom_and_extra(owner_id, num=column_id,
+            index_is_id=True) returns (cached_value, None) for a non-series column.
 
 
         :param idx: Cache position or owner ID.
-        :param label: Optional label selecting custom_column_label_map; takes precedence over num.
+        :param label: Optional label selecting custom_column_label_map; takes precedence
+            over num.
         :param num: Numeric custom-column ID used when label is None.
         :param index_is_id: Skip self.id conversion when True.
         :return: Pair (value, extra), using None for the extra on non-series columns.
@@ -167,15 +194,20 @@ class CCGetMethodsMixin:
         """
         Read ID/value pairs for a normalized custom-column value table.
 
-        Derive table names before checking normalized. The host macro controls the returned collection type and query ordering; this method does not sort or coerce it to a list.
+        Derive table names before checking normalized. The host macro controls the
+        returned collection type and query ordering; this method does not sort or coerce
+        it to a list.
 
         Example:
-            Given a normalized tag-like column, get_custom_items_with_ids(num=column_id) retrieves stored value IDs alongside their display values.
+            Given a normalized tag-like column, get_custom_items_with_ids(num=column_id)
+            retrieves stored value IDs alongside their display values.
 
 
-        :param label: Optional label selecting custom_column_label_map; takes precedence over num.
+        :param label: Optional label selecting custom_column_label_map; takes precedence
+            over num.
         :param num: Numeric custom-column ID used when label is None.
-        :return: Delegated pair collection for normalized storage; [] for an unnormalized column.
+        :return: Delegated pair collection for normalized storage; [] for an
+            unnormalized column.
         :raises NotImplementedError: Neither label nor num is supplied.
         :raises KeyError: The chosen metadata key is absent.
         """
@@ -201,16 +233,25 @@ class CCGetMethodsMixin:
         """
         Suggest an index for a named custom series using legacy preferences.
 
-        A missing series uses a numeric preference only if parse returns an actual int/float; otherwise return 1.0. For an existing series, fetch ordered index rows and delegate to _get_next_series_num_for_list, whose default expects indexable rows. The SQL macro gathers indices for books referencing the series and can include their other series links; this is not a strict maximum over only the selected value’s links.
+        A missing series uses a numeric preference only if parse returns an actual
+        int/float; otherwise return 1.0. For an existing series, fetch ordered index
+        rows and delegate to _get_next_series_num_for_list, whose default expects
+        indexable rows. The SQL macro gathers indices for books referencing the series
+        and can include their other series links; this is not a strict maximum over only
+        the selected value’s links.
 
         Example:
-            For a configured series column whose named value does not yet exist, get_next_cc_series_num_for("New sequence", num=column_id) normally suggests 1.0.
+            For a configured series column whose named value does not yet exist,
+            get_next_cc_series_num_for("New sequence", num=column_id) normally suggests
+            1.0.
 
 
         :param series: Series display value looked up through the value-table macro.
-        :param label: Optional label selecting custom_column_label_map; takes precedence over num.
+        :param label: Optional label selecting custom_column_label_map; takes precedence
+            over num.
         :param num: Numeric custom-column ID used when label is None.
-        :return: None for non-series columns; otherwise the configured/computed index, often 1.0 for a missing series.
+        :return: None for non-series columns; otherwise the configured/computed index,
+            often 1.0 for a missing series.
         :raises NotImplementedError: Neither label nor num is supplied.
         :raises KeyError: The chosen metadata key is absent.
         """
@@ -249,18 +290,25 @@ class CCGetMethodsMixin:
         """
         Collect distinct stored custom values into a Python set.
 
-        Use DISTINCT SQL only for unnormalized columns; normalized storage is already expected to be unique, though the final set deduplicates either result. No deterministic ordering or unused-value filtering is provided. The macro must return row-shaped entries, not a flat sequence of scalar values.
+        Use DISTINCT SQL only for unnormalized columns; normalized storage is already
+        expected to be unique, though the final set deduplicates either result. No
+        deterministic ordering or unused-value filtering is provided. The macro must
+        return row-shaped entries, not a flat sequence of scalar values.
 
         Example:
-            On a configured facade, all_custom(num=column_id) returns the value-table inventory without reading individual cache rows.
+            On a configured facade, all_custom(num=column_id) returns the value-table
+            inventory without reading individual cache rows.
 
 
-        :param label: Optional label selecting custom_column_label_map; takes precedence over num.
+        :param label: Optional label selecting custom_column_label_map; takes precedence
+            over num.
         :param num: Numeric custom-column ID used when label is None.
-        :return: Set of hashable values extracted as element zero of each macro result row.
+        :return: Set of hashable values extracted as element zero of each macro result
+            row.
         :raises NotImplementedError: Neither label nor num is supplied.
         :raises KeyError: The chosen metadata key is absent.
-        :raises TypeError: Returned values are unhashable or macro entries cannot be indexed.
+        :raises TypeError: Returned values are unhashable or macro entries cannot be
+            indexed.
         """
         if label is not None:
             data = self.custom_column_label_map[label]

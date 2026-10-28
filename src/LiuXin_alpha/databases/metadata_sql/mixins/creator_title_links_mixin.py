@@ -35,7 +35,8 @@ class CreatorTitleLinkMacros:
         DatabaseDriverError.
 
         Transaction and cache behavior for delegated SQL follows the host
-        execute/executemany implementation; this method adds no separate transaction guard.
+        execute/executemany implementation; this method adds no separate transaction
+        guard.
 
         Example:
             >>> metadata_sql.break_creator_title_links(1)  # doctest: +SKIP
@@ -66,15 +67,18 @@ class CreatorTitleLinkMacros:
         """
         Insert creator/title links with a globally computed minimum priority minus one.
 
-        The SQL always stores authors, ignoring creator_type. id_pairs takes precedence over
-        individual IDs. On an empty link table MIN yields NULL; priorities are not scoped to
-        the title.
+        The SQL always stores authors, ignoring creator_type. id_pairs takes precedence
+        over individual IDs. On an empty link table MIN yields NULL; priorities are not
+        scoped to the title.
 
         Transaction and cache behavior for delegated SQL follows the host
-        execute/executemany implementation; this method adds no separate transaction guard.
+        execute/executemany implementation; this method adds no separate transaction
+        guard.
 
         Example:
-            >>> metadata_sql.make_creator_title_links(title_id=1, creator_id=2)  # doctest: +SKIP
+            >>> metadata_sql.make_creator_title_links(
+            ...     title_id=1, creator_id=2
+            ... )  # doctest: +SKIP
 
 
         :param title_id: Title identifier bound to the operation; batch handling, where
@@ -113,7 +117,9 @@ class CreatorTitleLinkMacros:
         The type is fixed to plural authors; other link types remain.
 
         Example:
-            >>> metadata_sql.clear_title_creator_links_for_given_type_and_title(1)  # doctest: +SKIP
+            >>> metadata_sql.clear_title_creator_links_for_given_type_and_title(
+            ...     1
+            ... )  # doctest: +SKIP
 
 
         :param title_id: Title identifier bound to the operation; batch handling, where
@@ -142,8 +148,8 @@ class CreatorTitleLinkMacros:
         :param title_id: Title identifier bound to the operation; batch handling, where
             supported, is described above.
         :param creator_id: Creator identifier bound to the query or relationship.
-        :return: Connection.get(all=False) result, normally link ID or None despite the bool
-            annotation.
+        :return: Connection.get(all=False) result, normally link ID or None despite the
+            bool annotation.
         """
         stmt = (
             "SELECT creator_title_link_id FROM creator_title_links "
@@ -158,7 +164,9 @@ class CreatorTitleLinkMacros:
         Update priority on every matching authors-type creator/title link and commit.
 
         Example:
-            >>> metadata_sql.update_title_author_link_priority(1, 1, 3)  # doctest: +SKIP
+            >>> metadata_sql.update_title_author_link_priority(
+            ...     1, 1, 3
+            ... )  # doctest: +SKIP
 
 
         :param title_id: Title identifier bound to the operation; batch handling, where

@@ -51,8 +51,8 @@ class DatabaseSearch:
         Load hard-coded search locations and attempt an unfinished sample query.
 
         Parses test_query, populates all locations, and reads categorized tables and
-        headings. Calls locational_search during construction, so incomplete transformation
-        errors propagate before the final join-builder call.
+        headings. Calls locational_search during construction, so incomplete
+        transformation errors propagate before the final join-builder call.
 
         Example:
             >>> search = DatabaseSearch(database)  # doctest: +SKIP
@@ -119,9 +119,9 @@ class DatabaseSearch:
 
         Copies the input; absent locations raises NotImplementedError. For tree input,
         attempts to locate a transformable node, builds an assignment string and raises
-        NotImplementedError rather than executing it. String input builds/stores final_stmt
-        and raises with that SQL. Malformed trees can fail earlier; Python strings count as
-        iterable in the transformation predicate.
+        NotImplementedError rather than executing it. String input builds/stores
+        final_stmt and raises with that SQL. Malformed trees can fail earlier; Python
+        strings count as iterable in the transformation predicate.
 
         Example:
             >>> search.locational_search(parsed_query)  # doctest: +SKIP
@@ -185,11 +185,12 @@ class DatabaseSearch:
     @staticmethod
     def can_index_be_transformed(target_index):
         """
-        Check whether a three-element candidate has non-iterable second and third values.
+        Check whether a three-element candidate has non-iterable second and third
+        values.
 
-        Non-iterable inputs return False; iterable inputs with length other than three raise
-        InputIntegrityError. Strings are iterable, so ordinary text token values produce
-        False. Sized/indexable input is assumed.
+        Non-iterable inputs return False; iterable inputs with length other than three
+        raise InputIntegrityError. Strings are iterable, so ordinary text token values
+        produce False. Sized/indexable input is assumed.
 
         Example:
             >>> DatabaseSearch.can_index_be_transformed(["token", "titles", "x"])
@@ -198,7 +199,8 @@ class DatabaseSearch:
             True
 
 
-        :param target_index: Candidate three-element token or logical-expression container.
+        :param target_index: Candidate three-element token or logical-expression
+            container.
         :return: Boolean describing this legacy predicate, not SQL validity.
         """
         if not hasattr(target_index, "__iter__"):
@@ -220,8 +222,8 @@ class DatabaseSearch:
 
         Token locations must exist, otherwise InputIntegrityError. Prints their column
         collection and builds raw equality predicates using unescaped values; the token
-        branch leaves its opening parenthesis unclosed. or/and branches join operands with
-        surrounding parentheses; unknown operators raise LogicalError.
+        branch leaves its opening parenthesis unclosed. or/and branches join operands
+        with surrounding parentheses; unknown operators raise LogicalError.
 
         Example:
             >>> from types import SimpleNamespace
@@ -229,7 +231,8 @@ class DatabaseSearch:
             '( x=1 AND y=2 )'
 
 
-        :param target_index: Candidate three-element token or logical-expression container.
+        :param target_index: Candidate three-element token or logical-expression
+            container.
         :return: SQL fragment; no query is executed and values are not escaped.
         """
 
@@ -272,8 +275,8 @@ class DatabaseSearch:
         Replace all with the union of columns in every other location.
 
         Mutates and returns the original mapping. Iterables are expanded elementwise
-        (including strings as characters); non-iterables are inserted directly into a set.
-        Values must be hashable and tuple ordering is unspecified.
+        (including strings as characters); non-iterables are inserted directly into a
+        set. Values must be hashable and tuple ordering is unspecified.
 
         Example:
             >>> mapping = {"titles": ("title",), "all": ("old",)}
@@ -283,7 +286,8 @@ class DatabaseSearch:
             ('title',)
 
 
-        :param locations_dict: Mutable mapping from location names to column collections.
+        :param locations_dict: Mutable mapping from location names to column
+            collections.
         :return: Same mapping with an all tuple.
         """
         if "all" in locations_dict:
@@ -311,10 +315,10 @@ class DatabaseSearch:
         """
         Build legacy OUTER JOIN fragments around the titles table.
 
-        Requires titles among loaded main tables. Iterates other main tables in set order
-        and skips unregistered interlinks. Uses conventional endpoint headings and literal
-        OUTER JOIN syntax without validating it against SQLite; neither executes nor returns
-        a full SELECT.
+        Requires titles among loaded main tables. Iterates other main tables in set
+        order and skips unregistered interlinks. Uses conventional endpoint headings and
+        literal OUTER JOIN syntax without validating it against SQLite; neither executes
+        nor returns a full SELECT.
 
         Example:
             >>> search.build_total_joined_table()  # doctest: +SKIP
@@ -364,9 +368,9 @@ class DatabaseSearch:
         """
         Construct a conventional link name from lowercased endpoint names.
 
-        For different tables, sorts their singular bases and returns False if the generated
-        _links table is not in self.tables. Equal endpoints return a repeated-base
-        _intralinks name without checking existence.
+        For different tables, sorts their singular bases and returns False if the
+        generated _links table is not in self.tables. Equal endpoints return a
+        repeated-base _intralinks name without checking existence.
 
         Example:
             >>> search.get_link_table_name("creators", "titles")  # doctest: +SKIP
@@ -374,7 +378,8 @@ class DatabaseSearch:
 
         :param table1: First endpoint table name, lowercased after Unicode conversion.
         :param table2: Second endpoint table name, lowercased after Unicode conversion.
-        :return: Cross-table name or False; unchecked generated name for equal endpoints.
+        :return: Cross-table name or False; unchecked generated name for equal
+            endpoints.
         """
         table1 = six_unicode(table1).lower()
         table2 = six_unicode(table2).lower()
@@ -423,7 +428,12 @@ class DatabaseSearch:
 
         Example:
             >>> from types import SimpleNamespace
-            >>> DatabaseSearch.get_id_column(SimpleNamespace(tables_and_columns={"items": ["long_owner_id", "item_id"]}), "items")
+            >>> DatabaseSearch.get_id_column(
+            ...     SimpleNamespace(
+            ...         tables_and_columns={"items": ["long_owner_id", "item_id"]}
+            ...     ),
+            ...     "items",
+            ... )
             'item_id'
 
 
@@ -456,12 +466,15 @@ class DatabaseSearch:
         """
         Find the first loaded table containing a heading.
 
-        Uses mapping order for ambiguous headings and raises InputIntegrityError when none
-        match.
+        Uses mapping order for ambiguous headings and raises InputIntegrityError when
+        none match.
 
         Example:
             >>> from types import SimpleNamespace
-            >>> DatabaseSearch._identify_table_from_column(SimpleNamespace(tables_and_columns={"items": ["item_id"]}), "item_id")
+            >>> DatabaseSearch._identify_table_from_column(
+            ...     SimpleNamespace(tables_and_columns={"items": ["item_id"]}),
+            ...     "item_id",
+            ... )
             'items'
 
 
@@ -486,16 +499,16 @@ class DatabaseSearch:
         """
         Copy a string and strip outer whitespace without SQL escaping.
 
-        The name overstates its protection: the result is not safe for SQL interpolation.
-        Use parameter binding for query values.
+        The name overstates its protection: the result is not safe for SQL
+        interpolation. Use parameter binding for query values.
 
         Example:
             >>> DatabaseSearch.sanitize_string_for_sql("  O'Reilly  ")
             "O'Reilly"
 
 
-        :param string: Text whose outer whitespace is removed; quotes and SQL metacharacters
-            remain.
+        :param string: Text whose outer whitespace is removed; quotes and SQL
+            metacharacters remain.
         :return: Whitespace-stripped string with its contents otherwise unchanged.
         """
         string = deepcopy(string)

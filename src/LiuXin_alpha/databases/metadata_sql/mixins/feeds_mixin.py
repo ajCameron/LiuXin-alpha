@@ -33,22 +33,30 @@ class FeedsMixin:
         The script is stored text and is not executed.
 
         Transaction and cache behavior for delegated SQL follows the host
-        execute/executemany implementation; this method adds no separate transaction guard.
+        execute/executemany implementation; this method adds no separate transaction
+        guard.
 
         Example:
             >>> import sqlite3
             >>> from types import SimpleNamespace
-            >>> conn = sqlite3.connect(':memory:')
-            >>> _ = conn.execute('CREATE TABLE feeds (feed_id INTEGER PRIMARY KEY, feed_title TEXT, feed_script TEXT)')
-            >>> host = SimpleNamespace(execute=conn.execute, executemany=conn.executemany, db=SimpleNamespace(driver=SimpleNamespace(conn=conn)))
-            >>> FeedsMixin.add_feed(host, "Today's news", 'stored recipe')
-            >>> conn.execute('SELECT feed_title, feed_script FROM feeds').fetchone()
+            >>> conn = sqlite3.connect(":memory:")
+            >>> _ = conn.execute(
+            ...     "CREATE TABLE feeds (feed_id INTEGER PRIMARY KEY, feed_title TEXT, "
+            ...     "feed_script TEXT)"
+            ... )
+            >>> host = SimpleNamespace(
+            ...     execute=conn.execute,
+            ...     executemany=conn.executemany,
+            ...     db=SimpleNamespace(driver=SimpleNamespace(conn=conn)),
+            ... )
+            >>> FeedsMixin.add_feed(host, "Today's news", "stored recipe")
+            >>> conn.execute("SELECT feed_title, feed_script FROM feeds").fetchone()
             ("Today's news", 'stored recipe')
             >>> conn.close()
 
 
-        :param title: Text bound as a feed/title value; false title handling is described
-            above.
+        :param title: Text bound as a feed/title value; false title handling is
+            described above.
         :param script: Stored feed script text; it is not executed as Python.
         :return: None.
         """
@@ -62,17 +70,28 @@ class FeedsMixin:
         The bulk path performs no per-item tuple wrapping.
 
         Transaction and cache behavior for delegated SQL follows the host
-        execute/executemany implementation; this method adds no separate transaction guard.
+        execute/executemany implementation; this method adds no separate transaction
+        guard.
 
         Example:
             >>> import sqlite3
             >>> from types import SimpleNamespace
-            >>> conn = sqlite3.connect(':memory:')
-            >>> _ = conn.execute('CREATE TABLE feeds (feed_id INTEGER PRIMARY KEY, feed_title TEXT, feed_script TEXT)')
-            >>> host = SimpleNamespace(execute=conn.execute, executemany=conn.executemany, db=SimpleNamespace(driver=SimpleNamespace(conn=conn)))
-            >>> _ = conn.executemany('INSERT INTO feeds VALUES (?, ?, ?)', [(1, 'one', ''), (2, 'two', '')])
+            >>> conn = sqlite3.connect(":memory:")
+            >>> _ = conn.execute(
+            ...     "CREATE TABLE feeds (feed_id INTEGER PRIMARY KEY, feed_title TEXT, "
+            ...     "feed_script TEXT)"
+            ... )
+            >>> host = SimpleNamespace(
+            ...     execute=conn.execute,
+            ...     executemany=conn.executemany,
+            ...     db=SimpleNamespace(driver=SimpleNamespace(conn=conn)),
+            ... )
+            >>> _ = conn.executemany(
+            ...     "INSERT INTO feeds VALUES (?, ?, ?)",
+            ...     [(1, "one", ""), (2, "two", "")],
+            ... )
             >>> FeedsMixin.delete_feed(host, [(1,), (2,)])
-            >>> conn.execute('SELECT count(*) FROM feeds').fetchone()
+            >>> conn.execute("SELECT count(*) FROM feeds").fetchone()
             (0,)
             >>> conn.close()
 
@@ -96,17 +115,25 @@ class FeedsMixin:
         """
         Update feed title and script with two live-connection statements, then commit.
 
-        A failure in the second statement can leave the first pending; no rollback is added.
+        A failure in the second statement can leave the first pending; no rollback is
+        added.
 
         Example:
             >>> import sqlite3
             >>> from types import SimpleNamespace
-            >>> conn = sqlite3.connect(':memory:')
-            >>> _ = conn.execute('CREATE TABLE feeds (feed_id INTEGER PRIMARY KEY, feed_title TEXT, feed_script TEXT)')
-            >>> host = SimpleNamespace(execute=conn.execute, executemany=conn.executemany, db=SimpleNamespace(driver=SimpleNamespace(conn=conn)))
+            >>> conn = sqlite3.connect(":memory:")
+            >>> _ = conn.execute(
+            ...     "CREATE TABLE feeds (feed_id INTEGER PRIMARY KEY, feed_title TEXT, "
+            ...     "feed_script TEXT)"
+            ... )
+            >>> host = SimpleNamespace(
+            ...     execute=conn.execute,
+            ...     executemany=conn.executemany,
+            ...     db=SimpleNamespace(driver=SimpleNamespace(conn=conn)),
+            ... )
             >>> _ = conn.execute("INSERT INTO feeds VALUES (1, 'old', 'old recipe')")
-            >>> FeedsMixin.update_feed(host, 1, 'new recipe', 'new title')
-            >>> conn.execute('SELECT feed_title, feed_script FROM feeds').fetchone()
+            >>> FeedsMixin.update_feed(host, 1, "new recipe", "new title")
+            >>> conn.execute("SELECT feed_title, feed_script FROM feeds").fetchone()
             ('new title', 'new recipe')
             >>> conn.in_transaction
             False
@@ -116,8 +143,8 @@ class FeedsMixin:
         :param feed_id: Integer feed ID or batch bindings, where the deletion method
             supports them.
         :param script: Stored feed script text; it is not executed as Python.
-        :param title: Text bound as a feed/title value; false title handling is described
-            above.
+        :param title: Text bound as a feed/title value; false title handling is
+            described above.
         :return: None.
         """
         self.db.driver.conn.execute("UPDATE feeds set feed_title=? WHERE feed_id=?", (title, feed_id))
@@ -128,25 +155,33 @@ class FeedsMixin:
         """
         Delete all feeds, insert the supplied title/script pairs and commit.
 
-        Does not preserve IDs or wrap failures in rollback; iteration or insertion errors
-        can leave partial pending work.
+        Does not preserve IDs or wrap failures in rollback; iteration or insertion
+        errors can leave partial pending work.
 
         Example:
             >>> import sqlite3
             >>> from types import SimpleNamespace
-            >>> conn = sqlite3.connect(':memory:')
-            >>> _ = conn.execute('CREATE TABLE feeds (feed_id INTEGER PRIMARY KEY, feed_title TEXT, feed_script TEXT)')
-            >>> host = SimpleNamespace(execute=conn.execute, executemany=conn.executemany, db=SimpleNamespace(driver=SimpleNamespace(conn=conn)))
+            >>> conn = sqlite3.connect(":memory:")
+            >>> _ = conn.execute(
+            ...     "CREATE TABLE feeds (feed_id INTEGER PRIMARY KEY, feed_title TEXT, "
+            ...     "feed_script TEXT)"
+            ... )
+            >>> host = SimpleNamespace(
+            ...     execute=conn.execute,
+            ...     executemany=conn.executemany,
+            ...     db=SimpleNamespace(driver=SimpleNamespace(conn=conn)),
+            ... )
             >>> _ = conn.execute("INSERT INTO feeds VALUES (9, 'old', '')")
-            >>> FeedsMixin.set_feeds(host, [('new', 'recipe')])
-            >>> conn.execute('SELECT feed_title, feed_script FROM feeds').fetchall()
+            >>> FeedsMixin.set_feeds(host, [("new", "recipe")])
+            >>> conn.execute("SELECT feed_title, feed_script FROM feeds").fetchall()
             [('new', 'recipe')]
             >>> conn.in_transaction
             False
             >>> conn.close()
 
 
-        :param feeds: Iterable of (title, script) pairs to insert after clearing the table.
+        :param feeds: Iterable of (title, script) pairs to insert after clearing the
+            table.
         :return: None.
         """
         self.db.driver.conn.execute("DELETE FROM feeds")

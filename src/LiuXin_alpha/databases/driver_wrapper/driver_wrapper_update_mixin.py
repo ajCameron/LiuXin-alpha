@@ -35,17 +35,19 @@ class DriverWrapperUpdateMixin:
         """
         Update the identified row using its ID and the remaining supplied columns.
 
-        Delegates to the driver's direct_update_row_dict hook. The following backend details
-        describe the shared SQL/SQLite implementation; backend errors propagate.
+        Delegates to the driver's direct_update_row_dict hook. The following backend
+        details describe the shared SQL/SQLite implementation; backend errors propagate.
 
-        Infer the table before copying the mapping, convert exact text ``None`` values to
-        null and derive configured identity fields. Missing ID raises RowIntegrityError. Use
-        a plain dict, since a live Row object can recurse through its writer. Commit/close
-        on success; handled SQLite errors are translated, with an additional commit on the
-        integrity-error path.
+        Infer the table before copying the mapping, convert exact text ``None`` values
+        to null and derive configured identity fields. Missing ID raises
+        RowIntegrityError. Use a plain dict, since a live Row object can recurse through
+        its writer. Commit/close on success; handled SQLite errors are translated, with
+        an additional commit on the integrity-error path.
 
         Example:
-            >>> wrapper.update_row({"work_id": 1, "work_title": "Example"})  # doctest: +SKIP
+            >>> wrapper.update_row(
+            ...     {"work_id": 1, "work_title": "Example"}
+            ... )  # doctest: +SKIP
 
 
         :param row_dict: Plain column/value dictionary including the ID; inference may
@@ -60,14 +62,17 @@ class DriverWrapperUpdateMixin:
         """
         Read a row, replace one cell and write it back under the lock context.
 
-        First resolves column ownership; mismatching table names raise InputIntegrityError.
-        Within self.lock, fetches the row, mutates its mapping and calls update_row(),
-        ignoring that result. Missing-row or backend write errors propagate. The reentrant mutex serializes cooperating callers on this wrapper; the row
-        writer owns its SQL transaction. The mutex alone does not group multiple writes
-        into one transaction or coordinate separate database facades.
+        First resolves column ownership; mismatching table names raise
+        InputIntegrityError. Within self.lock, fetches the row, mutates its mapping and
+        calls update_row(), ignoring that result. Missing-row or backend write errors
+        propagate. The reentrant mutex serializes cooperating callers on this wrapper;
+        the row writer owns its SQL transaction. The mutex alone does not group multiple
+        writes into one transaction or coordinate separate database facades.
 
         Example:
-            >>> wrapper.update_column("works", 1, "work_title", "Revised")  # doctest: +SKIP
+            >>> wrapper.update_column(
+            ...     "works", 1, "work_title", "Revised"
+            ... )  # doctest: +SKIP
 
 
         :param table: Table name in the current schema.
@@ -105,24 +110,28 @@ class DriverWrapperUpdateMixin:
             field: Optional[str] = None,
             table: Optional[str] = None) -> bool:
         """
-        Update one field for each ID, also deriving its configured identity column when available.
+        Update one field for each ID, also deriving its configured identity column when
+        available.
 
-        Delegates to the driver's direct_update_columns hook. The following backend details
-        describe the shared SQL/SQLite implementation; backend errors propagate.
+        Delegates to the driver's direct_update_columns hook. The following backend
+        details describe the shared SQL/SQLite implementation; backend errors propagate.
 
         Infer the table from the field; a conflicting table argument only warns and the
         inferred table wins. Commit the batch on success and close in finally. Empty
-        mappings are no-ops; dict-valued mappings select an unimplemented multi-column mode.
+        mappings are no-ops; dict-valued mappings select an unimplemented multi-column
+        mode.
 
         Example:
-            >>> wrapper.update_columns({1: "Revised"}, field="work_title")  # doctest: +SKIP
+            >>> wrapper.update_columns(
+            ...     {1: "Revised"}, field="work_title"
+            ... )  # doctest: +SKIP
 
 
         :param values_map: Mapping from row IDs to scalar field values; dict values are
             currently unsupported.
         :param field: Trusted column heading required for scalar mode.
-        :param table: Optional expected table name; a mismatch warns rather than rejecting
-            the update.
+        :param table: Optional expected table name; a mismatch warns rather than
+            rejecting the update.
         :return: ``None``.
         """
         return self.driver.direct_update_columns(id_values_map=values_map, field=field, table=table)

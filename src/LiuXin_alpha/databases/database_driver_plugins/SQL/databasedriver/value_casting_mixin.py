@@ -1515,9 +1515,13 @@ class ValueCastingMixin:
         column in the diagnostic.
 
         Example:
-            >>> ValueCastingMixin._coerce_column_case_sensitivity("0", "works", "work_title")
+            >>> ValueCastingMixin._coerce_column_case_sensitivity(
+            ...     "0", "works", "work_title"
+            ... )
             False
-            >>> ValueCastingMixin._coerce_column_case_sensitivity(1.0, "works", "work_title")
+            >>> ValueCastingMixin._coerce_column_case_sensitivity(
+            ...     1.0, "works", "work_title"
+            ... )
             True
 
 

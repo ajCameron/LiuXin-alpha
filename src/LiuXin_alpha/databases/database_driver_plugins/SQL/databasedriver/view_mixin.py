@@ -110,7 +110,9 @@ class ViewMixin:
             >>> import sqlite3
             >>> from types import SimpleNamespace
             >>> conn = sqlite3.connect(":memory:")
-            >>> _ = conn.execute("CREATE VIEW book_names AS SELECT 1 AS id, 'A' AS title")
+            >>> _ = conn.execute(
+            ...     "CREATE VIEW book_names AS SELECT 1 AS id, 'A' AS title"
+            ... )
             >>> host = SimpleNamespace(get_connection=lambda: conn)
             >>> ViewMixin.direct_get_view_column_headings(host, "book_names")
             ['id', 'title']

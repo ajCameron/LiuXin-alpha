@@ -27,20 +27,24 @@ class FoldersMacrosMixin:
 
     def replace_in_folder_store_path(self, target_str: str, replacement: str) -> None:
         """
-        Replace every occurrence of a literal substring in folder_stores.folder_store_path.
+        Replace every occurrence of a literal substring in
+        folder_stores.folder_store_path.
 
         Runs SQL replace() for all rows, with no WHERE filter or path-component checks.
         Values are parameter-bound; physical files and directories are untouched.
 
         Transaction and cache behavior for delegated SQL follows the host
-        execute/executemany implementation; this method adds no separate transaction guard.
+        execute/executemany implementation; this method adds no separate transaction
+        guard.
 
         Example:
-            >>> metadata_sql.replace_in_folder_store_path("old/", "new/")  # doctest: +SKIP
+            >>> metadata_sql.replace_in_folder_store_path(
+            ...     "old/", "new/"
+            ... )  # doctest: +SKIP
 
 
-        :param target_str: Literal substring passed to SQL replace(), without path-component
-            validation.
+        :param target_str: Literal substring passed to SQL replace(), without
+            path-component validation.
         :param replacement: Replacement substring stored in every matching path cell.
         :return: None.
         """
@@ -49,20 +53,24 @@ class FoldersMacrosMixin:
 
     def replace_in_folder_store_marker_path(self, target_str: str, replacement: str) -> None:
         """
-        Replace every occurrence of a literal substring in folder_stores.folder_store_marker_path.
+        Replace every occurrence of a literal substring in
+        folder_stores.folder_store_marker_path.
 
         Runs SQL replace() for all rows, with no WHERE filter or path-component checks.
         Values are parameter-bound; physical files and directories are untouched.
 
         Transaction and cache behavior for delegated SQL follows the host
-        execute/executemany implementation; this method adds no separate transaction guard.
+        execute/executemany implementation; this method adds no separate transaction
+        guard.
 
         Example:
-            >>> metadata_sql.replace_in_folder_store_marker_path("old/", "new/")  # doctest: +SKIP
+            >>> metadata_sql.replace_in_folder_store_marker_path(
+            ...     "old/", "new/"
+            ... )  # doctest: +SKIP
 
 
-        :param target_str: Literal substring passed to SQL replace(), without path-component
-            validation.
+        :param target_str: Literal substring passed to SQL replace(), without
+            path-component validation.
         :param replacement: Replacement substring stored in every matching path cell.
         :return: None.
         """
@@ -77,14 +85,15 @@ class FoldersMacrosMixin:
         Values are parameter-bound; physical files and directories are untouched.
 
         Transaction and cache behavior for delegated SQL follows the host
-        execute/executemany implementation; this method adds no separate transaction guard.
+        execute/executemany implementation; this method adds no separate transaction
+        guard.
 
         Example:
             >>> metadata_sql.replace_in_folder_path("old/", "new/")  # doctest: +SKIP
 
 
-        :param target_str: Literal substring passed to SQL replace(), without path-component
-            validation.
+        :param target_str: Literal substring passed to SQL replace(), without
+            path-component validation.
         :param replacement: Replacement substring stored in every matching path cell.
         :return: None.
         """
@@ -99,14 +108,15 @@ class FoldersMacrosMixin:
         Values are parameter-bound; physical files and directories are untouched.
 
         Transaction and cache behavior for delegated SQL follows the host
-        execute/executemany implementation; this method adds no separate transaction guard.
+        execute/executemany implementation; this method adds no separate transaction
+        guard.
 
         Example:
             >>> metadata_sql.replace_in_cover_path("old/", "new/")  # doctest: +SKIP
 
 
-        :param target_str: Literal substring passed to SQL replace(), without path-component
-            validation.
+        :param target_str: Literal substring passed to SQL replace(), without
+            path-component validation.
         :param replacement: Replacement substring stored in every matching path cell.
         :return: None.
         """
@@ -121,22 +131,30 @@ class FoldersMacrosMixin:
         Values are parameter-bound; physical files and directories are untouched.
 
         Transaction and cache behavior for delegated SQL follows the host
-        execute/executemany implementation; this method adds no separate transaction guard.
+        execute/executemany implementation; this method adds no separate transaction
+        guard.
 
         Example:
             >>> import sqlite3
             >>> from types import SimpleNamespace
-            >>> conn = sqlite3.connect(':memory:')
-            >>> _ = conn.execute('CREATE TABLE files (file_path TEXT)')
-            >>> _ = conn.executemany('INSERT INTO files VALUES (?)', [('old/old/book.epub',), ('keep/book.epub',)])
-            >>> FoldersMacrosMixin.replace_in_file_path(SimpleNamespace(execute=conn.execute), 'old/', 'new/')
-            >>> conn.execute('SELECT file_path FROM files ORDER BY file_path').fetchall()
+            >>> conn = sqlite3.connect(":memory:")
+            >>> _ = conn.execute("CREATE TABLE files (file_path TEXT)")
+            >>> _ = conn.executemany(
+            ...     "INSERT INTO files VALUES (?)",
+            ...     [("old/old/book.epub",), ("keep/book.epub",)],
+            ... )
+            >>> FoldersMacrosMixin.replace_in_file_path(
+            ...     SimpleNamespace(execute=conn.execute), "old/", "new/"
+            ... )
+            >>> conn.execute(
+            ...     "SELECT file_path FROM files ORDER BY file_path"
+            ... ).fetchall()
             [('keep/book.epub',), ('new/new/book.epub',)]
             >>> conn.close()
 
 
-        :param target_str: Literal substring passed to SQL replace(), without path-component
-            validation.
+        :param target_str: Literal substring passed to SQL replace(), without
+            path-component validation.
         :param replacement: Replacement substring stored in every matching path cell.
         :return: None.
         """

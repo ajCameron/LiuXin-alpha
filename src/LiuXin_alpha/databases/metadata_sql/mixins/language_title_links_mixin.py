@@ -31,12 +31,13 @@ class CMLanguageTitleLinks:
         """
         Remove primary language links, then create a highest-priority primary link.
 
-        Loads title/language rows after deletion. On DatabaseIntegrityError during linking,
-        deletes all links for that pair and retries once. Earlier deletions may persist if
-        loading or retrying fails; no atomic boundary is added.
+        Loads title/language rows after deletion. On DatabaseIntegrityError during
+        linking, deletes all links for that pair and retries once. Earlier deletions may
+        persist if loading or retrying fails; no atomic boundary is added.
 
         Transaction and cache behavior for delegated SQL follows the host
-        execute/executemany implementation; this method adds no separate transaction guard.
+        execute/executemany implementation; this method adds no separate transaction
+        guard.
 
         Example:
             >>> metadata_sql.set_title_primary_language(1, 1)  # doctest: +SKIP

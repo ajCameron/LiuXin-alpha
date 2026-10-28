@@ -2,7 +2,9 @@
 """
 Offer uncached convenience queries for rows reached from a seed.
 
-Same-table queries return the seed itself; cross-table queries use the existing interlink reader. These helpers do not traverse self-link edges. Dictionaries are converted to Rows, while existing Rows retain their original owner.
+Same-table queries return the seed itself; cross-table queries use the existing
+interlink reader. These helpers do not traverse self-link edges. Dictionaries are
+converted to Rows, while existing Rows retain their original owner.
 """
 
 from __future__ import annotations
@@ -23,23 +25,30 @@ class DatabaseLinkedRowsMixin:
     """
     Compose linked-row lists, first matches, ID sets and simple fingerprints.
 
-    Uses the host facade schema categories, Row factory and interlink reader. It has no memoization, transitive traversal or transaction boundary; each target table can require a fresh query.
+    Uses the host facade schema categories, Row factory and interlink reader. It has no
+    memoization, transitive traversal or transaction boundary; each target table can
+    require a fresh query.
 
     Example:
-        For an existing agent Row, db.get_first_linked_row(agent, "works") returns the first linked work in the interlink reader ordering.
+        For an existing agent Row, db.get_first_linked_row(agent, "works") returns the
+        first linked work in the interlink reader ordering.
     """
 
     def _coerce_link_seed_row(self: "DatabaseAPI", seed_row: "RowAPI | dict[str, Any]") -> "RowAPI":
         """
         Accept a concrete Row or wrap a dictionary using this facade.
 
-        An existing Row is not rebound or checked for ownership by this facade. Row construction from a dictionary may consult schema metadata and applies the normal Row validation rules.
+        An existing Row is not rebound or checked for ownership by this facade. Row
+        construction from a dictionary may consult schema metadata and applies the
+        normal Row validation rules.
 
         Example:
-            During linked lookup, an existing seed Row is reused; passing seed.row_dict constructs another Row through the receiving facade.
+            During linked lookup, an existing seed Row is reused; passing seed.row_dict
+            constructs another Row through the receiving facade.
 
 
-        :param seed_row: Concrete Row retained unchanged, or dictionary copied into a new Row.
+        :param seed_row: Concrete Row retained unchanged, or dictionary copied into a
+            new Row.
         :return: Existing Row by identity, or newly constructed Row.
         :raises InputIntegrityError: The seed is neither a concrete Row nor a dict.
         """
@@ -57,15 +66,18 @@ class DatabaseLinkedRowsMixin:
         """
         Check a target against the host main and helper table categories.
 
-        An absent/false helper collection contributes no names. Main-table state must already be initialized.
+        An absent/false helper collection contributes no names. Main-table state must
+        already be initialized.
 
         Example:
-            For a facade whose main_tables contains works, _validate_linked_target_table("works") permits that target.
+            For a facade whose main_tables contains works,
+            _validate_linked_target_table("works") permits that target.
 
 
         :param target_table: Target table name already converted to text by the caller.
         :return: None on success.
-        :raises InputIntegrityError: The target is absent from both permitted categories.
+        :raises InputIntegrityError: The target is absent from both permitted
+            categories.
         """
         valid_tables = set(self.main_tables).union(set(getattr(self, "helper_tables", set()) or set()))
         if target_table not in valid_tables:
@@ -88,16 +100,22 @@ class DatabaseLinkedRowsMixin:
         """
         Return the seed for its own table or follow cross-table interlinks.
 
-        Same-table lookup ignores type_filter and does not query self-links. Cross-table results retain the interlink reader descending-priority order and duplicates. No cache or ownership check is introduced.
+        Same-table lookup ignores type_filter and does not query self-links. Cross-table
+        results retain the interlink reader descending-priority order and duplicates. No
+        cache or ownership check is introduced.
 
         Example:
-            For an agent Row, db.get_linked_rows(agent, "agents") returns [agent]; db.get_linked_rows(agent, "works") follows its cross-table links.
+            For an agent Row, db.get_linked_rows(agent, "agents") returns [agent];
+            db.get_linked_rows(agent, "works") follows its cross-table links.
 
 
         :param seed_row: Concrete seed Row or row dictionary.
-        :param target_table: Main/helper table name converted to text and validated first.
-        :param type_filter: Optional exact relationship-type filter for cross-table queries.
-        :return: Single-element seed list for the same table, otherwise the interlink reader endpoint list.
+        :param target_table: Main/helper table name converted to text and validated
+            first.
+        :param type_filter: Optional exact relationship-type filter for cross-table
+            queries.
+        :return: Single-element seed list for the same table, otherwise the interlink
+            reader endpoint list.
         """
         target_table = six_unicode(target_table)
         self._validate_linked_target_table(target_table)
@@ -125,7 +143,8 @@ class DatabaseLinkedRowsMixin:
         The full linked list is retrieved before selecting its first element.
 
         Example:
-            For an agent with linked works, first = db.get_first_linked_row(agent, "works") chooses the highest-priority result when priorities exist.
+            For an agent with linked works, first = db.get_first_linked_row(agent,
+            "works") chooses the highest-priority result when priorities exist.
 
 
         :param seed_row: Concrete seed Row or row dictionary.
@@ -148,16 +167,19 @@ class DatabaseLinkedRowsMixin:
         """
         Collect distinct target ID-column values from linked Rows.
 
-        Resolve the target ID column even when the linked result list is empty. Ordering is discarded.
+        Resolve the target ID column even when the linked result list is empty. Ordering
+        is discarded.
 
         Example:
-            For an agent Row, db.get_linked_ids_set(agent, "works") returns the distinct IDs of its linked works.
+            For an agent Row, db.get_linked_ids_set(agent, "works") returns the distinct
+            IDs of its linked works.
 
 
         :param seed_row: Concrete seed Row or row dictionary.
         :param target_table: Main/helper target table converted to text.
         :param type_filter: Optional cross-table type filter.
-        :return: Set of stored target ID values; no integer coercion is performed despite the annotation.
+        :return: Set of stored target ID values; no integer coercion is performed
+            despite the annotation.
         """
         target_table = six_unicode(target_table)
         rows = self.get_linked_rows(seed_row, target_table, type_filter=type_filter)
@@ -174,16 +196,22 @@ class DatabaseLinkedRowsMixin:
         """
         Collect table-and-ID strings for requested direct linked targets.
 
-        The seed itself is included when its table is selected. This is a simple membership representation, not a cryptographic digest or transitive graph fingerprint; queries are not atomic as a group.
+        The seed itself is included when its table is selected. This is a simple
+        membership representation, not a cryptographic digest or transitive graph
+        fingerprint; queries are not atomic as a group.
 
         Example:
-            For an agent Row, db.get_linked_fingerprint(agent, target_tables=["agents", "works"]) includes its own agent identifier and each directly linked work identifier.
+            For an agent Row, db.get_linked_fingerprint(agent, target_tables=["agents",
+            "works"]) includes its own agent identifier and each directly linked work
+            identifier.
 
 
-        :param seed_row: Concrete seed Row or row dictionary reused for each target query.
+        :param seed_row: Concrete seed Row or row dictionary reused for each target
+            query.
         :param target_tables: Target table iterable, or all main tables when None.
         :param type_filter: Optional cross-table type filter applied by each query.
-        :return: Set of strings formatted as table_id; duplicates and ordering are discarded.
+        :return: Set of strings formatted as table_id; duplicates and ordering are
+            discarded.
         """
         if target_tables is None:
             tables = list(self.main_tables)

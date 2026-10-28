@@ -3,10 +3,10 @@ Implement shared SQL macro infrastructure, row/link operations and identity tool
 
 SQLite and PostgreSQL-shaped drivers share validated identifiers, parameter bindings and
 link records. Driver hooks qualify relations and adapt connections. Reads reuse an
-active transaction connection or a cached driver connection. Outer macro writes own an explicit
-transaction or borrow an existing one through a savepoint; nested calls use savepoints. Further services include
-policy-aware identities, temporary tables, orphan pruning and canonical table
-fingerprints.
+active transaction connection or a cached driver connection. Outer macro writes own an
+explicit transaction or borrow an existing one through a savepoint; nested calls use
+savepoints. Further services include policy-aware identities, temporary tables, orphan
+pruning and canonical table fingerprints.
 """
 
 from __future__ import annotations
@@ -187,7 +187,9 @@ def _canonical_db_value(value: Any) -> Any:
         ['bytes', 'QQ==']
         >>> _canonical_db_value({2, 1})
         ['set', [['int', '1'], ['int', '2']]]
-        >>> _canonical_db_value({"b": 2, "a": 1}) == _canonical_db_value({"a": 1, "b": 2})
+        >>> _canonical_db_value({"b": 2, "a": 1}) == _canonical_db_value(
+        ...     {"a": 1, "b": 2}
+        ... )
         True
         >>> _canonical_db_value((1,))
         ['tuple', [['int', '1']]]
@@ -266,7 +268,9 @@ class SQLPortableMacrosMixin:
             >>> from types import SimpleNamespace
             >>> macros = SQLPortableMacrosMixin()
             >>> driver = object()
-            >>> macros.db = SimpleNamespace(driver_wrapper=SimpleNamespace(driver=driver))
+            >>> macros.db = SimpleNamespace(
+            ...     driver_wrapper=SimpleNamespace(driver=driver)
+            ... )
             >>> macros._macro_driver() is driver
             True
 
@@ -513,7 +517,8 @@ class SQLPortableMacrosMixin:
 
 
         :param serialized: Reserve the cooperating writer boundary before reading state.
-        :param require_outermost: Refuse nesting or borrowing so exit commits this operation.
+        :param require_outermost: Refuse nesting or borrowing so exit commits this
+            operation.
         :return: A context manager yielding the shared connection for composed macro
             operations.
         """
@@ -556,7 +561,9 @@ class SQLPortableMacrosMixin:
         Values are retained without conversion or deep copying.
 
         Example:
-            >>> SQLPortableMacrosMixin._mapping_rows(("id", "name"), [(1, "A"), {"id": 2}])
+            >>> SQLPortableMacrosMixin._mapping_rows(
+            ...     ("id", "name"), [(1, "A"), {"id": 2}]
+            ... )
             ({'id': 1, 'name': 'A'}, {'id': 2, 'name': None})
 
 
@@ -954,8 +961,13 @@ class SQLPortableMacrosMixin:
         themselves are not deduplicated or validated here.
 
         Example:
-            >>> spec = StorageLinkSpec("works", "agents", "links",
-            ...                        primary_link_col="work_id", secondary_link_col="agent_id")
+            >>> spec = StorageLinkSpec(
+            ...     "works",
+            ...     "agents",
+            ...     "links",
+            ...     primary_link_col="work_id",
+            ...     secondary_link_col="agent_id",
+            ... )
             >>> SQLPortableMacrosMixin._link_select_columns(spec)
             ('work_id', 'agent_id')
 
@@ -984,8 +996,12 @@ class SQLPortableMacrosMixin:
         hashability; later set/dictionary consumers impose that requirement.
 
         Example:
-            >>> spec = StorageLinkSpec("works", "agents", "links", type_part_of_identity=True)
-            >>> SQLPortableMacrosMixin._link_identity(spec, LinkValue(7, link_type="author"))
+            >>> spec = StorageLinkSpec(
+            ...     "works", "agents", "links", type_part_of_identity=True
+            ... )
+            >>> SQLPortableMacrosMixin._link_identity(
+            ...     spec, LinkValue(7, link_type="author")
+            ... )
             (7, 'author')
 
 
@@ -1016,9 +1032,16 @@ class SQLPortableMacrosMixin:
         allowed types.
 
         Example:
-            >>> spec = StorageLinkSpec("works", "agents", "links",
-            ...                        primary_link_col="work_id", secondary_link_col="agent_id")
-            >>> row = SQLPortableMacrosMixin()._link_row_from_db(spec, ("work_id", "agent_id"), (1, 7))
+            >>> spec = StorageLinkSpec(
+            ...     "works",
+            ...     "agents",
+            ...     "links",
+            ...     primary_link_col="work_id",
+            ...     secondary_link_col="agent_id",
+            ... )
+            >>> row = SQLPortableMacrosMixin()._link_row_from_db(
+            ...     spec, ("work_id", "agent_id"), (1, 7)
+            ... )
             >>> (row.primary_id, row.secondary_id, row.link_type, row.extra)
             (1, 7, None, {})
 
@@ -1279,9 +1302,15 @@ class SQLPortableMacrosMixin:
         InputIntegrityError.
 
         Example:
-            >>> spec = StorageLinkSpec("works", "agents", "links", typed=True, allowed_types=("author",))
-            >>> SQLPortableMacrosMixin()._validate_link_type_value(spec, None, live_allowed_types=())
-            >>> SQLPortableMacrosMixin()._validate_link_type_value(spec, "author", live_allowed_types=("author",))
+            >>> spec = StorageLinkSpec(
+            ...     "works", "agents", "links", typed=True, allowed_types=("author",)
+            ... )
+            >>> SQLPortableMacrosMixin()._validate_link_type_value(
+            ...     spec, None, live_allowed_types=()
+            ... )
+            >>> SQLPortableMacrosMixin()._validate_link_type_value(
+            ...     spec, "author", live_allowed_types=("author",)
+            ... )
 
 
         :param link_spec: StorageLinkSpec describing the physical link table and its
@@ -1840,8 +1869,9 @@ class SQLPortableMacrosMixin:
         for physical spec validation and transaction rollback.
 
         Example:
-            ``macros._replace_links(conn, spec, 1, (), link_type="author")``
-            clears author links while preserving other types when type participates in identity.
+            ``macros._replace_links(conn, spec, 1, (), link_type="author")`` clears
+            author links while preserving other types when type participates in
+            identity.
 
 
         :param conn: Caller-supplied connection; this helper does not commit or close
@@ -2093,8 +2123,9 @@ class SQLPortableMacrosMixin:
         constraints and exceptions escaping the outer transaction determine rollback.
 
         Example:
-            ``macros.replace_owned_one_to_one_values_bulk(spec, "note_text",
-            {1: "Revised", 2: None})`` updates or creates source 1's note and unlinks source 2.
+            ``macros.replace_owned_one_to_one_values_bulk(spec, "note_text", {1:
+            "Revised", 2: None})`` updates or creates source 1's note and unlinks source
+            2.
 
 
         :param link_spec: StorageLinkSpec describing the link table and
@@ -2237,9 +2268,13 @@ class SQLPortableMacrosMixin:
         a database or enforce empty-value policy.
 
         Example:
-            >>> SQLPortableMacrosMixin._normalise_value("  Straße  ", ColumnNormalizationProfile.UNICODE_NFC_TRIM_CASEFOLD)
+            >>> SQLPortableMacrosMixin._normalise_value(
+            ...     "  Straße  ", ColumnNormalizationProfile.UNICODE_NFC_TRIM_CASEFOLD
+            ... )
             'strasse'
-            >>> SQLPortableMacrosMixin._normalise_value(None, ColumnNormalizationProfile.NONE) is None
+            >>> SQLPortableMacrosMixin._normalise_value(
+            ...     None, ColumnNormalizationProfile.NONE
+            ... ) is None
             True
 
 
@@ -2262,7 +2297,9 @@ class SQLPortableMacrosMixin:
 
         Example:
             >>> metadata = infer_column_metadata("tags", "tag", "TEXT")
-            >>> SQLPortableMacrosMixin._validate_ensure_value("Science Fiction", metadata)
+            >>> SQLPortableMacrosMixin._validate_ensure_value(
+            ...     "Science Fiction", metadata
+            ... )
             >>> try:
             ...     SQLPortableMacrosMixin._validate_ensure_value("   ", metadata)
             ... except InputIntegrityError:
@@ -2430,8 +2467,8 @@ class SQLPortableMacrosMixin:
         independent transaction or physical-column validation is added.
 
         Example:
-            Ensuring " sciencefiction " after "Science Fiction" returns the same
-            tag ID under the tag comparison policy and retains the first display spelling.
+            Ensuring " sciencefiction " after "Science Fiction" returns the same tag ID
+            under the tag comparison policy and retains the first display spelling.
 
 
         :param conn: Caller-supplied connection; this helper does not commit or close
@@ -2623,7 +2660,8 @@ class SQLPortableMacrosMixin:
 
         Example:
             ``macros.ensure_table_value("genres", "genre", "Fiction",
-            additional_values={"genre_parent_id": None})`` ensures a root genre in its null scope.
+            additional_values={"genre_parent_id": None})`` ensures a root genre in its
+            null scope.
 
 
         :param table: Physical table name resolved through the driver wrapper.
@@ -2860,9 +2898,13 @@ class SQLPortableMacrosMixin:
 
         Example:
             >>> spec = default_normalized_identity_spec("genres", "genre")
-            >>> SQLPortableMacrosMixin._identity_scope_values(spec, {"genre_parent_id": None})
+            >>> SQLPortableMacrosMixin._identity_scope_values(
+            ...     spec, {"genre_parent_id": None}
+            ... )
             {'genre_parent_id': None}
-            >>> SQLPortableMacrosMixin._identity_scope_values(default_normalized_identity_spec("tags", "tag"), None)
+            >>> SQLPortableMacrosMixin._identity_scope_values(
+            ...     default_normalized_identity_spec("tags", "tag"), None
+            ... )
             {}
 
 
@@ -3411,7 +3453,10 @@ class SQLPortableMacrosMixin:
             >>> macros = SQLPortableMacrosMixin()
             >>> macros.db = SimpleNamespace(driver=SimpleNamespace())
             >>> spec = default_normalized_identity_spec("genres", "genre")
-            >>> tuple(name for name, sql in macros._normalized_identity_index_statements(spec))
+            >>> tuple(
+            ...     name
+            ...     for name, sql in macros._normalized_identity_index_statements(spec)
+            ... )
             ('idx_genres_unique_root_phash', 'idx_genres_unique_parent_phash')
 
 
@@ -3679,8 +3724,10 @@ class SQLPortableMacrosMixin:
         statements, not measured affected rows.
 
         Example:
-            After resolving report.collisions from ``macros.audit_normalized_identities()``,
-            ``macros.migrate_normalized_identities()`` installs declarations and backfills keys.
+            After resolving report.collisions from
+            ``macros.audit_normalized_identities()``,
+            ``macros.migrate_normalized_identities()`` installs declarations and
+            backfills keys.
 
 
         :return: A collision-free NormalizedIdentityMigrationReport with scan/update
@@ -3861,9 +3908,15 @@ class SQLPortableMacrosMixin:
             >>> macros = SQLPortableMacrosMixin()
             >>> macros.db = SimpleNamespace(driver=SimpleNamespace(conn=conn))
             >>> with macros.temporary_value_table(("a", "a", None)) as table:
-            ...     print(conn.execute(f'SELECT COUNT(*) FROM temp."{table}"').fetchone()[0])
+            ...     print(
+            ...         conn.execute(f'SELECT COUNT(*) FROM temp."{table}"').fetchone()[
+            ...             0
+            ...         ]
+            ...     )
             3
-            >>> conn.execute("SELECT COUNT(*) FROM sqlite_temp_master WHERE name=?", (table,)).fetchone()[0]
+            >>> conn.execute(
+            ...     "SELECT COUNT(*) FROM sqlite_temp_master WHERE name=?", (table,)
+            ... ).fetchone()[0]
             0
             >>> conn.close()
 
@@ -4205,11 +4258,19 @@ class SQLPortableMacrosMixin:
             >>> import sqlite3
             >>> from types import SimpleNamespace
             >>> conn = sqlite3.connect(":memory:")
-            >>> conn.executescript("CREATE TABLE items (id INTEGER, name TEXT); INSERT INTO items VALUES (1, 'A');") is not None
+            >>> conn.executescript(
+            ...     "CREATE TABLE items (id INTEGER, name TEXT); INSERT INTO items "
+            ...     "VALUES (1, 'A');"
+            ... ) is not None
             True
             >>> macros = SQLPortableMacrosMixin()
-            >>> wrapper = SimpleNamespace(get_column_headings=lambda table: ("id", "name"), get_id_column=lambda table: "id")
-            >>> macros.db = SimpleNamespace(driver=SimpleNamespace(conn=conn), driver_wrapper=wrapper)
+            >>> wrapper = SimpleNamespace(
+            ...     get_column_headings=lambda table: ("id", "name"),
+            ...     get_id_column=lambda table: "id",
+            ... )
+            >>> macros.db = SimpleNamespace(
+            ...     driver=SimpleNamespace(conn=conn), driver_wrapper=wrapper
+            ... )
             >>> digest = macros.fingerprint_table("items")
             >>> len(digest), digest == macros.fingerprint_table("items")
             (64, True)

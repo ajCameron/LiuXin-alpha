@@ -36,14 +36,19 @@ class BooksMacrosMixin:
 
     def update_book_last_modified(self, book_id: int, last_modified: str) -> None:
         """
-        Update book_last_modified for one integer-coerced book ID and commit the live connection.
+        Update book_last_modified for one integer-coerced book ID and commit the live
+        connection.
 
         Example:
-            >>> metadata_sql.update_book_last_modified(1, "2024-01-01")  # doctest: +SKIP
+            >>> metadata_sql.update_book_last_modified(
+            ...     1, "2024-01-01"
+            ... )  # doctest: +SKIP
 
 
-        :param book_id: Book identifier bound to book_id or the owning relationship column.
-        :param last_modified: Replacement modification timestamp bound without conversion.
+        :param book_id: Book identifier bound to book_id or the owning relationship
+            column.
+        :param last_modified: Replacement modification timestamp bound without
+            conversion.
         :return: None.
         """
         update_stmt = "UPDATE books SET book_last_modified = ? WHERE books.book_id = ?;"
@@ -57,14 +62,19 @@ class BooksMacrosMixin:
         Does not create, move or inspect physical files.
 
         Transaction and cache behavior for delegated SQL follows the host
-        execute/executemany implementation; this method adds no separate transaction guard.
+        execute/executemany implementation; this method adds no separate transaction
+        guard.
 
         Example:
-            >>> metadata_sql.set_override_book_path(1, "books/example")  # doctest: +SKIP
+            >>> metadata_sql.set_override_book_path(
+            ...     1, "books/example"
+            ... )  # doctest: +SKIP
 
 
-        :param book_id: Book identifier bound to book_id or the owning relationship column.
-        :param path: Stored override path; this writes book_paths, not a filesystem entry.
+        :param book_id: Book identifier bound to book_id or the owning relationship
+            column.
+        :param path: Stored override path; this writes book_paths, not a filesystem
+            entry.
         :return: None.
         """
         self.execute("UPDATE books SET book_paths=? WHERE book_id=?", (path, book_id))
@@ -80,10 +90,12 @@ class BooksMacrosMixin:
         misspelling is retained.
 
         Transaction and cache behavior for delegated SQL follows the host
-        execute/executemany implementation; this method adds no separate transaction guard.
+        execute/executemany implementation; this method adds no separate transaction
+        guard.
 
         Example:
-            >>> metadata_sql.read_book_id_with_cover_id_and_cover_nmame()  # doctest: +SKIP
+            >>> metadata_sql.read_book_id_with_cover_id_and_cover_nmame(
+            ... )  # doctest: +SKIP
 
 
         :return: Execution cursor/iterable of (book_id, cover_id, cover_name) rows.
@@ -103,10 +115,12 @@ class BooksMacrosMixin:
         Read directly linked book/file metadata ordered by descending link priority.
 
         Transaction and cache behavior for delegated SQL follows the host
-        execute/executemany implementation; this method adds no separate transaction guard.
+        execute/executemany implementation; this method adds no separate transaction
+        guard.
 
         Example:
-            >>> metadata_sql.read_book_id_with_file_id_file_ext_file_name_and_file_size()  # doctest: +SKIP
+            >>> metadata_sql.read_book_id_with_file_id_file_ext_file_name_and_file_size(
+            ... )  # doctest: +SKIP
 
 
         :return: Execution cursor/iterable of (book_id, file_id, extension, name, size)
@@ -130,14 +144,17 @@ class BooksMacrosMixin:
         book/file priority and passes the scalar book ID to the host helper.
 
         Transaction and cache behavior for delegated SQL follows the host
-        execute/executemany implementation; this method adds no separate transaction guard.
+        execute/executemany implementation; this method adds no separate transaction
+        guard.
 
         Example:
             >>> metadata_sql.read_file_backups_for_book(1)  # doctest: +SKIP
 
 
-        :param book_id: Book identifier bound to book_id or the owning relationship column.
-        :return: Execution cursor/iterable of (primary_file_id, secondary_file_id) pairs.
+        :param book_id: Book identifier bound to book_id or the owning relationship
+            column.
+        :return: Execution cursor/iterable of (primary_file_id, secondary_file_id)
+            pairs.
         """
         backup_stmt = """
                 SELECT file_file_intralinks.file_file_intralink_primary_id, file_file_intralinks.file_file_intralink_secondary_id
@@ -160,13 +177,15 @@ class BooksMacrosMixin:
         argument.
 
         Transaction and cache behavior for delegated SQL follows the host
-        execute/executemany implementation; this method adds no separate transaction guard.
+        execute/executemany implementation; this method adds no separate transaction
+        guard.
 
         Example:
             >>> metadata_sql.read_file_properties_for_book(1)  # doctest: +SKIP
 
 
-        :param book_id: Book identifier bound to book_id or the owning relationship column.
+        :param book_id: Book identifier bound to book_id or the owning relationship
+            column.
         :return: Execution cursor/iterable of four-cell file property rows.
         """
         stmt = """
@@ -185,11 +204,12 @@ class BooksMacrosMixin:
         Read each book with the SUM of file sizes reached through its folders.
 
         Uses nested IN queries over book_folder_links and file_folder_links, avoiding
-        duplicate file IDs. Unlinked books retain an aggregate NULL; no explicit ordering is
-        applied.
+        duplicate file IDs. Unlinked books retain an aggregate NULL; no explicit
+        ordering is applied.
 
         Transaction and cache behavior for delegated SQL follows the host
-        execute/executemany implementation; this method adds no separate transaction guard.
+        execute/executemany implementation; this method adds no separate transaction
+        guard.
 
         Example:
             >>> metadata_sql.read_book_sizes_sum_mode()  # doctest: +SKIP
@@ -211,11 +231,12 @@ class BooksMacrosMixin:
         Read each book with the MAX of file sizes reached through its folders.
 
         Uses nested IN queries over book_folder_links and file_folder_links, avoiding
-        duplicate file IDs. Unlinked books retain an aggregate NULL; no explicit ordering is
-        applied.
+        duplicate file IDs. Unlinked books retain an aggregate NULL; no explicit
+        ordering is applied.
 
         Transaction and cache behavior for delegated SQL follows the host
-        execute/executemany implementation; this method adds no separate transaction guard.
+        execute/executemany implementation; this method adds no separate transaction
+        guard.
 
         Example:
             >>> metadata_sql.read_book_sizes_max_mode()  # doctest: +SKIP
@@ -237,11 +258,12 @@ class BooksMacrosMixin:
         Read each book with the MIN of file sizes reached through its folders.
 
         Uses nested IN queries over book_folder_links and file_folder_links, avoiding
-        duplicate file IDs. Unlinked books retain an aggregate NULL; no explicit ordering is
-        applied.
+        duplicate file IDs. Unlinked books retain an aggregate NULL; no explicit
+        ordering is applied.
 
         Transaction and cache behavior for delegated SQL follows the host
-        execute/executemany implementation; this method adds no separate transaction guard.
+        execute/executemany implementation; this method adds no separate transaction
+        guard.
 
         Example:
             >>> metadata_sql.read_book_sizes_min_mode()  # doctest: +SKIP
@@ -268,7 +290,8 @@ class BooksMacrosMixin:
             >>> metadata_sql.set_has_cover(1, True)  # doctest: +SKIP
 
 
-        :param book_id: Book identifier bound to book_id or the owning relationship column.
+        :param book_id: Book identifier bound to book_id or the owning relationship
+            column.
         :param value: Replacement stored value; not coerced by this helper.
         :return: None.
         """
@@ -280,9 +303,9 @@ class BooksMacrosMixin:
         """
         Attempt to pickle and upsert options for an uppercased format.
 
-        The module does not import sqlite or cPickle: the first expression normally raises
-        NameError before SQL. If those globals are supplied externally, it looks up an
-        existing option row, updates or inserts serialized bytes, and commits.
+        The module does not import sqlite or cPickle: the first expression normally
+        raises NameError before SQL. If those globals are supplied externally, it looks
+        up an existing option row, updates or inserts serialized bytes, and commits.
 
         Example:
             >>> try:
@@ -292,7 +315,8 @@ class BooksMacrosMixin:
             missing legacy serialization imports
 
 
-        :param book_id: Book identifier bound to book_id or the owning relationship column.
+        :param book_id: Book identifier bound to book_id or the owning relationship
+            column.
         :param fmt: Format string uppercased before matching conversion options.
         :param options: Conversion options intended for pickling; currently blocked by
             missing imports.
@@ -332,7 +356,8 @@ class BooksMacrosMixin:
             >>> metadata_sql.delete_conversion_options(1, "epub")  # doctest: +SKIP
 
 
-        :param book_id: Book identifier bound to book_id or the owning relationship column.
+        :param book_id: Book identifier bound to book_id or the owning relationship
+            column.
         :param fmt: Format string uppercased before matching conversion options.
         :param commit: Whether to commit the live connection after deletion.
         :return: None.

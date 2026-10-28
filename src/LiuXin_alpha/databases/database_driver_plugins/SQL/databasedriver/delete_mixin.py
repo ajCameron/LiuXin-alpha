@@ -2,7 +2,8 @@
 """
 Delete rows or link tables through SQL driver primitives.
 
-These helpers have distinct commit/close behavior; callers should not assume batch failures roll back.
+These helpers have distinct commit/close behavior; callers should not assume batch
+failures roll back.
 """
 
 from __future__ import annotations
@@ -28,7 +29,9 @@ class DeleteMixin:
         """
         Delete rows by string-coerced IDs using executemany.
 
-        Commit/close run in finally. Handled SQLite errors also close first, so the second commit on a closed connection can mask the translated error. Successful execution does not verify how many rows matched.
+        Commit/close run in finally. Handled SQLite errors also close first, so the
+        second commit on a closed connection can mask the translated error. Successful
+        execution does not verify how many rows matched.
 
         Example:
             ``driver.direct_delete_many_by_ids("books", [2, 4])`` deletes matching IDs.
@@ -93,7 +96,9 @@ class DeleteMixin:
         """
         Delete matching column values, optionally as repeated bound-value statements.
 
-        Only the table is validated; column identifiers must be trusted. The batch form stringifies values. Commit/close run even on errors, and duplicate error-path cleanup can mask a translated SQLite exception.
+        Only the table is validated; column identifiers must be trusted. The batch form
+        stringifies values. Commit/close run even on errors, and duplicate error-path
+        cleanup can mask a translated SQLite exception.
 
         Example:
             ``driver.direct_delete("books", "book_id", 3)`` deletes a matching row.
@@ -102,7 +107,8 @@ class DeleteMixin:
         :param target_table: Existing table name, validated by the driver.
         :param column: Trusted column identifier interpolated into SQL.
         :param value: One bound value, or an iterable when ``many`` is true.
-        :param many: Execute one deletion per supplied value instead of one scalar deletion.
+        :param many: Execute one deletion per supplied value instead of one scalar
+            deletion.
         :return: ``True`` on successful execution, even if no row matched.
         """
         if not self.direct_validate_existing_table_name(target_table):
@@ -170,7 +176,8 @@ class DeleteMixin:
 
         :param target_table: Existing table name, validated by the driver.
         :param column: Trusted column identifier interpolated into SQL.
-        :param values: Iterable of values stringified and bound by the batch deletion helper.
+        :param values: Iterable of values stringified and bound by the batch deletion
+            helper.
         :return: ``None``; the delegated boolean result is discarded.
         """
         self.direct_delete(target_table=target_table, column=column, value=values, many=True)
@@ -179,7 +186,8 @@ class DeleteMixin:
         """
         Delete one ID match and commit without closing the acquired connection.
 
-        Missing IDs still count as success. SQLite operational/integrity errors are translated, with commit attempted on error as well.
+        Missing IDs still count as success. SQLite operational/integrity errors are
+        translated, with commit attempted on error as well.
 
         Example:
             ``driver.direct_delete_row_by_id("books", 3)`` deletes the ID if present.
@@ -236,12 +244,15 @@ class DeleteMixin:
 
     def direct_clear_table(self, target_table: str) -> bool:
         """
-        Delete every row, commit, and count remaining rows before closing the connection.
+        Delete every row, commit, and count remaining rows before closing the
+        connection.
 
-        Translate SQLite operational/integrity errors. The count is taken after an explicit commit and is not an atomic guarantee against concurrent inserts.
+        Translate SQLite operational/integrity errors. The count is taken after an
+        explicit commit and is not an atomic guarantee against concurrent inserts.
 
         Example:
-            ``driver.direct_clear_table("books")`` returns whether its follow-up count is zero.
+            ``driver.direct_clear_table("books")`` returns whether its follow-up count
+            is zero.
 
 
         :param target_table: Existing table name, validated by the driver.
@@ -297,7 +308,8 @@ class DeleteMixin:
         This removes all link rows and types, not an individual row relationship.
 
         Example:
-            ``driver.direct_unlink_main_tables("books", "tags")`` drops their interlink table.
+            ``driver.direct_unlink_main_tables("books", "tags")`` drops their interlink
+            table.
 
 
         :param primary_table: First main-table name used to resolve the link table.

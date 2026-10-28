@@ -33,7 +33,8 @@ class CMFilesMacrosMixin:
         Does not rename a filesystem entry.
 
         Transaction and cache behavior for delegated SQL follows the host
-        execute/executemany implementation; this method adds no separate transaction guard.
+        execute/executemany implementation; this method adds no separate transaction
+        guard.
 
         Example:
             >>> metadata_sql.set_file_name(1, "example.epub")  # doctest: +SKIP
@@ -51,7 +52,8 @@ class CMFilesMacrosMixin:
         Write the recorded file_size without measuring or validating a physical file.
 
         Transaction and cache behavior for delegated SQL follows the host
-        execute/executemany implementation; this method adds no separate transaction guard.
+        execute/executemany implementation; this method adds no separate transaction
+        guard.
 
         Example:
             >>> metadata_sql.set_file_size(1, 123)  # doctest: +SKIP
@@ -71,10 +73,13 @@ class CMFilesMacrosMixin:
         Does not modify filesystem content.
 
         Transaction and cache behavior for delegated SQL follows the host
-        execute/executemany implementation; this method adds no separate transaction guard.
+        execute/executemany implementation; this method adds no separate transaction
+        guard.
 
         Example:
-            >>> metadata_sql.set_file_size_and_name(1, 123, "example.epub")  # doctest: +SKIP
+            >>> metadata_sql.set_file_size_and_name(
+            ...     1, 123, "example.epub"
+            ... )  # doctest: +SKIP
 
 
         :param file_id: Catalogue file-row identifier; no physical file is accessed.
@@ -91,7 +96,8 @@ class CMFilesMacrosMixin:
         Delete one files catalogue row without removing a physical file.
 
         Transaction and cache behavior for delegated SQL follows the host
-        execute/executemany implementation; this method adds no separate transaction guard.
+        execute/executemany implementation; this method adds no separate transaction
+        guard.
 
         Example:
             >>> metadata_sql.delete_file_by_id(1)  # doctest: +SKIP
@@ -107,12 +113,14 @@ class CMFilesMacrosMixin:
 
     def delete_files_by_id(self, file_ids):
         """
-        Batch-delete files catalogue rows using bindings passed unchanged to executemany.
+        Batch-delete files catalogue rows using bindings passed unchanged to
+        executemany.
 
         No physical files are removed.
 
         Transaction and cache behavior for delegated SQL follows the host
-        execute/executemany implementation; this method adds no separate transaction guard.
+        execute/executemany implementation; this method adds no separate transaction
+        guard.
 
         Example:
             >>> metadata_sql.delete_files_by_id([(1,), (2,)])  # doctest: +SKIP

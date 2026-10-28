@@ -125,7 +125,8 @@ class PostgresDatabaseMacros(
         """
         Quote a table in the attached driver schema, falling back to public.
 
-        Use the driver canonicalizer when available; otherwise stringify the supplied name.
+        Use the driver canonicalizer when available; otherwise stringify the supplied
+        name.
 
         Example:
             With driver.schema set to library, works becomes ``"library"."works"``.
@@ -197,14 +198,16 @@ class DatabaseDriver(
         Raise DatabaseDriverError when target resolution yields nothing.
 
         Example:
-            ``DatabaseDriver({"postgres_url": "postgresql:///library"}, set_conn=False)``
-            initializes state without requiring a live server.
+            ``DatabaseDriver({"postgres_url": "postgresql:///library"},
+            set_conn=False)`` initializes state without requiring a live server.
 
 
         :param db_metadata: Connection metadata copied before configuration resolution.
-        :param db: Optional owning database facade, used by macros and cache refresh hooks.
+        :param db: Optional owning database facade, used by macros and cache refresh
+            hooks.
         :param set_conn: Whether to open the primary connection during construction.
-        :param dirty_records_queue: Optional queue retained for shared driver dirty-record handling.
+        :param dirty_records_queue: Optional queue retained for shared driver
+            dirty-record handling.
         :return: None; populates instance state.
         """
         self.db_metadata = dict(db_metadata or {})
@@ -244,8 +247,9 @@ class DatabaseDriver(
         """
         Open, configure and register a new connection adapter.
 
-        Set the quoted schema search_path and commit that setting before returning.
-        The caller owns closing the returned handle; registration also enables shared cleanup.
+        Set the quoted schema search_path and commit that setting before returning. The
+        caller owns closing the returned handle; registration also enables shared
+        cleanup.
 
         Example:
             ``conn = driver.get_connection()`` returns an adapter using driver.schema.
@@ -263,8 +267,8 @@ class DatabaseDriver(
         """
         Probe reachability with SELECT 1 and close the probe connection.
 
-        Return False and log redacted details on failure. This checks connectivity rather
-        than the existence or completeness of LiuXin schema tables.
+        Return False and log redacted details on failure. This checks connectivity
+        rather than the existence or completeness of LiuXin schema tables.
 
         Example:
             A reachable empty PostgreSQL database can return True from driver.exists().
@@ -299,7 +303,8 @@ class DatabaseDriver(
         Use PostgreSQL backup tooling outside this API.
 
         Example:
-            ``driver.direct_backup(path)`` raises DatabaseDriverError before creating a file.
+            ``driver.direct_backup(path)`` raises DatabaseDriverError before creating a
+            file.
 
 
         :param path: Unused destination retained by the shared driver contract.
@@ -312,7 +317,8 @@ class DatabaseDriver(
         Reject dropping a PostgreSQL database through this driver.
 
         Example:
-            ``driver.direct_self_delete()`` raises DatabaseDriverError without issuing DROP DATABASE.
+            ``driver.direct_self_delete()`` raises DatabaseDriverError without issuing
+            DROP DATABASE.
 
 
         :return: Never returns; always raises DatabaseDriverError.
@@ -372,7 +378,8 @@ class DatabaseDriver(
         """
         Join list fragments with newlines and run the direct script executor.
 
-        The executor splits on semicolons without parsing SQL literals or procedural blocks.
+        The executor splits on semicolons without parsing SQL literals or procedural
+        blocks.
 
         Example:
             ``driver.direct_execute_sql_script(["select 1;", "select 2;"])``
@@ -392,7 +399,8 @@ class DatabaseDriver(
         through a fetching API when an inserted ID is required.
 
         Example:
-            ``driver.direct_execute_sql("select 1")`` returns None with the native adapter.
+            ``driver.direct_execute_sql("select 1")`` returns None with the native
+            adapter.
 
 
         :param sql: Direct SQL passed through the connection adapter translations.
@@ -411,7 +419,8 @@ class DatabaseDriver(
         wrapper. The caller owns cleanup of the returned cursor.
 
         Example:
-            ``driver.direct_execute("select work_id from works")`` returns a fetchable cursor.
+            ``driver.direct_execute("select work_id from works")`` returns a fetchable
+            cursor.
 
 
         :param sql: Direct SQL passed through the connection adapter translations.
@@ -439,8 +448,8 @@ class DatabaseDriver(
         """
         Execute repeated parameter sets in one primary-connection transaction.
 
-        Treat None or an empty sequence as no parameter sets, then refresh shared caches.
-        Execution failures are logged and wrapped as DatabaseDriverError.
+        Treat None or an empty sequence as no parameter sets, then refresh shared
+        caches. Execution failures are logged and wrapped as DatabaseDriverError.
 
         Example:
             A batch of insert parameter tuples is executed in one transaction context.
@@ -470,11 +479,12 @@ class DatabaseDriver(
         """
         Execute a simple semicolon-separated script in one primary transaction.
 
-        The adapter does not parse embedded semicolons. Refresh shared caches on success;
-        wrap execution failures as DatabaseDriverError.
+        The adapter does not parse embedded semicolons. Refresh shared caches on
+        success; wrap execution failures as DatabaseDriverError.
 
         Example:
-            ``driver.direct_executescript("select 1; select 2;")`` executes two statements.
+            ``driver.direct_executescript("select 1; select 2;")`` executes two
+            statements.
 
 
         :param sqlscript: Script suitable for the adapter semicolon splitter.
@@ -515,7 +525,8 @@ class DatabaseDriver(
         Return the textual schema fingerprint exposed by user_version.
 
         Example:
-            ``driver.direct_get_user_version() == driver.user_version`` when schema is unchanged.
+            ``driver.direct_get_user_version() == driver.user_version`` when schema is
+            unchanged.
 
 
         :return: Current user_version property value.
@@ -534,8 +545,8 @@ class DatabaseDriver(
         Build and execute a conventional main table and selected column indexes.
 
         Add a bigserial ID, nullable data columns, timestamp datestamp and scratch text.
-        Normalize/validate names and map supported data types before executing DDL.
-        IF NOT EXISTS preserves existing objects rather than reconciling their definitions.
+        Normalize/validate names and map supported data types before executing DDL. IF
+        NOT EXISTS preserves existing objects rather than reconciling their definitions.
 
         Example:
             ``driver.direct_create_main_table("notes", ["label"], index_on=None)``
@@ -543,10 +554,13 @@ class DatabaseDriver(
 
 
         :param table_name: Table name normalized to its unqualified spelling.
-        :param column_headings: None for one base-named data column, suffix sequence, or suffix-to-datatype/unique mappings.
-        :param index_on: all, None, or requested suffix/full names; without headings only all/None/empty are supported.
+        :param column_headings: None for one base-named data column, suffix sequence, or
+            suffix-to-datatype/unique mappings.
+        :param index_on: all, None, or requested suffix/full names; without headings
+            only all/None/empty are supported.
         :param default_datatype: Fallback type mapped to a supported PostgreSQL type.
-        :param default_unique: Fallback uniqueness flag applied to each requested data column.
+        :param default_unique: Fallback uniqueness flag applied to each requested data
+            column.
         :return: None; executes schema statements and refreshes shared caches.
         """
         table = _assert_safe_identifier(self._canonicalise_table_name_for_cache(table_name), kind="table")
@@ -618,10 +632,10 @@ class DatabaseDriver(
         """
         Generate native link-table DDL after validating both existing main tables.
 
-        Sort singular table bases to choose link names and swap one/many orientation when
-        needed. Add cardinality constraints, optional indexes and an optional type-label
-        table. The type-label table does not itself restrict link values. No DDL is executed
-        here, although table/column validation can query the database.
+        Sort singular table bases to choose link names and swap one/many orientation
+        when needed. Add cardinality constraints, optional indexes and an optional
+        type-label table. The type-label table does not itself restrict link values. No
+        DDL is executed here, although table/column validation can query the database.
 
         Example:
             Linking agents and works produces agent_work_links and foreign keys to
@@ -630,12 +644,17 @@ class DatabaseDriver(
 
         :param primary_table: First main table in the requested relationship.
         :param secondary_table: Second main table in the requested relationship.
-        :param link_type: Relationship cardinality: many_many, many_many_non_exclusive, one_many, many_one, one_one, one_one_normalized or rating.
-        :param requested_cols: all, None, or a sequence of optional link-column suffixes.
+        :param link_type: Relationship cardinality: many_many, many_many_non_exclusive,
+            one_many, many_one, one_one, one_one_normalized or rating.
+        :param requested_cols: all, None, or a sequence of optional link-column
+            suffixes.
         :param index_both: Whether to index both link foreign-key columns.
-        :param allowed_types: Optional type labels stored in a companion __types table; no enforcing foreign key is created.
-        :param one_link_with_one_type: Accepted but currently ignored; constraints follow link_type and requested columns.
-        :param override_restriction_sql: Must be None; raw SQLite restriction SQL is unsupported.
+        :param allowed_types: Optional type labels stored in a companion __types table;
+            no enforcing foreign key is created.
+        :param one_link_with_one_type: Accepted but currently ignored; constraints
+            follow link_type and requested columns.
+        :param override_restriction_sql: Must be None; raw SQLite restriction SQL is
+            unsupported.
         :param nullable_fks: Whether link foreign keys may be null.
         :return: Pair of SQL statement list and generated link-table name.
         """
@@ -754,24 +773,30 @@ class DatabaseDriver(
         nullable_fks: bool = True,
     ) -> str:
         """
-        Create a link table and optionally seed its type-label companion in one transaction.
+        Create a link table and optionally seed its type-label companion in one
+        transaction.
 
         Generate DDL from existing table metadata, bind allowed type values separately,
         then refresh caches. Execution failures become DatabaseDriverError; validation
         errors from DDL generation propagate directly.
 
         Example:
-            ``driver.direct_link_main_tables("agents", "works", allowed_types=("author",))``
-            creates the link objects and seeds an author label.
+            ``driver.direct_link_main_tables("agents", "works",
+            allowed_types=("author",))`` creates the link objects and seeds an author
+            label.
 
 
         :param primary_table: First main table in the requested relationship.
         :param secondary_table: Second main table in the requested relationship.
-        :param link_type: Relationship cardinality: many_many, many_many_non_exclusive, one_many, many_one, one_one, one_one_normalized or rating.
-        :param requested_cols: all, None, or a sequence of optional link-column suffixes.
+        :param link_type: Relationship cardinality: many_many, many_many_non_exclusive,
+            one_many, many_one, one_one, one_one_normalized or rating.
+        :param requested_cols: all, None, or a sequence of optional link-column
+            suffixes.
         :param index_both: Whether to index both link foreign-key columns.
-        :param allowed_types: Optional type labels stored in a companion __types table; no enforcing foreign key is created.
-        :param override_restriction_sql: Must be None; raw SQLite restriction SQL is unsupported.
+        :param allowed_types: Optional type labels stored in a companion __types table;
+            no enforcing foreign key is created.
+        :param override_restriction_sql: Must be None; raw SQLite restriction SQL is
+            unsupported.
         :param nullable_fks: Whether link foreign keys may be null.
         :return: Generated link-table name after successful transaction exit.
         """
@@ -863,7 +888,8 @@ class DatabaseDriver(
         Close the connection after reading.
 
         Example:
-            Changing a column name or information_schema data_type changes the fingerprint.
+            Changing a column name or information_schema data_type changes the
+            fingerprint.
 
 
         :return: Catalog MD5 text, or None if no row value is available.
@@ -914,10 +940,12 @@ class DatabaseDriver(
         Return the cache object itself rather than a defensive copy.
 
         Example:
-            ``driver.direct_get_tables(force_refresh=True)`` reads the configured schema anew.
+            ``driver.direct_get_tables(force_refresh=True)`` reads the configured schema
+            anew.
 
 
-        :param force_refresh: Whether to discard cached schema information before querying.
+        :param force_refresh: Whether to discard cached schema information before
+            querying.
         :return: Cached or newly queried list of relation names.
         """
         if force_refresh:
@@ -951,14 +979,16 @@ class DatabaseDriver(
         """
         Read ordered column headings per relation, reusing a matching schema cache.
 
-        A refresh also updates the table-name cache and stored fingerprint. Returned lists
-        and mapping are shared cache objects, not copies.
+        A refresh also updates the table-name cache and stored fingerprint. Returned
+        lists and mapping are shared cache objects, not copies.
 
         Example:
-            ``driver.direct_get_tables_and_columns()["works"]`` lists physical work columns.
+            ``driver.direct_get_tables_and_columns()["works"]`` lists physical work
+            columns.
 
 
-        :param force_refresh: Whether to discard cached schema information before querying.
+        :param force_refresh: Whether to discard cached schema information before
+            querying.
         :return: Mapping from table/view names to ordered column-name lists.
         """
         if self.tables_and_columns is not None and not force_refresh:
@@ -1049,7 +1079,8 @@ class DatabaseDriver(
         Return cached headings for a canonicalized table or raise InputIntegrityError.
 
         Example:
-            ``driver.direct_get_column_headings("works")`` returns the cache-owned heading list.
+            ``driver.direct_get_column_headings("works")`` returns the cache-owned
+            heading list.
 
 
         :param table: Table name resolved within the configured driver schema.
@@ -1084,8 +1115,9 @@ class DatabaseDriver(
         """
         Cache information_schema data_type labels by canonical table name.
 
-        Reuse a cached mapping without a fresh fingerprint check; schema invalidation clears
-        that cache separately. A table with no catalog rows yields an empty mapping.
+        Reuse a cached mapping without a fresh fingerprint check; schema invalidation
+        clears that cache separately. A table with no catalog rows yields an empty
+        mapping.
 
         Example:
             For managed digital_assets, digital_asset_size_bytes maps to bigint.
@@ -1155,9 +1187,9 @@ class DatabaseDriver(
         """
         Resolve stored column policy with inferred defaults when catalog data is absent.
 
-        Validate the target, infer a fallback from its type, then read the metadata row if
-        available. Legacy catalogs without both presentation-option columns omit those
-        fields. Close the short connection before constructing the result.
+        Validate the target, infer a fallback from its type, then read the metadata row
+        if available. Legacy catalogs without both presentation-option columns omit
+        those fields. Close the short connection before constructing the result.
 
         Example:
             A physical work_title column without a metadata row receives its inferred
@@ -1326,9 +1358,9 @@ class DatabaseDriver(
         """
         Validate a bool flag and upsert only the column case-sensitivity field.
 
-        Check normalized-identity policy compatibility before writing. Require the metadata
-        table; an existing row keeps its other fields, while a new row relies on column
-        defaults. The transaction uses the primary connection.
+        Check normalized-identity policy compatibility before writing. Require the
+        metadata table; an existing row keeps its other fields, while a new row relies
+        on column defaults. The transaction uses the primary connection.
 
         Example:
             Changing work_title case sensitivity preserves other fields in an existing
@@ -1433,12 +1465,15 @@ class DatabaseDriver(
 
     def direct_get_relation_type(self, name: str) -> str | None:
         """
-        Look up an exact relation name in the configured schema and close the connection.
+        Look up an exact relation name in the configured schema and close the
+        connection.
 
-        Unlike table helpers, this lookup does not canonicalize or strip the supplied name.
+        Unlike table helpers, this lookup does not canonicalize or strip the supplied
+        name.
 
         Example:
-            A regular information_schema VIEW yields ``"view"``; an absent name yields None.
+            A regular information_schema VIEW yields ``"view"``; an absent name yields
+            None.
 
 
         :param name: Exact unqualified relation name to bind in the catalog query.
@@ -1468,11 +1503,13 @@ class DatabaseDriver(
         use direct_get_relation_type when that distinction matters.
 
         Example:
-            ``driver.direct_get_view_column_headings(view)`` returns its physical column order.
+            ``driver.direct_get_view_column_headings(view)`` returns its physical column
+            order.
 
 
         :param view: Relation name canonicalized within the configured schema.
-        :return: Ordered heading list; missing/columnless relations raise InputIntegrityError.
+        :return: Ordered heading list; missing/columnless relations raise
+            InputIntegrityError.
         """
         view_name = self._canonicalise_table_name_for_cache(view)
         conn = self._short_connection()
@@ -1563,7 +1600,8 @@ class DatabaseDriver(
         transaction and refresh caches. Execution failures become DatabaseDriverError.
 
         Example:
-            Passing one trigger name drops all its matching attachments in driver.schema.
+            Passing one trigger name drops all its matching attachments in
+            driver.schema.
 
 
         :param triggers: Trigger names; each is converted to text and stripped.
@@ -1709,8 +1747,9 @@ class DatabaseDriver(
         """
         Perform a bound equality search on one validated column.
 
-        Reject a None search term rather than translating it to IS NULL. Equality follows
-        the database column semantics; this method does not apply column-policy folding.
+        Reject a None search term rather than translating it to IS NULL. Equality
+        follows the database column semantics; this method does not apply column-policy
+        folding.
 
         Example:
             ``driver.direct_search_table("works", "work_title", "Example")`` returns
@@ -1748,17 +1787,20 @@ class DatabaseDriver(
         AND validated predicates from one inferred table, with bound search values.
 
         Support comparison operators, LIKE/ILIKE, IN and null-aware IS/IS NOT. Empty IN
-        produces a false predicate. Reject malformed terms, mixed-table columns, unsupported
-        operators and strings containing the restricted SQL-like markers. Iterator mode
-        still fetches all rows internally before yielding converted dictionaries.
+        produces a false predicate. Reject malformed terms, mixed-table columns,
+        unsupported operators and strings containing the restricted SQL-like markers.
+        Iterator mode still fetches all rows internally before yielding converted
+        dictionaries.
 
         Example:
             ``driver.direct_multi_column_search([("work_id", "IN", [1, 2])])``
             returns matching work rows; an empty search_index returns None.
 
 
-        :param search_index: Sequence of column/operator/value triples; extra term elements are ignored.
-        :param iterator_return: Whether to return the deferred generator instead of a materialized list.
+        :param search_index: Sequence of column/operator/value triples; extra term
+            elements are ignored.
+        :param iterator_return: Whether to return the deferred generator instead of a
+            materialized list.
         :return: Matching row list, a generator, or None for an empty request.
         """
         if not search_index:
@@ -1866,9 +1908,9 @@ class DatabaseDriver(
         Yield converted rows using explicit ordering or positive-ID keyset batches.
 
         With sort_column, fetch all rows through the shared generator. Without it, read
-        batches of ten IDs greater than zero on separate short connections; zero/negative
-        IDs are omitted and concurrent changes are not covered by one snapshot. reverse
-        affects only the explicit-sort path.
+        batches of ten IDs greater than zero on separate short connections;
+        zero/negative IDs are omitted and concurrent changes are not covered by one
+        snapshot. reverse affects only the explicit-sort path.
 
         Example:
             ``driver.direct_get_row_dict_iterator("works")`` walks increasing positive
@@ -1876,8 +1918,10 @@ class DatabaseDriver(
 
 
         :param table: Table name resolved within the configured driver schema.
-        :param sort_column: Optional validated ORDER BY column; otherwise use positive-ID paging.
-        :param reverse: Whether an explicit sort column is descending; ignored for ID paging.
+        :param sort_column: Optional validated ORDER BY column; otherwise use
+            positive-ID paging.
+        :param reverse: Whether an explicit sort column is descending; ignored for ID
+            paging.
         :return: Generator yielding converted row dictionaries.
         """
         table = self._canonicalise_table_name_for_cache(table)
@@ -1922,7 +1966,8 @@ class DatabaseDriver(
             Distinct source values including SQL NULL produce a set containing None.
 
 
-        :param target_column: Column whose table is inferred by the shared naming contract.
+        :param target_column: Column whose table is inferred by the shared naming
+            contract.
         :return: Unordered set of raw distinct values.
         """
         target_table = self.direct_identify_table_from_column(target_column)
@@ -1939,10 +1984,12 @@ class DatabaseDriver(
         Yield from the materialized distinct-value set in unspecified order.
 
         Example:
-            Iterating this method allocates the full set before yielding its first value.
+            Iterating this method allocates the full set before yielding its first
+            value.
 
 
-        :param target_column: Column whose values are selected through direct_get_unique_values_set.
+        :param target_column: Column whose values are selected through
+            direct_get_unique_values_set.
         :return: Generator over distinct raw values.
         """
         for value in self.direct_get_unique_values_set(target_column):
@@ -1967,7 +2014,8 @@ class DatabaseDriver(
         Return the column minimum coerced to int when possible.
 
         Example:
-            A numeric string minimum can be converted to int; nonnumeric text yields None.
+            A numeric string minimum can be converted to int; nonnumeric text yields
+            None.
 
 
         :param column: Column name belonging to the selected table.
@@ -1979,15 +2027,17 @@ class DatabaseDriver(
         """
         Insert one copied row mapping and return its ID through RETURNING.
 
-        Infer the target, remove the table marker and derive supported normalized identities.
-        An empty payload uses DEFAULT VALUES. Execute in a primary transaction, refresh
-        caches and wrap execution failures as DatabaseDriverError.
+        Infer the target, remove the table marker and derive supported normalized
+        identities. An empty payload uses DEFAULT VALUES. Execute in a primary
+        transaction, refresh caches and wrap execution failures as DatabaseDriverError.
 
         Example:
-            Inserting ``{"table": "works", "work_title": "Example"}`` returns the new work ID.
+            Inserting ``{"table": "works", "work_title": "Example"}`` returns the new
+            work ID.
 
 
-        :param row_dict: Input column/value mapping with an optional table marker; not mutated.
+        :param row_dict: Input column/value mapping with an optional table marker; not
+            mutated.
         :return: ID scalar returned by PostgreSQL, or None if no value is available.
         """
         row_dict = dict(row_dict)
@@ -2031,14 +2081,16 @@ class DatabaseDriver(
         """
         Insert mappings sequentially using the single-row transaction helper.
 
-        This is not an atomic batch: earlier inserts may already be committed when a later
-        row fails. Individual generated IDs are discarded.
+        This is not an atomic batch: earlier inserts may already be committed when a
+        later row fails. Individual generated IDs are discarded.
 
         Example:
-            If the third insert raises, the first two successful row inserts remain committed.
+            If the third insert raises, the first two successful row inserts remain
+            committed.
 
 
-        :param row_dict_list: Row mappings passed in order to direct_add_simple_row_dict.
+        :param row_dict_list: Row mappings passed in order to
+            direct_add_simple_row_dict.
         :return: True after all rows are inserted, including an empty list.
         """
         for row_dict in row_dict_list:
@@ -2049,16 +2101,18 @@ class DatabaseDriver(
         """
         Update a copied row by its required ID, deriving supported identity columns.
 
-        Remove the table marker, convert literal string None values to SQL NULL, and require
-        the ID column. An ID-only payload is a successful no-op. True indicates successful
-        execution, not that a row matched; execution failures become DatabaseDriverError.
+        Remove the table marker, convert literal string None values to SQL NULL, and
+        require the ID column. An ID-only payload is a successful no-op. True indicates
+        successful execution, not that a row matched; execution failures become
+        DatabaseDriverError.
 
         Example:
             ``{"table": "works", "work_id": 7, "work_title": "Revised"}`` updates
             work 7 without modifying the caller mapping.
 
 
-        :param row_dict: Row mapping containing its conventional ID and replacement column values.
+        :param row_dict: Row mapping containing its conventional ID and replacement
+            column values.
         :return: True after successful execution or an empty update payload.
         """
         target_table = self.direct_identify_table_from_row(row_dict)
@@ -2100,14 +2154,16 @@ class DatabaseDriver(
 
     def direct_update_columns(self, id_values_map, field=None, table=None) -> bool:
         """
-        Apply one-column ID/value updates, keeping an available derived identity in sync.
+        Apply one-column ID/value updates, keeping an available derived identity in
+        sync.
 
-        An empty mapping returns True before field validation. Convert literal string None
-        to SQL NULL and execute the parameter batch in one primary transaction. Database
-        errors propagate directly.
+        An empty mapping returns True before field validation. Convert literal string
+        None to SQL NULL and execute the parameter batch in one primary transaction.
+        Database errors propagate directly.
 
         Example:
-            Updating series names by ID also updates the physical series_name_norm column.
+            Updating series names by ID also updates the physical series_name_norm
+            column.
 
 
         :param id_values_map: Mapping from row IDs to replacement field values.
@@ -2208,10 +2264,10 @@ class DatabaseDriver(
         """
         Delete rows matching one value or repeated bound values in one transaction.
 
-        Single-value None becomes IS NULL. In many mode, values use equality predicates, so
-        None elements do not select SQL NULL and strings iterate character by character.
-        Validate table/column first; wrap TypeError as InputIntegrityError and other
-        execution failures as DatabaseDriverError.
+        Single-value None becomes IS NULL. In many mode, values use equality predicates,
+        so None elements do not select SQL NULL and strings iterate character by
+        character. Validate table/column first; wrap TypeError as InputIntegrityError
+        and other execution failures as DatabaseDriverError.
 
         Example:
             ``driver.direct_delete("works", "work_title", None)`` removes rows whose
@@ -2222,7 +2278,8 @@ class DatabaseDriver(
         :param column: Column name belonging to the selected table.
         :param value: Scalar equality value, or iterable when many is True.
         :param many: Whether to execute one equality DELETE per element of value.
-        :return: True after successful execution, including an empty iterable in many mode.
+        :return: True after successful execution, including an empty iterable in many
+            mode.
         """
         table = self._canonicalise_table_name_for_cache(target_table)
         self._assert_existing_table(table)
@@ -2268,7 +2325,8 @@ class DatabaseDriver(
         Delete repeated column values through direct_delete with many enabled.
 
         Example:
-            Passing ["old", "obsolete"] deletes both equality matches in one transaction.
+            Passing ["old", "obsolete"] deletes both equality matches in one
+            transaction.
 
 
         :param target_table: Table containing the records to access.
@@ -2283,12 +2341,14 @@ class DatabaseDriver(
         Delete a validated table row by its conventional ID in a primary transaction.
 
         Example:
-            Deleting an ID that does not exist still returns True when SQL executes successfully.
+            Deleting an ID that does not exist still returns True when SQL executes
+            successfully.
 
 
         :param target_table: Table containing the records to access.
         :param row_id: ID bound to the row lookup or mutation.
-        :return: True after execution and cache refresh; failures become DatabaseDriverError.
+        :return: True after execution and cache refresh; failures become
+            DatabaseDriverError.
         """
         table = self._canonicalise_table_name_for_cache(target_table)
         self._assert_existing_table(table)
@@ -2322,7 +2382,8 @@ class DatabaseDriver(
         Refresh caches on success and wrap execution failures as DatabaseDriverError.
 
         Example:
-            Clearing works preserves the table definition and its identity sequence state.
+            Clearing works preserves the table definition and its identity sequence
+            state.
 
 
         :param target_table: Table containing the records to access.
@@ -2395,7 +2456,8 @@ class DatabaseDriver(
 
     def direct_set_db_unique_id(self, force_value=None) -> None:
         """
-        Update the first metadata row, or insert one, with a supplied/generated UUID text.
+        Update the first metadata row, or insert one, with a supplied/generated UUID
+        text.
 
         A falsy force_value generates uuid4. This setter does not enforce the single-row
         metadata invariant checked by the getter.
@@ -2404,7 +2466,8 @@ class DatabaseDriver(
             ``driver.direct_set_db_unique_id()`` stores a fresh uuid4 string.
 
 
-        :param force_value: Truthy value converted to text, or a falsy value to request uuid4.
+        :param force_value: Truthy value converted to text, or a falsy value to request
+            uuid4.
         :return: None; writes in the primary transaction.
         """
         unique_id = str(force_value or uuid.uuid4())
@@ -2431,10 +2494,12 @@ class DatabaseDriver(
         Read one validated field from the first database_metadata row.
 
         Example:
-            ``driver.direct_read_metadata("db_name")`` resolves database_metadata_db_name.
+            ``driver.direct_read_metadata("db_name")`` resolves
+            database_metadata_db_name.
 
 
-        :param md_field_name: Metadata column name, with or without the database_metadata_ prefix.
+        :param md_field_name: Metadata column name, with or without the
+            database_metadata_ prefix.
         :return: Raw field value or None when no metadata row exists.
         """
         field = self._metadata_field_name(md_field_name)
@@ -2450,13 +2515,16 @@ class DatabaseDriver(
         """
         Set a validated metadata field on the first row, inserting when none exists.
 
-        The primary transaction owns the write; extra metadata rows are not rejected here.
+        The primary transaction owns the write; extra metadata rows are not rejected
+        here.
 
         Example:
-            ``driver.direct_write_metadata("db_name", "Library")`` stores the library label.
+            ``driver.direct_write_metadata("db_name", "Library")`` stores the library
+            label.
 
 
-        :param md_field_name: Metadata column name, with or without the database_metadata_ prefix.
+        :param md_field_name: Metadata column name, with or without the
+            database_metadata_ prefix.
         :param md_field_value: Value bound to the selected metadata field.
         :return: None; commits the update/insert through context exit.
         """
@@ -2483,11 +2551,14 @@ class DatabaseDriver(
         Prefix and validate a database_metadata column name against current headings.
 
         Example:
-            The suffix db_name becomes database_metadata_db_name when that column exists.
+            The suffix db_name becomes database_metadata_db_name when that column
+            exists.
 
 
-        :param md_field_name: Metadata column name, with or without the database_metadata_ prefix.
-        :return: Validated full metadata column name; unknown names raise InputIntegrityError.
+        :param md_field_name: Metadata column name, with or without the
+            database_metadata_ prefix.
+        :return: Validated full metadata column name; unknown names raise
+            InputIntegrityError.
         """
         field = str(md_field_name)
         if not field.startswith("database_metadata_"):
@@ -2502,7 +2573,8 @@ class DatabaseDriver(
         Require an exact key in the table/column catalog without canonicalizing it.
 
         Example:
-            The unqualified key works passes when present; callers normalize qualified names first.
+            The unqualified key works passes when present; callers normalize qualified
+            names first.
 
 
         :param table: Table name resolved within the configured driver schema.
@@ -2516,7 +2588,8 @@ class DatabaseDriver(
         Require a column among the selected table headings.
 
         Example:
-            An unknown work column raises InputIntegrityError before a mutation is attempted.
+            An unknown work column raises InputIntegrityError before a mutation is
+            attempted.
 
 
         :param table: Table name resolved within the configured driver schema.
@@ -2530,7 +2603,8 @@ class DatabaseDriver(
         """
         Align raw row values to headings and apply inherited declared-type conversion.
 
-        Mappings supply missing headings as None; positional rows must contain enough cells.
+        Mappings supply missing headings as None; positional rows must contain enough
+        cells.
 
         Example:
             A mapping row is reordered to headings before shared value casting runs.
@@ -2554,10 +2628,12 @@ class DatabaseDriver(
         Execution failures are logged and wrapped as DatabaseDriverError.
 
         Example:
-            Table creation and its index statements are executed in their supplied order.
+            Table creation and its index statements are executed in their supplied
+            order.
 
 
-        :param statements: SQL statements executed sequentially without extra parsing here.
+        :param statements: SQL statements executed sequentially without extra parsing
+            here.
         :return: None; executes the schema transaction.
         """
         conn = self._primary_connection()
@@ -2587,10 +2663,12 @@ class DatabaseDriver(
         Fetch all rows on first iteration and yield converted dictionaries.
 
         Keep the short connection open until exhaustion, generator close or failure.
-        Despite its generator interface, this buffers the entire query result in fetchall.
+        Despite its generator interface, this buffers the entire query result in
+        fetchall.
 
         Example:
-            Close the generator explicitly when stopping early to release its connection promptly.
+            Close the generator explicitly when stopping early to release its connection
+            promptly.
 
 
         :param stmt: SQL query to execute through the connection adapter.
@@ -2611,8 +2689,8 @@ class DatabaseDriver(
         """
         Query min/max on an inferred column owner and coerce the scalar to int.
 
-        Validate the aggregate name and physical column first. Close the short connection
-        before conversion; TypeError/ValueError from int become None.
+        Validate the aggregate name and physical column first. Close the short
+        connection before conversion; TypeError/ValueError from int become None.
 
         Example:
             A value of 3.8 becomes 3; an absent, null or nonnumeric result becomes None.
@@ -2668,12 +2746,13 @@ class DatabaseDriver(
         """
         Return the retained connection, reopening it when absent or its probe fails.
 
-        Probe an existing connection with SELECT 1. Any probe exception triggers best-effort
-        close and replacement; the original failure is not propagated. The probe itself
-        may begin a transaction, and this method does not commit it.
+        Probe an existing connection with SELECT 1. Any probe exception triggers
+        best-effort close and replacement; the original failure is not propagated. The
+        probe itself may begin a transaction, and this method does not commit it.
 
         Example:
-            After a dead connection fails the probe, driver.conn is replaced by a new adapter.
+            After a dead connection fails the probe, driver.conn is replaced by a new
+            adapter.
 
 
         :return: Tracked reusable connection stored in self.conn.
@@ -2785,7 +2864,8 @@ def _reject_unsafe_search_value(value: Any) -> None:
     Reject string-like values containing semicolons, SQL comment markers or NUL.
 
     Decode byte values with replacement; non-string values and decode failures pass
-    through. This policy may reject ordinary text and is separate from parameter binding.
+    through. This policy may reject ordinary text and is separate from parameter
+    binding.
 
     Example:
         A title containing a semicolon is rejected even though query values are bound.

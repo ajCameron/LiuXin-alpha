@@ -229,7 +229,8 @@ def create_new_database(db_type: str, target_location: Union[str, pathlib.Path])
 
     :param db_type: Registered canonical name or case-insensitive alias.
     :param target_location: Target passed unchanged to the backend builder.
-    :return: The builder result, or the builder module when no callable entry point exists.
+    :return: The builder result, or the builder module when no callable entry point
+        exists.
     """
     if _get_registration(db_type).canonical_name in {"SQLite", "SQLite_apsw"}:
         driver = load_database_driver(db_type)(

@@ -30,11 +30,12 @@ class CMLangTitleLinkMixin:
         """
         Delete a title's language links, optionally restricting the link type.
 
-        The title ID is bound, but a non-None link_type is interpolated into quoted SQL and
-        must be trusted. None removes every language link for the title.
+        The title ID is bound, but a non-None link_type is interpolated into quoted SQL
+        and must be trusted. None removes every language link for the title.
 
         Transaction and cache behavior for delegated SQL follows the host
-        execute/executemany implementation; this method adds no separate transaction guard.
+        execute/executemany implementation; this method adds no separate transaction
+        guard.
 
         Example:
             >>> metadata_sql.break_lang_title_links(1)  # doctest: +SKIP
@@ -61,15 +62,18 @@ class CMLangTitleLinkMixin:
         """
         Delete generic links matching one ID or untyped batch bindings.
 
-        Interpolates trusted table/column identifiers. A supplied link_type is bound using
-        the conventionally derived type column. Typed integer deletion is supported; typed
-        batch deletion raises NotImplementedError before execution.
+        Interpolates trusted table/column identifiers. A supplied link_type is bound
+        using the conventionally derived type column. Typed integer deletion is
+        supported; typed batch deletion raises NotImplementedError before execution.
 
         Transaction and cache behavior for delegated SQL follows the host
-        execute/executemany implementation; this method adds no separate transaction guard.
+        execute/executemany implementation; this method adds no separate transaction
+        guard.
 
         Example:
-            >>> metadata_sql.break_generic_link("creator_title_links", "creator_title_link_title_id", 1)  # doctest: +SKIP
+            >>> metadata_sql.break_generic_link(
+            ...     "creator_title_links", "creator_title_link_title_id", 1
+            ... )  # doctest: +SKIP
 
 
         :param link_table: Trusted relationship-table name interpolated into SQL.
@@ -103,10 +107,17 @@ class CMLangTitleLinkMixin:
         Interpolates trusted table and endpoint-column names; no type filter is added.
 
         Transaction and cache behavior for delegated SQL follows the host
-        execute/executemany implementation; this method adds no separate transaction guard.
+        execute/executemany implementation; this method adds no separate transaction
+        guard.
 
         Example:
-            >>> metadata_sql.break_generic_single_link("creator_title_links", "creator_title_link_creator_id", "creator_title_link_title_id", 1, 1)  # doctest: +SKIP
+            >>> metadata_sql.break_generic_single_link(
+            ...     "creator_title_links",
+            ...     "creator_title_link_creator_id",
+            ...     "creator_title_link_title_id",
+            ...     1,
+            ...     1,
+            ... )  # doctest: +SKIP
 
 
         :param link_table: Trusted relationship-table name interpolated into SQL.

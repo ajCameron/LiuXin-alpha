@@ -42,7 +42,11 @@ class CustomColumnsManagementMacrosMixin:
         >>> from types import SimpleNamespace
         >>> recorded = []
         >>> macros = CustomColumnsManagementMacrosMixin()
-        >>> macros.db = SimpleNamespace(driver_wrapper=SimpleNamespace(execute=lambda sql, values: recorded.append(values)))
+        >>> macros.db = SimpleNamespace(
+        ...     driver_wrapper=SimpleNamespace(
+        ...         execute=lambda sql, values: recorded.append(values)
+        ...     )
+        ... )
         >>> macros.mark_custom_column_for_delete(7)
         >>> recorded
         [(7,)]
@@ -111,14 +115,32 @@ class CustomColumnsManagementMacrosMixin:
             >>> import sqlite3
             >>> from types import SimpleNamespace
             >>> conn = sqlite3.connect(":memory:")
-            >>> _ = conn.executescript("CREATE TABLE custom_columns (custom_column_id INTEGER PRIMARY KEY, custom_column_name TEXT, custom_column_name_norm TEXT, custom_column_display TEXT); INSERT INTO custom_columns VALUES (1, 'Old', 'old', NULL);")
+            >>> _ = conn.executescript(
+            ...     "CREATE TABLE custom_columns (custom_column_id INTEGER PRIMARY "
+            ...     "KEY, custom_column_name TEXT, custom_column_name_norm TEXT, "
+            ...     "custom_column_display TEXT); INSERT INTO custom_columns VALUES "
+            ...     "(1, 'Old', 'old', NULL);"
+            ... )
             >>> macros = CustomColumnsManagementMacrosMixin()
-            >>> macros.db = SimpleNamespace(driver_wrapper=SimpleNamespace(get_column_headings=lambda table: ("custom_column_name_norm",)))
-            >>> macros.set_custom_column_metadata(1, name="  Straße  ", display={"heading": "A"}, conn=conn)
+            >>> macros.db = SimpleNamespace(
+            ...     driver_wrapper=SimpleNamespace(
+            ...         get_column_headings=lambda table: ("custom_column_name_norm",)
+            ...     )
+            ... )
+            >>> macros.set_custom_column_metadata(
+            ...     1, name="  Straße  ", display={"heading": "A"}, conn=conn
+            ... )
             True
-            >>> conn.execute("SELECT custom_column_name, custom_column_name_norm FROM custom_columns").fetchone()
+            >>> conn.execute(
+            ...     "SELECT custom_column_name, custom_column_name_norm FROM "
+            ...     "custom_columns"
+            ... ).fetchone()
             ('  Straße  ', 'strasse')
-            >>> json.loads(conn.execute("SELECT custom_column_display FROM custom_columns").fetchone()[0])
+            >>> json.loads(
+            ...     conn.execute(
+            ...         "SELECT custom_column_display FROM custom_columns"
+            ...     ).fetchone()[0]
+            ... )
             {'heading': 'A'}
             >>> macros.set_custom_column_metadata(999, name="Missing", conn=conn)
             True
@@ -269,20 +291,46 @@ class CustomColumnsManagementMacrosMixin:
             >>> from types import SimpleNamespace
             >>> target = sqlite3.connect(":memory:")
             >>> probe = sqlite3.connect(":memory:")
-            >>> _ = target.executescript("CREATE TABLE books (book_id INTEGER PRIMARY KEY); INSERT INTO books VALUES (1);")
+            >>> _ = target.executescript(
+            ...     "CREATE TABLE books (book_id INTEGER PRIMARY KEY); INSERT INTO "
+            ...     "books VALUES (1);"
+            ... )
             >>> driver = SimpleNamespace(direct_execute_sql_script=target.executescript)
             >>> wrapper = SimpleNamespace(get_id_column=lambda table: "book_id")
             >>> macros = CustomColumnsManagementMacrosMixin()
             >>> macros.db = SimpleNamespace(driver=driver, driver_wrapper=wrapper)
-            >>> macros.create_cc_table(True, "series", "TEXT", "custom_column_1", "books_custom_column_1_link", "", conn=probe)
+            >>> macros.create_cc_table(
+            ...     True,
+            ...     "series",
+            ...     "TEXT",
+            ...     "custom_column_1",
+            ...     "books_custom_column_1_link",
+            ...     "",
+            ...     conn=probe,
+            ... )
             >>> probe.execute("SELECT COUNT(*) FROM sqlite_master").fetchone()[0]
             0
-            >>> _ = target.execute("INSERT INTO custom_column_1(custom_column_1_value) VALUES (?)", ("Saga",))
-            >>> _ = target.execute("INSERT INTO books_custom_column_1_link(books_custom_column_1_link_book, books_custom_column_1_link_value) VALUES (1, 1)")
-            >>> target.execute("SELECT value, count, avg_rating FROM tag_browser_custom_column_1").fetchall()
+            >>> _ = target.execute(
+            ...     "INSERT INTO custom_column_1(custom_column_1_value) VALUES (?)",
+            ...     ("Saga",),
+            ... )
+            >>> _ = target.execute(
+            ...     "INSERT INTO "
+            ...     "books_custom_column_1_link(books_custom_column_1_link_book, "
+            ...     "books_custom_column_1_link_value) VALUES (1, 1)"
+            ... )
+            >>> target.execute(
+            ...     "SELECT value, count, avg_rating FROM tag_browser_custom_column_1"
+            ... ).fetchall()
             [('Saga', 1, None)]
-            >>> _ = target.execute("UPDATE books_custom_column_1_link SET books_custom_column_1_link_value=999")
-            >>> target.execute("SELECT books_custom_column_1_link_value FROM books_custom_column_1_link").fetchone()[0]
+            >>> _ = target.execute(
+            ...     "UPDATE books_custom_column_1_link SET "
+            ...     "books_custom_column_1_link_value=999"
+            ... )
+            >>> target.execute(
+            ...     "SELECT books_custom_column_1_link_value FROM "
+            ...     "books_custom_column_1_link"
+            ... ).fetchone()[0]
             999
             >>> target.close()
             >>> probe.close()
@@ -447,7 +495,8 @@ class CustomColumnsManagementMacrosMixin:
 
                 Example:
                     During normalized-table creation, an absent ratings table makes
-                    ``_has_table("ratings")`` return False and selects NULL average-rating views.
+                    ``_has_table("ratings")`` return False and selects NULL
+                    average-rating views.
 
 
                 :param _name: Exact table name bound to the sqlite_master query.
@@ -638,7 +687,11 @@ class CustomColumnsManagementMacrosMixin:
             >>> from types import SimpleNamespace
             >>> bindings = []
             >>> macros = CustomColumnsManagementMacrosMixin()
-            >>> macros.db = SimpleNamespace(driver_wrapper=SimpleNamespace(execute=lambda sql, values: bindings.append(values)))
+            >>> macros.db = SimpleNamespace(
+            ...     driver_wrapper=SimpleNamespace(
+            ...         execute=lambda sql, values: bindings.append(values)
+            ...     )
+            ... )
             >>> macros.do_custom_column_delete_by_num(7)
             >>> bindings
             [(7,)]
@@ -662,7 +715,11 @@ class CustomColumnsManagementMacrosMixin:
             >>> from types import SimpleNamespace
             >>> bindings = []
             >>> macros = CustomColumnsManagementMacrosMixin()
-            >>> macros.db = SimpleNamespace(driver_wrapper=SimpleNamespace(execute=lambda sql, values: bindings.append(values)))
+            >>> macros.db = SimpleNamespace(
+            ...     driver_wrapper=SimpleNamespace(
+            ...         execute=lambda sql, values: bindings.append(values)
+            ...     )
+            ... )
             >>> macros.do_custom_column_delete_by_id(7)
             >>> bindings
             [7]
@@ -708,7 +765,9 @@ class CustomColumnsManagementMacrosMixin:
         Example:
             >>> from types import SimpleNamespace
             >>> conn = SimpleNamespace(get=lambda sql: [(7,), (9,)])
-            >>> CustomColumnsManagementMacrosMixin().get_all_cc_ids_marked_for_delete(conn=conn)
+            >>> CustomColumnsManagementMacrosMixin().get_all_cc_ids_marked_for_delete(
+            ...     conn=conn
+            ... )
             [7, 9]
 
 
@@ -747,8 +806,14 @@ class CustomColumnsManagementMacrosMixin:
         Example:
             >>> import sqlite3
             >>> conn = sqlite3.connect(":memory:")
-            >>> _ = conn.executescript("CREATE TABLE custom_columns (custom_column_id INTEGER, custom_column_mark_for_delete INTEGER); INSERT INTO custom_columns VALUES (1, 1), (2, 0);")
-            >>> CustomColumnsManagementMacrosMixin().preform_cc_column_delete_from_map({}, conn=conn)
+            >>> _ = conn.executescript(
+            ...     "CREATE TABLE custom_columns (custom_column_id INTEGER, "
+            ...     "custom_column_mark_for_delete INTEGER); INSERT INTO "
+            ...     "custom_columns VALUES (1, 1), (2, 0);"
+            ... )
+            >>> CustomColumnsManagementMacrosMixin().preform_cc_column_delete_from_map(
+            ...     {}, conn=conn
+            ... )
             >>> conn.execute("SELECT custom_column_id FROM custom_columns").fetchall()
             [(2,)]
             >>> conn.in_transaction

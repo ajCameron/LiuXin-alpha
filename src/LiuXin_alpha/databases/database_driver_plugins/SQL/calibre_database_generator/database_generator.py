@@ -35,7 +35,8 @@ class CalibreSchemaInfo:
     Immutable application ID, user version and SHA-256 of decoded snapshot SQL.
 
     Example:
-        The metadata snapshot info identifies both its SQLite PRAGMAs and exact SQL text.
+        The metadata snapshot info identifies both its SQLite PRAGMAs and exact SQL
+        text.
     """
 
     application_id: int
@@ -104,7 +105,8 @@ def ensure_library_id_row(
     Does not validate UUID syntax, enforce a single existing row, commit or close.
 
     Example:
-        An existing nonempty UUID is returned even when library_uuid requests a different one.
+        An existing nonempty UUID is returned even when library_uuid requests a
+        different one.
 
 
     :param connection: Open SQLite connection owned by the caller.
@@ -194,12 +196,14 @@ def create_calibre_library_skeleton(
     :param library_root: Directory containing the Calibre library.
     :param overwrite: Whether to remove an existing database file before creation.
     :param validate: Whether to check snapshot versions and required metadata tables.
-    :param ensure_library_uuid: Whether to ensure a library_id row after metadata creation.
+    :param ensure_library_uuid: Whether to ensure a library_id row after metadata
+        creation.
     :param library_uuid: Optional UUID used only when a library UUID needs inserting.
     :param create_data_dir: Whether to create a data subdirectory.
     :param create_notes_db: Whether to initialize .calnotes/notes.db.
     :param create_fts_db: Whether to initialize full-text-search.db.
-    :param best_effort_aux_dbs: Whether missing FTS/tokenizer support permits reduced auxiliary schemas.
+    :param best_effort_aux_dbs: Whether missing FTS/tokenizer support permits reduced
+        auxiliary schemas.
     :return: Paths to the created/requested library databases.
     """
 
@@ -267,9 +271,9 @@ def _create_aux_database(
     """
     Attach and initialize one auxiliary database, optionally retrying without FTS.
 
-    For recognized missing FTS/tokenizer errors in best-effort mode, delete the partially
-    created target file and rebuild it with virtual-table/trigger definitions removed.
-    Other errors propagate; connections are closed in either case.
+    For recognized missing FTS/tokenizer errors in best-effort mode, delete the
+    partially created target file and rebuild it with virtual-table/trigger definitions
+    removed. Other errors propagate; connections are closed in either case.
 
     Example:
         A notes database may be recreated without its virtual tables when the
@@ -280,7 +284,8 @@ def _create_aux_database(
     :param attach_name: Trusted SQL attachment identifier required by the snapshot.
     :param sql_kind: Packaged SQL resource key, normally notes or fts.
     :param overwrite: Whether to remove an existing database file before creation.
-    :param best_effort: Whether recognized FTS capability errors trigger reduced-schema recreation.
+    :param best_effort: Whether recognized FTS capability errors trigger reduced-schema
+        recreation.
     :return: None; creates or recreates the target file.
     """
 
@@ -299,7 +304,8 @@ def _create_aux_database(
         """
         Execute a script against the enclosing auxiliary file through an in-memory host.
 
-        Commit on success, attempt DETACH regardless of outcome and always close the host.
+        Commit on success, attempt DETACH regardless of outcome and always close the
+        host.
 
         Example:
             The notes script runs with the target file attached as notes_db.
@@ -341,7 +347,9 @@ def _aux_db_fts_capability_missing(err: sqlite3.OperationalError) -> bool:
     Recognize SQLite error messages associated with absent FTS5/tokenizers.
 
     Example:
-        >>> _aux_db_fts_capability_missing(sqlite3.OperationalError("no such module: fts5"))
+        >>> _aux_db_fts_capability_missing(
+        ...     sqlite3.OperationalError("no such module: fts5")
+        ... )
         True
 
 
@@ -365,7 +373,9 @@ def _strip_virtual_tables_and_triggers(sql_text: str) -> str:
     This is a line filter rather than a general SQL parser.
 
     Example:
-        >>> _strip_virtual_tables_and_triggers("create virtual table x using fts5(text);").strip()
+        >>> _strip_virtual_tables_and_triggers(
+        ...     "create virtual table x using fts5(text);"
+        ... ).strip()
         ''
 
 
@@ -434,7 +444,9 @@ def _extract_schema_info_from_metadata_sql(sql_text: str) -> CalibreSchemaInfo:
     Missing supported pragma lines raise ValueError.
 
     Example:
-        >>> info = _extract_schema_info_from_metadata_sql(chr(10).join(["pragma application_id=0x10;", "pragma user_version=2;"]))
+        >>> info = _extract_schema_info_from_metadata_sql(
+        ...     chr(10).join(["pragma application_id=0x10;", "pragma user_version=2;"])
+        ... )
         >>> (info.application_id, info.user_version)
         (16, 2)
 
@@ -469,7 +481,8 @@ def calibre_metadata_schema_info() -> CalibreSchemaInfo:
         Repeated calls reuse the same cached CalibreSchemaInfo object.
 
 
-    :return: Cached schema-info record; later resource changes are not automatically detected.
+    :return: Cached schema-info record; later resource changes are not automatically
+        detected.
     """
     key = "metadata"
     info = _CACHE.get(key)
@@ -498,7 +511,8 @@ def calibre_metadata_application_id() -> int:
     Read application_id from the cached packaged metadata snapshot info.
 
     Example:
-        This identifies the packaged metadata schema without inspecting an installed Calibre.
+        This identifies the packaged metadata schema without inspecting an installed
+        Calibre.
 
 
     :return: Snapshot application_id integer.

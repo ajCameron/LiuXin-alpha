@@ -23,11 +23,12 @@ class CMClearMixin:
         """
         Delete publishers absent from publisher_title_links.
 
-        Uses NOT IN; NULL values in the subquery can prevent expected deletions. No special
-        sentinel-row exclusion is added.
+        Uses NOT IN; NULL values in the subquery can prevent expected deletions. No
+        special sentinel-row exclusion is added.
 
         Transaction and cache behavior for delegated SQL follows the host
-        execute/executemany implementation; this method adds no separate transaction guard.
+        execute/executemany implementation; this method adds no separate transaction
+        guard.
 
         Example:
             >>> metadata_sql.publisher_clear_unused()  # doctest: +SKIP
@@ -49,7 +50,8 @@ class CMClearMixin:
         explicitly.
 
         Transaction and cache behavior for delegated SQL follows the host
-        execute/executemany implementation; this method adds no separate transaction guard.
+        execute/executemany implementation; this method adds no separate transaction
+        guard.
 
         Example:
             >>> metadata_sql.creator_clear_unused()  # doctest: +SKIP
@@ -68,10 +70,12 @@ class CMClearMixin:
         """
         Delete only primary language links for one title or supplied batch bindings.
 
-        Integer input uses execute with a scalar; other inputs go unchanged to executemany.
+        Integer input uses execute with a scalar; other inputs go unchanged to
+        executemany.
 
         Transaction and cache behavior for delegated SQL follows the host
-        execute/executemany implementation; this method adds no separate transaction guard.
+        execute/executemany implementation; this method adds no separate transaction
+        guard.
 
         Example:
             >>> metadata_sql.break_lang_title_primary_link(1)  # doctest: +SKIP

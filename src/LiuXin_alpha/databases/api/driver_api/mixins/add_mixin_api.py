@@ -37,11 +37,14 @@ class DriverAddMixinAPI(abc.ABC):
 
         Mismatched tables/key sets or non-null explicit IDs raise InputIntegrityError.
         Values follow each mapping's insertion order, so matching key sets alone are
-        insufficient. Identity derivation and NUL sanitization follow single-row insertion.
-        Commit/close run in finally, allowing partial batches to persist on errors.
+        insufficient. Identity derivation and NUL sanitization follow single-row
+        insertion. Commit/close run in finally, allowing partial batches to persist on
+        errors.
 
         Example:
-            >>> driver.direct_add_multiple_simple_row_dicts([{"work_title": "Example"}])  # doctest: +SKIP
+            >>> driver.direct_add_multiple_simple_row_dicts(
+            ...     [{"work_title": "Example"}]
+            ... )  # doctest: +SKIP
 
 
         :param row_dict_list: Sized, indexable sequence of homogeneous row mappings;
@@ -57,15 +60,15 @@ class DriverAddMixinAPI(abc.ABC):
         Abstract backend hook. The behavior below describes the shared SQL/SQLite
         implementation; this declaration itself has no operational body.
 
-        Custom-column value tables also sanitize NUL text. The connection commits and closes
-        in finally, even on execution errors; this is not a rollback-on-error helper. SQLite
-        operational/integrity errors become driver/integrity errors.
+        Custom-column value tables also sanitize NUL text. The connection commits and
+        closes in finally, even on execution errors; this is not a rollback-on-error
+        helper. SQLite operational/integrity errors become driver/integrity errors.
 
         Example:
             >>> driver.direct_add_simple_row_dict({"work_id": 1})  # doctest: +SKIP
 
 
-        :param row_dict: Column-to-value mapping; table inference removes any ``table`` key
-            in place.
+        :param row_dict: Column-to-value mapping; table inference removes any ``table``
+            key in place.
         :return: The cursor lastrowid for the inserted row.
         """

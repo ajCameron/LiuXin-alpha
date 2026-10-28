@@ -31,13 +31,14 @@ class DriverDeleteMixinAPI(abc.ABC):
     @abc.abstractmethod
     def direct_clear_table(self, target_table: str) -> bool:
         """
-        Delete every row, commit, and count remaining rows before closing the connection.
+        Delete every row, commit, and count remaining rows before closing the
+        connection.
 
         Abstract backend hook. The behavior below describes the shared SQL/SQLite
         implementation; this declaration itself has no operational body.
 
-        Translate SQLite operational/integrity errors. The count is taken after an explicit
-        commit and is not an atomic guarantee against concurrent inserts.
+        Translate SQLite operational/integrity errors. The count is taken after an
+        explicit commit and is not an atomic guarantee against concurrent inserts.
 
         Example:
             >>> driver.direct_clear_table("works")  # doctest: +SKIP
@@ -71,7 +72,8 @@ class DriverDeleteMixinAPI(abc.ABC):
         :param target_table: Existing table name, validated by the driver.
         :param column: Trusted column identifier interpolated into SQL.
         :param value: One bound value, or an iterable when ``many`` is true.
-        :param many: Execute one deletion per supplied value instead of one scalar deletion.
+        :param many: Execute one deletion per supplied value instead of one scalar
+            deletion.
         :return: ``True`` on successful execution, even if no row matched.
         """
 
@@ -90,7 +92,9 @@ class DriverDeleteMixinAPI(abc.ABC):
         implementation; this declaration itself has no operational body.
 
         Example:
-            >>> driver.direct_delete_many("works", "work_title", [1, 2])  # doctest: +SKIP
+            >>> driver.direct_delete_many(
+            ...     "works", "work_title", [1, 2]
+            ... )  # doctest: +SKIP
 
 
         :param target_table: Existing table name, validated by the driver.
@@ -108,9 +112,9 @@ class DriverDeleteMixinAPI(abc.ABC):
         Abstract backend hook. The behavior below describes the shared SQL/SQLite
         implementation; this declaration itself has no operational body.
 
-        Commit/close run in finally. Handled SQLite errors also close first, so the second
-        commit on a closed connection can mask the translated error. Successful execution
-        does not verify how many rows matched.
+        Commit/close run in finally. Handled SQLite errors also close first, so the
+        second commit on a closed connection can mask the translated error. Successful
+        execution does not verify how many rows matched.
 
         Example:
             >>> driver.direct_delete_many_by_ids("works", [1, 2])  # doctest: +SKIP

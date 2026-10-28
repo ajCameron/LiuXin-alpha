@@ -74,23 +74,26 @@ class DatabaseDriverAPI(
         implementation; this declaration itself has no operational body.
 
         Retain the metadata and facade by reference, install the FRBR creation hook and
-        macro helper, initialize schema caches and connection tracking, and attach a no-op
-        maintenance callback. A truthy set_conn opens a configured connection immediately;
-        otherwise conn is None. Store the dirty-record queue after connection setup. No
-        schema builder or maintenance worker is started here. Missing database_path raises
-        KeyError, and connection setup errors propagate.
+        macro helper, initialize schema caches and connection tracking, and attach a
+        no-op maintenance callback. A truthy set_conn opens a configured connection
+        immediately; otherwise conn is None. Store the dirty-record queue after
+        connection setup. No schema builder or maintenance worker is started here.
+        Missing database_path raises KeyError, and connection setup errors propagate.
 
         Example:
-            >>> driver = concrete_driver_type({"database_path": database_path}, set_conn=False)  # doctest: +SKIP
+            >>> driver = concrete_driver_type(
+            ...     {"database_path": database_path}, set_conn=False
+            ... )  # doctest: +SKIP
 
 
-        :param db_metadata: Mapping containing database_path; the path value is copied to
-            database_path while the mapping itself is retained.
-        :param db: Optional database facade retained for macro and shared-mixin operations.
-        :param set_conn: Open a primary connection immediately when truthy; False defers all
-            connection setup.
-        :param dirty_records_queue: Queue or other object retained for later dirty-record
-            handling; not consumed here.
+        :param db_metadata: Mapping containing database_path; the path value is copied
+            to database_path while the mapping itself is retained.
+        :param db: Optional database facade retained for macro and shared-mixin
+            operations.
+        :param set_conn: Open a primary connection immediately when truthy; False defers
+            all connection setup.
+        :param dirty_records_queue: Queue or other object retained for later
+            dirty-record handling; not consumed here.
         :return: None; initializes this driver and possibly its primary connection.
         """
 
@@ -103,9 +106,9 @@ class DatabaseDriverAPI(
         Abstract backend hook. The behavior below describes the shared SQL/SQLite
         implementation; this declaration itself has no operational body.
 
-        Recognize brackets and symmetric quote, backslash, percent or underscore wrappers.
-        This is a cache-key convenience, not an SQL parser or identifier validator; failed
-        text coercion returns the input.
+        Recognize brackets and symmetric quote, backslash, percent or underscore
+        wrappers. This is a cache-key convenience, not an SQL parser or identifier
+        validator; failed text coercion returns the input.
 
         Example:
             >>> driver._canonicalise_table_name_for_cache("works")  # doctest: +SKIP
@@ -143,11 +146,11 @@ class DatabaseDriverAPI(
 
         Preserve None. Numeric buckets convert booleans to numbers and retain numeric
         objects; INTEGER turns integral floats into ints, while REAL converts numeric
-        objects to floats. INTEGER and NUMERIC try integer text before decimal or exponent
-        text; REAL parses matching text as a float. Whitespace is stripped for parsing only.
-        Malformed numeric text retains its original spelling, and failed numeric-text
-        conversions are suppressed. No finite-value check is applied, so overflow text can
-        produce infinity.
+        objects to floats. INTEGER and NUMERIC try integer text before decimal or
+        exponent text; REAL parses matching text as a float. Whitespace is stripped for
+        parsing only. Malformed numeric text retains its original spelling, and failed
+        numeric-text conversions are suppressed. No finite-value check is applied, so
+        overflow text can produce infinity.
 
         BLOB converts bytes, bytearray and memoryview to bytes. Other fallback paths use
         force_unicode, currently an alias for str: byte-like inputs outside BLOB are
@@ -159,8 +162,8 @@ class DatabaseDriverAPI(
             >>> driver._coerce_db_value("Example", "TEXT")  # doctest: +SKIP
 
 
-        :param value: Database cell to convert; no container or text decoding protocol is
-            imposed on fallback objects.
+        :param value: Database cell to convert; no container or text decoding protocol
+            is imposed on fallback objects.
         :param declared_type: Backend declaration used by _sqlite_affinity; an empty or
             unknown declaration still selects NUMERIC conversion.
         :return: None, an int or float, bytes for byte-like BLOB input, or text.
@@ -176,13 +179,13 @@ class DatabaseDriverAPI(
         implementation; this declaration itself has no operational body.
 
         Return None unchanged and coerce bool, int and float instances to their
-        corresponding built-in types, testing bool first. Convert memoryview to bytes. For
-        bytes and bytearray, first make bytes and then call force_unicode, currently str, so
-        the result includes the bytes representation rather than decoded content. Other
-        values also use str; its errors propagate.
+        corresponding built-in types, testing bool first. Convert memoryview to bytes.
+        For bytes and bytearray, first make bytes and then call force_unicode, currently
+        str, so the result includes the bytes representation rather than decoded
+        content. Other values also use str; its errors propagate.
 
-        Numeric strings retain their text and whitespace because no affinity is available to
-        justify parsing them.
+        Numeric strings retain their text and whitespace because no affinity is
+        available to justify parsing them.
 
         Example:
             >>> driver._coerce_untyped_value("Example")  # doctest: +SKIP
@@ -202,14 +205,15 @@ class DatabaseDriverAPI(
         implementation; this declaration itself has no operational body.
 
         Convert non-null input with str, trim surrounding whitespace and discard tokens
-        after the first. This is a lexical convenience rather than a SQL declaration parser.
+        after the first. This is a lexical convenience rather than a SQL declaration
+        parser.
 
         Example:
             >>> driver._normalize_declared_type("TEXT")  # doctest: +SKIP
 
 
-        :param declared_type: Backend type declaration or another stringifiable value; None
-            means no type.
+        :param declared_type: Backend type declaration or another stringifiable value;
+            None means no type.
         :return: Uppercase first token without its size suffix, or empty text.
         """
 
@@ -244,25 +248,27 @@ class DatabaseDriverAPI(
         Abstract backend hook. The behavior below describes the shared SQL/SQLite
         implementation; this declaration itself has no operational body.
 
-        A truthy table selects its cached declared-type map and typed conversion. Missing
-        entries use an empty declaration, which selects NUMERIC; a falsey table instead uses
-        untyped conversion. Fetch the map before iterating, even for empty headings.
-        Set-valued cells bypass conversion without copying.
+        A truthy table selects its cached declared-type map and typed conversion.
+        Missing entries use an empty declaration, which selects NUMERIC; a falsey table
+        instead uses untyped conversion. Fetch the map before iterating, even for empty
+        headings. Set-valued cells bypass conversion without copying.
 
         Iterate headings and index the row: surplus cells are ignored and too few cells
         raise IndexError. Duplicate headings overwrite earlier values. Headings must be
-        hashable; the legacy set-heading branch still attempts dictionary insertion, so a
-        plain set heading raises TypeError. Schema lookup and cell conversion errors
+        hashable; the legacy set-heading branch still attempts dictionary insertion, so
+        a plain set heading raises TypeError. Schema lookup and cell conversion errors
         propagate.
 
         Example:
-            >>> driver._row_to_dict(headings=["work_id", "work_title"], row=(1, "Example"))  # doctest: +SKIP
+            >>> driver._row_to_dict(
+            ...     headings=["work_id", "work_title"], row=(1, "Example")
+            ... )  # doctest: +SKIP
 
 
         :param table: Trusted table spelling for declared-type lookup, or a falsey value
             such as None to avoid that lookup and use untyped conversion.
-        :param headings: Ordered dictionary keys; may contain non-string hashable values and
-            duplicates, but plain set keys are unsupported.
+        :param headings: Ordered dictionary keys; may contain non-string hashable values
+            and duplicates, but plain set keys are unsupported.
         :param row: Indexable cell sequence with at least one value per heading.
         :return: A new heading-to-value dictionary; retained sets are shared with row.
         """
@@ -276,15 +282,18 @@ class DatabaseDriverAPI(
         Abstract backend hook. The behavior below describes the shared SQL/SQLite
         implementation; this declaration itself has no operational body.
 
-        Mutate the mapping in place; non-string values are untouched. The table argument is
-        currently unused.
+        Mutate the mapping in place; non-string values are untouched. The table argument
+        is currently unused.
 
         Example:
-            >>> driver._sanitize_embedded_nul_text(target_table="works", row_dict={"work_id": 1})  # doctest: +SKIP
+            >>> driver._sanitize_embedded_nul_text(
+            ...     target_table="works", row_dict={"work_id": 1}
+            ... )  # doctest: +SKIP
 
 
         :param target_table: Table context accepted by the helper but not consulted.
-        :param row_dict: Mutable column/value mapping whose string payloads are sanitized.
+        :param row_dict: Mutable column/value mapping whose string payloads are
+            sanitized.
         :return: ``None``.
         """
 
@@ -298,17 +307,17 @@ class DatabaseDriverAPI(
         Abstract backend hook. The behavior below describes the shared SQL/SQLite
         implementation; this declaration itself has no operational body.
 
-        Check substrings in order: INT, then CHAR/CLOB/TEXT, then BLOB, then REAL/FLOA/DOUB.
-        Empty and unrecognized tokens fall through to NUMERIC. The preceding normalization
-        discards size suffixes and later tokens; this is a simplified classification, not a
-        complete SQL type parser.
+        Check substrings in order: INT, then CHAR/CLOB/TEXT, then BLOB, then
+        REAL/FLOA/DOUB. Empty and unrecognized tokens fall through to NUMERIC. The
+        preceding normalization discards size suffixes and later tokens; this is a
+        simplified classification, not a complete SQL type parser.
 
         Example:
             >>> driver._sqlite_affinity("TEXT")  # doctest: +SKIP
 
 
-        :param declared_type: Type declaration passed to _normalize_declared_type; None or
-            blank text produces the NUMERIC fallback.
+        :param declared_type: Type declaration passed to _normalize_declared_type; None
+            or blank text produces the NUMERIC fallback.
         :return: One of INTEGER, TEXT, BLOB, REAL or NUMERIC.
         """
 
@@ -364,19 +373,21 @@ class DatabaseDriverAPI(
     @abc.abstractmethod
     def direct_backup(self, path=None):
         """
-        Copy the database file using the local backup helper inside a connection context.
+        Copy the database file using the local backup helper inside a connection
+        context.
 
         Abstract backend hook. The behavior below describes the shared SQL/SQLite
         implementation; this declaration itself has no operational body.
 
-        A falsy helper result raises DatabaseDriverError. This is a file-copy backup, and
-        this method does not explicitly close the acquired connection.
+        A falsy helper result raises DatabaseDriverError. This is a file-copy backup,
+        and this method does not explicitly close the acquired connection.
 
         Example:
             >>> driver.direct_backup()  # doctest: +SKIP
 
 
-        :param path: Optional backup destination; ``None`` lets the file helper choose one.
+        :param path: Optional backup destination; ``None`` lets the file helper choose
+            one.
         :return: The truthy backup result, normally the destination path.
         """
 
@@ -389,20 +400,24 @@ class DatabaseDriverAPI(
         """
 
     def direct_replace_database(self, *, backup_path):
-        """Replace offline storage with a required backup, if the backend supports it."""
+        """
+        Replace offline storage with a required backup, if the backend supports it.
+        """
         raise NotImplementedError("This driver does not support database replacement.")
 
     @abc.abstractmethod
     def direct_execute(self, sql: str, values: Optional[tuple[Any, ...]] = None) -> None:
         """
-        Execute one statement using a live primary connection and its transaction context.
+        Execute one statement using a live primary connection and its transaction
+        context.
 
         Abstract backend hook. The behavior below describes the shared SQL/SQLite
         implementation; this declaration itself has no operational body.
 
-        Replace a missing/broken primary handle; convert an integer binding to a one-element
-        text tuple. Execution failures become DatabaseDriverError. Finally attempt a cache
-        refresh while preserving a usable handle, so TEMP objects remain available.
+        Replace a missing/broken primary handle; convert an integer binding to a
+        one-element text tuple. Execution failures become DatabaseDriverError. Finally
+        attempt a cache refresh while preserving a usable handle, so TEMP objects remain
+        available.
 
         Example:
             >>> driver.direct_execute("SELECT 1")  # doctest: +SKIP
@@ -426,17 +441,18 @@ class DatabaseDriverAPI(
         Abstract backend hook. The behavior below describes the shared SQL/SQLite
         implementation; this declaration itself has no operational body.
 
-        Only outer tuples receive scalar-to-one-tuple normalization. ValueError retries try
-        alternate binding shapes; execution failures become DatabaseDriverError. Refresh
-        caches after success. With values=None, delegate to direct_executescript.
+        Only outer tuples receive scalar-to-one-tuple normalization. ValueError retries
+        try alternate binding shapes; execution failures become DatabaseDriverError.
+        Refresh caches after success. With values=None, delegate to
+        direct_executescript.
 
         Example:
             >>> driver.direct_executemany("SELECT 1")  # doctest: +SKIP
 
 
         :param sql: SQL text to execute, with placeholders when bindings are supplied.
-        :param values: Binding rows, an outer tuple of scalar values, or ``None`` for script
-            execution.
+        :param values: Binding rows, an outer tuple of scalar values, or ``None`` for
+            script execution.
         :return: ``None``.
         """
 
@@ -456,8 +472,8 @@ class DatabaseDriverAPI(
             >>> driver.direct_get_db_unique_id()  # doctest: +SKIP
 
 
-        :return: The stored identity value, or ``None`` when there are no rows or the value
-            is null.
+        :return: The stored identity value, or ``None`` when there are no rows or the
+            value is null.
         """
 
     @abc.abstractmethod
@@ -481,7 +497,8 @@ class DatabaseDriverAPI(
     @abc.abstractmethod
     def direct_has_null_row(self, table: str) -> bool:
         """
-        Check for an ID-zero sentinel in a validated table and always close the query connection.
+        Check for an ID-zero sentinel in a validated table and always close the query
+        connection.
 
         Abstract backend hook. The behavior below describes the shared SQL/SQLite
         implementation; this declaration itself has no operational body.
@@ -505,16 +522,16 @@ class DatabaseDriverAPI(
 
         Only the exact string "true" for run_ta_update_after_each_change dispatches
         run_ta_updates with a one-element ID list and this driver. The helper starts a
-        daemon thread; this method does not wait for completion. "false" and other values,
-        including boolean True, cause no dispatch. Preference lookup and launch errors
-        propagate; background failures are not returned to the caller.
+        daemon thread; this method does not wait for completion. "false" and other
+        values, including boolean True, cause no dispatch. Preference lookup and launch
+        errors propagate; background failures are not returned to the caller.
 
         Example:
             >>> driver.direct_run_ta_update(1)  # doctest: +SKIP
 
 
-        :param ta_row_id: Aggregate/title row ID passed unchanged in the worker input list;
-            not validated here.
+        :param ta_row_id: Aggregate/title row ID passed unchanged in the worker input
+            list; not validated here.
         :return: None, regardless of whether an update thread is launched.
         """
         ...
@@ -549,12 +566,14 @@ class DatabaseDriverAPI(
         Abstract backend hook. The behavior below describes the shared SQL/SQLite
         implementation; this declaration itself has no operational body.
 
-        Missing sentinels raise InputIntegrityError. Keyword fields mutate an input dict in
-        place and win over its values. Supplied ID-column updates also override the initial
-        zero, so callers must omit that column to target the sentinel.
+        Missing sentinels raise InputIntegrityError. Keyword fields mutate an input dict
+        in place and win over its values. Supplied ID-column updates also override the
+        initial zero, so callers must omit that column to target the sentinel.
 
         Example:
-            >>> driver.direct_update_null_row("works", {"work_title": "Unknown"})  # doctest: +SKIP
+            >>> driver.direct_update_null_row(
+            ...     "works", {"work_title": "Unknown"}
+            ... )  # doctest: +SKIP
 
 
         :param table: Table name resolved by the host driver.
@@ -574,7 +593,9 @@ class DatabaseDriverAPI(
         An unknown table is still queued. This method performs no database write.
 
         Example:
-            >>> driver.direct_dirty_record("works", 1, "title changed")  # doctest: +SKIP
+            >>> driver.direct_dirty_record(
+            ...     "works", 1, "title changed"
+            ... )  # doctest: +SKIP
 
 
         :param table: Table name checked against the host's current table collection.
@@ -591,40 +612,41 @@ class DatabaseDriverAPI(
         Abstract backend hook. The behavior below describes the shared SQL/SQLite
         implementation; this declaration itself has no operational body.
 
-        Read user_version from the primary connection, dump through a separate configured
-        connection to a UTF-8 temporary SQL file, and restore into a temporary database
-        beside database_path. Prefix SQL runs before the dump rather than replacing it.
-        Restore execution accumulates lines until a complete statement is available and
-        calls execute once per accumulated statement, so multiple complete statements on one
-        line are not supported.
+        Read user_version from the primary connection, dump through a separate
+        configured connection to a UTF-8 temporary SQL file, and restore into a
+        temporary database beside database_path. Prefix SQL runs before the dump rather
+        than replacing it. Restore execution accumulates lines until a complete
+        statement is available and calls execute once per accumulated statement, so
+        multiple complete statements on one line are not supported.
 
         The restore connection enables foreign keys and a subset of compatibility
-        functions/collations, not every driver callback. Dumps needing other callbacks may
-        fail. Restore the saved user_version after SQL execution, then close all
-        driver-tracked handles and atomically rename the rebuilt file over database_path.
-        Always attempt reopen after that rename attempt, even if renaming failed; a reopen
-        error can mask an earlier error. No schema-cache refresh is performed.
+        functions/collations, not every driver callback. Dumps needing other callbacks
+        may fail. Restore the saved user_version after SQL execution, then close all
+        driver-tracked handles and atomically rename the rebuilt file over
+        database_path. Always attempt reopen after that rename attempt, even if renaming
+        failed; a reopen error can mask an earlier error. No schema-cache refresh is
+        performed.
 
-        Use a file-backed target and commit pending writes before calling: the separate dump
-        connection cannot include uncommitted changes on another connection, and closing
-        tracked handles can discard them. Coordinate exclusive access yourself; there is no
-        backup, locking protocol or rollback of a completed replacement. Temporary
-        dump/restore connections are closed best-effort and temporary files are cleaned up
-        by their contexts. Callback, decoding, SQL and filesystem errors propagate; failures
-        before replacement leave the original file in place.
+        Use a file-backed target and commit pending writes before calling: the separate
+        dump connection cannot include uncommitted changes on another connection, and
+        closing tracked handles can discard them. Coordinate exclusive access yourself;
+        there is no backup, locking protocol or rollback of a completed replacement.
+        Temporary dump/restore connections are closed best-effort and temporary files
+        are cleaned up by their contexts. Callback, decoding, SQL and filesystem errors
+        propagate; failures before replacement leave the original file in place.
 
         Example:
             >>> driver.dump_and_restore()  # doctest: +SKIP
 
 
-        :param callback: Callable receiving two localized progress strings, before dumping
-            and restoring. Its return value is ignored; None installs a local identity
-            callback.
+        :param callback: Callable receiving two localized progress strings, before
+            dumping and restoring. Its return value is ignored; None installs a local
+            identity callback.
         :param sql: Optional prefix: bytes decoded as UTF-8, or any other non-None value
-            converted with str. None adds no prefix; supplied SQL must be compatible with
-            the subsequent dump.
-        :return: None; replaces the database file and installs a fresh primary connection on
-            success.
+            converted with str. None adds no prefix; supplied SQL must be compatible
+            with the subsequent dump.
+        :return: None; replaces the database file and installs a fresh primary
+            connection on success.
         """
 
     @abc.abstractmethod
@@ -655,12 +677,14 @@ class DatabaseDriverAPI(
         Abstract backend hook. The behavior below describes the shared SQL/SQLite
         implementation; this declaration itself has no operational body.
 
-        Create a primary handle if absent, wrap execution failures as DatabaseDriverError
-        and attempt refresh in finally. Backend executescript transaction behavior still
-        applies.
+        Create a primary handle if absent, wrap execution failures as
+        DatabaseDriverError and attempt refresh in finally. Backend executescript
+        transaction behavior still applies.
 
         Example:
-            >>> driver.direct_executescript("CREATE TABLE sample (value TEXT);")  # doctest: +SKIP
+            >>> driver.direct_executescript(
+            ...     "CREATE TABLE sample (value TEXT);"
+            ... )  # doctest: +SKIP
 
 
         :param sqlscript: SQL script text passed to the backend executescript method.
@@ -693,32 +717,33 @@ class DatabaseDriverAPI(
         Abstract backend hook. The behavior below describes the shared SQL/SQLite
         implementation; this declaration itself has no operational body.
 
-        Register set/list/dict adapters and PYSET/PYLIST/PYDICT/DATE converters globally,
-        enable callback tracebacks, then open database_path with declared-type parsing and
-        check_same_thread=False. Every call opens a distinct connection, including an
-        independent database for the literal :memory: path. Existing primary handles are not
-        replaced.
+        Register set/list/dict adapters and PYSET/PYLIST/PYDICT/DATE converters
+        globally, enable callback tracebacks, then open database_path with declared-type
+        parsing and check_same_thread=False. Every call opens a distinct connection,
+        including an independent database for the literal :memory: path. Existing
+        primary handles are not replaced.
 
         Request foreign-key enforcement and warn if SQLite does not report it enabled.
         Install aggregates, collations, regex/tree/sort/UUID helpers, an always-true
         books_list_filter, maintenance callbacks and a progress callback after every
-        virtual-machine instruction. The progress handler prints the initial counter value,
-        zero. DIRTY_RECORD and NEW_DIRTY_RECORD look up the current maintainer on each
-        invocation; DIRTY_INTERLINK_RECORD binds the maintainer method at connection
-        creation. Cross-thread access still requires caller coordination.
+        virtual-machine instruction. The progress handler prints the initial counter
+        value, zero. DIRTY_RECORD and NEW_DIRTY_RECORD look up the current maintainer on
+        each invocation; DIRTY_INTERLINK_RECORD binds the maintainer method at
+        connection creation. Cross-thread access still requires caller coordination.
 
-        Best-effort LANGUAGE_ID registration may seed and lock an existing FRBR languages
-        table, committing changes; exceptions from that registration are suppressed. Other
-        setup failures propagate without guaranteed cleanup. The opening OperationalError
-        handler reads obsolete exception.message, so standard Python 3 errors become
-        AttributeError before its intended DatabaseDriverError can be raised.
+        Best-effort LANGUAGE_ID registration may seed and lock an existing FRBR
+        languages table, committing changes; exceptions from that registration are
+        suppressed. Other setup failures propagate without guaranteed cleanup. The
+        opening OperationalError handler reads obsolete exception.message, so standard
+        Python 3 errors become AttributeError before its intended DatabaseDriverError
+        can be raised.
 
         Example:
             >>> driver.get_connection()  # doctest: +SKIP
 
 
-        :return: An open SQLite_Connection tracked for inherited driver.close; callers may
-            close it earlier and must manage their transactions.
+        :return: An open SQLite_Connection tracked for inherited driver.close; callers
+            may close it earlier and must manage their transactions.
         """
 
     @abc.abstractmethod
@@ -729,15 +754,15 @@ class DatabaseDriverAPI(
         Abstract backend hook. The behavior below describes the shared SQL/SQLite
         implementation; this declaration itself has no operational body.
 
-        Table inference can mutate the input and raise; an absent ID is the only explicit
-        False result.
+        Table inference can mutate the input and raise; an absent ID is the only
+        explicit False result.
 
         Example:
             >>> driver.get_id_from_row_dict({"work_id": 1})  # doctest: +SKIP
 
 
-        :param row_dict: Column-to-value mapping; table inference removes any ``table`` key
-            in place.
+        :param row_dict: Column-to-value mapping; table inference removes any ``table``
+            key in place.
         :return: The stored ID value, or ``False`` when that column is absent.
         """
 
@@ -760,8 +785,8 @@ class DatabaseDriverAPI(
 
 
         :param column_heading: Exact column heading to locate.
-        :param headings_and_columns: Optional table-to-column-list mapping; ``None`` reads
-            the driver schema.
+        :param headings_and_columns: Optional table-to-column-list mapping; ``None``
+            reads the driver schema.
         :return: The first matching table name.
         """
 
@@ -773,16 +798,16 @@ class DatabaseDriverAPI(
         Abstract backend hook. The behavior below describes the shared SQL/SQLite
         implementation; this declaration itself has no operational body.
 
-        Remove a ``table`` key from the input. An empty remaining mapping returns False; no
-        match raises DatabaseIntegrityError with partial-match diagnostics. Values do not
-        participate in matching.
+        Remove a ``table`` key from the input. An empty remaining mapping returns False;
+        no match raises DatabaseIntegrityError with partial-match diagnostics. Values do
+        not participate in matching.
 
         Example:
             >>> driver.direct_identify_table_from_row({"work_id": 1})  # doctest: +SKIP
 
 
-        :param row_dict: Column-to-value mapping; table inference removes any ``table`` key
-            in place.
+        :param row_dict: Column-to-value mapping; table inference removes any ``table``
+            key in place.
         :return: The first matching table name, or ``False`` for an empty mapping.
         """
 
@@ -804,7 +829,11 @@ class DatabaseDriverAPI(
         generator can retain it.
 
         Example:
-            >>> driver.direct_iterator_return("SELECT work_id, work_title FROM works", ["work_id", "work_title"], table="works")  # doctest: +SKIP
+            >>> driver.direct_iterator_return(
+            ...     "SELECT work_id, work_title FROM works",
+            ...     ["work_id", "work_title"],
+            ...     table="works",
+            ... )  # doctest: +SKIP
 
 
         :param stmt: Trusted SQL statement to execute.
@@ -839,8 +868,8 @@ class DatabaseDriverAPI(
         Abstract backend hook. The behavior below describes the shared SQL/SQLite
         implementation; this declaration itself has no operational body.
 
-        Existing connection handles are not replaced; callers must manage their lifecycle.
-        Copy errors propagate.
+        Existing connection handles are not replaced; callers must manage their
+        lifecycle. Copy errors propagate.
 
         Example:
             >>> driver.make_scratch()  # doctest: +SKIP
@@ -864,8 +893,8 @@ class DatabaseDriverAPI(
             >>> driver.refresh()  # doctest: +SKIP
 
 
-        :param reconnect: Force a new primary connection even when the current one responds
-            to a liveness probe.
+        :param reconnect: Force a new primary connection even when the current one
+            responds to a liveness probe.
         :return: ``None``.
         """
 
@@ -894,16 +923,16 @@ class DatabaseDriverAPI(
         Abstract backend hook. The behavior below describes the shared SQL/SQLite
         implementation; this declaration itself has no operational body.
 
-        Print the target and warning, then concatenate input lines without added newlines
-        until sqlite3.complete_statement accepts the buffer. Execute one statement and
-        commit after each successful execution; print fetched rows only when the stripped
-        text starts with SELECT. SQLite errors are printed and the buffer is discarded
-        without an explicit rollback. Other errors propagate.
+        Print the target and warning, then concatenate input lines without added
+        newlines until sqlite3.complete_statement accepts the buffer. Execute one
+        statement and commit after each successful execution; print fetched rows only
+        when the stripped text starts with SELECT. SQLite errors are printed and the
+        buffer is discarded without an explicit rollback. Other errors propagate.
 
-        A blank line exits even with incomplete buffered SQL. Normal exit refreshes cached
-        metadata and closes the connection; exceptions or interrupts have no finally
-        cleanup. This is unrestricted SQL on the configured database, with no confirmation
-        or read-only mode.
+        A blank line exits even with incomplete buffered SQL. Normal exit refreshes
+        cached metadata and closes the connection; exceptions or interrupts have no
+        finally cleanup. This is unrestricted SQL on the configured database, with no
+        confirmation or read-only mode.
 
         Example:
             >>> driver.shell()  # doctest: +SKIP
@@ -935,12 +964,12 @@ class DatabaseDriverAPI(
         Abstract backend hook. The behavior below describes the shared SQL/SQLite
         implementation; this declaration itself has no operational body.
 
-        The generator enters the connection transaction context when iteration begins and
-        delegates to iterdump. Exhausting it successfully commits any pending transaction;
-        exceptional exit, including closing a suspended generator, rolls it back. It does
-        not close the connection. It requires a usable primary conn and does not open one
-        when initialization was deferred. SQLite dump scope applies: this is not a copy of
-        connection-local callbacks or every pragma.
+        The generator enters the connection transaction context when iteration begins
+        and delegates to iterdump. Exhausting it successfully commits any pending
+        transaction; exceptional exit, including closing a suspended generator, rolls it
+        back. It does not close the connection. It requires a usable primary conn and
+        does not open one when initialization was deferred. SQLite dump scope applies:
+        this is not a copy of connection-local callbacks or every pragma.
 
         Example:
             >>> driver.sql_dump()  # doctest: +SKIP

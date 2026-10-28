@@ -24,11 +24,12 @@ class CMDeletionMacros:
         """
         Delete rows from a trusted table using a trusted ID column.
 
-        Identifiers are interpolated without validation. Integer IDs use one-cell bindings;
-        other inputs are forwarded unchanged as batch bindings.
+        Identifiers are interpolated without validation. Integer IDs use one-cell
+        bindings; other inputs are forwarded unchanged as batch bindings.
 
         Transaction and cache behavior for delegated SQL follows the host
-        execute/executemany implementation; this method adds no separate transaction guard.
+        execute/executemany implementation; this method adds no separate transaction
+        guard.
 
         Example:
             >>> metadata_sql.delete_item_by_id("files", "file_id", 1)  # doctest: +SKIP
@@ -36,8 +37,8 @@ class CMDeletionMacros:
 
         :param item_table: Trusted table identifier interpolated into SQL.
         :param item_id_col: Trusted identifier-column name interpolated into SQL.
-        :param item_id: Integer ID for one execution, or batch bindings passed unchanged to
-            executemany.
+        :param item_id: Integer ID for one execution, or batch bindings passed unchanged
+            to executemany.
         :return: None.
         """
         # Todo: Really needs some kind of checking
@@ -51,11 +52,12 @@ class CMDeletionMacros:
         """
         Delete the title row first, then its same-ID book row in a separate execution.
 
-        Foreign-key or trigger effects belong to the schema; no combined rollback boundary
-        is added.
+        Foreign-key or trigger effects belong to the schema; no combined rollback
+        boundary is added.
 
         Transaction and cache behavior for delegated SQL follows the host
-        execute/executemany implementation; this method adds no separate transaction guard.
+        execute/executemany implementation; this method adds no separate transaction
+        guard.
 
         Example:
             >>> metadata_sql.delete_title(1)  # doctest: +SKIP
@@ -75,13 +77,15 @@ class CMDeletionMacros:
         Delete one books row without directly deleting its title or physical files.
 
         Transaction and cache behavior for delegated SQL follows the host
-        execute/executemany implementation; this method adds no separate transaction guard.
+        execute/executemany implementation; this method adds no separate transaction
+        guard.
 
         Example:
             >>> metadata_sql.delete_book(1)  # doctest: +SKIP
 
 
-        :param book_id: Book identifier bound to book_id or the owning relationship column.
+        :param book_id: Book identifier bound to book_id or the owning relationship
+            column.
         :return: None.
         """
         book_del_stmt = "DELETE FROM books WHERE book_id = ?;"

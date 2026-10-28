@@ -2,7 +2,10 @@
 """
 Build legacy relationship fingerprints from linked table names and row IDs.
 
-Fingerprints are sets of table_id strings, not content hashes. They ignore row text, link ordering and link properties, and skip many unavailable relation queries. Equal fingerprints therefore do not establish metadata equality. The helpers retain legacy books/titles naming for compatibility.
+Fingerprints are sets of table_id strings, not content hashes. They ignore row text,
+link ordering and link properties, and skip many unavailable relation queries. Equal
+fingerprints therefore do not establish metadata equality. The helpers retain legacy
+books/titles naming for compatibility.
 """
 
 from __future__ import annotations
@@ -21,7 +24,9 @@ def _row_value(row: Any, key: str, default: Optional[Any] = None) -> Any:
     """
     Read a mapping-like row value with a fallback for unsupported access.
 
-    Dictionaries use get directly. Other rows are probed with membership before subscription; any exception in that probe is swallowed. A dict subclass whose get raises is not covered by that handler.
+    Dictionaries use get directly. Other rows are probed with membership before
+    subscription; any exception in that probe is swallowed. A dict subclass whose get
+    raises is not covered by that handler.
 
     Example:
         >>> _row_value({"book_id": 7}, "book_id")
@@ -50,16 +55,24 @@ def generate_book_fingerprint(db: "DatabaseAPI", book_row: "RowAPI") -> set[str]
     """
     Union a book’s legacy title fingerprint with its other direct links.
 
-    Resolve the title in titles using book_title, falling back to book_id only when book_title is None. If no title resolves, start empty. Then inspect book links to main tables except books and titles. Missing link tables and relation-query exceptions are skipped. Title lookup, row-ID formatting and errors during lazy linked-row iteration can still propagate. Neither the book ID nor its text is included by itself.
+    Resolve the title in titles using book_title, falling back to book_id only when
+    book_title is None. If no title resolves, start empty. Then inspect book links to
+    main tables except books and titles. Missing link tables and relation-query
+    exceptions are skipped. Title lookup, row-ID formatting and errors during lazy
+    linked-row iteration can still propagate. Neither the book ID nor its text is
+    included by itself.
 
     Example:
         fingerprint = generate_book_fingerprint(db, book_row)
         related_ids = sorted(fingerprint)
 
 
-    :param db: Database exposing main_tables, driver_wrapper relation discovery and row/link queries.
-    :param book_row: Book row with book_title or, when that value is None, a book_id fallback.
-    :return: Set of table_id strings from the resolved title group and direct book relations.
+    :param db: Database exposing main_tables, driver_wrapper relation discovery and
+        row/link queries.
+    :param book_row: Book row with book_title or, when that value is None, a book_id
+        fallback.
+    :return: Set of table_id strings from the resolved title group and direct book
+        relations.
     """
     title_id = _row_value(book_row, "book_title", None)
     if title_id is None:
@@ -95,7 +108,11 @@ def generate_title_fingerprint(db: "DatabaseAPI", title_row: "RowAPI") -> set[st
     """
     Union direct-link fingerprints for a title and its immediate intralink neighbours.
 
-    Include the supplied title first. If the schema exposes title intralinks, inspect both outgoing and incoming neighbours, without recursively walking further titles. Each directional neighbour loop suppresses exceptions, retaining contributions added before failure. The initial title fingerprint and intralink-table check can still fail. A neighbour title ID itself is not automatically included.
+    Include the supplied title first. If the schema exposes title intralinks, inspect
+    both outgoing and incoming neighbours, without recursively walking further titles.
+    Each directional neighbour loop suppresses exceptions, retaining contributions added
+    before failure. The initial title fingerprint and intralink-table check can still
+    fail. A neighbour title ID itself is not automatically included.
 
     Example:
         fingerprint = generate_title_fingerprint(db, title_row)
@@ -103,8 +120,10 @@ def generate_title_fingerprint(db: "DatabaseAPI", title_row: "RowAPI") -> set[st
 
 
     :param db: Database exposing title relation discovery and link queries.
-    :param title_row: Title row whose direct relations and immediate neighbours are inspected.
-    :return: Set of table_id strings accumulated across the title and its immediate neighbours.
+    :param title_row: Title row whose direct relations and immediate neighbours are
+        inspected.
+    :return: Set of table_id strings accumulated across the title and its immediate
+        neighbours.
     """
     fingerprint = set()
 
@@ -134,14 +153,18 @@ def generate_one_title_fingerprint(db: "DatabaseAPI", title_row: "RowAPI") -> se
     """
     Collect IDs linked directly to one title across the other main tables.
 
-    Exclude titles, but include books when that relation exists. Skip missing link tables and exceptions while discovering or requesting each relation. Iteration and row_id access occur outside that handler. The title’s own ID, metadata values, priorities and link types are not fingerprint components.
+    Exclude titles, but include books when that relation exists. Skip missing link
+    tables and exceptions while discovering or requesting each relation. Iteration and
+    row_id access occur outside that handler. The title’s own ID, metadata values,
+    priorities and link types are not fingerprint components.
 
     Example:
-        fingerprint = generate_one_title_fingerprint(db, title_row)
-        linked_agents = sorted(value for value in fingerprint if value.startswith("agents_"))
+        fingerprint = generate_one_title_fingerprint(db, title_row) linked_agents =
+        sorted(value for value in fingerprint if value.startswith("agents_"))
 
 
-    :param db: Database whose main_tables and driver_wrapper describe available relations.
+    :param db: Database whose main_tables and driver_wrapper describe available
+        relations.
     :param title_row: Title row passed as the primary row to get_interlinked_rows.
     :return: Set of table_id strings, deduplicated across retrieved linked rows.
     """

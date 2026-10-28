@@ -38,16 +38,18 @@ class DriverWrapperAddMixin:
         Delegates to the driver's direct_add_simple_row_dict hook. The following backend
         details describe the shared SQL/SQLite implementation; backend errors propagate.
 
-        Custom-column value tables also sanitize NUL text. The connection commits and closes
-        in finally, even on execution errors; this is not a rollback-on-error helper. SQLite
-        operational/integrity errors become driver/integrity errors.
+        Custom-column value tables also sanitize NUL text. The connection commits and
+        closes in finally, even on execution errors; this is not a rollback-on-error
+        helper. SQLite operational/integrity errors become driver/integrity errors.
 
         Example:
-            >>> wrapper.add_row({"work_id": 1, "work_title": "Example"})  # doctest: +SKIP
+            >>> wrapper.add_row(
+            ...     {"work_id": 1, "work_title": "Example"}
+            ... )  # doctest: +SKIP
 
 
-        :param row_dict: Column-to-value mapping; table inference removes any ``table`` key
-            in place.
+        :param row_dict: Column-to-value mapping; table inference removes any ``table``
+            key in place.
         :return: The cursor lastrowid for the inserted row.
         """
         # Returns the SQLite rowid / INTEGER PRIMARY KEY value if available.
@@ -57,14 +59,15 @@ class DriverWrapperAddMixin:
         """
         Insert rows sharing a table, the same keys and the same key order.
 
-        Delegates to the driver's direct_add_multiple_simple_row_dicts hook. The following
-        backend details describe the shared SQL/SQLite implementation; backend errors
-        propagate.
+        Delegates to the driver's direct_add_multiple_simple_row_dicts hook. The
+        following backend details describe the shared SQL/SQLite implementation; backend
+        errors propagate.
 
         Mismatched tables/key sets or non-null explicit IDs raise InputIntegrityError.
         Values follow each mapping's insertion order, so matching key sets alone are
-        insufficient. Identity derivation and NUL sanitization follow single-row insertion.
-        Commit/close run in finally, allowing partial batches to persist on errors.
+        insufficient. Identity derivation and NUL sanitization follow single-row
+        insertion. Commit/close run in finally, allowing partial batches to persist on
+        errors.
 
         Example:
             >>> wrapper.add_multiple_rows([{"work_title": "Example"}])  # doctest: +SKIP
@@ -82,10 +85,11 @@ class DriverWrapperAddMixin:
 
         Stringifies table and rejects views with InputIntegrityError. Requires a scratch
         column. For books, reserves a titles row first and reuses its ID; for
-        asset_replicas, seeds a nonempty blank/<token> storage key. Zero or multiple scratch
-        matches raise DatabaseIntegrityError after insertion. Clears the scratch value only
-        in the returned mapping: the stored token remains until a later update. Backend
-        defaults and constraints still apply, and earlier writes are not rolled back here.
+        asset_replicas, seeds a nonempty blank/<token> storage key. Zero or multiple
+        scratch matches raise DatabaseIntegrityError after insertion. Clears the scratch
+        value only in the returned mapping: the stored token remains until a later
+        update. Backend defaults and constraints still apply, and earlier writes are not
+        rolled back here.
 
         Example:
             >>> wrapper.get_blank_row("works")  # doctest: +SKIP

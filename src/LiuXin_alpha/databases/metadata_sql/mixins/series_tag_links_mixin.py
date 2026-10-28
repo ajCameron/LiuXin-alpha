@@ -28,16 +28,17 @@ class CMSeriesTagLinksMacros:
         """
         Resolve exact tag values and delete their links to a series.
 
-        Skips false lookup results, including ID zero; no ordering selects among duplicate
-        values. Commits the live connection twice after iteration, preserving the existing
-        behavior.
+        Skips false lookup results, including ID zero; no ordering selects among
+        duplicate values. Commits the live connection twice after iteration, preserving
+        the existing behavior.
 
         Example:
             >>> metadata_sql.unapply_series_tags(1, ["news"])  # doctest: +SKIP
 
 
         :param series_id: Series row identifier.
-        :param tags: Iterable of exact tag strings to resolve before deleting their links.
+        :param tags: Iterable of exact tag strings to resolve before deleting their
+            links.
         :return: None.
         """
         for tag in tags:

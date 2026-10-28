@@ -31,10 +31,12 @@ class CMTitlesMacrosMixin:
         """
         Write a title value, converting every false input to SQL NULL.
 
-        Updates existing rows only; does not create missing titles or alter physical assets.
+        Updates existing rows only; does not create missing titles or alter physical
+        assets.
 
         Transaction and cache behavior for delegated SQL follows the host
-        execute/executemany implementation; this method adds no separate transaction guard.
+        execute/executemany implementation; this method adds no separate transaction
+        guard.
 
         Example:
             >>> metadata_sql.update_title(1, "Example")  # doctest: +SKIP
@@ -42,8 +44,8 @@ class CMTitlesMacrosMixin:
 
         :param title_id: Title identifier bound to the operation; batch handling, where
             supported, is described above.
-        :param title: Text bound as a feed/title value; false title handling is described
-            above.
+        :param title: Text bound as a feed/title value; false title handling is
+            described above.
         :return: None.
         """
         if not title:
@@ -57,7 +59,8 @@ class CMTitlesMacrosMixin:
         Write title_creator_sort through the host execution helper.
 
         Transaction and cache behavior for delegated SQL follows the host
-        execute/executemany implementation; this method adds no separate transaction guard.
+        execute/executemany implementation; this method adds no separate transaction
+        guard.
 
         Example:
             >>> metadata_sql.update_title_creator_sort(1, "Doe, Jane")  # doctest: +SKIP

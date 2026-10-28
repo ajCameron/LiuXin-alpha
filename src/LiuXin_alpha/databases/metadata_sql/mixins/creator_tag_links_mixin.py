@@ -72,8 +72,8 @@ class CMCreatorTagLinkMacros:
         :param title_id: Title identifier bound to the operation; batch handling, where
             supported, is described above.
         :param tag_id: Tag identifier bound to the relationship predicate.
-        :return: Connection.get(all=False) result: normally a title-ID scalar or None, not a
-            strict bool.
+        :return: Connection.get(all=False) result: normally a title-ID scalar or None,
+            not a strict bool.
         """
         return self.db.driver.conn.get(
             "SELECT tag_title_link_title_id "

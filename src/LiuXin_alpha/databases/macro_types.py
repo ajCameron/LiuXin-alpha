@@ -1,7 +1,10 @@
 """
 Define backend-neutral link, identity and migration records for portable macros.
 
-Frozen slotted dataclasses prevent field reassignment but do not validate values or deep-freeze supplied mappings. Default mappings are new per instance. LINK_TYPE_UNSET is the identity-tested sentinel for an omitted filter; None can instead select a SQL NULL link type.
+Frozen slotted dataclasses prevent field reassignment but do not validate values or
+deep-freeze supplied mappings. Default mappings are new per instance. LINK_TYPE_UNSET is
+the identity-tested sentinel for an omitted filter; None can instead select a SQL NULL
+link type.
 """
 
 from __future__ import annotations
@@ -16,7 +19,9 @@ class UnsetLinkType:
     """
     Provide the display form for the exported omitted-link-type sentinel.
 
-    Use LINK_TYPE_UNSET rather than constructing another instance: consumers compare the exported singleton by identity. This class does not enforce singleton construction or equality between instances.
+    Use LINK_TYPE_UNSET rather than constructing another instance: consumers compare the
+    exported singleton by identity. This class does not enforce singleton construction
+    or equality between instances.
 
     Example:
         >>> repr(LINK_TYPE_UNSET)
@@ -50,7 +55,10 @@ class LinkValue:
     """
     Describe the desired secondary row and writable properties of one link.
 
-    secondary_id identifies the target; link_type and priority default to None and are interpreted by the chosen macro/spec. extra supplies nonstandard column values. This frozen record performs no database validation and retains supplied mappings by reference.
+    secondary_id identifies the target; link_type and priority default to None and are
+    interpreted by the chosen macro/spec. extra supplies nonstandard column values. This
+    frozen record performs no database validation and retains supplied mappings by
+    reference.
 
     Example:
         >>> desired = LinkValue(7, link_type="author", priority=1)
@@ -69,7 +77,10 @@ class LinkRow:
     """
     Carry a complete link result with both endpoints and additional columns.
 
-    primary_id and secondary_id identify the relation endpoints. link_type/priority are None when absent from the link shape; extra holds other returned columns, potentially including the link row’s own key. Frozen fields do not make extra deeply immutable.
+    primary_id and secondary_id identify the relation endpoints. link_type/priority are
+    None when absent from the link shape; extra holds other returned columns,
+    potentially including the link row’s own key. Frozen fields do not make extra deeply
+    immutable.
 
     Example:
         >>> row = LinkRow(1, 7, link_type="author", extra={"note": "source"})
@@ -89,7 +100,10 @@ class UnreferencedRowsSpec:
     """
     Describe one table’s orphan-pruning request for a bulk macro.
 
-    table selects candidate rows and link_specs supplies relations used to establish references. id_column can override key discovery; protected_ids exempts rows from deletion. Construction validates neither schema membership nor a nonempty link list; the executing macro applies those checks.
+    table selects candidate rows and link_specs supplies relations used to establish
+    references. id_column can override key discovery; protected_ids exempts rows from
+    deletion. Construction validates neither schema membership nor a nonempty link list;
+    the executing macro applies those checks.
 
     Example:
         spec = UnreferencedRowsSpec("agents", (work_agent_links,), protected_ids=(1,))
@@ -107,10 +121,15 @@ class CanonicalIdentity:
     """
     Pair one stored canonical value with its normalized identity and scope.
 
-    table/row_id locate the stored row; value_column/canonical_value hold its display value and identity_column/identity_value its derived lookup key. scope_values records any additional identity scope. The record does not derive or validate a key and does not copy the supplied scope mapping.
+    table/row_id locate the stored row; value_column/canonical_value hold its display
+    value and identity_column/identity_value its derived lookup key. scope_values
+    records any additional identity scope. The record does not derive or validate a key
+    and does not copy the supplied scope mapping.
 
     Example:
-        >>> identity = CanonicalIdentity("tags", 1, "tag", "History", "tag_phash", "history")
+        >>> identity = CanonicalIdentity(
+        ...     "tags", 1, "tag", "History", "tag_phash", "history"
+        ... )
         >>> identity.canonical_value
         'History'
     """
@@ -129,10 +148,21 @@ class NormalizedIdentityCollision:
     """
     Describe rows that would share a declared unique identity within one scope.
 
-    table, value_column and identity_column locate the declaration; identity_value and scope_values identify the conflicting group. row_ids and canonical_values are corresponding tuples produced by the audit. Construction does not check their lengths, normalize values or resolve collisions.
+    table, value_column and identity_column locate the declaration; identity_value and
+    scope_values identify the conflicting group. row_ids and canonical_values are
+    corresponding tuples produced by the audit. Construction does not check their
+    lengths, normalize values or resolve collisions.
 
     Example:
-        >>> collision = NormalizedIdentityCollision("tags", "tag", "tag_phash", "history", {}, (1, 2), ("History", "history"))
+        >>> collision = NormalizedIdentityCollision(
+        ...     "tags",
+        ...     "tag",
+        ...     "tag_phash",
+        ...     "history",
+        ...     {},
+        ...     (1, 2),
+        ...     ("History", "history"),
+        ... )
         >>> collision.row_ids
         (1, 2)
     """
@@ -151,7 +181,11 @@ class NormalizedIdentityMigrationReport:
     """
     Report inspected identity declarations, pending changes and migration effects.
 
-    declarations_checked and rows_examined count audit work; rows_needing_update records stale/missing derived values and rows_updated records applied updates. columns_added and indexes_created name schema additions. collisions contains conflicting groups. clean only checks collisions, so a clean audit can still require updates. Counts and containers are accepted without validation.
+    declarations_checked and rows_examined count audit work; rows_needing_update records
+    stale/missing derived values and rows_updated records applied updates. columns_added
+    and indexes_created name schema additions. collisions contains conflicting groups.
+    clean only checks collisions, so a clean audit can still require updates. Counts and
+    containers are accepted without validation.
 
     Example:
         >>> report = NormalizedIdentityMigrationReport(1, 3, 2, 0)

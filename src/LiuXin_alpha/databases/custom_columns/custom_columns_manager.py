@@ -1,7 +1,10 @@
 """
 Discover custom-column attachment tables and lazily cache their facades.
 
-CustomColumnsManager separates live table discovery from its instance cache. Discovery can return no tables while explicit get still constructs a facade. Construction/refresh inherit CustomColumns schema-cleanup and metadata side effects; the manager does not add transactions or concurrency control.
+CustomColumnsManager separates live table discovery from its instance cache. Discovery
+can return no tables while explicit get still constructs a facade. Construction/refresh
+inherit CustomColumns schema-cleanup and metadata side effects; the manager does not add
+transactions or concurrency control.
 """
 
 from __future__ import annotations
@@ -21,7 +24,9 @@ def _row_get(row: Union[dict, "RowAPI"], key: str, default: Any = None) -> Any:
     """
     Read a row using get when available, falling back to item access on error.
 
-    Catch ordinary exceptions from probing/calling get, then try row[key] and catch ordinary exceptions there. A successful get returning default does not trigger item access.
+    Catch ordinary exceptions from probing/calling get, then try row[key] and catch
+    ordinary exceptions there. A successful get returning default does not trigger item
+    access.
 
     Example:
         >>> _row_get({"value": None}, "value", "missing") is None
@@ -50,7 +55,8 @@ def _to_int(value: Any, default: int = 0) -> int:
     """
     Convert a value with int, returning the supplied fallback on ordinary failure.
 
-    Numeric floats truncate and booleans become zero/one. Any ordinary exception from int is suppressed, not only malformed text.
+    Numeric floats truncate and booleans become zero/one. Any ordinary exception from
+    int is suppressed, not only malformed text.
 
     Example:
         >>> _to_int("2"), _to_int(2.9), _to_int("bad", 7)
@@ -75,7 +81,11 @@ class CustomColumnsManager:
     """
     Hold lazily constructed CustomColumns facades by canonical attachment table.
 
-    The mutable dataclass retains db, default_table and field_metadata_by_table directly, with a fresh private cache per instance. It does not discover or preload on construction. Public membership/iteration query current definitions rather than cached keys. No locking prevents concurrent duplicate construction, and invalidation does not close facades or undo their schema effects.
+    The mutable dataclass retains db, default_table and field_metadata_by_table
+    directly, with a fresh private cache per instance. It does not discover or preload
+    on construction. Public membership/iteration query current definitions rather than
+    cached keys. No locking prevents concurrent duplicate construction, and invalidation
+    does not close facades or undo their schema effects.
 
     Example:
         >>> from types import SimpleNamespace
@@ -96,7 +106,9 @@ class CustomColumnsManager:
         """
         Rediscover attachment tables and return their names in sorted order.
 
-        This does not construct facades or report private cache keys. Best-effort discovery can hide missing catalogs or failed query setup; later iterator failures still propagate.
+        This does not construct facades or report private cache keys. Best-effort
+        discovery can hide missing catalogs or failed query setup; later iterator
+        failures still propagate.
 
         Example:
             >>> from types import SimpleNamespace
@@ -112,10 +124,13 @@ class CustomColumnsManager:
         """
         Construct cached facades for every currently discovered attachment table.
 
-        Iterate the discovered set without sorting. An exception stops the pass after any earlier facades have been cached and may follow constructor cleanup effects. Existing cached facades are reused without refreshing them.
+        Iterate the discovered set without sorting. An exception stops the pass after
+        any earlier facades have been cached and may follow constructor cleanup effects.
+        Existing cached facades are reused without refreshing them.
 
         Example:
-            Given a configured manager, manager.preload() eagerly creates the facades that ordinary get calls would create on demand.
+            Given a configured manager, manager.preload() eagerly creates the facades
+            that ordinary get calls would create on demand.
 
 
         :return: None; populate the cache through get.
@@ -127,13 +142,18 @@ class CustomColumnsManager:
         """
         Return a cached facade or construct one for the canonical requested table.
 
-        Explicit requests do not require the name to be in current discovery. Resolve FieldMetadata, construct the facade, and cache only after successful construction. Subsequent calls reuse it without schema refresh. Construction may perform cleanup and trigger/field registration.
+        Explicit requests do not require the name to be in current discovery. Resolve
+        FieldMetadata, construct the facade, and cache only after successful
+        construction. Subsequent calls reuse it without schema refresh. Construction may
+        perform cleanup and trigger/field registration.
 
         Example:
-            Given manager bound to db, manager.get("works") constructs the Work facade once for sequential successful calls and reuses it afterward.
+            Given manager bound to db, manager.get("works") constructs the Work facade
+            once for sequential successful calls and reuses it afterward.
 
 
-        :param table: Attachment table; None or another false value selects default_table.
+        :param table: Attachment table; None or another false value selects
+            default_table.
         :return: Cached or newly constructed CustomColumns object for the resolved name.
         """
         resolved = self._canonicalise_table(table or self.default_table)
@@ -148,13 +168,18 @@ class CustomColumnsManager:
         """
         Refresh definition maps on cached facades or one explicitly requested facade.
 
-        The all-cached path does not discover newly added attachment tables. Refresh validates each facade’s definitions without deleting malformed records; it does not recreate FieldMetadata registrations or install queued triggers. Errors stop the pass after earlier refreshes.
+        The all-cached path does not discover newly added attachment tables. Refresh
+        validates each facade’s definitions without deleting malformed records; it does
+        not recreate FieldMetadata registrations or install queued triggers. Errors stop
+        the pass after earlier refreshes.
 
         Example:
-            After updating definitions, manager.refresh(table="works") refreshes that facade, creating it first if absent.
+            After updating definitions, manager.refresh(table="works") refreshes that
+            facade, creating it first if absent.
 
 
-        :param table: None refreshes every currently cached facade; a supplied name is resolved through get, constructing if necessary.
+        :param table: None refreshes every currently cached facade; a supplied name is
+            resolved through get, constructing if necessary.
         :return: None; invoke refresh_db_custom_columns_metadata on the chosen facades.
         """
         if table is None:
@@ -168,7 +193,9 @@ class CustomColumnsManager:
         """
         Discard cached facade references without closing them or changing the database.
 
-        External references remain usable. A later get can construct another facade and repeat its setup effects. This operation does not refresh live discovery or alter shared FieldMetadata.
+        External references remain usable. A later get can construct another facade and
+        repeat its setup effects. This operation does not refresh live discovery or
+        alter shared FieldMetadata.
 
         Example:
             >>> from types import SimpleNamespace
@@ -176,7 +203,8 @@ class CustomColumnsManager:
             >>> manager.invalidate()
 
 
-        :param table: None clears the entire cache; another value is canonicalized and removed if present.
+        :param table: None clears the entire cache; another value is canonicalized and
+            removed if present.
         :return: None, including when the selected cache entry is absent.
         """
         if table is None:
@@ -190,7 +218,9 @@ class CustomColumnsManager:
         """
         Check live attachment discovery for a canonical string table name.
 
-        An empty string follows the canonicalizer’s default-table fallback. This can inspect database metadata and query definitions; it is not a cheap private-cache membership test.
+        An empty string follows the canonicalizer’s default-table fallback. This can
+        inspect database metadata and query definitions; it is not a cheap private-cache
+        membership test.
 
         Example:
             >>> from types import SimpleNamespace
@@ -199,8 +229,10 @@ class CustomColumnsManager:
             (False, False)
 
 
-        :param table: String table name to canonicalize; non-strings return False immediately.
-        :return: True when the canonical name appears in current discovery, independently of cache membership.
+        :param table: String table name to canonicalize; non-strings return False
+            immediately.
+        :return: True when the canonical name appears in current discovery,
+            independently of cache membership.
         """
         if not isinstance(table, str):
             return False
@@ -212,7 +244,8 @@ class CustomColumnsManager:
         Delegate bracket access to lazy facade lookup.
 
         Example:
-            Given a configured manager, manager["works"] has the same construction/reuse behavior as manager.get("works").
+            Given a configured manager, manager["works"] has the same construction/reuse
+            behavior as manager.get("works").
 
 
         :param table: Attachment table passed to get.
@@ -224,7 +257,9 @@ class CustomColumnsManager:
         """
         Iterate a sorted snapshot of currently discovered attachment names.
 
-        Call tables when generator iteration begins. These names can differ from cached facade keys, and later database changes are not reflected within the materialized tuple.
+        Call tables when generator iteration begins. These names can differ from cached
+        facade keys, and later database changes are not reflected within the
+        materialized tuple.
 
         Example:
             >>> from types import SimpleNamespace
@@ -242,7 +277,9 @@ class CustomColumnsManager:
         """
         Resolve explicit per-table FieldMetadata or the legacy database fallback.
 
-        Explicit entries win without validation or copying. Ordinary errors reading db.field_metadata are suppressed. The fallback is limited to literal books and manifestations, not an arbitrary configured default table.
+        Explicit entries win without validation or copying. Ordinary errors reading
+        db.field_metadata are suppressed. The fallback is limited to literal books and
+        manifestations, not an arbitrary configured default table.
 
         Example:
             >>> from types import SimpleNamespace
@@ -253,7 +290,8 @@ class CustomColumnsManager:
 
 
         :param table: Canonical attachment table name.
-        :return: Explicit mapping entry, including None, or db.field_metadata for books/manifestations when available; otherwise None.
+        :return: Explicit mapping entry, including None, or db.field_metadata for
+            books/manifestations when available; otherwise None.
         """
         if table in self.field_metadata_by_table:
             return self.field_metadata_by_table[table]
@@ -273,17 +311,23 @@ class CustomColumnsManager:
         """
         Prefer the wrapper’s attachment alias resolver, with a narrow local fallback.
 
-        Suppress ordinary wrapper resolver errors. Fallback reads main_tables best-effort and maps books only when absent while manifestations is present. It does not trim names, validate schema existence or consistently coerce fallback values to strings.
+        Suppress ordinary wrapper resolver errors. Fallback reads main_tables
+        best-effort and maps books only when absent while manifestations is present. It
+        does not trim names, validate schema existence or consistently coerce fallback
+        values to strings.
 
         Example:
             >>> from types import SimpleNamespace
-            >>> manager = CustomColumnsManager(SimpleNamespace(main_tables={"manifestations"}))
+            >>> manager = CustomColumnsManager(
+            ...     SimpleNamespace(main_tables={"manifestations"})
+            ... )
             >>> manager._canonicalise_table("books")
             'manifestations'
 
 
         :param in_table: Attachment name; false input is replaced by default_table.
-        :return: Stringified wrapper result on success; otherwise the original/default name, with a possible books-to-manifestations substitution.
+        :return: Stringified wrapper result on success; otherwise the original/default
+            name, with a possible books-to-manifestations substitution.
         """
         if not in_table:
             in_table = self.default_table
@@ -312,7 +356,12 @@ class CustomColumnsManager:
         """
         Read non-deleted custom-column definitions and collect canonical attachments.
 
-        Try all_tables and optionally refresh_db_metadata. If the catalog is not known to be absent, request its rows. Only call/setup errors are suppressed: iteration failures propagate. Skip records whose deletion marker converts to exactly 1; other integers or invalid markers remain eligible. Missing/blank attachments use default_table; nonblank names retain whitespace before canonicalization. No facades are constructed.
+        Try all_tables and optionally refresh_db_metadata. If the catalog is not known
+        to be absent, request its rows. Only call/setup errors are suppressed: iteration
+        failures propagate. Skip records whose deletion marker converts to exactly 1;
+        other integers or invalid markers remain eligible. Missing/blank attachments use
+        default_table; nonblank names retain whitespace before canonicalization. No
+        facades are constructed.
 
         Example:
             >>> from types import SimpleNamespace
@@ -321,7 +370,8 @@ class CustomColumnsManager:
             set()
 
 
-        :return: Set of attachment names, or an empty set for a known missing catalog/query-setup failure.
+        :return: Set of attachment names, or an empty set for a known missing
+            catalog/query-setup failure.
         """
         tables: Set[str] = set()
 

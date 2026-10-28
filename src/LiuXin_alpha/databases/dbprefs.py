@@ -4,7 +4,9 @@
 """
 Cache database preferences and serialize preference backups as JSON.
 
-DBPrefs loads the preferences table through driver_wrapper. Its item assignment/deletion methods persist changes; inherited dict operations and mutation of nested values do not automatically use those methods. Defaults are lookup fallbacks rather than stored rows.
+DBPrefs loads the preferences table through driver_wrapper. Its item assignment/deletion
+methods persist changes; inherited dict operations and mutation of nested values do not
+automatically use those methods. Defaults are lookup fallbacks rather than stored rows.
 """
 
 from __future__ import unicode_literals, division, absolute_import, print_function, annotations
@@ -29,7 +31,12 @@ class DBPrefs(dict):
     """
     Expose stored preferences as a mutable dictionary with explicit database writes.
 
-    Construction reads the preferences table. Item lookup falls back to defaults, but membership, inherited dict.get and namespaced lookup inspect stored entries only. Use item assignment or set/set_namespaced to persist a replacement; inherited update/clear and in-place edits to nested objects bypass persistence. disable_setting makes item assignment local only. Values and defaults are not copied.
+    Construction reads the preferences table. Item lookup falls back to defaults, but
+    membership, inherited dict.get and namespaced lookup inspect stored entries only.
+    Use item assignment or set/set_namespaced to persist a replacement; inherited
+    update/clear and in-place edits to nested objects bypass persistence.
+    disable_setting makes item assignment local only. Values and defaults are not
+    copied.
 
     Example:
         prefs = DBPrefs(db)
@@ -41,15 +48,18 @@ class DBPrefs(dict):
         """
         Attach the database and immediately load its stored preferences.
 
-        Rows whose JSON values cannot be decoded are logged and skipped by load_from_db. Database enumeration failures propagate.
+        Rows whose JSON values cannot be decoded are logged and skipped by load_from_db.
+        Database enumeration failures propagate.
 
         Example:
             prefs = DBPrefs(db)
             prefs.defaults["page_size"] = 50
 
 
-        :param db: Database providing driver_wrapper row operations and a lock context manager.
-        :return: None; creates empty defaults, enables persistence and populates this dictionary.
+        :param db: Database providing driver_wrapper row operations and a lock context
+            manager.
+        :return: None; creates empty defaults, enables persistence and populates this
+            dictionary.
         """
         super(DBPrefs, self).__init__()
         self.db = db
@@ -61,7 +71,11 @@ class DBPrefs(dict):
         """
         Replace cached entries with successfully decoded preference rows.
 
-        Clear memory before reading all rows. Decode values through raw_to_object, logging and skipping each failed value. Rows are installed directly into the dict without database writes; repeated keys retain the last successfully decoded value. Enumeration or malformed row-access failures propagate after the cache has been cleared.
+        Clear memory before reading all rows. Decode values through raw_to_object,
+        logging and skipping each failed value. Rows are installed directly into the
+        dict without database writes; repeated keys retain the last successfully decoded
+        value. Enumeration or malformed row-access failures propagate after the cache
+        has been cleared.
 
         Example:
             prefs.load_from_db()
@@ -88,7 +102,9 @@ class DBPrefs(dict):
         """
         Decode a JSON preference value, including the project tagged-object format.
 
-        Bytes use preferred_encoding with replacement for invalid sequences. The object hook restores supported sets, byte arrays, bytes and datetimes; this is not arbitrary Python object deserialization.
+        Bytes use preferred_encoding with replacement for invalid sequences. The object
+        hook restores supported sets, byte arrays, bytes and datetimes; this is not
+        arbitrary Python object deserialization.
 
         Example:
             >>> DBPrefs.raw_to_object(b'{"enabled": true}')
@@ -110,7 +126,9 @@ class DBPrefs(dict):
         """
         Serialize a preference value using sorted JSON object keys.
 
-        Sorted dictionary keys stabilize comparisons with stored text. This does not guarantee ordering of set elements handled by the custom encoder. Serialization does not write the database.
+        Sorted dictionary keys stabilize comparisons with stored text. This does not
+        guarantee ordering of set elements handled by the custom encoder. Serialization
+        does not write the database.
 
         Example:
             >>> prefs = dict.__new__(DBPrefs)
@@ -139,7 +157,8 @@ class DBPrefs(dict):
 
 
         :param key: Preference key to test.
-        :return: True for a stored dictionary entry, including one set to None; defaults do not count.
+        :return: True for a stored dictionary entry, including one set to None; defaults
+            do not count.
         """
         return key in self
 
@@ -167,14 +186,17 @@ class DBPrefs(dict):
         """
         Remove a cached key, then delete matching database preference rows.
 
-        Memory changes before driver_wrapper.delete. Database failure therefore leaves the cached entry removed. This method does not consult disable_setting or enter db.lock.
+        Memory changes before driver_wrapper.delete. Database failure therefore leaves
+        the cached entry removed. This method does not consult disable_setting or enter
+        db.lock.
 
         Example:
             del prefs["page_size"]
 
 
         :param key: Explicitly cached key to remove; a default-only key is insufficient.
-        :return: None; a remaining defaults entry can still satisfy subsequent item lookup.
+        :return: None; a remaining defaults entry can still satisfy subsequent item
+            lookup.
         :raises KeyError: The key is absent from the cached dictionary.
         """
         super(DBPrefs, self).__delitem__(key)
@@ -184,7 +206,13 @@ class DBPrefs(dict):
         """
         Persist a preference replacement before updating its cached value.
 
-        With disable_setting, assign directly without serialization or database access. Otherwise serialize first, enter db.lock, insert a missing row or update the first matching row only when raw JSON differs. Existing byte-valued JSON is decoded before comparison. The facade mutex serializes cooperating callers; the selected row writer owns its transaction. This method makes no explicit commit call and the mutex does not group arbitrary writes atomically. Mutating a previously cached object in place is not detected automatically.
+        With disable_setting, assign directly without serialization or database access.
+        Otherwise serialize first, enter db.lock, insert a missing row or update the
+        first matching row only when raw JSON differs. Existing byte-valued JSON is
+        decoded before comparison. The facade mutex serializes cooperating callers; the
+        selected row writer owns its transaction. This method makes no explicit commit
+        call and the mutex does not group arbitrary writes atomically. Mutating a
+        previously cached object in place is not detected automatically.
 
         Example:
             prefs["columns"] = ["title", "authors"]
@@ -192,7 +220,8 @@ class DBPrefs(dict):
 
         :param key: Preference key used to search preference_key.
         :param val: Value serialized with to_raw and then cached without copying.
-        :return: None; local assignment occurs only after successful persistence, unless persistence is disabled.
+        :return: None; local assignment occurs only after successful persistence, unless
+            persistence is disabled.
         """
         if self.disable_setting:
             super(DBPrefs, self).__setitem__(key, val)
@@ -239,7 +268,8 @@ class DBPrefs(dict):
         """
         Read an explicitly stored namespaced preference or the supplied fallback.
 
-        This lookup bypasses self.defaults and does not validate colons in either component. It performs no database read.
+        This lookup bypasses self.defaults and does not validate colons in either
+        component. It performs no database read.
 
         Example:
             >>> prefs = dict.__new__(DBPrefs)
@@ -283,13 +313,18 @@ class DBPrefs(dict):
         """
         Write cached entries to metadata_db_prefs_backup.json in an existing directory.
 
-        Write UTF-8 JSON with the project encoder, excluding defaults. Opening the target truncates any existing backup; writes are not atomic and the directory is not created. Exceptions from path construction, opening or serialization are printed and logged rather than re-raised by this handler. Despite the AnyStr annotation, a bytes directory cannot be joined to this text filename.
+        Write UTF-8 JSON with the project encoder, excluding defaults. Opening the
+        target truncates any existing backup; writes are not atomic and the directory is
+        not created. Exceptions from path construction, opening or serialization are
+        printed and logged rather than re-raised by this handler. Despite the AnyStr
+        annotation, a bytes directory cannot be joined to this text filename.
 
         Example:
             prefs.write_serialized(library_directory)
 
 
-        :param library_path: Directory path accepted by os.path.join with a text filename; normally str or pathlib.Path.
+        :param library_path: Directory path accepted by os.path.join with a text
+            filename; normally str or pathlib.Path.
         :return: None, including after a caught failure.
         """
         try:
@@ -310,15 +345,18 @@ class DBPrefs(dict):
         """
         Read a preference backup as decoded data without constructing DBPrefs.
 
-        Read UTF-8 and apply from_json to tagged objects. File, decoding and JSON errors propagate. Defaults are not recreated from a backup.
+        Read UTF-8 and apply from_json to tagged objects. File, decoding and JSON errors
+        propagate. Defaults are not recreated from a backup.
 
         Example:
             backup = DBPrefs.read_serialized(library_directory)
 
 
-        :param library_path: Existing directory containing metadata_db_prefs_backup.json; use a text or pathlib path.
+        :param library_path: Existing directory containing
+            metadata_db_prefs_backup.json; use a text or pathlib path.
         :param recreate_prefs: Unsupported recreation switch; leave False.
-        :return: Decoded JSON value, normally a dictionary; no database attachment or top-level type validation.
+        :return: Decoded JSON value, normally a dictionary; no database attachment or
+            top-level type validation.
         :raises NotImplementedError: recreate_prefs is True.
         :raises OSError: The backup cannot be opened or read.
         :raises ValueError: The file does not contain valid JSON or tagged data.

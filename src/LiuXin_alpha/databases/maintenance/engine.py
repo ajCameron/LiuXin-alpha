@@ -67,8 +67,8 @@ class MaintenanceCallbackSink:
         """
         Enqueue a normalized (table, row_id) tuple without blocking.
 
-        False table values become empty text; row_id is converted to int. Does not construct
-        the event until the engine drains this queue.
+        False table values become empty text; row_id is converted to int. Does not
+        construct the event until the engine drains this queue.
 
         Example:
             >>> worker.dirty_record("creators", 1)  # doctest: +SKIP
@@ -84,8 +84,8 @@ class MaintenanceCallbackSink:
         """
         Enqueue a DirtyRowEvent tagged new_dirty_row on the manual queue.
 
-        Converts table and ID before insertion; this queue is drained ahead of compatibility
-        queues.
+        Converts table and ID before insertion; this queue is drained ahead of
+        compatibility queues.
 
         Example:
             >>> worker.new_dirty_record("creators", 1)  # doctest: +SKIP
@@ -110,7 +110,9 @@ class MaintenanceCallbackSink:
         Text labels use str(value or "") and IDs use int(); failures propagate.
 
         Example:
-            >>> worker.dirty_interlink_record("UPDATE", "creators", "titles", 1, 1)  # doctest: +SKIP
+            >>> worker.dirty_interlink_record(
+            ...     "UPDATE", "creators", "titles", 1, 1
+            ... )  # doctest: +SKIP
 
 
         :param update_type: Relationship change label; false values become empty text.
@@ -153,8 +155,8 @@ class MaintenanceEngine(threading.Thread):
         Initialize an unstarted daemon thread, sorted plugins and unbounded queues.
 
         Retains db weakly when possible, otherwise through a closure. Sorts descending
-        integer priorities and converts timing options to float; no positivity validation or
-        enabled_by_default filtering occurs.
+        integer priorities and converts timing options to float; no positivity
+        validation or enabled_by_default filtering occurs.
 
         Example:
             >>> MaintenanceEngine(database, [])  # doctest: +SKIP
@@ -162,10 +164,10 @@ class MaintenanceEngine(threading.Thread):
 
         :param db: Database whose rows, driver and schema helpers are used.
         :param plugins: Iterable of plugins, sorted by descending integer priority.
-        :param interval: Seconds between dispatch passes; converted to float without range
-            validation.
-        :param scheduling_interval: Maximum sleep between scheduling checks, in seconds; not
-            range-validated.
+        :param interval: Seconds between dispatch passes; converted to float without
+            range validation.
+        :param scheduling_interval: Maximum sleep between scheduling checks, in seconds;
+            not range-validated.
         :return: None.
         """
         super().__init__(name="liuxin-maintenance-engine", daemon=True)
@@ -220,9 +222,9 @@ class MaintenanceEngine(threading.Thread):
         """
         Append a plugin and restore descending priority order.
 
-        If the thread is alive, immediately calls startup in the registering thread and logs
-        ordinary startup exceptions. Registration has no duplicate check or synchronization
-        with dispatch; integer-priority conversion errors propagate.
+        If the thread is alive, immediately calls startup in the registering thread and
+        logs ordinary startup exceptions. Registration has no duplicate check or
+        synchronization with dispatch; integer-priority conversion errors propagate.
 
         Example:
             >>> engine.register_plugin(plugin)  # doctest: +SKIP
@@ -271,9 +273,9 @@ class MaintenanceEngine(threading.Thread):
         """
         Clear the run flag and enqueue a shutdown-context event.
 
-        Does not join the worker or guarantee that queued events, including shutdown, will
-        be dispatched. A ShutdownEvent enqueued through enqueue() alone does not clear the
-        flag.
+        Does not join the worker or guarantee that queued events, including shutdown,
+        will be dispatched. A ShutdownEvent enqueued through enqueue() alone does not
+        clear the flag.
 
         Example:
             >>> engine.stop()  # doctest: +SKIP
@@ -288,8 +290,8 @@ class MaintenanceEngine(threading.Thread):
         """
         Create a rename request and dispatch it immediately or enqueue it.
 
-        Synchronous dispatch does not run startup/shutdown hooks and can overlap the worker
-        thread. Plugin result telemetry is discarded.
+        Synchronous dispatch does not run startup/shutdown hooks and can overlap the
+        worker thread. Plugin result telemetry is discarded.
 
         Example:
             >>> engine.rename_item(1, "creators", "New name")  # doctest: +SKIP
@@ -297,8 +299,8 @@ class MaintenanceEngine(threading.Thread):
 
         :param item_id: Identifier of the row to rename.
         :param table: Table associated with the row or operation.
-        :param value: Requested new name; event construction converts false values to empty
-            text.
+        :param value: Requested new name; event construction converts false values to
+            empty text.
         :param now: Whether to dispatch synchronously; False enqueues work.
         :return: None.
         """
@@ -323,7 +325,8 @@ class MaintenanceEngine(threading.Thread):
             'tick'
 
 
-        :param max_events: Combined drain limit, coerced to int and clamped to at least one.
+        :param max_events: Combined drain limit, coerced to int and clamped to at least
+            one.
         :return: List of drained typed events, or a single idle tick.
         """
         batch: list[MaintenanceEvent] = []
@@ -371,7 +374,8 @@ class MaintenanceEngine(threading.Thread):
             >>> engine.run_once()  # doctest: +SKIP
 
 
-        :param max_events: Combined drain limit, coerced to int and clamped to at least one.
+        :param max_events: Combined drain limit, coerced to int and clamped to at least
+            one.
         :return: Mapping from participating plugin names to their results.
         """
         return self._dispatch(self._drain_pending_events(max_events=max_events))
@@ -380,10 +384,11 @@ class MaintenanceEngine(threading.Thread):
         """
         Filter, coalesce and broadcast a materialized batch to every registered plugin.
 
-        Selection or handler exceptions are logged and recorded as errors=1. A coalesce_key
-        exception makes that event passthrough; an unhashable returned key is not caught.
-        Passthrough events come first, then the last event for each key in first-key order.
-        Plugins with no interest are omitted; duplicate names overwrite earlier results.
+        Selection or handler exceptions are logged and recorded as errors=1. A
+        coalesce_key exception makes that event passthrough; an unhashable returned key
+        is not caught. Passthrough events come first, then the last event for each key
+        in first-key order. Plugins with no interest are omitted; duplicate names
+        overwrite earlier results.
 
         Example:
             >>> engine._dispatch(events)  # doctest: +SKIP
@@ -445,10 +450,10 @@ class MaintenanceEngine(threading.Thread):
         """
         Run plugin startup hooks, periodic dispatch and reverse-order shutdown hooks.
 
-        start() invokes this in the daemon thread; direct calls block the caller. Ordinary
-        lifecycle exceptions are logged. Dispatch-loop exceptions still run shutdown hooks
-        but terminate the worker; stop() is observed between scheduling checks. No final
-        queue drain is performed.
+        start() invokes this in the daemon thread; direct calls block the caller.
+        Ordinary lifecycle exceptions are logged. Dispatch-loop exceptions still run
+        shutdown hooks but terminate the worker; stop() is observed between scheduling
+        checks. No final queue drain is performed.
 
         Example:
             >>> engine.run()  # doctest: +SKIP

@@ -4,7 +4,11 @@
 """
 Adapt legacy field values for display, cache updates and database persistence.
 
-General field adapters and custom-column adapters retain different null, validation and normalization rules. Field factories select a datatype converter before applying name-specific wrappers; annotations do not validate runtime inputs. Existing byte-handler and custom-boolean datetime-name limitations are documented at the affected helpers.
+General field adapters and custom-column adapters retain different null, validation and
+normalization rules. Field factories select a datatype converter before applying
+name-specific wrappers; annotations do not validate runtime inputs. Existing
+byte-handler and custom-boolean datetime-name limitations are documented at the affected
+helpers.
 """
 
 from __future__ import unicode_literals, division, absolute_import, print_function
@@ -50,7 +54,9 @@ def sqlite_datetime(x: str) -> datetime:
     """
     Format datetime instances as UTC text and preserve other inputs.
 
-    The formatter treats a naive datetime as local time and converts to UTC. Non-datetime values, including None and strings, pass through despite the narrow annotations.
+    The formatter treats a naive datetime as local time and converts to UTC.
+    Non-datetime values, including None and strings, pass through despite the narrow
+    annotations.
 
     Example:
         >>> sqlite_datetime("2024-01-01 00:00:00")
@@ -60,7 +66,8 @@ def sqlite_datetime(x: str) -> datetime:
 
 
     :param x: Value to prepare; datetime instances use the shared ISO formatter.
-    :return: ISO text with a space separator for datetimes, otherwise the original object.
+    :return: ISO text with a space separator for datetimes, otherwise the original
+        object.
     """
     return isoformat(x, sep=" ") if isinstance(x, datetime) else x
 
@@ -69,7 +76,9 @@ def single_text(x: AnyStr) -> Optional[str]:
     """
     Decode or stringify one value, strip its edges and collapse empty text to None.
 
-    Non-text inputs first try decode(preferred_encoding, "replace"); AttributeError falls back to six_unicode. Internal whitespace is preserved. Other decoding/stringification errors propagate.
+    Non-text inputs first try decode(preferred_encoding, "replace"); AttributeError
+    falls back to six_unicode. Internal whitespace is preserved. Other
+    decoding/stringification errors propagate.
 
     Example:
         >>> single_text("  Example  ")
@@ -99,7 +108,9 @@ def get_series_values(val: Optional[str]) -> tuple[str, Optional[Union[str, int,
     """
     Extract a trailing bracketed numeric series index when its pattern matches.
 
-    Match stripped input against a suffix containing digits and dots, preceded by whitespace. Negative indexes do not match. A malformed float is logged and leaves the original value unchanged, including its surrounding whitespace.
+    Match stripped input against a suffix containing digits and dots, preceded by
+    whitespace. Negative indexes do not match. A malformed float is logged and leaves
+    the original value unchanged, including its surrounding whitespace.
 
     Example:
         >>> get_series_values("  Cycle [2.5]  ")
@@ -109,7 +120,8 @@ def get_series_values(val: Optional[str]) -> tuple[str, Optional[Union[str, int,
 
 
     :param val: Series text, or a false value passed through without parsing.
-    :return: Pair (stripped series name, float index) on success, otherwise (original value, None).
+    :return: Pair (stripped series name, float index) on success, otherwise (original
+        value, None).
     """
     if not val:
         return val, None
@@ -127,9 +139,15 @@ def get_series_values(val: Optional[str]) -> tuple[str, Optional[Union[str, int,
 
 def multiple_text(sep: str, ui_sep: str, x: AnyStr) -> tuple[str, ...]:
     """
-    Split or iterate text values, normalize spacing and replace embedded display separators.
+    Split or iterate text values, normalize spacing and replace embedded display
+    separators.
 
-    False input returns an empty tuple before separator access. Byte elements in an iterable decode with replacement. A top-level byte string instead uses the misspelled error handler "replce", which can raise LookupError when decoding needs that handler. Replace the stripped ui_sep with a comma when it is ";", otherwise with a semicolon, then collapse whitespace within each token. Empty separators are not specially validated.
+    False input returns an empty tuple before separator access. Byte elements in an
+    iterable decode with replacement. A top-level byte string instead uses the
+    misspelled error handler "replce", which can raise LookupError when decoding needs
+    that handler. Replace the stripped ui_sep with a comma when it is ";", otherwise
+    with a semicolon, then collapse whitespace within each token. Empty separators are
+    not specially validated.
 
     Example:
         >>> multiple_text(",", ", ", "  alpha  , beta ,, ")
@@ -140,7 +158,8 @@ def multiple_text(sep: str, ui_sep: str, x: AnyStr) -> tuple[str, ...]:
     :param ui_sep: Display separator, stripped before replacement within each token.
     :param x: Text to split, an iterable of text/byte values, or a false value.
     :return: Tuple of nonempty normalized strings in input order; duplicates remain.
-    :raises LookupError: Decoding a top-level byte string needs the unregistered "replce" error handler.
+    :raises LookupError: Decoding a top-level byte string needs the unregistered
+        "replce" error handler.
     :raises ValueError: A text input is split with an empty separator.
     """
     if not x:
@@ -161,7 +180,10 @@ def adapt_datetime(x: Union[AnyStr, datetime]) -> datetime:
     """
     Parse text as local time and normalize undefined or non-date values.
 
-    Strings use parse_date with assume_utc=False and as_utc=False. If undefined-date inspection raises AttributeError, replace the value with UNDEFINED_DATE. Truthy values identified as undefined also become that sentinel; None remains None. Parsing errors are not suppressed.
+    Strings use parse_date with assume_utc=False and as_utc=False. If undefined-date
+    inspection raises AttributeError, replace the value with UNDEFINED_DATE. Truthy
+    values identified as undefined also become that sentinel; None remains None. Parsing
+    errors are not suppressed.
 
     Example:
         >>> adapt_datetime(None) is None
@@ -171,7 +193,8 @@ def adapt_datetime(x: Union[AnyStr, datetime]) -> datetime:
 
 
     :param x: Date/time text or bytes, a date-like value, or None.
-    :return: Parsed local-time datetime, an accepted original value, UNDEFINED_DATE, or None.
+    :return: Parsed local-time datetime, an accepted original value, UNDEFINED_DATE, or
+        None.
     """
     if isinstance(x, (unicode, bytes)):
         x = parse_date(x, assume_utc=False, as_utc=False)
@@ -192,7 +215,9 @@ def adapt_date(x: Optional[Union[AnyStr, datetime]]) -> datetime:
     """
     Parse a date-only value with the shared timezone-safe date convention.
 
-    Text uses parse_only_date with its UTC defaults and day-boundary adjustment, so the represented day can move near month boundaries. Other values are checked without the AttributeError fallback used by adapt_datetime.
+    Text uses parse_only_date with its UTC defaults and day-boundary adjustment, so the
+    represented day can move near month boundaries. Other values are checked without the
+    AttributeError fallback used by adapt_datetime.
 
     Example:
         >>> adapt_date(None) == UNDEFINED_DATE
@@ -200,8 +225,10 @@ def adapt_date(x: Optional[Union[AnyStr, datetime]]) -> datetime:
 
 
     :param x: Date-only text/bytes, a date-like value, or None.
-    :return: Parsed or original date-like value, with None/undefined values replaced by UNDEFINED_DATE.
-    :raises AttributeError: A non-null, non-string value lacks attributes required by undefined-date inspection.
+    :return: Parsed or original date-like value, with None/undefined values replaced by
+        UNDEFINED_DATE.
+    :raises AttributeError: A non-null, non-string value lacks attributes required by
+        undefined-date inspection.
     """
     if isinstance(x, (unicode, bytes)):
         x = parse_only_date(x)
@@ -214,7 +241,9 @@ def adapt_number(typ: Union[Literal[int], Literal[float]], x: AnyStr) -> Optiona
     """
     Convert a non-null value with the requested numeric callable.
 
-    No general whitespace stripping or boolean rejection is added. Nonempty bytes are not decoded before comparison with "none", so b"none" reaches the numeric converter and fails. Conversion exceptions propagate.
+    No general whitespace stripping or boolean rejection is added. Nonempty bytes are
+    not decoded before comparison with "none", so b"none" reaches the numeric converter
+    and fails. Conversion exceptions propagate.
 
     Example:
         >>> adapt_number(int, "42")
@@ -224,7 +253,8 @@ def adapt_number(typ: Union[Literal[int], Literal[float]], x: AnyStr) -> Optiona
 
 
     :param typ: Conversion callable, normally int or float.
-    :param x: Value to convert; None, empty text/bytes and case-insensitive text "none" mean unset.
+    :param x: Value to convert; None, empty text/bytes and case-insensitive text "none"
+        mean unset.
     :return: None for recognized unset values, otherwise typ(x).
     :raises ValueError: The requested numeric converter cannot parse the value.
     :raises TypeError: The callable cannot convert the supplied type.
@@ -242,7 +272,9 @@ def adapt_bool(x: AnyStr) -> Optional[bool]:
     """
     Convert legacy boolean text or numeric values to True, False or None.
 
-    Lowercase string inputs first. Text "true" and "false" are recognized directly; other string/byte inputs go through int then bool. Byte words are not decoded and do not match the text sentinels. Non-string values use bool, so numeric zero is False.
+    Lowercase string inputs first. Text "true" and "false" are recognized directly;
+    other string/byte inputs go through int then bool. Byte words are not decoded and do
+    not match the text sentinels. Non-string values use bool, so numeric zero is False.
 
     Example:
         >>> adapt_bool("FALSE")
@@ -253,7 +285,8 @@ def adapt_bool(x: AnyStr) -> Optional[bool]:
 
     :param x: Text/bytes or a value with normal Python truth semantics.
     :return: None for None or text "none"/empty text; otherwise a boolean.
-    :raises ValueError: A string/byte value is neither a recognized text word nor integer-convertible.
+    :raises ValueError: A string/byte value is neither a recognized text word nor
+        integer-convertible.
     """
     if isinstance(x, (unicode, bytes)):
         x = x.lower()
@@ -302,9 +335,11 @@ def adapt_identifiers(to_tuple: Callable[[str, ], dict[str, str]], x: Union[dict
         {'isbn': 'a|b'}
 
 
-    :param to_tuple: Callable producing iterable scheme:value strings when x is not a dict.
+    :param to_tuple: Callable producing iterable scheme:value strings when x is not a
+        dict.
     :param x: Dictionary of identifier schemes/values, or input passed to to_tuple.
-    :return: A new dictionary containing only entries with nonempty cleaned scheme and value.
+    :return: A new dictionary containing only entries with nonempty cleaned scheme and
+        value.
     """
     if not isinstance(x, dict):
         x = {k: v for k, v in (y.partition(":")[0::2] for y in to_tuple(x))}
@@ -336,7 +371,15 @@ def get_adapter(name: FIELD_NAMES, metadata):
     """
     Select a legacy field converter from metadata and field-name overrides.
 
-    Select text/series/comments/enumeration normalization, datetime parsing (date-only for pubdate), int/float conversion, tri-state bool, clamped rating, or composite identity by datatype. Then wrap title with a translated Unknown fallback, author_sort with empty text, authors with pipe-to-comma tuple conversion and Unknown fallback, timestamps with UNDEFINED_DATE, and series_index with 1.0 when unset. The series-index wrapper calls the base converter twice for non-null results. Languages and identifiers get additional canonicalization/cleaning. Name/datatype combinations are not validated for compatible result shapes; unknown datatypes are logged and rejected before wrappers are selected.
+    Select text/series/comments/enumeration normalization, datetime parsing (date-only
+    for pubdate), int/float conversion, tri-state bool, clamped rating, or composite
+    identity by datatype. Then wrap title with a translated Unknown fallback,
+    author_sort with empty text, authors with pipe-to-comma tuple conversion and Unknown
+    fallback, timestamps with UNDEFINED_DATE, and series_index with 1.0 when unset. The
+    series-index wrapper calls the base converter twice for non-null results. Languages
+    and identifiers get additional canonicalization/cleaning. Name/datatype combinations
+    are not validated for compatible result shapes; unknown datatypes are logged and
+    rejected before wrappers are selected.
 
     Example:
         >>> get_adapter("series_index", {"datatype": "float"})(None)
@@ -344,8 +387,10 @@ def get_adapter(name: FIELD_NAMES, metadata):
 
 
     :param name: Field name used for date selection and final special-case wrappers.
-    :param metadata: Metadata requiring datatype; text also requires is_multiple, whose truthy mapping provides ui_to_list/list_to_ui.
-    :return: Callable accepting one field value; conversion exceptions occur when it is invoked.
+    :param metadata: Metadata requiring datatype; text also requires is_multiple, whose
+        truthy mapping provides ui_to_list/list_to_ui.
+    :return: Callable accepting one field value; conversion exceptions occur when it is
+        invoked.
     :raises KeyError: Required datatype or text separator metadata is absent.
     :raises NotImplementedError: The datatype is not recognized.
     """
@@ -382,16 +427,20 @@ def get_adapter(name: FIELD_NAMES, metadata):
             """
             Convert and clamp one rating value for the surrounding factory.
 
-            The string "0" converts to 0 rather than None. Empty text and text "none" convert to None inside adapt_number and then fail numeric comparison; unhashable input fails the initial membership test.
+            The string "0" converts to 0 rather than None. Empty text and text "none"
+            convert to None inside adapt_number and then fail numeric comparison;
+            unhashable input fails the initial membership test.
 
             Example:
                 >>> get_adapter("rating", {"datatype": "rating"})(15)
                 10
 
 
-            :param x: Hashable value tested against None and numeric zero before integer conversion.
+            :param x: Hashable value tested against None and numeric zero before integer
+                conversion.
             :return: None for None/numeric zero, otherwise an integer clamped to 0–10.
-            :raises TypeError: The input is unhashable or conversion returns None before clamping.
+            :raises TypeError: The input is unhashable or conversion returns None before
+                clamping.
             :raises ValueError: Integer conversion fails.
             """
 
@@ -454,7 +503,17 @@ def get_adapter_from_name_and_dt(
     """
     Select a field converter using explicit datatype and separator arguments.
 
-    Select text/series/comments/enumeration normalization, datetime parsing (date-only for pubdate), int/float conversion, tri-state bool, clamped rating, or composite identity by datatype. Then wrap title with a translated Unknown fallback, author_sort with empty text, authors with pipe-to-comma tuple conversion and Unknown fallback, timestamps with UNDEFINED_DATE, and series_index with 1.0 when unset. The series-index wrapper calls the base converter twice for non-null results. Languages and identifiers get additional canonicalization/cleaning. Name/datatype combinations are not validated for compatible result shapes; unknown datatypes are logged and rejected before wrappers are selected. Unlike get_adapter, this form takes a boolean multiple flag and separate separators; their defaults are not replaced with metadata values.
+    Select text/series/comments/enumeration normalization, datetime parsing (date-only
+    for pubdate), int/float conversion, tri-state bool, clamped rating, or composite
+    identity by datatype. Then wrap title with a translated Unknown fallback,
+    author_sort with empty text, authors with pipe-to-comma tuple conversion and Unknown
+    fallback, timestamps with UNDEFINED_DATE, and series_index with 1.0 when unset. The
+    series-index wrapper calls the base converter twice for non-null results. Languages
+    and identifiers get additional canonicalization/cleaning. Name/datatype combinations
+    are not validated for compatible result shapes; unknown datatypes are logged and
+    rejected before wrappers are selected. Unlike get_adapter, this form takes a boolean
+    multiple flag and separate separators; their defaults are not replaced with metadata
+    values.
 
     Example:
         >>> get_adapter_from_name_and_dt("count", "int")("42")
@@ -464,8 +523,10 @@ def get_adapter_from_name_and_dt(
     :param name: Field name controlling special-case wrappers.
     :param datatype: Datatype selector accepted by get_adapter.
     :param is_multiple: Whether text values use the multiple-text converter.
-    :param ui_to_list: Input delimiter for multiple text; None is forwarded to str.split.
-    :param list_to_ui: Display separator for multiple text; a string is needed for nonempty conversion.
+    :param ui_to_list: Input delimiter for multiple text; None is forwarded to
+        str.split.
+    :param list_to_ui: Display separator for multiple text; a string is needed for
+        nonempty conversion.
     :return: Callable accepting one field value.
     :raises NotImplementedError: The datatype is not recognized.
     """
@@ -501,16 +562,20 @@ def get_adapter_from_name_and_dt(
             """
             Convert and clamp one rating value for the surrounding factory.
 
-            The string "0" converts to 0 rather than None. Empty text and text "none" convert to None inside adapt_number and then fail numeric comparison; unhashable input fails the initial membership test.
+            The string "0" converts to 0 rather than None. Empty text and text "none"
+            convert to None inside adapt_number and then fail numeric comparison;
+            unhashable input fails the initial membership test.
 
             Example:
                 >>> get_adapter_from_name_and_dt("rating", "rating")(15)
                 10
 
 
-            :param x: Hashable value tested against None and numeric zero before integer conversion.
+            :param x: Hashable value tested against None and numeric zero before integer
+                conversion.
             :return: None for None/numeric zero, otherwise an integer clamped to 0–10.
-            :raises TypeError: The input is unhashable or conversion returns None before clamping.
+            :raises TypeError: The input is unhashable or conversion returns None before
+                clamping.
             :raises ValueError: Integer conversion fails.
             """
 
@@ -527,7 +592,9 @@ def get_adapter_from_name_and_dt(
 
             Example:
                 >>> value = []
-                >>> get_adapter_from_name_and_dt("template", "composite")(value) is value
+                >>> get_adapter_from_name_and_dt("template", "composite")(
+                ...     value
+                ... ) is value
                 True
 
 
@@ -566,9 +633,14 @@ def get_adapter_from_name_and_dt(
 
 def cc_adapt_text(x, d) -> Optional[Union[str, list[str]]]:
     """
-    Prepare single or multiple custom-column text without the general text adapter rules.
+    Prepare single or multiple custom-column text without the general text adapter
+    rules.
 
-    Multiple None becomes an empty list. Text/bytes are split before the guarded token-strip step; errors while stripping/filtering tokens are logged and wrapped as InvalidUpdate. Surviving byte tokens decode with replacement, then internal whitespace collapses. Splitting and decoding failures can propagate separately. Single columns preserve whitespace and reject non-text/non-null values.
+    Multiple None becomes an empty list. Text/bytes are split before the guarded
+    token-strip step; errors while stripping/filtering tokens are logged and wrapped as
+    InvalidUpdate. Surviving byte tokens decode with replacement, then internal
+    whitespace collapses. Splitting and decoding failures can propagate separately.
+    Single columns preserve whitespace and reject non-text/non-null values.
 
     Example:
         >>> cc_adapt_text("  Example  ", {"is_multiple": False})
@@ -578,9 +650,12 @@ def cc_adapt_text(x, d) -> Optional[Union[str, list[str]]]:
 
 
     :param x: Text/bytes, an iterable of tokens for multiple columns, or None.
-    :param d: Column metadata with is_multiple and, when splitting, multiple_seps.ui_to_list.
-    :return: A list of normalized strings for multiple columns, otherwise original text/None or decoded bytes.
-    :raises InvalidUpdate: A single-column value has an unsupported type or multiple-token stripping fails.
+    :param d: Column metadata with is_multiple and, when splitting,
+        multiple_seps.ui_to_list.
+    :return: A list of normalized strings for multiple columns, otherwise original
+        text/None or decoded bytes.
+    :raises InvalidUpdate: A single-column value has an unsupported type or
+        multiple-token stripping fails.
     """
     if d["is_multiple"]:
         if x is None:
@@ -608,7 +683,9 @@ def cc_adapt_datetime(x, d):
     """
     Parse custom-column date text and reject booleans or numeric timestamps.
 
-    String parsing uses assume_utc=False and as_utc=False; any exception from parsing is converted to InvalidUpdate. Exact booleans and int/float values are rejected. No datetime validation or undefined-date normalization is applied to remaining objects.
+    String parsing uses assume_utc=False and as_utc=False; any exception from parsing is
+    converted to InvalidUpdate. Exact booleans and int/float values are rejected. No
+    datetime validation or undefined-date normalization is applied to remaining objects.
 
     Example:
         >>> cc_adapt_datetime(None, {}) is None
@@ -617,7 +694,8 @@ def cc_adapt_datetime(x, d):
 
     :param x: Date/time text/bytes, a date object, None or another value.
     :param d: Column metadata used only in error diagnostics.
-    :return: Parsed local-time datetime for strings; other accepted values pass through unchanged.
+    :return: Parsed local-time datetime for strings; other accepted values pass through
+        unchanged.
     :raises InvalidUpdate: String parsing fails, or x is a boolean, integer or float.
     """
     if isinstance(x, (str, bytes)):
@@ -642,7 +720,11 @@ def cc_adapt_bool(x: Any, d) -> Optional[bool]:
     """
     Parse custom boolean text while preserving the existing non-string failure.
 
-    Text true/1, false/0 and none are recognized after lowercasing. Other string values use int conversion with failures wrapped as InvalidUpdate, and floats are rejected. For every non-string, non-float value, the existing datetime.datetime check raises AttributeError because datetime names the imported class. Thus None, booleans, integers and datetime objects currently fail at that check.
+    Text true/1, false/0 and none are recognized after lowercasing. Other string values
+    use int conversion with failures wrapped as InvalidUpdate, and floats are rejected.
+    For every non-string, non-float value, the existing datetime.datetime check raises
+    AttributeError because datetime names the imported class. Thus None, booleans,
+    integers and datetime objects currently fail at that check.
 
     Example:
         >>> cc_adapt_bool("true", {})
@@ -653,9 +735,11 @@ def cc_adapt_bool(x: Any, d) -> Optional[bool]:
 
     :param x: Boolean text/bytes or another attempted value.
     :param d: Column metadata included in failure diagnostics.
-    :return: True, False or None for recognized text; numeric text/bytes use bool(int(x)).
+    :return: True, False or None for recognized text; numeric text/bytes use
+        bool(int(x)).
     :raises InvalidUpdate: A string cannot be converted or x is a float.
-    :raises AttributeError: A non-string, non-float input reaches the shadowed datetime.datetime reference.
+    :raises AttributeError: A non-string, non-float input reaches the shadowed
+        datetime.datetime reference.
     """
     if isinstance(x, (str, unicode, bytes)):
         x = x.lower()
@@ -682,7 +766,9 @@ def cc_adapt_enum(x: Any, d) -> Optional[Union[list[str]]]:
     """
     Apply custom-column text conversion and replace false results with None.
 
-    No membership check against configured enumeration choices is performed. Single text values keep surrounding whitespace; multiple-column normalization follows cc_adapt_text.
+    No membership check against configured enumeration choices is performed. Single text
+    values keep surrounding whitespace; multiple-column normalization follows
+    cc_adapt_text.
 
     Example:
         >>> cc_adapt_enum(" Active ", {"is_multiple": False})
@@ -705,7 +791,9 @@ def cc_adapt_number(x: Any, d) -> Optional[Union[int, float]]:
     """
     Convert a custom-column number, rejecting booleans and wrapping conversion failures.
 
-    Booleans are rejected before conversion. Byte words are not decoded for the text sentinel check. Numeric conversion exceptions become InvalidUpdate; a missing datatype key remains a KeyError.
+    Booleans are rejected before conversion. Byte words are not decoded for the text
+    sentinel check. Numeric conversion exceptions become InvalidUpdate; a missing
+    datatype key remains a KeyError.
 
     Example:
         >>> cc_adapt_number("42", {"datatype": "int"})
@@ -715,7 +803,8 @@ def cc_adapt_number(x: Any, d) -> Optional[Union[int, float]]:
 
 
     :param x: Value to convert; None or case-insensitive text "none" is unset.
-    :param d: Column metadata; datatype="int" selects int, every other datatype selects float.
+    :param d: Column metadata; datatype="int" selects int, every other datatype selects
+        float.
     :return: None for recognized unset input, otherwise the converted integer or float.
     :raises InvalidUpdate: Input is boolean or the selected numeric conversion fails.
     :raises KeyError: A value needing conversion has no datatype metadata.
@@ -757,7 +846,8 @@ def cc_adapt_rating(x: Any, d) -> Optional[float]:
     :param x: Numeric value or numeric text; None is unset and booleans are rejected.
     :param d: Column metadata included only in failure diagnostics.
     :return: None for None, otherwise a float clamped between 0.0 and 10.0.
-    :raises InvalidUpdate: Input is boolean or float conversion raises ValueError/TypeError.
+    :raises InvalidUpdate: Input is boolean or float conversion raises
+        ValueError/TypeError.
     """
     if x is None:
         return None

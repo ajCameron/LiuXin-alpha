@@ -17,7 +17,9 @@ from LiuXin_alpha.databases.database_driver_plugins.PostgreSQL.link_ddl import (
 def catalog_link_statements(
     tables: Mapping[str, tuple[str, ...]], root: Path
 ) -> tuple[str, ...]:
-    """Create declared links between the supplied Catalog tables, including role registries.
+    """
+    Create declared links between the supplied Catalog tables, including role
+    registries.
 
     Table names and columns come from the bundled schema catalog. Source/target
     direction comes from TOML; physical names follow sorted column prefixes.

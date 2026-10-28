@@ -26,11 +26,12 @@ class CMIdentifiersMixin:
         """
         Read linked title IDs, relationship types and identifier values.
 
-        Orders by descending identifier/title link priority. The type comes from the link,
-        not identifier_type on the value row.
+        Orders by descending identifier/title link priority. The type comes from the
+        link, not identifier_type on the value row.
 
         Transaction and cache behavior for delegated SQL follows the host
-        execute/executemany implementation; this method adds no separate transaction guard.
+        execute/executemany implementation; this method adds no separate transaction
+        guard.
 
         Example:
             >>> metadata_sql.read_all_identifiers()  # doctest: +SKIP

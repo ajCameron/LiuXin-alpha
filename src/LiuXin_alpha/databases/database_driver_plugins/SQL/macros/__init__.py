@@ -193,9 +193,13 @@ class SQLiteDatabaseMacros(
             >>> import sqlite3
             >>> from types import SimpleNamespace
             >>> conn = sqlite3.connect(":memory:")
-            >>> _ = conn.execute("CREATE TABLE links (left_id INTEGER, right_id INTEGER)")
+            >>> _ = conn.execute(
+            ...     "CREATE TABLE links (left_id INTEGER, right_id INTEGER)"
+            ... )
             >>> macros = SQLiteDatabaseMacros(SimpleNamespace(driver_wrapper=conn))
-            >>> macros.make_generic_link_no_priority("links", "left_id", "right_id", 1, 2)
+            >>> macros.make_generic_link_no_priority(
+            ...     "links", "left_id", "right_id", 1, 2
+            ... )
             >>> conn.execute("SELECT left_id, right_id FROM links").fetchone()
             (2, 1)
             >>> conn.close()
@@ -269,7 +273,9 @@ class SQLiteDatabaseMacros(
         Example:
             >>> from types import SimpleNamespace
             >>> macros = SQLiteDatabaseMacros(SimpleNamespace())
-            >>> macros.get_foreign_key_replacement_trigger("links", "owner_id", "id", old=False)
+            >>> macros.get_foreign_key_replacement_trigger(
+            ...     "links", "owner_id", "id", old=False
+            ... )
             'DELETE FROM links WHERE owner_id=OLD.id;'
 
 
@@ -360,7 +366,9 @@ class SQLiteDatabaseMacros(
             >>> conn = sqlite3.connect(":memory:")
             >>> _ = conn.execute("CREATE TABLE items (id INTEGER, label TEXT)")
             >>> macros = SQLiteDatabaseMacros(SimpleNamespace(driver_wrapper=conn))
-            >>> macros.get_values_one_condition("items", "label", "id", 1, default_value="fallback")
+            >>> macros.get_values_one_condition(
+            ...     "items", "label", "id", 1, default_value="fallback"
+            ... )
             set()
             >>> conn.close()
 
@@ -714,17 +722,28 @@ class SQLiteDatabaseMacros(
             >>> from types import SimpleNamespace
             >>> row = SimpleNamespace(secondary_id=3, link_type="author")
             >>> wrapper = SimpleNamespace(get_link_spec=lambda *args: object())
-            >>> host = SimpleNamespace(db=SimpleNamespace(driver_wrapper=wrapper),
-            ...                        get_link_rows=lambda *args: (row, row))
-            >>> for typed, priority in [(False, False), (False, True), (True, False), (True, True)]:
-            ...     result = SQLiteDatabaseMacros.get_link_data(host, "works", "agents", 1, typed, priority)
+            >>> host = SimpleNamespace(
+            ...     db=SimpleNamespace(driver_wrapper=wrapper),
+            ...     get_link_rows=lambda *args: (row, row),
+            ... )
+            >>> for typed, priority in [
+            ...     (False, False),
+            ...     (False, True),
+            ...     (True, False),
+            ...     (True, True),
+            ... ]:
+            ...     result = SQLiteDatabaseMacros.get_link_data(
+            ...         host, "works", "agents", 1, typed, priority
+            ...     )
             ...     print(dict(result) if typed else result)
             {3}
             [3, 3]
             {'author': {3}}
             {'author': [3, 3]}
             >>> wrapper.get_link_spec = lambda *args: None
-            >>> SQLiteDatabaseMacros.get_link_data(host, "works", "agents", 1, typed=True, priority=True)
+            >>> SQLiteDatabaseMacros.get_link_data(
+            ...     host, "works", "agents", 1, typed=True, priority=True
+            ... )
             []
 
 
