@@ -10,7 +10,7 @@ does not persist rows.
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Iterator, Mapping
+from collections.abc import Callable, Iterable, Iterator, Mapping
 from dataclasses import dataclass
 import json
 from typing import Any
@@ -337,6 +337,7 @@ def prepare_normalized_values(
     values: Mapping[str, Any],
     *,
     existing: Mapping[str, Any] | None = None,
+    read_existing: Callable[[], Mapping[str, Any] | None] | None = None,
 ) -> dict[str, Any]:
     """Derive stored keys from this database's declarations before persistence.
 
@@ -344,6 +345,8 @@ def prepare_normalized_values(
     authoritative, including an empty one; defaults serve legacy schemas and
     lightweight adapters only. Updating a derived key alone recomputes it from
     the existing display value instead of accepting a second identity policy.
+    ``read_existing`` lazily supplies that row on the caller's write connection;
+    ordinary inserts and updates containing their display values do not read it.
     """
     iterator = getattr(source, "iter_normalized_identity_specs", None)
     if not callable(iterator):
@@ -358,6 +361,18 @@ def prepare_normalized_values(
     if not callable(headings):
         headings = getattr(source, "direct_get_column_headings", None)
     available = set(headings(table)) if callable(headings) else None
+    if (
+        existing is None
+        and read_existing is not None
+        and any(
+            spec.table == table
+            and spec.identity_column in values
+            and spec.value_column not in values
+            and (available is None or spec.identity_column in available)
+            for spec in specs
+        )
+    ):
+        existing = read_existing()
     return add_derived_identity_values(
         table,
         values,

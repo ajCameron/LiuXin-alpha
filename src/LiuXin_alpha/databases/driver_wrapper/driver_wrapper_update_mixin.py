@@ -33,27 +33,21 @@ class DriverWrapperUpdateMixin:
     # Todo: Again, pretty sure we can hack this for typing
     def update_row(self, row_dict: dict[str, Any]) -> bool:
         """
-        Update the identified row using its ID and the remaining supplied columns.
+        Update the supplied columns of an identified row without mutating the input.
 
-        Delegates to the driver's direct_update_row_dict hook. The following backend
-        details describe the shared SQL/SQLite implementation; backend errors propagate.
-
-        Infer the table before copying the mapping, convert exact text ``None`` values
-        to null and derive configured identity fields. Missing ID raises
-        RowIntegrityError. Use a plain dict, since a live Row object can recurse through
-        its writer. Commit/close on success; handled SQLite errors are translated, with
-        an additional commit on the integrity-error path.
+        Literal text "None" stays text; Python None requests SQL NULL. Derived-key-only
+        updates read the omitted display value on the write connection and recompute the
+        key. A missing ID raises an input/row integrity error. Shared SQL commits only
+        on success, rolls back errors and always closes its owned connection; PostgreSQL
+        retains its primary connection. Backend exceptions propagate.
 
         Example:
-            >>> wrapper.update_row(
-            ...     {"work_id": 1, "work_title": "Example"}
-            ... )  # doctest: +SKIP
+            Updating only tag_phash recomputes it from the stored tag text.
 
-
-        :param row_dict: Plain column/value dictionary including the ID; inference may
-            remove its ``table`` key before copying.
-        :return: ``True`` for an ID-only no-op; otherwise ``None`` after executing the
-            update.
+        :param row_dict: Column/value mapping including the row ID and optional table
+            hint.
+        :return: True for an ID-only no-op; shared SQL otherwise returns None,
+            PostgreSQL True.
         """
         status = self.driver.direct_update_row_dict(row_dict)
         return status
@@ -110,28 +104,21 @@ class DriverWrapperUpdateMixin:
             field: Optional[str] = None,
             table: Optional[str] = None) -> bool:
         """
-        Update one field for each ID, also deriving its configured identity column when
-        available.
+        Update one field for each ID as an atomic batch, preserving derived keys.
 
-        Delegates to the driver's direct_update_columns hook. The following backend
-        details describe the shared SQL/SQLite implementation; backend errors propagate.
-
-        Infer the table from the field; a conflicting table argument only warns and the
-        inferred table wins. Commit the batch on success and close in finally. Empty
-        mappings are no-ops; dict-valued mappings select an unimplemented multi-column
-        mode.
+        In shared SQL, infer the table from the field; a conflicting table hint warns
+        and the inferred table wins. Empty mappings are no-ops and dictionary-valued
+        updates remain unsupported. A failed update rolls back earlier rows in the
+        batch. Any owned SQLite connection is closed; PostgreSQL retains its primary
+        connection.
 
         Example:
-            >>> wrapper.update_columns(
-            ...     {1: "Revised"}, field="work_title"
-            ... )  # doctest: +SKIP
+            Updating tag_phash alone rederives each key from the stored tag text.
 
-
-        :param values_map: Mapping from row IDs to scalar field values; dict values are
-            currently unsupported.
-        :param field: Trusted column heading required for scalar mode.
-        :param table: Optional expected table name; a mismatch warns rather than
-            rejecting the update.
-        :return: ``None``.
+        :param values_map: Mapping from row IDs to replacement scalar values.
+        :param field: Column to update.
+        :param table: Optional expected table name; PostgreSQL uses it as the table
+            hint.
+        :return: None for shared SQL; True for PostgreSQL.
         """
         return self.driver.direct_update_columns(id_values_map=values_map, field=field, table=table)

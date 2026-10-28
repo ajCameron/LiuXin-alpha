@@ -3,8 +3,8 @@
 Specify insertion of individual rows and homogeneous row batches.
 
 Implementations resolve tables from row keys and own transaction handling. The
-shared SQL writers can mutate supplied mappings and commit partial work on failure;
-callers must not infer batch atomicity from these signatures.
+shared SQL writers copy input mappings and commit a batch only on success;
+failures roll back the complete operation.
 """
 
 import abc
@@ -17,9 +17,9 @@ class DriverAddMixinAPI(abc.ABC):
     Specify insertion of individual rows and homogeneous row batches.
 
     Implementations resolve tables from row keys and own transaction handling. The
-    shared SQL writers can mutate supplied mappings and commit partial work on failure;
-    callers must not infer batch atomicity from these signatures. Abstract members must
-    be implemented by a backend; their empty bodies return None when called directly.
+    shared SQL writers copy input mappings and commit a batch only on success;
+    failures roll back the complete operation. Abstract members must be implemented by
+    a backend; their empty bodies return None when called directly.
 
     Example:
         >>> import inspect
@@ -30,45 +30,36 @@ class DriverAddMixinAPI(abc.ABC):
     @abc.abstractmethod
     def direct_add_multiple_simple_row_dicts(self, row_dict_list: Iterable[dict[str, Any]]) -> None:
         """
-        Insert rows sharing a table, the same keys and the same key order.
+        Insert a batch atomically, binding values by named column.
 
-        Abstract backend hook. The behavior below describes the shared SQL/SQLite
-        implementation; this declaration itself has no operational body.
-
-        Mismatched tables/key sets or non-null explicit IDs raise InputIntegrityError.
-        Values follow each mapping's insertion order, so matching key sets alone are
-        insufficient. Identity derivation and NUL sanitization follow single-row
-        insertion. Commit/close run in finally, allowing partial batches to persist on
-        errors.
+        The shared SQL/SQLite writer requires one table, matching column sets and no
+        non-null explicit IDs. Input dictionaries may have different key orders and are
+        not mutated. Normalization and custom-column NUL handling match single inserts.
+        A failure rolls back the whole batch and closes its owned connection. PostgreSQL
+        also rolls back the full batch while retaining its primary connection.
 
         Example:
-            >>> driver.direct_add_multiple_simple_row_dicts(
-            ...     [{"work_title": "Example"}]
-            ... )  # doctest: +SKIP
+            A uniqueness violation on the second row leaves neither row inserted.
 
-
-        :param row_dict_list: Sized, indexable sequence of homogeneous row mappings;
-            inference and sanitization may mutate them.
-        :return: ``True`` for an empty batch; otherwise ``None``.
+        :param row_dict_list: Iterable of row mappings; shared SQL requires homogeneous
+            rows.
+        :return: True for an empty shared-SQL batch; otherwise None. PostgreSQL returns
+            True.
         """
 
     @abc.abstractmethod
     def direct_add_simple_row_dict(self, row_dict: dict[str, Any]) -> int:
         """
-        Infer a table, derive configured identity values and insert one bound-value row.
+        Insert a copied row mapping, deriving configured normalized identity values.
 
-        Abstract backend hook. The behavior below describes the shared SQL/SQLite
-        implementation; this declaration itself has no operational body.
-
-        Custom-column value tables also sanitize NUL text. The connection commits and
-        closes in finally, even on execution errors; this is not a rollback-on-error
-        helper. SQLite operational/integrity errors become driver/integrity errors.
+        The shared SQL/SQLite writer sanitizes NUL text in custom-column values, commits
+        only on success and always closes its connection. PostgreSQL retains its primary
+        connection. Backend exceptions propagate through this interface.
 
         Example:
-            >>> driver.direct_add_simple_row_dict({"work_id": 1})  # doctest: +SKIP
+            A work_title value of "None" remains ordinary text after insertion.
 
-
-        :param row_dict: Column-to-value mapping; table inference removes any ``table``
-            key in place.
-        :return: The cursor lastrowid for the inserted row.
+        :param row_dict: Column/value mapping, optionally including a table hint; not
+            mutated.
+        :return: The inserted row ID.
         """

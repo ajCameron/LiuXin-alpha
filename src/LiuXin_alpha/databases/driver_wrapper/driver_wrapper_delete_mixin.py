@@ -33,8 +33,8 @@ class DriverWrapperDeleteMixin:
         Delete rows matching a scalar value or a list/set of values.
 
         Lists and sets dispatch to direct_delete_many(); all other values, including
-        tuples, use direct_delete(). Driver validation and transaction behavior apply,
-        and earlier bulk work may remain after a failure.
+        tuples, use direct_delete(). A failed batch rolls back all deletions in that
+        call. Driver validation and exception translation still apply.
 
         Example:
             >>> wrapper.delete("works", "work_title", "Example")  # doctest: +SKIP

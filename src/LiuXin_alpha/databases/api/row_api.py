@@ -142,24 +142,20 @@ class RowAPI(abc.ABC):
         """
 
     @abc.abstractmethod
-    def __eq__(self, other: RowAPI) -> bool:
+    def __eq__(self, other: object) -> bool:
         """
-        Compare this row’s hash with the other object’s hash.
+        Compare persisted identities directly; distinct unsaved rows are unequal.
 
-        The concrete Row implementation compares hashes rather than comparing identity
-        tuples directly. Hash collisions, including with a non-Row object, can therefore
-        compare equal; local non-identity field values are ignored.
+        Local payload differences do not affect equality. A row equals itself, including
+        before insertion. Other RowAPI instances compare by database UUID, table and ID;
+        a hash collision cannot make different identities equal.
 
         Example:
-            Two loaded rows with the same database UUID, table and ID compare equal even
-            when their local display values differ.
+            Two loaded copies of the same stored row compare equal even when their local
+            titles differ. Two drafts without IDs compare unequal.
 
-
-        :param other: Object accepted by hash(); no Row type check is performed.
-        :return: True when the two hash integers are equal.
-        :raises TypeError: other is unhashable.
-        :raises InputIntegrityError: This row’s ID cannot be resolved because its table
-            is unknown.
+        :param other: Object to compare with this row.
+        :return: Identity equality for rows; NotImplemented for non-RowAPI objects.
         """
 
     @abc.abstractmethod
@@ -185,20 +181,18 @@ class RowAPI(abc.ABC):
     @abc.abstractmethod
     def __hash__(self) -> int:
         """
-        Hash the database UUID, resolved row ID and table as one tuple.
+        Hash the database UUID, row ID and table of an identified row.
 
-        Non-identity payload changes leave the hash alone. Changing the table, ID or
-        database UUID can change it, so assign a stable identity before using a row as a
-        dictionary key. An identified but unsaved row may hash with a None ID.
+        Non-identity payload changes leave the hash alone. Do not change the database
+        UUID, table or ID while a row is used as a dictionary key or set member. Unsaved
+        rows are unhashable because assigning their persistent identity would change the
+        hash.
 
         Example:
-            Given a persisted row and a separately loaded copy, hash(row) equals
-            hash(copy) when database UUID, table and ID match.
-
+            Separately loaded copies of the same stored row have equal hashes.
 
         :return: Process-local hash integer for the current identity fields.
-        :raises InputIntegrityError: The row has neither a cached ID nor an identified
-            table.
+        :raises TypeError: The row has no identified table or no row ID.
         """
 
     # Todo: Does this mean column headings, or values, or tuples? Not clear. Follow dict.
@@ -260,18 +254,15 @@ class RowAPI(abc.ABC):
     @abc.abstractmethod
     def __str__(self) -> str:
         """
-        Return the legacy UTF-8 byte encoding of the detailed row representation.
+        Return the detailed row representation as Python text.
 
-        Python 3 str(row) requires __str__ to return text and therefore raises TypeError
-        with this implementation. Use row.__unicode__() for the detailed text or
-        repr(row) for a compact label.
+        The representation includes local payload and schema metadata without reloading
+        the row. Use repr(row) for a compact label.
 
         Example:
-            Given a loaded row, row.__str__() returns encoded bytes; row.__unicode__()
-            returns the corresponding text.
+            str(row) returns the same Unicode text as row.__unicode__().
 
-
-        :return: bytes from the concrete Row, despite the API’s str annotation.
+        :return: Diagnostic text, including non-ASCII payload values.
         """
 
     @abc.abstractmethod

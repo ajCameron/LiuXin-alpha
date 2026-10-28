@@ -29,9 +29,9 @@ class Row(RowAPI):
 
     Deep-copy supplied values, infer schema metadata and defer persistence until an
     explicit writer/factory call. Read-only mode replaces sync but leaves local mutation
-    available. Equality compares identity hashes; deepcopy returns a writable base Row
-    sharing the database. Prefer repr or __unicode__ for diagnostics because the legacy
-    __str__ returns bytes.
+    available. Equality compares stored identities directly; unsaved rows compare by
+    object identity and cannot be hashed. Deepcopy returns a writable base Row sharing
+    the database. String conversion returns diagnostic Unicode text.
 
     Example:
         Given db, row = Row(db, {"work_title": "Draft"}) represents an unsaved Work;
@@ -576,23 +576,20 @@ class Row(RowAPI):
 
         return info_str
 
-    def __str__(self):
+    def __str__(self) -> str:
         """
-        Return the legacy UTF-8 byte encoding of the detailed row representation.
+        Return the detailed row representation as Python text.
 
-        Python 3 str(row) requires __str__ to return text and therefore raises TypeError
-        with this implementation. Use row.__unicode__() for the detailed text or
-        repr(row) for a compact label.
+        The representation includes local payload and schema metadata without reloading
+        the row. Use repr(row) for a compact label.
 
         Example:
-            Given a loaded row, row.__str__() returns encoded bytes; row.__unicode__()
-            returns the corresponding text.
+            str(row) returns the same Unicode text as row.__unicode__().
 
-
-        :return: bytes from the concrete Row, despite the API’s str annotation.
+        :return: Diagnostic text, including non-ASCII payload values.
         """
 
-        return self.__unicode__().encode("utf-8")
+        return self.__unicode__()
 
     def __repr__(self):
 
@@ -860,51 +857,54 @@ class Row(RowAPI):
 
     def __hash__(self) -> int:
         """
-        Hash the database UUID, resolved row ID and table as one tuple.
+        Hash the database UUID, row ID and table of an identified row.
 
-        Non-identity payload changes leave the hash alone. Changing the table, ID or
-        database UUID can change it, so assign a stable identity before using a row as a
-        dictionary key. An identified but unsaved row may hash with a None ID.
+        Non-identity payload changes leave the hash alone. Do not change the database
+        UUID, table or ID while a row is used as a dictionary key or set member. Unsaved
+        rows are unhashable because assigning their persistent identity would change the
+        hash.
 
         Example:
-            Given a persisted row and a separately loaded copy, hash(row) equals
-            hash(copy) when database UUID, table and ID match.
-
+            Separately loaded copies of the same stored row have equal hashes.
 
         :return: Process-local hash integer for the current identity fields.
-        :raises InputIntegrityError: The row has neither a cached ID nor an identified
-            table.
+        :raises TypeError: The row has no identified table or no row ID.
         """
+        if self.table is None or self.row_id is None:
+            raise TypeError("An unsaved Row has no stable database identity")
         uuid = self.db.uuid
         row_id = object.__getattribute__(self, "row_id")
         table = object.__getattribute__(self, "table")
         return hash((uuid, row_id, table))
 
-    def __eq__(self, other: RowAPI) -> bool:
+    def __eq__(self, other: object) -> bool:
         """
-        Compare this row’s hash with the other object’s hash.
+        Compare persisted identities directly; distinct unsaved rows are unequal.
 
-        The concrete Row implementation compares hashes rather than comparing identity
-        tuples directly. Hash collisions, including with a non-Row object, can therefore
-        compare equal; local non-identity field values are ignored.
+        Local payload differences do not affect equality. A row equals itself, including
+        before insertion. Other RowAPI instances compare by database UUID, table and ID;
+        a hash collision cannot make different identities equal.
 
         Example:
-            Two loaded rows with the same database UUID, table and ID compare equal even
-            when their local display values differ.
+            Two loaded copies of the same stored row compare equal even when their local
+            titles differ. Two drafts without IDs compare unequal.
 
-
-        :param other: Object accepted by hash(); no Row type check is performed.
-        :return: True when the two hash integers are equal.
-        :raises TypeError: other is unhashable.
-        :raises InputIntegrityError: This row’s ID cannot be resolved because its table
-            is unknown.
+        :param other: Object to compare with this row.
+        :return: Identity equality for rows; NotImplemented for non-RowAPI objects.
         """
-        self_hash = self.__hash__()
-        other_hash = hash(other)
-        if self_hash == other_hash:
+        if self is other:
             return True
-        else:
+        if not isinstance(other, RowAPI):
+            return NotImplemented
+        if self.table is None or other.table is None:
             return False
+        if self.row_id is None or other.row_id is None:
+            return False
+        return (self.db.uuid, self.row_id, self.table) == (
+            other.db.uuid,
+            other.row_id,
+            other.table,
+        )
 
     # -------------------------------
     # -----------------------------------------------

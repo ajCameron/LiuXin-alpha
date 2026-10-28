@@ -56,25 +56,19 @@ class DriverDeleteMixinAPI(abc.ABC):
             value: Any,
             many: bool = False) -> bool:
         """
-        Delete matching column values, optionally as repeated bound-value statements.
+        Delete matching rows in an owned transaction and always close the connection.
 
-        Abstract backend hook. The behavior below describes the shared SQL/SQLite
-        implementation; this declaration itself has no operational body.
-
-        Only the table is validated; column identifiers must be trusted. The batch form
-        stringifies values. Commit/close run even on errors, and duplicate error-path
-        cleanup can mask a translated SQLite exception.
+        A failed batch rolls back earlier deletions. Exception translation retains the
+        original SQLite failure as its cause; cleanup cannot commit partial work.
 
         Example:
-            >>> driver.direct_delete("works", "work_title", "Example")  # doctest: +SKIP
+            A foreign-key failure on the second ID leaves both target rows intact.
 
-
-        :param target_table: Existing table name, validated by the driver.
-        :param column: Trusted column identifier interpolated into SQL.
-        :param value: One bound value, or an iterable when ``many`` is true.
-        :param many: Execute one deletion per supplied value instead of one scalar
-            deletion.
-        :return: ``True`` on successful execution, even if no row matched.
+        :param target_table: Existing table whose rows are deleted.
+        :param column: Trusted match column in that table.
+        :param value: Scalar match value, or iterable of values in batch mode.
+        :param many: Execute one equality predicate per supplied value when true.
+        :return: True after successful completion, including absent matches.
         """
 
 
@@ -99,7 +93,8 @@ class DriverDeleteMixinAPI(abc.ABC):
 
         :param target_table: Existing table name, validated by the driver.
         :param column: Trusted column identifier interpolated into SQL.
-        :param values: Iterable of values stringified and bound by the batch deletion
+        :param values: Iterable of values bound without string coercion by the batch
+            deletion
             helper.
         :return: ``None``; the delegated boolean result is discarded.
         """
@@ -107,40 +102,19 @@ class DriverDeleteMixinAPI(abc.ABC):
     @abc.abstractmethod
     def direct_delete_many_by_ids(self, target_table: str, row_ids: Iterable[int]) -> bool:
         """
-        Delete rows by string-coerced IDs using executemany.
+        Delete IDs atomically, rolling back every deletion if any row is protected.
 
-        Abstract backend hook. The behavior below describes the shared SQL/SQLite
-        implementation; this declaration itself has no operational body.
-
-        Commit/close run in finally. Handled SQLite errors also close first, so the
-        second commit on a closed connection can mask the translated error. Successful
-        execution does not verify how many rows matched.
-
-        Example:
-            >>> driver.direct_delete_many_by_ids("works", [1, 2])  # doctest: +SKIP
-
-
-        :param target_table: Existing table name, validated by the driver.
-        :param row_ids: Iterable of row IDs, each converted to a string binding.
-        :return: ``True`` after successful execution, including no matches.
+        :param target_table: Validated existing table name.
+        :param row_ids: Iterable of IDs; missing rows are harmless no-ops.
+        :return: True after the complete batch commits.
         """
 
     @abc.abstractmethod
     def direct_delete_row_by_id(self, target_table: str, row_id: int) -> bool:
         """
-        Delete one ID match and commit without closing the acquired connection.
+        Delete an ID and promptly release the operation's owned connection.
 
-        Abstract backend hook. The behavior below describes the shared SQL/SQLite
-        implementation; this declaration itself has no operational body.
-
-        Missing IDs still count as success. SQLite operational/integrity errors are
-        translated, with commit attempted on error as well.
-
-        Example:
-            >>> driver.direct_delete_row_by_id("works", 1)  # doctest: +SKIP
-
-
-        :param target_table: Existing table name, validated by the driver.
-        :param row_id: ID value bound against the table's ID column.
-        :return: ``True`` after successful execution.
+        :param target_table: Existing table containing the row.
+        :param row_id: ID to delete; missing rows count as successful no-ops.
+        :return: True after commit; errors roll back and preserve their cause.
         """

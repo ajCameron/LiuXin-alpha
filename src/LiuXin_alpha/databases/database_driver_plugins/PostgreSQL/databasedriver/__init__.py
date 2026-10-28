@@ -50,7 +50,6 @@ from LiuXin_alpha.databases.database_driver_plugins.SQL.macros.portable_macros_m
     SQLPortableMacrosMixin,
 )
 from LiuXin_alpha.databases.normalized_identities import (
-    normalize_identity_value,
     prepare_normalized_values,
 )
 from LiuXin_alpha.databases.maintenance.dummy_maintenance_bot import DummyMaintenanceBot
@@ -2024,197 +2023,157 @@ class DatabaseDriver(
         return self._direct_get_column_extreme(column, function_name="min")
 
     def direct_add_simple_row_dict(self, row_dict: dict[str, Any]) -> Any:
-        """
-        Insert one copied row mapping and return its ID through RETURNING.
-
-        Infer the target, remove the table marker and derive supported normalized
-        identities. An empty payload uses DEFAULT VALUES. Execute in a primary
-        transaction, refresh caches and wrap execution failures as DatabaseDriverError.
+        """Insert a copied mapping in one primary transaction and return its ID.
 
         Example:
-            Inserting ``{"table": "works", "work_title": "Example"}`` returns the new
-            work ID.
+            An ordinary text value of ``"None"`` is retained as text.
 
+        :param row_dict: Column/value mapping with an optional table hint.
+        :return: Generated ID returned by PostgreSQL.
+        """
+        conn = self._primary_connection()
+        try:
+            with conn:
+                result = self._insert_row_on_connection(conn, row_dict)
+            self._zero_prop_cache()
+            return result
+        except Exception as exc:
+            raise DatabaseDriverError(f"PostgreSQL row insert failed: {exc}") from exc
 
-        :param row_dict: Input column/value mapping with an optional table marker; not
-            mutated.
-        :return: ID scalar returned by PostgreSQL, or None if no value is available.
+    def _insert_row_on_connection(self, conn, row_dict):
+        """Insert using the caller's transaction, without committing an inner batch.
+
+        :param conn: Active PostgreSQL connection adapter.
+        :param row_dict: Mapping copied before table inference and normalization.
+        :return: Inserted identity from RETURNING.
         """
         row_dict = dict(row_dict)
-        target_table = self.direct_identify_table_from_row(row_dict)
+        table = self.direct_identify_table_from_row(row_dict)
         row_dict.pop("table", None)
-        row_dict = prepare_normalized_values(self, target_table, row_dict)
-
-        table_id_col = self.direct_get_id_column(target_table)
-        columns = list(row_dict)
-        conn = self._primary_connection()
-        if not columns:
-            stmt = f"insert into {self._table_sql(target_table)} default values returning {_q(table_id_col)}"
-            values = None
-        else:
-            col_sql = ", ".join(_q(column) for column in columns)
-            placeholders = ", ".join(["%s"] * len(columns))
+        payload = prepare_normalized_values(self, table, row_dict)
+        id_column = self.direct_get_id_column(table)
+        if payload:
+            columns = ", ".join(_q(column) for column in payload)
+            placeholders = ", ".join("%s" for _ in payload)
             stmt = (
-                f"insert into {self._table_sql(target_table)} ({col_sql}) "
-                f"values ({placeholders}) returning {_q(table_id_col)}"
+                f"insert into {self._table_sql(table)} ({columns}) "
+                f"values ({placeholders}) returning {_q(id_column)}"
             )
-            values = tuple(row_dict[column] for column in columns)
+            values = tuple(payload.values())
+        else:
+            stmt = f"insert into {self._table_sql(table)} default values returning {_q(id_column)}"
+            values = None
+        return _row_value(conn.execute(stmt, values).fetchone(), 0, id_column)
 
-        try:
-            with conn:
-                cur = conn.execute(stmt, values)
-                row = cur.fetchone()
-            self._zero_prop_cache()
-            return _row_value(row, 0, table_id_col)
-        except Exception as exc:
-            err_str = default_log.log_exception(
-                "PostgreSQL row insert failed.",
-                exc,
-                "ERROR",
-                ("target_table", target_table),
-                ("row_dict", row_dict),
-                ("database_url", self.redacted_database_url),
-            )
-            raise DatabaseDriverError(err_str) from exc
+    def direct_add_multiple_simple_row_dicts(
+        self, row_dict_list: list[dict[str, Any]]
+    ) -> bool:
+        """Insert all supplied mappings in one primary transaction.
 
-    def direct_add_multiple_simple_row_dicts(self, row_dict_list: list[dict[str, Any]]) -> bool:
-        """
-        Insert mappings sequentially using the single-row transaction helper.
-
-        This is not an atomic batch: earlier inserts may already be committed when a
-        later row fails. Individual generated IDs are discarded.
+        Earlier rows roll back if a later insert fails. Each row binds values in its
+        own column order; input mappings are never modified.
 
         Example:
-            If the third insert raises, the first two successful row inserts remain
-            committed.
+            If the third insert violates uniqueness, neither earlier insert commits.
 
-
-        :param row_dict_list: Row mappings passed in order to
-            direct_add_simple_row_dict.
-        :return: True after all rows are inserted, including an empty list.
+        :param row_dict_list: Row mappings to insert, with generated IDs discarded.
+        :return: True after commit, including for an empty batch.
         """
-        for row_dict in row_dict_list:
-            self.direct_add_simple_row_dict(row_dict)
-        return True
+        if not row_dict_list:
+            return True
+        conn = self._primary_connection()
+        try:
+            with conn:
+                for row in row_dict_list:
+                    self._insert_row_on_connection(conn, row)
+            self._zero_prop_cache()
+            return True
+        except Exception as exc:
+            raise DatabaseDriverError(f"PostgreSQL batch insert failed: {exc}") from exc
 
     def direct_update_row_dict(self, row_dict: dict[str, Any]) -> bool:
-        """
-        Update a copied row by its required ID, deriving supported identity columns.
+        """Update supplied columns while preserving text and derived identity policy.
 
-        Remove the table marker, convert literal string None values to SQL NULL, and
-        require the ID column. An ID-only payload is a successful no-op. True indicates
-        successful execution, not that a row matched; execution failures become
-        DatabaseDriverError.
+        Missing display values needed for key-only updates are read within this
+        transaction. An ID-only mapping is a successful no-op.
 
         Example:
-            ``{"table": "works", "work_id": 7, "work_title": "Revised"}`` updates
-            work 7 without modifying the caller mapping.
+            Updating ``tag_phash`` alone recomputes it from the stored ``tag``.
 
-
-        :param row_dict: Row mapping containing its conventional ID and replacement
-            column values.
-        :return: True after successful execution or an empty update payload.
+        :param row_dict: Copied column/value mapping including the target ID.
+        :return: True after execution; not an affected-row count.
         """
-        target_table = self.direct_identify_table_from_row(row_dict)
         row_dict = deepcopy(dict(row_dict))
+        table = self.direct_identify_table_from_row(row_dict)
         row_dict.pop("table", None)
-        row_dict = {
-            column: None if value == "None" else value
-            for column, value in row_dict.items()
-        }
-        row_dict = prepare_normalized_values(self, target_table, row_dict)
-
-        table_id_col = self.direct_get_id_column(target_table)
-        if table_id_col not in row_dict:
-            raise InputIntegrityError(f"Cannot update {target_table!r}: missing id column {table_id_col!r}")
-        target_row_id = row_dict.pop(table_id_col)
+        id_column = self.direct_get_id_column(table)
+        if id_column not in row_dict:
+            raise InputIntegrityError(
+                f"Cannot update {table!r}: missing id column {id_column!r}"
+            )
+        row_id = row_dict.pop(id_column)
         if not row_dict:
             return True
-
-        assignments = ", ".join(f"{_q(column)} = %s" for column in row_dict)
-        values = tuple(row_dict.values()) + (target_row_id,)
-        stmt = f"update {self._table_sql(target_table)} set {assignments} where {_q(table_id_col)} = %s"
-
         conn = self._primary_connection()
         try:
             with conn:
-                conn.execute(stmt, values)
+                self._update_row_on_connection(conn, table, id_column, row_id, row_dict)
             self._zero_prop_cache()
             return True
         except Exception as exc:
-            err_str = default_log.log_exception(
-                "PostgreSQL row update failed.",
-                exc,
-                "ERROR",
-                ("target_table", target_table),
-                ("row_dict", row_dict),
-                ("database_url", self.redacted_database_url),
-            )
-            raise DatabaseDriverError(err_str) from exc
+            raise DatabaseDriverError(f"PostgreSQL row update failed: {exc}") from exc
+
+    def _update_row_on_connection(self, conn, table, id_column, row_id, values):
+        """Derive keys and update a row without ending the caller's transaction.
+
+        :param conn: Active PostgreSQL connection adapter.
+        :param table: Inferred, schema-qualified target table.
+        :param id_column: Table's identity column.
+        :param row_id: Bound target ID.
+        :param values: Replacement columns; omitted values stay unchanged.
+        :return: None after executing the update.
+        """
+        payload = prepare_normalized_values(
+            self,
+            table,
+            values,
+            read_existing=lambda: self._read_row_for_update(
+                conn, table, id_column, row_id, lock_row=True
+            ),
+        )
+        assignments = ", ".join(f"{_q(column)} = %s" for column in payload)
+        conn.execute(
+            f"update {self._table_sql(table)} set {assignments} where {_q(id_column)} = %s",
+            (*payload.values(), row_id),
+        )
 
     def direct_update_columns(self, id_values_map, field=None, table=None) -> bool:
-        """
-        Apply one-column ID/value updates, keeping an available derived identity in
-        sync.
+        """Apply a scalar-field batch atomically using the row normalization contract.
 
-        An empty mapping returns True before field validation. Convert literal string
-        None to SQL NULL and execute the parameter batch in one primary transaction.
-        Database errors propagate directly.
+        Both literal text and identity-only changes follow direct_update_row_dict.
 
         Example:
-            Updating series names by ID also updates the physical series_name_norm
-            column.
+            Updating a name also rederives its configured normalized key.
 
-
-        :param id_values_map: Mapping from row IDs to replacement field values.
-        :param field: Required column name when the update mapping is nonempty.
-        :param table: Optional target table; otherwise infer it from field.
-        :return: True after execution or for an empty mapping.
+        :param id_values_map: Row IDs mapped to replacement field values.
+        :param field: Required target column for a nonempty mapping.
+        :param table: Optional table hint; otherwise infer it from the column.
+        :return: True after commit or for an empty mapping.
         """
         if not id_values_map:
             return True
         if field is None:
-            raise InputIntegrityError("PostgreSQL direct_update_columns requires a field for one-column updates.")
-        target_table = table or self.direct_identify_table_from_column(field)
-        table_id_col = self.direct_get_id_column(target_table)
-        identity_spec = self.direct_get_normalized_identity_spec(target_table, field)
-        if (
-            identity_spec is not None
-            and identity_spec.identity_column
-            in set(self.direct_get_column_headings(target_table))
-        ):
-            rows = [
-                (
-                    None if value == "None" else value,
-                    (
-                        None
-                        if value in (None, "None")
-                        else normalize_identity_value(
-                            value,
-                            identity_spec.normalization_profile,
-                        )
-                    ),
-                    row_id,
-                )
-                for row_id, value in id_values_map.items()
-            ]
-            stmt = (
-                f"update {self._table_sql(target_table)} "
-                f"set {_q(field)} = %s, {_q(identity_spec.identity_column)} = %s "
-                f"where {_q(table_id_col)} = %s"
+            raise InputIntegrityError(
+                "PostgreSQL direct_update_columns requires a field"
             )
-        else:
-            rows = [
-                (None if value == "None" else value, row_id)
-                for row_id, value in id_values_map.items()
-            ]
-            stmt = (
-                f"update {self._table_sql(target_table)} "
-                f"set {_q(field)} = %s where {_q(table_id_col)} = %s"
-            )
+        table = table or self.direct_identify_table_from_column(field)
+        id_column = self.direct_get_id_column(table)
         conn = self._primary_connection()
         with conn:
-            conn.executemany(stmt, rows)
+            for row_id, value in id_values_map.items():
+                self._update_row_on_connection(
+                    conn, table, id_column, row_id, {field: value}
+                )
         self._zero_prop_cache()
         return True
 

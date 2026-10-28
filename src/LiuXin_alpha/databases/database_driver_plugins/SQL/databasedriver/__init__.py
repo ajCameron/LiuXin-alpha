@@ -11,6 +11,7 @@ import os
 import time
 import gc
 import pprint
+from collections.abc import Mapping
 
 from typing import TYPE_CHECKING, Union, Optional, Any
 
@@ -183,6 +184,38 @@ class SQLBaseDriver:
             # If tracking fails for any reason, do not break core DB functionality.
             default_log.log_exception("Couldn't store connection to log.", exc=e)
         return conn
+
+    def _read_row_for_update(
+        self, connection, table, id_column, row_id, *, lock_row=False
+    ):
+        """Read omitted display values on the connection that owns the update.
+
+        :param connection: Active write connection; this helper never closes it.
+        :param table: Inferred table whose headings come from the driver.
+        :param id_column: Validated identity column for the target row.
+        :param row_id: Bound identity value.
+        :param lock_row: Request FOR UPDATE on backends supporting row locks.
+        :return: Raw stored values, or None when the row no longer exists.
+        """
+
+        def quote(name):
+            """Quote a schema identifier without interpreting its contents."""
+            return '"' + str(name).replace('"', '""') + '"'
+
+        columns = tuple(self.direct_get_column_headings(table))
+        qualify = getattr(self, "_table_sql", None)
+        table_sql = qualify(table) if callable(qualify) else quote(table)
+        lock_sql = " FOR UPDATE" if lock_row else ""
+        row = connection.execute(
+            f"SELECT {', '.join(quote(column) for column in columns)} "
+            f"FROM {table_sql} WHERE {quote(id_column)} = ?{lock_sql}",
+            (row_id,),
+        ).fetchone()
+        if row is None:
+            return None
+        if isinstance(row, Mapping):
+            return dict(row)
+        return dict(zip(columns, row))
 
     def _close_all_open_connections(self) -> None:
         """
