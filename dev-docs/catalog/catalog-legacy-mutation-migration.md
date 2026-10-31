@@ -14,7 +14,7 @@ mutations or schema-driven writers. The current code distinguishes three cases:
 
 | Code | Status | Production boundary |
 | --- | --- | --- |
-| `catalog.catalog_macros` | Frozen reference implementation | No production caller may import it; characterization tests retain access. |
+| `catalog.catalog_macros` | Retired on 2026-10-30 | Unused facade removed; table-level SQL remains in `databases.metadata_sql`, with no book/title forwarding shim. |
 | `catalog.metadata_tools` | Live Row-oriented compatibility | Only `catalog/catalog.py` may import it in production and compose `add`, `ensure`, `apply` and `intralink`. |
 | `library.legacy` and `library.backend` | Retired on 2026-10-17 | Modules and their old APIs are absent; the supported facade is `library.library.Library`. |
 
@@ -57,14 +57,24 @@ internal delegation without restoring direct dependencies on legacy helpers.
 | Terminal title creation | Coordinated WEMI-stack mutation | Creates and links the requested bibliographic path as a semantic operation. |
 | Supported Library metadata workflows | Catalog repositories and coordinated mutations | The old `library.legacy` / `library.backend` facades were subsequently removed. |
 | Modern cache writers | Catalog writers plus cache-owned reconciliation | Old Calibre map-writing adapters remain a separate compatibility area. |
-| `metadata_sql` identifier helpers | Portable database macro contract | Low-level persistence does not import Catalog mutation facades. |
+| Former `metadata_sql` identifier helpers | Catalog Identifier repository | Retired 2026-10-29; callers use validated Catalog operations backed by portable macros. |
 | SQLite driver version strings | Stable compatibility metadata | Reporting does not load mutation implementations. |
 
 ## What was completed, and what was not
 
+The **2026-10-29** [ownership split](catalog-database-ownership.md) retired the
+identifier and primary-language SQL adapters, migrated the identifier cache,
+and moved generic link deletion to portable macros. On **2026-10-30** the
+compatibility projections were removed from `metadata_sql`. With the same-day
+batch extension, 26 WEMI/file/feed/Tag/Series and normalization operations now live
+under its database/API binding. The unused
+`catalog_macros` facade remains removed. Missing asset, Series-position and
+conversion policies remain on CAT06.
+
 The completed migration established the import boundary, migrated terminal,
 Library and cache callers, removed database/library helper injection, and retained
-reference implementations for characterization. It did **not** retire Catalog's
+reference implementations for characterization at that stage. The unused macros
+reference was subsequently removed; this did **not** retire Catalog's
 Row-facing compatibility API.
 
 The October consolidation routed those Row adapters, schema writers, containers

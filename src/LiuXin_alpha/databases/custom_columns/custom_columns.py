@@ -16,13 +16,14 @@ from functools import partial
 
 from typing import Iterable, TYPE_CHECKING, Optional, Any, Union
 
-from LiuXin_alpha.databases.adaptors import (
-    cc_adapt_text,
-    cc_adapt_datetime,
+from LiuXin_alpha.metadata.field_adaptors import (
     cc_adapt_bool,
+    cc_adapt_datetime,
     cc_adapt_enum,
     cc_adapt_number,
-    cc_adapt_rating)
+    cc_adapt_rating,
+    cc_adapt_text,
+)
 from LiuXin_alpha.databases.driver_wrapper.driver_wrapper_custom_columns_mixin import CustomColumnsDriverWrapperMixin
 from LiuXin_alpha.databases.notify import dummy_notify, dummy_dirtied
 
@@ -46,8 +47,7 @@ from LiuXin_alpha.databases.custom_columns.cc_delete_methods_mixin import CCDele
 
 if TYPE_CHECKING:
     from LiuXin_alpha.databases.api.database_api.database_api import DatabaseAPI
-    from LiuXin_alpha.databases.db_types import MainTableName
-
+    from LiuXin_alpha.databases.db_types.database_types import MainTableName
 
 from LiuXin_alpha.databases.constants import CUSTOM_DATA_TYPES
 

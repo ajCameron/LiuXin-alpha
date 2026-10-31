@@ -1,6 +1,9 @@
 # Column metadata policy
 
-Reviewed **2026-10-20**. Declarations, canonical identity derivation and migration APIs were checked against current source. Data validation coverage remains a separate [Catalog contract](../catalog/catalog-write-validation-contract.md).
+Reviewed **2026-10-28**. Display-policy ownership is now separated from physical
+column mappings; existing policy defaults and stored labels are preserved. Data
+validation coverage remains a separate
+[Catalog contract](../catalog/catalog-write-validation-contract.md).
 
 Identity profiles checked: **2026-10-19**, against the current declarations and a
 fresh FRBR SQLite build. See the [schema overview](<../03 - Database Schema.md>)
@@ -13,6 +16,27 @@ lowercases, title-cases, or otherwise rewrites stored display text. A stored
 profile is declarative metadata, not evidence that a value has been validated.
 Public semantic writes remain governed by the
 [Catalog write-validation contract](../catalog/catalog-write-validation-contract.md).
+
+## Ownership
+
+`metadata.value_policies` owns the shared policy enums and immutable defaults for
+schema-independent display kinds. A title, alias collection, taxonomy term,
+comment or resource name has meaning independently of its eventual table. The
+module imports neither databases nor Catalog. Text transformations remain in
+`metadata.text_identity`; policy labels alone do not execute validation or merges.
+
+`databases.column_metadata` owns `ColumnMetadata`, physical column-to-kind and
+comparison-column mappings, machine-column inference, and presentation-option
+serialization. For example, it maps `tags.tag` to the taxonomy kind and binds its
+comparison policy to `tag_phash`. A comparison mapping may select a normalization
+profile different from the display-kind default. Schema generators and both
+database backends consume these bindings without depending on Catalog.
+
+Catalog chooses and applies rules during semantic writes. This ownership split
+does not add automatic merge or validation behavior to existing write routes.
+The `Column*` policy enum names and stored strings are unchanged. Import the enums
+from `metadata.value_policies` in new code; the old imports from
+`databases.column_metadata` remain aliases of the same types.
 
 ## Decision rule
 
@@ -221,9 +245,10 @@ metadata setters reject attempts to make them disagree with the declaration.
 ## Storage and API
 
 Fresh SQLite and PostgreSQL schemas seed these decisions for every physical
-column into `column_metadata`. The canonical display registry and machine
-classifier are in
-`LiuXin_alpha.databases.column_metadata`.
+column into `column_metadata`. The physical display registry and machine
+classifier are in `LiuXin_alpha.databases.column_metadata`; display defaults come
+from `LiuXin_alpha.metadata.value_policies`. Existing persisted policies continue
+to be authoritative. The ownership refactor requires no schema or data migration.
 
 The same interface is available at each database layer:
 
@@ -329,8 +354,11 @@ unique indexes. If normalization exposes a collision, it raises and rolls the
 whole operation back; the audit report contains the row ids and canonical
 spellings which need an explicit merge decision.
 
-When adding any physical column, the schema generator supplies a machine
-default automatically. When it is human-facing display text, add it to exactly one of
-`CASE_INSENSITIVE_DISPLAY_COLUMNS` or `CASE_SENSITIVE_DISPLAY_COLUMNS`, update
-this document, and add writer behavior coverage if the column participates in
-deduplication.
+When adding any physical column, the schema generator supplies a machine default
+automatically. For human-facing display text, add the physical pair to exactly one
+kind in `_DISPLAY_COLUMN_GROUPS` in `databases.column_metadata`. The resulting
+`DISPLAY_COLUMN_VALUE_KINDS` mapping is read-only; case-sensitivity and role
+registries are derived views, not separate places to configure policy. Add a new
+kind or change a semantic default in `metadata.value_policies` only when the value
+has different domain behavior. Update this document and add writer behavior
+coverage if the column participates in deduplication.

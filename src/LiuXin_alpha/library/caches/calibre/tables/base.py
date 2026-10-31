@@ -15,14 +15,8 @@ from __future__ import unicode_literals
 from typing import Optional, TypeVar, Mapping, Union, Iterable
 
 from LiuXin_alpha.plugins.cache.base_tables import BaseTable, BaseVirtualTable
-from LiuXin_alpha.databases.db_types import (
-    MetadataDict,
-    MainTableName,
-    InterLinkTableName,
-    SrcTableID,
-    DstTableID,
-    TableColumnName,
-)
+from LiuXin_alpha.databases.db_types.database_types import MainTableName, InterLinkTableName, TableColumnName, \
+    SrcTableID, DstTableID, MetadataDict
 from LiuXin_alpha.catalog.field_metadata import calibre_name_to_liuxin_name
 
 from LiuXin_alpha.errors import DatabaseIntegrityError

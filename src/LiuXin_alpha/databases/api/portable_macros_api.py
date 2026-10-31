@@ -9,16 +9,18 @@ from their database driver; these abstract method bodies do not execute SQL.
 from __future__ import annotations
 
 import abc
+from collections.abc import Iterable, Mapping
 from contextlib import AbstractContextManager
-from typing import Any, Iterable, Mapping
+from typing import Any
 
-from LiuXin_alpha.databases.macro_types import (
-    CanonicalIdentity,
+from LiuXin_alpha.databases.db_types.macro_types import (
     LINK_TYPE_UNSET,
+    CanonicalIdentity,
+    LinkedTableRow,
     LinkRow,
     LinkValue,
-    UnreferencedRowsSpec,
     NormalizedIdentityMigrationReport,
+    UnreferencedRowsSpec,
 )
 from LiuXin_alpha.databases.schema_specs import StorageLinkSpec
 
@@ -132,6 +134,22 @@ class PortableMacrosAPI(abc.ABC):
         """
 
     @abc.abstractmethod
+    def get_rows_page(
+        self,
+        table: str,
+        *,
+        where: Mapping[str, Any] | None = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> tuple[tuple[Mapping[str, Any], ...], bool]:
+        """Read an ID-ordered physical-table page and whether it reaches the end.
+
+        Use exact equality/NULL filters, strict nonnegative integer pagination
+        and at most limit + 1 materialized rows. A zero-length page is complete
+        only at/beyond the end. Reuse the current connection without committing.
+        """
+
+    @abc.abstractmethod
     def get_column_extrema(self, table: str, column: str) -> tuple[Any, Any]:
         """Read a column's minimum and maximum using the active transaction connection.
 
@@ -209,6 +227,32 @@ class PortableMacrosAPI(abc.ABC):
         :raises InputIntegrityError: An identifier, schema column, link specification or
             supplied value violates the operation’s validation rules.
         """
+
+    @abc.abstractmethod
+    def delete_link_rows(
+        self,
+        link_table: str,
+        link_col: str,
+        remove_id: Any,
+        link_type: str | None = None,
+    ) -> None:
+        """Delete links by endpoint, validating schema and the complete ID batch.
+
+        Accept an integer, iterable of integers, or one-cell integer bindings.
+        Optional type values are bound. The entire batch shares the outer
+        portable transaction; no bibliographic policy is applied.
+        """
+
+    @abc.abstractmethod
+    def delete_link_pair(
+        self,
+        link_table: str,
+        left_link_col: str,
+        right_link_col: str,
+        left_id: Any,
+        right_id: Any,
+    ) -> None:
+        """Delete all link types for validated physical columns and bound IDs."""
 
     @abc.abstractmethod
     def delete_row(
@@ -558,43 +602,6 @@ class PortableMacrosAPI(abc.ABC):
             cannot recover a required inserted row.
         """
 
-    @abc.abstractmethod
-    def ensure_table_values(
-        self,
-        table: str,
-        value_column: str,
-        values: Iterable[Any],
-        *,
-        id_column: str | None = None,
-        additional_values: Mapping[str, Any] | None = None,
-    ) -> dict[Any, Any]:
-        """
-        Ensure a batch of hashable display values in one portable transaction.
-
-        Apply ensure_table_value semantics in input order. Distinct input spellings can
-        map to one normalized ID; the first inserted spelling becomes the stored display
-        value. Repeated keys are still processed before the returned dictionary
-        collapses them.
-
-        Example:
-            With concrete macros, macros.ensure_table_values("tags", "tag", ("Travel", "
-            travel ")) can map both input spellings to one tag ID.
-
-
-        :param table: Existing table name accepted by schema introspection and
-            identifier validation.
-        :param value_column: Display column with database-owned matching policy.
-        :param values: Iterable materialized once; each value must be hashable.
-        :param id_column: Unique row-ID column; None discovers the table ID column.
-        :param additional_values: Shared insertion defaults and required identity scope
-            for every value.
-        :return: Dictionary mapping each original value to its resolved ID; equal input
-            keys collapse.
-        :raises InputIntegrityError: An identifier, schema column, link specification or
-            supplied value violates the operation’s validation rules.
-        :raises DatabaseIntegrityError: Lookup finds duplicate logical identities or
-            cannot recover a required inserted row.
-        """
 
     @abc.abstractmethod
     def derive_identity_value(
@@ -1003,6 +1010,175 @@ class PortableMacrosAPI(abc.ABC):
         :raises InputIntegrityError: An identifier, schema column, link specification or
             supplied value violates the operation’s validation rules.
         :raises TypeError: The chosen digest requires a length argument for hexdigest.
+        """
+
+    @abc.abstractmethod
+    def delete_rows_by_id(self, table: str, row_ids: Iterable[int]) -> None:
+        """Delete physical rows in bounded IN batches within one transaction.
+
+        Validate the table and all integer IDs before effects. Duplicate IDs
+        collapse and missing IDs are no-ops. Schema cascades apply. This neither
+        chooses retention policy nor removes physical files.
+        """
+
+    @abc.abstractmethod
+    def update_rows(self, table: str, updates: Mapping[int, Mapping[str, Any]]) -> None:
+        """Update physical rows atomically, batching consecutive matching shapes.
+
+        Copy and validate every payload before writes; reject ID-column changes.
+        Derive comparison keys through the same declarations as update_row.
+        Empty payloads and missing IDs are no-ops. Preserve input order so trigger
+        and uniqueness behavior does not depend on grouping by column names.
+        """
+
+    @abc.abstractmethod
+    def find_table_values(
+        self,
+        table: str,
+        value_column: str,
+        values: Iterable[Any],
+        *,
+        id_column: str | None = None,
+        additional_values: Mapping[str, Any] | None = None,
+    ) -> dict[Any, Any | None]:
+        """Find many physical vocabulary rows using the scalar matching policy.
+
+        Return original hashable inputs mapped to IDs or None. Equivalent text
+        spellings can share an ID; duplicate inputs collapse. Declared stored text
+        keys use bounded IN queries. Other policies retain scalar matching rules.
+        Scope fields are required exactly as for ensure_table_values. No writes
+        or independent snapshot transaction are made.
+        """
+
+    @abc.abstractmethod
+    def ensure_table_values(
+        self,
+        table: str,
+        value_column: str,
+        values: Iterable[Any],
+        *,
+        id_column: str | None = None,
+        additional_values: Mapping[str, Any] | None = None,
+    ) -> dict[Any, Any]:
+        """Ensure physical vocabulary rows atomically using shared matching rules.
+
+        Materialize and preflight input before writes. Declared stored text keys
+        use bounded batch lookups and insert each missing normalized key once,
+        preserving its first supplied spelling. Existing spellings remain intact.
+        Other policies retain scalar ensure behavior. Reread after conflict-aware
+        inserts and reject unresolved values or duplicate matches; late failures
+        roll back the whole batch, including inside an enclosing transaction.
+        """
+
+    @abc.abstractmethod
+    def audit_normalized_keys(
+        self,
+        table: str,
+        *,
+        value_columns: Iterable[str] | None = None,
+        row_ids: Iterable[int] | None = None,
+    ) -> NormalizedIdentityMigrationReport:
+        """Audit a table's declared keys without changing rows or schema.
+
+        Select declarations by display-column name and optionally select row IDs.
+        Counts include all scanned rows: collisions compare proposed selected keys
+        with unchanged stored keys on other rows. Unrelated collisions are omitted.
+        An empty selection is a no-op. Missing IDs select no rows. This read uses
+        the current connection without opening a new snapshot transaction.
+        """
+
+    @abc.abstractmethod
+    def rebuild_normalized_keys(
+        self,
+        table: str,
+        *,
+        value_columns: Iterable[str] | None = None,
+        row_ids: Iterable[int] | None = None,
+    ) -> NormalizedIdentityMigrationReport:
+        """Atomically repair selected derived keys without schema or display edits.
+
+        Audit within the write transaction and reject collisions before effects.
+        Clear changing keys before setting their final values to support key swaps
+        under unique indexes. Existing constraints can reject repair (for example,
+        a nonnullable key); any failure rolls back this entire call. Source text,
+        scope fields, identity declarations and indexes are never rewritten here.
+        """
+
+    @abc.abstractmethod
+    def get_rows_by_ids(
+        self, table: str, row_ids: Iterable[int]
+    ) -> dict[int, Mapping[str, Any]]:
+        """Read physical rows by integer ID using batches of at most 500 bindings.
+
+        Validate the table and materialize all IDs before reading row data.
+        Duplicate requests collapse; missing IDs are omitted. Result keys follow
+        first request order. Booleans and projection rays are invalid IDs. Use
+        the current connection without starting a snapshot or committing it.
+
+        Example:
+            ``macros.get_rows_by_ids("works", [7, 9, 7])`` returns up to two
+            independent row dictionaries, keyed by the IDs that exist.
+
+        :param table: Physical table, never a view; its ID column is discovered.
+        :param row_ids: Finite iterable of integer physical row IDs.
+        :return: Found IDs mapped to fresh column/value dictionaries.
+        :raises DatabaseIntegrityError: A discovered ID matches multiple rows.
+        """
+
+    @abc.abstractmethod
+    def get_linked_rows(
+        self,
+        link_spec: StorageLinkSpec,
+        primary_id: int,
+        *,
+        link_type: object = LINK_TYPE_UNSET,
+    ) -> tuple[LinkedTableRow, ...]:
+        """Read links once and fetch distinct destinations in bounded ID batches.
+
+        Preserve get_link_rows ordering, filters, extras and repeated destinations.
+        Each result owns a shallow row copy; missing destinations remain as None.
+        Require physical endpoint/link tables and specs addressing their discovered
+        ID columns. Source existence and dangling-link policy belong to the caller.
+        Reads use the current connection and establish no new snapshot transaction.
+
+        Example:
+            ``macros.get_linked_rows(spec, work_id)`` returns link/row pairs;
+            inspect ``result.row is None`` before rendering a destination.
+
+        :param link_spec: Directional relationship over physical integer row IDs.
+        :param primary_id: Integer source ID; booleans and rays are rejected.
+        :param link_type: Omitted sentinel for all types, None for NULL, or a type.
+        :return: One LinkedTableRow per link, including dangling relationships.
+        """
+
+    @abc.abstractmethod
+    def get_rows_for_ids(
+        self,
+        table: str,
+        foreign_id_column: str,
+        owner_ids: Iterable[int],
+        *,
+        where: Mapping[str, Any] | None = None,
+    ) -> dict[int, tuple[Mapping[str, Any], ...]]:
+        """Group physical rows by a requested integer reference-column value.
+
+        Materialize and validate all IDs and equality filters before row reads.
+        Empty groups are retained in first-request order. Each group is ordered
+        by the table's physical ID, with no normalization, deduplication of rows
+        or owner-existence checks. NULL references match no requested integer.
+        Bound owner IDs in chunks of at most 500, reduced for other bindings.
+        Use the caller's current connection without starting or committing a
+        transaction; all inputs and results are materialized.
+
+        Example:
+            ``macros.get_rows_for_ids("items", "item_manifestation_id", [3, 4])``
+            returns Item rows for each requested physical Manifestation ID.
+
+        :param table: Physical table whose rows are returned; views are rejected.
+        :param foreign_id_column: Existing integer reference column to group by.
+        :param owner_ids: Physical integer references; duplicates collapse.
+        :param where: Additional exact equality filters; None values use IS NULL.
+        :return: Requested IDs mapped to row tuples, including empty tuples.
         """
 
 

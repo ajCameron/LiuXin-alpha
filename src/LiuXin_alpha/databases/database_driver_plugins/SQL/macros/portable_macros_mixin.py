@@ -12,9 +12,6 @@ pruning and canonical table fingerprints.
 from __future__ import annotations
 
 import base64
-from collections.abc import Iterable, Mapping
-from contextlib import AbstractContextManager, contextmanager, nullcontext
-from dataclasses import replace
 import datetime as datetime_module
 import hashlib
 import json
@@ -22,39 +19,44 @@ import math
 import re
 import threading
 import uuid
-from typing import Any, Iterator
-
-from LiuXin_alpha.databases.transactions import transaction_active, transaction_scope
+from collections.abc import Iterable, Iterator, Mapping
+from contextlib import AbstractContextManager, contextmanager, nullcontext
+from dataclasses import replace
+from itertools import groupby
+from typing import Any
 
 from LiuXin_alpha.databases.column_metadata import (
     COLUMN_METADATA_TABLE,
-    ColumnEmptyValuePolicy,
     ColumnMetadata,
-    ColumnNormalizationProfile,
     infer_column_metadata,
 )
-from LiuXin_alpha.databases.macro_types import (
-    CanonicalIdentity,
+from LiuXin_alpha.databases.db_types.macro_types import (
     LINK_TYPE_UNSET,
+    CanonicalIdentity,
+    LinkedTableRow,
     LinkRow,
     LinkValue,
-    UnreferencedRowsSpec,
     NormalizedIdentityCollision,
     NormalizedIdentityMigrationReport,
+    UnreferencedRowsSpec,
 )
 from LiuXin_alpha.databases.normalized_identities import (
     NORMALIZED_IDENTITIES_TABLE,
     NormalizedIdentitySpec,
     default_normalized_identity_spec,
     iter_normalized_identity_defaults,
-    normalized_identity_from_db_values,
     normalize_identity_value,
     normalized_identity_db_values,
+    normalized_identity_from_db_values,
     prepare_normalized_values,
 )
 from LiuXin_alpha.databases.schema_specs import LinkCardinality, StorageLinkSpec
+from LiuXin_alpha.databases.transactions import transaction_active, transaction_scope
 from LiuXin_alpha.errors import DatabaseIntegrityError, InputIntegrityError
-
+from LiuXin_alpha.metadata.value_policies import (
+    ColumnEmptyValuePolicy,
+    ColumnNormalizationProfile,
+)
 
 _SAFE_IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 _TEMP_TYPES = frozenset({"BLOB", "INTEGER", "NUMERIC", "REAL", "TEXT"})
@@ -628,6 +630,121 @@ class SQLPortableMacrosMixin:
             )
         return rows[0] if rows else None
 
+    def get_rows_by_ids(
+        self, table: str, row_ids: Iterable[int]
+    ) -> dict[int, Mapping[str, Any]]:
+        """Read physical rows by integer ID using batches of at most 500 bindings.
+
+        Validate the table and materialize all IDs before reading row data.
+        Duplicate requests collapse; missing IDs are omitted. Result keys follow
+        first request order. Booleans and projection rays are invalid IDs. Use
+        the current connection without starting a snapshot or committing it.
+
+        Example:
+            ``macros.get_rows_by_ids("works", [7, 9, 7])`` returns up to two
+            independent row dictionaries, keyed by the IDs that exist.
+
+        :param table: Physical table, never a view; its ID column is discovered.
+        :param row_ids: Finite iterable of integer physical row IDs.
+        :return: Found IDs mapped to fresh column/value dictionaries.
+        :raises DatabaseIntegrityError: A discovered ID matches multiple rows.
+        """
+        table = self._physical_table(table)
+        ids = self._batch_row_ids(row_ids)
+        id_column = self._row_id_column(table, None)
+        if not ids:
+            return {}
+        columns = self._column_names(table)
+        conn = self._macro_connection()
+        found: dict[int, Mapping[str, Any]] = {}
+        for chunk in _chunks(ids):
+            rows = self._mapping_rows(
+                columns,
+                conn.execute(
+                    f"SELECT {', '.join(_quoted(column) for column in columns)} "
+                    f"FROM {self._macro_table_sql(table)} "
+                    f"WHERE {_quoted(id_column)} IN ({', '.join('?' for _ in chunk)})",
+                    chunk,
+                ),
+            )
+            for row in rows:
+                row_id = row[id_column]
+                if row_id in found:
+                    raise DatabaseIntegrityError(
+                        f"ID {row_id!r} matched multiple rows in {table!r}."
+                    )
+                found[row_id] = row
+        return {row_id: found[row_id] for row_id in ids if row_id in found}
+
+    def get_rows_for_ids(
+        self,
+        table: str,
+        foreign_id_column: str,
+        owner_ids: Iterable[int],
+        *,
+        where: Mapping[str, Any] | None = None,
+    ) -> dict[int, tuple[Mapping[str, Any], ...]]:
+        """Group physical rows by a requested integer reference-column value.
+
+        Materialize and validate all IDs and equality filters before row reads.
+        Empty groups are retained in first-request order. Each group is ordered
+        by the table's physical ID, with no normalization, deduplication of rows
+        or owner-existence checks. NULL references match no requested integer.
+        Bound owner IDs in chunks of at most 500, reduced for other bindings.
+        Use the caller's current connection without starting or committing a
+        transaction; all inputs and results are materialized.
+
+        Example:
+            ``macros.get_rows_for_ids("items", "item_manifestation_id", [3, 4])``
+            returns Item rows for each requested physical Manifestation ID.
+
+        :param table: Physical table whose rows are returned; views are rejected.
+        :param foreign_id_column: Existing integer reference column to group by.
+        :param owner_ids: Physical integer references; duplicates collapse.
+        :param where: Additional exact equality filters; None values use IS NULL.
+        :return: Requested IDs mapped to row tuples, including empty tuples.
+        """
+        table = self._physical_table(table)
+        ids = self._batch_row_ids(owner_ids)
+        (foreign_id_column,) = self._validate_columns(table, (foreign_id_column,))
+        id_column = self._row_id_column(table, None)
+        columns = self._column_names(table)
+        filters = dict(where or {})
+        self._validate_columns(table, filters)
+        conditions, values = [], []
+        for column, value in filters.items():
+            conditions.append(
+                f"{_quoted(column)} IS NULL"
+                if value is None
+                else f"{_quoted(column)} = ?"
+            )
+            if value is not None:
+                values.append(value)
+        if len(values) >= 500:
+            raise InputIntegrityError(
+                "Owner batches accept fewer than 500 bound filters"
+            )
+        grouped: dict[int, list[Mapping[str, Any]]] = {owner_id: [] for owner_id in ids}
+        if not ids:
+            return {}
+        conn = self._macro_connection()
+        for chunk in _chunks(ids, 500 - len(values)):
+            predicates = [
+                f"{_quoted(foreign_id_column)} IN ({', '.join('?' for _ in chunk)})",
+                *conditions,
+            ]
+            sql = (
+                f"SELECT {', '.join(_quoted(column) for column in columns)} "
+                f"FROM {self._macro_table_sql(table)} WHERE "
+                + " AND ".join(predicates)
+                + f" ORDER BY {_quoted(id_column)}"
+            )
+            for row in self._mapping_rows(
+                columns, conn.execute(sql, (*chunk, *values))
+            ):
+                grouped[row[foreign_id_column]].append(row)
+        return {owner_id: tuple(rows) for owner_id, rows in grouped.items()}
+
     def get_rows(
         self,
         table: str,
@@ -685,6 +802,55 @@ class SQLPortableMacrosMixin:
             columns,
             self._macro_connection().execute(sql, tuple(values)),
         )
+
+    def get_rows_page(
+        self,
+        table: str,
+        *,
+        where: Mapping[str, Any] | None = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> tuple[tuple[Mapping[str, Any], ...], bool]:
+        """Read a physical-table page in ID order with one lookahead row.
+
+        Validate nonnegative integer pagination and exact equality filters.
+        Materialize at most limit + 1 rows on the current connection. The bool
+        is true when no matching rows remain after this window, including a
+        zero-length page at or beyond the end. No count scan or commit occurs.
+        Offset pages are not pinned against concurrent changes between calls.
+
+        Example:
+            ``rows, complete = macros.get_rows_page("digital_assets", limit=25)``
+            reads the first 25 assets and reports whether more follow.
+        """
+        table = self._physical_table(table)
+        for name, value in (("limit", limit), ("offset", offset)):
+            if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+                raise InputIntegrityError(f"{name} must be a nonnegative integer")
+        columns = self._column_names(table)
+        id_column = self._row_id_column(table, None)
+        predicates = dict(where or {})
+        self._validate_columns(table, predicates)
+        conditions, values = [], []
+        for column, value in predicates.items():
+            conditions.append(
+                f"{_quoted(column)} IS NULL"
+                if value is None
+                else f"{_quoted(column)} = ?"
+            )
+            if value is not None:
+                values.append(value)
+        sql = (
+            f"SELECT {', '.join(_quoted(column) for column in columns)} "
+            f"FROM {self._macro_table_sql(table)}"
+        )
+        if conditions:
+            sql += " WHERE " + " AND ".join(conditions)
+        sql += f" ORDER BY {_quoted(id_column)} LIMIT ? OFFSET ?"
+        rows = self._mapping_rows(
+            columns, self._macro_connection().execute(sql, (*values, limit + 1, offset))
+        )
+        return rows[:limit], len(rows) <= limit
 
     def get_column_extrema(self, table: str, column: str) -> tuple[Any, Any]:
         """Aggregate a column's minimum and maximum on the current macro connection.
@@ -858,6 +1024,91 @@ class SQLPortableMacrosMixin:
                 f"DELETE FROM {self._macro_table_sql(table)} "
                 f"WHERE {_quoted(id_column)} = ?",
                 (row_id,),
+            )
+
+    def delete_link_rows(
+        self,
+        link_table: str,
+        link_col: str,
+        remove_id: Any,
+        link_type: str | None = None,
+    ) -> None:
+        """Delete links for one endpoint ID or an atomic batch of endpoint IDs.
+
+        Accept integers, iterables of integers, or legacy one-cell bindings.
+        Validate the complete batch and physical columns before writing. A type
+        filter uses the wrapper's conventional type column and is parameter
+        bound. None removes every type. Empty batches are no-ops. This is a
+        physical operation; semantic relationship policy belongs to Catalog.
+        """
+        if isinstance(remove_id, int) and not isinstance(remove_id, bool):
+            ids = (remove_id,)
+        else:
+            if isinstance(remove_id, (str, bytes, bool)):
+                raise TypeError("endpoint IDs must be integers")
+            ids = tuple(
+                value[0]
+                if isinstance(value, (tuple, list)) and len(value) == 1
+                else value
+                for value in remove_id
+            )
+        if any(not isinstance(value, int) or isinstance(value, bool) for value in ids):
+            raise TypeError(
+                "endpoint IDs must be integers or one-cell integer bindings"
+            )
+        if link_type is not None and not isinstance(link_type, str):
+            raise TypeError("link_type must be a string or None")
+        columns = [link_col]
+        if link_type is not None:
+            columns.append(f"{self.db.driver_wrapper.get_column_base(link_table)}_type")
+        self._delete_matching_rows(
+            link_table,
+            columns,
+            ((value,) if link_type is None else (value, link_type) for value in ids),
+        )
+
+    def delete_link_pair(
+        self,
+        link_table: str,
+        left_link_col: str,
+        right_link_col: str,
+        left_id: Any,
+        right_id: Any,
+    ) -> None:
+        """Delete all types for a physical endpoint pair in the shared transaction.
+
+        Validate schema identifiers and bind both values. No endpoint rows or
+        unrelated links are removed directly; schema cascades still apply.
+        """
+        self._delete_matching_rows(
+            link_table, (left_link_col, right_link_col), ((left_id, right_id),)
+        )
+
+    def _delete_matching_rows(
+        self, table: str, columns: Iterable[str], bindings: Iterable[Iterable[Any]]
+    ) -> None:
+        """Own validated equality-based batch deletion for portable and legacy callers.
+
+        Materialize and validate all parameter rows before effects. SQL equality
+        retains its usual NULL behaviour. Empty predicates are forbidden.
+        """
+        columns = self._validate_columns(table, columns)
+        if not columns:
+            raise InputIntegrityError("deletion requires at least one match column")
+        rows = []
+        for binding in bindings:
+            if isinstance(binding, (str, bytes)):
+                raise TypeError("deletion bindings must be parameter sequences")
+            row = tuple(binding)
+            if len(row) != len(columns):
+                raise ValueError("deletion binding width does not match columns")
+            rows.append(row)
+        if not rows:
+            return
+        predicates = " AND ".join(f"{_quoted(column)} = ?" for column in columns)
+        with self._macro_transaction() as conn:
+            conn.executemany(
+                f"DELETE FROM {self._macro_table_sql(table)} WHERE {predicates}", rows
             )
 
     def _column_names(self, table: str) -> tuple[str, ...]:
@@ -1184,6 +1435,57 @@ class SQLPortableMacrosMixin:
             link_spec,
             (primary_id,),
             link_type=link_type,
+        )
+
+    def get_linked_rows(
+        self,
+        link_spec: StorageLinkSpec,
+        primary_id: int,
+        *,
+        link_type: object = LINK_TYPE_UNSET,
+    ) -> tuple[LinkedTableRow, ...]:
+        """Read links once and fetch distinct destinations in bounded ID batches.
+
+        Preserve get_link_rows ordering, filters, extras and repeated destinations.
+        Each result owns a shallow row copy; missing destinations remain as None.
+        Require physical endpoint/link tables and specs addressing their discovered
+        ID columns. Source existence and dangling-link policy belong to the caller.
+        Reads use the current connection and establish no new snapshot transaction.
+
+        Example:
+            ``macros.get_linked_rows(spec, work_id)`` returns link/row pairs;
+            inspect ``result.row is None`` before rendering a destination.
+
+        :param link_spec: Directional relationship over physical integer row IDs.
+        :param primary_id: Integer source ID; booleans and rays are rejected.
+        :param link_type: Omitted sentinel for all types, None for NULL, or a type.
+        :return: One LinkedTableRow per link, including dangling relationships.
+        """
+        link_spec = self._validate_link_spec(link_spec)
+        self._batch_row_ids((primary_id,))
+        self._physical_table(link_spec.link_table)
+        for table, id_column in (
+            (link_spec.primary_table, link_spec.primary_id_col),
+            (link_spec.secondary_table, link_spec.secondary_id_col),
+        ):
+            self._physical_table(table)
+            if id_column != self._row_id_column(table, None):
+                raise InputIntegrityError(
+                    "Linked row batches require the endpoint's physical ID column"
+                )
+        links = self.get_link_rows(link_spec, primary_id, link_type=link_type)
+        if not links:
+            return ()
+        rows = self.get_rows_by_ids(
+            link_spec.secondary_table,
+            (link.secondary_id for link in links if link.secondary_id is not None),
+        )
+        return tuple(
+            LinkedTableRow(
+                link,
+                dict(rows[link.secondary_id]) if link.secondary_id in rows else None,
+            )
+            for link in links
         )
 
     def get_link_rows_bulk(
@@ -2700,6 +3002,230 @@ class SQLPortableMacrosMixin:
                 additional_values=additional_values,
             )
 
+    def _physical_table(self, table: str) -> str:
+        """Require a stored table, rejecting views and unknown schema objects."""
+        table = _identifier(table, kind="table name")
+        getter = getattr(self.db.driver_wrapper, "get_relation_type", None)
+        if callable(getter):
+            kind = getter(table)
+        elif not hasattr(self._macro_driver(), "schema"):
+            row = (
+                self._macro_connection()
+                .execute("SELECT type FROM sqlite_master WHERE name = ?", (table,))
+                .fetchone()
+            )
+            kind = None if row is None else row[0]
+        else:
+            raise InputIntegrityError("Backend must expose relation-type introspection")
+        if kind != "table":
+            raise InputIntegrityError(f"{table!r} is not a physical table")
+        return table
+
+    @staticmethod
+    def _batch_row_ids(row_ids: Iterable[int]) -> tuple[int, ...]:
+        """Consume and deduplicate integer row IDs before reading or mutating rows."""
+        ids = tuple(row_ids)
+        if any(not isinstance(value, int) or isinstance(value, bool) for value in ids):
+            raise InputIntegrityError(
+                "Batch row IDs must be integers, not bools or rays"
+            )
+        return tuple(dict.fromkeys(ids))
+
+    def delete_rows_by_id(self, table: str, row_ids: Iterable[int]) -> None:
+        """Delete physical rows in bounded IN batches within one transaction.
+
+        Validate the table and all integer IDs before effects. Duplicate IDs
+        collapse and missing IDs are no-ops. Schema cascades apply. This neither
+        chooses retention policy nor removes physical files.
+        """
+        table = self._physical_table(table)
+        ids = self._batch_row_ids(row_ids)
+        id_column = self._row_id_column(table, None)
+        if not ids:
+            return
+        with self._macro_transaction() as conn:
+            for chunk in _chunks(ids):
+                conn.execute(
+                    f"DELETE FROM {self._macro_table_sql(table)} "
+                    f"WHERE {_quoted(id_column)} IN ({', '.join('?' for _ in chunk)})",
+                    chunk,
+                )
+
+    def update_rows(self, table: str, updates: Mapping[int, Mapping[str, Any]]) -> None:
+        """Update physical rows atomically, batching consecutive matching shapes.
+
+        Copy and validate every payload before writes; reject ID-column changes.
+        Derive comparison keys through the same declarations as update_row.
+        Empty payloads and missing IDs are no-ops. Preserve input order so trigger
+        and uniqueness behavior does not depend on grouping by column names.
+        """
+        table = self._physical_table(table)
+        id_column = self._row_id_column(table, None)
+        materialized = [(row_id, dict(values)) for row_id, values in updates.items()]
+        self._batch_row_ids(row_id for row_id, _ in materialized)
+        for _, values in materialized:
+            if id_column in values:
+                raise InputIntegrityError("update_rows cannot change the ID column")
+            self._validate_columns(table, values)
+        with self._macro_transaction() as conn:
+            prepared = []
+            for row_id, values in materialized:
+                if not values:
+                    continue
+                payload = prepare_normalized_values(
+                    self.db.driver_wrapper,
+                    table,
+                    values,
+                    read_existing=lambda row_id=row_id: self.get_row(table, row_id),
+                )
+                columns = tuple(sorted(self._validate_columns(table, payload)))
+                prepared.append(
+                    (columns, tuple(payload[c] for c in columns) + (row_id,))
+                )
+            # Consecutive groups retain input order; each execute batch is bounded.
+            for columns, group in groupby(prepared, key=lambda entry: entry[0]):
+                rows = tuple(entry[1] for entry in group)
+                sql = (
+                    f"UPDATE {self._macro_table_sql(table)} SET "
+                    + ", ".join(f"{_quoted(column)} = ?" for column in columns)
+                    + f" WHERE {_quoted(id_column)} = ?"
+                )
+                for chunk in _chunks(rows):
+                    conn.executemany(sql, chunk)
+
+    def _prepare_value_batch(
+        self, table, value_column, values, id_column, additional_values
+    ):
+        """Share schema, empty-value and scope preflight for batch lookup/ensure."""
+        table = self._physical_table(table)
+        value_column = _identifier(value_column, kind="column name")
+        id_column = self._row_id_column(table, id_column)
+        additional_values = dict(additional_values or {})
+        try:
+            materialized = tuple(dict.fromkeys(values))
+        except TypeError as exc:
+            raise InputIntegrityError("Batch values must be hashable") from exc
+        self._validate_columns(table, (value_column, *additional_values))
+        metadata = self._column_metadata(table, value_column)
+        if metadata.comparison_column is not None:
+            self._validate_columns(table, (metadata.comparison_column,))
+        for value in materialized:
+            self._validate_ensure_value(value, metadata)
+        spec = self._optional_normalized_identity_spec(table, value_column)
+        scope = {}
+        if spec is not None:
+            missing = set(spec.scope_columns) - additional_values.keys()
+            if missing:
+                raise InputIntegrityError(
+                    f"Missing identity scope columns: {sorted(missing)}"
+                )
+            scope = {column: additional_values[column] for column in spec.scope_columns}
+        return (
+            table,
+            value_column,
+            id_column,
+            materialized,
+            additional_values,
+            metadata,
+            scope,
+        )
+
+    def _find_value_batch(
+        self, conn, table, value_column, id_column, values, metadata, scope
+    ):
+        """Look up declared text keys in bounded sets; preserve scalar fallbacks."""
+        if metadata.comparison_column is None or not all(
+            isinstance(v, str) for v in values
+        ):
+            return {
+                value: self._find_ensured_id(
+                    conn,
+                    table=table,
+                    id_column=id_column,
+                    value_column=value_column,
+                    value=value,
+                    metadata=metadata,
+                    comparison_value=self._normalise_value(
+                        value, metadata.normalization_profile
+                    ),
+                    scope_values=scope,
+                )
+                for value in values
+            }
+        keys = {
+            v: self._normalise_value(v, metadata.normalization_profile) for v in values
+        }
+        found = {}
+        predicates, bindings = [], []
+        for column, value in scope.items():
+            predicates.append(
+                f"{_quoted(column)} IS NULL"
+                if value is None
+                else f"{_quoted(column)} = ?"
+            )
+            if value is not None:
+                bindings.append(value)
+        key_column = metadata.comparison_column
+        for chunk in _chunks(
+            tuple(dict.fromkeys(keys.values())), max(1, 500 - len(bindings))
+        ):
+            where = [
+                f"{_quoted(key_column)} IN ({', '.join('?' for _ in chunk)})",
+                *predicates,
+            ]
+            rows = conn.execute(
+                f"SELECT {_quoted(id_column)}, {_quoted(key_column)} "
+                f"FROM {self._macro_table_sql(table)} WHERE " + " AND ".join(where),
+                (*chunk, *bindings),
+            )
+            for row in rows:
+                row_id, key = (
+                    _row_value(row, 0, id_column),
+                    _row_value(row, 1, key_column),
+                )
+                if key in found:
+                    raise DatabaseIntegrityError(
+                        f"Multiple canonical rows in {table}.{value_column}"
+                    )
+                found[key] = row_id
+        return {value: found.get(key) for value, key in keys.items()}
+
+    def find_table_values(
+        self,
+        table: str,
+        value_column: str,
+        values: Iterable[Any],
+        *,
+        id_column: str | None = None,
+        additional_values: Mapping[str, Any] | None = None,
+    ) -> dict[Any, Any | None]:
+        """Find many physical vocabulary rows using the scalar matching policy.
+
+        Return original hashable inputs mapped to IDs or None. Equivalent text
+        spellings can share an ID; duplicate inputs collapse. Declared stored text
+        keys use bounded IN queries. Other policies retain scalar matching rules.
+        Scope fields are required exactly as for ensure_table_values. No writes
+        or independent snapshot transaction are made.
+        """
+        table, value_column, id_column, values, _, metadata, scope = (
+            self._prepare_value_batch(
+                table,
+                value_column,
+                values,
+                id_column,
+                additional_values,
+            )
+        )
+        return self._find_value_batch(
+            self._macro_connection(),
+            table,
+            value_column,
+            id_column,
+            values,
+            metadata,
+            scope,
+        )
+
     def ensure_table_values(
         self,
         table: str,
@@ -2709,66 +3235,177 @@ class SQLPortableMacrosMixin:
         id_column: str | None = None,
         additional_values: Mapping[str, Any] | None = None,
     ) -> dict[Any, Any]:
+        """Ensure physical vocabulary rows atomically using shared matching rules.
+
+        Materialize and preflight input before writes. Declared stored text keys
+        use bounded batch lookups and insert each missing normalized key once,
+        preserving its first supplied spelling. Existing spellings remain intact.
+        Other policies retain scalar ensure behavior. Reread after conflict-aware
+        inserts and reject unresolved values or duplicate matches; late failures
+        roll back the whole batch, including inside an enclosing transaction.
         """
-        Ensure a materialized sequence of hashable values using one shared insertion
-        scope.
-
-        Reject unhashable input with InputIntegrityError before writing. Validate
-        columns, then process every input occurrence in one macro transaction. Equal
-        dictionary keys collapse in the result, although repeated values are still
-        processed; different spellings can map to the same logical ID. Shared additional
-        values apply to every insertion. An empty sequence still enters the transaction,
-        and a later failure rolls back earlier writes when it escapes the outer
-        boundary.
-
-        Example:
-            ``macros.ensure_table_values("tags", "tag", ("Fantasy", "FANTASY"))``
-            returns both original spellings as keys pointing to one ID under tag policy.
-
-
-        :param table: Physical table name resolved through the driver wrapper.
-        :param value_column: Display-value column whose matching policy is supplied by
-            column metadata.
-        :param values: Iterable of hashable display values, fully consumed before
-            writing.
-        :param id_column: Physical row-ID column override, or None to use the wrapper
-            default.
-        :param additional_values: Extra column/value mapping with exact schema names;
-            identity scope values are required, other fields only affect insertion.
-        :return: A dictionary from original input values to ensured IDs.
-        """
-        table = _identifier(table, kind="table name")
-        value_column = _identifier(value_column, kind="column name")
-        id_column = (
-            _identifier(id_column, kind="id column")
-            if id_column is not None
-            else self.db.driver_wrapper.get_id_column(table)
+        table, value_column, id_column, values, extra, metadata, scope = (
+            self._prepare_value_batch(
+                table,
+                value_column,
+                values,
+                id_column,
+                additional_values,
+            )
         )
-        additional_values = dict(additional_values or {})
-        materialized = tuple(values)
-        try:
-            dict.fromkeys(materialized)
-        except TypeError as exc:
-            raise InputIntegrityError("Ensured values must be hashable.") from exc
-        self._validate_columns(
-            table,
-            (id_column, value_column, *additional_values),
-        )
-        metadata = self._column_metadata(table, value_column)
-        if metadata.comparison_column is not None:
-            self._validate_columns(table, (metadata.comparison_column,))
         with self._macro_transaction() as conn:
-            return {
-                value: self._ensure_table_value(
-                    conn,
-                    table,
-                    value_column,
-                    value,
-                    id_column=id_column,
-                    additional_values=additional_values,
+            if metadata.comparison_column is None or not all(
+                isinstance(v, str) for v in values
+            ):
+                return {
+                    value: self._ensure_table_value(
+                        conn,
+                        table,
+                        value_column,
+                        value,
+                        id_column=id_column,
+                        additional_values=extra,
+                    )
+                    for value in values
+                }
+            found = self._find_value_batch(
+                conn, table, value_column, id_column, values, metadata, scope
+            )
+            pending = {}
+            for value in values:
+                if found[value] is None:
+                    key = self._normalise_value(value, metadata.normalization_profile)
+                    pending.setdefault(key, value)
+            if not pending:
+                return found
+            payloads = []
+            for key, value in pending.items():
+                payload = dict(extra)
+                payload[value_column] = value
+                payload[metadata.comparison_column] = key
+                payloads.append(payload)
+            columns = tuple(payloads[0])
+            sql = (
+                f"INSERT INTO {self._macro_table_sql(table)} "
+                f"({', '.join(_quoted(c) for c in columns)}) "
+                f"VALUES ({', '.join('?' for _ in columns)}) ON CONFLICT DO NOTHING"
+            )
+            bindings = tuple(tuple(payload[c] for c in columns) for payload in payloads)
+            for chunk in _chunks(bindings):
+                conn.executemany(sql, chunk)
+            result = self._find_value_batch(
+                conn, table, value_column, id_column, values, metadata, scope
+            )
+            if any(value is None for value in result.values()):
+                raise DatabaseIntegrityError(
+                    f"Could not ensure all values in {table}.{value_column}"
                 )
-                for value in materialized
-            }
+            return result
+
+    def _normalized_key_selection(self, table, value_columns, row_ids):
+        """Resolve authoritative declarations and an optional physical-ID selection."""
+        table = self._physical_table(table)
+        specs = tuple(
+            self.db.driver_wrapper.iter_normalized_identity_specs(table=table)
+        )
+        by_column = {spec.value_column: spec for spec in specs}
+        columns = (
+            tuple(by_column)
+            if value_columns is None
+            else tuple(dict.fromkeys(value_columns))
+        )
+        if value_columns is None and not specs:
+            raise InputIntegrityError(
+                f"{table!r} has no declared normalized identities"
+            )
+        if set(columns) - by_column.keys():
+            raise InputIntegrityError(
+                "Requested columns must have declared normalized identities"
+            )
+        selected = tuple(by_column[column] for column in columns)
+        for spec in selected:
+            self._validate_columns(
+                table, (spec.value_column, spec.identity_column, *spec.scope_columns)
+            )
+        ids = None if row_ids is None else frozenset(self._batch_row_ids(row_ids))
+        return selected, {table: set(self._column_names(table))}, ids
+
+    def audit_normalized_keys(
+        self,
+        table: str,
+        *,
+        value_columns: Iterable[str] | None = None,
+        row_ids: Iterable[int] | None = None,
+    ) -> NormalizedIdentityMigrationReport:
+        """Audit a table's declared keys without changing rows or schema.
+
+        Select declarations by display-column name and optionally select row IDs.
+        Counts include all scanned rows: collisions compare proposed selected keys
+        with unchanged stored keys on other rows. Unrelated collisions are omitted.
+        An empty selection is a no-op. Missing IDs select no rows. This read uses
+        the current connection without opening a new snapshot transaction.
+        """
+        specs, columns, ids = self._normalized_key_selection(
+            table, value_columns, row_ids
+        )
+        if not specs or ids == frozenset():
+            return NormalizedIdentityMigrationReport(len(specs), 0, 0, 0)
+        report, _ = self._inspect_normalized_identities(
+            self._macro_connection(),
+            specs,
+            columns,
+            row_ids=ids,
+        )
+        return report
+
+    def rebuild_normalized_keys(
+        self,
+        table: str,
+        *,
+        value_columns: Iterable[str] | None = None,
+        row_ids: Iterable[int] | None = None,
+    ) -> NormalizedIdentityMigrationReport:
+        """Atomically repair selected derived keys without schema or display edits.
+
+        Audit within the write transaction and reject collisions before effects.
+        Clear changing keys before setting their final values to support key swaps
+        under unique indexes. Existing constraints can reject repair (for example,
+        a nonnullable key); any failure rolls back this entire call. Source text,
+        scope fields, identity declarations and indexes are never rewritten here.
+        """
+        specs, columns, ids = self._normalized_key_selection(
+            table, value_columns, row_ids
+        )
+        if not specs or ids == frozenset():
+            return NormalizedIdentityMigrationReport(len(specs), 0, 0, 0)
+        with self._macro_transaction() as conn:
+            report, updates = self._inspect_normalized_identities(
+                conn, specs, columns, row_ids=ids
+            )
+            if report.collisions:
+                raise DatabaseIntegrityError(
+                    f"Normalized key repair found collisions; no changes applied: {report.collisions!r}"
+                )
+            groups = {}
+            for spec, id_column, row_id, key in updates:
+                groups.setdefault(
+                    (spec.table, spec.identity_column, id_column), []
+                ).append((key, row_id))
+            for (target, key_column, id_column), rows in groups.items():
+                for chunk in _chunks(tuple(rows)):
+                    conn.executemany(
+                        f"UPDATE {self._macro_table_sql(target)} SET {_quoted(key_column)} = NULL "
+                        f"WHERE {_quoted(id_column)} = ?",
+                        [(row_id,) for _, row_id in chunk],
+                    )
+            for (target, key_column, id_column), rows in groups.items():
+                for chunk in _chunks(tuple(rows)):
+                    conn.executemany(
+                        f"UPDATE {self._macro_table_sql(target)} SET {_quoted(key_column)} = ? "
+                        f"WHERE {_quoted(id_column)} = ?",
+                        chunk,
+                    )
+            return replace(report, rows_updated=len(updates))
 
     def _optional_normalized_identity_spec(
         self,
@@ -3212,6 +3849,8 @@ class SQLPortableMacrosMixin:
         conn: Any,
         specs: tuple[NormalizedIdentitySpec, ...],
         columns_by_table: Mapping[str, set[str]],
+        *,
+        row_ids: frozenset[int] | None = None,
     ) -> tuple[
         NormalizedIdentityMigrationReport,
         tuple[tuple[NormalizedIdentitySpec, str, Any, Any], ...],
@@ -3226,7 +3865,8 @@ class SQLPortableMacrosMixin:
         collision groups; non-null identities are grouped with their exact scope values,
         including None. Only unique specs report groups containing multiple rows. Group
         keys must be hashable. This inspection issues no writes and does not establish a
-        snapshot transaction.
+        snapshot transaction. With row_ids, only selected rows change; collision
+        groups use stored keys for other rows and omit unrelated collisions.
 
         Example:
             Two tag rows whose display values both derive to "duplicate tag" appear
@@ -3238,6 +3878,7 @@ class SQLPortableMacrosMixin:
         :param specs: Applicable declarations to inspect in supplied order.
         :param columns_by_table: Snapshot mapping physical table names to sets of their
             column names.
+        :param row_ids: Optional selected physical IDs; None selects every row.
         :return: A report with rows_updated=0 and a tuple of (spec, id_column, row_id,
             desired_key) updates.
         """
@@ -3280,14 +3921,18 @@ class SQLPortableMacrosMixin:
                     if identity_offset is not None
                     else None
                 )
-                desired_identity = (
-                    None
-                    if canonical_value is None
-                    else normalize_identity_value(
-                        canonical_value,
-                        spec.normalization_profile,
+                selected_row = row_ids is None or row_id in row_ids
+                if selected_row:
+                    desired_identity = (
+                        None
+                        if canonical_value is None
+                        else normalize_identity_value(
+                            canonical_value,
+                            spec.normalization_profile,
+                        )
                     )
-                )
+                else:
+                    desired_identity = current_identity
                 scope_tuple = tuple(
                     _row_value(row, scope_offset + index, column)
                     for index, column in enumerate(spec.scope_columns)
@@ -3297,13 +3942,7 @@ class SQLPortableMacrosMixin:
                         (scope_tuple, desired_identity),
                         [],
                     ).append((row_id, canonical_value))
-                if (
-                    not has_identity_column
-                    and desired_identity is not None
-                ) or (
-                    has_identity_column
-                    and current_identity != desired_identity
-                ):
+                if selected_row and current_identity != desired_identity:
                     rows_needing_update += 1
                     updates.append(
                         (spec, id_column, row_id, desired_identity)
@@ -3311,7 +3950,9 @@ class SQLPortableMacrosMixin:
 
             if spec.unique:
                 for (scope_tuple, identity_value), members in groups.items():
-                    if len(members) < 2:
+                    if len(members) < 2 or (
+                        row_ids is not None and not any(member[0] in row_ids for member in members)
+                    ):
                         continue
                     collisions.append(
                         NormalizedIdentityCollision(
@@ -3320,7 +3961,7 @@ class SQLPortableMacrosMixin:
                             identity_column=spec.identity_column,
                             identity_value=identity_value,
                             scope_values=dict(
-                                zip(spec.scope_columns, scope_tuple)
+                                zip(spec.scope_columns, scope_tuple, strict=True)
                             ),
                             row_ids=tuple(member[0] for member in members),
                             canonical_values=tuple(

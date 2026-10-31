@@ -9,22 +9,22 @@ decisions to AgentMatcher. Credit ordering and persistence follow portable macro
 
 from __future__ import annotations
 
-from collections.abc import Iterable
-from typing import ClassVar, Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
+from typing import ClassVar
 
-from LiuXin_alpha.databases.macro_types import LinkValue
+from LiuXin_alpha.databases.db_types.macro_types import LinkValue
 
 from ..api.common import (
     CatalogMutationError,
     EntityId,
     IdentifierCandidate,
-    MetadataCandidate,
     MatchResult,
+    MetadataCandidate,
     RowInput,
     RowMapping,
     WemiLevel,
 )
-from .base import BaseRepository, WEMI_TABLES, normalise_text
+from .base import WEMI_TABLES, BaseRepository, normalise_text
 
 
 class AgentRepository(BaseRepository):
@@ -360,10 +360,7 @@ class AgentRepository(BaseRepository):
         agent = self.require(agent_id)
         if agent.get("agent_type") != "organisation":
             raise CatalogMutationError(f"Agent {agent_id} is not an organisation")
-        sidecars = self._macros.get_rows(
-            "org_agents",
-            where={"org_agent_agent_id": agent_id},
-        )
+        sidecars = self.db.metadata_sql.get_org_agents_for_agents([agent_id])[agent_id]
         if not sidecars:
             raise CatalogMutationError(
                 f"organisation Agent {agent_id} has no org_agents sidecar"

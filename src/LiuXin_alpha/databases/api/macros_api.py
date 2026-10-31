@@ -271,42 +271,24 @@ class MacrosAPI(PortableMacrosAPI, abc.ABC):
 
     @abc.abstractmethod
     def bulk_delete_in_table(self, table, column, column_values):
+        """Delete equality matches through the portable transaction owner.
+
+        Validate the table, column and all one-cell bindings before writing.
+        Preserve SQL equality semantics for None. A failing batch rolls back;
+        nested operations compose inside the caller's portable transaction.
         """
-        Delete rows matching each single-column binding.
-
-        Pass bindings directly to executemany; this method does not wrap scalar
-        elements.
-
-        Example:
-            macros.bulk_delete_in_table("tags", "tag_id", [(1,), (2,)])
-
-
-        :param table: Trusted table name.
-        :param column: Column compared with a bound value.
-        :param column_values: Iterable of one-item parameter sequences, such as [(1,),
-            (2,)].
-        :return: None; the abstract method supplies no implementation.
-        """
-
         ...
 
     @abc.abstractmethod
-    def bulk_delete_items_in_table_two_matching_cols(self, table, col_1, col_2, column_values):
+    def bulk_delete_items_in_table_two_matching_cols(
+        self, table, col_1, col_2, column_values
+    ):
+        """Delete matching column pairs through the portable transaction owner.
+
+        Validate both physical columns and every binding before effects. Bind
+        values with equality predicates; None does not match SQL NULL. Batch
+        failures roll back without committing an enclosing portable transaction.
         """
-        Delete rows matching each pair of column values.
-
-        Example:
-            macros.bulk_delete_items_in_table_two_matching_cols(link_table, left_column,
-            right_column, [(1, 10)])
-
-
-        :param table: Trusted table name.
-        :param col_1: First equality column.
-        :param col_2: Second equality column.
-        :param column_values: Iterable of (first_value, second_value) bindings.
-        :return: None; the abstract method supplies no implementation.
-        """
-
         ...
 
     @abc.abstractmethod
@@ -569,22 +551,11 @@ class MacrosAPI(PortableMacrosAPI, abc.ABC):
 
     @abc.abstractmethod
     def delete_in_table(self, table, column, value):
+        """Delete equality matches through the validated portable row primitive.
+
+        The selected column need not be unique. No match is a no-op, and None
+        does not match SQL NULL. Reuse the caller's portable transaction.
         """
-        Delete rows matching one bound value in a trusted table column.
-
-        SQL equality with None does not select NULL rows. Execution and transaction
-        handling follow the host execute helper.
-
-        Example:
-            macros.delete_in_table("tags", "tag_id", 7)
-
-
-        :param table: Trusted table name.
-        :param column: Trusted equality column.
-        :param value: Value to match using SQL equality.
-        :return: None; the abstract method supplies no implementation.
-        """
-
         ...
 
 

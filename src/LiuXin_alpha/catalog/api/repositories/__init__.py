@@ -28,6 +28,9 @@ from LiuXin_alpha.catalog.api.repositories.manifestations import ManifestationRe
 from LiuXin_alpha.catalog.api.repositories.notes import NoteRepositoryAPI
 from LiuXin_alpha.catalog.api.repositories.synopses import SynopsisRepositoryAPI
 from LiuXin_alpha.catalog.api.repositories.titles import TitleRepositoryAPI
+from LiuXin_alpha.catalog.api.repositories.work_memberships import (
+    WorkMembershipRepositoryAPI,
+)
 from LiuXin_alpha.catalog.api.repositories.works import WorkRepositoryAPI
 
 CATALOG_REPOSITORY_NAMES = (
@@ -82,11 +85,11 @@ class CatalogRepositoriesAPI(Protocol):
     :ivar item_identifiers: Raw identifier observations attached to Items.
     :ivar titles: WEMI title projection and update conveniences.
     :ivar notes: Reusable Note rows and WEMI attachment operations.
-    :ivar tags: Reusable Tag identities and storage.
+    :ivar tags: Reusable Tag identities and explicit Work memberships.
     :ivar labels: Operational Label identities and storage.
     :ivar genres: Hierarchical Genre identities with optional parent scope.
     :ivar subjects: Hierarchical Subject identities with optional parent scope.
-    :ivar series: Series identities and optional parent scope.
+    :ivar series: Series identities, optional parent scope and Work memberships.
     :ivar languages: Read-only seeded Language lookups through the repository API.
     :ivar ratings: Rating value/scale/source identity and storage.
     :ivar comments: Contextual Comment creation, replacement, and inspection without generic reuse.
@@ -103,11 +106,11 @@ class CatalogRepositoriesAPI(Protocol):
     item_identifiers: ItemIdentifierRepositoryAPI
     titles: TitleRepositoryAPI
     notes: NoteRepositoryAPI
-    tags: ExactEntityRepositoryAPI
+    tags: WorkMembershipRepositoryAPI
     labels: ExactEntityRepositoryAPI
     genres: ExactEntityRepositoryAPI
     subjects: ExactEntityRepositoryAPI
-    series: ExactEntityRepositoryAPI
+    series: WorkMembershipRepositoryAPI
     languages: ExactEntityRepositoryAPI
     ratings: ExactEntityRepositoryAPI
     comments: CommentRepositoryAPI
@@ -166,4 +169,5 @@ __all__ = [
     "SynopsisRepositoryAPI",
     "TitleRepositoryAPI",
     "WorkRepositoryAPI",
+    "WorkMembershipRepositoryAPI",
 ]

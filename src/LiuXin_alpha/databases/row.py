@@ -1003,6 +1003,7 @@ class Row(RowAPI):
 
 
 # Todo: Consider this for all main tables? That way we can do things like row.work_id and stuff - and the typing is easier
+# Todo: Actually subclass this for all the main tables
 class FixedTableStorageRow(Row):
     """
     Specialize Row with a declared table and a validation hook.

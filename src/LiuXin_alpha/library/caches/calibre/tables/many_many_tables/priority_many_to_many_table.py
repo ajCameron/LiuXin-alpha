@@ -24,14 +24,8 @@ from LiuXin_alpha.plugins.cache.base_tables import (
     MANY_MANY,
 )
 
-
-from LiuXin_alpha.databases.db_types import (
-    MetadataDict,
-    InterLinkTableName,
-    SrcTableID,
-    DstTableID,
-    MainTableName,
-)
+from LiuXin_alpha.databases.db_types.database_types import MainTableName, InterLinkTableName, SrcTableID, DstTableID, \
+    MetadataDict
 from LiuXin_alpha.library.caches.calibre.tables.many_many_tables.many_to_many_table import CalibreManyToManyTable
 
 from LiuXin_alpha.errors import (

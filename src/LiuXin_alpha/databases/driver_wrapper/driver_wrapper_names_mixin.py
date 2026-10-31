@@ -18,11 +18,8 @@ from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 
 if TYPE_CHECKING:
 
-    from LiuXin_alpha.databases.db_types import (
-        MainTableName,
-        InterLinkTableName,
-        IntraLinkTableName,
-        HelperTableName)
+    from LiuXin_alpha.databases.db_types.database_types import MainTableName, InterLinkTableName, IntraLinkTableName, \
+        HelperTableName
 
 
 class DriverWrapperNamesMixin:

@@ -13,11 +13,13 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 from typing import Optional, Iterable, Iterator, Mapping, TYPE_CHECKING
 
 from LiuXin_alpha.databases.column_metadata import (
+    ColumnMetadata,
+    ColumnOptions,
+)
+from LiuXin_alpha.metadata.value_policies import (
     ColumnEmptyValuePolicy,
     ColumnMergePolicy,
-    ColumnMetadata,
     ColumnNormalizationProfile,
-    ColumnOptions,
     ColumnSemanticRole,
     ColumnValidationProfile,
 )

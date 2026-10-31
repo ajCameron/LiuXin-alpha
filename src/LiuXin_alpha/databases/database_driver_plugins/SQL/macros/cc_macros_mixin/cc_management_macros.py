@@ -20,7 +20,7 @@ from typing import Optional, TYPE_CHECKING
 from LiuXin_alpha.utils.libraries.liuxin_six import iteritems
 
 from LiuXin_alpha.utils.language_tools import plural_singular_mapper
-from LiuXin_alpha.databases.column_metadata import ColumnNormalizationProfile
+from LiuXin_alpha.metadata.value_policies import ColumnNormalizationProfile
 from LiuXin_alpha.databases.normalized_identities import normalize_identity_value
 
 if TYPE_CHECKING:

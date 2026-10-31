@@ -18,8 +18,8 @@ from typing import Any, cast
 from LiuXin_alpha.catalog.write.base_writer import CatalogValueWriter
 from LiuXin_alpha.catalog.write.host_api import CatalogWriterHostAPI
 from LiuXin_alpha.catalog.write.link_update import LinkUpdate
-from LiuXin_alpha.databases.db_types import DstTableID, SrcTableID
-from LiuXin_alpha.databases.macro_types import (
+from LiuXin_alpha.databases.db_types.database_types import SrcTableID, DstTableID
+from LiuXin_alpha.databases.db_types.macro_types import (
     LINK_TYPE_UNSET,
     LinkRow,
     LinkValue,

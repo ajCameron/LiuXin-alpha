@@ -14,8 +14,7 @@ from typing import Any, Callable, Iterable, Mapping, MutableMapping, Optional, P
 if TYPE_CHECKING:
     from LiuXin_alpha.catalog.api.field_metadata_api import FieldMetadataAPI
     from LiuXin_alpha.databases.api.database_api.database_api import DatabaseAPI
-    from LiuXin_alpha.databases.db_types import MainTableName
-
+    from LiuXin_alpha.databases.db_types.database_types import MainTableName
 
 CustomColumnMetadata: TypeAlias = MutableMapping[str, Any]
 CustomColumnDataAdapter: TypeAlias = Callable[[Any, Mapping[str, Any]], Any]

@@ -17,8 +17,8 @@ from pprint import pformat as _pformat
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Any, Self, TypeVar, cast
 
-from LiuXin_alpha.databases.db_types import DstTableID, SrcTableID
-from LiuXin_alpha.databases.macro_types import (
+from LiuXin_alpha.databases.db_types.database_types import SrcTableID, DstTableID
+from LiuXin_alpha.databases.db_types.macro_types import (
     LINK_TYPE_UNSET,
     LinkRow,
     LinkValue,

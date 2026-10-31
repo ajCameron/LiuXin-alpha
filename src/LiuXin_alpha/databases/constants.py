@@ -16,6 +16,7 @@ __docformat__ = "restructuredtext en"
 
 SPOOL_SIZE = 30 * 1024 * 1024
 
+# Todo: This is probably a type as well
 # Core recognized metadata / field datatypes used across database, surface and
 # custom-column compatibility layers.
 VALID_DATA_TYPES = frozenset(

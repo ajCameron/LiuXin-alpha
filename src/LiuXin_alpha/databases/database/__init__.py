@@ -24,6 +24,7 @@ from LiuXin_alpha.databases.api import (
     DatabaseAPI,
     DatabaseDriverAPI,
     DatabaseDriverWrapperAPI,
+    MetadataSQLAPI,
 )
 from LiuXin_alpha.databases.database.constants import (
     HELPER_TABLES,
@@ -405,35 +406,20 @@ class Database(
         self._macros = new_macros
 
     @property
-    def metadata_sql(self):
-        """
-        Return the helper used for metadata-aware SQL operations.
+    def metadata_sql(self) -> MetadataSQLAPI | None:
+        """Return physical-table SQL helpers, or None before binding/after cleanup.
 
-        Example:
-            For an initialized db, db.metadata_sql.db refers back to the owning facade.
-
-
-        :return: Current MetadataSQL collaborator, or None before binding or after
-            cleanup.
+        Catalog owns bibliographic interpretation and compatibility projections;
+        these helpers operate on actual stored rows using portable transactions.
         """
         return self._metadata_sql
 
-    def set_metadata_sql(self, new_metadata_sql) -> None:
+    def set_metadata_sql(self, new_metadata_sql: MetadataSQLAPI) -> None:
+        """Retain a non-None table-query helper without rebinding its owner.
+
+        Normal construction and runtime rebinding arrange its db reference.
         """
-        Replace the metadata SQL reference after rejecting None.
-
-        No back-reference or other collaborator is updated here.
-
-        Example:
-            During custom assembly, db.set_metadata_sql(helper) retains helper; the
-            caller must arrange its db binding.
-
-
-        :param new_metadata_sql: Metadata SQL helper to retain directly.
-        :return: None.
-        :raises AssertionError: new_metadata_sql is None.
-        """
-        assert new_metadata_sql is not None, "Need to set metadata_sql to something that exists"
+        assert new_metadata_sql is not None, "Need an existing table-query helper"
         self._metadata_sql = new_metadata_sql
 
     def existing_driver_init(

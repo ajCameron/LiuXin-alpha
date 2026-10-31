@@ -32,7 +32,7 @@ class TableTypes(Enum):
     declarations do not validate physical rows by themselves.
 
     Example:
-        >>> TableTypes.ONE_ONE.value == ONE_ONE
+import LiuXin_alpha.databases.db_types.database_types        >>> LiuXin_alpha.databases.db_types.database_types.ONE_ONE.value == ONE_ONE
         True
     """
     ONE_ONE = ONE_ONE

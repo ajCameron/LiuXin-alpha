@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import pytest
 
-from LiuXin_alpha.databases.hashes import (
+from LiuXin_alpha.catalog.hashes import (
     generate_book_fingerprint,
     generate_title_fingerprint,
 )

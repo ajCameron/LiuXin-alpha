@@ -13,8 +13,8 @@ Example:
 from typing import Iterable, Optional, Callable, Union, BinaryIO, Any, TypeVar, Literal
 
 from LiuXin_alpha.plugins.cache.read_write_api import api, read_api, write_api
-from LiuXin_alpha.databases.db_types import MainTableName
-from LiuXin_alpha.databases.locking import create_locks, wrap_simple, SafeReadLock
+from LiuXin_alpha.databases.db_types.database_types import MainTableName
+from LiuXin_alpha.utils.locking import create_locks, wrap_simple, SafeReadLock
 from LiuXin_alpha.utils.text.icu import lower as icu_lower
 
 T = TypeVar("T")

@@ -20,11 +20,7 @@ from typing import Optional, Callable, TypeVar, Union, Generic, Iterable, Iterat
 from LiuXin_alpha.utils.text.icu import sort_key
 from LiuXin_alpha.caches.write import get_writer, DummyWriter
 
-from LiuXin_alpha.databases.db_types import (
-    SrcTableID,
-    DstTableID,
-)
-
+from LiuXin_alpha.databases.db_types.database_types import SrcTableID, DstTableID
 
 T = TypeVar("T")
 D = TypeVar("D")

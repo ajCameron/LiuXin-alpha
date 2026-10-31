@@ -63,8 +63,7 @@ from LiuXin_alpha.library.caches.calibre.tables.one_one_tables import (
     CalibreCustomColumnsOneToOneTableBool,
 )
 
-from LiuXin_alpha.databases.db_types import MetadataDict
-
+from LiuXin_alpha.databases.db_types.database_types import MetadataDict
 
 # Types of table
 

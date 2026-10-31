@@ -18,8 +18,7 @@ from LiuXin_alpha.errors import NoSuchPropertyForLinkException
 
 if TYPE_CHECKING:
     from LiuXin_alpha.databases.api import DatabaseAPI
-    from LiuXin_alpha.databases.db_types import MainTableName, InterlinkTableID
-
+    from LiuXin_alpha.databases.db_types.database_types import MainTableName, InterlinkTableID
 
 
 class RowAPI(abc.ABC):

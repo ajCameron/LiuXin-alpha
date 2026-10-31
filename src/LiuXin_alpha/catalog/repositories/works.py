@@ -51,6 +51,20 @@ class WorkRepository(BaseRepository):
         "discovery_note": "work_discovery_note",
     }
 
+    def set_original_language(
+        self, work_id: EntityId, language_id: EntityId | None
+    ) -> None:
+        """Set or clear the Work's original language inside one transaction.
+
+        Require both referenced rows before changing the Work. Expression
+        languages and any additional language relationships are preserved.
+        """
+        with self._macros.transaction():
+            self.require(work_id)
+            if language_id is not None:
+                self._require_table_row("languages", language_id)
+            self.update(work_id, {"original_language_id": language_id})
+
     def find_by_title(self, title: str, *, limit: int = 20) -> Sequence[RowMapping]:
         """
         Find Works by normalized preferred or canonical title in ID order.

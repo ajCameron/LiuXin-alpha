@@ -131,24 +131,6 @@ class DatabaseAPI(
         :raises AssertionError: new_macros is None.
         """
 
-    @abc.abstractmethod
-    def set_metadata_sql(self, new_metadata_sql: "MetadataSQLAPI") -> None:
-        """
-        Replace the metadata SQL reference after rejecting None.
-
-        Abstract declaration; subclasses supply the operation. In the concrete Database
-        implementation: No back-reference or other collaborator is updated here.
-
-        Example:
-            During custom assembly, db.set_metadata_sql(helper) retains helper; the
-            caller must arrange its db binding.
-
-
-        :param new_metadata_sql: Metadata SQL helper to retain directly.
-        :return: None.
-        :raises AssertionError: new_metadata_sql is None.
-        """
-
     @property
     @abc.abstractmethod
     def driver(self) -> "DatabaseDriverAPI":
@@ -199,19 +181,18 @@ class DatabaseAPI(
 
     @property
     @abc.abstractmethod
-    def metadata_sql(self) -> "MetadataSQLAPI":
+    def metadata_sql(self) -> MetadataSQLAPI | None:
+        """Return table-scoped SQL helpers, or None before binding/after cleanup.
+
+        The helper addresses physical rows and joins portable transactions.
+        Bibliographic interpretation and compatibility projections belong to Catalog.
         """
-        Return the helper used for metadata-aware SQL operations.
 
-        Abstract declaration; subclasses supply the operation. In the concrete Database
-        implementation: Return the helper used for metadata-aware SQL operations.
+    @abc.abstractmethod
+    def set_metadata_sql(self, new_metadata_sql: MetadataSQLAPI) -> None:
+        """Retain a non-None table-query helper without rebinding its owner.
 
-        Example:
-            For an initialized db, db.metadata_sql.db refers back to the owning facade.
-
-
-        :return: Current MetadataSQL collaborator, or None before binding or after
-            cleanup.
+        Construction and runtime rebinding arrange the helper's db reference.
         """
 
     # These are commonly present on the concrete Database, but are not required for all fakes.

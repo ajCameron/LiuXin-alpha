@@ -22,12 +22,7 @@ if TYPE_CHECKING:
         OneManyInterLinkTableUpdateResults,
     )
     from LiuXin_alpha.databases.api.row_api import InterlinkRowAPI, RowAPI
-    from LiuXin_alpha.databases.db_types import (
-        DstTableID,
-        InterlinkTableID,
-        SrcTableID,
-        TableColumnName,
-    )
+    from LiuXin_alpha.databases.db_types.database_types import InterlinkTableID, TableColumnName, SrcTableID, DstTableID
 
 
 @dataclasses.dataclass(slots=True)

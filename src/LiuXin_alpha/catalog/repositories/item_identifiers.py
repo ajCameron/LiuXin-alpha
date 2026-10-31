@@ -147,7 +147,7 @@ class ItemIdentifierRepository(BaseRepository):
         """
         Require an Item and return its observation rows in repository-ID order.
 
-        Read all observation rows and filter exact ownership in Python. No normalization,
+        Filter stored ownership in SQL. No normalization,
         deduplication, provenance filtering, or enclosing snapshot transaction is added.
         A missing Item raises even if no observations would match.
 
@@ -161,9 +161,10 @@ class ItemIdentifierRepository(BaseRepository):
 
         self._require_table_row("items", item_id)
         return tuple(
-            row
-            for row in self._all_rows()
-            if row.get("item_identifier_item_id") == item_id
+            self._as_mapping(row)
+            for row in self.db.metadata_sql.get_item_identifiers_for_items([item_id])[
+                item_id
+            ]
         )
 
 

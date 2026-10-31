@@ -230,6 +230,31 @@ class IdentifierRepositoryAPI(BaseRepositoryAPI, Protocol):
         :raises Exception: Owner validation and identifier-read failures propagate.
         """
 
+    def list_for_level(self, level: WemiLevel) -> Sequence[RowMapping]:
+        """Read primary and alternative curated identifiers at one WEMI level."""
+
+    def clear_for_wemi(
+        self, *, level: WemiLevel, entity_id: EntityId, scheme: str | None = None
+    ) -> None:
+        """Atomically clear an owner's identifiers or one normalized scheme.
+
+        Generic isbn clears both lengths; missing owners raise CatalogNotFoundError.
+        """
+
+    def set_primary_for_wemi(
+        self,
+        *,
+        level: WemiLevel,
+        entity_id: EntityId,
+        scheme: str,
+        value: str | None,
+    ) -> EntityId | None:
+        """Validate and promote a value atomically, preserving alternatives.
+
+        Equivalent owned values reuse their ID. None clears the selected scheme;
+        blank strings are invalid. Return the selected ID, or None after clearing.
+        """
+
     def replace_for_wemi(
         self,
         *,

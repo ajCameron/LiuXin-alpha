@@ -28,7 +28,7 @@ if TYPE_CHECKING:
         StorageCacheSingleTableAPI,
     )
     from LiuXin_alpha.catalog.api.field_metadata_api import FieldMetadataAPI
-    from LiuXin_alpha.databases.db_types import MainTableID, MainTableName
+    from LiuXin_alpha.databases.db_types.database_types import MainTableID, MainTableName
 
 T = TypeVar("T")
 

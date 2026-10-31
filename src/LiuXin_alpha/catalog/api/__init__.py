@@ -21,6 +21,8 @@ for validation, copying, persistence, and identity-decision behavior.
 """
 
 from .catalog import CatalogAPI
+from .search import CatalogSearchAPI
+from .calibre import CalibreCompatibilityAPI
 from .common import (
     CatalogAmbiguousMatchError,
     CatalogError,
@@ -82,6 +84,8 @@ __all__ = [
     "BackendGetterAPI",
     "CalibreFieldMetadataAPI",
     "CatalogAPI",
+    "CatalogSearchAPI",
+    "CalibreCompatibilityAPI",
     "CatalogAmbiguousMatchError",
     "CatalogError",
     "CatalogMatchConflictError",

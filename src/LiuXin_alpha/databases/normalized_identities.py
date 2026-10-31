@@ -1,11 +1,39 @@
 """
 Declare and derive normalized identities for selected database display values.
 
-Identity policy is narrower than case-insensitive search. Built-in declarations cover
-relation values such as tags, scoped genres/subjects and named policies; Work titles and
-Agent names are not identities merely because they support normalized search.
-Preparation reads schema declarations and delegates text normalization to metadata; it
-does not persist rows.
+Define which spelling differences count as the same stored value while preserving
+the original display text. A derived comparison key lets lookups and uniqueness
+constraints recognize equivalent values across different write paths.
+
+Example:
+    >>> add_derived_identity_values("tags", {"tag": "  Science   Fiction "})
+    {'tag': '  Science   Fiction ', 'tag_phash': 'science fiction'}
+    >>> add_derived_identity_values("tags", {"tag": "SCIENCE FICTION"})["tag_phash"]
+    'science fiction'
+
+Despite historical names such as tag_phash, these keys contain normalized text. The
+built-in tag policy applies Unicode normalization, case folding and whitespace
+normalization, retaining the supplied tag text separately.
+
+NormalizedIdentitySpec declares the display column, derived key column, normalization
+profile, optional scope columns and requested uniqueness. Genre and subject identities
+include their parent ID, so the same normalized name can exist under different parents.
+Other built-in declarations cover labels, series, custom-column names and named backup
+and replication policies. Work titles and Agent names are deliberately excluded:
+different Works can share a title, and different people can share a name. Supporting
+normalized search on a column does not make it an identity.
+
+The module also serializes declarations to and from the normalized_identities table.
+prepare_normalized_values uses a database's persisted declarations when available;
+built-in defaults support older schemas and lightweight adapters. An existing but empty
+declaration table remains authoritative. Inserts and updates receive copied mappings
+with derived keys prepared consistently. A key-only update can read the stored display
+value on the writer's connection to recompute its key.
+
+Actual string transformations live in metadata.text_identity. This module connects
+those policies to the storage schema and prepares values; it does not persist rows or
+enforce uniqueness itself. Writers perform the inserts and updates, while schema and
+migration consumers create the constraints that enforce declared uniqueness.
 """
 
 from __future__ import annotations
@@ -15,7 +43,7 @@ from dataclasses import dataclass
 import json
 from typing import Any
 
-from LiuXin_alpha.databases.column_metadata import ColumnNormalizationProfile
+from LiuXin_alpha.metadata.value_policies import ColumnNormalizationProfile
 from LiuXin_alpha.errors import InputIntegrityError
 
 

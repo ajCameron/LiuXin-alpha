@@ -31,7 +31,8 @@ from LiuXin_alpha.library.caches.calibre.tables.many_many_tables import (
 )
 from LiuXin_alpha.library.caches.calibre.fields import BaseField
 
-from LiuXin_alpha.databases.db_types import MainTableName, InterLinkTableName, TableColumnName, SrcTableID, DstTableID
+from LiuXin_alpha.databases.db_types.database_types import MainTableName, InterLinkTableName, TableColumnName, \
+    SrcTableID, DstTableID
 
 T = TypeVar("T")
 

@@ -401,20 +401,20 @@ class Apply(LabelApplyMixin):
     @atomic_write
     def primary_language(self, language, title_row):
         """
-        Set a legacy title's primary Language through metadata_sql.
+        Set a Work's original language through its Catalog repository.
 
-        Example:
-            This method does not return an interlink Row or suppress SQL failures.
-
-
-        :param language: Concrete Language Row, asserted before use.
-        :param title_row: Title Row whose row_id identifies the title.
-        :return: None; forwards title and Language row IDs.
-        :raises AssertionError: Language is not a concrete Row, when assertions are enabled.
+        Accept Language Rows and Work Rows or compatibility Title Rows. This
+        changes the Work foreign key, preserving Expression languages and
+        additional language relationships. Invalid/missing rows fail before
+        any change. The adapter returns no link Row.
         """
-        assert isinstance(language, Row), "must pass the language in the form of a row"
-
-        self.db.metadata_sql.set_title_primary_language(title_id=title_row.row_id, lang_id=language.row_id)
+        if not isinstance(language, Row) or language.table != "languages":
+            raise TypeError("language must be a Language Row")
+        if not isinstance(title_row, Row) or title_row.table not in {"titles", "works"}:
+            raise TypeError("title_row must be a Work or compatibility Title Row")
+        repository_for(self, "works").set_original_language(
+            title_row.row_id, language.row_id
+        )
 
     # ------------------------------------------------------------------------------------------------------------------
 

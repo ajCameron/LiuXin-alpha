@@ -18,7 +18,7 @@ from _catalog_example_utils import (
     open_catalog_example,
 )
 
-from LiuXin_alpha.databases.macro_types import LinkValue
+from LiuXin_alpha.databases.db_types.macro_types import LinkValue
 
 
 def parse_args() -> argparse.Namespace:

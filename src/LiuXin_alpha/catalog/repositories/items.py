@@ -8,11 +8,18 @@ Persistence uses portable database macros, with no lifetime ownership of the dat
 
 from __future__ import annotations
 
-from typing import ClassVar, Mapping, Sequence
+from collections.abc import Mapping, Sequence
+from typing import ClassVar
 
-from ..api.common import EntityId, MetadataCandidate, MatchResult, RowMapping, WemiBundle
-from .base import BaseRepository
+from ..api.common import (
+    EntityId,
+    MatchResult,
+    MetadataCandidate,
+    RowMapping,
+    WemiBundle,
+)
 from ..matching.policy import contextual_match, raise_for_unresolved
+from .base import BaseRepository
 
 
 class ItemRepository(BaseRepository):
@@ -53,7 +60,7 @@ class ItemRepository(BaseRepository):
         """
         Read Items whose direct parent column refers to an existing Manifestation.
 
-        Require the Manifestation first, then ask macros for rows filtered by item_manifestation_id
+        Require the Manifestation first, then use its table SQL owner to filter item_manifestation_id
         and ordered by item_id. Return shallow dictionaries without adding _catalog_link metadata:
         this ownership uses an Item column, not a separate traversed relationship row. There is no
         page limit or enclosing transaction across parent validation and the Item query.
@@ -69,11 +76,9 @@ class ItemRepository(BaseRepository):
         """
 
         self._require_table_row("manifestations", manifestation_id)
-        rows = self._macros.get_rows(
-            self.table_name,
-            where={"item_manifestation_id": manifestation_id},
-            order_by=(self.id_column,),
-        )
+        rows = self.db.metadata_sql.get_items_for_manifestations([manifestation_id])[
+            manifestation_id
+        ]
         return tuple(self._as_mapping(row) for row in rows)
 
     def manifestation_for_item(self, item_id: EntityId) -> RowMapping | None:

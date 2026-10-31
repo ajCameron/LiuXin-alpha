@@ -34,6 +34,14 @@ class WorkRepositoryAPI(BaseRepositoryAPI, Protocol):
         >>> rows = repository.find_by_title("Frankenstein")  # doctest: +SKIP
     """
 
+    def set_original_language(
+        self, work_id: EntityId, language_id: EntityId | None
+    ) -> None:
+        """Atomically set/clear an existing Work's validated original Language.
+
+        Expression languages and additional relationships remain unchanged.
+        """
+
     def find_by_title(self, title: str, *, limit: int = 20) -> Sequence[RowMapping]:
         """
         Find Works by normalized preferred or canonical title in ID order.

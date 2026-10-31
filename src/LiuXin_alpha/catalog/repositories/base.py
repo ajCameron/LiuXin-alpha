@@ -14,9 +14,13 @@ from collections.abc import Mapping, Sequence
 from contextlib import nullcontext
 from typing import TYPE_CHECKING, Any, ClassVar
 
-from LiuXin_alpha.databases.macro_types import LINK_TYPE_UNSET, LinkRow, LinkValue
-from LiuXin_alpha.databases.schema_specs import StorageLinkSpec
+from LiuXin_alpha.databases.db_types.macro_types import (
+    LINK_TYPE_UNSET,
+    LinkedTableRow,
+    LinkRow,
+)
 from LiuXin_alpha.databases.normalized_identities import prepare_normalized_values
+from LiuXin_alpha.databases.schema_specs import StorageLinkSpec
 from LiuXin_alpha.metadata.text_identity import normalize_identity_text
 
 from ..api.common import (
@@ -791,8 +795,10 @@ class BaseRepository:
         """
         Fetch related rows and attach each traversed link's metadata.
 
-        Require the primary endpoint, resolve the directional spec, then fetch each linked secondary
-        row separately in macro link order. Do not deduplicate rows reached by multiple links.
+        Require the primary endpoint and resolve the directional spec. Declared
+        table SQL readers batch destinations; custom or unsupported destinations
+        retain individual row reads. Preserve macro link order and do not
+        deduplicate rows reached by multiple links.
         Replace any existing _catalog_link key in each shallow row copy. A missing secondary raises
         rather than yielding a partial sequence or silently dropping the relationship.
 
@@ -816,13 +822,37 @@ class BaseRepository:
         """
         self._require_table_row(primary_table, primary_id)
         spec = self._link_spec(primary_table, secondary_table)
-        result: list[RowMapping] = []
-        for link in self._macros.get_link_rows(
-            spec,
-            primary_id,
-            link_type=link_type,
+        reader_name = {
+            ("works", "expressions"): "get_expressions_for_work",
+            ("expressions", "works"): "get_works_for_expression",
+            ("expressions", "manifestations"): "get_manifestations_for_expression",
+            ("manifestations", "expressions"): "get_expressions_for_manifestation",
+        }.get((primary_table, secondary_table))
+        if reader_name is not None:
+            records = getattr(self.db.metadata_sql, reader_name)(
+                primary_id, link_type=link_type
+            )
+        elif callable(
+            reader := getattr(
+                getattr(self.db, "metadata_sql", None),
+                f"get_{secondary_table}_linked_from",
+                None,
+            )
         ):
-            row = self._macros.get_row(secondary_table, link.secondary_id)
+            records = reader(primary_table, primary_id, link_type=link_type)
+        else:
+            # Keep scalar reads lazy so an absent row still fails before later reads.
+            records = (
+                LinkedTableRow(
+                    link, self._macros.get_row(secondary_table, link.secondary_id)
+                )
+                for link in self._macros.get_link_rows(
+                    spec, primary_id, link_type=link_type
+                )
+            )
+        result: list[RowMapping] = []
+        for record in records:
+            link, row = record.link, record.row
             if not row:
                 raise CatalogNotFoundError(
                     f"{secondary_table} row linked from {primary_table}:"

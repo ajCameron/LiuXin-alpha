@@ -4,13 +4,11 @@ Coordinate legacy many-to-many cache updates and specialized Catalog link writes
 
 from __future__ import division, absolute_import, print_function, unicode_literals
 
-from copy import deepcopy
-
 from LiuXin_alpha.caches.write.base_writer import BaseWriter
 from LiuXin_alpha.catalog.catalog import Catalog
 from LiuXin_alpha.catalog.api.common import MetadataCandidate
 from LiuXin_alpha.caches.write.utils import UpdateDict
-from LiuXin_alpha.databases.macro_types import LinkValue
+from LiuXin_alpha.databases.db_types.macro_types import LinkValue
 from LiuXin_alpha.errors import InvalidUpdate, NotInCache
 from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems, dict_itervalues as itervalues, \
     basestring
@@ -155,7 +153,7 @@ class ManyToManyWriter(BaseWriter):
         if field.name == "tags":
             for target_book_id, update_form in iteritems(book_id_val_map):
                 if isinstance(update_form, set):
-                    db.metadata_sql.break_generic_link(
+                    db.macros.delete_link_rows(
                         link_table="tag_title_links",
                         link_col="tag_title_link_title_id",
                         remove_id=target_book_id,
@@ -623,53 +621,33 @@ class ManyToManyWriter(BaseWriter):
         deleted=None,
         link_type=None,
     ):
+        """Replace Series memberships for explicit Work IDs in one transaction.
+
+        Values are a Series ID or list of IDs. Deletions override updates for the
+        same Work. The current relationship has no sequence-position column;
+        this hook neither copies legacy indices nor treats priority as position.
+        Calibre Expression/ray references must be resolved before this boundary.
+        Catalog.series.replace_for_works owns the batch and preserves retained
+        link metadata; input order does not reorder existing memberships.
+
+        :param db: Database owning the Catalog writer.
+        :param table: Unused compatibility argument.
+        :param field: Unused compatibility argument.
+        :param is_custom_series: Unused compatibility argument.
+        :param is_authors: Unused compatibility argument.
+        :param updated: Work IDs mapped to a Series ID or list; None means none.
+        :param deleted: Work IDs whose memberships are cleared.
+        :param link_type: Unused compatibility argument.
+        :return: (None, None); no replacement cache maps.
         """
-        Replace Work-series links while copying the current primary index to each new link.
-
-        Find the first extra link column ending in "_index". When both that column and the current primary series index exist, include that index in every replacement LinkValue for the Work. Only lists expand; other values form a single element. Deletions override updates for the same Work, and all replacements are sent in one writer.write call if nonempty.
-
-        Example:
-            With primary index 2.0, ``do_series_many_many_db_update(db, updated={7: [4, 5]})`` attaches that index to both new links when the schema exposes an index column.
-
-
-        :param db: Database adapter used by the selected persistence helpers; errors propagate.
-        :param table: Compatibility argument not used by this helper.
-        :param field: Compatibility argument not used by this helper.
-        :param is_custom_series: Compatibility argument not used by this helper.
-        :param is_authors: Compatibility argument not used by this helper.
-        :param updated: Required mapping of Work IDs to a series ID or list of IDs; the None default is not handled.
-        :param deleted: Work IDs whose series links are cleared; None means none.
-        :param link_type: Compatibility argument not used by this helper.
-        :return: (None, None); this helper returns no replacement cache maps.
-        """
-        catalog = Catalog(db)
-        writer = catalog.create_writer("works", "series")
-        index_column = next(
-            (
-                column.name
-                for column in writer.link_spec.extra_link_columns
-                if column.name.endswith("_index")
-            ),
-            None,
-        )
         replacements = {}
-        for book_id, raw_ids in iteritems(updated):
+        for work_id, raw_ids in iteritems(updated or {}):
             series_ids = tuple(raw_ids) if isinstance(raw_ids, list) else (raw_ids,)
-            series_index = db.metadata_sql.get_primary_series_index(book_id)
-            extra = (
-                {index_column: series_index}
-                if index_column is not None and series_index is not None
-                else {}
-            )
-            replacements[book_id] = tuple(
-                LinkValue(series_id, extra=extra)
-                for series_id in series_ids
-            )
-        for book_id in deleted or ():
-            replacements[book_id] = ()
+            replacements[work_id] = series_ids
+        for work_id in deleted or ():
+            replacements[work_id] = ()
         if replacements:
-            writer.write(replacements)
-
+            Catalog(db).series.replace_for_works(replacements)
         return None, None
 
     @staticmethod
@@ -677,7 +655,7 @@ class ManyToManyWriter(BaseWriter):
         """
         Clear deleted and updated owner links, then insert flattened unprioritized pairs.
 
-        Call break_generic_link for deleted IDs first, flatten updated values into (book_id, value) pairs, then clear updated IDs and call make_generic_link_no_priority with the table column arguments in their existing order. No value resolution, cache update or transaction is supplied here. This compatibility helper is distinct from the inherited default db_update_links hook.
+        Call delete_link_rows for deleted IDs first, flatten updated values into (book_id, value) pairs, then clear updated IDs and call make_generic_link_no_priority with the table column arguments in their existing order. No value resolution, cache update or transaction is supplied here. This compatibility helper is distinct from the inherited default db_update_links hook.
 
         Example:
             For ``updated={7: [4, 5]}``, the insertion payload contains (7, 4) and (7, 5) after existing links for Work 7 are cleared.
@@ -692,11 +670,11 @@ class ManyToManyWriter(BaseWriter):
         :param is_custom_series: Compatibility argument not used by this helper.
         :return: None; any described database/cache mutations happen in place.
         """
-        db.metadata_sql.break_generic_link(table.link_table, table.link_table_bt_id_column, tuple(k for k in deleted))
+        db.macros.delete_link_rows(table.link_table, table.link_table_bt_id_column, tuple(k for k in deleted))
 
         vals = tuple((book_id, val) for book_id, vals in iteritems(updated) for val in vals)
 
-        db.metadata_sql.break_generic_link(table.link_table, table.link_table_bt_id_column, tuple(k for k in updated))
+        db.macros.delete_link_rows(table.link_table, table.link_table_bt_id_column, tuple(k for k in updated))
 
         db.macros.make_generic_link_no_priority(
             table.link_table,
@@ -707,19 +685,20 @@ class ManyToManyWriter(BaseWriter):
 
     @staticmethod
     def language_many_many_db_clean_links(db, table, deleted):
+        """Clear primary Expression languages through the Calibre policy.
+
+        Preserve Work original-language values and other language links. Keys
+        must be Expression references or validated W:E:M rays. The batch is
+        atomic; bare legacy integers require an explicit identity conversion.
+
+        :param db: Database borrowed by Catalog.
+        :param table: Retained compatibility argument.
+        :param deleted: Iterable of compatibility references.
+        :return: None.
         """
-        Delegate removal of primary language links for the supplied book IDs.
-
-        Example:
-            ``language_many_many_db_clean_links(db, table, {7, 8})`` passes IDs 7 and 8 to break_lang_title_primary_link.
-
-
-        :param db: Database adapter used by the selected persistence helpers; errors propagate.
-        :param table: Compatibility argument not used by this helper.
-        :param deleted: Iterable of book IDs forwarded as a generator.
-        :return: None; any described database/cache mutations happen in place.
-        """
-        db.metadata_sql.break_lang_title_primary_link((k for k in deleted))
+        values = {key: None for key in deleted}
+        if values:
+            Catalog(db).calibre.write_field("language", values)
 
     @staticmethod
     def generic_many_many_db_clean_links(db, table, deleted):
@@ -741,10 +720,10 @@ class ManyToManyWriter(BaseWriter):
         """
         Delegate target-ID cleanup or the creator-wide unused-item cleanup hook.
 
-        The non-author branch passes table.lx_table_name directly to break_generic_link; it does not derive a link-table name. The author branch ignores remove. generic_many_many retains this hook but its removal call is currently commented out.
+        The non-author branch passes table.lx_table_name directly to delete_link_rows; it does not derive a link-table name. The author branch ignores remove. generic_many_many retains this hook but its removal call is currently commented out.
 
         Example:
-            With is_authors=True, ``writer.generic_many_many_db_remove_links(db, table, field, ids, True)`` invokes creator_clear_unused regardless of ids.
+            With is_authors=True, cleanup raises NotImplementedError before accessing the database; Agent retention requires a policy covering all references.
 
 
         :param db: Database adapter used by the selected persistence helpers; errors propagate.
@@ -755,7 +734,7 @@ class ManyToManyWriter(BaseWriter):
         :return: None; any described database/cache mutations happen in place.
         """
         if not is_authors:
-            db.metadata_sql.break_generic_link(
+            db.macros.delete_link_rows(
                 table.lx_table_name,
                 table.table_id_col,
                 ((item_id,) for item_id in remove),
@@ -765,19 +744,11 @@ class ManyToManyWriter(BaseWriter):
 
     @staticmethod
     def do_creators_many_many_clear_unused(db, table, field):
-        """
-        Invoke the database creator cleanup operation.
-
-        Example:
-            ``do_creators_many_many_clear_unused(db, table, field)`` delegates to db.metadata_sql.creator_clear_unused().
-
-
-        :param db: Database adapter used by the selected persistence helpers; errors propagate.
-        :param table: Compatibility argument not used by this helper.
-        :param field: Compatibility argument not used by this helper.
-        :return: None; any described database/cache mutations happen in place.
-        """
-        db.metadata_sql.creator_clear_unused()
+        """Reject role-specific cleanup without changing database or cache."""
+        raise NotImplementedError(
+            "Legacy creator/publisher cleanup is retired. Agent retention must "
+            "consider every role, WEMI level and reference before deletion."
+        )
 
     @staticmethod
     def get_language_id(
@@ -872,21 +843,11 @@ class ManyToManyWriter(BaseWriter):
     # Todo: Merge into a single generic method with the creators version
     @staticmethod
     def do_publisher_many_one_clear_unused(db, table, field):
-        """
-        Invoke the database publisher cleanup operation.
-
-        Selected as a publisher cleanup hook, but generic_many_many currently does not call it.
-
-        Example:
-            ``do_publisher_many_one_clear_unused(db, table, field)`` delegates to publisher_clear_unused().
-
-
-        :param db: Database adapter used by the selected persistence helpers; errors propagate.
-        :param table: Compatibility argument not used by this helper.
-        :param field: Compatibility argument not used by this helper.
-        :return: None; any described database/cache mutations happen in place.
-        """
-        db.metadata_sql.publisher_clear_unused()
+        """Reject role-specific cleanup without changing database or cache."""
+        raise NotImplementedError(
+            "Legacy creator/publisher cleanup is retired. Agent retention must "
+            "consider every role, WEMI level and reference before deletion."
+        )
 
     @staticmethod
     def dummy_many_one_clear_unused(db, table, field):

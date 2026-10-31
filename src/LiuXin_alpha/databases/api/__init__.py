@@ -72,11 +72,11 @@ __all__ = [
     "DatabaseTriggerHelpersAPI",
     "DatabaseLinkedRowsMixinAPI",
     "MacrosAPI",
+    "MetadataSQLAPI",
     "MaintenanceBotAPI",
     "MaintenanceCallbackSinkAPI",
     "MaintenancePluginAPI",
     "MaintenanceServiceAPI",
-    "MetadataSQLAPI",
     "PortableMacrosAPI",
     "RowAPI",
 ]

@@ -16,7 +16,7 @@ from dataclasses import dataclass, field
 from types import MappingProxyType
 from typing import TYPE_CHECKING
 
-from LiuXin_alpha.databases.db_types import SrcTableID
+from LiuXin_alpha.databases.db_types.database_types import SrcTableID
 from LiuXin_alpha.databases.schema_specs import (
     StorageColumnSpec,
     StorageTableSpec,

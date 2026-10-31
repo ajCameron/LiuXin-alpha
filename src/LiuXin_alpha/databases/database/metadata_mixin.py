@@ -18,15 +18,17 @@ import uuid
 from copy import deepcopy
 
 from LiuXin_alpha.databases.column_metadata import (
+    ColumnMetadata,
+    ColumnOptions,
+)
+from LiuXin_alpha.metadata.value_policies import (
     ColumnEmptyValuePolicy,
     ColumnMergePolicy,
-    ColumnMetadata,
     ColumnNormalizationProfile,
-    ColumnOptions,
     ColumnSemanticRole,
     ColumnValidationProfile,
 )
-from LiuXin_alpha.databases.macro_types import (
+from LiuXin_alpha.databases.db_types.macro_types import (
     CanonicalIdentity,
     NormalizedIdentityMigrationReport,
 )

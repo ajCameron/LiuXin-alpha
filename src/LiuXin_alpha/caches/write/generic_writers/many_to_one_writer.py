@@ -6,10 +6,10 @@ from __future__ import division, absolute_import, print_function, unicode_litera
 
 import pprint
 from collections import defaultdict
-from copy import deepcopy
 
 from LiuXin_alpha.caches.write.base_writer import BaseWriter
-from LiuXin_alpha.errors import InputIntegrityError
+from LiuXin_alpha.catalog.catalog import Catalog
+from LiuXin_alpha.metadata.calibre_conversion import DEFAULT_CALIBRE_CONVERSION_POLICY
 from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems, basestring, dict_iterkeys as iterkeys
 from LiuXin_alpha.utils.logging import default_log
 from LiuXin_alpha.utils.text.icu import safe_lower
@@ -251,33 +251,25 @@ class ManyToOneWriter(BaseWriter):
 
     @staticmethod
     def do_rating_many_one_db_update(db, table, field, is_custom_series, updated, deleted):
+        """Write policy-scoped Work ratings through explicit book references.
+
+        Values are scores on a ten-point scale, never rating row IDs. Zero or
+        None means unrated. Deletions win when a key occurs in both inputs.
+        Other rating sources are retained. Persistence is one atomic batch;
+        legacy surrounding cache mutation remains the caller's responsibility.
+
+        :param db: Database borrowed by Catalog.
+        :param table: Retained compatibility argument.
+        :param field: Retained compatibility argument.
+        :param is_custom_series: Retained compatibility argument.
+        :param updated: Expression/ray references mapped to rating values.
+        :param deleted: Compatibility references whose policy rating is cleared.
+        :return: (None, None), preserving the legacy hook's return shape.
         """
-        Set requested title ratings, then clear deleted ratings with zero.
-
-        Updates run before deletions, so an ID present in both ends at zero. This helper performs no independent range validation or cache refresh.
-
-        Example:
-            ``do_rating_many_one_db_update(db, table, field, False, {7: 8}, {9})`` sets rating 8 for book 7 and zero for book 9.
-
-
-        :param db: Database adapter used by the selected persistence helpers; errors propagate.
-        :param table: Compatibility argument not used by this helper.
-        :param field: Compatibility argument not used by this helper.
-        :param is_custom_series: Compatibility argument not used by this helper.
-        :param updated: Book IDs mapped to rating values passed unchanged to metadata_sql.
-        :param deleted: Book IDs whose rating is subsequently set to zero.
-        :return: (None, None); this helper returns no replacement cache maps.
-        """
-        # Preform updates on all the links which haven't been broken
-        for book_id in updated:
-            book_val = updated[book_id]
-            db.metadata_sql.set_title_rating(book_id, book_val)
-
-        # Break any links which have been marked to be deleted
-        for book_id in deleted:
-            db.metadata_sql.set_title_rating(book_id, 0)
-
-        # Todo: This is a problem that needs to be fixed - by returning the maps - later
+        values = dict(updated)
+        values.update((key, None) for key in deleted)
+        if values:
+            Catalog(db).calibre.write_field("rating", values)
         return None, None
 
     def do_generic_many_one_db_update(self, db, table, field, is_custom_series, updated, deleted, link_type=None):
@@ -303,10 +295,10 @@ class ManyToOneWriter(BaseWriter):
         # Update the db link table - remove all the links to the book
         if deleted:
             # Todo: Neither of these forms seem to actually work - fix this
-            # db.metadata_sql.break_generic_link(table.link_table, table.link_table_bt_id_column, ((k,) for k in deleted))
-            # db.metadata_sql.break_generic_link(table.link_table, table.link_table_bt_id_column, (k for k in deleted))
+            # db.macros.delete_link_rows(table.link_table, table.link_table_bt_id_column, ((k,) for k in deleted))
+            # db.macros.delete_link_rows(table.link_table, table.link_table_bt_id_column, (k for k in deleted))
             for del_id in deleted:
-                db.metadata_sql.break_generic_link(table.link_table, table.link_table_bt_id_column, del_id)
+                db.macros.delete_link_rows(table.link_table, table.link_table_bt_id_column, del_id)
 
         if updated:
             if is_custom_series:
@@ -326,7 +318,7 @@ class ManyToOneWriter(BaseWriter):
                     if isinstance(book_val, int):
 
                         # About to write a new link - so all old links - regardless of type - must be broken
-                        db.metadata_sql.break_generic_link(table.link_table, table.link_table_bt_id_column, book_id)
+                        db.macros.delete_link_rows(table.link_table, table.link_table_bt_id_column, book_id)
 
                         title_row = db.get_row_from_id("titles", row_id=book_id)
                         book_row = db.get_row_from_id(table.name, row_id=book_val)
@@ -356,7 +348,7 @@ class ManyToOneWriter(BaseWriter):
                     elif book_val is None:
 
                         # Nullify the link for the specified type - or the whole thing
-                        db.metadata_sql.break_generic_link(
+                        db.macros.delete_link_rows(
                             table.link_table,
                             table.link_table_bt_id_column,
                             book_id,
@@ -395,7 +387,7 @@ class ManyToOneWriter(BaseWriter):
         """
         Remove cached unused target IDs after delegating database cleanup.
 
-        Select IDs whose reverse membership is absent or false. Pass singleton ID tuples to break_generic_link using metadata.table directly, then delete those IDs from id_map and col_book_map. This does not independently verify storage references; a database failure prevents the subsequent cache removals.
+        Select IDs whose reverse membership is absent or false. Pass singleton ID tuples to delete_link_rows using metadata.table directly, then delete those IDs from id_map and col_book_map. This does not independently verify storage references; a database failure prevents the subsequent cache removals.
 
         Example:
             If cached ID 4 has no reverse membership, ``generic_many_one_clear_unused(db, table, field)`` submits it for cleanup and then removes its cache entries.
@@ -410,7 +402,7 @@ class ManyToOneWriter(BaseWriter):
         if remove:
             m = field.metadata
             table_id = m["table_id"] if "table_id" in m.keys() else "id"
-            db.metadata_sql.break_generic_link(m["table"], table_id, ((item_id,) for item_id in remove))
+            db.macros.delete_link_rows(m["table"], table_id, ((item_id,) for item_id in remove))
 
             # Todo: This needs to be in the table rather than in write - seperation of concerns
             for item_id in remove:
@@ -502,60 +494,23 @@ class ManyToOneWriter(BaseWriter):
     # Todo: Probably needs to be in the ensure method
     @staticmethod
     def get_rating_id(
-        val,
-        db,
-        m,
-        table,
-        kmap,
-        rid_map,
-        allow_case_change,
-        case_changes,
-        val_map,
-        is_authors=False,
-        id_map_update=None,
+        val, db, m, table, kmap, rid_map, allow_case_change, case_changes,
+        val_map, is_authors=False, id_map_update=None,
     ):
-        """
-        Map a false value to None or an integer-convertible rating to the range 1–10.
+        """Validate a compatibility score without manufacturing a rating-row ID.
 
-        False values map to None without int conversion. Other values pass through int, so fractional numbers are truncated and True becomes 1. The converted result must be 1–10. No database lookup, case update or id_map_update change occurs; the original value must be a usable dictionary key.
+        Use the same ten-point value policy as persistence: retain fractions,
+        clear zero/None and reject booleans or invalid ranges. All arguments
+        except val and val_map are retained for the legacy matcher protocol.
 
         Example:
             >>> values = {}
-            >>> ManyToOneWriter.get_rating_id("8", None, None, None, None, {}, False, {}, values)
+            >>> ManyToOneWriter.get_rating_id("8.5", None, None, None, None, {}, False, {}, values)
             >>> values
-            {'8': 8}
+            {'8.5': 8.5}
 
-
-        :param val: Original rating value, deep-copied before conversion.
-        :param db: Compatibility argument not used by this helper.
-        :param m: Compatibility argument not used by this helper.
-        :param table: Compatibility argument not used by this helper.
-        :param kmap: Compatibility argument not used by this helper.
-        :param rid_map: Compatibility argument not used by this helper.
-        :param allow_case_change: Compatibility argument not used by this helper.
-        :param case_changes: Compatibility argument not used by this helper.
-        :param val_map: Mutable map receiving the result under the original value.
-        :param is_authors: Compatibility argument not used by this helper.
-        :param id_map_update: Compatibility argument not used by this helper.
-        :return: None; any described database/cache mutations happen in place.
-        :raises InputIntegrityError: The converted integer is outside 1–10.
-        :raises ValueError: int cannot parse the supplied value.
-        :raises TypeError: Conversion or insertion of the original map key is unsupported.
+        :param val: Rating value on the compatibility ten-point scale.
+        :param val_map: Mapping receiving the normalized score, not a row ID.
+        :return: None.
         """
-        # Todo: Needs to do cache update - doesn't currently
-        # Todo: These should really be methods in the cache - it'd be a whole lot more elegant
-
-        old_val = deepcopy(val)
-
-        # Pass False to set the rating for the title null
-        if not val:
-            val_map[val] = None
-            return
-
-        val = int(val)
-        if val not in range(1, 11):
-            err_str = "Cannot set rating - rating must be an integer in the range 1-10"
-            err_str = default_log.log_variables(err_str, "ERROR", ("val", val))
-            raise InputIntegrityError(err_str)
-
-        val_map[old_val] = int(val)
+        val_map[val] = DEFAULT_CALIBRE_CONVERSION_POLICY.prepare("rating", val)

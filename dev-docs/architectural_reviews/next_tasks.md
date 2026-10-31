@@ -470,8 +470,11 @@ or storage orchestration wholesale.
 Inventory actual consumers, persisted/wire names and behaviour before deleting
 or relocating a compatibility implementation. Separate schema descriptors from
 bibliographic/display policy, then extract the appropriate lower-level contract.
-Later slices can migrate MetadataSQL/legacy caches, consolidate specified
-normalization or OPF implementations, and replace obsolete direct macro calls.
+MetadataSQL now exposes 62 physical-table operations; compatibility projections
+and the unused Catalog macros facade were removed on **2026-10-30**. See the
+[owner map](../databases/metadata-sql-wemi-audit-2026-10-29.md#physical-table-sql-boundary--2026-10-30).
+Later slices can migrate remaining legacy cache capabilities, consolidate
+specified normalization or OPF implementations, and replace obsolete direct macro calls.
 Keep intentional legacy behaviour differences explicit until a policy replaces them.
 
 Acquisition deserves a separate decision: ingest should own HTTP/worker workflow,

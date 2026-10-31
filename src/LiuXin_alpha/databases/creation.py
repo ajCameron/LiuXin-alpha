@@ -1,4 +1,5 @@
-"""Publish complete SQLite databases without implicitly replacing caller data.
+"""
+Publish complete SQLite databases without implicitly replacing caller data.
 
 Creation uses an exclusive hard link from a private sibling workspace. Replacement
 is a separate offline operation: the caller must stop all users of the database,
@@ -17,6 +18,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 
+# Todo: These could be public and - probably - in utils
 def _path(value: str | os.PathLike[str]) -> Path:
     """Resolve the parent while retaining the final component for collision checks."""
     path = Path(value).expanduser()
@@ -57,12 +59,18 @@ def _sync(path: Path) -> None:
 def create_sqlite_file(
     path: str | os.PathLike[str], build: Callable[[Path], None]
 ) -> None:
-    """Build privately and publish only if the target is still absent.
+    """
+    Build privately and publish only if the target is still absent.
 
     The builder must close its connections before returning. A failed build or
     publication removes only private scratch; a competing target is never opened
     or deleted. Filesystems without hard-link support fail rather than falling back
     to a check followed by an overwriting rename.
+
+    :param path:
+    :param build:
+
+    :return:
     """
     target = _path(path)
     _require_absent(target)

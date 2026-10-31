@@ -9,7 +9,6 @@ claiming fresh physical verification or complete consistency among persisted evi
 
 from __future__ import annotations
 
-import dataclasses
 import json
 from collections.abc import Iterator
 from typing import Any
@@ -190,12 +189,20 @@ class BackupWorkflowRepository(BackupWorkflowRepositoryAPI):
         """
         workflow_id = int(workflow_id)
         row = self._require_row("backup_workflows", workflow_id)
+        return self._declaration_from_rows(
+            row,
+            self._workflow_rows("backup_workflow_sources", workflow_id),
+        )
+
+    @staticmethod
+    def _declaration_from_rows(row, sources) -> BackupWorkflowDeclaration:
+        """Decode physical workflow/source rows using the backup declaration rules.
+
+        Preserve ordinal ordering and existing truthiness/JSON interpretation.
+        SQL helpers supply rows without choosing or interpreting backup intent.
+        """
         source_rows = sorted(
-            self.db.search(
-                "backup_workflow_sources",
-                "backup_workflow_source_workflow_id",
-                workflow_id,
-            ),
+            sources,
             key=lambda item: int(_value(item, "backup_workflow_source_ordinal") or 0),
         )
         options_raw = _value(row, "backup_workflow_options_json")
@@ -203,16 +210,12 @@ class BackupWorkflowRepository(BackupWorkflowRepositoryAPI):
         staging_raw = _value(row, "backup_workflow_staging_root")
         return BackupWorkflowDeclaration(
             workflow_name=str(_value(row, "backup_workflow_name")),
-            workflow_kind=BackupWorkflowKind(
-                str(_value(row, "backup_workflow_kind"))
-            ),
+            workflow_kind=BackupWorkflowKind(str(_value(row, "backup_workflow_kind"))),
             output_target=_decode_reference(
                 str(_value(row, "backup_workflow_output_url"))
             ),
             sources=tuple(_decode_source(item) for item in source_rows),
-            verify_after_build=bool(
-                _value(row, "backup_workflow_verify_after_build")
-            ),
+            verify_after_build=bool(_value(row, "backup_workflow_verify_after_build")),
             cleanup_staging_after_success=bool(
                 _value(row, "backup_workflow_cleanup_staging_after_success")
             ),
@@ -232,10 +235,10 @@ class BackupWorkflowRepository(BackupWorkflowRepositoryAPI):
         """
         Enumerate workflow IDs in numeric order and reconstruct each selected declaration.
 
-        An omitted status uses the adapter's full-row enumeration; otherwise coerce the status and
-        search its stored value. Materialize/sort workflow rows before yielding, but load each
-        declaration at iteration time. Later reads can fail after earlier yields and do not form a
-        pinned snapshot.
+        Coerce a supplied status and filter its stored value. Production table SQL
+        batches sources for all selected workflows before yielding declarations;
+        lightweight adapters retain per-workflow loading. Decode in workflow-ID
+        order. Reads do not form a pinned snapshot and decoding errors propagate.
 
         Example:
             >>> drafts = list(repository.iter_workflow_declarations(  # doctest: +SKIP
@@ -246,21 +249,37 @@ class BackupWorkflowRepository(BackupWorkflowRepositoryAPI):
         :param status: Optional lifecycle filter; None selects every workflow row.
         :return: Iterator of (integer workflow ID, reconstructed declaration) pairs in numeric-ID order.
         """
-        rows = (
-            self._all_rows("backup_workflows")
-            if status is None
-            else self.db.search(
-                "backup_workflows",
-                "backup_workflow_status",
-                WorkflowStatus(status).value,
+        sql = getattr(self.db, "metadata_sql", None)
+        if sql is not None:
+            rows = sql.get_backup_workflows_by_status(
+                status=None if status is None else WorkflowStatus(status).value,
             )
-        )
+            sources = sql.get_backup_workflow_sources_for_workflows(
+                int(_value(row, "backup_workflow_id")) for row in rows
+            )
+        else:
+            rows = (
+                self._all_rows("backup_workflows")
+                if status is None
+                else self.db.search(
+                    "backup_workflows",
+                    "backup_workflow_status",
+                    WorkflowStatus(status).value,
+                )
+            )
         for row in sorted(
             rows,
             key=lambda item: int(_value(item, "backup_workflow_id")),
         ):
             workflow_id = int(_value(row, "backup_workflow_id"))
-            yield workflow_id, self.load_workflow_declaration(workflow_id)
+            yield (
+                workflow_id,
+                (
+                    self.load_workflow_declaration(workflow_id)
+                    if sql is None
+                    else self._declaration_from_rows(row, sources[workflow_id])
+                ),
+            )
 
     def save_checkpoint(
         self,
@@ -353,11 +372,7 @@ class BackupWorkflowRepository(BackupWorkflowRepositoryAPI):
         """
         workflow_id = int(workflow_id)
         declaration = self.load_workflow_declaration(workflow_id)
-        rows = self.db.search(
-            "backup_workflow_state",
-            "backup_workflow_state_workflow_id",
-            workflow_id,
-        )
+        rows = self._workflow_rows("backup_workflow_state", workflow_id)
         if not rows:
             workflow = self._require_row("backup_workflows", workflow_id)
             return BackupWorkflowCheckpoint(
@@ -460,11 +475,7 @@ class BackupWorkflowRepository(BackupWorkflowRepositoryAPI):
             "backup_workflow_output_url": _encode_reference(output),
             "backup_workflow_output_verified_ok": int(result.successful),
         }
-        existing = self.db.search(
-            "backup_workflow_outputs",
-            "backup_workflow_output_workflow_id",
-            workflow_id,
-        )
+        existing = self._workflow_rows("backup_workflow_outputs", workflow_id)
         if existing:
             self._update_row(existing[-1], values)
         else:
@@ -645,6 +656,26 @@ class BackupWorkflowRepository(BackupWorkflowRepositoryAPI):
         if not rows:
             raise KeyError(f"No database Store row for UUID {store_uuid}.")
         return int(_value(rows[0], "store_id"))
+
+    def _workflow_rows(self, table: str, workflow_id: int):
+        """Read source/state/output rows through their table SQL owner when available.
+
+        Lightweight Row adapters retain their search interface. Decoding and
+        mutation decisions remain in this repository.
+        """
+        reader = getattr(
+            getattr(self.db, "metadata_sql", None),
+            f"get_{table}_for_workflows",
+            None,
+        )
+        if callable(reader):
+            return reader([workflow_id])[workflow_id]
+        prefix = {
+            "backup_workflow_sources": "backup_workflow_source",
+            "backup_workflow_state": "backup_workflow_state",
+            "backup_workflow_outputs": "backup_workflow_output",
+        }[table]
+        return self.db.search(table, f"{prefix}_workflow_id", workflow_id)
 
     def _require_row(self, table: str, row_id: int):
         """

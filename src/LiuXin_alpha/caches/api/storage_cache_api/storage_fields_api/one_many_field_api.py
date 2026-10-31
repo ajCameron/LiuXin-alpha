@@ -26,12 +26,8 @@ if TYPE_CHECKING:
         StorageCacheSingleTableAPI,
     )
     from LiuXin_alpha.databases.api.database_api.database_api import DatabaseAPI
-    from LiuXin_alpha.databases.db_types import (
-        InterlinkExtraTypes,
-        MainTableColumnName,
-        MainTableID,
-        MainTableName,
-    )
+    from LiuXin_alpha.databases.db_types.database_types import MainTableID, MainTableName, MainTableColumnName, \
+        InterlinkExtraTypes
 
 T = TypeVar("T")
 

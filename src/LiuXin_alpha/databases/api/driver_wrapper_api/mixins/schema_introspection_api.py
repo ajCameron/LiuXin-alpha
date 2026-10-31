@@ -15,11 +15,13 @@ from collections.abc import Mapping
 from typing import Iterator, Optional
 
 from LiuXin_alpha.databases.column_metadata import (
+    ColumnMetadata,
+    ColumnOptions,
+)
+from LiuXin_alpha.metadata.value_policies import (
     ColumnEmptyValuePolicy,
     ColumnMergePolicy,
-    ColumnMetadata,
     ColumnNormalizationProfile,
-    ColumnOptions,
     ColumnSemanticRole,
     ColumnValidationProfile,
 )
