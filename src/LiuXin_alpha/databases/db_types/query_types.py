@@ -24,6 +24,12 @@ class MissingSearchReference(DatabaseIntegrityError):
 
 @dataclass(frozen=True, slots=True)
 class TextMatch:
+    """Match a normalized term against any named physical text column.
+
+    Exact matches compare complete keys; other matches search for a literal
+    substring. The caller prepares the term using the shared text policy.
+    """
+
     columns: tuple[str, ...]
     term: str
     exact: bool = False
@@ -31,12 +37,20 @@ class TextMatch:
 
 @dataclass(frozen=True, slots=True)
 class ValueMatch:
+    """Compare one physical column with a bound value; None means SQL NULL."""
+
     column: str
     value: Any
 
 
 @dataclass(frozen=True, slots=True)
 class IdentifierMatch:
+    """Compare stored scheme/value columns with an already-normalized pair.
+
+    Stored values use the shared identifier rules; caller-provided normalized
+    overrides remain authoritative for the requested pair.
+    """
+
     scheme_column: str
     value_column: str
     normalized_scheme: str
@@ -45,12 +59,24 @@ class IdentifierMatch:
 
 @dataclass(frozen=True, slots=True)
 class BooleanMatch:
+    """Combine physical predicates with AND, OR or unary NOT.
+
+    The compiler validates the operator and requires exactly one NOT operand.
+    Empty AND is true; empty OR is false.
+    """
+
     operator: Literal["and", "or", "not"]
     operands: tuple[RowPredicate, ...]
 
 
 @dataclass(frozen=True, slots=True)
 class LinkedMatch:
+    """Require a linked endpoint satisfying a nested physical predicate.
+
+    The declared link specification determines direction and identity. Omitted
+    link_type includes every type; None explicitly selects an untyped value.
+    """
+
     link_spec: StorageLinkSpec
     predicate: RowPredicate
     link_type: object = LINK_TYPE_UNSET
@@ -58,6 +84,12 @@ class LinkedMatch:
 
 @dataclass(frozen=True, slots=True)
 class ForeignMatch:
+    """Follow a physical column equality into another table's predicate.
+
+    require_target requests integrity checking for non-null local references;
+    reverse foreign-key searches can leave it false when having no child is valid.
+    """
+
     table: str
     local_column: str
     remote_column: str

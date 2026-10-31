@@ -188,7 +188,8 @@ relationship constraints.
 The first CI attempt stopped in collection on an undeclared `typing_extensions`
 import and failed API import-footprint checks. The runtime now uses Python 3.12's
 `TypedDict`, and annotation-only imports are deferred. All 25 import budgets pass;
-local collection finds 9,574 tests. The corrected full-suite CI run is pending.
+local collection finds 9,574 tests. Full-suite outcomes and telemetry are tracked
+on PR #152; these selected checks do not replace that run.
 
 `scripts/benchmark_sql_efficiency.py` creates a disposable catalogue, checks
 equivalent result digests, and measures pagination, shared graph traversal,

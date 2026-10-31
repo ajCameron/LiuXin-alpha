@@ -16,7 +16,7 @@ The previously recorded 397 passing selected cases and one expected skip apply
 to the combined worktree, not the intermediate ownership commit in isolation.
 The dirty `LiuXin_alpha_data` submodule is outside this delivery.
 
-## Current verification
+## Validation checkpoints
 
 - No PR existed for `database-review` when this work began.
 - Ownership checkpoint committed as `50782bc6`. The following commit packages
@@ -59,6 +59,14 @@ reduces the lookup from 298 ms to 2 ms. The write benchmark reduces SQL events
 but not latency; operation-scoped normalization-policy preparation is documented
 as the next task. The benchmark script cleans its temporary catalogues. The
 disposable PostgreSQL server is stopped and its data removed; logs remain.
+
+Benchmark and query-plan checkpoint: `5f05efd7`, PR run `41162165268`.
+The documentation gate exposed missing module/value-type docstrings. Those are
+now present, the legacy module description is back at the top of database_types,
+and the redundant typing_extensions fallback is removed. All 13 documentation
+boundary/type-shape regressions pass. Consult the PR's latest checks and final
+description for the full-suite outcome and telemetry; earlier run states above
+describe their respective checkpoints.
 
 Implementation contracts and earlier focused evidence live in
 `dev-docs/databases/sql-efficiency-2026-10-31.md`.

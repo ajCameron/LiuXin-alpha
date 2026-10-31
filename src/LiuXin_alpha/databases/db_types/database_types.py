@@ -1,3 +1,13 @@
+"""
+Define legacy database aliases and SQLite capability protocols.
+
+IDs and names are ordinary int/str aliases, and TypedDict records remain ordinary
+dictionaries at runtime. The SQLite protocols describe broad or narrow host interfaces
+without constructing connections or checking optional build/version capabilities.
+Attribute documentation strings are retained separately from declaration docs.
+Bibliographic vocabularies belong to ``LiuXin_alpha.metadata``.
+"""
+
 from __future__ import annotations
 
 import sqlite3
@@ -29,21 +39,8 @@ AgentID = int
 
 
 
-"""
-Define legacy database aliases and SQLite capability protocols.
-
-IDs and names are ordinary int/str aliases, and TypedDict records remain ordinary
-dictionaries at runtime. The SQLite protocols describe broad or narrow host interfaces
-without constructing connections or checking optional build/version capabilities.
-Attribute documentation strings are retained separately from declaration docs.
-Bibliographic vocabularies belong to ``LiuXin_alpha.metadata``.
-"""
 
 
-try:
-    from typing_extensions import TypedDict, NotRequired
-except ImportError:
-    from typing import TypedDict, NotRequired
 
 # Keyed with the book_id and valued with a list of the languages for that book - or None
 

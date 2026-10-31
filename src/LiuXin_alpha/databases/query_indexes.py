@@ -20,6 +20,12 @@ from LiuXin_alpha.errors import DatabaseIntegrityError
 
 @dataclass(frozen=True, slots=True)
 class QueryIndex:
+    """Declare one nonunique physical index and the columns it depends on.
+
+    Expressions, when supplied, replace plain column keys in SQLite DDL. Audits
+    compare definitions before adopting an existing index with the same name.
+    """
+
     name: str
     table: str
     columns: tuple[str, ...]
