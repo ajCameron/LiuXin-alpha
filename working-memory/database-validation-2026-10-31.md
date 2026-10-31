@@ -68,5 +68,11 @@ boundary/type-shape regressions pass. Consult the PR's latest checks and final
 description for the full-suite outcome and telemetry; earlier run states above
 describe their respective checkpoints.
 
+CI's broader quality selection passed 697 cases and identified two failures:
+the missing type docstrings above and a terminal import of database internals.
+Core LibraryServices now owns the complete SQLite recovery connection/checkpoint/
+integrity operation; the terminal delegates to it. All 11 recovery/unlock/boundary
+regressions pass. The push confidence, wheel and format lanes already pass.
+
 Implementation contracts and earlier focused evidence live in
 `dev-docs/databases/sql-efficiency-2026-10-31.md`.

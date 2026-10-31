@@ -6,6 +6,8 @@ packages the Catalog/database ownership and SQL-efficiency work on
 benchmarks in [PR #152](https://github.com/ajCameron/LiuXin-alpha/pull/152).
 Live PostgreSQL checks and the 50,000-Work benchmark pass; a measured title-plan
 regression is fixed. Full-suite CI and final quality outcomes are tracked on the PR.
+The final local corrections document value types and give Core ownership of
+SQLite recovery (13 documentation/type checks and 11 recovery/boundary checks pass).
 The dirty data submodule remains outside this delivery.
 
 Active work, **2026-10-20**: [Composite ownership](storage-composite-owner-2026-10-20.md)
