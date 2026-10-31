@@ -7,29 +7,36 @@ its shared SQL backend. Two concrete case-sensitivity aliases forward to canonic
 hooks.
 """
 
+from __future__ import annotations
+
 # Suggested additions to DatabaseDriverWrapperAPI (or a new SchemaIntrospectionAPI)
 
 import abc
 from abc import abstractmethod
 from collections.abc import Mapping
-from typing import Iterator, Optional
+from typing import TYPE_CHECKING, Iterator, Optional
 
-from LiuXin_alpha.databases.column_metadata import (
-    ColumnEmptyValuePolicy,
-    ColumnMergePolicy,
-    ColumnMetadata,
-    ColumnNormalizationProfile,
-    ColumnOptions,
-    ColumnSemanticRole,
-    ColumnValidationProfile,
-)
-from LiuXin_alpha.databases.normalized_identities import NormalizedIdentitySpec
 from LiuXin_alpha.databases.schema_specs import (
     LinkCapabilities,
     StorageSchemaSpec,
     StorageTableSpec,
     StorageLinkSpec,
 )
+
+
+if TYPE_CHECKING:
+    from LiuXin_alpha.databases.column_metadata import (
+        ColumnMetadata,
+        ColumnOptions,
+    )
+    from LiuXin_alpha.metadata.value_policies import (
+        ColumnEmptyValuePolicy,
+        ColumnMergePolicy,
+        ColumnNormalizationProfile,
+        ColumnSemanticRole,
+        ColumnValidationProfile,
+    )
+    from LiuXin_alpha.databases.normalized_identities import NormalizedIdentitySpec
 
 
 class SchemaIntrospectionAPI(abc.ABC):
@@ -62,9 +69,9 @@ class SchemaIntrospectionAPI(abc.ABC):
         Abstract hook; the following behavior describes concrete DriverWrapper
         implementations.
 
-        Cache keys stringify both names and retain endpoint order. Missing links are cached
-        as None. force_refresh clears all derived wrapper caches and is also forwarded to
-        the driver.
+        Cache keys stringify both names and retain endpoint order. Missing links are
+        cached as None. force_refresh clears all derived wrapper caches and is also
+        forwarded to the driver.
 
         Example:
             >>> wrapper.get_link_capabilities("agents", "works")  # doctest: +SKIP
@@ -72,8 +79,8 @@ class SchemaIntrospectionAPI(abc.ABC):
 
         :param table1: First endpoint table.
         :param table2: Second endpoint table.
-        :param force_refresh: Whether to clear derived wrapper caches before rebuilding this
-            result.
+        :param force_refresh: Whether to clear derived wrapper caches before rebuilding
+            this result.
         :return: Backend LinkCapabilities, or None when no supported link is found.
         """
 
@@ -91,8 +98,8 @@ class SchemaIntrospectionAPI(abc.ABC):
         Abstract hook; the following behavior describes concrete DriverWrapper
         implementations.
 
-        Uses get_link_capabilities() and its cache/refresh behavior. Missing capabilities
-        give False.
+        Uses get_link_capabilities() and its cache/refresh behavior. Missing
+        capabilities give False.
 
         Example:
             >>> wrapper.is_link_typed("agents", "works")  # doctest: +SKIP
@@ -100,8 +107,8 @@ class SchemaIntrospectionAPI(abc.ABC):
 
         :param table1: First endpoint table.
         :param table2: Second endpoint table.
-        :param force_refresh: Whether to clear derived wrapper caches before rebuilding this
-            result.
+        :param force_refresh: Whether to clear derived wrapper caches before rebuilding
+            this result.
         :return: True when the capabilities expose that column; otherwise False.
         """
 
@@ -119,8 +126,8 @@ class SchemaIntrospectionAPI(abc.ABC):
         Abstract hook; the following behavior describes concrete DriverWrapper
         implementations.
 
-        Uses get_link_capabilities() and its cache/refresh behavior. Missing capabilities
-        give False.
+        Uses get_link_capabilities() and its cache/refresh behavior. Missing
+        capabilities give False.
 
         Example:
             >>> wrapper.is_link_priority("agents", "works")  # doctest: +SKIP
@@ -128,8 +135,8 @@ class SchemaIntrospectionAPI(abc.ABC):
 
         :param table1: First endpoint table.
         :param table2: Second endpoint table.
-        :param force_refresh: Whether to clear derived wrapper caches before rebuilding this
-            result.
+        :param force_refresh: Whether to clear derived wrapper caches before rebuilding
+            this result.
         :return: True when the capabilities expose that column; otherwise False.
         """
 
@@ -141,21 +148,25 @@ class SchemaIntrospectionAPI(abc.ABC):
         Abstract hook; the following behavior describes concrete DriverWrapper
         implementations.
 
-        Delegates to the driver's direct_get_declared_column_datatype hook. The following
-        backend details describe the shared SQL/SQLite implementation; backend errors
-        propagate.
+        Delegates to the driver's direct_get_declared_column_datatype hook. The
+        following backend details describe the shared SQL/SQLite implementation; backend
+        errors propagate.
 
-        Preserve the backend spelling and size information; an untyped SQLite column returns
-        empty text. Missing columns raise InputIntegrityError. A physical column missing
-        from the type map raises DatabaseIntegrityError.
+        Preserve the backend spelling and size information; an untyped SQLite column
+        returns empty text. Missing columns raise InputIntegrityError. A physical column
+        missing from the type map raises DatabaseIntegrityError.
 
         Example:
-            >>> wrapper.get_declared_column_datatype("works", "work_title")  # doctest: +SKIP
+            >>> wrapper.get_declared_column_datatype(
+            ...     "works", "work_title"
+            ... )  # doctest: +SKIP
 
 
         :param table: Existing table name, canonicalized by the driver.
-        :param column: Physical column name, converted to text and checked against headings.
-        :return: The original declared type string, including an empty string for no type.
+        :param column: Physical column name, converted to text and checked against
+            headings.
+        :return: The original declared type string, including an empty string for no
+            type.
         """
 
     @abstractmethod
@@ -166,19 +177,21 @@ class SchemaIntrospectionAPI(abc.ABC):
         Abstract hook; the following behavior describes concrete DriverWrapper
         implementations.
 
-        Delegates to the driver's direct_get_case_sensitivity hook. The following backend
-        details describe the shared SQL/SQLite implementation; backend errors propagate.
+        Delegates to the driver's direct_get_case_sensitivity hook. The following
+        backend details describe the shared SQL/SQLite implementation; backend errors
+        propagate.
 
-        Use the complete metadata lookup, including inferred defaults when the catalog or
-        row is absent. Invalid targets and corrupt stored policy propagate their lookup
-        errors.
+        Use the complete metadata lookup, including inferred defaults when the catalog
+        or row is absent. Invalid targets and corrupt stored policy propagate their
+        lookup errors.
 
         Example:
             >>> wrapper.get_case_sensitivity("works", "work_title")  # doctest: +SKIP
 
 
         :param table: Existing table name, canonicalized by the driver.
-        :param column: Physical column name, converted to text and checked against headings.
+        :param column: Physical column name, converted to text and checked against
+            headings.
         :return: The case_sensitive boolean from the resolved column policy.
         """
 
@@ -193,19 +206,20 @@ class SchemaIntrospectionAPI(abc.ABC):
         Delegates to the driver's direct_get_column_metadata hook. The following backend
         details describe the shared SQL/SQLite implementation; backend errors propagate.
 
-        Infer defaults from names and the declared type; unavailable type catalog entries
-        fall back to inference without a declaration. If the metadata catalog or row is
-        absent, return those defaults. A legacy catalog supplies only case sensitivity and
-        retains other inferred fields. Expanded catalogs decode stored policy and optional
-        presentation JSON. Invalid stored values or targets raise integrity errors. Close
-        the read connection even if querying fails.
+        Infer defaults from names and the declared type; unavailable type catalog
+        entries fall back to inference without a declaration. If the metadata catalog or
+        row is absent, return those defaults. A legacy catalog supplies only case
+        sensitivity and retains other inferred fields. Expanded catalogs decode stored
+        policy and optional presentation JSON. Invalid stored values or targets raise
+        integrity errors. Close the read connection even if querying fails.
 
         Example:
             >>> wrapper.get_column_metadata("works", "work_title")  # doctest: +SKIP
 
 
         :param table: Existing table name, canonicalized by the driver.
-        :param column: Physical column name, converted to text and checked against headings.
+        :param column: Physical column name, converted to text and checked against
+            headings.
         :return: A ColumnMetadata record with immutable formatting and display options.
         """
 
@@ -221,11 +235,11 @@ class SchemaIntrospectionAPI(abc.ABC):
         details describe the shared SQL/SQLite implementation; backend errors propagate.
 
         Canonicalize the target and enum values, verify physical comparison columns and
-        enforce any normalized identity declaration. Require the expanded catalog including
-        both presentation-option columns; a missing or outdated catalog raises
+        enforce any normalized identity declaration. Require the expanded catalog
+        including both presentation-option columns; a missing or outdated catalog raises
         DatabaseIntegrityError. Invalid input raises InputIntegrityError. Close the
-        connection after success or failure. This updates policy only and does not rebuild
-        derived values.
+        connection after success or failure. This updates policy only and does not
+        rebuild derived values.
 
         Example:
             >>> wrapper.set_column_metadata(column_metadata)  # doctest: +SKIP
@@ -254,7 +268,8 @@ class SchemaIntrospectionAPI(abc.ABC):
 
 
         :param table: Existing table name, canonicalized by the driver.
-        :param column: Physical column name, converted to text and checked against headings.
+        :param column: Physical column name, converted to text and checked against
+            headings.
         :return: ColumnSemanticRole label describing the column's application meaning.
         """
 
@@ -274,18 +289,21 @@ class SchemaIntrospectionAPI(abc.ABC):
         Delegates to the driver's direct_set_semantic_role hook. The following backend
         details describe the shared SQL/SQLite implementation; backend errors propagate.
 
-        Read the current record, replace this field, then validate and commit the complete
-        policy. Other fields are retained from that read; this is not an atomic
+        Read the current record, replace this field, then validate and commit the
+        complete policy. Other fields are retained from that read; this is not an atomic
         read-modify-write operation. The expanded metadata catalog is required.
 
         Example:
-            >>> wrapper.set_semantic_role("works", "work_title", ColumnSemanticRole.LABEL)  # doctest: +SKIP
+            >>> wrapper.set_semantic_role(
+            ...     "works", "work_title", ColumnSemanticRole.LABEL
+            ... )  # doctest: +SKIP
 
 
         :param table: Existing table name, canonicalized by the driver.
-        :param column: Physical column name, converted to text and checked against headings.
-        :param semantic_role: ColumnSemanticRole label describing the column's application
-            meaning.
+        :param column: Physical column name, converted to text and checked against
+            headings.
+        :param semantic_role: ColumnSemanticRole label describing the column's
+            application meaning.
         :return: None; the driver setter result is discarded.
         """
 
@@ -309,11 +327,14 @@ class SchemaIntrospectionAPI(abc.ABC):
         validation. Reading the policy performs no transformation of stored values.
 
         Example:
-            >>> wrapper.get_normalization_profile("works", "work_title")  # doctest: +SKIP
+            >>> wrapper.get_normalization_profile(
+            ...     "works", "work_title"
+            ... )  # doctest: +SKIP
 
 
         :param table: Existing table name, canonicalized by the driver.
-        :param column: Physical column name, converted to text and checked against headings.
+        :param column: Physical column name, converted to text and checked against
+            headings.
         :return: ColumnNormalizationProfile identifying the comparison transformation.
         """
 
@@ -334,19 +355,22 @@ class SchemaIntrospectionAPI(abc.ABC):
         backend details describe the shared SQL/SQLite implementation; backend errors
         propagate.
 
-        Read the current record, replace this field, then validate and commit the complete
-        policy. Other fields are retained from that read; this is not an atomic
-        read-modify-write operation. The expanded metadata catalog is required. Changes that
-        conflict with a normalized identity are rejected.
+        Read the current record, replace this field, then validate and commit the
+        complete policy. Other fields are retained from that read; this is not an atomic
+        read-modify-write operation. The expanded metadata catalog is required. Changes
+        that conflict with a normalized identity are rejected.
 
         Example:
-            >>> wrapper.set_normalization_profile("works", "work_title", ColumnNormalizationProfile.UNICODE_NFC)  # doctest: +SKIP
+            >>> wrapper.set_normalization_profile(
+            ...     "works", "work_title", ColumnNormalizationProfile.UNICODE_NFC
+            ... )  # doctest: +SKIP
 
 
         :param table: Existing table name, canonicalized by the driver.
-        :param column: Physical column name, converted to text and checked against headings.
-        :param normalization_profile: ColumnNormalizationProfile identifying the comparison
-            transformation.
+        :param column: Physical column name, converted to text and checked against
+            headings.
+        :param normalization_profile: ColumnNormalizationProfile identifying the
+            comparison transformation.
         :return: None; the driver setter result is discarded.
         """
 
@@ -358,18 +382,21 @@ class SchemaIntrospectionAPI(abc.ABC):
         Abstract hook; the following behavior describes concrete DriverWrapper
         implementations.
 
-        Delegates to the driver's direct_get_comparison_column hook. The following backend
-        details describe the shared SQL/SQLite implementation; backend errors propagate.
+        Delegates to the driver's direct_get_comparison_column hook. The following
+        backend details describe the shared SQL/SQLite implementation; backend errors
+        propagate.
 
-        Resolve the complete policy using the same target validation and legacy fallbacks as
-        direct_get_column_metadata. This does not compute or refresh comparison values.
+        Resolve the complete policy using the same target validation and legacy
+        fallbacks as direct_get_column_metadata. This does not compute or refresh
+        comparison values.
 
         Example:
             >>> wrapper.get_comparison_column("works", "work_title")  # doctest: +SKIP
 
 
         :param table: Existing table name, canonicalized by the driver.
-        :param column: Physical column name, converted to text and checked against headings.
+        :param column: Physical column name, converted to text and checked against
+            headings.
         :return: The comparison column name, or None when the policy names none.
         """
 
@@ -385,15 +412,16 @@ class SchemaIntrospectionAPI(abc.ABC):
         Abstract hook; the following behavior describes concrete DriverWrapper
         implementations.
 
-        Delegates to the driver's direct_get_normalized_identity_spec hook. The following
-        backend details describe the shared SQL/SQLite implementation; backend errors
-        propagate.
+        Delegates to the driver's direct_get_normalized_identity_spec hook. The
+        following backend details describe the shared SQL/SQLite implementation; backend
+        errors propagate.
 
         Validate the target first. Only an absent identity catalog enables built-in
-        defaults, and those require all referenced columns. If the catalog exists but its
-        row is missing, return None without defaulting. Decode a stored row and check its
-        value, key and scope columns. Declaration decoding errors propagate; missing
-        physical references raise DatabaseIntegrityError. The read connection always closes.
+        defaults, and those require all referenced columns. If the catalog exists but
+        its row is missing, return None without defaulting. Decode a stored row and
+        check its value, key and scope columns. Declaration decoding errors propagate;
+        missing physical references raise DatabaseIntegrityError. The read connection
+        always closes.
 
         Example:
             >>> wrapper.get_normalized_identity_spec("works", "tag")  # doctest: +SKIP
@@ -412,9 +440,9 @@ class SchemaIntrospectionAPI(abc.ABC):
         Abstract hook; the following behavior describes concrete DriverWrapper
         implementations.
 
-        Delegates to the driver's direct_iter_normalized_identity_specs hook. The following
-        backend details describe the shared SQL/SQLite implementation; backend errors
-        propagate.
+        Delegates to the driver's direct_iter_normalized_identity_specs hook. The
+        following backend details describe the shared SQL/SQLite implementation; backend
+        errors propagate.
 
         Without a catalog, walk built-in defaults and omit absent tables or unsupported
         columns. With a catalog, fetch rows ordered by table and value column, close the
@@ -425,7 +453,8 @@ class SchemaIntrospectionAPI(abc.ABC):
             >>> wrapper.iter_normalized_identity_specs()  # doctest: +SKIP
 
 
-        :return: An iterator of NormalizedIdentitySpec records supported by the database.
+        :return: An iterator of NormalizedIdentitySpec records supported by the
+            database.
         """
 
     @abstractmethod
@@ -441,20 +470,24 @@ class SchemaIntrospectionAPI(abc.ABC):
         Abstract hook; the following behavior describes concrete DriverWrapper
         implementations.
 
-        Delegates to the driver's direct_set_comparison_column hook. The following backend
-        details describe the shared SQL/SQLite implementation; backend errors propagate.
+        Delegates to the driver's direct_set_comparison_column hook. The following
+        backend details describe the shared SQL/SQLite implementation; backend errors
+        propagate.
 
-        Replace the field in the current policy and commit the complete record. A non- null
-        name must refer to a column in the same table; an immutable normalized identity may
-        prevent changing or clearing it. The expanded catalog is required. Stored data is
-        not recomputed.
+        Replace the field in the current policy and commit the complete record. A non-
+        null name must refer to a column in the same table; an immutable normalized
+        identity may prevent changing or clearing it. The expanded catalog is required.
+        Stored data is not recomputed.
 
         Example:
-            >>> wrapper.set_comparison_column("works", "work_title", "work_sort_title")  # doctest: +SKIP
+            >>> wrapper.set_comparison_column(
+            ...     "works", "work_title", "work_sort_title"
+            ... )  # doctest: +SKIP
 
 
         :param table: Existing table name, canonicalized by the driver.
-        :param column: Physical column name, converted to text and checked against headings.
+        :param column: Physical column name, converted to text and checked against
+            headings.
         :param comparison_column: Same-table physical column name, or None to clear the
             reference.
         :return: None; the driver setter result is discarded.
@@ -472,8 +505,9 @@ class SchemaIntrospectionAPI(abc.ABC):
         Abstract hook; the following behavior describes concrete DriverWrapper
         implementations.
 
-        Delegates to the driver's direct_get_empty_value_policy hook. The following backend
-        details describe the shared SQL/SQLite implementation; backend errors propagate.
+        Delegates to the driver's direct_get_empty_value_policy hook. The following
+        backend details describe the shared SQL/SQLite implementation; backend errors
+        propagate.
 
         Delegate to the complete metadata lookup, including catalog fallbacks and target
         validation. Reading the policy performs no transformation of stored values.
@@ -483,7 +517,8 @@ class SchemaIntrospectionAPI(abc.ABC):
 
 
         :param table: Existing table name, canonicalized by the driver.
-        :param column: Physical column name, converted to text and checked against headings.
+        :param column: Physical column name, converted to text and checked against
+            headings.
         :return: ColumnEmptyValuePolicy describing which values count as missing.
         """
 
@@ -500,21 +535,25 @@ class SchemaIntrospectionAPI(abc.ABC):
         Abstract hook; the following behavior describes concrete DriverWrapper
         implementations.
 
-        Delegates to the driver's direct_set_empty_value_policy hook. The following backend
-        details describe the shared SQL/SQLite implementation; backend errors propagate.
+        Delegates to the driver's direct_set_empty_value_policy hook. The following
+        backend details describe the shared SQL/SQLite implementation; backend errors
+        propagate.
 
-        Read the current record, replace this field, then validate and commit the complete
-        policy. Other fields are retained from that read; this is not an atomic
+        Read the current record, replace this field, then validate and commit the
+        complete policy. Other fields are retained from that read; this is not an atomic
         read-modify-write operation. The expanded metadata catalog is required.
 
         Example:
-            >>> wrapper.set_empty_value_policy("works", "work_title", ColumnEmptyValuePolicy.PRESERVE)  # doctest: +SKIP
+            >>> wrapper.set_empty_value_policy(
+            ...     "works", "work_title", ColumnEmptyValuePolicy.PRESERVE
+            ... )  # doctest: +SKIP
 
 
         :param table: Existing table name, canonicalized by the driver.
-        :param column: Physical column name, converted to text and checked against headings.
-        :param empty_value_policy: ColumnEmptyValuePolicy describing which values count as
-            missing.
+        :param column: Physical column name, converted to text and checked against
+            headings.
+        :param empty_value_policy: ColumnEmptyValuePolicy describing which values count
+            as missing.
         :return: None; the driver setter result is discarded.
         """
 
@@ -537,7 +576,8 @@ class SchemaIntrospectionAPI(abc.ABC):
 
 
         :param table: Existing table name, canonicalized by the driver.
-        :param column: Physical column name, converted to text and checked against headings.
+        :param column: Physical column name, converted to text and checked against
+            headings.
         :return: ColumnMergePolicy describing how writers combine incoming values.
         """
 
@@ -557,16 +597,19 @@ class SchemaIntrospectionAPI(abc.ABC):
         Delegates to the driver's direct_set_merge_policy hook. The following backend
         details describe the shared SQL/SQLite implementation; backend errors propagate.
 
-        Read the current record, replace this field, then validate and commit the complete
-        policy. Other fields are retained from that read; this is not an atomic
+        Read the current record, replace this field, then validate and commit the
+        complete policy. Other fields are retained from that read; this is not an atomic
         read-modify-write operation. The expanded metadata catalog is required.
 
         Example:
-            >>> wrapper.set_merge_policy("works", "work_title", ColumnMergePolicy.PRESERVE_EXISTING)  # doctest: +SKIP
+            >>> wrapper.set_merge_policy(
+            ...     "works", "work_title", ColumnMergePolicy.PRESERVE_EXISTING
+            ... )  # doctest: +SKIP
 
 
         :param table: Existing table name, canonicalized by the driver.
-        :param column: Physical column name, converted to text and checked against headings.
+        :param column: Physical column name, converted to text and checked against
+            headings.
         :param merge_policy: ColumnMergePolicy describing how writers combine incoming
             values.
         :return: None; the driver setter result is discarded.
@@ -584,8 +627,9 @@ class SchemaIntrospectionAPI(abc.ABC):
         Abstract hook; the following behavior describes concrete DriverWrapper
         implementations.
 
-        Delegates to the driver's direct_get_validation_profile hook. The following backend
-        details describe the shared SQL/SQLite implementation; backend errors propagate.
+        Delegates to the driver's direct_get_validation_profile hook. The following
+        backend details describe the shared SQL/SQLite implementation; backend errors
+        propagate.
 
         Delegate to the complete metadata lookup, including catalog fallbacks and target
         validation. Reading the policy performs no transformation of stored values.
@@ -595,7 +639,8 @@ class SchemaIntrospectionAPI(abc.ABC):
 
 
         :param table: Existing table name, canonicalized by the driver.
-        :param column: Physical column name, converted to text and checked against headings.
+        :param column: Physical column name, converted to text and checked against
+            headings.
         :return: ColumnValidationProfile naming the value validation policy.
         """
 
@@ -612,19 +657,23 @@ class SchemaIntrospectionAPI(abc.ABC):
         Abstract hook; the following behavior describes concrete DriverWrapper
         implementations.
 
-        Delegates to the driver's direct_set_validation_profile hook. The following backend
-        details describe the shared SQL/SQLite implementation; backend errors propagate.
+        Delegates to the driver's direct_set_validation_profile hook. The following
+        backend details describe the shared SQL/SQLite implementation; backend errors
+        propagate.
 
-        Read the current record, replace this field, then validate and commit the complete
-        policy. Other fields are retained from that read; this is not an atomic
+        Read the current record, replace this field, then validate and commit the
+        complete policy. Other fields are retained from that read; this is not an atomic
         read-modify-write operation. The expanded metadata catalog is required.
 
         Example:
-            >>> wrapper.set_validation_profile("works", "work_title", ColumnValidationProfile.VERBATIM_TEXT)  # doctest: +SKIP
+            >>> wrapper.set_validation_profile(
+            ...     "works", "work_title", ColumnValidationProfile.VERBATIM_TEXT
+            ... )  # doctest: +SKIP
 
 
         :param table: Existing table name, canonicalized by the driver.
-        :param column: Physical column name, converted to text and checked against headings.
+        :param column: Physical column name, converted to text and checked against
+            headings.
         :param validation_profile: ColumnValidationProfile naming the value validation
             policy.
         :return: None; the driver setter result is discarded.
@@ -642,19 +691,21 @@ class SchemaIntrospectionAPI(abc.ABC):
         Abstract hook; the following behavior describes concrete DriverWrapper
         implementations.
 
-        Delegates to the driver's direct_get_formatting_options hook. The following backend
-        details describe the shared SQL/SQLite implementation; backend errors propagate.
+        Delegates to the driver's direct_get_formatting_options hook. The following
+        backend details describe the shared SQL/SQLite implementation; backend errors
+        propagate.
 
-        Catalog and legacy fallback behavior comes from direct_get_column_metadata. Nested
-        mappings are read-only and nested sequences are tuples; this getter does not render
-        a value or surface.
+        Catalog and legacy fallback behavior comes from direct_get_column_metadata.
+        Nested mappings are read-only and nested sequences are tuples; this getter does
+        not render a value or surface.
 
         Example:
             >>> wrapper.get_formatting_options("works", "work_title")  # doctest: +SKIP
 
 
         :param table: Existing table name, canonicalized by the driver.
-        :param column: Physical column name, converted to text and checked against headings.
+        :param column: Physical column name, converted to text and checked against
+            headings.
         :return: The frozen option mapping, possibly empty.
         """
 
@@ -671,21 +722,25 @@ class SchemaIntrospectionAPI(abc.ABC):
         Abstract hook; the following behavior describes concrete DriverWrapper
         implementations.
 
-        Delegates to the driver's direct_set_formatting_options hook. The following backend
-        details describe the shared SQL/SQLite implementation; backend errors propagate.
+        Delegates to the driver's direct_set_formatting_options hook. The following
+        backend details describe the shared SQL/SQLite implementation; backend errors
+        propagate.
 
         Freeze a deep copy before replacing the field in the current policy. Reject non-
-        string keys, unsupported objects and non-finite numbers with InputIntegrityError.
-        Persist through the complete metadata writer, which requires the expanded catalog
-        and retains other fields from its prior read. The hints are stored without rendering
-        anything.
+        string keys, unsupported objects and non-finite numbers with
+        InputIntegrityError. Persist through the complete metadata writer, which
+        requires the expanded catalog and retains other fields from its prior read. The
+        hints are stored without rendering anything.
 
         Example:
-            >>> wrapper.set_formatting_options("works", "work_title", {"precision": 2})  # doctest: +SKIP
+            >>> wrapper.set_formatting_options(
+            ...     "works", "work_title", {"precision": 2}
+            ... )  # doctest: +SKIP
 
 
         :param table: Existing table name, canonicalized by the driver.
-        :param column: Physical column name, converted to text and checked against headings.
+        :param column: Physical column name, converted to text and checked against
+            headings.
         :param formatting_options: JSON-like option mapping; None is also accepted at
             runtime as an empty mapping.
         :return: None; the driver setter result is discarded.
@@ -706,16 +761,17 @@ class SchemaIntrospectionAPI(abc.ABC):
         Delegates to the driver's direct_get_display_options hook. The following backend
         details describe the shared SQL/SQLite implementation; backend errors propagate.
 
-        Catalog and legacy fallback behavior comes from direct_get_column_metadata. Nested
-        mappings are read-only and nested sequences are tuples; this getter does not render
-        a value or surface.
+        Catalog and legacy fallback behavior comes from direct_get_column_metadata.
+        Nested mappings are read-only and nested sequences are tuples; this getter does
+        not render a value or surface.
 
         Example:
             >>> wrapper.get_display_options("works", "work_title")  # doctest: +SKIP
 
 
         :param table: Existing table name, canonicalized by the driver.
-        :param column: Physical column name, converted to text and checked against headings.
+        :param column: Physical column name, converted to text and checked against
+            headings.
         :return: The frozen option mapping, possibly empty.
         """
 
@@ -736,19 +792,22 @@ class SchemaIntrospectionAPI(abc.ABC):
         details describe the shared SQL/SQLite implementation; backend errors propagate.
 
         Freeze a deep copy before replacing the field in the current policy. Reject non-
-        string keys, unsupported objects and non-finite numbers with InputIntegrityError.
-        Persist through the complete metadata writer, which requires the expanded catalog
-        and retains other fields from its prior read. The hints are stored without rendering
-        anything.
+        string keys, unsupported objects and non-finite numbers with
+        InputIntegrityError. Persist through the complete metadata writer, which
+        requires the expanded catalog and retains other fields from its prior read. The
+        hints are stored without rendering anything.
 
         Example:
-            >>> wrapper.set_display_options("works", "work_title", {"label": "Title"})  # doctest: +SKIP
+            >>> wrapper.set_display_options(
+            ...     "works", "work_title", {"label": "Title"}
+            ... )  # doctest: +SKIP
 
 
         :param table: Existing table name, canonicalized by the driver.
-        :param column: Physical column name, converted to text and checked against headings.
-        :param display_options: JSON-like option mapping; None is also accepted at runtime
-            as an empty mapping.
+        :param column: Physical column name, converted to text and checked against
+            headings.
+        :param display_options: JSON-like option mapping; None is also accepted at
+            runtime as an empty mapping.
         :return: None; the driver setter result is discarded.
         """
 
@@ -765,21 +824,25 @@ class SchemaIntrospectionAPI(abc.ABC):
         Abstract hook; the following behavior describes concrete DriverWrapper
         implementations.
 
-        Delegates to the driver's direct_set_case_sensitivity hook. The following backend
-        details describe the shared SQL/SQLite implementation; backend errors propagate.
+        Delegates to the driver's direct_set_case_sensitivity hook. The following
+        backend details describe the shared SQL/SQLite implementation; backend errors
+        propagate.
 
         Validate the physical column, require an actual bool and enforce any normalized
-        identity restriction. A missing catalog raises DatabaseIntegrityError. Upsert just
-        the case flag, preserving other fields on an existing row; a new row receives the
-        catalog defaults. Expanded policy columns are not required. Close the connection
-        after the committed write or any error.
+        identity restriction. A missing catalog raises DatabaseIntegrityError. Upsert
+        just the case flag, preserving other fields on an existing row; a new row
+        receives the catalog defaults. Expanded policy columns are not required. Close
+        the connection after the committed write or any error.
 
         Example:
-            >>> wrapper.set_case_sensitivity("works", "work_title", False)  # doctest: +SKIP
+            >>> wrapper.set_case_sensitivity(
+            ...     "works", "work_title", False
+            ... )  # doctest: +SKIP
 
 
         :param table: Existing table name, canonicalized by the driver.
-        :param column: Physical column name, converted to text and checked against headings.
+        :param column: Physical column name, converted to text and checked against
+            headings.
         :param case_sensitive: Exact bool: True for case-sensitive equality, False
             otherwise.
         :return: None; the driver setter result is discarded.
@@ -795,7 +858,9 @@ class SchemaIntrospectionAPI(abc.ABC):
             >>> from types import SimpleNamespace
             >>> calls = []
             >>> host = SimpleNamespace(get_case_sensitivity=lambda table, column: False)
-            >>> SchemaIntrospectionAPI.is_column_case_sensitive(host, "works", "work_title")
+            >>> SchemaIntrospectionAPI.is_column_case_sensitive(
+            ...     host, "works", "work_title"
+            ... )
             False
 
 
@@ -821,8 +886,12 @@ class SchemaIntrospectionAPI(abc.ABC):
         Example:
             >>> from types import SimpleNamespace
             >>> calls = []
-            >>> host = SimpleNamespace(set_case_sensitivity=lambda *args: calls.append(args))
-            >>> SchemaIntrospectionAPI.set_column_case_sensitive(host, "works", "work_title", False)
+            >>> host = SimpleNamespace(
+            ...     set_case_sensitivity=lambda *args: calls.append(args)
+            ... )
+            >>> SchemaIntrospectionAPI.set_column_case_sensitive(
+            ...     host, "works", "work_title", False
+            ... )
             >>> calls
             [('works', 'work_title', False)]
 
@@ -843,21 +912,21 @@ class SchemaIntrospectionAPI(abc.ABC):
         Abstract hook; the following behavior describes concrete DriverWrapper
         implementations.
 
-        A missing relation raises ValueError. Headings preserve discovered order; optional
-        backend type and affinity failures leave those values unset. Every column is
-        currently marked nullable, so the result does not certify NOT NULL constraints.
-        Conventional ID, date and scratch columns are inferred locally for tables only.
-        Populated or inferred table groups set classification flags; related main tables are
-        sorted. force_refresh clears wrapper caches but does not explicitly refresh backend
-        table discovery.
+        A missing relation raises ValueError. Headings preserve discovered order;
+        optional backend type and affinity failures leave those values unset. Every
+        column is currently marked nullable, so the result does not certify NOT NULL
+        constraints. Conventional ID, date and scratch columns are inferred locally for
+        tables only. Populated or inferred table groups set classification flags;
+        related main tables are sorted. force_refresh clears wrapper caches but does not
+        explicitly refresh backend table discovery.
 
         Example:
             >>> wrapper.get_table_spec("works")  # doctest: +SKIP
 
 
         :param table: Table name in the current schema.
-        :param force_refresh: Whether to clear derived wrapper caches before rebuilding this
-            result.
+        :param force_refresh: Whether to clear derived wrapper caches before rebuilding
+            this result.
         :return: Cached StorageTableSpec describing the requested relation.
         """
 
@@ -874,17 +943,18 @@ class SchemaIntrospectionAPI(abc.ABC):
         Abstract hook; the following behavior describes concrete DriverWrapper
         implementations.
 
-        Tables come first in backend discovery order. View names already seen as tables are
-        skipped. Refresh clears derived wrapper caches when iteration starts, but discovery
-        uses force_refresh=False.
+        Tables come first in backend discovery order. View names already seen as tables
+        are skipped. Refresh clears derived wrapper caches when iteration starts, but
+        discovery uses force_refresh=False.
 
         Example:
             >>> wrapper.iter_table_specs()  # doctest: +SKIP
 
 
-        :param force_refresh: Whether to clear derived wrapper caches before rebuilding this
-            result.
-        :param include_views: Whether to include separately discovered views after tables.
+        :param force_refresh: Whether to clear derived wrapper caches before rebuilding
+            this result.
+        :param include_views: Whether to include separately discovered views after
+            tables.
         :return: Iterator yielding StorageTableSpec objects.
         """
 
@@ -903,12 +973,12 @@ class SchemaIntrospectionAPI(abc.ABC):
         implementations.
 
         Missing backend capabilities are cached as None. Endpoint ID columns come from
-        conventional name lookup; optional type and priority columns come from capabilities.
-        Remaining physical columns become extra_link_columns. Registry discovery prefers
-        <link_table>__types over allowed_types__<link_table>. Unique indexes determine
-        cardinality and typed identity; lookup errors for required columns propagate. For a
-        self-link, use get_intralink_spec() to resolve primary_id and secondary_id endpoint
-        columns.
+        conventional name lookup; optional type and priority columns come from
+        capabilities. Remaining physical columns become extra_link_columns. Registry
+        discovery prefers <link_table>__types over allowed_types__<link_table>. Unique
+        indexes determine cardinality and typed identity; lookup errors for required
+        columns propagate. For a self-link, use get_intralink_spec() to resolve
+        primary_id and secondary_id endpoint columns.
 
         Example:
             >>> wrapper.get_link_spec("agents", "works")  # doctest: +SKIP
@@ -916,8 +986,8 @@ class SchemaIntrospectionAPI(abc.ABC):
 
         :param table1: First endpoint table.
         :param table2: Second endpoint table.
-        :param force_refresh: Whether to clear derived wrapper caches before rebuilding this
-            result.
+        :param force_refresh: Whether to clear derived wrapper caches before rebuilding
+            this result.
         :return: StorageLinkSpec for this endpoint order, or None when no link exists.
         """
 
@@ -935,18 +1005,19 @@ class SchemaIntrospectionAPI(abc.ABC):
         implementations.
 
         Uses primary_id and secondary_id link-column suffixes for the two endpoints.
-        Type/priority capabilities, extra columns, optional type registries and unique-index
-        cardinality follow the same rules as interlinks. Missing capabilities are cached as
-        None; missing required columns raise lookup errors.
+        Type/priority capabilities, extra columns, optional type registries and
+        unique-index cardinality follow the same rules as interlinks. Missing
+        capabilities are cached as None; missing required columns raise lookup errors.
 
         Example:
             >>> wrapper.get_intralink_spec("works")  # doctest: +SKIP
 
 
         :param table: Table name in the current schema.
-        :param force_refresh: Whether to clear derived wrapper caches before rebuilding this
-            result.
-        :return: StorageLinkSpec with matching endpoint tables, or None when no link exists.
+        :param force_refresh: Whether to clear derived wrapper caches before rebuilding
+            this result.
+        :return: StorageLinkSpec with matching endpoint tables, or None when no link
+            exists.
         """
 
     @abstractmethod
@@ -970,8 +1041,8 @@ class SchemaIntrospectionAPI(abc.ABC):
             >>> wrapper.iter_link_specs()  # doctest: +SKIP
 
 
-        :param force_refresh: Whether to clear derived wrapper caches before rebuilding this
-            result.
+        :param force_refresh: Whether to clear derived wrapper caches before rebuilding
+            this result.
         :param include_intralinks: Whether to append self-links after cross-table links.
         :return: Iterator yielding StorageLinkSpec objects.
         """
@@ -984,16 +1055,16 @@ class SchemaIntrospectionAPI(abc.ABC):
         Abstract hook; the following behavior describes concrete DriverWrapper
         implementations.
 
-        Includes views among table specifications. Relationship discovery uses main-table
-        groups and conventional names. force_refresh clears derived wrapper caches; nested
-        discovery otherwise uses its ordinary cached backend paths.
+        Includes views among table specifications. Relationship discovery uses
+        main-table groups and conventional names. force_refresh clears derived wrapper
+        caches; nested discovery otherwise uses its ordinary cached backend paths.
 
         Example:
             >>> wrapper.get_schema_spec()  # doctest: +SKIP
 
 
-        :param force_refresh: Whether to clear derived wrapper caches before rebuilding this
-            result.
+        :param force_refresh: Whether to clear derived wrapper caches before rebuilding
+            this result.
         :return: Cached StorageSchemaSpec containing tables and relationship tuples.
         """
 
@@ -1019,8 +1090,8 @@ class SchemaIntrospectionAPI(abc.ABC):
 
 
         :param table: Table name in the current schema.
-        :param force_refresh: Whether to clear derived wrapper caches before rebuilding this
-            result.
+        :param force_refresh: Whether to clear derived wrapper caches before rebuilding
+            this result.
         :return: Generated dataclass type, not an instance.
         """
 
@@ -1048,7 +1119,7 @@ class SchemaIntrospectionAPI(abc.ABC):
 
         :param table1: First endpoint table.
         :param table2: Second endpoint table.
-        :param force_refresh: Whether to clear derived wrapper caches before rebuilding this
-            result.
+        :param force_refresh: Whether to clear derived wrapper caches before rebuilding
+            this result.
         :return: Generated link-row dataclass type, or None for an absent link.
         """

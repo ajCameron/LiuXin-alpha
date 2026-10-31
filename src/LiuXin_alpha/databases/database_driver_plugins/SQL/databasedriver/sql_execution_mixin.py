@@ -19,10 +19,12 @@ class SQLExecutionMixin:
     """
     Provide low-level SQL execution helpers for concrete drivers.
 
-    Helpers remove a legacy leading backslash/newline but otherwise execute trusted SQL. Script execution is not guaranteed atomic by these wrappers.
+    Helpers remove a legacy leading backslash/newline but otherwise execute trusted SQL.
+    Script execution is not guaranteed atomic by these wrappers.
 
     Example:
-        ``driver.direct_execute("SELECT 1")`` returns the primary connection's result cursor.
+        ``driver.direct_execute("SELECT 1")`` returns the primary connection's result
+        cursor.
     """
 
     # Todo: This should be something like "execute sql script" - to distinguish it from the execute method in the conn
@@ -32,10 +34,12 @@ class SQLExecutionMixin:
         """
         Run a script on a fresh connection and close it after success.
 
-        No cache refresh or finally cleanup is performed. Despite the annotation, list input is passed directly to the backend and is not joined.
+        No cache refresh or finally cleanup is performed. Despite the annotation, list
+        input is passed directly to the backend and is not joined.
 
         Example:
-            ``driver.direct_execute_sql_script("CREATE TABLE example (id INTEGER);")`` runs a script.
+            ``driver.direct_execute_sql_script("CREATE TABLE example (id INTEGER);")``
+            runs a script.
 
 
         :param script: SQL script text; the backend must accept any non-string input.
@@ -61,10 +65,12 @@ class SQLExecutionMixin:
         """
         Execute one statement on a fresh connection and commit.
 
-        Return lastrowid without explicitly closing the connection or refreshing caches; backend execution errors propagate.
+        Return lastrowid without explicitly closing the connection or refreshing caches;
+        backend execution errors propagate.
 
         Example:
-            ``driver.direct_execute_sql("INSERT INTO example DEFAULT VALUES")`` returns the cursor lastrowid.
+            ``driver.direct_execute_sql("INSERT INTO example DEFAULT VALUES")`` returns
+            the cursor lastrowid.
 
 
         :param sql: SQL text to execute, with placeholders when bindings are supplied.
@@ -90,10 +96,12 @@ class SQLExecutionMixin:
         """
         Read a table's stored CREATE statement from sqlite_master.
 
-        Bind the name as a value. Missing tables, including view-only matches, raise InputIntegrityError; neither supplied nor acquired connections are closed here.
+        Bind the name as a value. Missing tables, including view-only matches, raise
+        InputIntegrityError; neither supplied nor acquired connections are closed here.
 
         Example:
-            ``driver.direct_get_table_sqlite("books")`` retrieves a physical table definition.
+            ``driver.direct_get_table_sqlite("books")`` retrieves a physical table
+            definition.
 
 
         :param table: Exact table name used in the bound sqlite_master lookup.
@@ -117,17 +125,24 @@ class SQLExecutionMixin:
             sql: Union[str, tuple[str, ...], list[str]],
             values: Optional[tuple[str]] = None) -> None:
         """
-        Execute one statement using a live primary connection and its transaction context.
+        Execute one statement using a live primary connection and its transaction
+        context.
 
-        Replace a missing/broken primary handle; convert an integer binding to a one-element text tuple. Execution failures become DatabaseDriverError. Finally attempt a cache refresh while preserving a usable handle, so TEMP objects remain available.
+        Replace a missing/broken primary handle; convert an integer binding to a
+        one-element text tuple. Execution failures become DatabaseDriverError. Finally
+        attempt a cache refresh while preserving a usable handle, so TEMP objects remain
+        available.
 
         Example:
-            ``cursor = driver.direct_execute("SELECT ?", (3,))`` returns the query result cursor.
+            ``cursor = driver.direct_execute("SELECT ?", (3,))`` returns the query
+            result cursor.
 
 
         :param sql: SQL text to execute, with placeholders when bindings are supplied.
-        :param values: Optional bindings; a bare integer is converted to a one-element string tuple.
-        :return: The backend execution result, normally a cursor, despite the None annotation.
+        :param values: Optional bindings; a bare integer is converted to a one-element
+            string tuple.
+        :return: The backend execution result, normally a cursor, despite the None
+            annotation.
         """
         if isinstance(values, int):
             values = (force_unicode(values),)
@@ -192,14 +207,19 @@ class SQLExecutionMixin:
         """
         Execute a batch on the primary connection, or delegate an unbound script.
 
-        Only outer tuples receive scalar-to-one-tuple normalization. ValueError retries try alternate binding shapes; execution failures become DatabaseDriverError. Refresh caches after success. With values=None, delegate to direct_executescript.
+        Only outer tuples receive scalar-to-one-tuple normalization. ValueError retries
+        try alternate binding shapes; execution failures become DatabaseDriverError.
+        Refresh caches after success. With values=None, delegate to
+        direct_executescript.
 
         Example:
-            ``driver.direct_executemany("INSERT INTO example(value) VALUES (?)", ("a", "b"))`` inserts two scalar values.
+            ``driver.direct_executemany("INSERT INTO example(value) VALUES (?)", ("a",
+            "b"))`` inserts two scalar values.
 
 
         :param sql: SQL text to execute, with placeholders when bindings are supplied.
-        :param values: Binding rows, an outer tuple of scalar values, or ``None`` for script execution.
+        :param values: Binding rows, an outer tuple of scalar values, or ``None`` for
+            script execution.
         :return: ``None``.
         """
         # Defensive normalization for the same leading "\\\n" raw-string trap as direct_execute().
@@ -262,10 +282,13 @@ class SQLExecutionMixin:
         """
         Run trusted multi-statement SQL on the primary connection and refresh caches.
 
-        Create a primary handle if absent, wrap execution failures as DatabaseDriverError and attempt refresh in finally. Backend executescript transaction behavior still applies.
+        Create a primary handle if absent, wrap execution failures as
+        DatabaseDriverError and attempt refresh in finally. Backend executescript
+        transaction behavior still applies.
 
         Example:
-            ``driver.direct_executescript("CREATE TABLE example(id INTEGER); INSERT INTO example VALUES (1);")`` runs both statements.
+            ``driver.direct_executescript("CREATE TABLE example(id INTEGER); INSERT INTO
+            example VALUES (1);")`` runs both statements.
 
 
         :param sqlscript: SQL script text passed to the backend executescript method.

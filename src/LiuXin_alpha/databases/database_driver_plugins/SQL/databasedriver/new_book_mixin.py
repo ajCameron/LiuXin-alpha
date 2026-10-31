@@ -29,13 +29,16 @@ class BookGroupMixin:
         """
         Read rows with the smallest non-null group ID without dequeuing them.
 
-        Close the query connection on success. Rows have no explicit ordering; an empty table returns ``([], None)`` despite the integer ID annotation.
+        Close the query connection on success. Rows have no explicit ordering; an empty
+        table returns ``([], None)`` despite the integer ID annotation.
 
         Example:
-            ``rows, group_id = driver.direct_get_next_book_group()`` reads the next pending group.
+            ``rows, group_id = driver.direct_get_next_book_group()`` reads the next
+            pending group.
 
 
-        :return: A pair of row dictionaries and the selected group ID, which may be ``None``.
+        :return: A pair of row dictionaries and the selected group ID, which may be
+            ``None``.
         """
         conn = self.get_connection()
         c = conn.cursor()
@@ -67,12 +70,16 @@ class BookGroupMixin:
         Missing keys and incompatible value types propagate their normal exceptions.
 
         Example:
-            >>> BookGroupMixin().sum_book_group_sizes([{"new_book_size": 12}, {"new_book_size": 5}])
+            >>> BookGroupMixin().sum_book_group_sizes(
+            ...     [{"new_book_size": 12}, {"new_book_size": 5}]
+            ... )
             17
 
 
-        :param book_group: Iterable of row mappings containing numeric ``new_book_size`` values.
-        :return: The sum of recorded sizes, conventionally bytes; zero for an empty iterable.
+        :param book_group: Iterable of row mappings containing numeric ``new_book_size``
+            values.
+        :return: The sum of recorded sizes, conventionally bytes; zero for an empty
+            iterable.
         """
         size = 0
         for book in book_group:
@@ -83,10 +90,12 @@ class BookGroupMixin:
         """
         Delete all rows for a bound group ID, then commit and close on success.
 
-        Translate sqlite3 ProgrammingError into ValueError; the error path has no explicit connection cleanup.
+        Translate sqlite3 ProgrammingError into ValueError; the error path has no
+        explicit connection cleanup.
 
         Example:
-            ``driver.direct_delete_book_group(group_id)`` removes a processed import group.
+            ``driver.direct_delete_book_group(group_id)`` removes a processed import
+            group.
 
 
         :param group_id: Group ID bound in the DELETE predicate.

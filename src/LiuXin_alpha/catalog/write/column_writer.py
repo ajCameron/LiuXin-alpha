@@ -17,7 +17,7 @@ from typing import cast
 from LiuXin_alpha.catalog.write.base_writer import CatalogValueWriter
 from LiuXin_alpha.catalog.write.column_update import CatalogColumnUpdate
 from LiuXin_alpha.catalog.write.host_api import CatalogWriterHostAPI
-from LiuXin_alpha.databases.db_types import SrcTableID
+from LiuXin_alpha.databases.db_types.database_types import SrcTableID
 from LiuXin_alpha.databases.schema_specs import (
     StorageColumnSpec,
     StorageTableSpec,

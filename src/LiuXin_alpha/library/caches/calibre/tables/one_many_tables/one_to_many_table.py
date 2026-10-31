@@ -20,7 +20,8 @@ from typing import TypeVar, Optional, Any, Union
 from LiuXin_alpha.plugins.cache.base_tables import ONE_MANY
 
 from LiuXin_alpha.library.caches.calibre.tables.base import CalibreBaseTable, MultiTableMixin
-from LiuXin_alpha.databases.db_types import TableTypes, MetadataDict, SrcTableID, DstTableID, InterLinkTableName
+from LiuXin_alpha.databases.db_types.database_types import InterLinkTableName, SrcTableID, DstTableID, MetadataDict, \
+    TableTypes
 
 from LiuXin_alpha.errors import InvalidCacheUpdate
 

@@ -451,29 +451,11 @@ class CalibreSizeTable(CalibreOneToOneTable, BaseSizeTable):
         self._parse_size_mode()
 
     def read(self, db):
-        """
-        The recorded size in the books table is the combined size of all the files linked to all the folders linked to an individual book. This is settable in preferences - you can display the minimum, maximum or total size of all the files.
-
-        Example:
-            Exercise CalibreSizeTable.read through a consuming regression::
-
-                python -m pytest -q tests/library/test_unified_library.py
-
-
-        :param db: Value supplied for db under the utility contract.
-        :return: None; the operation mutates state, writes output or performs cleanup in
-            place.
-        """
-        if self.size_mode == "sum":
-            query = db.metadata_sql.read_book_sizes_sum_mode()
-        elif self.size_mode == "max":
-            query = db.metadata_sql.read_book_sizes_max_mode()
-        elif self.size_mode == "min":
-            query = db.metadata_sql.read_book_sizes_min_mode()
-        else:
-            raise NotImplementedError("Given size mode is not supported")
-
-        self.book_col_map = dict(query)
+        """Reject legacy folder-size reads before changing the cache."""
+        raise NotImplementedError(
+            "Legacy book/folder size reads are retired. Define size over explicit "
+            "WEMI assets and replicas before populating this cache."
+        )
 
     def update_sizes(self, size_map):
         """
@@ -767,48 +749,11 @@ class CalibreCoversTable(CalibreOneToOneTable, BaseCoversTable):
         pass
 
     def read_maps(self, db):
-        """
-        Create the cover maps - these are described in detail in the class doc string.
-
-        Example:
-            Exercise CalibreCoversTable.read maps through a consuming regression::
-
-                python -m pytest -q tests/library/test_unified_library.py
-
-
-        :param db: Value supplied for db under the utility contract.
-        :return: None; the operation mutates state, writes output or performs cleanup in
-            place.
-        """
-        cname_map = defaultdict(OrderedDict)
-        book_cover_map = dict()
-        book_cover_loc_map = defaultdict(OrderedDict)
-
-        for (
-            book_id,
-            cover_id,
-            cover_name,
-        ) in db.metadata_sql.read_book_id_with_cover_id_and_cover_nmame():
-            # Record the name for the file type
-            cname_map[book_id][cover_id] = cover_name
-
-            if book_id not in book_cover_map:
-                book_cover_map[book_id] = cover_id
-
-            # Record the cover location - if it can be found
-            cover_row = db.get_row_from_id("covers", cover_id)
-            try:
-                cover_loc = self.fsm.get_loc(asset_row=cover_row)
-            except:
-                cover_loc = None
-            book_cover_loc_map[book_id][cover_id] = cover_loc
-
-        self.cname_map = cname_map
-        self.book_cover_map = book_cover_map
-        self.book_cover_loc_map = book_cover_loc_map
-
-        # Read into the book_col_map - keyed with the book id and valued with the
-        self._read_books_has_cover_value(db)
+        """Reject reads from the retired cover tables without changing maps."""
+        raise NotImplementedError(
+            "Legacy cover tables are retired. Resolve cover assets and replicas for "
+            "an explicit WEMI owner."
+        )
 
     def _read_books_has_cover_value(self, db):
         """

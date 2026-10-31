@@ -23,8 +23,8 @@ from LiuXin_alpha.catalog.write.link_writer import (
     CatalogLinkTypeScope,
     CatalogLinkWriter,
 )
-from LiuXin_alpha.databases.db_types import DstTableID, SrcTableID
-from LiuXin_alpha.databases.macro_types import LINK_TYPE_UNSET, LinkRow
+from LiuXin_alpha.databases.db_types.database_types import SrcTableID, DstTableID
+from LiuXin_alpha.databases.db_types.macro_types import LINK_TYPE_UNSET, LinkRow
 from LiuXin_alpha.databases.schema_specs import (
     StorageColumnSpec,
     StorageLinkSpec,

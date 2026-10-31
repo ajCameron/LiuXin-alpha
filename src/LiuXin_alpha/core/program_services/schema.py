@@ -112,10 +112,10 @@ def schema_column_update(
     table = _required_text(payload, "table")
     column = _required_text(payload, "column")
     policy = _mapping(payload, "policy")
-    from LiuXin_alpha.databases.column_metadata import (
+    from LiuXin_alpha.databases.column_metadata import ColumnMetadata
+    from LiuXin_alpha.metadata.value_policies import (
         ColumnEmptyValuePolicy,
         ColumnMergePolicy,
-        ColumnMetadata,
         ColumnNormalizationProfile,
         ColumnSemanticRole,
         ColumnValidationProfile,

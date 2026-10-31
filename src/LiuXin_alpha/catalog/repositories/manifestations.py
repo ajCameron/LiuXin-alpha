@@ -51,7 +51,7 @@ class ManifestationRepository(BaseRepository):
         """
         Read Manifestation rows linked from an existing Expression.
 
-        Require the source before resolving the link and fetching each destination. Each row
+        Require the source before resolving the link and batch-fetching destinations. Each row
         includes _catalog_link with endpoint IDs, type, priority, and extra link fields. Preserve
         link order and duplicate destinations reached by distinct links. Portable SQL macros order
         by descending priority when present, then destination ID; the repository performs no
@@ -73,7 +73,7 @@ class ManifestationRepository(BaseRepository):
         """
         Read Expression rows linked from an existing Manifestation.
 
-        Require the source before resolving the link and fetching each destination. Each row
+        Require the source before resolving the link and batch-fetching destinations. Each row
         includes _catalog_link with endpoint IDs, type, priority, and extra link fields. Preserve
         link order and duplicate destinations reached by distinct links. Portable SQL macros order
         by descending priority when present, then destination ID; the repository performs no

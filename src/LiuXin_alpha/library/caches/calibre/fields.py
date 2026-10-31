@@ -24,7 +24,7 @@ from threading import Lock
 
 from LiuXin_alpha.utils.libraries.liuxin_six import iterkeys
 from LiuXin_alpha.catalog.catalog import Catalog
-from LiuXin_alpha.databases.macro_types import LinkValue
+from LiuXin_alpha.databases.db_types.macro_types import LinkValue
 
 # Todo: These should be stored in base.tables
 from LiuXin_alpha.plugins.cache.base_tables import (

@@ -35,14 +35,15 @@ class DriverTriggersMixinAPI(abc.ABC):
         implementation; this declaration itself has no operational body.
 
         Names become SQL syntax and must be trusted. A missing trigger raises
-        OperationalError; earlier removals stay committed. Close on success or that error.
+        OperationalError; earlier removals stay committed. Close on success or that
+        error.
 
         Example:
             >>> driver.direct_drop_triggers(["sample_audit"])  # doctest: +SKIP
 
 
-        :param triggers: Iterable of trusted trigger identifiers inserted into DROP TRIGGER
-            statements.
+        :param triggers: Iterable of trusted trigger identifiers inserted into DROP
+            TRIGGER statements.
         :return: ``True`` after all removals, including an empty input.
         """
 

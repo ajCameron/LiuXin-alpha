@@ -20,18 +20,20 @@ from typing import Any, Dict, Iterator, Optional, Sequence, Union
 
 from LiuXin_alpha.databases.column_metadata import (
     COLUMN_METADATA_TABLE,
-    ColumnEmptyValuePolicy,
-    ColumnMergePolicy,
     ColumnMetadata,
-    ColumnNormalizationProfile,
     ColumnOptions,
-    ColumnSemanticRole,
-    ColumnValidationProfile,
     column_options_from_json,
     column_options_to_json,
     default_column_metadata,
     freeze_column_options,
     infer_column_metadata,
+)
+from LiuXin_alpha.metadata.value_policies import (
+    ColumnEmptyValuePolicy,
+    ColumnMergePolicy,
+    ColumnNormalizationProfile,
+    ColumnSemanticRole,
+    ColumnValidationProfile,
 )
 from LiuXin_alpha.databases.normalized_identities import (
     NORMALIZED_IDENTITIES_TABLE,
@@ -1515,9 +1517,13 @@ class ValueCastingMixin:
         column in the diagnostic.
 
         Example:
-            >>> ValueCastingMixin._coerce_column_case_sensitivity("0", "works", "work_title")
+            >>> ValueCastingMixin._coerce_column_case_sensitivity(
+            ...     "0", "works", "work_title"
+            ... )
             False
-            >>> ValueCastingMixin._coerce_column_case_sensitivity(1.0, "works", "work_title")
+            >>> ValueCastingMixin._coerce_column_case_sensitivity(
+            ...     1.0, "works", "work_title"
+            ... )
             True
 
 

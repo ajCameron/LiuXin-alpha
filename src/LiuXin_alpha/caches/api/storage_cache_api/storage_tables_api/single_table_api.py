@@ -17,7 +17,7 @@ from LiuXin_alpha.caches.api.storage_cache_api.storage_tables_api.base_table_api
 )
 
 if TYPE_CHECKING:
-    from LiuXin_alpha.databases.db_types import MainTableID
+    from LiuXin_alpha.databases.db_types.database_types import MainTableID
 
 
 class StorageCacheSingleTableAPI(StorageCacheBaseTableAPI):

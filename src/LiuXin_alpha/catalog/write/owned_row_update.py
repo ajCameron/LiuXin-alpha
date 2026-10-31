@@ -16,8 +16,8 @@ from dataclasses import dataclass, field
 from types import MappingProxyType
 from typing import TYPE_CHECKING, cast
 
-from LiuXin_alpha.databases.db_types import SrcTableID
-from LiuXin_alpha.databases.macro_types import LinkRow
+from LiuXin_alpha.databases.db_types.database_types import SrcTableID
+from LiuXin_alpha.databases.db_types.macro_types import LinkRow
 from LiuXin_alpha.databases.schema_specs import (
     LinkCardinality,
     StorageColumnSpec,

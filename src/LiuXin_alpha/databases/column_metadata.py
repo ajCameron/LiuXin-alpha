@@ -1,35 +1,44 @@
-"""
-Define column-policy defaults, schema-based inference and immutable presentation options.
+"""Bind value policies to physical columns and infer machine-column defaults.
 
-Explicit display-column registries determine comparison, normalization, empty-value, merge and validation policies. Machine-column defaults are inferred from schema facts and naming rules. These records describe policy; this module does not normalize stored values or execute database writes. Import-time checks require disjoint case-sensitivity sets and complete, non-overlapping display-role groups.
+Metadata owns the policy vocabulary and display-kind defaults in
+metadata.value_policies. This module maps physical columns to those kinds and to
+their comparison columns, builds ColumnMetadata records, and serializes immutable
+presentation options. Machine defaults are inferred from schema facts and naming
+rules. Schema generators and adapters consume these records without importing
+Catalog; Catalog chooses and applies rules during semantic writes.
+
+These records describe policy; this module does not normalize, validate or merge
+stored values, or execute writes. Historical policy enums remain importable here
+as aliases of their metadata-owned definitions. Display registry views are derived
+from one column-to-kind mapping, checked for overlapping assignments at import.
 """
 
 from __future__ import annotations
 
 from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
-from enum import Enum
 import json
 import math
 import re
 from types import MappingProxyType
 from typing import cast
 
+from LiuXin_alpha.databases.db_types.column_types import ColumnOptionValue, ColumnOptions
+
+# Re-export the historical enum names; their definitions belong to metadata.
+from LiuXin_alpha.metadata.value_policies import (
+    ColumnEmptyValuePolicy,
+    ColumnMergePolicy,
+    ColumnNormalizationProfile,
+    ColumnSemanticRole,
+    ColumnValidationProfile,
+    DisplayValueKind,
+    display_value_policy,
+)
+
 
 COLUMN_METADATA_TABLE = "column_metadata"
 DEFAULT_COLUMN_CASE_SENSITIVE = True
-
-
-type ColumnOptionValue = (
-    str
-    | int
-    | float
-    | bool
-    | None
-    | tuple[ColumnOptionValue, ...]
-    | Mapping[str, ColumnOptionValue]
-)
-type ColumnOptions = Mapping[str, ColumnOptionValue]
 
 
 def _freeze_column_option_value(
@@ -40,7 +49,11 @@ def _freeze_column_option_value(
     """
     Validate one option subtree and return an immutable copy of its containers.
 
-    Accept exact built-in str/int/bool/None and finite floats. Mapping keys must be exact strings; mappings become MappingProxyType over new dictionaries. Sequences other than strings/bytes/bytearray/memoryview become tuples. Unsupported objects and non-finite numbers are rejected. Cycles have no special detection and can exhaust recursion.
+    Accept exact built-in str/int/bool/None and finite floats. Mapping keys must be
+    exact strings; mappings become MappingProxyType over new dictionaries. Sequences
+    other than strings/bytes/bytearray/memoryview become tuples. Unsupported objects and
+    non-finite numbers are rejected. Cycles have no special detection and can exhaust
+    recursion.
 
     Example:
         >>> value = _freeze_column_option_value({"sizes": [1, 2]}, path="options")
@@ -50,7 +63,8 @@ def _freeze_column_option_value(
 
     :param value: JSON-like scalar, mapping or non-text sequence to freeze.
     :param path: Diagnostic path extended with mapping keys and sequence indexes.
-    :return: An accepted scalar, a read-only mapping copy, or a tuple of recursively frozen values.
+    :return: An accepted scalar, a read-only mapping copy, or a tuple of recursively
+        frozen values.
     :raises TypeError: A key or value has an unsupported type.
     :raises ValueError: A float is NaN or infinite.
     """
@@ -93,7 +107,9 @@ def freeze_column_options(
     """
     Validate an option mapping and deeply copy its containers into immutable forms.
 
-    Nested dictionaries and sequences are recursively copied, so subsequent mutation of supplied containers does not change the result. Scalar subclasses, non-string keys, sets and non-finite floats are rejected by the recursive validator.
+    Nested dictionaries and sequences are recursively copied, so subsequent mutation of
+    supplied containers does not change the result. Scalar subclasses, non-string keys,
+    sets and non-finite floats are rejected by the recursive validator.
 
     Example:
         >>> raw = {"sizes": [1, 2]}
@@ -105,8 +121,10 @@ def freeze_column_options(
 
     :param options: Option mapping or None, which means an empty mapping.
     :param field_name: Root name included in nested validation error messages.
-    :return: Read-only string-keyed mapping containing only accepted immutable option values.
-    :raises TypeError: The root is not a mapping or a nested key/value type is unsupported.
+    :return: Read-only string-keyed mapping containing only accepted immutable option
+        values.
+    :raises TypeError: The root is not a mapping or a nested key/value type is
+        unsupported.
     :raises ValueError: A nested float is NaN or infinite.
     """
 
@@ -124,9 +142,11 @@ def freeze_column_options(
 
 def _mutable_column_option_value(value: ColumnOptionValue) -> object:
     """
-    Convert frozen option containers to ordinary JSON-serializable dictionaries and lists.
+    Convert frozen option containers to ordinary JSON-serializable dictionaries and
+    lists.
 
-    Mappings recurse into dictionaries and tuples recurse into lists. This helper does not validate unsupported values; callers freeze the input first.
+    Mappings recurse into dictionaries and tuples recurse into lists. This helper does
+    not validate unsupported values; callers freeze the input first.
 
     Example:
         >>> _mutable_column_option_value(freeze_column_options({"sizes": [1, 2]}))
@@ -134,7 +154,8 @@ def _mutable_column_option_value(value: ColumnOptionValue) -> object:
 
 
     :param value: Previously validated frozen option value.
-    :return: New dictionaries/lists for containers; scalar values are returned unchanged.
+    :return: New dictionaries/lists for containers; scalar values are returned
+        unchanged.
     """
 
     if isinstance(value, Mapping):
@@ -151,7 +172,9 @@ def column_options_to_json(options: Mapping[str, object] | None) -> str:
     """
     Validate and serialize an option mapping as compact, deterministic Unicode JSON.
 
-    Freeze the input first, convert frozen containers to JSON containers, then encode with allow_nan=False. This rejects unsupported objects rather than stringifying them.
+    Freeze the input first, convert frozen containers to JSON containers, then encode
+    with allow_nan=False. This rejects unsupported objects rather than stringifying
+    them.
 
     Example:
         >>> column_options_to_json({"width": 42, "label": "Title"})
@@ -159,7 +182,8 @@ def column_options_to_json(options: Mapping[str, object] | None) -> str:
 
 
     :param options: Option mapping or None, interpreted as an empty object.
-    :return: JSON object text with sorted keys, no formatting whitespace and unescaped Unicode characters.
+    :return: JSON object text with sorted keys, no formatting whitespace and unescaped
+        Unicode characters.
     :raises TypeError: The input or a nested value is not an accepted option type.
     :raises ValueError: An option float is not finite.
     """
@@ -183,147 +207,42 @@ def column_options_from_json(
     """
     Decode an option object and freeze its nested containers.
 
-    Decode byte-like inputs as UTF-8 and strings with json.loads. An already-decoded mapping is also accepted. The resulting root must be an object: JSON null, arrays and scalars are rejected even though a direct None input means empty options.
+    Decode byte-like inputs as UTF-8 and strings with json.loads. An already-decoded
+    mapping is also accepted. The resulting root must be an object: JSON null, arrays
+    and scalars are rejected even though a direct None input means empty options.
 
     Example:
         >>> column_options_from_json('{"sizes":[1,2]}')["sizes"]
         (1, 2)
 
 
-    :param value: JSON text, UTF-8 bytes/bytearray/memoryview, an existing mapping, or None.
+    :param value: JSON text, UTF-8 bytes/bytearray/memoryview, an existing mapping, or
+        None.
     :param field_name: Root name included in validation diagnostics.
     :return: A deeply immutable option mapping; None produces an empty mapping.
-    :raises ValueError: JSON is malformed, its root is not an object, or an option float is non-finite.
+    :raises ValueError: JSON is malformed, its root is not an object, or an option float
+        is non-finite.
     :raises TypeError: Decoded options contain an unsupported key/value type.
     :raises UnicodeDecodeError: A byte-like input is not valid UTF-8.
     """
 
     if value is None:
         return freeze_column_options({}, field_name=field_name)
+
     if isinstance(value, memoryview):
         value = value.tobytes()
+
     if isinstance(value, (bytes, bytearray)):
         value = bytes(value).decode("utf-8")
+
     if isinstance(value, str):
         decoded = cast(object, json.loads(value))
     else:
         decoded = value
+
     if not isinstance(decoded, Mapping):
         raise ValueError(f"{field_name} JSON must contain an object")
     return freeze_column_options(cast(object, decoded), field_name=field_name)
-
-
-class ColumnSemanticRole(str, Enum):
-    """
-    Classify the application meaning of a physical column.
-
-    Members are string-valued policy labels. The enum itself performs no normalization, merge or validation operation on column data.
-
-    Example:
-        >>> ColumnSemanticRole("title") is ColumnSemanticRole.TITLE
-        True
-    """
-
-    MACHINE_VALUE = "machine_value"
-    IDENTIFIER = "identifier"
-    RELATIONSHIP_KEY = "relationship_key"
-    CODE = "code"
-    BOOLEAN = "boolean"
-    NUMBER = "number"
-    ORDERING = "ordering"
-    DATE_TIME = "date_time"
-    LOCATOR = "locator"
-    STRUCTURED_DATA = "structured_data"
-    HASH = "hash"
-    NORMALIZED_KEY = "normalized_key"
-    PROVENANCE = "provenance"
-    SCRATCH = "scratch"
-    DISPLAY_NAME = "display_name"
-    TITLE = "title"
-    LABEL = "label"
-    SORT_KEY = "sort_key"
-    TAXONOMY_TERM = "taxonomy_term"
-    VERBATIM_TEXT = "verbatim_text"
-    RESOURCE_NAME = "resource_name"
-
-
-class ColumnNormalizationProfile(str, Enum):
-    """
-    Name the normalization policy used before column-value comparison.
-
-    Members are string-valued policy labels. The enum itself performs no normalization, merge or validation operation on column data.
-
-    Example:
-        >>> ColumnNormalizationProfile("unicode_nfc") is ColumnNormalizationProfile.UNICODE_NFC
-        True
-    """
-
-    NONE = "none"
-    UNICODE_NFC = "unicode_nfc"
-    UNICODE_NFC_TRIM_CASEFOLD = "unicode_nfc_trim_casefold"
-    UNICODE_NFKC_WHITESPACE_CASEFOLD = "unicode_nfkc_whitespace_casefold"
-    TAG_SEARCH_TERM = "tag_search_term"
-    TITLE_SEARCH_TERM = "title_search_term"
-
-
-class ColumnEmptyValuePolicy(str, Enum):
-    """
-    Describe how missing or blank values are treated by a column policy.
-
-    Members are string-valued policy labels. The enum itself performs no normalization, merge or validation operation on column data.
-
-    Example:
-        >>> ColumnEmptyValuePolicy("null_or_blank_is_missing") is ColumnEmptyValuePolicy.NULL_OR_BLANK_IS_MISSING
-        True
-    """
-
-    NULL_IS_MISSING = "null_is_missing"
-    NULL_OR_BLANK_IS_MISSING = "null_or_blank_is_missing"
-    PRESERVE = "preserve"
-
-
-class ColumnMergePolicy(str, Enum):
-    """
-    Name the policy for combining an incoming and existing column value.
-
-    Members are string-valued policy labels. The enum itself performs no normalization, merge or validation operation on column data.
-
-    Example:
-        >>> ColumnMergePolicy("preserve_existing") is ColumnMergePolicy.PRESERVE_EXISTING
-        True
-    """
-
-    REPLACE = "replace"
-    SET_UNION = "set_union"
-    APPEND = "append"
-    PRESERVE_EXISTING = "preserve_existing"
-
-
-class ColumnValidationProfile(str, Enum):
-    """
-    Name the semantic validation policy assigned to a column.
-
-    Members are string-valued policy labels. The enum itself performs no normalization, merge or validation operation on column data.
-
-    Example:
-        >>> ColumnValidationProfile("identifier") is ColumnValidationProfile.IDENTIFIER
-        True
-    """
-
-    NONE = "none"
-    IDENTIFIER = "identifier"
-    CODE = "code"
-    BOOLEAN = "boolean"
-    NUMBER = "number"
-    DATE_TIME = "date_time"
-    LOCATOR = "locator"
-    JSON = "json"
-    HASH = "hash"
-    NORMALIZED_KEY = "normalized_key"
-    DISPLAY_TEXT = "display_text"
-    TAXONOMY_TERM = "taxonomy_term"
-    VERBATIM_TEXT = "verbatim_text"
-    RESOURCE_NAME = "resource_name"
 
 
 @dataclass(frozen=True, slots=True)
@@ -331,7 +250,10 @@ class ColumnMetadata:
     """
     Hold the semantic and writer policy for one physical database column.
 
-    This frozen, slotted dataclass stores table/column names, case sensitivity, role, normalization/comparison, empty-value, merge and validation policies. Construction deep-freezes both option maps; it does not independently validate the other fields, compare values or enforce database constraints.
+    This frozen, slotted dataclass stores table/column names, case sensitivity, role,
+    normalization/comparison, empty-value, merge and validation policies. Construction
+    deep-freezes both option maps; it does not independently validate the other fields,
+    compare values or enforce database constraints.
 
     Example:
         >>> metadata = default_column_metadata("tags", "tag")
@@ -359,11 +281,15 @@ class ColumnMetadata:
         """
         Replace both presentation option maps with validated immutable copies.
 
-        Use object.__setattr__ during frozen-dataclass initialization. Invalid nested values fail construction; no validation of the other policy fields occurs here.
+        Use object.__setattr__ during frozen-dataclass initialization. Invalid nested
+        values fail construction; no validation of the other policy fields occurs here.
 
         Example:
             >>> from dataclasses import replace
-            >>> metadata = replace(default_column_metadata("works", "work_title"), display_options={"sizes": [1, 2]})
+            >>> metadata = replace(
+            ...     default_column_metadata("works", "work_title"),
+            ...     display_options={"sizes": [1, 2]},
+            ... )
             >>> metadata.display_options["sizes"]
             (1, 2)
 
@@ -390,228 +316,185 @@ class ColumnMetadata:
             ),
         )
 
-# Case sensitivity describes equality and deduplication, not storage: writers
-# always retain the original display text.
-#
-# Identity-like display values use case-insensitive comparison because spelling
-# case is presentation, not identity. Verbatim prose and resource names use
-# case-sensitive comparison because a case-only edit can carry meaning, and
-# case-distinct resource names can coexist on case-sensitive filesystems.
-CASE_INSENSITIVE_DISPLAY_COLUMNS = frozenset(
-    {
-        ("custom_columns", "custom_column_label"),
-        ("custom_columns", "custom_column_name"),
-        ("database_metadata", "database_metadata_db_name"),
-        ("feeds", "feed_title"),
-        ("works", "work_title"),
-        ("works", "work_canonical_title"),
-        ("works", "work_sort_title"),
-        ("works", "work_creator_sort"),
-        ("expressions", "expression_label"),
-        ("expressions", "expression_title_override"),
-        ("expressions", "expression_subtitle"),
-        ("manifestations", "manifestation_subtitle"),
-        ("manifestations", "manifestation_format_detail"),
-        ("manifestations", "manifestation_edition_statement"),
-        ("manifestations", "manifestation_region_code"),
-        ("items", "item_location"),
+# Physical mappings select schema-independent kinds. The policy for each kind
+# belongs to metadata.value_policies; no merge or validation rule is defined here.
+_DISPLAY_COLUMN_GROUPS = {
+    DisplayValueKind.NAME: frozenset({
         ("agents", "agent_canonical_name"),
-        ("agents", "agent_sort_name"),
-        ("agents", "agent_aliases"),
-        ("human_agents", "human_agent_given_name"),
-        ("human_agents", "human_agent_middle_name"),
-        ("human_agents", "human_agent_family_name"),
-        ("human_agents", "human_agent_prefix"),
-        ("human_agents", "human_agent_suffix"),
-        ("human_agents", "human_agent_preferred_name"),
-        ("human_agents", "human_agent_nationality"),
-        ("org_agents", "org_agent_legal_name"),
-        ("org_agents", "org_agent_trading_name"),
-        ("org_agents", "org_agent_jurisdiction"),
-        ("languages", "language"),
-        ("labels", "label_text"),
-        ("genres", "genre"),
-        ("genres", "genre_sort"),
-        ("genres", "genre_full"),
-        ("subjects", "subject"),
-        ("subjects", "subject_sort"),
-        ("subjects", "subject_full"),
-        ("series", "series"),
-        ("series", "series_sort"),
-        ("series", "series_full"),
-        ("tags", "tag"),
-        ("stores", "store_name"),
-        ("replication_policies", "replication_policy_name"),
         ("backup_policies", "backup_policy_name"),
         ("backup_workflows", "backup_workflow_name"),
-        ("digital_assets", "digital_asset_tag"),
-        ("files", "file_tag"),
-        ("images", "image_tag"),
+        ("custom_columns", "custom_column_name"),
+        ("database_metadata", "database_metadata_db_name"),
         ("digital_asset_workflow", "digital_asset_workflow_assigned_to"),
         ("digital_asset_workflow_events", "digital_asset_workflow_event_actor"),
+        ("human_agents", "human_agent_family_name"),
+        ("human_agents", "human_agent_given_name"),
+        ("human_agents", "human_agent_middle_name"),
+        ("human_agents", "human_agent_nationality"),
+        ("human_agents", "human_agent_preferred_name"),
+        ("human_agents", "human_agent_prefix"),
+        ("human_agents", "human_agent_suffix"),
         ("item_workflow", "item_workflow_assigned_to"),
         ("item_workflow_events", "item_workflow_event_actor"),
+        ("languages", "language"),
+        ("org_agents", "org_agent_jurisdiction"),
+        ("org_agents", "org_agent_legal_name"),
+        ("org_agents", "org_agent_trading_name"),
+        ("replication_policies", "replication_policy_name"),
+        ("stores", "store_name"),
+    }),
+    DisplayValueKind.TITLE: frozenset({
+        ("expressions", "expression_subtitle"),
+        ("expressions", "expression_title_override"),
+        ("feeds", "feed_title"),
+        ("manifestations", "manifestation_subtitle"),
+        ("works", "work_canonical_title"),
+        ("works", "work_title"),
+    }),
+    DisplayValueKind.LABEL: frozenset({
+        ("custom_columns", "custom_column_label"),
+        ("expressions", "expression_label"),
+        ("items", "item_location"),
+        ("manifestations", "manifestation_edition_statement"),
+        ("manifestations", "manifestation_format_detail"),
+        ("manifestations", "manifestation_region_code"),
         ("workflow_states", "workflow_state_label"),
-        ("workflow_steps", "workflow_step_label"),
         ("workflow_steps", "workflow_step_group"),
-    }
-)
-
-CASE_SENSITIVE_DISPLAY_COLUMNS = frozenset(
-    {
-        ("new_books", "new_book_name"),
-        ("compressed_files", "compressed_file_name"),
-        ("metadata_dirtied_books", "metadata_drtied_reason"),
-        ("org_agent_relations", "org_agent_relation_note"),
-        ("works", "work_discovery_note"),
-        ("expressions", "expression_origin_note"),
-        ("manifestations", "manifestation_note"),
-        ("items", "item_source_name"),
+        ("workflow_steps", "workflow_step_label"),
+    }),
+    DisplayValueKind.SORT_KEY: frozenset({
+        ("agents", "agent_sort_name"),
+        ("genres", "genre_sort"),
+        ("series", "series_sort"),
+        ("subjects", "subject_sort"),
+        ("works", "work_creator_sort"),
+        ("works", "work_sort_title"),
+    }),
+    DisplayValueKind.TAXONOMY_TERM: frozenset({
+        ("digital_assets", "digital_asset_tag"),
+        ("files", "file_tag"),
+        ("genres", "genre"),
+        ("genres", "genre_full"),
+        ("images", "image_tag"),
+        ("labels", "label_text"),
+        ("series", "series"),
+        ("series", "series_full"),
+        ("subjects", "subject"),
+        ("subjects", "subject_full"),
+        ("tags", "tag"),
+    }),
+    DisplayValueKind.VERBATIM_TEXT: frozenset({
         ("agents", "agent_note"),
-        ("human_agents", "human_agent_biography"),
-        ("org_agents", "org_agent_description"),
-        ("annotations", "annotation_selected_text"),
         ("annotations", "annotation_note_text"),
-        ("comments", "comment"),
-        ("labels", "label_description"),
-        ("notes", "note"),
-        ("synopses", "synopsis"),
-        ("tags", "tag_description"),
-        ("stores", "store_location_note"),
-        ("backup_workflows", "backup_workflow_last_error"),
-        ("backup_workflow_state", "backup_workflow_state_last_error"),
-        ("folders", "folder_name"),
-        ("digital_assets", "digital_asset_name"),
-        ("digital_assets", "digital_asset_base_name"),
-        ("digital_assets", "digital_asset_auto_name"),
-        ("digital_assets", "digital_asset_original_name"),
-        ("composite_digital_assets", "composite_digital_asset_name"),
-        ("asset_replicas", "asset_replica_name"),
-        ("asset_replicas", "asset_replica_base_name"),
+        ("annotations", "annotation_selected_text"),
         ("asset_replicas", "asset_replica_failure_reason"),
-        ("files", "file_name"),
-        ("files", "file_base_name"),
-        ("files", "file_auto_name"),
-        ("files", "file_original_name"),
-        ("images", "image_name"),
-        ("images", "image_base_name"),
-        ("images", "image_auto_name"),
-        ("images", "image_original_name"),
-        ("file_derivations", "file_derivation_note"),
+        ("backup_workflow_state", "backup_workflow_state_last_error"),
+        ("backup_workflows", "backup_workflow_last_error"),
         ("digital_asset_derivations", "digital_asset_derivation_note"),
         ("digital_asset_workflow", "digital_asset_workflow_reason"),
         ("digital_asset_workflow_events", "digital_asset_workflow_event_note"),
+        ("expressions", "expression_origin_note"),
+        ("file_derivations", "file_derivation_note"),
+        ("human_agents", "human_agent_biography"),
         ("item_workflow", "item_workflow_reason"),
         ("item_workflow_events", "item_workflow_event_note"),
+        ("labels", "label_description"),
+        ("manifestations", "manifestation_note"),
+        ("metadata_dirtied_books", "metadata_drtied_reason"),
+        ("org_agent_relations", "org_agent_relation_note"),
+        ("org_agents", "org_agent_description"),
+        ("stores", "store_location_note"),
+        ("tags", "tag_description"),
         ("transform_run_inputs", "transform_run_input_note"),
         ("transform_run_outputs", "transform_run_output_note"),
         ("workflow_states", "workflow_state_description"),
-    }
-)
-
-if CASE_INSENSITIVE_DISPLAY_COLUMNS & CASE_SENSITIVE_DISPLAY_COLUMNS:
-    raise RuntimeError("display columns cannot have conflicting case-sensitivity policies")
-
-DISPLAY_COLUMNS = CASE_INSENSITIVE_DISPLAY_COLUMNS | CASE_SENSITIVE_DISPLAY_COLUMNS
-
-TITLE_DISPLAY_COLUMNS = frozenset(
-    {
-        ("feeds", "feed_title"),
-        ("works", "work_title"),
-        ("works", "work_canonical_title"),
-        ("expressions", "expression_title_override"),
-        ("expressions", "expression_subtitle"),
-        ("manifestations", "manifestation_subtitle"),
-    }
-)
-
-SORT_KEY_DISPLAY_COLUMNS = frozenset(
-    {
-        ("works", "work_sort_title"),
-        ("works", "work_creator_sort"),
-        ("agents", "agent_sort_name"),
-        ("genres", "genre_sort"),
-        ("subjects", "subject_sort"),
-        ("series", "series_sort"),
-    }
-)
-
-TAXONOMY_DISPLAY_COLUMNS = frozenset(
-    {
-        ("labels", "label_text"),
-        ("genres", "genre"),
-        ("genres", "genre_full"),
-        ("subjects", "subject"),
-        ("subjects", "subject_full"),
-        ("series", "series"),
-        ("series", "series_full"),
-        ("tags", "tag"),
-        ("digital_assets", "digital_asset_tag"),
-        ("files", "file_tag"),
-        ("images", "image_tag"),
-    }
-)
-
-LABEL_DISPLAY_COLUMNS = frozenset(
-    {
-        ("custom_columns", "custom_column_label"),
-        ("expressions", "expression_label"),
-        ("manifestations", "manifestation_format_detail"),
-        ("manifestations", "manifestation_edition_statement"),
-        ("manifestations", "manifestation_region_code"),
-        ("items", "item_location"),
-        ("workflow_states", "workflow_state_label"),
-        ("workflow_steps", "workflow_step_label"),
-        ("workflow_steps", "workflow_step_group"),
-    }
-)
-
-RESOURCE_NAME_DISPLAY_COLUMNS = frozenset(
-    {
-        ("new_books", "new_book_name"),
-        ("compressed_files", "compressed_file_name"),
-        ("items", "item_source_name"),
-        ("folders", "folder_name"),
-        ("digital_assets", "digital_asset_name"),
-        ("digital_assets", "digital_asset_base_name"),
-        ("digital_assets", "digital_asset_auto_name"),
-        ("digital_assets", "digital_asset_original_name"),
-        ("composite_digital_assets", "composite_digital_asset_name"),
-        ("asset_replicas", "asset_replica_name"),
+        ("works", "work_discovery_note"),
+    }),
+    DisplayValueKind.RESOURCE_NAME: frozenset({
         ("asset_replicas", "asset_replica_base_name"),
-        ("files", "file_name"),
-        ("files", "file_base_name"),
+        ("asset_replicas", "asset_replica_name"),
+        ("composite_digital_assets", "composite_digital_asset_name"),
+        ("compressed_files", "compressed_file_name"),
+        ("digital_assets", "digital_asset_auto_name"),
+        ("digital_assets", "digital_asset_base_name"),
+        ("digital_assets", "digital_asset_name"),
+        ("digital_assets", "digital_asset_original_name"),
         ("files", "file_auto_name"),
+        ("files", "file_base_name"),
+        ("files", "file_name"),
         ("files", "file_original_name"),
-        ("images", "image_name"),
-        ("images", "image_base_name"),
+        ("folders", "folder_name"),
         ("images", "image_auto_name"),
+        ("images", "image_base_name"),
+        ("images", "image_name"),
         ("images", "image_original_name"),
-    }
-)
+        ("items", "item_source_name"),
+        ("new_books", "new_book_name"),
+    }),
+    DisplayValueKind.ALIASES: frozenset({
+        ("agents", "agent_aliases"),
+    }),
+    DisplayValueKind.COMMENT: frozenset({
+        ("comments", "comment"),
+    }),
+    DisplayValueKind.NOTE: frozenset({
+        ("notes", "note"),
+    }),
+    DisplayValueKind.SYNOPSIS: frozenset({
+        ("synopses", "synopsis"),
+    }),
+}
 
-VERBATIM_DISPLAY_COLUMNS = CASE_SENSITIVE_DISPLAY_COLUMNS - RESOURCE_NAME_DISPLAY_COLUMNS
-DISPLAY_NAME_COLUMNS = (
-    CASE_INSENSITIVE_DISPLAY_COLUMNS
-    - TITLE_DISPLAY_COLUMNS
-    - SORT_KEY_DISPLAY_COLUMNS
-    - TAXONOMY_DISPLAY_COLUMNS
-    - LABEL_DISPLAY_COLUMNS
-)
+DISPLAY_COLUMN_VALUE_KINDS = MappingProxyType({
+    key: kind for kind, columns in _DISPLAY_COLUMN_GROUPS.items() for key in columns
+})
+if sum(map(len, _DISPLAY_COLUMN_GROUPS.values())) != len(DISPLAY_COLUMN_VALUE_KINDS):
+    raise RuntimeError("display columns cannot have conflicting value kinds")
 
-_ROLE_GROUPS = (
-    DISPLAY_NAME_COLUMNS,
-    TITLE_DISPLAY_COLUMNS,
-    LABEL_DISPLAY_COLUMNS,
-    SORT_KEY_DISPLAY_COLUMNS,
-    TAXONOMY_DISPLAY_COLUMNS,
-    VERBATIM_DISPLAY_COLUMNS,
-    RESOURCE_NAME_DISPLAY_COLUMNS,
+DISPLAY_COLUMNS = frozenset(DISPLAY_COLUMN_VALUE_KINDS)
+CASE_SENSITIVE_DISPLAY_COLUMNS = frozenset(
+    key for key, kind in DISPLAY_COLUMN_VALUE_KINDS.items()
+    if display_value_policy(kind).case_sensitive
 )
-if set().union(*_ROLE_GROUPS) != DISPLAY_COLUMNS:
-    raise RuntimeError("every display column must have exactly one semantic role")
-if sum(len(group) for group in _ROLE_GROUPS) != len(DISPLAY_COLUMNS):
-    raise RuntimeError("display-column semantic-role groups cannot overlap")
+CASE_INSENSITIVE_DISPLAY_COLUMNS = DISPLAY_COLUMNS - CASE_SENSITIVE_DISPLAY_COLUMNS
+
+# Derived views retain the existing registry API for readers.
+DISPLAY_NAME_COLUMNS = frozenset(
+    key for key, kind in DISPLAY_COLUMN_VALUE_KINDS.items()
+    if display_value_policy(kind).semantic_role is ColumnSemanticRole.DISPLAY_NAME
+)
+TITLE_DISPLAY_COLUMNS = frozenset(
+    key for key, kind in DISPLAY_COLUMN_VALUE_KINDS.items()
+    if display_value_policy(kind).semantic_role is ColumnSemanticRole.TITLE
+)
+LABEL_DISPLAY_COLUMNS = frozenset(
+    key for key, kind in DISPLAY_COLUMN_VALUE_KINDS.items()
+    if display_value_policy(kind).semantic_role is ColumnSemanticRole.LABEL
+)
+SORT_KEY_DISPLAY_COLUMNS = frozenset(
+    key for key, kind in DISPLAY_COLUMN_VALUE_KINDS.items()
+    if display_value_policy(kind).semantic_role is ColumnSemanticRole.SORT_KEY
+)
+TAXONOMY_DISPLAY_COLUMNS = frozenset(
+    key for key, kind in DISPLAY_COLUMN_VALUE_KINDS.items()
+    if display_value_policy(kind).semantic_role is ColumnSemanticRole.TAXONOMY_TERM
+)
+VERBATIM_DISPLAY_COLUMNS = frozenset(
+    key for key, kind in DISPLAY_COLUMN_VALUE_KINDS.items()
+    if display_value_policy(kind).semantic_role is ColumnSemanticRole.VERBATIM_TEXT
+)
+RESOURCE_NAME_DISPLAY_COLUMNS = frozenset(
+    key for key, kind in DISPLAY_COLUMN_VALUE_KINDS.items()
+    if display_value_policy(kind).semantic_role is ColumnSemanticRole.RESOURCE_NAME
+)
+SET_UNION_DISPLAY_COLUMNS = frozenset(
+    key for key, kind in DISPLAY_COLUMN_VALUE_KINDS.items()
+    if display_value_policy(kind).merge_policy is ColumnMergePolicy.SET_UNION
+)
+APPEND_DISPLAY_COLUMNS = frozenset(
+    key for key, kind in DISPLAY_COLUMN_VALUE_KINDS.items()
+    if display_value_policy(kind).merge_policy is ColumnMergePolicy.APPEND
+)
 
 COMPARISON_COLUMNS: dict[tuple[str, str], tuple[str, ColumnNormalizationProfile]] = {
     ("backup_policies", "backup_policy_name"): (
@@ -652,146 +535,36 @@ COMPARISON_COLUMNS: dict[tuple[str, str], tuple[str, ColumnNormalizationProfile]
     ),
 }
 
-SET_UNION_DISPLAY_COLUMNS = TAXONOMY_DISPLAY_COLUMNS | {
-    ("agents", "agent_aliases"),
-}
-APPEND_DISPLAY_COLUMNS = frozenset(
-    {
-        ("comments", "comment"),
-        ("notes", "note"),
-        ("synopses", "synopsis"),
-    }
-)
-
-
-def _semantic_role(key: tuple[str, str]) -> ColumnSemanticRole:
-    """
-    Select the display role for a configured column pair.
-
-    Check title, label, sort key, taxonomy, verbatim and resource-name groups in that order. This helper does not validate that the pair belongs to DISPLAY_COLUMNS.
-
-    Example:
-        >>> _semantic_role(("tags", "tag")).value
-        'taxonomy_term'
-
-
-    :param key: Physical (table, column) pair, matched exactly against the configured registries.
-    :return: The first matching display-role enum, defaulting to DISPLAY_NAME.
-    """
-
-    if key in TITLE_DISPLAY_COLUMNS:
-        return ColumnSemanticRole.TITLE
-    if key in LABEL_DISPLAY_COLUMNS:
-        return ColumnSemanticRole.LABEL
-    if key in SORT_KEY_DISPLAY_COLUMNS:
-        return ColumnSemanticRole.SORT_KEY
-    if key in TAXONOMY_DISPLAY_COLUMNS:
-        return ColumnSemanticRole.TAXONOMY_TERM
-    if key in VERBATIM_DISPLAY_COLUMNS:
-        return ColumnSemanticRole.VERBATIM_TEXT
-    if key in RESOURCE_NAME_DISPLAY_COLUMNS:
-        return ColumnSemanticRole.RESOURCE_NAME
-    return ColumnSemanticRole.DISPLAY_NAME
-
-
-def _normalization_profile(key: tuple[str, str]) -> ColumnNormalizationProfile:
-    """
-    Select a comparison override or the configured display normalization fallback.
-
-    A COMPARISON_COLUMNS entry takes precedence over case-sensitivity and verbatim defaults. This only chooses a policy; it does not transform text.
-
-    Example:
-        >>> _normalization_profile(("tags", "tag")).value
-        'tag_search_term'
-
-
-    :param key: Physical (table, column) pair, matched exactly against the configured registries.
-    :return: Configured comparison profile, case-insensitive NFC/trim/casefold, verbatim NFC, or NONE.
-    """
-
-    comparison = COMPARISON_COLUMNS.get(key)
-    if comparison is not None:
-        return comparison[1]
-    if key in CASE_INSENSITIVE_DISPLAY_COLUMNS:
-        return ColumnNormalizationProfile.UNICODE_NFC_TRIM_CASEFOLD
-    if key in VERBATIM_DISPLAY_COLUMNS:
-        return ColumnNormalizationProfile.UNICODE_NFC
-    return ColumnNormalizationProfile.NONE
-
-
-def _merge_policy(key: tuple[str, str]) -> ColumnMergePolicy:
-    """
-    Select set-union, append or replace behavior from display-column registries.
-
-    Example:
-        >>> _merge_policy(("comments", "comment")).value
-        'append'
-
-
-    :param key: Physical (table, column) pair, matched exactly against the configured registries.
-    :return: SET_UNION for its registry, APPEND for its registry, otherwise REPLACE.
-    """
-
-    if key in SET_UNION_DISPLAY_COLUMNS:
-        return ColumnMergePolicy.SET_UNION
-    if key in APPEND_DISPLAY_COLUMNS:
-        return ColumnMergePolicy.APPEND
-    return ColumnMergePolicy.REPLACE
-
-
-def _validation_profile(
-    semantic_role: ColumnSemanticRole,
-) -> ColumnValidationProfile:
-    """
-    Choose the validation label associated with a display semantic role.
-
-    This helper supplies display defaults. Machine-role validation uses _machine_validation_profile instead; no value is validated here.
-
-    Example:
-        >>> _validation_profile(ColumnSemanticRole.TITLE).value
-        'display_text'
-
-
-    :param semantic_role: Role enum used for identity comparisons.
-    :return: Taxonomy, verbatim or resource-name validation for those roles; DISPLAY_TEXT otherwise.
-    """
-
-    if semantic_role is ColumnSemanticRole.TAXONOMY_TERM:
-        return ColumnValidationProfile.TAXONOMY_TERM
-    if semantic_role is ColumnSemanticRole.VERBATIM_TEXT:
-        return ColumnValidationProfile.VERBATIM_TEXT
-    if semantic_role is ColumnSemanticRole.RESOURCE_NAME:
-        return ColumnValidationProfile.RESOURCE_NAME
-    return ColumnValidationProfile.DISPLAY_TEXT
-
 
 def _display_column_metadata(key: tuple[str, str]) -> ColumnMetadata:
-    """
-    Build a complete display-policy record from the configured registries.
+    """Bind a metadata-owned display policy to a registered physical column.
 
-    Case sensitivity is membership in CASE_SENSITIVE_DISPLAY_COLUMNS; semantic, normalization and merge helpers determine the other policies. The optional comparison column comes from COMPARISON_COLUMNS. Intended for registered display pairs; unregistered input is not rejected.
+    The comparison-column mapping may override the default normalization profile.
+    All other display defaults come from metadata.value_policies. This builds a
+    declaration; it does not normalize, validate or merge stored values.
 
     Example:
         >>> _display_column_metadata(("tags", "tag")).comparison_column
         'tag_phash'
 
-
-    :param key: Physical (table, column) pair, matched exactly against the configured registries.
-    :return: New ColumnMetadata with blank/null treated as missing and empty presentation options.
+    :param key: Exact registered (table, column) pair.
+    :return: Frozen policy record with empty presentation options.
+    :raises KeyError: The column has no registered display kind.
     """
-
-    semantic_role = _semantic_role(key)
+    policy = display_value_policy(DISPLAY_COLUMN_VALUE_KINDS[key])
     comparison = COMPARISON_COLUMNS.get(key)
     return ColumnMetadata(
         table=key[0],
         column=key[1],
-        case_sensitive=key in CASE_SENSITIVE_DISPLAY_COLUMNS,
-        semantic_role=semantic_role,
-        normalization_profile=_normalization_profile(key),
+        case_sensitive=policy.case_sensitive,
+        semantic_role=policy.semantic_role,
+        normalization_profile=(
+            comparison[1] if comparison is not None else policy.normalization_profile
+        ),
         comparison_column=comparison[0] if comparison is not None else None,
-        empty_value_policy=ColumnEmptyValuePolicy.NULL_OR_BLANK_IS_MISSING,
-        merge_policy=_merge_policy(key),
-        validation_profile=_validation_profile(semantic_role),
+        empty_value_policy=policy.empty_value_policy,
+        merge_policy=policy.merge_policy,
+        validation_profile=policy.validation_profile,
     )
 
 
@@ -895,7 +668,9 @@ def _declared_type_family(declared_type: str | None) -> str:
     """
     Reduce the first SQL type token to a known family or a lowercase fallback.
 
-    Stringify, trim and uppercase the declaration, then stop at whitespace or an opening parenthesis. Classification uses explicit token sets, not SQLite affinity substring rules; for example DECIMAL is not in the numeric token set.
+    Stringify, trim and uppercase the declaration, then stop at whitespace or an opening
+    parenthesis. Classification uses explicit token sets, not SQLite affinity substring
+    rules; for example DECIMAL is not in the numeric token set.
 
     Example:
         >>> _declared_type_family("VARCHAR(80)")
@@ -905,7 +680,8 @@ def _declared_type_family(declared_type: str | None) -> str:
 
 
     :param declared_type: SQL type declaration, or None/empty input.
-    :return: number, boolean, date_time, blob, text, an unrecognized lowercase token, or an empty string.
+    :return: number, boolean, date_time, blob, text, an unrecognized lowercase token, or
+        an empty string.
     """
 
     text = str(declared_type or "").strip().upper()
@@ -936,14 +712,25 @@ def _machine_role(
     """
     Infer a machine column role using ordered schema and naming heuristics.
 
-    Precedence is scratch, primary/conventional/identifier names, relationship keys, date/time, boolean names, ordering, hashes, normalized keys, locators, structured suffixes, code tokens, declared boolean/number types, then provenance. Thus a naming rule can override declared type or foreign-key evidence. Declared text/blob alone does not imply a display role.
+    Precedence is scratch, primary/conventional/identifier names, relationship keys,
+    date/time, boolean names, ordering, hashes, normalized keys, locators, structured
+    suffixes, code tokens, declared boolean/number types, then provenance. Thus a naming
+    rule can override declared type or foreign-key evidence. Declared text/blob alone
+    does not imply a display role.
 
     Example:
-        >>> _machine_role("works", "work_id", "INTEGER", is_primary_key=False, is_foreign_key=False).value
+        >>> _machine_role(
+        ...     "works",
+        ...     "work_id",
+        ...     "INTEGER",
+        ...     is_primary_key=False,
+        ...     is_foreign_key=False,
+        ... ).value
         'identifier'
 
 
-    :param table: Table name used for conventional primary-key and last-read-position recognition.
+    :param table: Table name used for conventional primary-key and last-read-position
+        recognition.
     :param column: Column name casefolded for token/suffix rules.
     :param declared_type: SQL declaration used for fallback type-family rules.
     :param is_primary_key: Whether schema inspection identifies this as a primary key.
@@ -1048,7 +835,9 @@ def _looks_like_conventional_primary_key(table: str, column: str) -> bool:
     """
     Recognize a table-name stem followed by the column suffix _id.
 
-    Try the original table name, ies-to-y, removal of es after ch/sh/ss/x/z endings, and removal of a final s. This is a naming heuristic and does not inspect schema constraints or irregular plurals.
+    Try the original table name, ies-to-y, removal of es after ch/sh/ss/x/z endings, and
+    removal of a final s. This is a naming heuristic and does not inspect schema
+    constraints or irregular plurals.
 
     Example:
         >>> _looks_like_conventional_primary_key("policies", "policy_id")
@@ -1059,7 +848,8 @@ def _looks_like_conventional_primary_key(table: str, column: str) -> bool:
 
     :param table: Table name stringified and casefolded before simple suffix rules.
     :param column: Column name stringified and casefolded; must end in _id.
-    :return: True if the column stem matches the full table name or a supported singularized form.
+    :return: True if the column stem matches the full table name or a supported
+        singularized form.
     """
 
     lowered_table = str(table).casefold()
@@ -1083,7 +873,9 @@ def _machine_validation_profile(
     """
     Map an inferred machine role to its validation-policy enum.
 
-    Both identifiers and relationship keys use identifier validation; ordering shares number validation, and structured data uses JSON. This returns a label without checking any stored value.
+    Both identifiers and relationship keys use identifier validation; ordering shares
+    number validation, and structured data uses JSON. This returns a label without
+    checking any stored value.
 
     Example:
         >>> _machine_validation_profile(ColumnSemanticRole.RELATIONSHIP_KEY).value
@@ -1120,10 +912,17 @@ def infer_column_metadata(
     """
     Return an explicit display override or infer a machine-column default policy.
 
-    Exact display overrides take precedence over all supplied schema facts. Machine defaults are case-sensitive with no normalization/comparison column and empty option maps. Scratch preserves empty values; other machine roles treat null as missing. Identifiers, tables ending exactly in _events and columns containing created_timestamp or source_created_datestamp preserve existing values; other inferred columns replace. No database existence check or value normalization occurs.
+    Exact display overrides take precedence over all supplied schema facts. Machine
+    defaults are case-sensitive with no normalization/comparison column and empty option
+    maps. Scratch preserves empty values; other machine roles treat null as missing.
+    Identifiers, tables ending exactly in _events and columns containing
+    created_timestamp or source_created_datestamp preserve existing values; other
+    inferred columns replace. No database existence check or value normalization occurs.
 
     Example:
-        >>> metadata = infer_column_metadata("works", "work_id", "INTEGER", is_primary_key=True)
+        >>> metadata = infer_column_metadata(
+        ...     "works", "work_id", "INTEGER", is_primary_key=True
+        ... )
         >>> metadata.merge_policy.value
         'preserve_existing'
 
@@ -1133,7 +932,8 @@ def infer_column_metadata(
     :param declared_type: Optional SQL type declaration for machine-role inference.
     :param is_primary_key: Primary-key fact passed to the ordered machine-role rules.
     :param is_foreign_key: Foreign-key fact passed to the ordered machine-role rules.
-    :return: Existing configured ColumnMetadata for an exact override, otherwise a new inferred record.
+    :return: Existing configured ColumnMetadata for an exact override, otherwise a new
+        inferred record.
     """
 
     key = (str(table), str(column))
@@ -1186,7 +986,8 @@ def default_column_metadata(table: str, column: str) -> ColumnMetadata:
 
     :param table: Physical table name passed to infer_column_metadata.
     :param column: Physical column name passed to infer_column_metadata.
-    :return: Configured display metadata or machine metadata inferred without SQL type/key facts.
+    :return: Configured display metadata or machine metadata inferred without SQL
+        type/key facts.
     """
 
     return infer_column_metadata(table, column)
@@ -1234,7 +1035,8 @@ def iter_column_case_sensitivity_defaults() -> Iterator[tuple[str, str, bool]]:
     """
     Yield configured display case-sensitivity rows in sorted table/column order.
 
-    Machine-column inferred defaults are absent. Iteration reads the current COLUMN_CASE_SENSITIVITY_DEFAULTS registry.
+    Machine-column inferred defaults are absent. Iteration reads the current
+    COLUMN_CASE_SENSITIVITY_DEFAULTS registry.
 
     Example:
         >>> rows = list(iter_column_case_sensitivity_defaults())
@@ -1242,7 +1044,8 @@ def iter_column_case_sensitivity_defaults() -> Iterator[tuple[str, str, bool]]:
         True
 
 
-    :return: Iterator of (table, column, case_sensitive) tuples for explicit defaults only.
+    :return: Iterator of (table, column, case_sensitive) tuples for explicit defaults
+        only.
     """
 
     for (table, column), case_sensitive in sorted(COLUMN_CASE_SENSITIVITY_DEFAULTS.items()):
@@ -1253,7 +1056,8 @@ def iter_column_metadata_defaults() -> Iterator[ColumnMetadata]:
     """
     Yield explicit display-policy records in sorted table/column order.
 
-    These are display overrides only. Schema generators must call infer_column_metadata for other physical columns to obtain machine defaults.
+    These are display overrides only. Schema generators must call infer_column_metadata
+    for other physical columns to obtain machine defaults.
 
     Example:
         >>> rows = list(iter_column_metadata_defaults())
@@ -1261,7 +1065,8 @@ def iter_column_metadata_defaults() -> Iterator[ColumnMetadata]:
         True
 
 
-    :return: Iterator of existing configured ColumnMetadata objects, without copying them.
+    :return: Iterator of existing configured ColumnMetadata objects, without copying
+        them.
     """
 
     for key in sorted(COLUMN_METADATA_DEFAULTS):
@@ -1279,6 +1084,7 @@ __all__ = [
     "ColumnValidationProfile",
     "COLUMN_CASE_SENSITIVITY_DEFAULTS",
     "COLUMN_METADATA_DEFAULTS",
+    "DISPLAY_COLUMN_VALUE_KINDS",
     "COLUMN_METADATA_TABLE",
     "COMPARISON_COLUMNS",
     "DEFAULT_COLUMN_CASE_SENSITIVE",

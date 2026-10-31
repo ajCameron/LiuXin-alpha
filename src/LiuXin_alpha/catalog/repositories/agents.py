@@ -3,28 +3,28 @@ Store Agent identities, subtype aggregates, and role-scoped WEMI credits.
 
 Generic CRUD normalizes aliases but creates only the core Agent row. Person and
 organisation helpers add subtype rows and related metadata inside a macro
-transaction. Resolution scans canonical names; matching delegates richer identity
+transaction. Resolution compares canonical names; matching delegates richer identity
 decisions to AgentMatcher. Credit ordering and persistence follow portable macros.
 """
 
 from __future__ import annotations
 
-from collections.abc import Iterable
-from typing import ClassVar, Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
+from typing import ClassVar
 
-from LiuXin_alpha.databases.macro_types import LinkValue
+from LiuXin_alpha.databases.db_types.macro_types import LinkValue
 
 from ..api.common import (
     CatalogMutationError,
     EntityId,
     IdentifierCandidate,
-    MetadataCandidate,
     MatchResult,
+    MetadataCandidate,
     RowInput,
     RowMapping,
     WemiLevel,
 )
-from .base import BaseRepository, WEMI_TABLES, normalise_text
+from .base import WEMI_TABLES, BaseRepository, normalise_text
 
 
 class AgentRepository(BaseRepository):
@@ -360,10 +360,7 @@ class AgentRepository(BaseRepository):
         agent = self.require(agent_id)
         if agent.get("agent_type") != "organisation":
             raise CatalogMutationError(f"Agent {agent_id} is not an organisation")
-        sidecars = self._macros.get_rows(
-            "org_agents",
-            where={"org_agent_agent_id": agent_id},
-        )
+        sidecars = self.db.metadata_sql.get_org_agents_for_agents([agent_id])[agent_id]
         if not sidecars:
             raise CatalogMutationError(
                 f"organisation Agent {agent_id} has no org_agents sidecar"
@@ -469,7 +466,7 @@ class AgentRepository(BaseRepository):
         otherwise ignored: it does not filter credits, types, or identity. Compare only
         agent_canonical_name using NFKC/casefold/whitespace normalization; aliases are not
         searched. Blank normalized names return None without a database read. Other
-        lookups materialize all rows in requested ascending Agent-ID order, then return
+        lookups use indexed SQL where supported or bounded candidate pages, then return
         the first match rather than detecting duplicate-name ambiguity.
 
         Example:
@@ -491,7 +488,12 @@ class AgentRepository(BaseRepository):
         wanted = normalise_text(name)
         if not wanted:
             return None
-        for row in self._all_rows():
+        from LiuXin_alpha.databases.db_types.query_types import TextMatch
+
+        rows = self._matching_rows(
+            TextMatch(("agent_canonical_name",), wanted, exact=True)
+        )
+        for row in self._scan_rows() if rows is None else rows:
             canonical = row.get("agent_canonical_name")
             if isinstance(canonical, str) and normalise_text(canonical) == wanted:
                 return row

@@ -18,8 +18,8 @@ from LiuXin_alpha.catalog.write.column_update import CatalogColumnUpdate
 from LiuXin_alpha.catalog.write.link_update import LinkUpdate
 from LiuXin_alpha.catalog.write.owned_row_update import CatalogOwnedRowUpdate
 from LiuXin_alpha.databases.api.database_api.database_api import DatabaseAPI
-from LiuXin_alpha.databases.db_types import SrcTableID
-from LiuXin_alpha.databases.macro_types import LinkRow
+from LiuXin_alpha.databases.db_types.database_types import SrcTableID
+from LiuXin_alpha.databases.db_types.macro_types import LinkRow
 
 
 class CatalogWriterHostAPI(Protocol):

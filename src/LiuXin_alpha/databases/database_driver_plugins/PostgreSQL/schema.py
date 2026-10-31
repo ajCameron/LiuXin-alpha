@@ -46,6 +46,7 @@ _HELPER_SQL_FOLDERS = (
     _SQL_FRBR_TABLE_ROOT / "metadata_additional",
     _SQL_FRBR_TABLE_ROOT / "frbr_metadata_core_attributes",
     _SQL_FRBR_TABLE_ROOT / "frbr_metadata_core_tables",
+    _SQL_FRBR_TABLE_ROOT / "storage_tables",
 )
 
 _CATALOG_TABLES = frozenset({
@@ -53,6 +54,11 @@ _CATALOG_TABLES = frozenset({
     "tags", "labels", "genres", "subjects", "series", "ratings", "comments",
     "synopses", "notes", "annotations", "entity_identifiers", "item_identifiers",
     "human_agents", "org_agents", "org_agent_relations",
+})
+
+_STORAGE_HELPER_TABLES = frozenset({
+    "backup_workflows", "backup_workflow_sources", "backup_workflow_outputs",
+    "backup_workflow_state",
 })
 
 
@@ -80,8 +86,8 @@ def create_new_database(target_location: str | Mapping[str, object]) -> None:
     Connect to an existing PostgreSQL database and create a fresh LiuXin schema.
 
     A metadata mapping resolves its schema through configuration; a string URL uses
-    public, which must be empty. The raw connection is always closed after creation. This entry point does
-    not issue CREATE DATABASE or create server roles.
+    public, which must be empty. The raw connection is always closed after creation.
+    This entry point does not issue CREATE DATABASE or create server roles.
 
     Example:
         ``create_new_database({"service": "owner", "schema": "library"})``
@@ -237,11 +243,14 @@ def _create_table_sql(table: TableDefinition) -> str:
     The internal table name is surrounded by quotes but not escaped here.
 
     Example:
-        >>> _create_table_sql(TableDefinition("t", ('"id" bigint',))).startswith('create table if not exists "t"')
+        >>> _create_table_sql(TableDefinition("t", ('"id" bigint',))).startswith(
+        ...     'create table if not exists "t"'
+        ... )
         True
 
 
-    :param table: Trusted internal table declaration; its indexes are handled separately.
+    :param table: Trusted internal table declaration; its indexes are handled
+        separately.
     :return: CREATE TABLE statement without a trailing semicolon.
     """
     parts = [*table.columns, *table.constraints]
@@ -254,8 +263,8 @@ def _helper_sql_statements() -> tuple[str, ...]:
     Translate selected helper tables/indexes and order table groups by foreign keys.
 
     Exclude explicitly managed tables. Preserve discovery order among ready groups;
-    ignore self-references and dependencies outside the discovered helpers. Reject cycles
-    with DatabaseDriverError rather than returning a partial order.
+    ignore self-references and dependencies outside the discovered helpers. Reject
+    cycles with DatabaseDriverError rather than returning a partial order.
 
     Example:
         A helper referenced by digital_asset_derivations is emitted before that
@@ -267,7 +276,7 @@ def _helper_sql_statements() -> tuple[str, ...]:
     grouped: dict[str, list[str]] = {}
     discovery_order: list[str] = []
     explicit = {definition.name for definition in TABLE_DEFINITIONS}
-    helper_tables = (set(HELPER_TABLES) | _CATALOG_TABLES) - explicit
+    helper_tables = (set(HELPER_TABLES) | _CATALOG_TABLES | _STORAGE_HELPER_TABLES) - explicit
     for sqlite_statement in _sqlite_helper_statements():
         table_name = _statement_table_name(sqlite_statement) or _statement_index_table_name(sqlite_statement)
         if table_name not in helper_tables:
@@ -321,7 +330,8 @@ def _statement_referenced_tables(statement: str) -> set[str]:
         {'works'}
 
 
-    :param statement: SQL fragment searched case-insensitively; unquoted references are ignored.
+    :param statement: SQL fragment searched case-insensitively; unquoted references are
+        ignored.
     :return: Set of double-quoted or backtick-quoted referenced names.
     """
 
@@ -347,7 +357,7 @@ def _helper_table_catalog() -> dict[str, tuple[str, ...]]:
     """
     catalog: dict[str, tuple[str, ...]] = {}
     explicit = {definition.name for definition in TABLE_DEFINITIONS}
-    helper_tables = (set(HELPER_TABLES) | _CATALOG_TABLES) - explicit
+    helper_tables = (set(HELPER_TABLES) | _CATALOG_TABLES | _STORAGE_HELPER_TABLES) - explicit
     for sqlite_statement in _sqlite_helper_statements():
         table_name = _statement_table_name(sqlite_statement)
         if table_name not in helper_tables:
@@ -712,7 +722,9 @@ def _create_statement_column_names(sql: str) -> tuple[str, ...]:
     Discard type text from parsed CREATE TABLE column declarations.
 
     Example:
-        >>> _create_statement_column_names(chr(10).join(['create table t (', '"id" bigint', ')']))
+        >>> _create_statement_column_names(
+        ...     chr(10).join(["create table t (", '"id" bigint', ")"])
+        ... )
         ('id',)
 
 

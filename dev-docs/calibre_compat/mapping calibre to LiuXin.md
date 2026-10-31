@@ -3,10 +3,15 @@
 Source checked: **2026-10-20**, working tree based on `fc5de7af`. The SQL and web mappings below describe implemented
 behaviour; the source-import mapping remains a proposal.
 
-## Three different meanings of “book ID”
+Follow-up **2026-10-29**: the implemented
+[Expression conversion policy](expression-conversion-policy.md) adds an explicit
+canonical compatibility reference while preserving all existing ID spaces.
+
+## Different meanings of “book ID”
 
 | Context | Identity | What it identifies |
 | --- | --- | --- |
+| Catalog Expression projection | `CalibreBookRef(expression_id=...)`, with optional Work/Manifestation context. | One realization with all its editions retained. Validated SQL rays can be converted into this reference; bare integers are rejected. |
 | A source Calibre library | Source-library identity plus its integer `books.id`. | A row in that library's `metadata.db`. The reader returns the source ID; a future importer must preserve the library context too. |
 | LiuXin SQLite `books` / `books_v` | Text ray ID such as `3:13:105`. | One complete Work–Expression–Manifestation path in the canonical catalogue. |
 | LiuXin Calibre-style web book token | A Work ID, optionally with a parsed suffix. | A Work resolved by the surface catalogue adapter. It is not the SQL ray ID. |
@@ -69,6 +74,12 @@ questions an importer must resolve, not an implemented field-to-column recipe:
 A useful projection can flatten these facts for display. Its reverse mapping
 requires a policy: writing a displayed field is not enough to identify which
 canonical entity should change.
+
+The implemented `expression-v1` profile now supplies those rules for title,
+author sort, primary language, timestamps, comments and a policy-owned Work
+rating. It is not a general source-field importer. Its
+[field table and examples](expression-conversion-policy.md#field-policy) record
+the shared Work exceptions, identity checks and unsupported fields explicitly.
 
 The [schema overview](<../03 - Database Schema.md>) describes actual stored
 relations. The [import-policy draft](<00 - Calibre Compatibility Policy.md>) owns

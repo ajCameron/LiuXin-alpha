@@ -2,7 +2,8 @@
 """
 Maintain the fixed rating scale expected by the database facade.
 
-The rating helper writes missing or incorrect entries; it is normally invoked during bootstrap when repair_bootstrap_rows is enabled.
+The rating helper writes missing or incorrect entries; it is normally invoked during
+bootstrap when repair_bootstrap_rows is enabled.
 """
 
 from __future__ import annotations
@@ -23,7 +24,8 @@ class DatabaseRatingMixin:
     Repair rating IDs 1 through 11 to represent half-step values from zero to five.
 
     Example:
-        During writable bootstrap, db.check_rating_table() ensures the standard eleven rating entries exist.
+        During writable bootstrap, db.check_rating_table() ensures the standard eleven
+        rating entries exist.
     """
 
     # Todo: This might also want to be an internal method
@@ -37,7 +39,8 @@ class DatabaseRatingMixin:
         during conversion and roll back earlier repairs.
 
         Example:
-            For an open writable database, db.check_rating_table() restores rating ID 1 to 0.0 and ID 11 to 5.0.
+            For an open writable database, db.check_rating_table() restores rating ID 1
+            to 0.0 and ID 11 to 5.0.
 
 
         :return: None; ratings outside IDs 1 through 11 are left untouched.

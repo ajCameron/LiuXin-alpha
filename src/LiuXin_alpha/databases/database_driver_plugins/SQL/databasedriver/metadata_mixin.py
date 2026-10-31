@@ -34,10 +34,12 @@ class MetadataMethodMixin:
         Read the first PRAGMA user_version value from the primary connection.
 
         Example:
-            ``driver.user_version`` reads SQLite's application-controlled integer version.
+            ``driver.user_version`` reads SQLite's application-controlled integer
+            version.
 
 
-        :return: The raw PRAGMA value, normally an integer, or ``None`` if no row is returned.
+        :return: The raw PRAGMA value, normally an integer, or ``None`` if no row is
+            returned.
         """
         for row in self.conn.execute("pragma user_version;"):
             return row[0]
@@ -47,7 +49,8 @@ class MetadataMethodMixin:
         Expose the user_version property through the driver method interface.
 
         Example:
-            ``driver.direct_get_user_version()`` returns the same value as ``driver.user_version``.
+            ``driver.direct_get_user_version()`` returns the same value as
+            ``driver.user_version``.
 
 
         :return: The raw user-version value, normally an integer.
@@ -56,15 +59,20 @@ class MetadataMethodMixin:
 
     def direct_get_schema_version(self) -> Optional[int]:
         """
-        Read SQLite's schema change counter, retrying on a fresh connection after failure.
+        Read SQLite's schema change counter, retrying on a fresh connection after
+        failure.
 
-        Temporary connections are closed. A failing primary handle may be closed without replacing ``self.conn``; failure of the retry propagates. Failed integer conversion preserves the raw value.
+        Temporary connections are closed. A failing primary handle may be closed without
+        replacing ``self.conn``; failure of the retry propagates. Failed integer
+        conversion preserves the raw value.
 
         Example:
-            ``driver.direct_get_schema_version()`` supports checking for external schema changes.
+            ``driver.direct_get_schema_version()`` supports checking for external schema
+            changes.
 
 
-        :return: The integer counter, a raw non-convertible value, or ``None`` if no row is produced.
+        :return: The integer counter, a raw non-convertible value, or ``None`` if no row
+            is produced.
         """
         conn = getattr(self, "conn", None)
         close_after = False
@@ -113,7 +121,8 @@ class MetadataMethodMixin:
         Clear table/column caches, declared-type entries and the cached schema version.
 
         Example:
-            ``driver._invalidate_schema_caches()`` forces subsequent schema reads to rebuild caches.
+            ``driver._invalidate_schema_caches()`` forces subsequent schema reads to
+            rebuild caches.
 
 
         :return: ``None``.
@@ -133,13 +142,16 @@ class MetadataMethodMixin:
         """
         Return cached table/view names, rebuilding when a known schema version changes.
 
-        Suppress an ``_v`` name when its unsuffixed counterpart exists. The returned list is the cache itself; forcing refresh closes and replaces the primary handle.
+        Suppress an ``_v`` name when its unsuffixed counterpart exists. The returned
+        list is the cache itself; forcing refresh closes and replaces the primary
+        handle.
 
         Example:
             ``driver.direct_get_tables(force_refresh=True)`` re-reads sqlite_master.
 
 
-        :param force_refresh: Invalidate cached schema data and reopen the primary connection before introspection.
+        :param force_refresh: Invalidate cached schema data and reopen the primary
+            connection before introspection.
         :return: The mutable list of visible table and view names.
         """
         if force_refresh:
@@ -191,10 +203,12 @@ class MetadataMethodMixin:
         """
         Look up cached column names after canonicalizing the table identifier.
 
-        Populate the combined cache only when absent; an existing cache is not independently version-checked here. Unknown tables raise InputIntegrityError.
+        Populate the combined cache only when absent; an existing cache is not
+        independently version-checked here. Unknown tables raise InputIntegrityError.
 
         Example:
-            ``driver.direct_get_column_headings("`books`")`` uses the unquoted cache key.
+            ``driver.direct_get_column_headings("`books`")`` uses the unquoted cache
+            key.
 
 
         :param table: Table or view name used for schema introspection.
@@ -223,7 +237,9 @@ class MetadataMethodMixin:
         """
         Coerce and trim a name, discard its schema prefix and remove one wrapper pair.
 
-        Recognize brackets and symmetric quote, backslash, percent or underscore wrappers. This is a cache-key convenience, not an SQL parser or identifier validator; failed text coercion returns the input.
+        Recognize brackets and symmetric quote, backslash, percent or underscore
+        wrappers. This is a cache-key convenience, not an SQL parser or identifier
+        validator; failed text coercion returns the input.
 
         Example:
             >>> MetadataMethodMixin._canonicalise_table_name_for_cache(" main.[books] ")
@@ -259,14 +275,18 @@ class MetadataMethodMixin:
         """
         Build or reuse the table/view-to-column-list cache with schema-version checks.
 
-        Use a fresh connection for PRAGMA table_info and close it on success. Return the cache object directly; force-refresh also replaces the primary connection.
+        Use a fresh connection for PRAGMA table_info and close it on success. Return the
+        cache object directly; force-refresh also replaces the primary connection.
 
         Example:
-            ``driver.direct_get_tables_and_columns()["books"]`` yields the books column names.
+            ``driver.direct_get_tables_and_columns()["books"]`` yields the books column
+            names.
 
 
-        :param force_refresh: Invalidate cached schema data and reopen the primary connection before introspection.
-        :return: The cached mapping from visible table/view names to ordered column lists.
+        :param force_refresh: Invalidate cached schema data and reopen the primary
+            connection before introspection.
+        :return: The cached mapping from visible table/view names to ordered column
+            lists.
         """
         # If the information is already cached, return it unless it is stale.
         if self.tables_and_columns is not None and not force_refresh:
@@ -304,10 +324,13 @@ class MetadataMethodMixin:
         """
         Collect column tuples from non-partial unique SQLite indexes.
 
-        Skip expression indexes and empty groups. Validate table/index identifiers, raising integrity errors for unsafe names. Reuse the primary handle or close a temporary one in finally.
+        Skip expression indexes and empty groups. Validate table/index identifiers,
+        raising integrity errors for unsafe names. Reuse the primary handle or close a
+        temporary one in finally.
 
         Example:
-            ``driver._get_unique_column_groups("books")`` lists uniqueness constraints backed by ordinary indexes.
+            ``driver._get_unique_column_groups("books")`` lists uniqueness constraints
+            backed by ordinary indexes.
 
 
         :param table: Table or view name used for schema introspection.
@@ -355,7 +378,8 @@ class MetadataMethodMixin:
         Query the maximum ID value in a table, closing the connection after its result.
 
         Example:
-            ``driver.direct_get_highest_id("books")`` returns ``None`` when the table is empty.
+            ``driver.direct_get_highest_id("books")`` returns ``None`` when the table is
+            empty.
 
 
         :param target_table: Existing table name used in the aggregate query.
@@ -379,10 +403,12 @@ class MetadataMethodMixin:
         """
         Validate a table name and count its rows using a fresh connection.
 
-        Close the connection after reading the count; an invalid table raises InputIntegrityError.
+        Close the connection after reading the count; an invalid table raises
+        InputIntegrityError.
 
         Example:
-            ``driver.direct_get_record_count("books")`` returns zero for an empty books table.
+            ``driver.direct_get_record_count("books")`` returns zero for an empty books
+            table.
 
 
         :param target_table: Existing table name used in the aggregate query.
@@ -406,7 +432,8 @@ class MetadataMethodMixin:
         """
         Count rows for a trusted SQL table identifier and convert the count to int.
 
-        This variant does not validate the identifier; it closes the connection after obtaining a result.
+        This variant does not validate the identifier; it closes the connection after
+        obtaining a result.
 
         Example:
             ``driver.direct_get_row_count("books")`` counts all rows.
@@ -430,13 +457,16 @@ class MetadataMethodMixin:
         """
         Read the database identity from its sole metadata row.
 
-        Multiple rows raise DatabaseIntegrityError. Reuse the primary connection when available, otherwise close the temporary handle in finally.
+        Multiple rows raise DatabaseIntegrityError. Reuse the primary connection when
+        available, otherwise close the temporary handle in finally.
 
         Example:
-            ``driver.direct_get_db_unique_id()`` reads an identity without generating one.
+            ``driver.direct_get_db_unique_id()`` reads an identity without generating
+            one.
 
 
-        :return: The stored identity value, or ``None`` when there are no rows or the value is null.
+        :return: The stored identity value, or ``None`` when there are no rows or the
+            value is null.
         """
         stmt = "SELECT `database_metadata_unique_id` FROM `database_metadata`"
         conn = getattr(self, "conn", None)
@@ -465,10 +495,14 @@ class MetadataMethodMixin:
         """
         Write a supplied identity or new UUID4, commit, and verify it by rereading.
 
-        A non-null current identity updates row ID 1 without prompting. A null/missing identity takes the insert branch, so a pre-existing null-valued row can produce duplicate metadata rows. Verification failures raise DatabaseIntegrityError after the write commits.
+        A non-null current identity updates row ID 1 without prompting. A null/missing
+        identity takes the insert branch, so a pre-existing null-valued row can produce
+        duplicate metadata rows. Verification failures raise DatabaseIntegrityError
+        after the write commits.
 
         Example:
-            ``driver.direct_set_db_unique_id()`` generates a UUID4 string for a suitable metadata table.
+            ``driver.direct_set_db_unique_id()`` generates a UUID4 string for a suitable
+            metadata table.
 
 
         :param force_value: Identity value to write; ``None`` generates a UUID4 string.
@@ -515,7 +549,8 @@ class MetadataMethodMixin:
         """
         Ensure the metadata table contains one row, inserting a placeholder if empty.
 
-        More than one row raises DatabaseIntegrityError; the inserted scratch value is the literal string ``None``.
+        More than one row raises DatabaseIntegrityError; the inserted scratch value is
+        the literal string ``None``.
 
         Example:
             ``driver._initialize_md()`` prepares the metadata row before field access.
@@ -540,13 +575,16 @@ class MetadataMethodMixin:
         """
         Validate a metadata field, initialize the sole row and update its value.
 
-        Unknown fields raise ValueError; multiple metadata rows raise DatabaseIntegrityError. Persistence is delegated to the row update helper.
+        Unknown fields raise ValueError; multiple metadata rows raise
+        DatabaseIntegrityError. Persistence is delegated to the row update helper.
 
         Example:
-            ``driver.direct_write_metadata("scratch", "reviewed")`` sets the prefixed scratch column.
+            ``driver.direct_write_metadata("scratch", "reviewed")`` sets the prefixed
+            scratch column.
 
 
-        :param md_field_name: Metadata column name, with or without the ``database_metadata_`` prefix.
+        :param md_field_name: Metadata column name, with or without the
+            ``database_metadata_`` prefix.
         :param md_field_value: Value assigned to the validated metadata column.
         :return: ``None``.
         """
@@ -580,13 +618,16 @@ class MetadataMethodMixin:
         """
         Read a validated metadata field, creating the placeholder row if needed.
 
-        SQL null and values whose lowercase string is ``none`` return None. Other values are deep-copied. Unknown fields raise ValueError.
+        SQL null and values whose lowercase string is ``none`` return None. Other values
+        are deep-copied. Unknown fields raise ValueError.
 
         Example:
-            ``driver.direct_read_metadata("scratch")`` returns ``None`` for the initial placeholder.
+            ``driver.direct_read_metadata("scratch")`` returns ``None`` for the initial
+            placeholder.
 
 
-        :param md_field_name: Metadata column name, with or without the ``database_metadata_`` prefix.
+        :param md_field_name: Metadata column name, with or without the
+            ``database_metadata_`` prefix.
         :return: The copied field value, or ``None`` for null/none sentinels.
         """
         md_field_name = force_unicode(deepcopy(md_field_name))

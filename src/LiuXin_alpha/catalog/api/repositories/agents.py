@@ -139,7 +139,7 @@ class AgentRepositoryAPI(BaseRepositoryAPI, Protocol):
         otherwise ignored: it does not filter credits, types, or identity. Compare only
         agent_canonical_name using NFKC/casefold/whitespace normalization; aliases are not
         searched. Blank normalized names return None without a database read. Other
-        lookups materialize all rows in requested ascending Agent-ID order, then return
+        lookups use indexed SQL where supported or bounded candidate pages, then return
         the first match rather than detecting duplicate-name ambiguity.
 
         Example:

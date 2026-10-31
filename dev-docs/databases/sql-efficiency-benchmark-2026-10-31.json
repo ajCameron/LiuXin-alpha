@@ -1,0 +1,190 @@
+{
+  "created_at": "2026-10-31T02:51:14.743466+00:00",
+  "python": "3.12.3",
+  "platform": "Linux-6.18.33.1-microsoft-standard-WSL2-x86_64-with-glibc2.39",
+  "backend": "SQLite_apsw driver (stdlib SQLite connections)",
+  "sqlite_version": "3.45.1",
+  "dataset": {
+    "works": 50000,
+    "expressions": 50000,
+    "manifestations": 25000,
+    "items": 50000,
+    "identifiers": 50000,
+    "shared_expression_links": 500,
+    "database_bytes": 37474304,
+    "setup_seconds": 8.970420197001658
+  },
+  "batch": 1000,
+  "iterations": 3,
+  "results": [
+    {
+      "scenario": "page_offset",
+      "seconds": [
+        0.01409191603306681,
+        0.013918304000981152,
+        0.015162136987783015
+      ],
+      "median_seconds": 0.01409191603306681,
+      "process_peak_rss_kib": 65616,
+      "operation_python_peak_bytes": 209397,
+      "sql_statements": 8,
+      "result_count": 100,
+      "result_sha256": "e5d5aa86f84ea990e31210c01b040bba0bf6cc14189d5f4f24222c6421a076e6"
+    },
+    {
+      "scenario": "page_keyset",
+      "seconds": [
+        0.0031159890349954367,
+        0.0035340820904821157,
+        0.003039281931705773
+      ],
+      "median_seconds": 0.0031159890349954367,
+      "process_peak_rss_kib": 64040,
+      "operation_python_peak_bytes": 209437,
+      "sql_statements": 8,
+      "result_count": 100,
+      "result_sha256": "e5d5aa86f84ea990e31210c01b040bba0bf6cc14189d5f4f24222c6421a076e6"
+    },
+    {
+      "scenario": "page_materialized",
+      "seconds": [
+        0.8973045320017263,
+        0.9048090940341353,
+        0.8952993890270591
+      ],
+      "median_seconds": 0.8973045320017263,
+      "process_peak_rss_kib": 157060,
+      "operation_python_peak_bytes": 92062720,
+      "sql_statements": 1,
+      "result_count": 100,
+      "result_sha256": "e5d5aa86f84ea990e31210c01b040bba0bf6cc14189d5f4f24222c6421a076e6"
+    },
+    {
+      "scenario": "graph_batch",
+      "seconds": [
+        0.05912205693311989,
+        0.061864919029176235,
+        0.06841061101295054
+      ],
+      "median_seconds": 0.061864919029176235,
+      "process_peak_rss_kib": 67172,
+      "operation_python_peak_bytes": 2510458,
+      "sql_statements": 31,
+      "result_count": 1010,
+      "result_sha256": "232e3fd1e12cb115ea3a13a034a722a82fe4ff6754b45d53c5f19287f74f0900"
+    },
+    {
+      "scenario": "graph_scalar",
+      "seconds": [
+        4.29443986795377,
+        5.330819256952964,
+        6.571129810996354
+      ],
+      "median_seconds": 5.330819256952964,
+      "process_peak_rss_kib": 66788,
+      "operation_python_peak_bytes": 1637948,
+      "sql_statements": 29000,
+      "result_count": 1010,
+      "result_sha256": "232e3fd1e12cb115ea3a13a034a722a82fe4ff6754b45d53c5f19287f74f0900"
+    },
+    {
+      "scenario": "title_index",
+      "seconds": [
+        0.34011324297171086,
+        0.29794395191129297,
+        0.2726304339012131
+      ],
+      "median_seconds": 0.29794395191129297,
+      "process_peak_rss_kib": 65604,
+      "operation_python_peak_bytes": 44557,
+      "sql_statements": 8,
+      "result_count": 1,
+      "result_sha256": "5c3e6ad4119ed2d270e1ff567668ca6f69a56e7a10f036a3d37c7bceab3d119a"
+    },
+    {
+      "scenario": "title_fallback",
+      "seconds": [
+        1.3995153359137475,
+        1.4188294069608673,
+        1.6191948839696124
+      ],
+      "median_seconds": 1.4188294069608673,
+      "process_peak_rss_kib": 67016,
+      "operation_python_peak_bytes": 1476373,
+      "sql_statements": 808,
+      "result_count": 1,
+      "result_sha256": "5c3e6ad4119ed2d270e1ff567668ca6f69a56e7a10f036a3d37c7bceab3d119a"
+    },
+    {
+      "scenario": "identifier_index",
+      "seconds": [
+        0.0014450980816036463,
+        0.001276585040614009,
+        0.0010772639652714133
+      ],
+      "median_seconds": 0.001276585040614009,
+      "process_peak_rss_kib": 63980,
+      "operation_python_peak_bytes": 44543,
+      "sql_statements": 8,
+      "result_count": 1,
+      "result_sha256": "5c3e6ad4119ed2d270e1ff567668ca6f69a56e7a10f036a3d37c7bceab3d119a"
+    },
+    {
+      "scenario": "identifier_fallback",
+      "seconds": [
+        1.8289106599986553,
+        1.3902950120391324,
+        1.5251492708921432
+      ],
+      "median_seconds": 1.5251492708921432,
+      "process_peak_rss_kib": 67024,
+      "operation_python_peak_bytes": 1080762,
+      "sql_statements": 800,
+      "result_count": 1,
+      "result_sha256": "5c3e6ad4119ed2d270e1ff567668ca6f69a56e7a10f036a3d37c7bceab3d119a"
+    },
+    {
+      "scenario": "shared_wemi",
+      "seconds": [
+        2.830453905975446,
+        2.6438621809938923,
+        2.8908128190087155
+      ],
+      "median_seconds": 2.830453905975446,
+      "process_peak_rss_kib": 65564,
+      "operation_python_peak_bytes": 60439,
+      "sql_statements": 39,
+      "result_count": 2,
+      "result_sha256": "385c9a4aa719b62e9d6252a050deaa8f21a8c7a11857f850da9e7abee723e322"
+    },
+    {
+      "scenario": "insert_batch",
+      "seconds": [
+        11.754102005972527,
+        13.822974508046173,
+        10.783234460046515
+      ],
+      "median_seconds": 11.754102005972527,
+      "process_peak_rss_kib": 72312,
+      "operation_python_peak_bytes": 1638826,
+      "sql_statements": 2029,
+      "result_count": 1,
+      "result_sha256": "7cd0293cbae2e0b1605df002902aa71db533aed523261212b4a6d8536c5cea2f"
+    },
+    {
+      "scenario": "insert_scalar",
+      "seconds": [
+        10.170121156028472,
+        10.595584887079895,
+        12.59879987000022
+      ],
+      "median_seconds": 10.595584887079895,
+      "process_peak_rss_kib": 72544,
+      "operation_python_peak_bytes": 1318344,
+      "sql_statements": 6016,
+      "result_count": 1,
+      "result_sha256": "7cd0293cbae2e0b1605df002902aa71db533aed523261212b4a6d8536c5cea2f"
+    }
+  ],
+  "methodology": "Warm operation timings; separate SQLite trace-event counts (including metadata and triggers, excluding connection setup) and tracemalloc samples; process RSS includes startup. References are current APIs, not historical releases. Writes roll back. This baseline preceded the sparse-canonical-title query-plan correction."
+}

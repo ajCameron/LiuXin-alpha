@@ -27,7 +27,8 @@ class CalibreEmulationMixin:
         Filesystem errors propagate; no database connection is opened.
 
         Example:
-            ``driver.direct_last_modified()`` reports the database file modification time.
+            ``driver.direct_last_modified()`` reports the database file modification
+            time.
 
 
         :return: The UTC datetime produced by ``utcfromtimestamp``.
@@ -35,5 +36,4 @@ class CalibreEmulationMixin:
         import os
 
         return utcfromtimestamp(os.stat(self.database_path).st_mtime)
-
 

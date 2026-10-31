@@ -11,19 +11,24 @@ from __future__ import annotations
 
 import abc
 from collections.abc import Mapping
-from typing import Optional, Iterable, Iterator, Any
+from typing import TYPE_CHECKING, Optional, Iterable, Iterator, Any
 
-from LiuXin_alpha.databases.column_metadata import (
-    ColumnEmptyValuePolicy,
-    ColumnMergePolicy,
-    ColumnMetadata,
-    ColumnNormalizationProfile,
-    ColumnOptions,
-    ColumnSemanticRole,
-    ColumnValidationProfile,
-)
-from LiuXin_alpha.databases.normalized_identities import NormalizedIdentitySpec
 from LiuXin_alpha.databases.schema_specs import LinkCapabilities
+
+
+if TYPE_CHECKING:
+    from LiuXin_alpha.databases.column_metadata import (
+        ColumnMetadata,
+        ColumnOptions,
+    )
+    from LiuXin_alpha.metadata.value_policies import (
+        ColumnEmptyValuePolicy,
+        ColumnMergePolicy,
+        ColumnNormalizationProfile,
+        ColumnSemanticRole,
+        ColumnValidationProfile,
+    )
+    from LiuXin_alpha.databases.normalized_identities import NormalizedIdentitySpec
 
 
 class DriverDatabasePropertiesMixinAPI(abc.ABC):
@@ -57,17 +62,18 @@ class DriverDatabasePropertiesMixinAPI(abc.ABC):
         Abstract backend hook. The behavior below describes the shared SQL/SQLite
         implementation; this declaration itself has no operational body.
 
-        Validate both canonical endpoint tables first. Different endpoints use sorted column
-        bases to derive the link-table name; identical endpoints use the repeated base with
-        an intralink suffix. Result endpoint order follows the caller. Missing endpoints
-        raise InputIntegrityError, while a missing link table returns None.
+        Validate both canonical endpoint tables first. Different endpoints use sorted
+        column bases to derive the link-table name; identical endpoints use the repeated
+        base with an intralink suffix. Result endpoint order follows the caller. Missing
+        endpoints raise InputIntegrityError, while a missing link table returns None.
 
         Example:
             >>> driver.direct_get_link_capabilities("agents", "works")  # doctest: +SKIP
 
 
         :param table1: First existing endpoint table; also the returned primary table.
-        :param table2: Second existing endpoint table; may equal the first for an intralink.
+        :param table2: Second existing endpoint table; may equal the first for an
+            intralink.
         :param force_refresh: Refresh the tables-and-columns snapshot before inspecting
             links.
         :return: LinkCapabilities for the physical link table, or None if it is absent.
@@ -87,15 +93,16 @@ class DriverDatabasePropertiesMixinAPI(abc.ABC):
         Abstract backend hook. The behavior below describes the shared SQL/SQLite
         implementation; this declaration itself has no operational body.
 
-        An absent link is false. Invalid endpoint tables propagate InputIntegrityError from
-        capability discovery.
+        An absent link is false. Invalid endpoint tables propagate InputIntegrityError
+        from capability discovery.
 
         Example:
             >>> driver.direct_is_link_typed("agents", "works")  # doctest: +SKIP
 
 
         :param table1: First existing endpoint table; also the returned primary table.
-        :param table2: Second existing endpoint table; may equal the first for an intralink.
+        :param table2: Second existing endpoint table; may equal the first for an
+            intralink.
         :param force_refresh: Refresh the tables-and-columns snapshot before inspecting
             links.
         :return: True only when a link table and its type column both exist.
@@ -115,15 +122,16 @@ class DriverDatabasePropertiesMixinAPI(abc.ABC):
         Abstract backend hook. The behavior below describes the shared SQL/SQLite
         implementation; this declaration itself has no operational body.
 
-        An absent link is false. Invalid endpoint tables propagate InputIntegrityError from
-        capability discovery.
+        An absent link is false. Invalid endpoint tables propagate InputIntegrityError
+        from capability discovery.
 
         Example:
             >>> driver.direct_is_link_priority("agents", "works")  # doctest: +SKIP
 
 
         :param table1: First existing endpoint table; also the returned primary table.
-        :param table2: Second existing endpoint table; may equal the first for an intralink.
+        :param table2: Second existing endpoint table; may equal the first for an
+            intralink.
         :param force_refresh: Refresh the tables-and-columns snapshot before inspecting
             links.
         :return: True only when a link table and its priority column both exist.
@@ -137,17 +145,21 @@ class DriverDatabasePropertiesMixinAPI(abc.ABC):
         Abstract backend hook. The behavior below describes the shared SQL/SQLite
         implementation; this declaration itself has no operational body.
 
-        Preserve the backend spelling and size information; an untyped SQLite column returns
-        empty text. Missing columns raise InputIntegrityError. A physical column missing
-        from the type map raises DatabaseIntegrityError.
+        Preserve the backend spelling and size information; an untyped SQLite column
+        returns empty text. Missing columns raise InputIntegrityError. A physical column
+        missing from the type map raises DatabaseIntegrityError.
 
         Example:
-            >>> driver.direct_get_declared_column_datatype("works", "work_title")  # doctest: +SKIP
+            >>> driver.direct_get_declared_column_datatype(
+            ...     "works", "work_title"
+            ... )  # doctest: +SKIP
 
 
         :param table: Existing table name, canonicalized by the driver.
-        :param column: Physical column name, converted to text and checked against headings.
-        :return: The original declared type string, including an empty string for no type.
+        :param column: Physical column name, converted to text and checked against
+            headings.
+        :return: The original declared type string, including an empty string for no
+            type.
         """
 
     @abc.abstractmethod
@@ -158,16 +170,19 @@ class DriverDatabasePropertiesMixinAPI(abc.ABC):
         Abstract backend hook. The behavior below describes the shared SQL/SQLite
         implementation; this declaration itself has no operational body.
 
-        Use the complete metadata lookup, including inferred defaults when the catalog or
-        row is absent. Invalid targets and corrupt stored policy propagate their lookup
-        errors.
+        Use the complete metadata lookup, including inferred defaults when the catalog
+        or row is absent. Invalid targets and corrupt stored policy propagate their
+        lookup errors.
 
         Example:
-            >>> driver.direct_get_case_sensitivity("works", "work_title")  # doctest: +SKIP
+            >>> driver.direct_get_case_sensitivity(
+            ...     "works", "work_title"
+            ... )  # doctest: +SKIP
 
 
         :param table: Existing table name, canonicalized by the driver.
-        :param column: Physical column name, converted to text and checked against headings.
+        :param column: Physical column name, converted to text and checked against
+            headings.
         :return: The case_sensitive boolean from the resolved column policy.
         """
 
@@ -179,19 +194,22 @@ class DriverDatabasePropertiesMixinAPI(abc.ABC):
         Abstract backend hook. The behavior below describes the shared SQL/SQLite
         implementation; this declaration itself has no operational body.
 
-        Infer defaults from names and the declared type; unavailable type catalog entries
-        fall back to inference without a declaration. If the metadata catalog or row is
-        absent, return those defaults. A legacy catalog supplies only case sensitivity and
-        retains other inferred fields. Expanded catalogs decode stored policy and optional
-        presentation JSON. Invalid stored values or targets raise integrity errors. Close
-        the read connection even if querying fails.
+        Infer defaults from names and the declared type; unavailable type catalog
+        entries fall back to inference without a declaration. If the metadata catalog or
+        row is absent, return those defaults. A legacy catalog supplies only case
+        sensitivity and retains other inferred fields. Expanded catalogs decode stored
+        policy and optional presentation JSON. Invalid stored values or targets raise
+        integrity errors. Close the read connection even if querying fails.
 
         Example:
-            >>> driver.direct_get_column_metadata("works", "work_title")  # doctest: +SKIP
+            >>> driver.direct_get_column_metadata(
+            ...     "works", "work_title"
+            ... )  # doctest: +SKIP
 
 
         :param table: Existing table name, canonicalized by the driver.
-        :param column: Physical column name, converted to text and checked against headings.
+        :param column: Physical column name, converted to text and checked against
+            headings.
         :return: A ColumnMetadata record with immutable formatting and display options.
         """
 
@@ -204,11 +222,11 @@ class DriverDatabasePropertiesMixinAPI(abc.ABC):
         implementation; this declaration itself has no operational body.
 
         Canonicalize the target and enum values, verify physical comparison columns and
-        enforce any normalized identity declaration. Require the expanded catalog including
-        both presentation-option columns; a missing or outdated catalog raises
+        enforce any normalized identity declaration. Require the expanded catalog
+        including both presentation-option columns; a missing or outdated catalog raises
         DatabaseIntegrityError. Invalid input raises InputIntegrityError. Close the
-        connection after success or failure. This updates policy only and does not rebuild
-        derived values.
+        connection after success or failure. This updates policy only and does not
+        rebuild derived values.
 
         Example:
             >>> driver.direct_set_column_metadata(column_metadata)  # doctest: +SKIP
@@ -238,7 +256,8 @@ class DriverDatabasePropertiesMixinAPI(abc.ABC):
 
 
         :param table: Existing table name, canonicalized by the driver.
-        :param column: Physical column name, converted to text and checked against headings.
+        :param column: Physical column name, converted to text and checked against
+            headings.
         :return: ColumnSemanticRole label describing the column's application meaning.
         """
 
@@ -255,18 +274,21 @@ class DriverDatabasePropertiesMixinAPI(abc.ABC):
         Abstract backend hook. The behavior below describes the shared SQL/SQLite
         implementation; this declaration itself has no operational body.
 
-        Read the current record, replace this field, then validate and commit the complete
-        policy. Other fields are retained from that read; this is not an atomic
+        Read the current record, replace this field, then validate and commit the
+        complete policy. Other fields are retained from that read; this is not an atomic
         read-modify-write operation. The expanded metadata catalog is required.
 
         Example:
-            >>> driver.direct_set_semantic_role("works", "work_title", semantic_role)  # doctest: +SKIP
+            >>> driver.direct_set_semantic_role(
+            ...     "works", "work_title", semantic_role
+            ... )  # doctest: +SKIP
 
 
         :param table: Existing table name, canonicalized by the driver.
-        :param column: Physical column name, converted to text and checked against headings.
-        :param semantic_role: ColumnSemanticRole label describing the column's application
-            meaning.
+        :param column: Physical column name, converted to text and checked against
+            headings.
+        :param semantic_role: ColumnSemanticRole label describing the column's
+            application meaning.
         :return: None after the complete policy write commits.
         """
 
@@ -286,11 +308,14 @@ class DriverDatabasePropertiesMixinAPI(abc.ABC):
         validation. Reading the policy performs no transformation of stored values.
 
         Example:
-            >>> driver.direct_get_normalization_profile("works", "work_title")  # doctest: +SKIP
+            >>> driver.direct_get_normalization_profile(
+            ...     "works", "work_title"
+            ... )  # doctest: +SKIP
 
 
         :param table: Existing table name, canonicalized by the driver.
-        :param column: Physical column name, converted to text and checked against headings.
+        :param column: Physical column name, converted to text and checked against
+            headings.
         :return: ColumnNormalizationProfile identifying the comparison transformation.
         """
 
@@ -307,19 +332,22 @@ class DriverDatabasePropertiesMixinAPI(abc.ABC):
         Abstract backend hook. The behavior below describes the shared SQL/SQLite
         implementation; this declaration itself has no operational body.
 
-        Read the current record, replace this field, then validate and commit the complete
-        policy. Other fields are retained from that read; this is not an atomic
-        read-modify-write operation. The expanded metadata catalog is required. Changes that
-        conflict with a normalized identity are rejected.
+        Read the current record, replace this field, then validate and commit the
+        complete policy. Other fields are retained from that read; this is not an atomic
+        read-modify-write operation. The expanded metadata catalog is required. Changes
+        that conflict with a normalized identity are rejected.
 
         Example:
-            >>> driver.direct_set_normalization_profile("works", "work_title", normalization_profile)  # doctest: +SKIP
+            >>> driver.direct_set_normalization_profile(
+            ...     "works", "work_title", normalization_profile
+            ... )  # doctest: +SKIP
 
 
         :param table: Existing table name, canonicalized by the driver.
-        :param column: Physical column name, converted to text and checked against headings.
-        :param normalization_profile: ColumnNormalizationProfile identifying the comparison
-            transformation.
+        :param column: Physical column name, converted to text and checked against
+            headings.
+        :param normalization_profile: ColumnNormalizationProfile identifying the
+            comparison transformation.
         :return: None after the complete policy write commits.
         """
 
@@ -335,15 +363,19 @@ class DriverDatabasePropertiesMixinAPI(abc.ABC):
         Abstract backend hook. The behavior below describes the shared SQL/SQLite
         implementation; this declaration itself has no operational body.
 
-        Resolve the complete policy using the same target validation and legacy fallbacks as
-        direct_get_column_metadata. This does not compute or refresh comparison values.
+        Resolve the complete policy using the same target validation and legacy
+        fallbacks as direct_get_column_metadata. This does not compute or refresh
+        comparison values.
 
         Example:
-            >>> driver.direct_get_comparison_column("works", "work_title")  # doctest: +SKIP
+            >>> driver.direct_get_comparison_column(
+            ...     "works", "work_title"
+            ... )  # doctest: +SKIP
 
 
         :param table: Existing table name, canonicalized by the driver.
-        :param column: Physical column name, converted to text and checked against headings.
+        :param column: Physical column name, converted to text and checked against
+            headings.
         :return: The comparison column name, or None when the policy names none.
         """
 
@@ -360,13 +392,16 @@ class DriverDatabasePropertiesMixinAPI(abc.ABC):
         implementation; this declaration itself has no operational body.
 
         Validate the target first. Only an absent identity catalog enables built-in
-        defaults, and those require all referenced columns. If the catalog exists but its
-        row is missing, return None without defaulting. Decode a stored row and check its
-        value, key and scope columns. Declaration decoding errors propagate; missing
-        physical references raise DatabaseIntegrityError. The read connection always closes.
+        defaults, and those require all referenced columns. If the catalog exists but
+        its row is missing, return None without defaulting. Decode a stored row and
+        check its value, key and scope columns. Declaration decoding errors propagate;
+        missing physical references raise DatabaseIntegrityError. The read connection
+        always closes.
 
         Example:
-            >>> driver.direct_get_normalized_identity_spec("works", "work_title")  # doctest: +SKIP
+            >>> driver.direct_get_normalized_identity_spec(
+            ...     "works", "work_title"
+            ... )  # doctest: +SKIP
 
 
         :param table: Existing table name, canonicalized by the driver.
@@ -394,7 +429,8 @@ class DriverDatabasePropertiesMixinAPI(abc.ABC):
             >>> driver.direct_iter_normalized_identity_specs()  # doctest: +SKIP
 
 
-        :return: An iterator of NormalizedIdentitySpec records supported by the database.
+        :return: An iterator of NormalizedIdentitySpec records supported by the
+            database.
         """
 
     @abc.abstractmethod
@@ -410,17 +446,20 @@ class DriverDatabasePropertiesMixinAPI(abc.ABC):
         Abstract backend hook. The behavior below describes the shared SQL/SQLite
         implementation; this declaration itself has no operational body.
 
-        Replace the field in the current policy and commit the complete record. A non-null
-        name must refer to a column in the same table; an immutable normalized identity may
-        prevent changing or clearing it. The expanded catalog is required. Stored data is
-        not recomputed.
+        Replace the field in the current policy and commit the complete record. A
+        non-null name must refer to a column in the same table; an immutable normalized
+        identity may prevent changing or clearing it. The expanded catalog is required.
+        Stored data is not recomputed.
 
         Example:
-            >>> driver.direct_set_comparison_column("works", "work_title", "work_title_norm")  # doctest: +SKIP
+            >>> driver.direct_set_comparison_column(
+            ...     "works", "work_title", "work_title_norm"
+            ... )  # doctest: +SKIP
 
 
         :param table: Existing table name, canonicalized by the driver.
-        :param column: Physical column name, converted to text and checked against headings.
+        :param column: Physical column name, converted to text and checked against
+            headings.
         :param comparison_column: Same-table physical column name, or None to clear the
             reference.
         :return: None after the complete policy write commits.
@@ -442,11 +481,14 @@ class DriverDatabasePropertiesMixinAPI(abc.ABC):
         validation. Reading the policy performs no transformation of stored values.
 
         Example:
-            >>> driver.direct_get_empty_value_policy("works", "work_title")  # doctest: +SKIP
+            >>> driver.direct_get_empty_value_policy(
+            ...     "works", "work_title"
+            ... )  # doctest: +SKIP
 
 
         :param table: Existing table name, canonicalized by the driver.
-        :param column: Physical column name, converted to text and checked against headings.
+        :param column: Physical column name, converted to text and checked against
+            headings.
         :return: ColumnEmptyValuePolicy describing which values count as missing.
         """
 
@@ -463,18 +505,21 @@ class DriverDatabasePropertiesMixinAPI(abc.ABC):
         Abstract backend hook. The behavior below describes the shared SQL/SQLite
         implementation; this declaration itself has no operational body.
 
-        Read the current record, replace this field, then validate and commit the complete
-        policy. Other fields are retained from that read; this is not an atomic
+        Read the current record, replace this field, then validate and commit the
+        complete policy. Other fields are retained from that read; this is not an atomic
         read-modify-write operation. The expanded metadata catalog is required.
 
         Example:
-            >>> driver.direct_set_empty_value_policy("works", "work_title", empty_policy)  # doctest: +SKIP
+            >>> driver.direct_set_empty_value_policy(
+            ...     "works", "work_title", empty_policy
+            ... )  # doctest: +SKIP
 
 
         :param table: Existing table name, canonicalized by the driver.
-        :param column: Physical column name, converted to text and checked against headings.
-        :param empty_value_policy: ColumnEmptyValuePolicy describing which values count as
-            missing.
+        :param column: Physical column name, converted to text and checked against
+            headings.
+        :param empty_value_policy: ColumnEmptyValuePolicy describing which values count
+            as missing.
         :return: None after the complete policy write commits.
         """
 
@@ -498,7 +543,8 @@ class DriverDatabasePropertiesMixinAPI(abc.ABC):
 
 
         :param table: Existing table name, canonicalized by the driver.
-        :param column: Physical column name, converted to text and checked against headings.
+        :param column: Physical column name, converted to text and checked against
+            headings.
         :return: ColumnMergePolicy describing how writers combine incoming values.
         """
 
@@ -515,16 +561,19 @@ class DriverDatabasePropertiesMixinAPI(abc.ABC):
         Abstract backend hook. The behavior below describes the shared SQL/SQLite
         implementation; this declaration itself has no operational body.
 
-        Read the current record, replace this field, then validate and commit the complete
-        policy. Other fields are retained from that read; this is not an atomic
+        Read the current record, replace this field, then validate and commit the
+        complete policy. Other fields are retained from that read; this is not an atomic
         read-modify-write operation. The expanded metadata catalog is required.
 
         Example:
-            >>> driver.direct_set_merge_policy("works", "work_title", merge_policy)  # doctest: +SKIP
+            >>> driver.direct_set_merge_policy(
+            ...     "works", "work_title", merge_policy
+            ... )  # doctest: +SKIP
 
 
         :param table: Existing table name, canonicalized by the driver.
-        :param column: Physical column name, converted to text and checked against headings.
+        :param column: Physical column name, converted to text and checked against
+            headings.
         :param merge_policy: ColumnMergePolicy describing how writers combine incoming
             values.
         :return: None after the complete policy write commits.
@@ -546,11 +595,14 @@ class DriverDatabasePropertiesMixinAPI(abc.ABC):
         validation. Reading the policy performs no transformation of stored values.
 
         Example:
-            >>> driver.direct_get_validation_profile("works", "work_title")  # doctest: +SKIP
+            >>> driver.direct_get_validation_profile(
+            ...     "works", "work_title"
+            ... )  # doctest: +SKIP
 
 
         :param table: Existing table name, canonicalized by the driver.
-        :param column: Physical column name, converted to text and checked against headings.
+        :param column: Physical column name, converted to text and checked against
+            headings.
         :return: ColumnValidationProfile naming the value validation policy.
         """
 
@@ -567,16 +619,19 @@ class DriverDatabasePropertiesMixinAPI(abc.ABC):
         Abstract backend hook. The behavior below describes the shared SQL/SQLite
         implementation; this declaration itself has no operational body.
 
-        Read the current record, replace this field, then validate and commit the complete
-        policy. Other fields are retained from that read; this is not an atomic
+        Read the current record, replace this field, then validate and commit the
+        complete policy. Other fields are retained from that read; this is not an atomic
         read-modify-write operation. The expanded metadata catalog is required.
 
         Example:
-            >>> driver.direct_set_validation_profile("works", "work_title", validation_profile)  # doctest: +SKIP
+            >>> driver.direct_set_validation_profile(
+            ...     "works", "work_title", validation_profile
+            ... )  # doctest: +SKIP
 
 
         :param table: Existing table name, canonicalized by the driver.
-        :param column: Physical column name, converted to text and checked against headings.
+        :param column: Physical column name, converted to text and checked against
+            headings.
         :param validation_profile: ColumnValidationProfile naming the value validation
             policy.
         :return: None after the complete policy write commits.
@@ -594,16 +649,19 @@ class DriverDatabasePropertiesMixinAPI(abc.ABC):
         Abstract backend hook. The behavior below describes the shared SQL/SQLite
         implementation; this declaration itself has no operational body.
 
-        Catalog and legacy fallback behavior comes from direct_get_column_metadata. Nested
-        mappings are read-only and nested sequences are tuples; this getter does not render
-        a value or surface.
+        Catalog and legacy fallback behavior comes from direct_get_column_metadata.
+        Nested mappings are read-only and nested sequences are tuples; this getter does
+        not render a value or surface.
 
         Example:
-            >>> driver.direct_get_formatting_options("works", "work_title")  # doctest: +SKIP
+            >>> driver.direct_get_formatting_options(
+            ...     "works", "work_title"
+            ... )  # doctest: +SKIP
 
 
         :param table: Existing table name, canonicalized by the driver.
-        :param column: Physical column name, converted to text and checked against headings.
+        :param column: Physical column name, converted to text and checked against
+            headings.
         :return: The frozen option mapping, possibly empty.
         """
 
@@ -620,17 +678,21 @@ class DriverDatabasePropertiesMixinAPI(abc.ABC):
         Abstract backend hook. The behavior below describes the shared SQL/SQLite
         implementation; this declaration itself has no operational body.
 
-        Freeze a deep copy before replacing the field in the current policy. Reject non-string keys, unsupported objects and non-finite numbers with InputIntegrityError.
-        Persist through the complete metadata writer, which requires the expanded catalog
-        and retains other fields from its prior read. The hints are stored without rendering
-        anything.
+        Freeze a deep copy before replacing the field in the current policy. Reject
+        non-string keys, unsupported objects and non-finite numbers with
+        InputIntegrityError. Persist through the complete metadata writer, which
+        requires the expanded catalog and retains other fields from its prior read. The
+        hints are stored without rendering anything.
 
         Example:
-            >>> driver.direct_set_formatting_options("works", "work_title", {"precision": 2})  # doctest: +SKIP
+            >>> driver.direct_set_formatting_options(
+            ...     "works", "work_title", {"precision": 2}
+            ... )  # doctest: +SKIP
 
 
         :param table: Existing table name, canonicalized by the driver.
-        :param column: Physical column name, converted to text and checked against headings.
+        :param column: Physical column name, converted to text and checked against
+            headings.
         :param formatting_options: JSON-like option mapping; None is also accepted at
             runtime as an empty mapping.
         :return: None after the complete policy write commits.
@@ -648,16 +710,19 @@ class DriverDatabasePropertiesMixinAPI(abc.ABC):
         Abstract backend hook. The behavior below describes the shared SQL/SQLite
         implementation; this declaration itself has no operational body.
 
-        Catalog and legacy fallback behavior comes from direct_get_column_metadata. Nested
-        mappings are read-only and nested sequences are tuples; this getter does not render
-        a value or surface.
+        Catalog and legacy fallback behavior comes from direct_get_column_metadata.
+        Nested mappings are read-only and nested sequences are tuples; this getter does
+        not render a value or surface.
 
         Example:
-            >>> driver.direct_get_display_options("works", "work_title")  # doctest: +SKIP
+            >>> driver.direct_get_display_options(
+            ...     "works", "work_title"
+            ... )  # doctest: +SKIP
 
 
         :param table: Existing table name, canonicalized by the driver.
-        :param column: Physical column name, converted to text and checked against headings.
+        :param column: Physical column name, converted to text and checked against
+            headings.
         :return: The frozen option mapping, possibly empty.
         """
 
@@ -674,19 +739,23 @@ class DriverDatabasePropertiesMixinAPI(abc.ABC):
         Abstract backend hook. The behavior below describes the shared SQL/SQLite
         implementation; this declaration itself has no operational body.
 
-        Freeze a deep copy before replacing the field in the current policy. Reject non-string keys, unsupported objects and non-finite numbers with InputIntegrityError.
-        Persist through the complete metadata writer, which requires the expanded catalog
-        and retains other fields from its prior read. The hints are stored without rendering
-        anything.
+        Freeze a deep copy before replacing the field in the current policy. Reject
+        non-string keys, unsupported objects and non-finite numbers with
+        InputIntegrityError. Persist through the complete metadata writer, which
+        requires the expanded catalog and retains other fields from its prior read. The
+        hints are stored without rendering anything.
 
         Example:
-            >>> driver.direct_set_display_options("works", "work_title", {"label": "Title"})  # doctest: +SKIP
+            >>> driver.direct_set_display_options(
+            ...     "works", "work_title", {"label": "Title"}
+            ... )  # doctest: +SKIP
 
 
         :param table: Existing table name, canonicalized by the driver.
-        :param column: Physical column name, converted to text and checked against headings.
-        :param display_options: JSON-like option mapping; None is also accepted at runtime
-            as an empty mapping.
+        :param column: Physical column name, converted to text and checked against
+            headings.
+        :param display_options: JSON-like option mapping; None is also accepted at
+            runtime as an empty mapping.
         :return: None after the complete policy write commits.
         """
 
@@ -704,17 +773,20 @@ class DriverDatabasePropertiesMixinAPI(abc.ABC):
         implementation; this declaration itself has no operational body.
 
         Validate the physical column, require an actual bool and enforce any normalized
-        identity restriction. A missing catalog raises DatabaseIntegrityError. Upsert just
-        the case flag, preserving other fields on an existing row; a new row receives the
-        catalog defaults. Expanded policy columns are not required. Close the connection
-        after the committed write or any error.
+        identity restriction. A missing catalog raises DatabaseIntegrityError. Upsert
+        just the case flag, preserving other fields on an existing row; a new row
+        receives the catalog defaults. Expanded policy columns are not required. Close
+        the connection after the committed write or any error.
 
         Example:
-            >>> driver.direct_set_case_sensitivity("works", "work_title", False)  # doctest: +SKIP
+            >>> driver.direct_set_case_sensitivity(
+            ...     "works", "work_title", False
+            ... )  # doctest: +SKIP
 
 
         :param table: Existing table name, canonicalized by the driver.
-        :param column: Physical column name, converted to text and checked against headings.
+        :param column: Physical column name, converted to text and checked against
+            headings.
         :param case_sensitive: Exact bool: True for case-sensitive equality, False
             otherwise.
         :return: None after the flag write commits.
@@ -725,17 +797,23 @@ class DriverDatabasePropertiesMixinAPI(abc.ABC):
         Forward to the canonical case-sensitivity getter.
 
         This concrete compatibility method forwards arguments unchanged and performs no
-        validation. Backend errors propagate. Return the canonical getter result unchanged.
+        validation. Backend errors propagate. Return the canonical getter result
+        unchanged.
 
         Example:
             >>> from types import SimpleNamespace
-            >>> host = SimpleNamespace(direct_get_case_sensitivity=lambda table, column: False)
-            >>> DriverDatabasePropertiesMixinAPI.direct_is_column_case_sensitive(host, "works", "work_title")
+            >>> host = SimpleNamespace(
+            ...     direct_get_case_sensitivity=lambda table, column: False
+            ... )
+            >>> DriverDatabasePropertiesMixinAPI.direct_is_column_case_sensitive(
+            ...     host, "works", "work_title"
+            ... )
             False
 
 
         :param table: Existing table name, canonicalized by the driver.
-        :param column: Physical column name, converted to text and checked against headings.
+        :param column: Physical column name, converted to text and checked against
+            headings.
         :return: The case-sensitivity boolean from the resolved policy.
         """
 
@@ -751,20 +829,25 @@ class DriverDatabasePropertiesMixinAPI(abc.ABC):
         Forward to the canonical case-sensitivity setter.
 
         This concrete compatibility method forwards arguments unchanged and performs no
-        validation. Backend errors propagate. Discard the canonical setter result and return
-        None.
+        validation. Backend errors propagate. Discard the canonical setter result and
+        return None.
 
         Example:
             >>> from types import SimpleNamespace
             >>> calls = []
-            >>> host = SimpleNamespace(direct_set_case_sensitivity=lambda *args: calls.append(args))
-            >>> DriverDatabasePropertiesMixinAPI.direct_set_column_case_sensitive(host, "works", "work_title", False)
+            >>> host = SimpleNamespace(
+            ...     direct_set_case_sensitivity=lambda *args: calls.append(args)
+            ... )
+            >>> DriverDatabasePropertiesMixinAPI.direct_set_column_case_sensitive(
+            ...     host, "works", "work_title", False
+            ... )
             >>> calls
             [('works', 'work_title', False)]
 
 
         :param table: Existing table name, canonicalized by the driver.
-        :param column: Physical column name, converted to text and checked against headings.
+        :param column: Physical column name, converted to text and checked against
+            headings.
         :param case_sensitive: Exact bool controlling case-sensitive equality.
         :return: None after the delegated write commits.
         """
@@ -779,19 +862,19 @@ class DriverDatabasePropertiesMixinAPI(abc.ABC):
         Abstract backend hook. The behavior below describes the shared SQL/SQLite
         implementation; this declaration itself has no operational body.
 
-        Initialize the per-instance cache lazily, then return a cached dictionary directly
-        on later calls. A miss reads table_info and stores column names mapped to their
-        original type strings, replacing null declarations with empty text. Unknown tables
-        can yield an empty mapping. The connection closes after successful iteration; this
-        method has no finally cleanup on failure. Table text is interpolated into PRAGMA
-        without quoting or validation.
+        Initialize the per-instance cache lazily, then return a cached dictionary
+        directly on later calls. A miss reads table_info and stores column names mapped
+        to their original type strings, replacing null declarations with empty text.
+        Unknown tables can yield an empty mapping. The connection closes after
+        successful iteration; this method has no finally cleanup on failure. Table text
+        is interpolated into PRAGMA without quoting or validation.
 
         Example:
             >>> driver.direct_get_declared_types_for_table("works")  # doctest: +SKIP
 
 
-        :param table: Trusted SQL table spelling suitable for direct PRAGMA interpolation;
-            also the exact cache key.
+        :param table: Trusted SQL table spelling suitable for direct PRAGMA
+            interpolation; also the exact cache key.
         :return: The cached mutable column-to-declared-type dictionary, not a copy.
         """
 
@@ -818,8 +901,8 @@ class DriverDatabasePropertiesMixinAPI(abc.ABC):
         Abstract backend hook. The behavior below describes the shared SQL/SQLite
         implementation; this declaration itself has no operational body.
 
-        Populate the combined cache only when absent; an existing cache is not independently
-        version-checked here. Unknown tables raise InputIntegrityError.
+        Populate the combined cache only when absent; an existing cache is not
+        independently version-checked here. Unknown tables raise InputIntegrityError.
 
         Example:
             >>> driver.direct_get_column_headings("works")  # doctest: +SKIP
@@ -877,8 +960,9 @@ class DriverDatabasePropertiesMixinAPI(abc.ABC):
         Abstract backend hook. The behavior below describes the shared SQL/SQLite
         implementation; this declaration itself has no operational body.
 
-        Suppress an ``_v`` name when its unsuffixed counterpart exists. The returned list is
-        the cache itself; forcing refresh closes and replaces the primary handle.
+        Suppress an ``_v`` name when its unsuffixed counterpart exists. The returned
+        list is the cache itself; forcing refresh closes and replaces the primary
+        handle.
 
         Example:
             >>> driver.direct_get_tables()  # doctest: +SKIP
@@ -906,7 +990,8 @@ class DriverDatabasePropertiesMixinAPI(abc.ABC):
 
         :param force_refresh: Invalidate cached schema data and reopen the primary
             connection before introspection.
-        :return: The cached mapping from visible table/view names to ordered column lists.
+        :return: The cached mapping from visible table/view names to ordered column
+            lists.
         """
 
     # Todo: direct_*

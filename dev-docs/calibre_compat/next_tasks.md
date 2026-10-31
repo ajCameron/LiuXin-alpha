@@ -2,6 +2,11 @@
 
 Reviewed **2026-10-20**, working tree based on `fc5de7af`.
 Status: **reader hardening plus a proposed canonical-import design**.
+Follow-up **2026-10-29**: [Expression conversion](expression-conversion-policy.md)
+is implemented for canonical projections and six field-write rules. Source import
+remains proposed. Next migrate legacy cache identity/read models to explicit
+references, define cover/asset and Series-position behavior, and retire the
+remaining raw helpers without changing SQL/web ID contracts.
 [Current mappings](<mapping calibre to LiuXin.md>) and the
 [import-policy draft](<00 - Calibre Compatibility Policy.md>) have different
 implementation status. A `full` import-job description does not execute an import.

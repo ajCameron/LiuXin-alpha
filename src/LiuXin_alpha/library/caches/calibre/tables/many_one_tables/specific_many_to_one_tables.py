@@ -16,14 +16,8 @@ from typing import TypeVar, Optional
 
 from LiuXin_alpha.library.caches.calibre.tables.many_one_tables.typed_many_to_one_table import CalibreTypedManyToOneTable
 from LiuXin_alpha.library.caches.calibre.tables.many_one_tables.typed_many_to_one_table import CalibreManyToOneTable
-from LiuXin_alpha.databases.db_types import (
-    MetadataDict,
-    InterLinkTableName,
-    SrcTableID,
-    DstTableID,
-    TableColumnName,
-    RatingInt,
-)
+from LiuXin_alpha.databases.db_types.database_types import InterLinkTableName, TableColumnName, SrcTableID, DstTableID, \
+    MetadataDict, RatingInt
 
 from LiuXin_alpha.errors import InvalidCacheUpdate
 

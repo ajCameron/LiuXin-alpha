@@ -7,6 +7,19 @@ meaning belongs to metadata/Catalog; physical storage policy belongs to storage.
 
 ## Working guides and operational contracts
 
+- [Catalog/database ownership](../catalog/catalog-database-ownership.md):
+  semantic operations above portable SQL and the `metadata_sql` migration.
+- [Metadata SQL WEMI audit](metadata-sql-wemi-audit-2026-10-29.md):
+  the 73-operation audit, Expression-policy migration and 2026-10-30
+  physical-table boundary: 62 table SQL helpers live under `db.metadata_sql`;
+  compatibility projections and unresolved policy gaps have explicit owners.
+- [Physical-table SQL batches](table-sql-batches.md): vocabulary lookup/ensure,
+  atomic row updates/deletes and scoped, data-only normalization repair.
+- [Table-owned SQL helpers](table-sql-ownership.md): main-table inventory,
+  all 36 physical main-table owners, batched relationship/owner reads and bounded pages.
+- [SQL efficiency implementation, 2026-10-31](sql-efficiency-2026-10-31.md):
+  pagination, many-owner graphs, normalized SQL search/matching, aggregates, bulk
+  writes and explicit query-index migrations, with backend limits and validation.
 - [Schema overview](<../03 - Database Schema.md>): current WEMI graph, assets,
   replicas, generated relations, compatibility views and schema source map.
 - [Worked link examples](wemi-link-examples.md): WEMI rows and paths, novels with

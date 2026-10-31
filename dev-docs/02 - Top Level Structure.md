@@ -127,12 +127,32 @@ Use the [Catalog API guide][catalog-api] for entry points, the
 their relationship to metadata and caches are explained under
 [metadata writes and reads](#metadata-writes-and-reads).
 
+Semantic search is available through `catalog.search.find()` at any WEMI result
+level. It follows all relevant paths and delegates physical reads to database
+APIs; see [WEMI search](catalog/catalog-wemi-search.md). The unfinished
+`databases.metadata_sql.database_search` prototype has been retired.
+
+Curated identifier operations and Work original-language assignment also have
+Catalog owners. Generic link deletion stays in portable database macros; see
+the [Catalog/database ownership decision](catalog/catalog-database-ownership.md)
+for the split. `databases.metadata_sql` retains physical-table queries/writes
+and can house SQL accelerators. Singular title/book facades and ray interpretation
+belong to Catalog; missing compatibility capabilities remain explicit policy tasks.
+
 ### metadata
 
 Metadata defines values, containers, WEMI vocabulary, pure normalization and
 validation, codecs and file metadata providers. It supplies the meaning that
 Catalog applies to persistent records. Database/cache-backed hydration belongs
 to Catalog rather than to the value containers.
+
+`metadata/value_policies.py` owns the shared policy vocabulary and defaults for
+display-value kinds. `databases/column_metadata.py` maps those kinds to physical
+columns and owns machine-column inference and policy serialization.
+
+`metadata/field_adaptors.py` owns legacy bibliographic and custom-field conversion,
+including title fallbacks, series parsing, and language/identifier cleaning. General
+text, number, boolean and date converters remain in `utils/adaptors.py`.
 
 Start with the [container guide][metadata-guide], `metadata/facade.py` for pure
 OPF/container transformations, and `metadata/file_sources/` for file metadata

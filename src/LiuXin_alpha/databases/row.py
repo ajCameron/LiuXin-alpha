@@ -2,7 +2,10 @@
 """
 Represent mutable local database rows with explicit synchronization.
 
-Row caches table/ID/schema metadata while retaining local values; construction alone does not persist a payload. Factory and blank-row helpers can insert records immediately. FixedTableStorageRow adds a declared table and subclass validation hook. These classes delegate database operations to the driver wrapper.
+Row caches table/ID/schema metadata while retaining local values; construction alone
+does not persist a payload. Factory and blank-row helpers can insert records
+immediately. FixedTableStorageRow adds a declared table and subclass validation hook.
+These classes delegate database operations to the driver wrapper.
 """
 from __future__ import annotations
 
@@ -24,28 +27,40 @@ class Row(RowAPI):
     """
     Keep a local row payload and cached identity for a database record.
 
-    Deep-copy supplied values, infer schema metadata and defer persistence until an explicit writer/factory call. Read-only mode replaces sync but leaves local mutation available. Equality compares identity hashes; deepcopy returns a writable base Row sharing the database. Prefer repr or __unicode__ for diagnostics because the legacy __str__ returns bytes.
+    Deep-copy supplied values, infer schema metadata and defer persistence until an
+    explicit writer/factory call. Read-only mode replaces sync but leaves local mutation
+    available. Equality compares stored identities directly; unsaved rows compare by
+    object identity and cannot be hashed. Deepcopy returns a writable base Row sharing
+    the database. String conversion returns diagnostic Unicode text.
 
     Example:
-        Given db, row = Row(db, {"work_title": "Draft"}) represents an unsaved Work; row.sync() assigns an ID and persists its values.
+        Given db, row = Row(db, {"work_title": "Draft"}) represents an unsaved Work;
+        row.sync() assigns an ID and persists its values.
     """
 
     def __init__(self, database: DatabaseAPI, row_dict: Optional[dict[str, str]] = None, read_only: bool = False) -> None:
         """
         Copy local values, infer schema metadata and configure synchronization.
 
-        Initialize caches, then refresh_db_properties. Empty payloads cache only allowed tables and keep table=None. Read-only construction replaces the instance sync method with no_sync after metadata setup.
+        Initialize caches, then refresh_db_properties. Empty payloads cache only allowed
+        tables and keep table=None. Read-only construction replaces the instance sync
+        method with no_sync after metadata setup.
 
         Example:
-            Given db, Row(db, {"work_title": "Draft"}, read_only=True) permits local inspection and editing while normal sync calls raise.
+            Given db, Row(db, {"work_title": "Draft"}, read_only=True) permits local
+            inspection and editing while normal sync calls raise.
 
 
-        :param database: Open database exposing driver_wrapper, schema headings and a stable uuid.
-        :param row_dict: Optional payload deep-copied before schema inference; None starts unidentified and empty.
-        :param read_only: Whether normal sync() calls should raise RowReadOnlyError; local field edits remain possible.
+        :param database: Open database exposing driver_wrapper, schema headings and a
+            stable uuid.
+        :param row_dict: Optional payload deep-copied before schema inference; None
+            starts unidentified and empty.
+        :param read_only: Whether normal sync() calls should raise RowReadOnlyError;
+            local field edits remain possible.
         :return: None; initialize state without inserting a database row.
         :raises DatabaseDriverError: database is None.
-        :raises DatabaseIntegrityError: Supplied fields cannot be assigned unambiguously to a table.
+        :raises DatabaseIntegrityError: Supplied fields cannot be assigned unambiguously
+            to a table.
         """
         super().__init__(database=database, row_dict=row_dict, read_only=read_only)
 
@@ -83,10 +98,12 @@ class Row(RowAPI):
         Return the table name currently cached for this row.
 
         Example:
-            Row(db, {"work_title": "A journey"}).table is "works" when those fields identify the Work table.
+            Row(db, {"work_title": "A journey"}).table is "works" when those fields
+            identify the Work table.
 
 
-        :return: Inferred or explicitly loaded table name; None for an unidentified empty Row despite the str annotation.
+        :return: Inferred or explicitly loaded table name; None for an unidentified
+            empty Row despite the str annotation.
         """
         return self._table
 
@@ -95,14 +112,18 @@ class Row(RowAPI):
         """
         Read a cached row ID or fall back to the payload’s discovered ID column.
 
-        A non-None cached ID wins over row_dict, including zero. The concrete getter does not coerce values to int or check database existence.
+        A non-None cached ID wins over row_dict, including zero. The concrete getter
+        does not coerce values to int or check database existence.
 
         Example:
-            For a Row with a Work payload but no work_id, row.row_id is None until an ID is assigned or allocated.
+            For a Row with a Work payload but no work_id, row.row_id is None until an ID
+            is assigned or allocated.
 
 
-        :return: Cached ID, or the payload value; None when a known table has no supplied ID.
-        :raises InputIntegrityError: Neither a cached ID nor an identified table is available.
+        :return: Cached ID, or the payload value; None when a known table has no
+            supplied ID.
+        :raises InputIntegrityError: Neither a cached ID nor an identified table is
+            available.
         """
         cached_row_id = getattr(self, "_row_id", None)
         if cached_row_id is not None or cached_row_id == 0:
@@ -125,13 +146,16 @@ class Row(RowAPI):
         """
         Replace the cached row ID without changing payload fields.
 
-        No schema, type or row-existence validation occurs. The cached value can diverge from the payload’s ID column; primary_id on fixed-table rows updates both.
+        No schema, type or row-existence validation occurs. The cached value can diverge
+        from the payload’s ID column; primary_id on fixed-table rows updates both.
 
         Example:
-            For an existing Row, row.row_id = 7 changes its cached identity but leaves row.row_dict untouched.
+            For an existing Row, row.row_id = 7 changes its cached identity but leaves
+            row.row_dict untouched.
 
 
-        :param value: ID cached as supplied; None makes later reads fall back to row_dict.
+        :param value: ID cached as supplied; None makes later reads fall back to
+            row_dict.
         :return: None; update only _row_id.
         """
         object.__setattr__(self, "_row_id", value)
@@ -140,10 +164,13 @@ class Row(RowAPI):
         """
         Mark the row read-only and replace its instance sync method with no_sync.
 
-        Local edits and other methods that write directly through the wrapper remain available. Changing the flag back to False does not restore the replaced sync method.
+        Local edits and other methods that write directly through the wrapper remain
+        available. Changing the flag back to False does not restore the replaced sync
+        method.
 
         Example:
-            After row.make_read_only(), assigning row["work_title"] is still local, while row.sync() raises RowReadOnlyError.
+            After row.make_read_only(), assigning row["work_title"] is still local,
+            while row.sync() raises RowReadOnlyError.
 
 
         :return: None; future normal sync() calls raise RowReadOnlyError.
@@ -157,15 +184,20 @@ class Row(RowAPI):
         """
         Probe sqlite_master to classify a named schema object when possible.
 
-        Open a driver connection through database.driver_wrapper.driver and close it in a finally block. Unsupported drivers, unavailable metadata and lookup failures are deliberately treated as unknown; cleanup errors are suppressed.
+        Open a driver connection through database.driver_wrapper.driver and close it in
+        a finally block. Unsupported drivers, unavailable metadata and lookup failures
+        are deliberately treated as unknown; cleanup errors are suppressed.
 
         Example:
-            Given a SQLite-backed db, Row._best_effort_sqlite_object_type(db, "works") normally returns "table".
+            Given a SQLite-backed db, Row._best_effort_sqlite_object_type(db, "works")
+            normally returns "table".
 
 
-        :param database: Open database exposing driver_wrapper, schema headings and a stable uuid.
+        :param database: Open database exposing driver_wrapper, schema headings and a
+            stable uuid.
         :param name: Object name bound to the sqlite_master lookup.
-        :return: Stored schema type such as table, view or index, or None on no match or any probe error.
+        :return: Stored schema type such as table, view or index, or None on no match or
+            any probe error.
         """
         try:
             driver = getattr(database, "driver_wrapper", None)
@@ -202,21 +234,32 @@ class Row(RowAPI):
         """
         Insert an ID-less payload and return a row representing the inserted record.
 
-        A None ID field is removed before insertion; an explicit non-None ID is retained. Construction with read_only=True still inserts first. Insertion and reload are separate driver operations, so a later reload/construction failure need not undo the insert.
+        A None ID field is removed before insertion; an explicit non-None ID is
+        retained. Construction with read_only=True still inserts first. Insertion and
+        reload are separate driver operations, so a later reload/construction failure
+        need not undo the insert.
 
         Example:
-            Given db, Row.from_idless_row_dict(db, {"work_title": "A journey"}) creates a Work and normally reloads its generated ID and defaults.
+            Given db, Row.from_idless_row_dict(db, {"work_title": "A journey"}) creates
+            a Work and normally reloads its generated ID and defaults.
 
 
-        :param database: Open database exposing driver_wrapper, schema headings and a stable uuid.
+        :param database: Open database exposing driver_wrapper, schema headings and a
+            stable uuid.
         :param row_dict: Column/value mapping; copied before being retained by the row.
-        :param table: Optional target hint for view checks, ID-column lookup and reload; insertion still delegates to the wrapper’s payload-based table inference.
-        :param read_only: Whether normal sync() calls should raise RowReadOnlyError; local field edits remain possible.
-        :param reload_from_db: Reload a nonzero returned ID when its ID column is known, to include defaults and trigger changes.
-        :return: New instance of the requested row class, reloaded when possible or built from the copied payload.
-        :raises DatabaseDriverError: No database is supplied, a SQLite view is targeted, or the underlying insert fails.
+        :param table: Optional target hint for view checks, ID-column lookup and reload;
+            insertion still delegates to the wrapper’s payload-based table inference.
+        :param read_only: Whether normal sync() calls should raise RowReadOnlyError;
+            local field edits remain possible.
+        :param reload_from_db: Reload a nonzero returned ID when its ID column is known,
+            to include defaults and trigger changes.
+        :return: New instance of the requested row class, reloaded when possible or
+            built from the copied payload.
+        :raises DatabaseDriverError: No database is supplied, a SQLite view is targeted,
+            or the underlying insert fails.
         :raises TypeError: row_dict is None.
-        :raises DatabaseIntegrityError: Payload inference or a database constraint prevents insertion.
+        :raises DatabaseIntegrityError: Payload inference or a database constraint
+            prevents insertion.
         """
         if database is None:
             raise DatabaseDriverError("from_idless_row_dict called without a database")
@@ -270,7 +313,12 @@ class Row(RowAPI):
         """
         Convert common diagnostic values to primitives with best-effort truncation.
 
-        Preserve None, numeric values and booleans, including non-finite floats. Dates/times become ISO strings, bytes become tagged hex, and nested Rows become table/ID references before the depth check. Map keys are stringified and can collide; sets retain iteration order. At the depth limit repr is returned without text truncation, so bounds are advisory. Container conversion failures fall back to repr, which itself may raise.
+        Preserve None, numeric values and booleans, including non-finite floats.
+        Dates/times become ISO strings, bytes become tagged hex, and nested Rows become
+        table/ID references before the depth check. Map keys are stringified and can
+        collide; sets retain iteration order. At the depth limit repr is returned
+        without text truncation, so bounds are advisory. Container conversion failures
+        fall back to repr, which itself may raise.
 
         Example:
             >>> Row._json_sanitize(b"AB")
@@ -280,11 +328,14 @@ class Row(RowAPI):
 
 
         :param obj: Value to convert.
-        :param max_text: Text or byte-hex threshold; an ellipsis can exceed thresholds smaller than three.
+        :param max_text: Text or byte-hex threshold; an ellipsis can exceed thresholds
+            smaller than three.
         :param max_items: Maximum mapping/collection entries before a truncation marker.
         :param _depth: Current container recursion depth.
-        :param _max_depth: Depth at which non-scalar containers fall back directly to repr.
-        :return: Primitive, list, mapping, tagged byte/Row reference, or representation string.
+        :param _max_depth: Depth at which non-scalar containers fall back directly to
+            repr.
+        :return: Primitive, list, mapping, tagged byte/Row reference, or representation
+            string.
         """
         if obj is None or isinstance(obj, (str, int, float, bool)):
             if isinstance(obj, str) and len(obj) > max_text:
@@ -358,17 +409,26 @@ class Row(RowAPI):
         """
         Build a lossy diagnostic mapping of row identity and optional local values.
 
-        The concrete Row sanitizer handles common value types, but this is not a strict JSON or size guarantee: identity/UUID fields pass through, non-finite floats remain, and depth-limit repr strings are unbounded. Values are not redacted. Zero/negative limits are not rejected, and truncation markers can exceed the nominal item/text limits. No database refresh occurs.
+        The concrete Row sanitizer handles common value types, but this is not a strict
+        JSON or size guarantee: identity/UUID fields pass through, non-finite floats
+        remain, and depth-limit repr strings are unbounded. Values are not redacted.
+        Zero/negative limits are not rejected, and truncation markers can exceed the
+        nominal item/text limits. No database refresh occurs.
 
         Example:
-            For a loaded row with ordinary scalar identity fields, json.dumps(row.to_jsonable(include_values=False)) encodes its diagnostic identity without row values.
+            For a loaded row with ordinary scalar identity fields,
+            json.dumps(row.to_jsonable(include_values=False)) encodes its diagnostic
+            identity without row values.
 
 
         :param include_values: Include the local row_dict snapshot, default True.
-        :param max_cols: Maximum top-level columns and nested collection items before truncation markers.
+        :param max_cols: Maximum top-level columns and nested collection items before
+            truncation markers.
         :param max_text: Text/byte-hex truncation threshold forwarded to the sanitizer.
-        :param include_db_uuid: Include the database uuid attribute, or None when unavailable.
-        :return: Dictionary with type, table, row_id and read_only, plus optional db_uuid and sanitized row_dict.
+        :param include_db_uuid: Include the database uuid attribute, or None when
+            unavailable.
+        :return: Dictionary with type, table, row_id and read_only, plus optional
+            db_uuid and sanitized row_dict.
         :raises InputIntegrityError: An unidentified row cannot resolve its ID.
         """
         payload: dict[str, Any] = {
@@ -397,10 +457,15 @@ class Row(RowAPI):
         """
         Infer row identity and cache schema/link metadata from the current payload.
 
-        For an empty or false payload, refresh only allowed_tables and retain other cached fields. Otherwise infer the table, read its ID column and linkability, and cache allowed columns. False ID values become None except values comparing equal to zero, which are cached as zero. Inference errors can leave earlier metadata changes in place.
+        For an empty or false payload, refresh only allowed_tables and retain other
+        cached fields. Otherwise infer the table, read its ID column and linkability,
+        and cache allowed columns. False ID values become None except values comparing
+        equal to zero, which are cached as zero. Inference errors can leave earlier
+        metadata changes in place.
 
         Example:
-            After replacing row.row_dict with a new valid table payload, row.refresh_db_properties() recomputes its table, ID and allowed columns.
+            After replacing row.row_dict with a new valid table payload,
+            row.refresh_db_properties() recomputes its table, ID and allowed columns.
 
 
         :return: None; update cached properties without fetching stored row values.
@@ -442,13 +507,16 @@ class Row(RowAPI):
         """
         Expose the mutable local column/value mapping directly.
 
-        Direct dictionary mutation bypasses __setitem__ schema checks and does not refresh cached identity. Read-only mode does not freeze this object.
+        Direct dictionary mutation bypasses __setitem__ schema checks and does not
+        refresh cached identity. Read-only mode does not freeze this object.
 
         Example:
-            For a loaded row, row.row_dict["work_title"] = "Revised" changes only the local mapping until sync.
+            For a loaded row, row.row_dict["work_title"] = "Revised" changes only the
+            local mapping until sync.
 
 
-        :return: The internal mapping itself, not a copy; legacy missing-row loads may retain a false sentinel.
+        :return: The internal mapping itself, not a copy; legacy missing-row loads may
+            retain a false sentinel.
         """
 
         return self.int_row_dict
@@ -458,13 +526,16 @@ class Row(RowAPI):
         """
         Deep-copy replacement local values without refreshing row metadata.
 
-        Table, ID and allowed-column caches remain unchanged until explicitly refreshed. This setter also preserves driver missing-row sentinels such as False.
+        Table, ID and allowed-column caches remain unchanged until explicitly refreshed.
+        This setter also preserves driver missing-row sentinels such as False.
 
         Example:
-            After row.row_dict = {"work_title": "New"}, call row.refresh_db_properties() before relying on the new payload’s identity.
+            After row.row_dict = {"work_title": "New"}, call row.refresh_db_properties()
+            before relying on the new payload’s identity.
 
 
-        :param val: Replacement payload passed to deepcopy; no mapping validation occurs.
+        :param val: Replacement payload passed to deepcopy; no mapping validation
+            occurs.
         :return: None; assign the deep copy to int_row_dict.
         """
 
@@ -480,13 +551,16 @@ class Row(RowAPI):
         """
         Render the local payload and cached row/schema metadata as diagnostic text.
 
-        The representation is unbounded and includes payload values. It reads local state rather than reloading the row.
+        The representation is unbounded and includes payload values. It reads local
+        state rather than reloading the row.
 
         Example:
-            For a loaded row, details = row.__unicode__() includes its row_dict and relationship metadata.
+            For a loaded row, details = row.__unicode__() includes its row_dict and
+            relationship metadata.
 
 
-        :return: Multiline string with values, table, allowed tables/columns, ID and linkability.
+        :return: Multiline string with values, table, allowed tables/columns, ID and
+            linkability.
         :raises InputIntegrityError: An unidentified row cannot resolve its ID.
         """
         info_str = "LiuXin Row Object\n"
@@ -502,20 +576,20 @@ class Row(RowAPI):
 
         return info_str
 
-    def __str__(self):
+    def __str__(self) -> str:
         """
-        Return the legacy UTF-8 byte encoding of the detailed row representation.
+        Return the detailed row representation as Python text.
 
-        Python 3 str(row) requires __str__ to return text and therefore raises TypeError with this implementation. Use row.__unicode__() for the detailed text or repr(row) for a compact label.
+        The representation includes local payload and schema metadata without reloading
+        the row. Use repr(row) for a compact label.
 
         Example:
-            Given a loaded row, row.__str__() returns encoded bytes; row.__unicode__() returns the corresponding text.
+            str(row) returns the same Unicode text as row.__unicode__().
 
-
-        :return: bytes from the concrete Row, despite the API’s str annotation.
+        :return: Diagnostic text, including non-ASCII payload values.
         """
 
-        return self.__unicode__().encode("utf-8")
+        return self.__unicode__()
 
     def __repr__(self):
 
@@ -523,7 +597,8 @@ class Row(RowAPI):
         Format a compact diagnostic label containing database, table and ID.
 
         Example:
-            For a loaded row, repr(row) produces an LX ROW OBJECT label suitable for inspecting its database identity.
+            For a loaded row, repr(row) produces an LX ROW OBJECT label suitable for
+            inspecting its database identity.
 
 
         :return: Text label using repr(db), the cached table and resolved row ID.
@@ -547,13 +622,17 @@ class Row(RowAPI):
         """
         Stage a column value locally after checking its schema membership.
 
-        The first assignment to an empty mapping triggers metadata inference. Later assignments require an allowed column but do not refresh cached identity, even when assigning the ID field. Read-only rows still permit this local operation.
+        The first assignment to an empty mapping triggers metadata inference. Later
+        assignments require an allowed column but do not refresh cached identity, even
+        when assigning the ID field. Read-only rows still permit this local operation.
 
         Example:
-            Given a Work row, row["work_title"] = "Revised" stages a value; row.sync() is the separate persistence step.
+            Given a Work row, row["work_title"] = "Revised" stages a value; row.sync()
+            is the separate persistence step.
 
 
-        :param key: Known column belonging to the row’s table, or a column that identifies an empty row.
+        :param key: Known column belonging to the row’s table, or a column that
+            identifies an empty row.
         :param value: Value retained as supplied; no database write occurs here.
         :return: None; the local mapping is changed.
         :raises KeyError: No table recognizes the key, or it is not allowed on this row.
@@ -592,10 +671,12 @@ class Row(RowAPI):
         """
         Read a local value, materializing None for an absent recognized column.
 
-        An already stored key wins without schema revalidation. A missing allowed key is inserted into row_dict with value None; this is not a database refresh.
+        An already stored key wins without schema revalidation. A missing allowed key is
+        inserted into row_dict with value None; this is not a database refresh.
 
         Example:
-            For a partial Work row, row["work_id"] can return None and add that key to the local mapping before the row has been inserted.
+            For a partial Work row, row["work_id"] can return None and add that key to
+            the local mapping before the row has been inserted.
 
 
         :param item: Existing payload key or recognized column for the inferred table.
@@ -629,10 +710,12 @@ class Row(RowAPI):
         """
         Refresh cached schema and identity metadata from the local payload.
 
-        Despite its name, this does not fetch database values, persist edits, or perform additional value validation.
+        Despite its name, this does not fetch database values, persist edits, or perform
+        additional value validation.
 
         Example:
-            After a direct row_dict replacement, row.update_and_check() recalculates the table/ID metadata.
+            After a direct row_dict replacement, row.update_and_check() recalculates the
+            table/ID metadata.
 
 
         :return: None; delegates to refresh_db_properties.
@@ -643,16 +726,22 @@ class Row(RowAPI):
         """
         Replace local values with a driver lookup for the selected table and ID.
 
-        Supplied identity values change the object before lookup, and unsynced local values are discarded. The concrete method does not translate a missing-row sentinel: the SQLite wrapper can leave row_dict=False and retain cached identity. Use Database.get_row_from_id for its higher-level missing-row handling.
+        Supplied identity values change the object before lookup, and unsynced local
+        values are discarded. The concrete method does not translate a missing-row
+        sentinel: the SQLite wrapper can leave row_dict=False and retain cached
+        identity. Use Database.get_row_from_id for its higher-level missing-row
+        handling.
 
         Example:
-            Given row = Row(db), row.load_row_from_id(work_id, "works") loads an existing Work into that object.
+            Given row = Row(db), row.load_row_from_id(work_id, "works") loads an
+            existing Work into that object.
 
 
         :param row_id: ID to cache before lookup; None reuses the existing ID.
         :param table: Table to cache before lookup; None reuses the existing table.
         :return: None after replacing row_dict and refreshing metadata.
-        :raises InputIntegrityError: ID resolution fails while the table is still unknown.
+        :raises InputIntegrityError: ID resolution fails while the table is still
+            unknown.
         :raises TypeError: A required ID or table remains unset after resolution.
         """
         if row_id is not None:
@@ -676,15 +765,21 @@ class Row(RowAPI):
         """
         Create a blank database row and replace this object’s local state with it.
 
-        This allocates a stored row with an ID through the wrapper; it is not an empty in-memory constructor. Existing local contents are overwritten without a guard. Read-only mode does not prevent this factory operation. The wrapper clears its scratch marker in the returned mapping; persistence of that clearing requires a later sync.
+        This allocates a stored row with an ID through the wrapper; it is not an empty
+        in-memory constructor. Existing local contents are overwritten without a guard.
+        Read-only mode does not prevent this factory operation. The wrapper clears its
+        scratch marker in the returned mapping; persistence of that clearing requires a
+        later sync.
 
         Example:
-            Given row = Row(db), row.load_blank_row("works") allocates and loads a new blank Work.
+            Given row = Row(db), row.load_blank_row("works") allocates and loads a new
+            blank Work.
 
 
         :param table: Target table, or None to reuse the cached table.
         :return: None; load the new blank mapping and refresh metadata.
-        :raises InputIntegrityError: The target is invalid or is a view rather than a writable base table.
+        :raises InputIntegrityError: The target is invalid or is a view rather than a
+            writable base table.
         """
         if table is not None:
             object.__setattr__(self, "_table", table)
@@ -698,13 +793,18 @@ class Row(RowAPI):
         """
         Allocate a database-backed ID when the local payload has none.
 
-        The wrapper preserves a non-None ID, including zero, without checking row existence. Otherwise it inserts a blank row and copies only that ID into the payload; the payload’s other values are written later by sync. This method itself is not disabled by read_only mode.
+        The wrapper preserves a non-None ID, including zero, without checking row
+        existence. Otherwise it inserts a blank row and copies only that ID into the
+        payload; the payload’s other values are written later by sync. This method
+        itself is not disabled by read_only mode.
 
         Example:
-            For an unsaved Row with work_title set, row.ensure_row_has_id() allocates its database ID before a later row.sync().
+            For an unsaved Row with work_title set, row.ensure_row_has_id() allocates
+            its database ID before a later row.sync().
 
 
-        :return: None; replace the local payload with the wrapper result and cache its extracted ID.
+        :return: None; replace the local payload with the wrapper result and cache its
+            extracted ID.
         """
         new_row_dict = self.db.driver_wrapper.ensure_row_has_id(object.__getattribute__(self, "row_dict"))
         new_id = self.db.driver_wrapper.get_id_from_row(new_row_dict)
@@ -716,10 +816,15 @@ class Row(RowAPI):
         """
         Ensure an ID and write the local payload through the driver wrapper.
 
-        When ID allocation is needed, blank-row insertion and payload update are separate wrapper calls without a transaction composed by Row. A failed update can therefore leave an allocated blank row. The method does not reload defaults or trigger changes afterward. Read-only instances normally replace this method with no_sync.
+        When ID allocation is needed, blank-row insertion and payload update are
+        separate wrapper calls without a transaction composed by Row. A failed update
+        can therefore leave an allocated blank row. The method does not reload defaults
+        or trigger changes afterward. Read-only instances normally replace this method
+        with no_sync.
 
         Example:
-            Given row = Row(db, {"work_title": "A journey"}), row.sync() allocates an ID if necessary and writes the staged title.
+            Given row = Row(db, {"work_title": "A journey"}), row.sync() allocates an ID
+            if necessary and writes the staged title.
 
 
         :return: None; the driver’s update status is discarded.
@@ -737,7 +842,8 @@ class Row(RowAPI):
         Reject a synchronization request for a row in read-only mode.
 
         Example:
-            A read-only row routes row.sync() to this method and raises RowReadOnlyError.
+            A read-only row routes row.sync() to this method and raises
+            RowReadOnlyError.
 
 
         :return: Never returns normally.
@@ -751,43 +857,54 @@ class Row(RowAPI):
 
     def __hash__(self) -> int:
         """
-        Hash the database UUID, resolved row ID and table as one tuple.
+        Hash the database UUID, row ID and table of an identified row.
 
-        Non-identity payload changes leave the hash alone. Changing the table, ID or database UUID can change it, so assign a stable identity before using a row as a dictionary key. An identified but unsaved row may hash with a None ID.
+        Non-identity payload changes leave the hash alone. Do not change the database
+        UUID, table or ID while a row is used as a dictionary key or set member. Unsaved
+        rows are unhashable because assigning their persistent identity would change the
+        hash.
 
         Example:
-            Given a persisted row and a separately loaded copy, hash(row) equals hash(copy) when database UUID, table and ID match.
-
+            Separately loaded copies of the same stored row have equal hashes.
 
         :return: Process-local hash integer for the current identity fields.
-        :raises InputIntegrityError: The row has neither a cached ID nor an identified table.
+        :raises TypeError: The row has no identified table or no row ID.
         """
+        if self.table is None or self.row_id is None:
+            raise TypeError("An unsaved Row has no stable database identity")
         uuid = self.db.uuid
         row_id = object.__getattribute__(self, "row_id")
         table = object.__getattribute__(self, "table")
         return hash((uuid, row_id, table))
 
-    def __eq__(self, other: RowAPI) -> bool:
+    def __eq__(self, other: object) -> bool:
         """
-        Compare this row’s hash with the other object’s hash.
+        Compare persisted identities directly; distinct unsaved rows are unequal.
 
-        The concrete Row implementation compares hashes rather than comparing identity tuples directly. Hash collisions, including with a non-Row object, can therefore compare equal; local non-identity field values are ignored.
+        Local payload differences do not affect equality. A row equals itself, including
+        before insertion. Other RowAPI instances compare by database UUID, table and ID;
+        a hash collision cannot make different identities equal.
 
         Example:
-            Two loaded rows with the same database UUID, table and ID compare equal even when their local display values differ.
+            Two loaded copies of the same stored row compare equal even when their local
+            titles differ. Two drafts without IDs compare unequal.
 
-
-        :param other: Object accepted by hash(); no Row type check is performed.
-        :return: True when the two hash integers are equal.
-        :raises TypeError: other is unhashable.
-        :raises InputIntegrityError: This row’s ID cannot be resolved because its table is unknown.
+        :param other: Object to compare with this row.
+        :return: Identity equality for rows; NotImplemented for non-RowAPI objects.
         """
-        self_hash = self.__hash__()
-        other_hash = hash(other)
-        if self_hash == other_hash:
+        if self is other:
             return True
-        else:
+        if not isinstance(other, RowAPI):
+            return NotImplemented
+        if self.table is None or other.table is None:
             return False
+        if self.row_id is None or other.row_id is None:
+            return False
+        return (self.db.uuid, self.row_id, self.table) == (
+            other.db.uuid,
+            other.row_id,
+            other.table,
+        )
 
     # -------------------------------
     # -----------------------------------------------
@@ -798,10 +915,12 @@ class Row(RowAPI):
         """
         Expose the live dictionary view of materialized local column names.
 
-        The view reflects later mapping mutations and does not enumerate unmaterialized schema columns.
+        The view reflects later mapping mutations and does not enumerate unmaterialized
+        schema columns.
 
         Example:
-            For a partial row, tuple(row.keys()) lists only the fields currently in row.row_dict.
+            For a partial row, tuple(row.keys()) lists only the fields currently in
+            row.row_dict.
 
 
         :return: dict_keys view in the concrete Row, despite the None return annotation.
@@ -813,10 +932,12 @@ class Row(RowAPI):
         """
         Iterate the column keys currently stored in the local mapping.
 
-        Partial rows expose only materialized keys. This does not enumerate all schema columns, fetch missing values or snapshot the mapping before iteration.
+        Partial rows expose only materialized keys. This does not enumerate all schema
+        columns, fetch missing values or snapshot the mapping before iteration.
 
         Example:
-            For a Row constructed from {"work_title": "A journey"}, tuple(row) initially contains only "work_title".
+            For a Row constructed from {"work_title": "A journey"}, tuple(row) initially
+            contains only "work_title".
 
 
         :return: Iterator yielding keys in dictionary insertion order.
@@ -830,10 +951,12 @@ class Row(RowAPI):
         """
         Test whether a column is already present in the local row mapping.
 
-        A recognized schema column may still be absent until loaded, assigned or accessed through __getitem__. No database query occurs.
+        A recognized schema column may still be absent until loaded, assigned or
+        accessed through __getitem__. No database query occurs.
 
         Example:
-            For a Row containing only work_title, "work_title" in row is true even before sync assigns an ID.
+            For a Row containing only work_title, "work_title" in row is true even
+            before sync assigns an ID.
 
 
         :param item: Column key to test without materializing a missing value.
@@ -854,14 +977,20 @@ class Row(RowAPI):
         """
         Copy local values into a new writable Row attached to the same database.
 
-        The database object is shared. The concrete method does not preserve subclasses, the read_only flag, or an ID cached separately from row_dict. It starts a fresh deepcopy for the payload rather than using memo; recursive references to the Row are therefore unsupported. No new database record is inserted by copying.
+        The database object is shared. The concrete method does not preserve subclasses,
+        the read_only flag, or an ID cached separately from row_dict. It starts a fresh
+        deepcopy for the payload rather than using memo; recursive references to the Row
+        are therefore unsupported. No new database record is inserted by copying.
 
         Example:
-            Given a persisted row, copy.deepcopy(row) produces an independent value snapshot whose sync() updates the same stored ID.
+            Given a persisted row, copy.deepcopy(row) produces an independent value
+            snapshot whose sync() updates the same stored ID.
 
 
-        :param memo: Copy-protocol memo argument, ignored by the concrete implementation.
-        :return: New base Row with deeply copied values and identity inferred again from those values.
+        :param memo: Copy-protocol memo argument, ignored by the concrete
+            implementation.
+        :return: New base Row with deeply copied values and identity inferred again from
+            those values.
         """
         # if memo:
         #     info_str = "Row __deepcopy__ passed a non-trivial memo"
@@ -873,15 +1002,21 @@ class Row(RowAPI):
     # ------------------------
 
 
-# Todo: Consider this for all main tables?
+# Todo: Consider this for all main tables? That way we can do things like row.work_id and stuff - and the typing is easier
+# Todo: Actually subclass this for all the main tables
 class FixedTableStorageRow(Row):
     """
     Specialize Row with a declared table and a validation hook.
 
-    Subclasses must define TABLE_NAME and may override ID_COLUMN and validate. Construction checks inferred table compatibility or binds metadata for an empty row. Factory constructors preserve the subclass; inherited deepcopy still produces a base Row. Generic loading and row_dict mutation remain inherited, so the fixed table is not an immutable boundary enforced on every operation.
+    Subclasses must define TABLE_NAME and may override ID_COLUMN and validate.
+    Construction checks inferred table compatibility or binds metadata for an empty row.
+    Factory constructors preserve the subclass; inherited deepcopy still produces a base
+    Row. Generic loading and row_dict mutation remain inherited, so the fixed table is
+    not an immutable boundary enforced on every operation.
 
     Example:
-        Define class WorkRow(FixedTableStorageRow): with TABLE_NAME = "works"; WorkRow.from_row_id(db, work_id) loads that table into the subclass.
+        Define class WorkRow(FixedTableStorageRow): with TABLE_NAME = "works";
+        WorkRow.from_row_id(db, work_id) loads that table into the subclass.
     """
 
     TABLE_NAME: ClassVar[Optional[str]] = None
@@ -895,15 +1030,21 @@ class FixedTableStorageRow(Row):
         """
         Initialize a Row, enforce its declared table and run subclass validation.
 
-        The base Row first infers nonempty payloads. Empty payloads receive the declared table’s metadata. Validation also runs for read-only instances and empty factory drafts, so overrides must support those states.
+        The base Row first infers nonempty payloads. Empty payloads receive the declared
+        table’s metadata. Validation also runs for read-only instances and empty factory
+        drafts, so overrides must support those states.
 
         Example:
-            Given a WorkRow subclass declaring TABLE_NAME="works", WorkRow(db) binds Work metadata without inserting a row.
+            Given a WorkRow subclass declaring TABLE_NAME="works", WorkRow(db) binds
+            Work metadata without inserting a row.
 
 
-        :param database: Open database exposing driver_wrapper, schema headings and a stable uuid.
-        :param row_dict: Optional values deep-copied and inferred by Row before fixed-table checks.
-        :param read_only: Whether normal sync() calls should raise RowReadOnlyError; local field edits remain possible.
+        :param database: Open database exposing driver_wrapper, schema headings and a
+            stable uuid.
+        :param row_dict: Optional values deep-copied and inferred by Row before
+            fixed-table checks.
+        :param read_only: Whether normal sync() calls should raise RowReadOnlyError;
+            local field edits remain possible.
         :return: None; metadata is bound and validate has run once.
         :raises TypeError: TABLE_NAME is None.
         :raises ValueError: The payload identifies a different table.
@@ -929,10 +1070,14 @@ class FixedTableStorageRow(Row):
         """
         Bind cached row/schema properties explicitly to one table.
 
-        Read the ID from the existing payload using ID_COLUMN when provided, otherwise schema discovery. This does not populate missing payload fields, query a stored row, check TABLE_NAME equality or invoke validate.
+        Read the ID from the existing payload using ID_COLUMN when provided, otherwise
+        schema discovery. This does not populate missing payload fields, query a stored
+        row, check TABLE_NAME equality or invoke validate.
 
         Example:
-            A fixed-table subclass can use self._bind_fixed_table_metadata(self.TABLE_NAME) to initialize metadata for an empty payload.
+            A fixed-table subclass can use
+            self._bind_fixed_table_metadata(self.TABLE_NAME) to initialize metadata for
+            an empty payload.
 
 
         :param table_name: Existing table name to bind.
@@ -952,14 +1097,19 @@ class FixedTableStorageRow(Row):
         """
         Construct the subclass, then allocate and load a blank row for its table.
 
-        Construction validates the empty draft before load_blank_row writes. The loaded blank payload is not separately validated here. read_only=True still allocates the row while blocking later normal sync calls.
+        Construction validates the empty draft before load_blank_row writes. The loaded
+        blank payload is not separately validated here. read_only=True still allocates
+        the row while blocking later normal sync calls.
 
         Example:
-            Given WorkRow with TABLE_NAME="works", WorkRow.blank(db) creates a stored blank Work and returns its wrapper.
+            Given WorkRow with TABLE_NAME="works", WorkRow.blank(db) creates a stored
+            blank Work and returns its wrapper.
 
 
-        :param database: Open database exposing driver_wrapper, schema headings and a stable uuid.
-        :param read_only: Whether normal sync() calls should raise RowReadOnlyError; local field edits remain possible.
+        :param database: Open database exposing driver_wrapper, schema headings and a
+            stable uuid.
+        :param read_only: Whether normal sync() calls should raise RowReadOnlyError;
+            local field edits remain possible.
         :return: Subclass instance whose newly inserted blank row has an assigned ID.
         """
         row = cls(database=database, row_dict=None, read_only=read_only)
@@ -977,15 +1127,20 @@ class FixedTableStorageRow(Row):
         """
         Construct the subclass and load the requested ID from its declared table.
 
-        Construction validates the empty draft before loading; no second validate call follows the load. The inherited loader does not convert a missing-row sentinel into a dedicated missing-row error.
+        Construction validates the empty draft before loading; no second validate call
+        follows the load. The inherited loader does not convert a missing-row sentinel
+        into a dedicated missing-row error.
 
         Example:
-            Given WorkRow with TABLE_NAME="works", WorkRow.from_row_id(db, work_id) loads an existing Work.
+            Given WorkRow with TABLE_NAME="works", WorkRow.from_row_id(db, work_id)
+            loads an existing Work.
 
 
-        :param database: Open database exposing driver_wrapper, schema headings and a stable uuid.
+        :param database: Open database exposing driver_wrapper, schema headings and a
+            stable uuid.
         :param row_id: Existing row ID to pass to load_row_from_id.
-        :param read_only: Whether normal sync() calls should raise RowReadOnlyError; local field edits remain possible.
+        :param read_only: Whether normal sync() calls should raise RowReadOnlyError;
+            local field edits remain possible.
         :return: Subclass instance containing the driver lookup result.
         """
         row = cls(database=database, row_dict=None, read_only=read_only)
@@ -1005,19 +1160,28 @@ class FixedTableStorageRow(Row):
         """
         Validate a fixed-table draft, then insert through the inherited factory.
 
-        Draft construction already invokes validate, then this method invokes it again. The draft is discarded and the original input mapping is passed to the insertion factory, so mutations made only to draft.row_dict by validation are not inserted. The inherited factory can construct and validate another instance before/after reload. No enclosing transaction spans these operations.
+        Draft construction already invokes validate, then this method invokes it again.
+        The draft is discarded and the original input mapping is passed to the insertion
+        factory, so mutations made only to draft.row_dict by validation are not
+        inserted. The inherited factory can construct and validate another instance
+        before/after reload. No enclosing transaction spans these operations.
 
         Example:
-            Given WorkRow, WorkRow.from_idless_row_dict(db, {"work_title": "Draft"}) validates and inserts a Work using its declared table.
+            Given WorkRow, WorkRow.from_idless_row_dict(db, {"work_title": "Draft"})
+            validates and inserts a Work using its declared table.
 
 
-        :param database: Open database exposing driver_wrapper, schema headings and a stable uuid.
+        :param database: Open database exposing driver_wrapper, schema headings and a
+            stable uuid.
         :param row_dict: Column/value mapping; copied before being retained by the row.
         :param table: Optional table name; if supplied it must equal TABLE_NAME.
-        :param read_only: Whether normal sync() calls should raise RowReadOnlyError; local field edits remain possible.
-        :param reload_from_db: Reload the inserted row through the inherited factory when its nonzero ID is available.
+        :param read_only: Whether normal sync() calls should raise RowReadOnlyError;
+            local field edits remain possible.
+        :param reload_from_db: Reload the inserted row through the inherited factory
+            when its nonzero ID is available.
         :return: New subclass instance returned by Row.from_idless_row_dict.
-        :raises ValueError: An explicit table differs from TABLE_NAME, or the draft payload identifies another table.
+        :raises ValueError: An explicit table differs from TABLE_NAME, or the draft
+            payload identifies another table.
         """
         if table is not None and table != cls.TABLE_NAME:
             raise ValueError(f"{cls.__name__} only supports table '{cls.TABLE_NAME}', not '{table}'.")
@@ -1038,7 +1202,8 @@ class FixedTableStorageRow(Row):
         """
         Read the declared ID column directly from the local row payload.
 
-        Use ID_COLUMN when set, otherwise discover the table’s ID column. This getter does not consult Row’s separately cached row_id.
+        Use ID_COLUMN when set, otherwise discover the table’s ID column. This getter
+        does not consult Row’s separately cached row_id.
 
         Example:
             For a loaded WorkRow, row.primary_id reads work_id from row.row_dict.
@@ -1054,10 +1219,12 @@ class FixedTableStorageRow(Row):
         """
         Assign the declared payload ID and update the cached row ID together.
 
-        Column validation occurs through Row.__setitem__, but value type and database existence are not checked. No persistence occurs.
+        Column validation occurs through Row.__setitem__, but value type and database
+        existence are not checked. No persistence occurs.
 
         Example:
-            For a WorkRow, row.primary_id = 7 updates both its work_id payload field and cached row_id.
+            For a WorkRow, row.primary_id = 7 updates both its work_id payload field and
+            cached row_id.
 
 
         :param value: ID value stored as supplied.
@@ -1072,10 +1239,13 @@ class FixedTableStorageRow(Row):
         """
         Run subclass validation before delegating persistence to Row.sync.
 
-        Validation errors prevent this method’s persistence step. Read-only instances replace the instance sync method with no_sync during construction, so normal calls on those instances raise before this hook runs.
+        Validation errors prevent this method’s persistence step. Read-only instances
+        replace the instance sync method with no_sync during construction, so normal
+        calls on those instances raise before this hook runs.
 
         Example:
-            Given a writable WorkRow with a validation override, row.sync() checks the staged values before writing.
+            Given a writable WorkRow with a validation override, row.sync() checks the
+            staged values before writing.
 
 
         :return: None; return status from the underlying wrapper update is not exposed.
@@ -1087,10 +1257,13 @@ class FixedTableStorageRow(Row):
         """
         Provide a no-op hook for subclasses to check their local payload.
 
-        Overrides may raise to reject values. The hook is called during construction and writable sync; factory paths can call it repeatedly and with empty drafts. It is not automatically invoked on each assignment.
+        Overrides may raise to reject values. The hook is called during construction and
+        writable sync; factory paths can call it repeatedly and with empty drafts. It is
+        not automatically invoked on each assignment.
 
         Example:
-            A WorkRow subclass can override validate to reject an invalid work_title before sync, while accepting the empty draft used by from_row_id.
+            A WorkRow subclass can override validate to reject an invalid work_title
+            before sync, while accepting the empty draft used by from_row_id.
 
 
         :return: None; the base implementation accepts the current state without checks.

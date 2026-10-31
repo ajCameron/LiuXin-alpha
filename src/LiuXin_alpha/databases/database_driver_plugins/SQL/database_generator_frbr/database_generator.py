@@ -166,7 +166,8 @@ def _sql_in_list(values: list[str] | tuple[str, ...] | set[str]) -> str:
 
 
     :param values: String collection; duplicates are retained for list/tuple inputs.
-    :return: Joined quoted values without surrounding parentheses; empty input gives empty text.
+    :return: Joined quoted values without surrounding parentheses; empty input gives
+        empty text.
     """
     return ", ".join(_sql_quote_literal(value) for value in sorted(values))
 
@@ -179,7 +180,8 @@ def _build_entity_identifier_type_check_sql() -> str:
         The generated constraint accepts NULL or a known entity-type spelling.
 
 
-    :return: Constraint fragment ending in a comma for insertion into a CREATE TABLE body.
+    :return: Constraint fragment ending in a comma for insertion into a CREATE TABLE
+        body.
     """
     allowed_entity_types = _sql_in_list(list(ALL_IDENTIFIER_ENTITY_TYPES))
     return f"""CONSTRAINT `entity_identifier_entity_type_valid`
@@ -193,10 +195,12 @@ def _build_entity_identifier_scheme_check_sql() -> str:
     """
     Build the entity-type-dependent identifier scheme CHECK constraint.
 
-    A null entity type or null scheme passes; otherwise a matching canonical pair is required.
+    A null entity type or null scheme passes; otherwise a matching canonical pair is
+    required.
 
     Example:
-        An item-specific scheme must be paired with an entity type whose allowed set includes it.
+        An item-specific scheme must be paired with an entity type whose allowed set
+        includes it.
 
 
     :return: Constraint fragment without a trailing comma.
@@ -341,7 +345,8 @@ def collect_type_tables(allowed_types_by_link_table: dict[str, Optional[list[str
         {'agent_work_links__types': {'author'}}
 
 
-    :param allowed_types_by_link_table: Link table names mapped to optional label lists; falsy lists are omitted.
+    :param allowed_types_by_link_table: Link table names mapped to optional label lists;
+        falsy lists are omitted.
     :return: Reference-table-to-label-set mapping.
     """
     out: dict[str, set[str]] = {}
@@ -361,7 +366,8 @@ def emit_types_tables_sql(types_map: dict[str, set[str]]) -> list[str]:
     Labels are escaped literals; table names are trusted internal identifiers.
 
     Example:
-        One table with two labels produces one CREATE TABLE and two INSERT OR IGNORE statements.
+        One table with two labels produces one CREATE TABLE and two INSERT OR IGNORE
+        statements.
 
 
     :param types_map: Reference-table names mapped to label sets.
@@ -462,7 +468,8 @@ def create_new_database(connection: sqlite3.Connection) -> None:
 
 def get_main_table_sql_files() -> list[pathlib.Path]:
     """
-    Discover lowercase .sql resources recursively under table_sql in deterministic path order.
+    Discover lowercase .sql resources recursively under table_sql in deterministic path
+    order.
 
     Raise NotADirectoryError if the required resource directory is absent.
 
@@ -498,7 +505,8 @@ def get_main_table_sql_files() -> list[pathlib.Path]:
 
 def get_trigger_sql_files() -> list[pathlib.Path]:
     """
-    Discover lowercase .sql resources recursively under trigger_sql in deterministic path order.
+    Discover lowercase .sql resources recursively under trigger_sql in deterministic
+    path order.
 
     Raise NotADirectoryError if the required resource directory is absent.
 
@@ -565,11 +573,12 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
         """
         Retain the connection and initialize per-run schema/link configuration.
 
-        Copy legacy constraints, but clear the allowed interlink type fallback so current
-        FRBR builds use TOML declarations.
+        Copy legacy constraints, but clear the allowed interlink type fallback so
+        current FRBR builds use TOML declarations.
 
         Example:
-            Construction alone neither queries the database nor loads SQL/TOML resources.
+            Construction alone neither queries the database nor loads SQL/TOML
+            resources.
 
 
         :param conn: Open connection expected to target an empty database for run().
@@ -611,10 +620,10 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
         """
         Execute the staged build, seed metadata and install reference-table locks.
 
-        Load resources and preliminary link validation first; create main tables/triggers
-        and languages before parsing/materializing links. Add configured aggregates, seed
-        column/identity policies, store the version, then lock constants. Stages commit
-        independently and failures leave earlier work present.
+        Load resources and preliminary link validation first; create main
+        tables/triggers and languages before parsing/materializing links. Add configured
+        aggregates, seed column/identity policies, store the version, then lock
+        constants. Stages commit independently and failures leave earlier work present.
 
         Example:
             A successful run finishes with languages and database_version protected by
@@ -633,6 +642,14 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
 
         # 1) Building the main tables from SQLite - the main tables have to be created by direct SQL execution
         self.create_main_tables()
+
+        # Expression indexes use the same comparison policy as Catalog matching.
+        # PostgreSQL generates its own schema and does not install these functions.
+        from LiuXin_alpha.databases.query_indexes import install_sqlite_search_indexes
+        from LiuXin_alpha.databases.search_functions import register_search_functions
+
+        register_search_functions(self.conn)
+        install_sqlite_search_indexes(self.conn)
 
         # 2) Build the triggers
         self.create_main_triggers()
@@ -696,7 +713,8 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
         Seed the currently supported constant reference table, languages.
 
         Example:
-            This stage populates languages before lock_constant_tables installs its guards.
+            This stage populates languages before lock_constant_tables installs its
+            guards.
 
 
         :return: None; delegates language seeding and its commit.
@@ -707,9 +725,9 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
         """
         Infer and insert missing policies for every noninternal physical column.
 
-        Use SQLite declared types, primary-key flags and FK metadata. Existing policy rows
-        are preserved. If table enumeration fails or column_metadata is absent, return
-        without writes; otherwise commit the insert batch.
+        Use SQLite declared types, primary-key flags and FK metadata. Existing policy
+        rows are preserved. If table enumeration fails or column_metadata is absent,
+        return without writes; otherwise commit the insert batch.
 
         Example:
             Generated link columns receive policy rows alongside main-table columns.
@@ -842,14 +860,17 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
 
     def seed_languages_table(self) -> None:
         """
-        Seed bundled ISO-639 language data with stable sorted IDs and convenience variants.
+        Seed bundled ISO-639 language data with stable sorted IDs and convenience
+        variants.
 
         Sort by bibliographic code; retain legacy language_code as that code. Choose the
         BCP-47 primary from two-letter, terminologic then bibliographic codes. Missing
-        table/discovery/data imports become a no-op; nonempty seed batches are committed.
+        table/discovery/data imports become a no-op; nonempty seed batches are
+        committed.
 
         Example:
-            English is seeded with language_code eng and primary en before the table is locked.
+            English is seeded with language_code eng and primary en before the table is
+            locked.
 
 
         :return: None; preserves existing conflicting rows with INSERT OR IGNORE.
@@ -931,7 +952,8 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
         Install write-blocking triggers on languages through the shared lock helper.
 
         Example:
-            After this stage, inserting into languages aborts with the read-only message.
+            After this stage, inserting into languages aborts with the read-only
+            message.
 
 
         :return: None; creates guards and commits.
@@ -974,7 +996,8 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
 
     def direct_get_tables(self) -> set[str]:
         """
-        Read all SQLite main-schema table names, including internal tables and excluding views.
+        Read all SQLite main-schema table names, including internal tables and excluding
+        views.
 
         Example:
             sqlite_sequence may be present in this set when AUTOINCREMENT tables exist.
@@ -994,10 +1017,10 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
         """
         Perform preliminary shape/column checks on the required interlink TOML file.
 
-        Require a list of entries and a TOML parser. Incomplete/nondict entries and absent
-        or all column selections are skipped here; later parsing performs fuller validation.
-        For list selections, accept known or safe bespoke suffixes and check explicit bool
-        nullability. The later parser rejects bespoke interlink suffixes.
+        Require a list of entries and a TOML parser. Incomplete/nondict entries and
+        absent or all column selections are skipped here; later parsing performs fuller
+        validation. For list selections, accept known or safe bespoke suffixes and check
+        explicit bool nullability. The later parser rejects bespoke interlink suffixes.
 
         Example:
             A string nullable value paired with a list of columns raises TypeError here.
@@ -1080,12 +1103,14 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
         Read and execute configured table SQL files, committing completed work.
 
         Files without -- BREAK markers run as scripts; marked files accumulate chunks
-        between pairs of markers for later single-statement execution. Unmatched trailing
-        chunks are ignored. I/O errors become FileNotFoundError; SQLite operational/programming
-        errors become TypeError containing the failing SQL. Known vocabulary placeholders are expanded before execution.
+        between pairs of markers for later single-statement execution. Unmatched
+        trailing chunks are ignored. I/O errors become FileNotFoundError; SQLite
+        operational/programming errors become TypeError containing the failing SQL.
+        Known vocabulary placeholders are expanded before execution.
 
         Example:
-            Populate main_tables_sql_files before this stage; multi-statement unmarked files use executescript.
+            Populate main_tables_sql_files before this stage; multi-statement unmarked
+            files use executescript.
 
 
         :return: None; creates objects and commits per script/marked statement.
@@ -1154,12 +1179,13 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
         Read and execute configured trigger SQL files, committing completed work.
 
         Files without -- BREAK markers run as scripts; marked files accumulate chunks
-        between pairs of markers for later single-statement execution. Unmatched trailing
-        chunks are ignored. I/O errors become FileNotFoundError; SQLite operational/programming
-        errors become TypeError containing the failing SQL.
+        between pairs of markers for later single-statement execution. Unmatched
+        trailing chunks are ignored. I/O errors become FileNotFoundError; SQLite
+        operational/programming errors become TypeError containing the failing SQL.
 
         Example:
-            Populate triggers_sql_files before this stage; multi-statement unmarked files use executescript.
+            Populate triggers_sql_files before this stage; multi-statement unmarked
+            files use executescript.
 
 
         :return: None; creates objects and commits per script/marked statement.
@@ -1223,22 +1249,25 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
 
     def get_requested_interlink_tables(self) -> set[tuple[str, str]]:
         """
-        Parse required TOML relationships and record canonical pairs with per-pair options.
+        Parse required TOML relationships and record canonical pairs with per-pair
+        options.
 
-        Refresh known tables, normalize cardinality aliases and expand MARC/hash type labels.
-        Defaults select priority and strict requested nullability, though the shared DDL
-        builder currently keeps interlink FKs nullable. Reject unknown tables, duplicate pairs,
-        invalid columns and strict bool settings. Malformed entries/self-links are warned
-        and skipped. Forbidden warnings skip pairs; forbidden errors abort. A redundant FK
-        pair is added to the returned set before allow_redundant_links=False skips its metadata,
-        so that flag does not remove the returned pair.
+        Refresh known tables, normalize cardinality aliases and expand MARC/hash type
+        labels. Defaults select priority and strict requested nullability, though the
+        shared DDL builder currently keeps interlink FKs nullable. Reject unknown
+        tables, duplicate pairs, invalid columns and strict bool settings. Malformed
+        entries/self-links are warned and skipped. Forbidden warnings skip pairs;
+        forbidden errors abort. A redundant FK pair is added to the returned set before
+        allow_redundant_links=False skips its metadata, so that flag does not remove the
+        returned pair.
 
         Example:
             A typed many_to_many entry records direction, columns and labels for later
             constraint materialization; no link table is created by parsing.
 
 
-        :return: Set of sorted table-name pairs; also mutates main_tables and per-run spec maps.
+        :return: Set of sorted table-name pairs; also mutates main_tables and per-run
+            spec maps.
         """
         c = self.conn.cursor()
 
@@ -1577,7 +1606,8 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
     @staticmethod
     def _canonicalize_link_type(link_type: str) -> str:
         """
-        Normalize separators and recognized cardinality aliases without rejecting unknown text.
+        Normalize separators and recognized cardinality aliases without rejecting
+        unknown text.
 
         Example:
             >>> SQLiteDatabaseGenerator._canonicalize_link_type("M2M")
@@ -1615,11 +1645,13 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
 
     def apply_interlink_constraints_from_spec(self) -> None:
         """
-        Translate parsed relationship direction/cardinality into shared builder settings.
+        Translate parsed relationship direction/cardinality into shared builder
+        settings.
 
         Typed many_to_many becomes nonexclusive; explicit nonexclusive mode ensures type
         is selected. Fill requested-column, allowed-type and nullability maps per link.
-        Pairs lacking metadata use the configured default cardinality and priority column.
+        Pairs lacking metadata use the configured default cardinality and priority
+        column.
 
         Example:
             A typed role relationship gets internal many_many_non_exclusive constraints.
@@ -1796,7 +1828,8 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
         link-creation path. Return without a commit when no tables are requested.
 
         Example:
-            Two configured type lists create their sorted __types tables and missing labels.
+            Two configured type lists create their sorted __types tables and missing
+            labels.
 
 
         :return: None; commits the emitted reference-table statements.
@@ -1836,7 +1869,8 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
             'agent_work_links'
 
 
-        :param link_pair: Pair of main-table names used to derive a conventional link name.
+        :param link_pair: Pair of main-table names used to derive a conventional link
+            name.
         :return: Conventional link name; fewer than two inputs raise IndexError.
         """
         link_pair = sorted(link_pair)
@@ -1850,7 +1884,8 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
             A missing generated name raises KeyError rather than a fallback constraint.
 
 
-        :param link_pair: Pair of main-table names used to derive a conventional link name.
+        :param link_pair: Pair of main-table names used to derive a conventional link
+            name.
         :return: Existing constraint dictionary; no copy is made.
         """
         link_table_name = self.get_interlink_name(link_pair)
@@ -1863,7 +1898,8 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
         This performs no edit-distance matching or whitespace stripping.
 
         Example:
-            With works in main_tables, the singular work can resolve through the pluralizer.
+            With works in main_tables, the singular work can resolve through the
+            pluralizer.
 
 
         :param candidate_name: Candidate converted to text before lookup/pluralization.
@@ -1887,18 +1923,21 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
 
     def create_interlink_table(self, table1: str, table2: str, connection: sqlite3.Connection) -> None:
         """
-        Create an expected link from stored options, commit, then add optional type guards.
+        Create an expected link from stored options, commit, then add optional type
+        guards.
 
-        Reject link names absent from interlink_tables. Type reference-table setup commits
-        separately; a later guard failure can leave the link table created.
+        Reject link names absent from interlink_tables. Type reference-table setup
+        commits separately; a later guard failure can leave the link table created.
 
         Example:
-            Creating an enumerated role link produces both the link and its __types guards.
+            Creating an enumerated role link produces both the link and its __types
+            guards.
 
 
         :param table1: First known main-table name.
         :param table2: Second known main-table name.
-        :param connection: Open SQLite connection used and committed but not closed here.
+        :param connection: Open SQLite connection used and committed but not closed
+            here.
         :return: None; mutates the supplied connection.
         """
 
@@ -1964,13 +2003,15 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
         Use the shared __types table seeding and insert/update guard implementation.
 
         Example:
-            Non-NULL labels absent from the reference table are rejected after guard installation.
+            Non-NULL labels absent from the reference table are rejected after guard
+            installation.
 
 
         :param interlink_table_name: Trusted existing link-table name.
         :param interlink_column_base: Trusted prefix of the link type column.
         :param allowed_types: Label strings inserted with bound parameters.
-        :param connection: Open SQLite connection used and committed but not closed here.
+        :param connection: Open SQLite connection used and committed but not closed
+            here.
         :return: None; the shared helper commits without closing.
         """
 
@@ -1987,10 +2028,12 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
         # The format is always primary is type of secondary
     def create_intralink_table(self, table_name: str, connection: sqlite3.Connection) -> None:
         """
-        Build one configured self-link with nullable endpoints, then optional type guards.
+        Build one configured self-link with nullable endpoints, then optional type
+        guards.
 
-        The build forces nullable FKs regardless of the parsed nullable setting to support
-        blank-row construction. Commit DDL before separately committed type-guard setup.
+        The build forces nullable FKs regardless of the parsed nullable setting to
+        support blank-row construction. Commit DDL before separately committed
+        type-guard setup.
 
         Example:
             A configured symmetric self-link gets ordering guards but still allows blank
@@ -1998,7 +2041,8 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
 
 
         :param table_name: Main table whose self-link schema is requested.
-        :param connection: Open SQLite connection used and committed but not closed here.
+        :param connection: Open SQLite connection used and committed but not closed
+            here.
         :return: None; mutates and commits the supplied connection.
         """
 
@@ -2054,11 +2098,13 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
         Forward self-link SQL generation to the shared utility implementation.
 
         Example:
-            Pass symmetric=True through kwargs to request canonical endpoint-order guards.
+            Pass symmetric=True through kwargs to request canonical endpoint-order
+            guards.
 
 
         :param name: Main-table name passed to the shared builder.
-        :param kwargs: Supported shared-builder options, including columns, types, nullability and symmetry.
+        :param kwargs: Supported shared-builder options, including columns, types,
+            nullability and symmetry.
         :return: List of generated SQL statements without executing them.
         """
 
@@ -2068,17 +2114,20 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
         """
         Read optional self-link TOML and store normalized options for known tables.
 
-        Missing files return an empty set. Entries may be names or mappings; unknown targets
-        and invalid columns/types fail. Nullability requires real bools, symmetry allows
-        permissive bool spellings. Expand MARC/hash types and require symmetric type subsets
-        to be supported. Duplicate table entries overwrite stored settings; old option maps
-        are not cleared first. Parsed nullability is later overridden by creation.
+        Missing files return an empty set. Entries may be names or mappings; unknown
+        targets and invalid columns/types fail. Nullability requires real bools,
+        symmetry allows permissive bool spellings. Expand MARC/hash types and require
+        symmetric type subsets to be supported. Duplicate table entries overwrite stored
+        settings; old option maps are not cleared first. Parsed nullability is later
+        overridden by creation.
 
         Example:
-            A types list automatically adds the type column when it was not otherwise requested.
+            A types list automatically adds the type column when it was not otherwise
+            requested.
 
 
-        :return: Set of requested main-table names; also populates per-table option mappings.
+        :return: Set of requested main-table names; also populates per-table option
+            mappings.
         """
         c = self.conn.cursor()
 
@@ -2247,14 +2296,17 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
         return intralink_tables
     def create_aggregate_tables(self) -> None:
         """
-        Execute explicitly enabled aggregate SQL resources with a commit after each script.
+        Execute explicitly enabled aggregate SQL resources with a commit after each
+        script.
 
         Missing specs or disabled settings are no-ops. enabled must be a bool. Explicit
-        files precede an optional recursive folder scan; duplicate resources may run twice,
-        and a missing scan folder is ignored. Paths are trusted configuration, not sandboxed.
+        files precede an optional recursive folder scan; duplicate resources may run
+        twice, and a missing scan folder is ignored. Paths are trusted configuration,
+        not sandboxed.
 
         Example:
-            An enabled specification can load WEMI views after all main/link tables exist.
+            An enabled specification can load WEMI views after all main/link tables
+            exist.
 
 
         :return: None; creates configured derived objects when enabled.
@@ -2320,10 +2372,12 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
 
     def set_database_version(self) -> None:
         """
-        Insert and verify the APSW master-version row, then block all version-table writes.
+        Insert and verify the APSW master-version row, then block all version-table
+        writes.
 
-        Commit the insert and each guard separately. This is not an upsert: rerunning after
-        the version row or write locks exist can fail. A read-back mismatch raises RuntimeError.
+        Commit the insert and each guard separately. This is not an upsert: rerunning
+        after the version row or write locks exist can fail. A read-back mismatch raises
+        RuntimeError.
 
         Example:
             After success, inserts, updates and deletes on database_version abort.

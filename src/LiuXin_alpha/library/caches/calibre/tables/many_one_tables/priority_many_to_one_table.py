@@ -19,7 +19,7 @@ except ImportError:
     from typing import Self
 
 from LiuXin_alpha.library.caches.calibre.tables.many_one_tables.many_to_one_table import CalibreManyToOneTable
-from LiuXin_alpha.databases.db_types import MetadataDict, InterLinkTableName, SrcTableID, DstTableID
+from LiuXin_alpha.databases.db_types.database_types import InterLinkTableName, SrcTableID, DstTableID, MetadataDict
 
 from LiuXin_alpha.errors import InvalidCacheUpdate
 

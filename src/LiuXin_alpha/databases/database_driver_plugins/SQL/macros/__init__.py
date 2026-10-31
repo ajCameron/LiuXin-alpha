@@ -193,9 +193,13 @@ class SQLiteDatabaseMacros(
             >>> import sqlite3
             >>> from types import SimpleNamespace
             >>> conn = sqlite3.connect(":memory:")
-            >>> _ = conn.execute("CREATE TABLE links (left_id INTEGER, right_id INTEGER)")
+            >>> _ = conn.execute(
+            ...     "CREATE TABLE links (left_id INTEGER, right_id INTEGER)"
+            ... )
             >>> macros = SQLiteDatabaseMacros(SimpleNamespace(driver_wrapper=conn))
-            >>> macros.make_generic_link_no_priority("links", "left_id", "right_id", 1, 2)
+            >>> macros.make_generic_link_no_priority(
+            ...     "links", "left_id", "right_id", 1, 2
+            ... )
             >>> conn.execute("SELECT left_id, right_id FROM links").fetchone()
             (2, 1)
             >>> conn.close()
@@ -269,7 +273,9 @@ class SQLiteDatabaseMacros(
         Example:
             >>> from types import SimpleNamespace
             >>> macros = SQLiteDatabaseMacros(SimpleNamespace())
-            >>> macros.get_foreign_key_replacement_trigger("links", "owner_id", "id", old=False)
+            >>> macros.get_foreign_key_replacement_trigger(
+            ...     "links", "owner_id", "id", old=False
+            ... )
             'DELETE FROM links WHERE owner_id=OLD.id;'
 
 
@@ -360,7 +366,9 @@ class SQLiteDatabaseMacros(
             >>> conn = sqlite3.connect(":memory:")
             >>> _ = conn.execute("CREATE TABLE items (id INTEGER, label TEXT)")
             >>> macros = SQLiteDatabaseMacros(SimpleNamespace(driver_wrapper=conn))
-            >>> macros.get_values_one_condition("items", "label", "id", 1, default_value="fallback")
+            >>> macros.get_values_one_condition(
+            ...     "items", "label", "id", 1, default_value="fallback"
+            ... )
             set()
             >>> conn.close()
 
@@ -393,67 +401,32 @@ class SQLiteDatabaseMacros(
 
     # Todo: Rename bulk delete by values
     def bulk_delete_in_table(self, table, column, column_values):
+        """Delete equality matches through the portable transaction owner.
+
+        Validate the table, column and all one-cell bindings before writing.
+        Preserve SQL equality semantics for None. A failing batch rolls back;
+        nested operations compose inside the caller's portable transaction.
         """
-        Execute one equality-based DELETE for each supplied parameter row.
+        self._delete_matching_rows(table, (column,), column_values)
 
-        Bindings are passed unchanged to executemany; each must contain one value. None
-        bindings do not match null cells through SQL equality. Transaction and partial-
-        failure behavior are delegated to the wrapper.
+    def bulk_delete_items_in_table_two_matching_cols(
+        self, table, col_1, col_2, column_values
+    ):
+        """Delete matching column pairs through the portable transaction owner.
 
-        Example:
-            ``macros.bulk_delete_in_table("works", "work_id", [(1,), (2,)])``
-            deletes rows whose IDs match either parameter row.
-
-
-        :param table: Trusted SQL table name interpolated without quoting or validation.
-        :param column: Trusted column name interpolated directly into SQL.
-        :param column_values: Iterable of one-value parameter sequences, not a flat
-            sequence of scalar IDs.
-        :return: None; the executemany result is discarded.
+        Validate both physical columns and every binding before effects. Bind
+        values with equality predicates; None does not match SQL NULL. Batch
+        failures roll back without committing an enclosing portable transaction.
         """
-        self.executemany("DELETE FROM {0} WHERE {1}=?".format(table, column), column_values)
-
-    def bulk_delete_items_in_table_two_matching_cols(self, table, col_1, col_2, column_values):
-        """
-        Delete rows matching both bound column values for each parameter pair.
-
-        Use equality predicates joined by AND and pass parameter pairs unchanged to
-        executemany. This helper creates no transaction or null-specific predicate.
-
-        Example:
-            ``macros.bulk_delete_items_in_table_two_matching_cols("links",
-            "left_id", "right_id", [(1, 2)])`` deletes that endpoint pair.
-
-
-        :param table: Trusted SQL table name interpolated without quoting or validation.
-        :param col_1: Trusted first match-column name.
-        :param col_2: Trusted second match-column name.
-        :param column_values: Iterable of (first-column value, second-column value)
-            parameter sequences.
-        :return: None; the executemany result is discarded.
-        """
-        stmt = "DELETE FROM {0} WHERE {1}=? AND {2}=?;".format(table, col_1, col_2)
-        self.executemany(stmt, column_values)
+        self._delete_matching_rows(table, (col_1, col_2), column_values)
 
     def delete_in_table(self, table, column, value):
+        """Delete equality matches through the validated portable row primitive.
+
+        The selected column need not be unique. No match is a no-op, and None
+        does not match SQL NULL. Reuse the caller's portable transaction.
         """
-        Delete every row whose selected column equals one bound value.
-
-        No match is a normal no-op. A None binding does not match SQL nulls because the
-        predicate uses equality rather than IS NULL.
-
-        Example:
-            ``macros.delete_in_table("links", "left_id", 1)`` removes every link
-            with that left endpoint.
-
-
-        :param table: Trusted SQL table name interpolated without quoting or validation.
-        :param column: Trusted column name interpolated directly into SQL.
-        :param value: Scalar bound to the equality predicate.
-        :return: None; the execution result is discarded.
-        """
-        del_stmt = "DELETE FROM {0} WHERE {1}=?;".format(table, column)
-        self.execute(del_stmt, (value,))
+        self.delete_row(table, value, id_column=column)
 
     def bulk_update_link_table(self, link_table, update_column, other_column, values):
         """
@@ -714,17 +687,28 @@ class SQLiteDatabaseMacros(
             >>> from types import SimpleNamespace
             >>> row = SimpleNamespace(secondary_id=3, link_type="author")
             >>> wrapper = SimpleNamespace(get_link_spec=lambda *args: object())
-            >>> host = SimpleNamespace(db=SimpleNamespace(driver_wrapper=wrapper),
-            ...                        get_link_rows=lambda *args: (row, row))
-            >>> for typed, priority in [(False, False), (False, True), (True, False), (True, True)]:
-            ...     result = SQLiteDatabaseMacros.get_link_data(host, "works", "agents", 1, typed, priority)
+            >>> host = SimpleNamespace(
+            ...     db=SimpleNamespace(driver_wrapper=wrapper),
+            ...     get_link_rows=lambda *args: (row, row),
+            ... )
+            >>> for typed, priority in [
+            ...     (False, False),
+            ...     (False, True),
+            ...     (True, False),
+            ...     (True, True),
+            ... ]:
+            ...     result = SQLiteDatabaseMacros.get_link_data(
+            ...         host, "works", "agents", 1, typed, priority
+            ...     )
             ...     print(dict(result) if typed else result)
             {3}
             [3, 3]
             {'author': {3}}
             {'author': [3, 3]}
             >>> wrapper.get_link_spec = lambda *args: None
-            >>> SQLiteDatabaseMacros.get_link_data(host, "works", "agents", 1, typed=True, priority=True)
+            >>> SQLiteDatabaseMacros.get_link_data(
+            ...     host, "works", "agents", 1, typed=True, priority=True
+            ... )
             []
 
 

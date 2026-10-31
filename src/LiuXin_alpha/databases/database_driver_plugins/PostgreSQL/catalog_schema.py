@@ -17,7 +17,9 @@ from LiuXin_alpha.databases.database_driver_plugins.PostgreSQL.link_ddl import (
 def catalog_link_statements(
     tables: Mapping[str, tuple[str, ...]], root: Path
 ) -> tuple[str, ...]:
-    """Create declared links between the supplied Catalog tables, including role registries.
+    """
+    Create declared links between the supplied Catalog tables, including role
+    registries.
 
     Table names and columns come from the bundled schema catalog. Source/target
     direction comes from TOML; physical names follow sorted column prefixes.
@@ -35,11 +37,11 @@ def catalog_link_statements(
             right_id.removesuffix("_id"),
         )
         kind = request.get("link_type", "many_to_many").replace("_to_", "_")
+        source_base, target_base = left_base, right_base
         if left_base > right_base:
             left_table, right_table = right_table, left_table
             left_id, right_id = right_id, left_id
             left_base, right_base = right_base, left_base
-            kind = {"one_many": "many_one", "many_one": "one_many"}.get(kind, kind)
         base = f"{left_base}_{right_base}_link"
         table = f"{base}s"
         left_fk, right_fk = f"{base}_{left_base}_id", f"{base}_{right_base}_id"
@@ -53,10 +55,12 @@ def catalog_link_statements(
             *_link_constraints(
                 link_type=kind,
                 link_base=base,
-                left_base=left_base,
-                right_base=right_base,
-                left_fk_col=left_fk,
-                right_fk_col=right_fk,
+                # Sorting determines physical names only. Cardinality and
+                # priority ownership follow the declared source/target direction.
+                left_base=source_base,
+                right_base=target_base,
+                left_fk_col=f"{base}_{source_base}_id",
+                right_fk_col=f"{base}_{target_base}_id",
                 has_type="type" in requested,
                 has_priority="priority" in requested,
             ),

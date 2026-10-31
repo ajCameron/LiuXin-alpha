@@ -64,8 +64,10 @@ def grant_runtime_role_privileges(
     :param role: Runtime role receiving privileges.
     :param schema: Schema name validated against the conservative identifier allowlist.
     :param password: Optional password for the grantor connection.
-    :param prompt_for_password: Whether connection authentication may prompt on a terminal.
-    :return: Role/schema/database/grantor details, granted privilege lists and executed statements.
+    :param prompt_for_password: Whether connection authentication may prompt on a
+        terminal.
+    :return: Role/schema/database/grantor details, granted privilege lists and executed
+        statements.
     """
 
     runtime_role = _validate_identifier(role, "runtime role")
@@ -118,8 +120,8 @@ def build_runtime_grant_statements(
     """
     Build six grants for database connect, schema usage and current/future objects.
 
-    Grant CRUD on tables and USAGE/SELECT/UPDATE on sequences. Future-object defaults apply
-    to the explicitly named owner, or the SQL executor when no owner is supplied.
+    Grant CRUD on tables and USAGE/SELECT/UPDATE on sequences. Future-object defaults
+    apply to the explicitly named owner, or the SQL executor when no owner is supplied.
     Invalid names raise PostgresRuntimePrivilegeError before statements are returned.
 
     Example:
@@ -130,7 +132,8 @@ def build_runtime_grant_statements(
     :param role: Runtime role receiving privileges.
     :param schema: Schema name validated against the conservative identifier allowlist.
     :param database: Database name validated before SQL generation.
-    :param default_privileges_for_role: Optional object-creating role for ALTER DEFAULT PRIVILEGES.
+    :param default_privileges_for_role: Optional object-creating role for ALTER DEFAULT
+        PRIVILEGES.
     :return: Ordered list of SQL statements without trailing semicolons.
     """
 
@@ -186,7 +189,8 @@ def build_postgres_setup_statements(
     :param schema: Schema name validated against the conservative identifier allowlist.
     :param create_database: Whether to emit CREATE DATABASE, which is not idempotent.
     :param create_roles: Whether to emit guarded LOGIN role creation blocks.
-    :param section: Case-insensitive all, server or database; surrounding whitespace is stripped.
+    :param section: Case-insensitive all, server or database; surrounding whitespace is
+        stripped.
     :return: Ordered SQL/comment strings for the requested setup sections.
     """
 

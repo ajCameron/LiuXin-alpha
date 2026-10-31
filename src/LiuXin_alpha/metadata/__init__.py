@@ -8,6 +8,13 @@ Identifier vocabulary and validation live in ``metadata.identifiers``; MARC
 relator vocabulary lives in ``metadata.relators``. Persistence adapters consume
 those contracts rather than redefining them.
 
+Shared policy labels and schema-independent display defaults live in
+``metadata.value_policies``. Physical column mappings and machine-column inference
+remain in ``databases.column_metadata``; Catalog applies rules during writes.
+
+Legacy bibliographic and custom-field conversion belongs to
+``metadata.field_adaptors``. Generic scalar converters remain in ``utils.adaptors``.
+
 Import concrete value types, policies, containers, and workflows from their owning
 modules. Persistence-free OPF conversion lives in ``LiuXin_alpha.metadata.facade``;
 database/cache hydration lives in ``LiuXin_alpha.catalog.retrieval.metadata``.

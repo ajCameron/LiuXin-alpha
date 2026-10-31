@@ -18,11 +18,8 @@ from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 
 if TYPE_CHECKING:
 
-    from LiuXin_alpha.databases.db_types import (
-        MainTableName,
-        InterLinkTableName,
-        IntraLinkTableName,
-        HelperTableName)
+    from LiuXin_alpha.databases.db_types.database_types import MainTableName, InterLinkTableName, IntraLinkTableName, \
+        HelperTableName
 
 
 class DriverWrapperNamesMixin:
@@ -48,8 +45,8 @@ class DriverWrapperNamesMixin:
         """
         Use the shared plural/singular mapper to obtain a column prefix.
 
-        Delegates to the driver's direct_get_column_base hook. The following backend details
-        describe the shared SQL/SQLite implementation; backend errors propagate.
+        Delegates to the driver's direct_get_column_base hook. The following backend
+        details describe the shared SQL/SQLite implementation; backend errors propagate.
 
         Example:
             >>> wrapper.get_column_base("works")  # doctest: +SKIP
@@ -64,8 +61,8 @@ class DriverWrapperNamesMixin:
         """
         Choose literal id, otherwise the shortest heading ending in _id.
 
-        Delegates to the driver's direct_get_id_column hook. The following backend details
-        describe the shared SQL/SQLite implementation; backend errors propagate.
+        Delegates to the driver's direct_get_id_column hook. The following backend
+        details describe the shared SQL/SQLite implementation; backend errors propagate.
 
         Length ties preserve schema order. Unknown tables or absent candidates raise
         InputIntegrityError; this does not inspect primary-key constraints.
@@ -83,11 +80,12 @@ class DriverWrapperNamesMixin:
         """
         Choose literal datestamp, otherwise the shortest recognized timestamp heading.
 
-        Delegates to the driver's direct_get_datestamp_column hook. The following backend
-        details describe the shared SQL/SQLite implementation; backend errors propagate.
+        Delegates to the driver's direct_get_datestamp_column hook. The following
+        backend details describe the shared SQL/SQLite implementation; backend errors
+        propagate.
 
-        Recognize _datestamp, _timestamp and their _ep_k variants. Unknown tables or absent
-        candidates raise InputIntegrityError; ties preserve schema order.
+        Recognize _datestamp, _timestamp and their _ep_k variants. Unknown tables or
+        absent candidates raise InputIntegrityError; ties preserve schema order.
 
         Example:
             >>> wrapper.get_datestamp_column("works")  # doctest: +SKIP
@@ -102,15 +100,22 @@ class DriverWrapperNamesMixin:
         """
         Find and optionally cache the conventional table linking two endpoint tables.
 
-        Stringifies names; distinct endpoints use sorted singular bases and _links, equal
-        endpoints use a repeated base and _intralinks. Returns False if the generated table
-        is absent. Cache keys are symmetric and include misses. When available, backend
-        schema_version changes clear the cache; a failing version query becomes None.
-        Without that hook, cached names require explicit invalidation.
+        Stringifies names; distinct endpoints use sorted singular bases and _links,
+        equal endpoints use a repeated base and _intralinks. Returns False if the
+        generated table is absent. Cache keys are symmetric and include misses. When
+        available, backend schema_version changes clear the cache; a failing version
+        query becomes None. Without that hook, cached names require explicit
+        invalidation.
 
         Example:
             >>> from types import SimpleNamespace
-            >>> host = SimpleNamespace(driver=SimpleNamespace(), get_tables=lambda: ["agent_work_links"], get_column_base=lambda name: {"agents": "agent", "works": "work"}[name])
+            >>> host = SimpleNamespace(
+            ...     driver=SimpleNamespace(),
+            ...     get_tables=lambda: ["agent_work_links"],
+            ...     get_column_base=lambda name: {"agents": "agent", "works": "work"}[
+            ...         name
+            ...     ],
+            ... )
             >>> DriverWrapperNamesMixin.get_link_table_name(host, "works", "agents")
             'agent_work_links'
 
@@ -169,17 +174,19 @@ class DriverWrapperNamesMixin:
         """
         Forward interlink-column lookup to get_link_column().
 
-        Preserves endpoint order and the requested suffix. Missing links and missing columns
-        raise the errors from the canonical helper.
+        Preserves endpoint order and the requested suffix. Missing links and missing
+        columns raise the errors from the canonical helper.
 
         Example:
-            >>> wrapper.get_interlink_column("agents", "works", "type")  # doctest: +SKIP
+            >>> wrapper.get_interlink_column(
+            ...     "agents", "works", "type"
+            ... )  # doctest: +SKIP
 
 
         :param table1: First endpoint table.
         :param table2: Second endpoint table.
-        :param column_type: Suffix of the requested link column, such as type, priority or
-            an endpoint ID name.
+        :param column_type: Suffix of the requested link column, such as type, priority
+            or an endpoint ID name.
         :return: Resolved physical column name.
         """
         return self.get_link_column(table1, table2, column_type)
@@ -201,8 +208,8 @@ class DriverWrapperNamesMixin:
 
         :param table1: First endpoint table.
         :param table2: Second endpoint table.
-        :param column_type: Suffix of the requested link column, such as type, priority or
-            an endpoint ID name.
+        :param column_type: Suffix of the requested link column, such as type, priority
+            or an endpoint ID name.
         :return: Existing physical link-column name.
         """
         link_table = self.get_link_table_name(table1=table1, table2=table2)
@@ -248,16 +255,16 @@ class DriverWrapperNamesMixin:
         """
         Resolve a self-link column by passing the same table as both endpoints.
 
-        Delegates to get_link_column(); missing tables or columns raise its lookup errors.
-        Use primary_id and secondary_id to distinguish endpoint references.
+        Delegates to get_link_column(); missing tables or columns raise its lookup
+        errors. Use primary_id and secondary_id to distinguish endpoint references.
 
         Example:
             >>> wrapper.get_intralink_column("works", "type")  # doctest: +SKIP
 
 
         :param table: Table name in the current schema.
-        :param column_type: Suffix of the requested link column, such as type, priority or
-            an endpoint ID name.
+        :param column_type: Suffix of the requested link column, such as type, priority
+            or an endpoint ID name.
         :return: Resolved intralink-column name.
         """
         return self.get_link_column(table, table, column_type)
@@ -271,7 +278,9 @@ class DriverWrapperNamesMixin:
 
         Example:
             >>> from types import SimpleNamespace
-            >>> host = SimpleNamespace(get_column_headings=lambda table: ["work_id", "work_scratch"])
+            >>> host = SimpleNamespace(
+            ...     get_column_headings=lambda table: ["work_id", "work_scratch"]
+            ... )
             >>> DriverWrapperNamesMixin.get_scratch_column(host, "works")
             'work_scratch'
 
@@ -293,12 +302,14 @@ class DriverWrapperNamesMixin:
         Find the unique heading whose lowercase name ends in _parent.
 
         Requires table_name in discovered table headings, otherwise InputIntegrityError.
-        Multiple candidates raise DatabaseIntegrityError; a table without a matching heading
-        returns False.
+        Multiple candidates raise DatabaseIntegrityError; a table without a matching
+        heading returns False.
 
         Example:
             >>> from types import SimpleNamespace
-            >>> host = SimpleNamespace(get_tables_and_columns=lambda: {"works": ["work_id"]})
+            >>> host = SimpleNamespace(
+            ...     get_tables_and_columns=lambda: {"works": ["work_id"]}
+            ... )
             >>> DriverWrapperNamesMixin.get_parent_column(host, "works")
             False
 
@@ -334,16 +345,19 @@ class DriverWrapperNamesMixin:
         """
         Choose the shortest non-ID column from a copied list of table headings.
 
-        Removes the conventional ID column, sorts the remaining list by length and takes its
-        first entry; ties preserve the original list order. A missing ID or no remaining
-        columns raises DatabaseIntegrityError. Unknown tables raise lookup errors. Requires
-        a mutable heading list supporting remove() and sort(); a set does not satisfy this
-        implementation despite broader schema annotations.
+        Removes the conventional ID column, sorts the remaining list by length and takes
+        its first entry; ties preserve the original list order. A missing ID or no
+        remaining columns raises DatabaseIntegrityError. Unknown tables raise lookup
+        errors. Requires a mutable heading list supporting remove() and sort(); a set
+        does not satisfy this implementation despite broader schema annotations.
 
         Example:
             >>> from types import SimpleNamespace
             >>> headings = ["work_id", "work_sort_title", "work_title"]
-            >>> host = SimpleNamespace(get_id_column=lambda table: "work_id", get_tables_and_columns=lambda: {"works": headings})
+            >>> host = SimpleNamespace(
+            ...     get_id_column=lambda table: "work_id",
+            ...     get_tables_and_columns=lambda: {"works": headings},
+            ... )
             >>> DriverWrapperNamesMixin.get_display_column(host, "works")
             'work_title'
             >>> headings[0]

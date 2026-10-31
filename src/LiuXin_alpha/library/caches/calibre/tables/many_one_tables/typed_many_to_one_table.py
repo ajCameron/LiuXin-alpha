@@ -16,7 +16,7 @@ from copy import deepcopy
 from typing import Any, Union, TypeVar, Optional
 
 from LiuXin_alpha.library.caches.calibre.tables.many_one_tables import CalibreManyToOneTable
-from LiuXin_alpha.databases.db_types import MetadataDict, SrcTableID, DstTableID, InterLinkTableName
+from LiuXin_alpha.databases.db_types.database_types import InterLinkTableName, SrcTableID, DstTableID, MetadataDict
 
 from LiuXin_alpha.errors import InvalidCacheUpdate
 

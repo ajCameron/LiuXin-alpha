@@ -2,7 +2,10 @@
 """
 Describe relational schema structure without retaining backend row objects.
 
-Frozen slotted dataclasses record tables, columns and relationship semantics for introspection and portable consumers. They perform no schema validation or deep freezing of supplied mappings/default values. The row factory builds ordinary mutable value dataclasses, separate from database-bound Row objects.
+Frozen slotted dataclasses record tables, columns and relationship semantics for
+introspection and portable consumers. They perform no schema validation or deep freezing
+of supplied mappings/default values. The row factory builds ordinary mutable value
+dataclasses, separate from database-bound Row objects.
 """
 
 from __future__ import annotations
@@ -17,7 +20,8 @@ class RelationKind(str, Enum):
     """
     Distinguish a physical table from a view in schema descriptions.
 
-    The string-valued members are TABLE="table" and VIEW="view"; this enum does not inspect the database.
+    The string-valued members are TABLE="table" and VIEW="view"; this enum does not
+    inspect the database.
 
     Example:
         >>> RelationKind.TABLE == "table"
@@ -36,7 +40,9 @@ class LinkCardinality(str, Enum):
     """
     Describe endpoint multiplicity from the primary side to the secondary side.
 
-    ONE_TO_ONE, ONE_TO_MANY, MANY_TO_ONE and MANY_TO_MANY describe uniqueness expectations; UNKNOWN records unresolved cardinality. These labels do not establish destination ownership or enforce constraints.
+    ONE_TO_ONE, ONE_TO_MANY, MANY_TO_ONE and MANY_TO_MANY describe uniqueness
+    expectations; UNKNOWN records unresolved cardinality. These labels do not establish
+    destination ownership or enforce constraints.
 
     Example:
         >>> LinkCardinality.MANY_TO_ONE.value
@@ -53,7 +59,8 @@ class LinkKind(str, Enum):
     """
     Classify a link by its type and priority column capabilities.
 
-    PLAIN has neither capability, TYPED has type only, PRIORITY has priority only, and TYPED_PRIORITY has both. Cardinality and lifecycle ownership are independent.
+    PLAIN has neither capability, TYPED has type only, PRIORITY has priority only, and
+    TYPED_PRIORITY has both. Cardinality and lifecycle ownership are independent.
 
     Example:
         >>> LinkKind.TYPED_PRIORITY.value
@@ -71,10 +78,14 @@ class LinkCapabilities:
     """
     Record endpoint/table names and optional type/priority column names.
 
-    Derived properties test only whether column names are None; even an empty string counts as present. Construction does not verify identifiers or inspect a schema. Frozen fields prevent reassignment but do not validate their values.
+    Derived properties test only whether column names are None; even an empty string
+    counts as present. Construction does not verify identifiers or inspect a schema.
+    Frozen fields prevent reassignment but do not validate their values.
 
     Example:
-        >>> cap = LinkCapabilities("works", "agents", "work_agent_links", priority_column="priority")
+        >>> cap = LinkCapabilities(
+        ...     "works", "agents", "work_agent_links", priority_column="priority"
+        ... )
         >>> cap.kind is LinkKind.PRIORITY
         True
     """
@@ -136,7 +147,9 @@ class LinkCapabilities:
         Report whether both type and priority column names are present.
 
         Example:
-            >>> LinkCapabilities("a", "b", "links", type_column="role", priority_column="rank").both
+            >>> LinkCapabilities(
+            ...     "a", "b", "links", type_column="role", priority_column="rank"
+            ... ).both
             True
 
 
@@ -172,10 +185,16 @@ class StorageColumnSpec:
     """
     Record a column’s name, ordinal, type, defaults and constraint metadata.
 
-    declared_type preserves backend declaration text; affinity is the broad type category used by row generation. nullable, primary-key and unique flags describe introspection results without enforcing them. has_default distinguishes no default from a default whose value is None. Reference fields identify an optional foreign target. default_value is retained directly and can be mutable.
+    declared_type preserves backend declaration text; affinity is the broad type
+    category used by row generation. nullable, primary-key and unique flags describe
+    introspection results without enforcing them. has_default distinguishes no default
+    from a default whose value is None. Reference fields identify an optional foreign
+    target. default_value is retained directly and can be mutable.
 
     Example:
-        >>> col = StorageColumnSpec("work_id", 0, affinity="INTEGER", nullable=False, is_primary_key=True)
+        >>> col = StorageColumnSpec(
+        ...     "work_id", 0, affinity="INTEGER", nullable=False, is_primary_key=True
+        ... )
         >>> col.is_primary_key, col.has_default
         (True, False)
     """
@@ -197,10 +216,18 @@ class StorageTableSpec:
     """
     Describe a table/view’s ordered columns and catalog-specific roles.
 
-    Store its relation_kind, optional ID/parent/datestamp/scratch column names, table-role flags and linked table names. extra is a fresh empty dictionary by default but supplied mappings are retained directly. Frozen fields do not make extra or nested default values immutable, nor do they validate consistency with columns.
+    Store its relation_kind, optional ID/parent/datestamp/scratch column names,
+    table-role flags and linked table names. extra is a fresh empty dictionary by
+    default but supplied mappings are retained directly. Frozen fields do not make extra
+    or nested default values immutable, nor do they validate consistency with columns.
 
     Example:
-        >>> spec = StorageTableSpec("works", RelationKind.TABLE, (StorageColumnSpec("work_id", 0),), id_column="work_id")
+        >>> spec = StorageTableSpec(
+        ...     "works",
+        ...     RelationKind.TABLE,
+        ...     (StorageColumnSpec("work_id", 0),),
+        ...     id_column="work_id",
+        ... )
         >>> spec.columns[0].name
         'work_id'
     """
@@ -225,10 +252,22 @@ class StorageLinkSpec:
     """
     Describe link endpoints, logical identity, capabilities and ownership.
 
-    Endpoint ID columns identify rows in their own tables; link columns reference those endpoints. Cardinality describes endpoint uniqueness, while destination_owned separately records lifecycle ownership. typed/ordered and their optional column names must be consistent for validating consumers. type_part_of_identity distinguishes multiple roles for one endpoint pair from a single pair whose role can change. allowed_types_table and allowed_types describe type registries; extra_link_columns describe additional stored properties. Construction alone accepts inconsistent declarations.
+    Endpoint ID columns identify rows in their own tables; link columns reference those
+    endpoints. Cardinality describes endpoint uniqueness, while destination_owned
+    separately records lifecycle ownership. typed/ordered and their optional column
+    names must be consistent for validating consumers. type_part_of_identity
+    distinguishes multiple roles for one endpoint pair from a single pair whose role can
+    change. allowed_types_table and allowed_types describe type registries;
+    extra_link_columns describe additional stored properties. Construction alone accepts
+    inconsistent declarations.
 
     Example:
-        >>> link = StorageLinkSpec("works", "agents", "work_agent_links", cardinality=LinkCardinality.MANY_TO_MANY)
+        >>> link = StorageLinkSpec(
+        ...     "works",
+        ...     "agents",
+        ...     "work_agent_links",
+        ...     cardinality=LinkCardinality.MANY_TO_MANY,
+        ... )
         >>> link.destination_owned, link.type_part_of_identity
         (False, False)
     """
@@ -267,7 +306,9 @@ class StorageSchemaSpec:
     """
     Collect table descriptions and interlink/intralink specs into one schema graph.
 
-    tables maps relation names to StorageTableSpec values; interlinks and intralinks retain their supplied tuple order. This frozen outer record does not copy/freeze the tables mapping or validate that link endpoints and column names resolve.
+    tables maps relation names to StorageTableSpec values; interlinks and intralinks
+    retain their supplied tuple order. This frozen outer record does not copy/freeze the
+    tables mapping or validate that link endpoints and column names resolve.
 
     Example:
         >>> graph = StorageSchemaSpec(tables={}, interlinks=(), intralinks=())
@@ -284,17 +325,29 @@ def build_row_dataclass_for_table(spec: StorageTableSpec) -> type:
     """
     Generate a mutable slotted value dataclass from the supplied column sequence.
 
-    Use int/float/bytes/str for INTEGER/REAL/BLOB/TEXT affinity, wrapping nullable fields in Optional; all other affinities become Any. These are annotations, not runtime value validators. nullable alone does not give a default. has_default passes default_value directly to dataclasses, without evaluating SQL expressions or reordering fields. Invalid/duplicate field names, unsuitable defaults and required fields following defaulted ones propagate factory errors. The generated class has no database connection or persistence methods.
+    Use int/float/bytes/str for INTEGER/REAL/BLOB/TEXT affinity, wrapping nullable
+    fields in Optional; all other affinities become Any. These are annotations, not
+    runtime value validators. nullable alone does not give a default. has_default passes
+    default_value directly to dataclasses, without evaluating SQL expressions or
+    reordering fields. Invalid/duplicate field names, unsuitable defaults and required
+    fields following defaulted ones propagate factory errors. The generated class has no
+    database connection or persistence methods.
 
     Example:
-        >>> spec = StorageTableSpec("work_values", RelationKind.TABLE, (StorageColumnSpec("count", 0, affinity="INTEGER", nullable=False),))
+        >>> spec = StorageTableSpec(
+        ...     "work_values",
+        ...     RelationKind.TABLE,
+        ...     (StorageColumnSpec("count", 0, affinity="INTEGER", nullable=False),),
+        ... )
         >>> ValueRow = build_row_dataclass_for_table(spec)
         >>> ValueRow(count=3).count, ValueRow.__name__
         (3, 'WorkValuesRow')
 
 
-    :param spec: Table description whose column names, order, affinities, nullability and literal defaults define fields.
-    :return: New class on each call, named from capitalized underscore-separated table-name parts plus Row.
+    :param spec: Table description whose column names, order, affinities, nullability
+        and literal defaults define fields.
+    :return: New class on each call, named from capitalized underscore-separated
+        table-name parts plus Row.
     :raises TypeError: Dataclass field names or ordering are invalid.
     :raises ValueError: A field default is unsuitable for a dataclass.
     """

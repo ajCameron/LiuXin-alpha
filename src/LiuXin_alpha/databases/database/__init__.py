@@ -2,7 +2,12 @@
 """
 Compose the live database facade from drivers, row helpers and runtime services.
 
-Database selects a backend, attaches its wrapper/macros, classifies schema metadata and optionally starts maintenance and storage. Constructors and helper methods can write to the database. Those writes enforce backend representation and integrity, not general metadata validity; supported metadata changes belong through Catalog. Its context manager performs cleanup rather than defining a rollback transaction; concurrent callers must coordinate access according to the selected driver and operation.
+Database selects a backend, attaches its wrapper/macros, classifies schema metadata and
+optionally starts maintenance and storage. Constructors and helper methods can write to
+the database. Those writes enforce backend representation and integrity, not general
+metadata validity; supported metadata changes belong through Catalog. Its context
+manager performs cleanup rather than defining a rollback transaction; concurrent callers
+must coordinate access according to the selected driver and operation.
 """
 
 from __future__ import annotations, unicode_literals
@@ -19,6 +24,7 @@ from LiuXin_alpha.databases.api import (
     DatabaseAPI,
     DatabaseDriverAPI,
     DatabaseDriverWrapperAPI,
+    MetadataSQLAPI,
 )
 from LiuXin_alpha.databases.database.constants import (
     HELPER_TABLES,
@@ -68,7 +74,9 @@ class _NoopMaintainerCallback:
     """
     Accept and discard driver maintenance events when the service is disabled.
 
-    Each method returns None without inspecting inputs, queuing work or invoking telemetry. This replaces the driver callback only; it does not disable every other write or dirty-record path on Database.
+    Each method returns None without inspecting inputs, queuing work or invoking
+    telemetry. This replaces the driver callback only; it does not disable every other
+    write or dirty-record path on Database.
 
     Example:
         >>> sink = _NoopMaintainerCallback()
@@ -110,7 +118,9 @@ class _NoopMaintainerCallback:
         Discard a relationship-change callback for two endpoint rows.
 
         Example:
-            >>> _NoopMaintainerCallback().dirty_interlink_record("add", "works", "agents", 1, 2)
+            >>> _NoopMaintainerCallback().dirty_interlink_record(
+            ...     "add", "works", "agents", 1, 2
+            ... )
 
 
         :param update_type: Ignored update classification.
@@ -128,21 +138,32 @@ def _metadata_uses_server_database(metadata, db_type: str) -> bool:
     """
     Recognize PostgreSQL-oriented metadata before applying file-creation rules.
 
-    Backend aliases win even without metadata. Service keys are postgres_service and database_service; URL candidates are postgres_url, database_url, dsn, url and database_path. Generic service alone is ignored. URL parsing errors are skipped. This does not connect, validate credentials, choose a driver or recognize every possible server DSN; keyword-only PostgreSQL DSNs need another supported hint.
+    Backend aliases win even without metadata. Service keys are postgres_service and
+    database_service; URL candidates are postgres_url, database_url, dsn, url and
+    database_path. Generic service alone is ignored. URL parsing errors are skipped.
+    This does not connect, validate credentials, choose a driver or recognize every
+    possible server DSN; keyword-only PostgreSQL DSNs need another supported hint.
 
     Example:
-        >>> _metadata_uses_server_database({"database_path": "postgresql://db.example/library"}, "SQLite")
+        >>> _metadata_uses_server_database(
+        ...     {"database_path": "postgresql://db.example/library"}, "SQLite"
+        ... )
         True
-        >>> _metadata_uses_server_database({"database_path": "/tmp/library.db"}, "SQLite")
+        >>> _metadata_uses_server_database(
+        ...     {"database_path": "/tmp/library.db"}, "SQLite"
+        ... )
         False
         >>> _metadata_uses_server_database(None, " pg ")
         True
 
 
     :param metadata: Mapping of connection hints, or a false value for no hints.
-    :param db_type: Backend name stringified, stripped and casefolded before checking postgres/postgresql/pg aliases.
-    :return: True for a recognized backend alias, nonblank PostgreSQL service hint, or postgres/postgresql URL scheme; otherwise False.
-    :raises AttributeError: Truthy metadata lacks a usable get method when hints must be inspected.
+    :param db_type: Backend name stringified, stripped and casefolded before checking
+        postgres/postgresql/pg aliases.
+    :return: True for a recognized backend alias, nonblank PostgreSQL service hint, or
+        postgres/postgresql URL scheme; otherwise False.
+    :raises AttributeError: Truthy metadata lacks a usable get method when hints must be
+        inspected.
     """
 
     db_type_text = str(db_type or "").strip().casefold()
@@ -187,7 +208,11 @@ class Database(
     """
     Own a database driver, its row facade and optional runtime services.
 
-    Construction may create a schema, repair sentinel rows, start maintenance and load Stores. Most row helpers delegate backend work through driver_wrapper. Use close or a context manager to release database handles; cleanup rolls back pending work. Explicit semantic write units own their commits. Backend operations and construction are not one atomic transaction.
+    Construction may create a schema, repair sentinel rows, start maintenance and load
+    Stores. Most row helpers delegate backend work through driver_wrapper. Use close or
+    a context manager to release database handles; cleanup rolls back pending work.
+    Explicit semantic write units own their commits. Backend operations and construction
+    are not one atomic transaction.
 
     Database is intentionally not a semantic metadata boundary. Direct row,
     macro, or driver writes may persist any value accepted by storage constraints.
@@ -195,7 +220,9 @@ class Database(
     and operation validity must be guaranteed.
 
     Example:
-        With metadata pointing at a disposable existing library, use with Database(metadata=metadata, enable_maintenance=False) as db: and perform reads inside the block. Disabling maintenance alone does not disable bootstrap writes.
+        With metadata pointing at a disposable existing library, use with
+        Database(metadata=metadata, enable_maintenance=False) as db: and perform reads
+        inside the block. Disabling maintenance alone does not disable bootstrap writes.
     """
 
     _driver: DatabaseDriverAPI
@@ -238,23 +265,37 @@ class Database(
         """
         Open or create a backend and attach the shared queues and runtime services.
 
-        The existing-driver branch leaves facade metadata and type as None and assumes the database exists. The standard branch records metadata/type and checks backend existence. Storage initialization follows queue wiring; a failure can leave earlier resources initialized.
+        The existing-driver branch leaves facade metadata and type as None and assumes
+        the database exists. The standard branch records metadata/type and checks
+        backend existence. Storage initialization follows queue wiring; a failure can
+        leave earlier resources initialized.
 
         Example:
-            Given an existing SQLite library path, db = Database(metadata={"database_path": path}, repair_bootstrap_rows=False, enable_maintenance=False, enable_storage_manager=False) omits those optional bootstrap services; close db when finished.
+            Given an existing SQLite library path, db =
+            Database(metadata={"database_path": path}, repair_bootstrap_rows=False,
+            enable_maintenance=False, enable_storage_manager=False) omits those optional
+            bootstrap services; close db when finished.
 
 
-        :param metadata: Connection metadata; None selects the configured default database when no driver is supplied.
+        :param metadata: Connection metadata; None selects the configured default
+            database when no driver is supplied.
         :param db_type: Backend registry name, default SQLite.
-        :param create: Explicitly request new schema creation; existing targets are rejected.
-        :param backup: Retained compatibility argument; creation never replaces or backs up an existing target.
+        :param create: Explicitly request new schema creation; existing targets are
+            rejected.
+        :param backup: Retained compatibility argument; creation never replaces or backs
+            up an existing target.
         :param existing_driver: Already constructed driver; requires metadata=None.
-        :param enable_storage_manager: Load configured Stores after database initialization when True.
-        :param strict_storage_manager_bootstrap: Propagate storage loading failures and reject failed reports when True.
-        :param storage_startup_on_add: Request Store startup while loading configurations when True.
-        :param repair_bootstrap_rows: Allow rating and null-row repair writes during initialization.
+        :param enable_storage_manager: Load configured Stores after database
+            initialization when True.
+        :param strict_storage_manager_bootstrap: Propagate storage loading failures and
+            reject failed reports when True.
+        :param storage_startup_on_add: Request Store startup while loading
+            configurations when True.
+        :param repair_bootstrap_rows: Allow rating and null-row repair writes during
+            initialization.
         :param enable_maintenance: Start maintenance and attach its callback when True.
-        :param application_preferences: Store selected before construction; omitted values use the lazy process view.
+        :param application_preferences: Store selected before construction; omitted
+            values use the lazy process view.
         :return: None; the instance owns the resulting database connections.
         :raises AssertionError: Both existing_driver and metadata are supplied.
         """
@@ -310,7 +351,8 @@ class Database(
         Return the currently bound backend driver.
 
         Example:
-            For an open db, db.driver.conn accesses the primary backend connection when the driver exposes one.
+            For an open db, db.driver.conn accesses the primary backend connection when
+            the driver exposes one.
 
 
         :return: Driver object, or None after cleanup.
@@ -323,7 +365,8 @@ class Database(
         Return the wrapper that provides facade operations and the reentrant mutex.
 
         Example:
-            For an open db, db.driver_wrapper.lock is shared with db.lock; use get_connection() for caller-owned SQL.
+            For an open db, db.driver_wrapper.lock is shared with db.lock; use
+            get_connection() for caller-owned SQL.
 
 
         :return: Current wrapper, or None after cleanup.
@@ -336,7 +379,8 @@ class Database(
         Return the currently bound schema-specific SQL macros.
 
         Example:
-            After construction, db.macros is the macros object taken from the bound driver.
+            After construction, db.macros is the macros object taken from the bound
+            driver.
 
 
         :return: Macros collaborator, or None before binding or after cleanup.
@@ -350,7 +394,8 @@ class Database(
         This does not update the driver, wrapper or collaborator back-references.
 
         Example:
-            When assembling a compatible facade, db.set_macros(macros) stores that object without rebuilding other collaborators.
+            When assembling a compatible facade, db.set_macros(macros) stores that
+            object without rebuilding other collaborators.
 
 
         :param new_macros: Macros object to retain directly.
@@ -361,33 +406,20 @@ class Database(
         self._macros = new_macros
 
     @property
-    def metadata_sql(self):
-        """
-        Return the helper used for metadata-aware SQL operations.
+    def metadata_sql(self) -> MetadataSQLAPI | None:
+        """Return physical-table SQL helpers, or None before binding/after cleanup.
 
-        Example:
-            For an initialized db, db.metadata_sql.db refers back to the owning facade.
-
-
-        :return: Current MetadataSQL collaborator, or None before binding or after cleanup.
+        Catalog owns bibliographic interpretation and compatibility projections;
+        these helpers operate on actual stored rows using portable transactions.
         """
         return self._metadata_sql
 
-    def set_metadata_sql(self, new_metadata_sql) -> None:
+    def set_metadata_sql(self, new_metadata_sql: MetadataSQLAPI) -> None:
+        """Retain a non-None table-query helper without rebinding its owner.
+
+        Normal construction and runtime rebinding arrange its db reference.
         """
-        Replace the metadata SQL reference after rejecting None.
-
-        No back-reference or other collaborator is updated here.
-
-        Example:
-            During custom assembly, db.set_metadata_sql(helper) retains helper; the caller must arrange its db binding.
-
-
-        :param new_metadata_sql: Metadata SQL helper to retain directly.
-        :return: None.
-        :raises AssertionError: new_metadata_sql is None.
-        """
-        assert new_metadata_sql is not None, "Need to set metadata_sql to something that exists"
+        assert new_metadata_sql is not None, "Need an existing table-query helper"
         self._metadata_sql = new_metadata_sql
 
     def existing_driver_init(
@@ -406,7 +438,8 @@ class Database(
         telemetry and queue setup must already exist.
 
         Example:
-            Database(existing_driver=driver, enable_storage_manager=False) invokes this path after setting up the facade state.
+            Database(existing_driver=driver, enable_storage_manager=False) invokes this
+            path after setting up the facade state.
 
 
         :param existing_driver: Constructed driver with a compatible existing schema.
@@ -486,19 +519,22 @@ class Database(
         Select a backend and create its schema when explicit or required for a new file.
 
         Capture path existence before opening a driver. Build missing files privately
-        and publish create-only, so a competing creation cannot be overwritten.
-        Explicit server creation requires an absent or empty schema. Only after creation succeeds
+        and publish create-only, so a competing creation cannot be overwritten. Explicit
+        server creation requires an absent or empty schema. Only after creation succeeds
         open the ordinary driver and attach its wrapper.
 
         Example:
-            The constructor calls this method for Database(metadata={"database_path": new_path}); a missing file path triggers creation even with create=False.
+            The constructor calls this method for Database(metadata={"database_path":
+            new_path}); a missing file path triggers creation even with create=False.
 
 
         :param metadata: Connection hints, defaulting to the configured library path.
         :param db_type: Backend registry name.
         :param create: Request new schema creation, rejecting existing targets.
-        :param backup: Compatibility argument; use replace_database for intentional replacement.
-        :param repair_bootstrap_rows: Repair rating and null rows after schema discovery.
+        :param backup: Compatibility argument; use replace_database for intentional
+            replacement.
+        :param repair_bootstrap_rows: Repair rating and null rows after schema
+            discovery.
         :param enable_maintenance: Enable the background maintenance service.
         :return: None; binds the driver and runtime collaborators.
         """
@@ -573,13 +609,17 @@ class Database(
         """
         Bind maintenance callbacks, preferences and collaborator back-references.
 
-        Retain the application preferences selected at construction. Wire db on the driver, wrapper, macros and metadata helper. Repeated initialization does not stop a previous maintainer and is not an atomic replacement.
+        Retain the application preferences selected at construction. Wire db on the
+        driver, wrapper, macros and metadata helper. Repeated initialization does not
+        stop a previous maintainer and is not an atomic replacement.
 
         Example:
-            Database(enable_maintenance=False, metadata=metadata) uses the no-op callback path while still binding its existing collaborators.
+            Database(enable_maintenance=False, metadata=metadata) uses the no-op
+            callback path while still binding its existing collaborators.
 
 
-        :param enable_maintenance: Start a Maintainer and telemetry proxy when True; otherwise install no-op callbacks.
+        :param enable_maintenance: Start a Maintainer and telemetry proxy when True;
+            otherwise install no-op callbacks.
         :return: None.
         """
         if enable_maintenance:
@@ -619,18 +659,24 @@ class Database(
         """
         Delegate Store loading and retain the resulting manager and report.
 
-        The runtime helper creates a manager if needed or rebinds the existing one. Non-strict loading errors become failed reports, but manager construction errors propagate. Partial loading effects are not rolled back.
+        The runtime helper creates a manager if needed or rebinds the existing one.
+        Non-strict loading errors become failed reports, but manager construction errors
+        propagate. Partial loading effects are not rolled back.
 
         Example:
-            For an open db, report = db.bootstrap_storage_manager(startup_on_add=False) refreshes Store registrations; inspect report.issues for failures or skips.
+            For an open db, report = db.bootstrap_storage_manager(startup_on_add=False)
+            refreshes Store registrations; inspect report.issues for failures or skips.
 
 
         :param startup_on_add: Request backend startup during loading.
         :param include_offline: Include offline configurations in loading.
-        :param clear_existing: Replace existing registered facades and remove absent configurations when True.
-        :param strict: Propagate loading exceptions and reject reports with counted failures.
+        :param clear_existing: Replace existing registered facades and remove absent
+            configurations when True.
+        :param strict: Propagate loading exceptions and reject reports with counted
+            failures.
         :return: StorageBootstrapReport also retained on the facade.
-        :raises StorageManagementError: Strict loading reports failures, or manager construction rejects configuration.
+        :raises StorageManagementError: Strict loading reports failures, or manager
+            construction rejects configuration.
         """
         from LiuXin_alpha.databases.runtime import bootstrap_storage_manager
 
@@ -647,13 +693,22 @@ class Database(
         """
         Replace the driver and rebuild wrapper, macros and metadata SQL bindings.
 
-        Close the old wrapper first. For a different driver, discard pending primary work with rollback, then close it and call the driver's close method to release its other connections. Auxiliary transactions are not committed. Cleanup errors are suppressed. Install the new wrapper and convenience aliases, including storage aliases, which may become None. This does not rerun schema discovery, queue wiring or all runtime back-references; failures during new setup leave partial state.
+        Close the old wrapper first. For a different driver, discard pending primary
+        work with rollback, then close it and call the driver's close method to release
+        its other connections. Auxiliary transactions are not committed. Cleanup errors
+        are suppressed. Install the new wrapper and convenience aliases, including
+        storage aliases, which may become None. This does not rerun schema discovery,
+        queue wiring or all runtime back-references; failures during new setup leave
+        partial state.
 
         Example:
-            For a compatible open replacement driver, db.set_driver(replacement) releases the previous database connections before constructing its new wrapper.
+            For a compatible open replacement driver, db.set_driver(replacement)
+            releases the previous database connections before constructing its new
+            wrapper.
 
 
-        :param new_driver: Driver to install; supplying the current driver retains its primary connection.
+        :param new_driver: Driver to install; supplying the current driver retains its
+            primary connection.
         :return: None.
         """
         # Release the old wrapper and mutex references without committing SQL.
@@ -731,13 +786,16 @@ class Database(
         """
         Assign a wrapper and replace its macros reference with the facade macros.
 
-        Assignment precedes validation. This neither closes the previous wrapper nor refreshes convenience aliases, locks or back-references.
+        Assignment precedes validation. This neither closes the previous wrapper nor
+        refreshes convenience aliases, locks or back-references.
 
         Example:
-            During controlled assembly, db.set_driver_wrapper(wrapper) requires wrapper.macros already set before copying db.macros.
+            During controlled assembly, db.set_driver_wrapper(wrapper) requires
+            wrapper.macros already set before copying db.macros.
 
 
-        :param new_driver_wrapper: Wrapper whose existing macros attribute must be non-None.
+        :param new_driver_wrapper: Wrapper whose existing macros attribute must be
+            non-None.
         :return: None.
         :raises AssertionError: The newly assigned wrapper has macros=None.
         """
@@ -749,7 +807,8 @@ class Database(
         """
         Attempt close during finalization and suppress ordinary cleanup exceptions.
 
-        Finalization timing is not deterministic; explicit close or a context manager is required for predictable resource release.
+        Finalization timing is not deterministic; explicit close or a context manager is
+        required for predictable resource release.
 
         Example:
             Prefer db.close() before discarding the last reference to an open database.
@@ -777,7 +836,8 @@ class Database(
             Use db.close() in a finally block; commit intended writes explicitly first.
 
 
-        :return: None; connection aliases and selected collaborator references are cleared.
+        :return: None; connection aliases and selected collaborator references are
+            cleared.
         """
         # Capture references early so break_cycles() can't erase them before we close.
         driver = getattr(self, "_driver", None)
@@ -872,7 +932,8 @@ class Database(
         No new transaction is opened.
 
         Example:
-            For an open db, with db as active: binds active to db and closes it when the block exits.
+            For an open db, with db as active: binds active to db and closes it when the
+            block exits.
 
 
         :return: This Database instance.
@@ -906,10 +967,14 @@ class Database(
         """
         Clear selected runtime and connection references without closing resources.
 
-        Each assignment is best effort, including on partially initialized instances. Storage, preferences and the clean alias are not cleared. Call close first when handles still need releasing; clearing references alone does not perform shutdown.
+        Each assignment is best effort, including on partially initialized instances.
+        Storage, preferences and the clean alias are not cleared. Call close first when
+        handles still need releasing; clearing references alone does not perform
+        shutdown.
 
         Example:
-            Normal db.close() invokes this after attempting to close its captured connections.
+            Normal db.close() invokes this after attempting to close its captured
+            connections.
 
 
         :return: None.
@@ -947,7 +1012,8 @@ class Database(
         Snapshot the cached main-table category as an immutable set.
 
         Example:
-            For an initialized db, "works" in db.main_tables checks its cached main-table classification.
+            For an initialized db, "works" in db.main_tables checks its cached
+            main-table classification.
 
 
         :return: New frozenset of main-table names.
@@ -961,7 +1027,8 @@ class Database(
         Snapshot the cached inter-table relationship category as an immutable set.
 
         Example:
-            For an initialized db, sorted(db.interlink_tables) lists the cached relationship tables.
+            For an initialized db, sorted(db.interlink_tables) lists the cached
+            relationship tables.
 
 
         :return: New frozenset of interlink-table names.
@@ -973,10 +1040,12 @@ class Database(
         """
         Ask the bound driver whether its database exists.
 
-        This does not update the cached _exists field or independently validate schema completeness.
+        This does not update the cached _exists field or independently validate schema
+        completeness.
 
         Example:
-            For an open db, db.check_exists() delegates the existence check to its driver.
+            For an open db, db.check_exists() delegates the existence check to its
+            driver.
 
 
         :return: The driver exists result, whose meaning depends on the backend.
@@ -988,10 +1057,16 @@ class Database(
         """
         Rebuild cached table categories and validate required helper tables.
 
-        Optional compatibility tables may be absent. Missing required helpers raise after category state has been reset, with close-name suggestions. Classification is name-based. A missing UUID requests set_uuid without re-reading it. sqlite_sequence is removed from main_tables after forming dirtiable_tables, so it can remain in that union. Wrapper category aliases are not refreshed by this method itself.
+        Optional compatibility tables may be absent. Missing required helpers raise
+        after category state has been reset, with close-name suggestions. Classification
+        is name-based. A missing UUID requests set_uuid without re-reading it.
+        sqlite_sequence is removed from main_tables after forming dirtiable_tables, so
+        it can remain in that union. Wrapper category aliases are not refreshed by this
+        method itself.
 
         Example:
-            During initialization, db.refresh_db_metadata() classifies the discovered schema before its categories are copied onto the wrapper.
+            During initialization, db.refresh_db_metadata() classifies the discovered
+            schema before its categories are copied onto the wrapper.
 
 
         :return: None; category sets, dirtiable_tables and the cached UUID are assigned.
@@ -1075,7 +1150,8 @@ class Database(
         Request a backend-specific backup of the current database.
 
         Example:
-            For a configured open db, db.backup() invokes driver.direct_backup(); the backend chooses the backup destination and behavior.
+            For a configured open db, db.backup() invokes driver.direct_backup(); the
+            backend chooses the backup destination and behavior.
 
 
         :return: None; any driver return value is discarded.
@@ -1087,10 +1163,13 @@ class Database(
         """
         Request a scratch copy through the driver make_scratch hook.
 
-        This method does not acquire a write lock. The SQL base implementation copies the database file and changes its path attribute without reopening existing connections.
+        This method does not acquire a write lock. The SQL base implementation copies
+        the database file and changes its path attribute without reopening existing
+        connections.
 
         Example:
-            Call db.lock_writing() only when the selected backend scratch-copy behavior is suitable; it is not a transaction lock.
+            Call db.lock_writing() only when the selected backend scratch-copy behavior
+            is suitable; it is not a transaction lock.
 
 
         :return: None; any scratch path returned by the driver is discarded.
@@ -1147,7 +1226,8 @@ class Database(
         """
         Encode the legacy textual representation as UTF-8 bytes.
 
-        Calling this method directly returns bytes; str(db) raises TypeError in Python 3.
+        Calling this method directly returns bytes; str(db) raises TypeError in Python
+        3.
 
         Example:
             >>> db = object.__new__(Database)
@@ -1165,7 +1245,8 @@ class Database(
         """
         Format the facade type and metadata database_path in a short label.
 
-        Existing-driver construction can leave metadata=None; service-only metadata may omit database_path.
+        Existing-driver construction can leave metadata=None; service-only metadata may
+        omit database_path.
 
         Example:
             >>> db = object.__new__(Database)
@@ -1187,10 +1268,12 @@ class Database(
         """
         Render cached identity, metadata and table categories for inspection.
 
-        Metadata is unredacted. The legacy Helper_tables section repeats intralink_tables rather than rendering helper_tables.
+        Metadata is unredacted. The legacy Helper_tables section repeats
+        intralink_tables rather than rendering helper_tables.
 
         Example:
-            For a fully initialized db, report = db.full_rep() captures its current category caches as text.
+            For a fully initialized db, report = db.full_rep() captures its current
+            category caches as text.
 
 
         :return: Multiline string; this method does not print it.
@@ -1231,11 +1314,16 @@ class Database(
         """
         Classify a known table name using ordered naming conventions.
 
-        Precedence is allowed_types__ prefix, configured helper names, custom-column patterns, interlink pattern, intralink pattern, then main. Regex checks accept matching prefixes; classification does not inspect columns or foreign keys.
+        Precedence is allowed_types__ prefix, configured helper names, custom-column
+        patterns, interlink pattern, intralink pattern, then main. Regex checks accept
+        matching prefixes; classification does not inspect columns or foreign keys.
 
         Example:
             >>> db = object.__new__(Database)
-            >>> db.all_tables, db.helper_tables = {"works", "allowed_types__works"}, set()
+            >>> db.all_tables, db.helper_tables = (
+            ...     {"works", "allowed_types__works"},
+            ...     set(),
+            ... )
             >>> db.categorize_table("allowed_types__works")
             'allowed_types'
             >>> db.categorize_table("works")
@@ -1286,10 +1374,14 @@ class Database(
         """
         Insert a blank row, copy source fields and synchronize under the new ID.
 
-        Restore the new ID after copying the source row_dict. If sync raises DatabaseIntegrityError, delete the new row and reraise; cleanup errors can mask that failure. Other errors do not trigger this cleanup. Unique source values may prevent duplication.
+        Restore the new ID after copying the source row_dict. If sync raises
+        DatabaseIntegrityError, delete the new row and reraise; cleanup errors can mask
+        that failure. Other errors do not trigger this cleanup. Unique source values may
+        prevent duplication.
 
         Example:
-            In a table whose copied values satisfy its constraints, duplicate = db.dupe_row(row) allocates a separate row ID.
+            In a table whose copied values satisfy its constraints, duplicate =
+            db.dupe_row(row) allocates a separate row ID.
 
 
         :param row: Row whose table and field values supply the duplicate.
@@ -1324,10 +1416,12 @@ class Database(
         """
         Delete the supplied row identity through this facade wrapper.
 
-        Ownership is not checked: deletion uses this database with the supplied table and ID. The passed Row object is not cleared.
+        Ownership is not checked: deletion uses this database with the supplied table
+        and ID. The passed Row object is not cleared.
 
         Example:
-            For a Row belonging to db, db.delete(row) removes its persistent record through delete_by_id.
+            For a Row belonging to db, db.delete(row) removes its persistent record
+            through delete_by_id.
 
 
         :param row: Row-like object providing table and a non-None row_id.
@@ -1349,10 +1443,12 @@ class Database(
         """
         Insert a backend blank record and wrap its generated fields in a Row.
 
-        This performs a write. A Row-construction failure can occur after the backend has inserted the record.
+        This performs a write. A Row-construction failure can occur after the backend
+        has inserted the record.
 
         Example:
-            On a writable database, row = db.get_blank_row("works") allocates a record before further field assignments.
+            On a writable database, row = db.get_blank_row("works") allocates a record
+            before further field assignments.
 
 
         :param table: Target table name understood by the wrapper.
@@ -1370,7 +1466,8 @@ class Database(
         Retrieve trigger names through the wrapper and selected driver.
 
         Example:
-            For an open db, names = db.get_triggers() discovers triggers before selective removal.
+            For an open db, names = db.get_triggers() discovers triggers before
+            selective removal.
 
 
         :return: Backend trigger-name list.
@@ -1382,10 +1479,12 @@ class Database(
         """
         Delegate removal of the supplied trigger names.
 
-        The backend determines validation and transaction behavior; this facade adds no rollback.
+        The backend determines validation and transaction behavior; this facade adds no
+        rollback.
 
         Example:
-            On a disposable database, db.drop_triggers(names) removes the selected names obtained from db.get_triggers().
+            On a disposable database, db.drop_triggers(names) removes the selected names
+            obtained from db.get_triggers().
 
 
         :param triggers: Trigger-name collection accepted by the backend.
@@ -1399,7 +1498,8 @@ class Database(
         Discover current trigger names and delegate their removal.
 
         Example:
-            On a disposable database, db.drop_all_triggers() removes every trigger discovered by the selected backend.
+            On a disposable database, db.drop_all_triggers() removes every trigger
+            discovered by the selected backend.
 
 
         :return: Backend removal result; the shared SQL driver returns True on success.
@@ -1418,7 +1518,8 @@ class Database(
         Forward a bulk value mapping and optional column/table hints to the wrapper.
 
         Example:
-            For a backend-supported values_map, db.update_columns(values_map, field=column, table=table) forwards those arguments unchanged.
+            For a backend-supported values_map, db.update_columns(values_map,
+            field=column, table=table) forwards those arguments unchanged.
 
 
         :param values_map: Value mapping in the format accepted by the selected driver.
@@ -1463,10 +1564,15 @@ class Database(
         """
         Search an iterable of table/column pairs for the first containing table.
 
-        The loop iterates get_tables_and_columns directly. The normal implementation returns a dictionary, so table-name keys are unpacked rather than key/value pairs; ordinary names raise ValueError before lookup. This legacy method does not currently adapt that mapping with items().
+        The loop iterates get_tables_and_columns directly. The normal implementation
+        returns a dictionary, so table-name keys are unpacked rather than key/value
+        pairs; ordinary names raise ValueError before lookup. This legacy method does
+        not currently adapt that mapping with items().
 
         Example:
-            With the normal mapping-returning wrapper, use explicit iteration over db.get_tables_and_columns().items() when looking up a column; this method retains its legacy unpacking limitation.
+            With the normal mapping-returning wrapper, use explicit iteration over
+            db.get_tables_and_columns().items() when looking up a column; this method
+            retains its legacy unpacking limitation.
 
 
         :param column_name: Column name to find in each yielded collection.

@@ -120,7 +120,7 @@ from LiuXin_alpha.library.caches.calibre.tables import calibre_create_table
 from LiuXin_alpha.databases.constants import SPOOL_SIZE
 from LiuXin_alpha.databases.utils import _get_next_series_num_for_list
 
-from LiuXin_alpha.databases.adaptors import get_series_values
+from LiuXin_alpha.metadata.field_adaptors import get_series_values
 from LiuXin_alpha.library.caches.calibre.fields import (
     calibre_create_field,
     IDENTITY,

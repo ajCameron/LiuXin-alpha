@@ -718,7 +718,9 @@ def repoint_intralink_row(
     InputIntegrityError.
 
     Example:
-        >>> repoint_intralink_row(database, "creators", link_row, 1, 1)  # doctest: +SKIP
+        >>> repoint_intralink_row(
+        ...     database, "creators", link_row, 1, 1
+        ... )  # doctest: +SKIP
 
 
     :param db: Database whose rows, driver and schema helpers are used.
@@ -777,7 +779,9 @@ def _do_intralink_merge(db: DatabaseAPI, table: str, primary_intralink_row: RowA
     the surviving row and does not delete the source.
 
     Example:
-        >>> _do_intralink_merge(database, "creators", primary_row, secondary_row)  # doctest: +SKIP
+        >>> _do_intralink_merge(
+        ...     database, "creators", primary_row, secondary_row
+        ... )  # doctest: +SKIP
 
 
     :param db: Database whose rows, driver and schema helpers are used.
@@ -903,7 +907,9 @@ def _do_one_table_link_update(db, src_table, dst_table, src_table_id_1, src_tabl
     merged source links.
 
     Example:
-        >>> _do_one_table_link_update(database, "creators", "titles", 1, 1)  # doctest: +SKIP
+        >>> _do_one_table_link_update(
+        ...     database, "creators", "titles", 1, 1
+        ... )  # doctest: +SKIP
 
 
     :param db: Database whose rows, driver and schema helpers are used.
@@ -960,7 +966,9 @@ def _smart_merge_link_rows(
     does not delete the source.
 
     Example:
-        >>> _smart_merge_link_rows(database, "creators", "titles", primary_row, secondary_row)  # doctest: +SKIP
+        >>> _smart_merge_link_rows(
+        ...     database, "creators", "titles", primary_row, secondary_row
+        ... )  # doctest: +SKIP
 
 
     :param db: Database whose rows, driver and schema helpers are used.
@@ -1037,8 +1045,18 @@ def find_duplicates(db: DatabaseAPI, table: str, column: str, comparison="nocase
 
     Example:
         >>> from types import SimpleNamespace
-        >>> wrapper = SimpleNamespace(get_all_rows=lambda **kw: [{"id": 1, "name": "A"}, {"id": 2, "name": "a"}], get_id_column=lambda **kw: "id")
-        >>> dict(find_duplicates(SimpleNamespace(driver_wrapper=wrapper), "items", "name", str.lower))
+        >>> wrapper = SimpleNamespace(
+        ...     get_all_rows=lambda **kw: [
+        ...         {"id": 1, "name": "A"},
+        ...         {"id": 2, "name": "a"},
+        ...     ],
+        ...     get_id_column=lambda **kw: "id",
+        ... )
+        >>> dict(
+        ...     find_duplicates(
+        ...         SimpleNamespace(driver_wrapper=wrapper), "items", "name", str.lower
+        ...     )
+        ... )
         {'a': {1, 2}}
 
 

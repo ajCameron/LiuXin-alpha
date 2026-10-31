@@ -11,6 +11,7 @@ import os
 import time
 import gc
 import pprint
+from collections.abc import Mapping
 
 from typing import TYPE_CHECKING, Union, Optional, Any
 
@@ -37,12 +38,15 @@ if TYPE_CHECKING:
 
 class SQLBaseDriver:
     """
-    Provide lifecycle helpers for concrete drivers that supply connections and schema methods.
+    Provide lifecycle helpers for concrete drivers that supply connections and schema
+    methods.
 
-    The host initializes connection tracking, cached schema attributes and the database wrapper.
+    The host initializes connection tracking, cached schema attributes and the database
+    wrapper.
 
     Example:
-        A concrete SQLite driver inherits ``SQLBaseDriver`` and supplies ``get_connection()``.
+        A concrete SQLite driver inherits ``SQLBaseDriver`` and supplies
+        ``get_connection()``.
     """
     db: "DatabaseAPI"
 
@@ -75,7 +79,8 @@ class SQLBaseDriver:
         """
         Copy the database file into a scratch directory and switch its configured path.
 
-        Existing connection handles are not replaced; callers must manage their lifecycle. Copy errors propagate.
+        Existing connection handles are not replaced; callers must manage their
+        lifecycle. Copy errors propagate.
 
         Example:
             ``driver.make_scratch()`` sets the path to a new ``scratch.db`` copy.
@@ -106,10 +111,12 @@ class SQLBaseDriver:
         """
         Invalidate schema caches when the schema version changed or cannot be checked.
 
-        Locations are always invalidated. Wrapper-derived cache clearing and metadata refresh are best effort; their exceptions are suppressed.
+        Locations are always invalidated. Wrapper-derived cache clearing and metadata
+        refresh are best effort; their exceptions are suppressed.
 
         Example:
-            ``driver._zero_prop_cache()`` retains schema caches if the cached schema version still matches.
+            ``driver._zero_prop_cache()`` retains schema caches if the cached schema
+            version still matches.
 
 
         :return: ``None``.
@@ -178,14 +185,48 @@ class SQLBaseDriver:
             default_log.log_exception("Couldn't store connection to log.", exc=e)
         return conn
 
+    def _read_row_for_update(
+        self, connection, table, id_column, row_id, *, lock_row=False
+    ):
+        """Read omitted display values on the connection that owns the update.
+
+        :param connection: Active write connection; this helper never closes it.
+        :param table: Inferred table whose headings come from the driver.
+        :param id_column: Validated identity column for the target row.
+        :param row_id: Bound identity value.
+        :param lock_row: Request FOR UPDATE on backends supporting row locks.
+        :return: Raw stored values, or None when the row no longer exists.
+        """
+
+        def quote(name):
+            """Quote a schema identifier without interpreting its contents."""
+            return '"' + str(name).replace('"', '""') + '"'
+
+        columns = tuple(self.direct_get_column_headings(table))
+        qualify = getattr(self, "_table_sql", None)
+        table_sql = qualify(table) if callable(qualify) else quote(table)
+        lock_sql = " FOR UPDATE" if lock_row else ""
+        row = connection.execute(
+            f"SELECT {', '.join(quote(column) for column in columns)} "
+            f"FROM {table_sql} WHERE {quote(id_column)} = ?{lock_sql}",
+            (row_id,),
+        ).fetchone()
+        if row is None:
+            return None
+        if isinstance(row, Mapping):
+            return dict(row)
+        return dict(zip(columns, row))
+
     def _close_all_open_connections(self) -> None:
         """
         Best-effort close tracked handles and the primary connection.
 
-        Individual close errors are suppressed; tracking is cleared and ``conn`` becomes ``None``.
+        Individual close errors are suppressed; tracking is cleared and ``conn`` becomes
+        ``None``.
 
         Example:
-            ``driver._close_all_open_connections()`` releases handles before deleting a database file.
+            ``driver._close_all_open_connections()`` releases handles before deleting a
+            database file.
 
 
         :return: ``None``.
@@ -228,13 +269,16 @@ class SQLBaseDriver:
         """
         Invalidate cached state while preserving a usable primary connection.
 
-        Probe failures or an explicit reconnect replace the primary handle; retaining it preserves connection-local TEMP objects.
+        Probe failures or an explicit reconnect replace the primary handle; retaining it
+        preserves connection-local TEMP objects.
 
         Example:
-            ``driver.refresh(reconnect=True)`` closes the old primary handle before opening another.
+            ``driver.refresh(reconnect=True)`` closes the old primary handle before
+            opening another.
 
 
-        :param reconnect: Force a new primary connection even when the current one responds to a liveness probe.
+        :param reconnect: Force a new primary connection even when the current one
+            responds to a liveness probe.
         :return: ``None``.
         """
         conn = getattr(self, "conn", None)
@@ -281,15 +325,19 @@ class SQLBaseDriver:
 
     def direct_backup(self, path: Optional[Union[str, pathlib.Path]]=None):
         """
-        Copy the database file using the local backup helper inside a connection context.
+        Copy the database file using the local backup helper inside a connection
+        context.
 
-        A falsy helper result raises DatabaseDriverError. This is a file-copy backup, and this method does not explicitly close the acquired connection.
+        A falsy helper result raises DatabaseDriverError. This is a file-copy backup,
+        and this method does not explicitly close the acquired connection.
 
         Example:
-            ``driver.direct_backup(path=backup_path)`` selects a destination for the copy.
+            ``driver.direct_backup(path=backup_path)`` selects a destination for the
+            copy.
 
 
-        :param path: Optional backup destination; ``None`` lets the file helper choose one.
+        :param path: Optional backup destination; ``None`` lets the file helper choose
+            one.
         :return: The truthy backup result, normally the destination path.
         """
         # Acquire a conn object - use it to lock the DatabasePing
@@ -322,7 +370,8 @@ class SQLBaseDriver:
         """
         Close known handles and remove the configured database file.
 
-        Access checks and removal failures raise DatabaseDriverError. Windows permission failures receive bounded retries; successful deletion invalidates caches.
+        Access checks and removal failures raise DatabaseDriverError. Windows permission
+        failures receive bounded retries; successful deletion invalidates caches.
 
         Example:
             ``driver.direct_self_delete()`` removes a disposable test database.
@@ -390,7 +439,8 @@ class SQLBaseDriver:
         Print the counter at multiples of one hundred million, then increment it.
 
         Example:
-            With ``event_count = 0``, the first call prints zero and advances the counter to one.
+            With ``event_count = 0``, the first call prints zero and advances the
+            counter to one.
 
 
         :return: ``None``.
@@ -405,13 +455,17 @@ class SQLBaseDriver:
         """
         Find the first table whose columns contain every supplied row key.
 
-        Remove a ``table`` key from the input. An empty remaining mapping returns False; no match raises DatabaseIntegrityError with partial-match diagnostics. Values do not participate in matching.
+        Remove a ``table`` key from the input. An empty remaining mapping returns False;
+        no match raises DatabaseIntegrityError with partial-match diagnostics. Values do
+        not participate in matching.
 
         Example:
-            ``driver.direct_identify_table_from_row({"book_id": 3})`` matches by column names.
+            ``driver.direct_identify_table_from_row({"book_id": 3})`` matches by column
+            names.
 
 
-        :param row_dict: Column-to-value mapping; table inference removes any ``table`` key in place.
+        :param row_dict: Column-to-value mapping; table inference removes any ``table``
+            key in place.
         :return: The first matching table name, or ``False`` for an empty mapping.
         """
         if "table" in row_dict.keys():
@@ -474,13 +528,16 @@ class SQLBaseDriver:
         """
         Infer the row table and extract its ID column when present.
 
-        Table inference can mutate the input and raise; an absent ID is the only explicit False result.
+        Table inference can mutate the input and raise; an absent ID is the only
+        explicit False result.
 
         Example:
-            ``driver.get_id_from_row_dict({"book_id": 3})`` returns 3 on a matching schema.
+            ``driver.get_id_from_row_dict({"book_id": 3})`` returns 3 on a matching
+            schema.
 
 
-        :param row_dict: Column-to-value mapping; table inference removes any ``table`` key in place.
+        :param row_dict: Column-to-value mapping; table inference removes any ``table``
+            key in place.
         :return: The stored ID value, or ``False`` when that column is absent.
         """
         row_table = self.direct_identify_table_from_row(row_dict)
@@ -545,7 +602,9 @@ class SQLBaseDriver:
         )
 
     def _build_database_file(self, path: pathlib.Path) -> None:
-        """Build and check a candidate using a separate driver with owned connections."""
+        """
+        Build and check a candidate using a separate driver with owned connections.
+        """
         metadata = {**self.db_metadata, "database_path": str(path)}
         builder = type(self)(metadata, db=None, set_conn=False)
         try:

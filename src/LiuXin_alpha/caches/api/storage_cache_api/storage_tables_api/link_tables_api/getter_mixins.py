@@ -13,7 +13,7 @@ from typing import Optional, Sequence, Any
 
 from LiuXin_alpha.databases.api import RowAPI
 from LiuXin_alpha.databases.api.row_api import InterlinkRowAPI
-from LiuXin_alpha.databases.db_types import DstTableID, SrcTableID, TableColumnName
+from LiuXin_alpha.databases.db_types.database_types import TableColumnName, SrcTableID, DstTableID
 
 
 class StorageCacheGetterMixinAPI(abc.ABC):

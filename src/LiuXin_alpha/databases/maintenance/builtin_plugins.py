@@ -75,9 +75,9 @@ class CreatorSortMaintenancePlugin(MaintenancePluginBase):
         Load creator rows for dirty events and repair their missing sort values.
 
         Ignores non-dirty classes and suppresses row-fetch exceptions. Counts successful
-        fetches, even if a host returns a missing-row sentinel. Calls ensure_creators_sort
-        once for the collected rows; repair errors propagate to the engine. Table filtering
-        is expected from wants_event(), not repeated here.
+        fetches, even if a host returns a missing-row sentinel. Calls
+        ensure_creators_sort once for the collected rows; repair errors propagate to the
+        engine. Table filtering is expected from wants_event(), not repeated here.
 
         Example:
             >>> worker.handle_events(context, events)  # doctest: +SKIP
@@ -85,8 +85,8 @@ class CreatorSortMaintenancePlugin(MaintenancePluginBase):
 
         :param context: Database and logger context for this invocation.
         :param events: Iterable of events to process.
-        :return: Result whose handled count is successful row fetches; deferred/errors stay
-            zero.
+        :return: Result whose handled count is successful row fetches; deferred/errors
+            stay zero.
         """
         rows = []
         handled = 0
@@ -155,8 +155,8 @@ class CreatorRenameMaintenancePlugin(MaintenancePluginBase):
         Rename fetched creator rows, sync them and ensure sort values.
 
         Ignores other event classes. Each row fetch, mutation, sync and sort repair is
-        inside a broad exception guard; failures are silently skipped and earlier changes
-        need not roll back. Counts only requests completing every step.
+        inside a broad exception guard; failures are silently skipped and earlier
+        changes need not roll back. Counts only requests completing every step.
 
         Example:
             >>> worker.handle_events(context, events)  # doctest: +SKIP

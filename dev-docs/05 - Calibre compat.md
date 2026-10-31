@@ -2,6 +2,7 @@
 
 Source review: **2026-10-20**, against the working tree based on `fc5de7af`.
 The reader/import examples were exercised in the 2026-10-19 compatibility review.
+Updated **2026-10-29** for the implemented Expression conversion policy.
 
 Calibre compatibility spans source-library readers, metadata adapters, generated
 SQL projections and web responses. Each has its own contract and identity space.
@@ -11,6 +12,7 @@ There is no single adapter that makes LiuXin interchangeable with Calibre.
 
 | Boundary | Current owner | Behaviour |
 | --- | --- | --- |
+| Convert canonical book projections and selected writes | [Catalog Calibre adapter](../src/LiuXin_alpha/catalog/compatibility/calibre.py) | `expression-v1` anchors books to Expressions, validates ray context and routes six fields to declared WEMI owners. Existing source/SQL/web IDs keep their meanings. |
 | Inspect a source library | [Calibre database emulation](../src/LiuXin_alpha/utils/calibre_compat/calibre_database_emulation/__init__.py) | Reads `metadata.db`, inspects schema/custom columns, streams normalized payloads and reports filesystem drift. |
 | Recover sidecar metadata | [OPF sidecar reader](../src/LiuXin_alpha/utils/calibre_compat/calibre_database_emulation/opf_sidecar.py) | Reads metadata from library folders; the scan/job helpers use this route when `metadata.db` is absent. |
 | Adapt metadata values | [Calibre-like containers](../src/LiuXin_alpha/metadata/containers/calibre_like_book_metadata/__init__.py) and [compatibility Metadata](../src/LiuXin_alpha/utils/calibre_compat/ebooks/metadata/book/base.py) | Expose supported fields and conversion methods. These objects do not establish canonical database identity. |
@@ -21,7 +23,9 @@ There is no single adapter that makes LiuXin interchangeable with Calibre.
 The [mapping guide](<calibre_compat/mapping calibre to LiuXin.md>) explains the
 identity differences with examples. The [import policy](<calibre_compat/00 - Calibre Compatibility Policy.md>)
 is a **proposal** for preserving source records and assigning WEMI identities.
-Its compatibility-record tables and Catalog adapter have not been implemented.
+Its compatibility-record tables and canonical importer have not been implemented.
+The separate [Expression projection policy](calibre_compat/expression-conversion-policy.md)
+is callable as `catalog.calibre`; it does not import a source library.
 
 ## Read a source library
 

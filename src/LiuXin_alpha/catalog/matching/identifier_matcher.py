@@ -19,6 +19,7 @@ from ..api.common import (
     MatchEvidence,
     MatchResult,
 )
+from .identifier_reads import matching_identifier_rows
 from .policy import normalise_identifier
 
 
@@ -27,7 +28,7 @@ class IdentifierMatcher:
     Find stored copies of a normalized curated identifier without resolving owners.
 
     Reads use the identifier repository in the retained group. Stored raw scheme and value columns
-    are normalized on each scan; other normalized/provenance columns are not used as comparison
+    use shared SQL normalization where supported; other normalized/provenance columns are not used as comparison
     inputs. Multiple matching copies remain visible in candidates, and best/exact select the first
     by storage ID without ambiguity or confidence-threshold checks.
 
@@ -78,15 +79,16 @@ class IdentifierMatcher:
         """
         Find normalized scheme/value matches across curated identifier storage rows.
 
-        Validate the integer limit before normalizing the incoming candidate, then read all
-        identifier rows. Normalize each stored scheme/value, skipping stored entries whose
+        Validate the integer limit before normalizing the incoming candidate, then read
+        matching rows through SQL where supported, otherwise bounded candidate pages.
+        Normalize stored scheme/value pairs, skipping stored entries whose
         normalization raises TypeError or ValueError. Match canonical scheme and comparison value,
         with no owner-level or owner-ID restriction and no existence check on referenced
         bibliographic entities.
 
         Each matching row supplies confidence one and two decisive identifier evidence items. Retain
         the original row, sort by storage ID with -1 as the key for a false-valued ID, and only then
-        slice. Zero still normalizes and scans. Duplicate logical values/storage copies are not
+        slice. Zero still normalizes and reads candidates. Duplicate logical values/storage copies are not
         collapsed. Row IDs are used directly without an integer/positivity check; malformed IDs can
         affect result shape or sorting, and a missing ID key raises.
 
@@ -97,7 +99,7 @@ class IdentifierMatcher:
 
 
         :param candidate: IdentifierCandidate whose scheme and value or normalized override should be matched.
-        :param limit: Nonnegative integer cap after the full scan/sort; booleans are rejected.
+        :param limit: Nonnegative integer cap after matching/sorting; booleans are rejected.
         :return: A tuple of storage-row results in ID order, normally exact match decisions for well-formed rows.
         :raises TypeError: If limit is not an integer or is a boolean, or incoming identifier fields are invalid.
         :raises ValueError: If limit is negative or incoming identifier normalization fails.
@@ -112,7 +114,9 @@ class IdentifierMatcher:
         normalised = normalise_identifier(candidate)
         repository = self.repositories.identifiers
         results: list[MatchResult] = []
-        for row in repository._all_rows():
+        for row in matching_identifier_rows(
+            repository, "entity_identifier", normalised
+        ):
             try:
                 stored = normalise_identifier(
                     IdentifierCandidate(
@@ -166,7 +170,7 @@ class IdentifierMatcher:
         """
         Select the first stored row matching a logical curated identifier.
 
-        Delegate to candidates with limit one, which still scans and sorts every matching storage
+        Delegate to candidates with limit one, which reads and sorts every matching storage
         copy. Multiple owners or copies do not produce ambiguity here; Work and Agent matchers
         resolve bibliographic ownership separately. Return the first result unchanged, or a new
         zero-confidence no_match when no candidate remains. No matching-policy thresholds or entity

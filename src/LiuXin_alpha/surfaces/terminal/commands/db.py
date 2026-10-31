@@ -481,9 +481,9 @@ def _run_recovery_pragmas(
     db_path: Path, *, run_integrity_check: bool
 ) -> dict[str, object]:
     """
-    Attempt a truncating WAL checkpoint and optionally read the first integrity-check result.
+    Delegate a WAL checkpoint and optional integrity inspection to Core.
 
-    Opens a writable SQLite connection with a five-second busy timeout and closes
+    Core owns a writable SQLite connection with a five-second busy timeout and closes
     it afterward. A busy checkpoint is reported numerically, not raised as failure.
     Only the first integrity row is retained; interpretation belongs to the caller.
     This helper does not guarantee repair or exclusive access.
@@ -496,25 +496,11 @@ def _run_recovery_pragmas(
     :param run_integrity_check: Whether to execute the integrity pragma after checkpointing.
     :return: Mapping of three checkpoint counters and the first integrity text, or ``None`` if disabled.
     """
-    conn = sqlite3.connect(str(db_path), timeout=5.0, isolation_level=None)
-    try:
-        conn.execute("PRAGMA busy_timeout = 5000;")
-        checkpoint = conn.execute("PRAGMA wal_checkpoint(TRUNCATE);").fetchone()
-        busy = int(checkpoint[0]) if checkpoint and len(checkpoint) > 0 else -1
-        log_frames = int(checkpoint[1]) if checkpoint and len(checkpoint) > 1 else -1
-        ckpt_frames = int(checkpoint[2]) if checkpoint and len(checkpoint) > 2 else -1
-        integrity = None
-        if run_integrity_check:
-            row = conn.execute("PRAGMA integrity_check;").fetchone()
-            integrity = "" if not row else str(row[0])
-        return {
-            "checkpoint_busy": busy,
-            "checkpoint_log_frames": log_frames,
-            "checkpoint_frames_checkpointed": ckpt_frames,
-            "integrity_check": integrity,
-        }
-    finally:
-        conn.close()
+    from LiuXin_alpha.core.library_services import LibraryServices
+
+    return LibraryServices.recover_sqlite_database(
+        db_path, run_integrity_check=run_integrity_check
+    )
 
 
 def _rename_sidecars_if_present(paths: tuple[Path, ...]) -> list[tuple[Path, Path]]:

@@ -21,7 +21,7 @@ import pytest
 from LiuXin_alpha.catalog.catalog import Catalog
 from LiuXin_alpha.catalog.api.common import CatalogMutationError
 from LiuXin_alpha.databases.database import Database
-from LiuXin_alpha.errors import DatabaseIntegrityError
+from LiuXin_alpha.catalog.api.common import CatalogNotFoundError
 from LiuXin_alpha.library.library_metadata import Metadata as LibraryMetadata
 from LiuXin_alpha.metadata.containers.calibre_like_book_metadata import (
     CalibreLikeLiuXinBookMetaData,
@@ -122,7 +122,10 @@ def test_agent_and_wemi_aggregate_mutations_are_atomic(driver_spec, tmp_path: Pa
             entity_id=created.work_id,
         )
 
-        db.metadata_sql.set_title_isbn(created.work_id, "978-0-306-40615-7")
+        catalog.identifiers.set_primary_for_wemi(
+            level="work", entity_id=created.work_id,
+            scheme="isbn", value="978-0-306-40615-7",
+        )
         first_isbn_rows = catalog.identifiers.list_for_wemi(
             level="work",
             entity_id=created.work_id,
@@ -132,7 +135,10 @@ def test_agent_and_wemi_aggregate_mutations_are_atomic(driver_spec, tmp_path: Pa
             for row in first_isbn_rows
             if row["entity_identifier_scheme"] == "isbn13"
         )
-        db.metadata_sql.set_title_isbn(created.work_id, "978-0-14-032872-1")
+        catalog.identifiers.set_primary_for_wemi(
+            level="work", entity_id=created.work_id,
+            scheme="isbn", value="978-0-14-032872-1",
+        )
         isbn_rows = [
             row
             for row in catalog.identifiers.list_for_wemi(
@@ -154,7 +160,10 @@ def test_agent_and_wemi_aggregate_mutations_are_atomic(driver_spec, tmp_path: Pa
             if row["entity_identifier_is_primary"] == 1
         )
         assert current_isbn_id != first_isbn_id
-        db.metadata_sql.set_title_isbn(created.work_id, "978-0-14-032872-1")
+        catalog.identifiers.set_primary_for_wemi(
+            level="work", entity_id=created.work_id,
+            scheme="isbn", value="978-0-14-032872-1",
+        )
         assert current_isbn_id in {
             row["entity_identifier_id"]
             for row in catalog.identifiers.list_for_wemi(
@@ -162,7 +171,9 @@ def test_agent_and_wemi_aggregate_mutations_are_atomic(driver_spec, tmp_path: Pa
                 entity_id=created.work_id,
             )
         }
-        db.metadata_sql.set_title_isbn(created.work_id, None)
+        catalog.identifiers.set_primary_for_wemi(
+            level="work", entity_id=created.work_id, scheme="isbn", value=None
+        )
         assert not [
             row
             for row in catalog.identifiers.list_for_wemi(
@@ -171,11 +182,10 @@ def test_agent_and_wemi_aggregate_mutations_are_atomic(driver_spec, tmp_path: Pa
             )
             if str(row["entity_identifier_scheme"]).startswith("isbn")
         ]
-        with pytest.raises(DatabaseIntegrityError):
-            db.metadata_sql.set_title_identifier(
-                999_999,
-                "doi",
-                "10.1000/missing-work",
+        with pytest.raises(CatalogNotFoundError):
+            catalog.identifiers.set_primary_for_wemi(
+                level="work", entity_id=999_999,
+                scheme="doi", value="10.1000/missing-work",
             )
 
         imported_metadata = CalibreLikeLiuXinBookMetaData(
