@@ -22,6 +22,7 @@ from LiuXin_alpha.databases.db_types.macro_types import (
     NormalizedIdentityMigrationReport,
     UnreferencedRowsSpec,
 )
+from LiuXin_alpha.databases.query_indexes import QueryIndexReport
 from LiuXin_alpha.databases.schema_specs import StorageLinkSpec
 
 
@@ -40,6 +41,19 @@ class PortableMacrosAPI(abc.ABC):
         Given an open database db, use db.driver.macros.get_rows("tags",
         order_by=("tag_id",)) to retrieve tag rows in ID order.
     """
+
+    @abc.abstractmethod
+    def supports_normalized_search(self) -> bool:
+        """Report support for the shared text and identifier comparison policies."""
+
+    @abc.abstractmethod
+    def find_rows_matching(self, table, predicate, *, limit=100, offset=0):
+        """Read physical predicate matches in ID order with bound SQL pagination.
+
+        The driver must support normalized search. Invalid identifiers/paging
+        raise InputIntegrityError; dangling traversed rows raise
+        DatabaseIntegrityError. Reads borrow the current transaction.
+        """
 
     @abc.abstractmethod
     def transaction(self, *, serialized: bool = False, require_outermost: bool = False) -> AbstractContextManager[Any]:
@@ -141,12 +155,77 @@ class PortableMacrosAPI(abc.ABC):
         where: Mapping[str, Any] | None = None,
         limit: int = 100,
         offset: int = 0,
+        after_id: int | None = None,
     ) -> tuple[tuple[Mapping[str, Any], ...], bool]:
         """Read an ID-ordered physical-table page and whether it reaches the end.
 
         Use exact equality/NULL filters, strict nonnegative integer pagination
         and at most limit + 1 materialized rows. A zero-length page is complete
         only at/beyond the end. Reuse the current connection without committing.
+        after_id restricts to larger integer IDs and requires offset zero.
+        """
+
+    @abc.abstractmethod
+    def audit_query_indexes(self) -> QueryIndexReport:
+        """Inspect known query indexes without changing schema or stored data."""
+
+    @abc.abstractmethod
+    def migrate_query_indexes(self) -> QueryIndexReport:
+        """Install missing query indexes atomically within the caller's transaction."""
+
+    @abc.abstractmethod
+    def aggregate_rows(
+        self,
+        table: str,
+        *,
+        where: Mapping[str, Any] | None = None,
+        sum_columns: Iterable[str] = (),
+        counts: Mapping[str, Mapping[str, Any]] | None = None,
+    ) -> Mapping[str, Any]:
+        """Compute a total count, sums and conditional counts in one query.
+
+        Filters use exact equality and SQL NULL. Conditional predicates apply
+        inside the outer where scope. Empty sums remain None; counts are zero.
+        Label keys are returned as supplied, never interpolated into SQL.
+        This physical-table primitive applies no policy or normalization.
+        """
+
+    @abc.abstractmethod
+    def has_rows(self, table: str, *, where: Mapping[str, Any] | None = None) -> bool:
+        """Test physical-row existence without fetching payloads or counting all matches."""
+
+    @abc.abstractmethod
+    def get_grouped_counts_for_ids(
+        self,
+        table: str,
+        foreign_id_column: str,
+        owner_ids: Iterable[int],
+        *,
+        group_by: Iterable[str] = (),
+        where: Mapping[str, Any] | None = None,
+    ) -> dict[int, tuple[Mapping[str, Any], ...]]:
+        """Count physical rows grouped by owner and additional stored columns.
+
+        Return raw group columns plus row_count; owners without rows have an
+        empty tuple. Bound queries to 500 parameters including outer filters.
+        Grouping follows each column's stored SQL collation. Callers interpret
+        raw values and must not substitute these for typed-envelope semantics.
+        """
+
+    @abc.abstractmethod
+    def get_link_counts_bulk(
+        self,
+        link_spec: StorageLinkSpec,
+        primary_ids: Iterable[int],
+        *,
+        link_type: object = LINK_TYPE_UNSET,
+    ) -> dict[int, Mapping[str, int]]:
+        """Count links, distinct destinations and dangling links per physical owner.
+
+        The left join preserves NULL/missing endpoints in links and missing,
+        while distinct counts only existing destination rows. Empty owners
+        return zeroes. Type filters retain the explicit NULL/all distinction.
+        No endpoint payloads are read; parameter batches stay at most 500.
         """
 
     @abc.abstractmethod
@@ -163,6 +242,27 @@ class PortableMacrosAPI(abc.ABC):
         :param column: Existing physical column with a validated SQL identifier.
         :return: Minimum and maximum values, in that order.
         :raises InputIntegrityError: An identifier or column fails schema validation.
+        """
+
+    @abc.abstractmethod
+    def insert_rows(self, table: str, rows: Iterable[Mapping[str, Any]]) -> None:
+        """Insert physical records in bounded multi-value SQL statements.
+
+        Prepare all normalized keys and validate columns before writing. Keep
+        consecutive equal column shapes in input order and bind at most 500
+        values per statement. Missing columns use database defaults. No IDs
+        are returned: use explicit IDs or look up a declared natural identity
+        when subsequent work needs them. Constraints/triggers remain active;
+        any later failure rolls back the entire call, including earlier chunks.
+        """
+
+    @abc.abstractmethod
+    def delete_rows_where(self, table: str, *, where: Mapping[str, Any]) -> None:
+        """Delete a physical-table equality/NULL scope in one statement.
+
+        Require a nonempty predicate; this API does not imply whole-table
+        deletion. Constraints and triggers apply inside the shared transaction.
+        Values are bound and no matching row payloads are fetched first.
         """
 
     @abc.abstractmethod
@@ -314,6 +414,23 @@ class PortableMacrosAPI(abc.ABC):
         """
 
     @abc.abstractmethod
+    def get_linked_rows_bulk(
+        self,
+        link_spec: StorageLinkSpec,
+        primary_ids: Iterable[int],
+        *,
+        link_type: object = LINK_TYPE_UNSET,
+    ) -> dict[int, tuple[LinkedTableRow, ...]]:
+        """Batch links for many physical owners and fetch destinations once.
+
+        Keep requested empty groups and each owner's link ordering, duplicates,
+        extras and dangling destinations. Distinct destination IDs are fetched
+        in bounded batches across all owners. Row mappings are independent per
+        relationship. All IDs are validated before reading; the caller owns
+        snapshot and transaction boundaries. Inputs/results are materialized.
+        """
+
+    @abc.abstractmethod
     def get_link_rows_bulk(
         self,
         link_spec: StorageLinkSpec,
@@ -326,7 +443,7 @@ class PortableMacrosAPI(abc.ABC):
 
         With primary_ids=None, only owners represented in the selected links appear. An
         empty iterable returns an empty mapping. The implementation binds requested IDs
-        in one query rather than splitting large selections into chunks.
+        in batches of at most 500 bindings, including any type filter.
 
         Example:
             Given macros and a valid spec, macros.get_link_rows_bulk(spec, (1, 2))

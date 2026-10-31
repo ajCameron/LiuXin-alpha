@@ -50,6 +50,7 @@ from LiuXin_alpha.databases.normalized_identities import (
     normalized_identity_from_db_values,
     prepare_normalized_values,
 )
+from LiuXin_alpha.databases.query_indexes import QueryIndexReport
 from LiuXin_alpha.databases.schema_specs import LinkCardinality, StorageLinkSpec
 from LiuXin_alpha.databases.transactions import transaction_active, transaction_scope
 from LiuXin_alpha.errors import DatabaseIntegrityError, InputIntegrityError
@@ -803,6 +804,30 @@ class SQLPortableMacrosMixin:
             self._macro_connection().execute(sql, tuple(values)),
         )
 
+    def supports_normalized_search(self) -> bool:
+        """Whether this driver executes the shared Python comparison policies in SQL.
+
+        Unsupported drivers must use their caller's semantic fallback; SQL lower()
+        is not an equivalent implementation of NFKC/casefold or identifier rules.
+        """
+        return (
+            getattr(self._macro_driver(), "supports_normalized_search", False) is True
+        )
+
+    def find_rows_matching(self, table, predicate, *, limit=100, offset=0):
+        """Filter physical rows using validated predicates and bound values.
+
+        Predicates contain physical columns/links, never SQL snippets. Results
+        use ascending primary IDs and SQL pagination on the current connection.
+        Dangling traversed references raise DatabaseIntegrityError. No writes or
+        implicit migration occur. Call supports_normalized_search() first.
+        """
+        if not self.supports_normalized_search():
+            raise NotImplementedError("Driver has no equivalent normalized SQL search")
+        from .search_queries import find_rows
+
+        return find_rows(self, table, predicate, limit=limit, offset=offset)
+
     def get_rows_page(
         self,
         table: str,
@@ -810,6 +835,7 @@ class SQLPortableMacrosMixin:
         where: Mapping[str, Any] | None = None,
         limit: int = 100,
         offset: int = 0,
+        after_id: int | None = None,
     ) -> tuple[tuple[Mapping[str, Any], ...], bool]:
         """Read a physical-table page in ID order with one lookahead row.
 
@@ -817,7 +843,9 @@ class SQLPortableMacrosMixin:
         Materialize at most limit + 1 rows on the current connection. The bool
         is true when no matching rows remain after this window, including a
         zero-length page at or beyond the end. No count scan or commit occurs.
-        Offset pages are not pinned against concurrent changes between calls.
+        after_id selects IDs strictly greater than the cursor and requires zero
+        offset. This avoids walking skipped rows during long scans. Neither
+        paging mode pins a snapshot across calls; the caller may own one.
 
         Example:
             ``rows, complete = macros.get_rows_page("digital_assets", limit=25)``
@@ -827,11 +855,18 @@ class SQLPortableMacrosMixin:
         for name, value in (("limit", limit), ("offset", offset)):
             if isinstance(value, bool) or not isinstance(value, int) or value < 0:
                 raise InputIntegrityError(f"{name} must be a nonnegative integer")
+        if after_id is not None:
+            self._batch_row_ids((after_id,))
+            if offset:
+                raise InputIntegrityError("after_id cannot be combined with offset")
         columns = self._column_names(table)
         id_column = self._row_id_column(table, None)
         predicates = dict(where or {})
         self._validate_columns(table, predicates)
         conditions, values = [], []
+        if after_id is not None:
+            conditions.append(f"{_quoted(id_column)} > ?")
+            values.append(after_id)
         for column, value in predicates.items():
             conditions.append(
                 f"{_quoted(column)} IS NULL"
@@ -851,6 +886,191 @@ class SQLPortableMacrosMixin:
             columns, self._macro_connection().execute(sql, (*values, limit + 1, offset))
         )
         return rows[:limit], len(rows) <= limit
+
+    def audit_query_indexes(self) -> QueryIndexReport:
+        """Inspect known query indexes without changing schema or stored data."""
+        from LiuXin_alpha.databases.query_indexes import audit_query_indexes
+
+        return audit_query_indexes(self)
+
+    def migrate_query_indexes(self) -> QueryIndexReport:
+        """Install missing query indexes atomically within the caller's transaction."""
+        from LiuXin_alpha.databases.query_indexes import migrate_query_indexes
+
+        return migrate_query_indexes(self)
+
+    def _equality_predicates(
+        self, table: str, where: Mapping[str, Any] | None
+    ) -> tuple[str, tuple[Any, ...]]:
+        """Validate and bind an AND of equality/NULL predicates."""
+        predicates = dict(where or {})
+        self._validate_columns(table, predicates)
+        conditions, values = [], []
+        for column, value in predicates.items():
+            conditions.append(
+                f"{_quoted(column)} IS NULL"
+                if value is None
+                else f"{_quoted(column)} = ?"
+            )
+            if value is not None:
+                values.append(value)
+        return " AND ".join(conditions) or "1 = 1", tuple(values)
+
+    def aggregate_rows(
+        self,
+        table: str,
+        *,
+        where: Mapping[str, Any] | None = None,
+        sum_columns: Iterable[str] = (),
+        counts: Mapping[str, Mapping[str, Any]] | None = None,
+    ) -> Mapping[str, Any]:
+        """Compute a total count, sums and conditional counts in one query.
+
+        Filters use exact equality and SQL NULL. Conditional predicates apply
+        inside the outer where scope. Empty sums remain None; counts are zero.
+        Label keys are returned as supplied, never interpolated into SQL.
+        This physical-table primitive applies no policy or normalization.
+        """
+        table = self._physical_table(table)
+        sums = tuple(dict.fromkeys(sum_columns))
+        self._validate_columns(table, sums)
+        condition, where_values = self._equality_predicates(table, where)
+        count_filters = dict(counts or {})
+        expressions = ["COUNT(*)", *(f"SUM({_quoted(c)})" for c in sums)]
+        values = []
+        for predicate in count_filters.values():
+            sql, bindings = self._equality_predicates(table, predicate)
+            expressions.append(f"COUNT(CASE WHEN {sql} THEN 1 END)")
+            values.extend(bindings)
+        sql = f"SELECT {', '.join(expressions)} FROM {self._macro_table_sql(table)} WHERE {condition}"
+        row = tuple(self._macro_connection().execute(sql, (*values, *where_values)))[0]
+        return {
+            "count": int(row[0]),
+            "sums": dict(zip(sums, row[1 : len(sums) + 1], strict=True)),
+            "counts": dict(zip(count_filters, map(int, row[len(sums) + 1 :]), strict=True)),
+        }
+
+    def has_rows(self, table: str, *, where: Mapping[str, Any] | None = None) -> bool:
+        """Test physical-row existence without fetching payloads or counting all matches."""
+        table = self._physical_table(table)
+        condition, values = self._equality_predicates(table, where)
+        return (
+            next(
+                iter(
+                    self._macro_connection().execute(
+                        f"SELECT 1 FROM {self._macro_table_sql(table)} WHERE {condition} LIMIT 1",
+                        values,
+                    )
+                ),
+                None,
+            )
+            is not None
+        )
+
+    def get_grouped_counts_for_ids(
+        self,
+        table: str,
+        foreign_id_column: str,
+        owner_ids: Iterable[int],
+        *,
+        group_by: Iterable[str] = (),
+        where: Mapping[str, Any] | None = None,
+    ) -> dict[int, tuple[Mapping[str, Any], ...]]:
+        """Count physical rows grouped by owner and additional stored columns.
+
+        Return raw group columns plus row_count; owners without rows have an
+        empty tuple. Bound queries to 500 parameters including outer filters.
+        Grouping follows each column's stored SQL collation. Callers interpret
+        raw values and must not substitute these for typed-envelope semantics.
+        """
+        table = self._physical_table(table)
+        requested = self._batch_row_ids(owner_ids)
+        columns = tuple(dict.fromkeys((foreign_id_column, *group_by)))
+        self._validate_columns(table, columns)
+        if "row_count" in columns:
+            raise InputIntegrityError("row_count is reserved for the aggregate")
+        condition, values = self._equality_predicates(table, where)
+        size = 500 - len(values)
+        if size < 1:
+            raise InputIntegrityError("Too many grouped-count filter bindings")
+        grouped = {owner: [] for owner in requested}
+        group_sql = ", ".join(_quoted(c) for c in columns)
+        for start in range(0, len(requested), size):
+            chunk = requested[start : start + size]
+            sql = (
+                f"SELECT {group_sql}, COUNT(*) FROM {self._macro_table_sql(table)} "
+                f"WHERE {_quoted(foreign_id_column)} IN ({', '.join('?' for _ in chunk)}) "
+                f"AND ({condition}) GROUP BY {group_sql} ORDER BY {group_sql}"
+            )
+            for row in self._mapping_rows(
+                (*columns, "row_count"),
+                self._macro_connection().execute(sql, (*chunk, *values)),
+            ):
+                grouped[row[foreign_id_column]].append(row)
+        return {owner: tuple(rows) for owner, rows in grouped.items()}
+
+    def get_link_counts_bulk(
+        self,
+        link_spec: StorageLinkSpec,
+        primary_ids: Iterable[int],
+        *,
+        link_type: object = LINK_TYPE_UNSET,
+    ) -> dict[int, Mapping[str, int]]:
+        """Count links, distinct destinations and dangling links per physical owner.
+
+        The left join preserves NULL/missing endpoints in links and missing,
+        while distinct counts only existing destination rows. Empty owners
+        return zeroes. Type filters retain the explicit NULL/all distinction.
+        No endpoint payloads are read; parameter batches stay at most 500.
+        """
+        spec = self._validate_link_spec(link_spec)
+        owners = self._batch_row_ids(primary_ids)
+        self._physical_table(spec.link_table)
+        self._physical_table(spec.primary_table)
+        self._physical_table(spec.secondary_table)
+        for table, column in (
+            (spec.primary_table, spec.primary_id_col),
+            (spec.secondary_table, spec.secondary_id_col),
+        ):
+            if column != self._row_id_column(table, None):
+                raise InputIntegrityError(
+                    "Link counts require physical endpoint ID columns"
+                )
+        filters, values = [], []
+        if link_type is not LINK_TYPE_UNSET:
+            if not spec.typed or spec.type_link_col is None:
+                raise InputIntegrityError(
+                    "Cannot filter an untyped link spec by link type."
+                )
+            column = f"links.{_quoted(spec.type_link_col)}"
+            filters.append(
+                f"{column} IS NULL" if link_type is None else f"{column} = ?"
+            )
+            if link_type is not None:
+                values.append(link_type)
+        result = {owner: {"links": 0, "distinct": 0, "missing": 0} for owner in owners}
+        size = 500 - len(values)
+        source = f"links.{_quoted(spec.primary_link_col)}"
+        destination = f"target.{_quoted(spec.secondary_id_col)}"
+        for start in range(0, len(owners), size):
+            chunk = owners[start : start + size]
+            conditions = [f"{source} IN ({', '.join('?' for _ in chunk)})", *filters]
+            sql = (
+                f"SELECT {source}, COUNT(*), COUNT(DISTINCT {destination}), "
+                f"COUNT(*) - COUNT({destination}) FROM {self._macro_table_sql(spec.link_table)} AS links "
+                f"LEFT JOIN {self._macro_table_sql(spec.secondary_table)} AS target "
+                f"ON links.{_quoted(spec.secondary_link_col)} = {destination} "
+                f"WHERE {' AND '.join(conditions)} GROUP BY {source}"
+            )
+            for owner, links, distinct, missing in self._macro_connection().execute(
+                sql, (*chunk, *values)
+            ):
+                result[owner] = {
+                    "links": int(links),
+                    "distinct": int(distinct),
+                    "missing": int(missing),
+                }
+        return result
 
     def get_column_extrema(self, table: str, column: str) -> tuple[Any, Any]:
         """Aggregate a column's minimum and maximum on the current macro connection.
@@ -872,6 +1092,65 @@ class SQLPortableMacrosMixin:
             f"MAX({_quoted(column)}) AS maximum FROM {self._macro_table_sql(table)}"
         ).fetchone()
         return _row_value(row, 0, "minimum"), _row_value(row, 1, "maximum")
+
+    def insert_rows(self, table: str, rows: Iterable[Mapping[str, Any]]) -> None:
+        """Insert physical records in bounded multi-value SQL statements.
+
+        Prepare all normalized keys and validate columns before writing. Keep
+        consecutive equal column shapes in input order and bind at most 500
+        values per statement. Missing columns use database defaults. No IDs
+        are returned: use explicit IDs or look up a declared natural identity
+        when subsequent work needs them. Constraints/triggers remain active;
+        any later failure rolls back the entire call, including earlier chunks.
+        """
+        table = self._physical_table(table)
+        prepared = []
+        id_column = self._row_id_column(table, None)
+        for values in rows:
+            if not values:
+                raise InputIntegrityError("insert_rows payloads cannot be empty")
+            payload = prepare_normalized_values(self.db.driver_wrapper, table, values)
+            columns = tuple(sorted(self._validate_columns(table, payload)))
+            if len(columns) > 500:
+                raise InputIntegrityError("insert_rows payload exceeds 500 columns")
+            if id_column in payload:
+                self._batch_row_ids((payload[id_column],))
+            prepared.append((columns, payload))
+        with self._macro_transaction() as conn:
+            for columns, group in groupby(prepared, key=lambda item: item[0]):
+                payloads = [item[1] for item in group]
+                size = 500 // len(columns)
+                row_sql = "(" + ", ".join("?" for _ in columns) + ")"
+                for start in range(0, len(payloads), size):
+                    chunk = payloads[start : start + size]
+                    sql = (
+                        f"INSERT INTO {self._macro_table_sql(table)} "
+                        f"({', '.join(_quoted(c) for c in columns)}) VALUES "
+                        + ", ".join(row_sql for _ in chunk)
+                    )
+                    conn.execute(
+                        sql, tuple(payload[c] for payload in chunk for c in columns)
+                    )
+            driver = self._macro_driver()
+            synchronize = getattr(type(driver), "_sync_explicit_identity", None)
+            if callable(synchronize) and any(id_column in row for _, row in prepared):
+                synchronize(driver, conn, table, id_column)
+
+    def delete_rows_where(self, table: str, *, where: Mapping[str, Any]) -> None:
+        """Delete a physical-table equality/NULL scope in one statement.
+
+        Require a nonempty predicate; this API does not imply whole-table
+        deletion. Constraints and triggers apply inside the shared transaction.
+        Values are bound and no matching row payloads are fetched first.
+        """
+        table = self._physical_table(table)
+        if not where:
+            raise InputIntegrityError("delete_rows_where requires a nonempty predicate")
+        condition, values = self._equality_predicates(table, where)
+        with self._macro_transaction() as conn:
+            conn.execute(
+                f"DELETE FROM {self._macro_table_sql(table)} WHERE {condition}", values
+            )
 
     def insert_row(
         self,
@@ -1461,8 +1740,27 @@ class SQLPortableMacrosMixin:
         :param link_type: Omitted sentinel for all types, None for NULL, or a type.
         :return: One LinkedTableRow per link, including dangling relationships.
         """
+        return self.get_linked_rows_bulk(link_spec, (primary_id,), link_type=link_type)[
+            primary_id
+        ]
+
+    def get_linked_rows_bulk(
+        self,
+        link_spec: StorageLinkSpec,
+        primary_ids: Iterable[int],
+        *,
+        link_type: object = LINK_TYPE_UNSET,
+    ) -> dict[int, tuple[LinkedTableRow, ...]]:
+        """Batch links for many physical owners and fetch destinations once.
+
+        Keep requested empty groups and each owner's link ordering, duplicates,
+        extras and dangling destinations. Distinct destination IDs are fetched
+        in bounded batches across all owners. Row mappings are independent per
+        relationship. All IDs are validated before reading; the caller owns
+        snapshot and transaction boundaries. Inputs/results are materialized.
+        """
         link_spec = self._validate_link_spec(link_spec)
-        self._batch_row_ids((primary_id,))
+        requested = self._batch_row_ids(primary_ids)
         self._physical_table(link_spec.link_table)
         for table, id_column in (
             (link_spec.primary_table, link_spec.primary_id_col),
@@ -1473,20 +1771,32 @@ class SQLPortableMacrosMixin:
                 raise InputIntegrityError(
                     "Linked row batches require the endpoint's physical ID column"
                 )
-        links = self.get_link_rows(link_spec, primary_id, link_type=link_type)
-        if not links:
-            return ()
+        if link_type is not LINK_TYPE_UNSET and not link_spec.typed:
+            raise InputIntegrityError(
+                "Cannot filter an untyped link spec by link type."
+            )
+        groups = self.get_link_rows_bulk(link_spec, requested, link_type=link_type)
         rows = self.get_rows_by_ids(
             link_spec.secondary_table,
-            (link.secondary_id for link in links if link.secondary_id is not None),
+            (
+                link.secondary_id
+                for links in groups.values()
+                for link in links
+                if link.secondary_id is not None
+            ),
         )
-        return tuple(
-            LinkedTableRow(
-                link,
-                dict(rows[link.secondary_id]) if link.secondary_id in rows else None,
+        return {
+            primary_id: tuple(
+                LinkedTableRow(
+                    link,
+                    dict(rows[link.secondary_id])
+                    if link.secondary_id in rows
+                    else None,
+                )
+                for link in links
             )
-            for link in links
-        )
+            for primary_id, links in groups.items()
+        }
 
     def get_link_rows_bulk(
         self,
@@ -1502,8 +1812,8 @@ class SQLPortableMacrosMixin:
         Validate the spec, then deduplicate supplied IDs in first-seen order. Explicit
         IDs must be hashable and appear as keys even if no rows match. With
         primary_ids=None, only sources present in the query result are included. Each
-        group preserves the reader's priority-descending/secondary-ID order. The query
-        is not split to fit a backend parameter limit.
+        group preserves the reader's priority-descending/secondary-ID order. Explicit
+        selections use at most 500 bindings per query, including the type filter.
 
         Example:
             ``macros.get_link_rows_bulk(spec, (1, 2, 1))`` includes keys 1 and 2
@@ -1520,12 +1830,23 @@ class SQLPortableMacrosMixin:
         """
         link_spec = self._validate_link_spec(link_spec)
         requested = None if primary_ids is None else tuple(dict.fromkeys(primary_ids))
-        rows = self._read_link_rows(
-            self._macro_connection(),
-            link_spec,
-            requested,
-            link_type=link_type,
-        )
+        conn = self._macro_connection()
+        if requested is None:
+            rows = self._read_link_rows(conn, link_spec, None, link_type=link_type)
+        else:
+            chunk_size = 500 - int(
+                link_type is not LINK_TYPE_UNSET and link_type is not None
+            )
+            rows = (
+                row
+                for start in range(0, len(requested), chunk_size)
+                for row in self._read_link_rows(
+                    conn,
+                    link_spec,
+                    requested[start : start + chunk_size],
+                    link_type=link_type,
+                )
+            )
         grouped: dict[Any, list[LinkRow]] = {}
         if requested is not None:
             grouped.update((primary_id, []) for primary_id in requested)
@@ -1942,9 +2263,11 @@ class SQLPortableMacrosMixin:
         Materialize links and read the live type registry at most once when any supplied
         LinkValue has a named type. Prepare every value before writing, and reject
         duplicate secondary/type identities with InputIntegrityError. IDs used in this
-        check must be hashable. Execute writes in input order and return results in that
-        order. Even an empty batch enters the transaction context. An error escaping the
-        outer boundary rolls the writes back.
+        check must be hashable. Physical integer endpoints batch the initial/final
+        reads and stage new links by consecutive payload shape. Existing updates
+        retain input order and immediate priority-constraint behavior. Results
+        follow input order. Empty batches still enter the transaction context;
+        an escaping error rolls back the entire call.
 
         Example:
             ``macros.upsert_links(spec, 1, (LinkValue(7), LinkValue(8)))`` returns
@@ -1980,6 +2303,10 @@ class SQLPortableMacrosMixin:
         if len(set(identities)) != len(identities):
             raise InputIntegrityError("upsert_links received duplicate logical link identities.")
         with self._macro_transaction() as conn:
+            if self._can_stage_link_replacements(link_spec, {primary_id: prepared}):
+                from .link_batches import upsert_links_batch
+
+                return upsert_links_batch(self, conn, link_spec, primary_id, prepared)
             return tuple(
                 self._upsert_link(conn, link_spec, primary_id, link)
                 for link in prepared
@@ -2287,6 +2614,25 @@ class SQLPortableMacrosMixin:
             link_type=link_type,
         )
 
+    def _can_stage_link_replacements(self, spec, replacements) -> bool:
+        """Restrict staging to physical tables and integer endpoint requests."""
+        relation_type = getattr(self.db.driver_wrapper, "get_relation_type", None)
+        return (
+            callable(relation_type)
+            and relation_type(spec.link_table) == "table"
+            and all(
+                isinstance(owner, int)
+                and not isinstance(owner, bool)
+                and all(
+                    isinstance(link, LinkValue)
+                    and isinstance(link.secondary_id, int)
+                    and not isinstance(link.secondary_id, bool)
+                    for link in links
+                )
+                for owner, links in replacements.items()
+            )
+        )
+
     def replace_links(
         self,
         link_spec: StorageLinkSpec,
@@ -2334,6 +2680,17 @@ class SQLPortableMacrosMixin:
             else None
         )
         with self._macro_transaction() as conn:
+            if self._can_stage_link_replacements(link_spec, {primary_id: materialized}):
+                from .link_batches import replace_links_batch
+
+                return replace_links_batch(
+                    self,
+                    conn,
+                    link_spec,
+                    {primary_id: materialized},
+                    link_type,
+                    live_allowed_types,
+                )[primary_id]
             return self._replace_links(
                 conn,
                 link_spec,
@@ -2351,15 +2708,15 @@ class SQLPortableMacrosMixin:
         link_type: Any = LINK_TYPE_UNSET,
     ) -> dict[Any, tuple[LinkRow, ...]]:
         """
-        Replace multiple sources' link sets in mapping order within one macro
-        transaction.
+        Replace multiple sources' link sets within one macro transaction.
 
-        Materialize all iterables and read the live type registry at most once before
-        entering the transaction. Each source is validated and replaced sequentially; a
-        later failure can follow earlier writes, which roll back when the exception
-        escapes the outer boundary. Empty link iterables clear their source/scope; an
-        empty mapping still enters the transaction but performs no per-source
-        validation.
+        Materialize inputs and read the live type registry at most once. Physical
+        integer endpoints use indexed temporary tables: batch existing links,
+        delete omitted identities, stage surviving priorities, then update and
+        insert sets before a bounded readback. Surviving row IDs and omitted
+        extras remain unchanged. Other adapters retain sequential replacement.
+        Every path rolls back the entire call on a later error. Empty link sets
+        clear their owner/type scope; result keys retain request order.
 
         Example:
             ``macros.replace_links_bulk(spec, {1: (LinkValue(10),), 2: ()})``
@@ -2376,8 +2733,7 @@ class SQLPortableMacrosMixin:
         """
         link_spec = self._validate_link_spec(link_spec)
         materialized = {
-            primary_id: tuple(links)
-            for primary_id, links in replacements.items()
+            primary_id: tuple(links) for primary_id, links in replacements.items()
         }
         live_allowed_types = (
             self._live_allowed_link_types(link_spec)
@@ -2392,6 +2748,12 @@ class SQLPortableMacrosMixin:
             else None
         )
         with self._macro_transaction() as conn:
+            if self._can_stage_link_replacements(link_spec, materialized):
+                from .link_batches import replace_links_batch
+
+                return replace_links_batch(
+                    self, conn, link_spec, materialized, link_type, live_allowed_types
+                )
             return {
                 primary_id: self._replace_links(
                     conn,

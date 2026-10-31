@@ -9,9 +9,11 @@ entity. It never turns around at a shared edition to borrow a sibling Work's
 metadata. All paths participate, including incomplete paths and multiple Works
 embodied in a Manifestation; preferred-ray projections are not search indexes.
 
-This is a scan implementation, not an indexed full-text engine. Pagination limits
-returned matches, not database work. Reads do not establish a snapshot transaction;
-the caller owns database lifetime and any required consistency scope.
+Supported SQLite drivers execute predicates and pagination in SQL with the same
+Unicode comparison functions. Exact indexed fields can avoid scans; substring
+search remains a scan, not a full-text engine. Other drivers retain a bounded
+Python fallback. Reads do not establish a snapshot transaction; the caller owns
+database lifetime and any required consistency scope.
 """
 
 from __future__ import annotations
@@ -26,9 +28,9 @@ from LiuXin_alpha.catalog.api.common import (
     WemiLevel,
 )
 from LiuXin_alpha.catalog.repositories.base import WEMI_TABLES
+from LiuXin_alpha.databases.db_types.query_types import MissingSearchReference
 from LiuXin_alpha.metadata.text_identity import normalize_identity_text
 from LiuXin_alpha.utils.search_query_parser import ParseException, Parser
-
 
 _LEVELS = tuple(WEMI_TABLES)
 _TEXT_PROFILE = "unicode_nfkc_whitespace_casefold"
@@ -201,11 +203,24 @@ class CatalogSearch:
             raise ParseException("Search expression is too deeply nested") from exc
         if limit == 0:
             return ()
+        supports = getattr(self.db.macros, "supports_normalized_search", None)
+        if callable(supports) and supports():
+            from .physical_plan import PhysicalSearchPlan
+
+            predicate = PhysicalSearchPlan(self.db).build(tree, level)
+            try:
+                return self.db.macros.find_rows_matching(
+                    WEMI_TABLES[level],
+                    predicate,
+                    limit=limit,
+                    offset=offset,
+                )
+            except MissingSearchReference as exc:
+                raise CatalogNotFoundError(
+                    f"Missing linked {exc.table} row during search"
+                ) from exc
         context = _SearchReads(self)
-        rows = self.db.macros.get_rows(
-            WEMI_TABLES[level],
-            order_by=(f"{level}_id",),
-        )
+        rows = self._candidate_rows(level)
         matches: list[RowMapping] = []
         skipped = 0
         for row in rows:
@@ -218,6 +233,22 @@ class CatalogSearch:
             if limit is not None and len(matches) >= limit:
                 break
         return tuple(matches)
+
+    def _candidate_rows(self, level):
+        """Bound fallback payload reads where the adapter supports cursor pages."""
+        page = getattr(self.db.macros, "get_rows_page", None)
+        if not callable(page):
+            yield from self.db.macros.get_rows(
+                WEMI_TABLES[level], order_by=(f"{level}_id",)
+            )
+            return
+        after = None
+        while True:
+            rows, complete = page(WEMI_TABLES[level], limit=500, after_id=after)
+            yield from rows
+            if complete or not rows:
+                return
+            after = rows[-1][f"{level}_id"]
 
     @staticmethod
     def _validate_terms(tree: list) -> None:

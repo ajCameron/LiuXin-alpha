@@ -1,6 +1,7 @@
 # Table-owned SQL helpers
 
-Implemented **2026-10-30**. `db.metadata_sql` has **62 operations in 38 mixins**:
+Implemented **2026-10-30**, extended **2026-10-31**. `db.metadata_sql` has
+**65 operations in 38 mixins**:
 one for each of the **36 physical main tables**, the existing helper-table
 `FeedsSQLMixin`, and shared `NormalizationSQLMixin`. Catalog, storage and backup
 callers use the table readers while retaining their interpretation and policy.
@@ -49,7 +50,10 @@ reconstructs results in link order. Physical endpoint/link tables and discovered
 ID columns are required. Booleans and projection rays are rejected as requested
 IDs. `get_rows_by_ids` omits missing IDs, collapses repeated requests, preserves
 first-request key order and binds at most 500 IDs per query. Inputs and results
-are materialized; this is not a streaming API.
+are materialized; this is not a streaming API. `get_linked_rows_bulk(spec, ids)`
+performs the same work for many sources, deduplicating destination fetches across
+the entire request. `get_link_rows_bulk()` now also bounds every explicit-owner
+query to 500 bindings, including any type filter.
 
 Ordering and type filters follow the existing link reader: descending priority
 where present, then destination ID. The omitted `LINK_TYPE_UNSET` filter means
@@ -60,7 +64,8 @@ explicit type filter still raises `InputIntegrityError`.
 Reads reuse the current connection and see pending writes in the caller's
 transaction. They neither start an independent snapshot nor commit. Without
 an enclosing transaction, concurrent changes can still occur between link and
-destination reads. Schema changes and new indexes are not part of this slice.
+destination reads. The [efficiency follow-up](sql-efficiency-2026-10-31.md)
+records query-index migrations separately from these read contracts.
 
 ## Additional read families and migrated callers
 
@@ -88,8 +93,8 @@ selecting an author, publisher, active parent or hierarchy traversal policy.
 File derivation readers preserve legacy file provenance; they do not substitute
 for Digital Asset derivations or interpret SquashFS replicas as derived assets.
 
-The Core storage policy scan reads Assets once, groups their Replicas in bounded
-batches and fetches distinct explicit policy references in batches. Core still
+The Core storage policy scan reads Assets once, counts Replica groups by raw
+presence/integrity/mode labels and fetches distinct explicit policies in batches. Core still
 interprets health labels, modes, counts and missing-policy defaults. This remains
 the existing row-based assessment, separate from the storage manager's effective
 policy and cached record envelopes. Backup workflow enumeration similarly reads
@@ -102,7 +107,17 @@ uses exact equality filters and SQL `LIMIT`/`OFFSET`, materializing at most
 at or beyond the end. Core's `storage.resource.list` uses this bounded read;
 its public input conversion and record shape are unchanged. Lightweight adapters
 without this macro retain their existing in-memory fallback. Pages do not pin
-a snapshot against concurrent changes between requests.
+a snapshot against concurrent changes between requests. Catalog's base `list()`
+also uses SQL pages. `list_after(last_id, limit=...)` and
+`iter_rows(batch_size=...)` use the macro's `after_id` cursor to avoid repeatedly
+walking an offset during long scans. A cursor and nonzero offset cannot be mixed.
+
+Browse enriches only the visible Work page and batches relationships through
+the selected database read source. Category counts use
+`count_works_linked_from()` and retain relationship multiplicity; its result also
+exposes distinct Work counts and missing endpoints. Cache sources retain their
+own read/fallback rules. Legacy Row traversal batches destination payloads while
+preserving its existing link order and duplicate Row results.
 
 Existing cache-backed hydration and legacy Row adapters retain their read-source
 contracts. Having every table represented does not mean every database read has

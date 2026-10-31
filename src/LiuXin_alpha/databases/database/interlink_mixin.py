@@ -193,11 +193,12 @@ class DatabaseInterlinkRowsMixin:
         return link_rows
 
     def get_interlinked_rows(
-            self: "DatabaseAPI",
-            target_row: Optional["RowAPI"] = None,
-            secondary_table: Optional[str] = None,
-            type_filter: Optional[str] = None,
-            **kwargs: Any) -> list["RowAPI"]:
+        self: "DatabaseAPI",
+        target_row: Optional["RowAPI"] = None,
+        secondary_table: Optional[str] = None,
+        type_filter: Optional[str] = None,
+        **kwargs: Any,
+    ) -> list["RowAPI"]:
         """
         Resolve endpoint Rows reached through inter-table relationships.
 
@@ -232,10 +233,14 @@ class DatabaseInterlinkRowsMixin:
         # Defensive: if a caller passed unexpected keywords, fail loudly with a helpful message.
         if kwargs:
             unexpected = ", ".join(sorted(kwargs.keys()))
-            raise TypeError(f"get_interlinked_rows() got unexpected keyword argument(s): {unexpected}")
+            raise TypeError(
+                f"get_interlinked_rows() got unexpected keyword argument(s): {unexpected}"
+            )
 
         if secondary_table is None:
-            raise TypeError("get_interlinked_rows() missing required argument: 'secondary_table'")
+            raise TypeError(
+                "get_interlinked_rows() missing required argument: 'secondary_table'"
+            )
 
         if not isinstance(target_row, Row):
             err_str = "Input to the DatabasePing class has to be in the form of Rows"
@@ -247,7 +252,10 @@ class DatabaseInterlinkRowsMixin:
             )
             raise InputIntegrityError(err_str)
 
-        if secondary_table not in self.main_tables and secondary_table not in self.helper_tables:
+        if (
+            secondary_table not in self.main_tables
+            and secondary_table not in self.helper_tables
+        ):
             err_str = "Secondary table needs to be in either the main tables or the helper tables"
             err_str = default_log.log_variables(
                 err_str,
@@ -275,7 +283,9 @@ class DatabaseInterlinkRowsMixin:
 
         # Get the name of the link table - check to see if it exists (if it doesn't, returns None) - signalling that no
         # link exists
-        link_table = self.driver_wrapper.get_link_table_name(primary_table, secondary_table)
+        link_table = self.driver_wrapper.get_link_table_name(
+            primary_table, secondary_table
+        )
         if not link_table:
             return []
 
@@ -284,25 +294,45 @@ class DatabaseInterlinkRowsMixin:
         secondary_table_link_col = link_table_col + "_" + secondary_id_col
         link_priority_col = link_table_col + "_priority"
 
-        link_rows = self.driver_wrapper.search(table=link_table, column=primary_table_link_col, search_term=primary_id)
+        link_rows = self.driver_wrapper.search(
+            table=link_table, column=primary_table_link_col, search_term=primary_id
+        )
         if not link_rows:
             return []
 
         # The highest priority rows will be the first in the list - if there is a priority row to order them
         try:
-            link_rows = sorted(link_rows, key=lambda x: x[link_priority_col], reverse=True)
+            link_rows = sorted(
+                link_rows, key=lambda x: x[link_priority_col], reverse=True
+            )
         except KeyError:
             pass
 
-        if type_filter is None:
-            secondary_ids = [r[secondary_table_link_col] for r in link_rows]
-            secondary_rows = [self.get_row_from_id(table=secondary_table, row_id=r_id) for r_id in secondary_ids]
-            return secondary_rows
-        else:
+        if type_filter is not None:
             link_type_column = link_table_col + "_type"
-            secondary_ids = [r[secondary_table_link_col] for r in link_rows if r[link_type_column] == type_filter]
-            secondary_rows = [self.get_row_from_id(table=secondary_table, row_id=r_id) for r_id in secondary_ids]
-            return secondary_rows
+            link_rows = [r for r in link_rows if r[link_type_column] == type_filter]
+        secondary_ids = [r[secondary_table_link_col] for r in link_rows]
+        batch = getattr(self.macros, "get_rows_by_ids", None)
+        relation_type = getattr(self.driver_wrapper, "get_relation_type", None)
+        if (
+            callable(batch)
+            and callable(relation_type)
+            and relation_type(secondary_table) == "table"
+        ):
+            rows = batch(
+                secondary_table, (value for value in secondary_ids if value is not None)
+            )
+            # Preserve the legacy link ordering, duplicates and absent endpoints.
+            return [
+                Row(row_dict=dict(rows[value]), database=self)
+                if value in rows
+                else None
+                for value in secondary_ids
+            ]
+        return [
+            self.get_row_from_id(table=secondary_table, row_id=value)
+            for value in secondary_ids
+        ]
 
     def get_interlink_values(
             self: "DatabaseAPI",

@@ -17,6 +17,8 @@ import datetime
 import apsw
 import os
 import sqlite3
+
+from LiuXin_alpha.databases.search_functions import register_search_functions
 import uuid
 from contextlib import closing
 from functools import partial
@@ -128,6 +130,7 @@ class Connection(apsw.Connection):
         encoding = next(self.execute("pragma encoding"))[0]
         self.createcollation("PYNOCASE", partial(pynocase, encoding=encoding))
 
+        register_search_functions(self)
         self.createscalarfunction("title_sort", title_to_title_sort, 1)
         self.createscalarfunction(
             "author_to_author_sort", _author_sort_sql_value, 1
@@ -530,6 +533,8 @@ class DatabaseDriver(
     # ----------------------------------------------------------------------------------------------------------------------
 
     # Internal, implementation dependant method. Should not be exposed to the outside
+    supports_normalized_search = True
+
     def get_connection(self) -> "sqlite3.Connection":
         """
         Open, configure and track a fresh SQLite connection.
@@ -649,6 +654,7 @@ class DatabaseDriver(
             reg = re.compile(expr)
             return reg.search(item) is not None
 
+        register_search_functions(conn)
         conn.create_function("REGEXP", 2, regexp)
 
         # Add the TREE_AGGREGATOR to the connection - allows for string representation of the position of a row in a

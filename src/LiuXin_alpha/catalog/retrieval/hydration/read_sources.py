@@ -246,6 +246,94 @@ class DatabaseMetadataReadSource:
             type_filter=type_filter,
         )
 
+    def get_interlinked_counts_bulk(
+        self, primary_table: str, primary_ids: Sequence[int], secondary_table: str
+    ) -> dict[int, int]:
+        """Count relationships through this source without loading endpoint payloads.
+
+        Retain duplicate relationships in the count. Dangling destinations
+        remain an error instead of becoming a plausible partial category total.
+        Views and older adapters keep scalar traversal.
+        """
+        macros = getattr(self.database, "macros", None)
+        reader = getattr(macros, "get_link_counts_bulk", None)
+        relation_type = getattr(self.driver_wrapper, "get_relation_type", None)
+        requested = tuple(dict.fromkeys(primary_ids))
+        if (
+            callable(reader)
+            and callable(relation_type)
+            and all(
+                relation_type(table) == "table"
+                for table in (primary_table, secondary_table)
+            )
+        ):
+            if not self.driver_wrapper.get_link_table_name(
+                primary_table, secondary_table
+            ):
+                return dict.fromkeys(requested, 0)
+            sql = getattr(self.database, "metadata_sql", None)
+            if secondary_table == "works" and sql is not None:
+                groups = sql.count_works_linked_from(primary_table, requested)
+            else:
+                groups = reader(
+                    self.driver_wrapper.get_link_spec(primary_table, secondary_table),
+                    requested,
+                )
+            if any(group["missing"] for group in groups.values()):
+                raise ValueError(
+                    "Cannot count relationships with missing destination rows"
+                )
+            return {owner: group["links"] for owner, group in groups.items()}
+        groups = self.get_interlinked_rows_bulk(
+            primary_table, requested, secondary_table
+        )
+        if any(row is None for rows in groups.values() for row in rows):
+            raise ValueError("Cannot count relationships with missing destination rows")
+        return {owner: len(rows) for owner, rows in groups.items()}
+
+    def get_interlinked_rows_bulk(
+        self,
+        primary_table: str,
+        primary_ids: Sequence[int],
+        secondary_table: str,
+    ) -> dict[int, tuple[Any, ...]]:
+        """Read a page's relationships through the retained database source.
+
+        Physical tables use bounded link/destination batches. Older adapters
+        and views retain scalar reads. No cache source is bypassed: this is an
+        optional capability of the database read source only.
+        """
+        macros = getattr(self.database, "macros", None)
+        batch = getattr(macros, "get_linked_rows_bulk", None)
+        relation_type = getattr(self.driver_wrapper, "get_relation_type", None)
+        requested = tuple(dict.fromkeys(primary_ids))
+        if (
+            callable(batch)
+            and callable(relation_type)
+            and all(
+                relation_type(table) == "table"
+                for table in (primary_table, secondary_table)
+            )
+        ):
+            if not self.driver_wrapper.get_link_table_name(
+                primary_table, secondary_table
+            ):
+                return dict.fromkeys(requested, ())
+            spec = self.driver_wrapper.get_link_spec(primary_table, secondary_table)
+            return {
+                owner: tuple(record.row for record in records)
+                for owner, records in batch(spec, requested).items()
+            }
+        result = {}
+        for owner in requested:
+            row = self.get_row_from_id(primary_table, owner)
+            result[owner] = (
+                ()
+                if row is None
+                else tuple(self.get_interlinked_rows(row, secondary_table))
+            )
+        return result
+
     def refresh(self) -> bool:
         """
         Report that this pass-through adapter performed no refresh.

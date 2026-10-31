@@ -3,7 +3,7 @@ Store Agent identities, subtype aggregates, and role-scoped WEMI credits.
 
 Generic CRUD normalizes aliases but creates only the core Agent row. Person and
 organisation helpers add subtype rows and related metadata inside a macro
-transaction. Resolution scans canonical names; matching delegates richer identity
+transaction. Resolution compares canonical names; matching delegates richer identity
 decisions to AgentMatcher. Credit ordering and persistence follow portable macros.
 """
 
@@ -466,7 +466,7 @@ class AgentRepository(BaseRepository):
         otherwise ignored: it does not filter credits, types, or identity. Compare only
         agent_canonical_name using NFKC/casefold/whitespace normalization; aliases are not
         searched. Blank normalized names return None without a database read. Other
-        lookups materialize all rows in requested ascending Agent-ID order, then return
+        lookups use indexed SQL where supported or bounded candidate pages, then return
         the first match rather than detecting duplicate-name ambiguity.
 
         Example:
@@ -488,7 +488,12 @@ class AgentRepository(BaseRepository):
         wanted = normalise_text(name)
         if not wanted:
             return None
-        for row in self._all_rows():
+        from LiuXin_alpha.databases.db_types.query_types import TextMatch
+
+        rows = self._matching_rows(
+            TextMatch(("agent_canonical_name",), wanted, exact=True)
+        )
+        for row in self._scan_rows() if rows is None else rows:
             canonical = row.get("agent_canonical_name")
             if isinstance(canonical, str) and normalise_text(canonical) == wanted:
                 return row

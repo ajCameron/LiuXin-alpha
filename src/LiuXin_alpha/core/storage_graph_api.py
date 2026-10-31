@@ -884,10 +884,20 @@ class CoreStorageGraphAPI:
                 code="storage_asset_not_found",
                 details={"asset_id": asset_id},
             )
-        replicas = macros.get_rows(
-            "asset_replicas",
-            where={"asset_replica_digital_asset_id": asset_id},
-            order_by=("asset_replica_id",),
+        counter = getattr(
+            getattr(runtime.database, "metadata_sql", None),
+            "count_asset_replicas_for_assets",
+            None,
+        )
+        grouped = callable(counter)
+        replicas = (
+            counter([asset_id])[asset_id]
+            if grouped
+            else macros.get_rows(
+                "asset_replicas",
+                where={"asset_replica_digital_asset_id": asset_id},
+                order_by=("asset_replica_id",),
+            )
         )
         replication_policy_id = asset.get("digital_asset_replication_policy_id")
         backup_policy_id = asset.get("digital_asset_backup_policy_id")
@@ -914,6 +924,7 @@ class CoreStorageGraphAPI:
             replicas,
             replication_policy,
             backup_policy,
+            grouped=grouped,
         )
 
     @staticmethod
@@ -922,11 +933,15 @@ class CoreStorageGraphAPI:
         replicas: tuple[Mapping[str, Any], ...],
         replication_policy: Mapping[str, Any] | None,
         backup_policy: Mapping[str, Any] | None,
+        *,
+        grouped: bool = False,
     ) -> dict[str, Any]:
         """Apply the existing row-label policy rules to already-read metadata.
 
         Selection, truthiness and defaults remain Core policy. SQL readers only
-        supply rows; they do not consult or replace the storage manager's cache.
+        supply raw label groups or rows; they do not consult or replace the
+        storage manager's cache. Group counts preserve these row-label rules
+        without loading each Replica payload.
         """
         asset_id = int(asset["digital_asset_id"])
         replication_policy_id = asset.get("digital_asset_replication_policy_id")
@@ -942,6 +957,12 @@ class CoreStorageGraphAPI:
             for row in healthy
             if str(row.get("asset_replica_mode") or "") in {"backup", "archive"}
         ]
+
+        def count(rows):
+            return sum(int(row["row_count"]) for row in rows) if grouped else len(rows)
+
+        total_count, healthy_count = count(replicas), count(healthy)
+        active_count, backup_count = count(active), count(backups)
         replication_min = int(
             (replication_policy or {}).get("replication_policy_min_copies", 1)
         )
@@ -962,20 +983,20 @@ class CoreStorageGraphAPI:
                 "policy_id": replication_policy_id,
                 "minimum": replication_min,
                 "target": replication_target,
-                "healthy_copies": len(active),
-                "meets_minimum": len(active) >= replication_min,
-                "meets_target": len(active) >= replication_target,
+                "healthy_copies": active_count,
+                "meets_minimum": active_count >= replication_min,
+                "meets_target": active_count >= replication_target,
             },
             "backup": {
                 "policy_id": backup_policy_id,
                 "minimum": backup_min,
                 "target": backup_target,
-                "healthy_copies": len(backups),
-                "meets_minimum": len(backups) >= backup_min,
-                "meets_target": len(backups) >= backup_target,
+                "healthy_copies": backup_count,
+                "meets_minimum": backup_count >= backup_min,
+                "meets_target": backup_count >= backup_target,
             },
-            "replica_count": len(replicas),
-            "healthy_replica_count": len(healthy),
+            "replica_count": total_count,
+            "healthy_replica_count": healthy_count,
         }
 
     def policy_assess(
@@ -1129,8 +1150,11 @@ class CoreStorageGraphAPI:
             order_by=("digital_asset_id",),
         )
         sql = getattr(runtime.database, "metadata_sql", None)
+        counter = getattr(sql, "count_asset_replicas_for_assets", None)
+        grouped = callable(counter)
         if sql is not None:
-            replicas = sql.get_asset_replicas_for_assets(
+            replica_reader = counter if grouped else sql.get_asset_replicas_for_assets
+            replicas = replica_reader(
                 int(asset["digital_asset_id"]) for asset in assets
             )
             replication = sql.get_replication_policies_by_ids(
@@ -1154,6 +1178,7 @@ class CoreStorageGraphAPI:
                     replicas[asset_id],
                     replication.get(asset.get("digital_asset_replication_policy_id")),
                     backup.get(asset.get("digital_asset_backup_policy_id")),
+                    grouped=grouped,
                 )
             )
             if (

@@ -8,12 +8,19 @@ described for callers without changing that implementation.
 from __future__ import annotations
 
 import abc
-from typing import Iterable, Iterator, Mapping, Any
+from typing import Any, Iterable, Iterator, Mapping
 
 from LiuXin_alpha.databases.column_metadata import (
     ColumnMetadata,
     ColumnOptions,
 )
+from LiuXin_alpha.databases.db_types.macro_types import (
+    CanonicalIdentity,
+    NormalizedIdentityMigrationReport,
+)
+from LiuXin_alpha.databases.normalized_identities import NormalizedIdentitySpec
+from LiuXin_alpha.databases.query_indexes import QueryIndexReport
+from LiuXin_alpha.databases.schema_specs import LinkCapabilities
 from LiuXin_alpha.metadata.value_policies import (
     ColumnEmptyValuePolicy,
     ColumnMergePolicy,
@@ -21,12 +28,6 @@ from LiuXin_alpha.metadata.value_policies import (
     ColumnSemanticRole,
     ColumnValidationProfile,
 )
-from LiuXin_alpha.databases.normalized_identities import NormalizedIdentitySpec
-from LiuXin_alpha.databases.db_types.macro_types import (
-    CanonicalIdentity,
-    NormalizedIdentityMigrationReport,
-)
-from LiuXin_alpha.databases.schema_specs import LinkCapabilities
 
 
 class DatabaseMetadataMixinAPI(abc.ABC):
@@ -561,6 +562,14 @@ class DatabaseMetadataMixinAPI(abc.ABC):
 
         :return: NormalizedIdentityMigrationReport describing completed changes.
         """
+
+    @abc.abstractmethod
+    def audit_query_indexes(self) -> QueryIndexReport:
+        """Inspect physical query-index definitions without changing the database."""
+
+    @abc.abstractmethod
+    def migrate_query_indexes(self) -> QueryIndexReport:
+        """Install missing physical query indexes through the shared transaction."""
 
     @abc.abstractmethod
     def set_comparison_column(

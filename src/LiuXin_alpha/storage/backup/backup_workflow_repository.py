@@ -90,8 +90,10 @@ class BackupWorkflowRepository(BackupWorkflowRepositoryAPI):
 
         Reset the workflow row's last error and status, but retain any prior checkpoint, output, and
         presence rows. Replacement can therefore leave incompatible older execution state. A later
-        source or adapter failure can follow earlier row updates/deletions; no transaction or
-        compensating restore is established here.
+        source or adapter failure can follow an earlier workflow-row update.
+        Production source replacement is atomic and uses bounded bulk inserts;
+        older adapters retain sequential deletion/insertion. No transaction
+        spans the workflow row and all other persisted execution state here.
 
         Example:
             >>> workflow_id = repository.save_workflow_declaration(  # doctest: +SKIP
@@ -126,6 +128,11 @@ class BackupWorkflowRepository(BackupWorkflowRepositoryAPI):
             "backup_workflow_status": status.value,
             "backup_workflow_last_error": None,
         }
+        replace_sources = getattr(
+            getattr(self.db, "metadata_sql", None),
+            "replace_backup_workflow_sources",
+            None,
+        )
         if workflow_id is None:
             row = Row.from_idless_row_dict(
                 self.db,
@@ -137,12 +144,13 @@ class BackupWorkflowRepository(BackupWorkflowRepositoryAPI):
             workflow_id = int(workflow_id)
             row = self._require_row("backup_workflows", workflow_id)
             self._update_row(row, row_values)
-            self._delete_sources(workflow_id)
+            if not callable(replace_sources):
+                self._delete_sources(workflow_id)
 
+        source_rows = []
         for ordinal, source in enumerate(declaration.sources):
-            Row.from_idless_row_dict(
-                self.db,
-                row_dict={
+            source_rows.append(
+                {
                     "backup_workflow_source_workflow_id": workflow_id,
                     "backup_workflow_source_ordinal": ordinal,
                     "backup_workflow_source_kind": source.source_kind.value,
@@ -159,9 +167,15 @@ class BackupWorkflowRepository(BackupWorkflowRepositoryAPI):
                     "backup_workflow_source_file_id": None,
                     "backup_workflow_source_asset_replica_id": source.source_replica_id,
                     "backup_workflow_source_store_id": None,
-                },
-                table="backup_workflow_sources",
+                }
             )
+        if callable(replace_sources):
+            replace_sources(workflow_id, source_rows)
+        else:
+            for values in source_rows:
+                Row.from_idless_row_dict(
+                    self.db, row_dict=values, table="backup_workflow_sources"
+                )
         return workflow_id
 
     def load_workflow_declaration(

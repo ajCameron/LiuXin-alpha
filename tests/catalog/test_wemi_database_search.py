@@ -219,6 +219,10 @@ def test_search_is_read_only_and_propagates_read_errors(collection, monkeypatch)
     def failed_read(*args, **kwargs):
         raise RuntimeError("Backend unavailable")
 
+    # Legacy adapters retain their repository read/error behavior.
+    monkeypatch.setattr(
+        c.catalog.db.macros, "supports_normalized_search", lambda: False
+    )
     monkeypatch.setattr(c.catalog.repositories.agents, "list_for_wemi", failed_read)
     with pytest.raises(RuntimeError, match="Backend unavailable"):
         c.catalog.search.find("author:anyone")
@@ -229,5 +233,103 @@ def test_search_is_read_only_and_propagates_read_errors(collection, monkeypatch)
         return None if table == "tags" else original_get_row(table, entity_id)
 
     monkeypatch.setattr(c.catalog.db.macros, "get_row", missing_tag)
+    with pytest.raises(CatalogNotFoundError, match="Missing linked tags row"):
+        c.catalog.search.find("work.tag:IntroOnly")
+
+
+def test_sql_search_matches_reference_across_fields_paths_and_paging(
+    collection, monkeypatch
+):
+    from LiuXin_alpha.catalog.search.database_search import _FIELDS, _LEVELS
+
+    c = collection
+    c.catalog.works.update(c.orphan, {"title": "  Ｃafe\u0301  100%_  "})
+    c.catalog.identifiers.create(
+        {
+            "scheme": "doi",
+            "value": "10.1000/Searchfixture-Identifier",
+            "level": "work",
+            "entity_id": c.intro,
+        }
+    )
+    queries = [
+        "",
+        "Searchfixture",
+        "NOT missing",
+        'work.title:"=café 100%_"',
+        'author:"Novel Author" OR work.tag:IntroOnly',
+        'NOT (author:"Introduction Author" OR item:SEARCH-TRANSLATED)',
+        "expression:Original AND expression:Translation",
+        "title:Searchfixture AND NOT work.tag:IntroOnly",
+    ]
+    queries += [f"{field}:Searchfixture" for field in _FIELDS]
+    queries += [f"{level}:Searchfixture" for level in _LEVELS]
+    for level in _LEVELS:
+        for query in queries:
+            with monkeypatch.context() as fallback:
+                fallback.setattr(
+                    c.catalog.db.macros, "supports_normalized_search", lambda: False
+                )
+                expected = c.catalog.search.find(query, level=level, limit=None)
+            actual = c.catalog.search.find(query, level=level, limit=None)
+            assert actual == expected, (level, query)
+            assert (
+                c.catalog.search.find(query, level=level, offset=1, limit=1)
+                == expected[1:2]
+            )
+
+
+def test_sql_search_uses_two_reads_without_materializing_related_rows(
+    collection, monkeypatch
+):
+    from tests.databases.test_metadata_sql_wemi_reads import _count_reads
+
+    c = collection
+    # Warm schema metadata; count payload SELECTs, not introspection.
+    c.catalog.search.find("author:Author")
+    reads = _count_reads(c.catalog.db, monkeypatch)
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError("SQL search fetched Python candidate/relationship rows")
+
+    for method in ("get_rows", "get_row", "get_linked_rows", "get_link_rows"):
+        monkeypatch.setattr(c.catalog.db.macros, method, forbidden)
+    with c.catalog.db.macros.transaction() as conn:
+        conn.execute("PRAGMA query_only=ON")
+        try:
+            assert ids(c.catalog.search.find('author:"Novel Author"')) == {c.novel}
+        finally:
+            conn.execute("PRAGMA query_only=OFF")
+    assert len(reads) == 2
+
+
+def test_sql_search_propagates_backend_failures_and_dangling_rows(
+    collection, monkeypatch
+):
+    c = collection
+    macros = c.catalog.db.macros
+    original = macros._macro_connection
+
+    class BrokenConnection:
+        def execute(self, sql, bindings=()):
+            if "AS root" in sql:
+                raise RuntimeError("Backend unavailable")
+            return original().execute(sql, bindings)
+
+    with monkeypatch.context() as broken:
+        broken.setattr(macros, "_macro_connection", BrokenConnection)
+        with pytest.raises(RuntimeError, match="Backend unavailable"):
+            c.catalog.search.find("work.title:Searchfixture")
+    spec = c.catalog.db.driver_wrapper.get_link_spec("works", "tags")
+    conn = original()
+    conn.execute("PRAGMA foreign_keys=OFF")
+    try:
+        conn.execute(
+            f'UPDATE "{spec.link_table}" SET "{spec.secondary_link_col}"=? WHERE "{spec.primary_link_col}"=?',
+            (999999, c.intro),
+        )
+        conn.commit()
+    finally:
+        conn.execute("PRAGMA foreign_keys=ON")
     with pytest.raises(CatalogNotFoundError, match="Missing linked tags row"):
         c.catalog.search.find("work.tag:IntroOnly")

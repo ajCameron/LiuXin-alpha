@@ -49,8 +49,8 @@ class WorkRepositoryAPI(BaseRepositoryAPI, Protocol):
         Validate title and limit before returning early for blank normalized text or limit zero.
         Comparison uses NFKC, case-folding, and collapsed whitespace while preserving punctuation.
         It considers work_title and work_canonical_title, not work_sort_title; a stored non-None
-        value is converted to text for comparison. Nonempty lookup materializes all Work rows and
-        matching rows before slicing. This direct lookup does not apply fuzzy matching, confidence,
+        value is converted to text for comparison. Supported SQL drivers filter and limit using
+        indexed comparison functions; other adapters use bounded candidate pages. This direct lookup does not apply fuzzy matching, confidence,
         or ambiguity policy.
 
         Example:

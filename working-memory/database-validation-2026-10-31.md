@@ -19,6 +19,13 @@ The dirty `LiuXin_alpha_data` submodule is outside this delivery.
 ## Current verification
 
 - No PR existed for `database-review` when this work began.
+- Ownership checkpoint committed as `50782bc6`. The following commit packages
+  the SQL efficiency increment; full-suite and benchmark evidence remain pending.
+- The first live PostgreSQL selection passed 18 tests. New efficiency tests
+  exposed reversed Catalog priority ownership and omitted backup-workflow tables
+  in PostgreSQL schema creation. Both are corrected; live reruns are in progress.
+- The local quality runner found two leading blank lines in its format targets;
+  those formatting-only corrections are included with validation.
 - Full-suite CI already captures resource/event telemetry and removes per-test
   scratch. Use that runner for the full suite rather than the space-limited host.
 - Main's last inspected push passed confidence, packaging and the fast format

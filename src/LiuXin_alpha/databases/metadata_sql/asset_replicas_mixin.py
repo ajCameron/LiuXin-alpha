@@ -18,6 +18,25 @@ class AssetReplicasSQLMixin:
 
     db: DatabaseAPI
 
+    def count_asset_replicas_for_assets(
+        self, asset_ids: Iterable[int]
+    ) -> dict[int, tuple[Mapping[str, Any], ...]]:
+        """Count replicas by raw presence, integrity and mode for each asset.
+
+        Return stored labels with row_count, leaving health/default rules to
+        the caller. This does not interpret scratch records or touch bytes.
+        """
+        return self.db.macros.get_grouped_counts_for_ids(
+            "asset_replicas",
+            "asset_replica_digital_asset_id",
+            asset_ids,
+            group_by=(
+                "asset_replica_presence_status",
+                "asset_replica_integrity_status",
+                "asset_replica_mode",
+            ),
+        )
+
     def get_asset_replicas_for_assets(
         self,
         asset_ids: Iterable[int],

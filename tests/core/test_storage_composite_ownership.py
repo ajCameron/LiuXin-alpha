@@ -277,17 +277,18 @@ def test_composite_member_failure_rolls_back_record_and_links(
     identifier = before.composite_digital_asset_id
     rows = _rows(runtime, identifier)
     macros = runtime.library.db.macros
-    original = macros.insert_row
+    original = macros.insert_rows
     inserted = []
 
-    def fail_second_member(table, values, **kwargs):
+    def fail_second_member(table, values):
+        values = tuple(values)
         if table == LINK_TABLE:
-            if inserted:
-                raise OSError("second member persistence failed")
-            inserted.append(values)
-        return original(table, values, **kwargs)
+            original(table, values[:1])
+            inserted.extend(values[:1])
+            raise OSError("second member persistence failed")
+        return original(table, values)
 
-    monkeypatch.setattr(macros, "insert_row", fail_second_member)
+    monkeypatch.setattr(macros, "insert_rows", fail_second_member)
     with pytest.raises(CoreHandlerError, match="second member persistence failed"):
         runtime.command(
             "storage.resource.update",

@@ -93,12 +93,30 @@ The facade composes this service using Catalog repositories and hierarchy reads.
 Portable database macros own physical row/link reads and SQL execution. Constructing
 the search service does not run a sample query, open a connection or write data.
 
-This initial implementation scans rows and reads related metadata as required.
-It is not an indexed full-text engine, and result limits do not bound memory or
-database work. Caches last for one call, so later calls observe changed records.
-Multiple reads do not establish a consistent snapshot; callers requiring that
-guarantee must supply an appropriate transaction scope. Backend query/index
-optimization remains follow-up work behind the same semantic contract.
+SQLite and the APSW driver now execute predicates, monotonic relationship paths
+and pagination in SQL. Catalog builds physical predicates in `physical_plan.py`;
+the database compiler validates identifiers and binds every value. Shared Python
+functions preserve NFKC/casefold, whitespace and identifier normalization rules.
+Exact Work title and identifier lookups use versioned expression indexes. General
+substring queries still scan: this is not a full-text engine.
+
+Each graph search checks its traversed physical paths for dangling endpoints in
+one preflight query, then selects matching rows. These checks cover the whole
+requested path, so corrupt links can raise even where an earlier Python Boolean
+short circuit or page limit once hid them. They do not read destination payloads
+into Python. Scalar lookups need only their result query.
+
+PostgreSQL and older adapters retain the semantic Python fallback; adapters with
+cursor paging keep candidate payload reads bounded. PostgreSQL does not install
+SQLite comparison functions or expression indexes. Providing an equivalent
+indexed PostgreSQL implementation remains follow-up work.
+
+Calls observe current data and borrow any active macro transaction. Multiple
+reads do not establish a consistent snapshot; callers requiring one must supply
+an appropriate transaction scope. Existing databases install the indexes via
+`db.migrate_query_indexes()` or the Core migration command; opening or searching
+does not trigger a migration. See
+[SQL efficiency implementation](../databases/sql-efficiency-2026-10-31.md).
 
 The existing `catalog.search.Search` class remains the Calibre-compatible cache
 search engine. It has a different host and result model. Its parser grammar is

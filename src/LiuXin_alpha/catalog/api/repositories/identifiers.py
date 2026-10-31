@@ -64,7 +64,8 @@ class IdentifierRepositoryAPI(BaseRepositoryAPI, Protocol):
         Return the first stored row matching normalized scheme and value, regardless of owner.
 
         Validate both arguments as strings and normalize the incoming candidate before
-        materializing all rows in requested ascending identifier-ID order. For each row,
+        lookup in ascending identifier-ID order. Supported drivers use indexed SQL
+        comparison; other adapters stream bounded pages. For stored comparisons,
         convert its raw scheme/value columns to strings (false-valued fields become empty)
         and normalize them, skipping TypeError/ValueError failures. Compare canonical
         scheme and normalised_value, ignoring provenance, primary flags, and ownership.

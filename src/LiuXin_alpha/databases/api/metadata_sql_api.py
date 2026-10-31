@@ -187,6 +187,22 @@ class MetadataSQLAPI(abc.ABC):
         """
 
     @abc.abstractmethod
+    def count_works_linked_from(
+        self,
+        source_table: str,
+        source_ids: Iterable[int],
+        *,
+        link_type: object = LINK_TYPE_UNSET,
+    ) -> dict[int, Mapping[str, int]]:
+        """Count links, distinct Works and dangling endpoints per physical source."""
+
+    @abc.abstractmethod
+    def count_asset_replicas_for_assets(
+        self, asset_ids: Iterable[int]
+    ) -> dict[int, tuple[Mapping[str, Any], ...]]:
+        """Count raw presence/integrity/mode groups, retaining empty owners."""
+
+    @abc.abstractmethod
     def get_works_for_expression(
         self, expression_id: int, *, link_type: object = LINK_TYPE_UNSET
     ) -> tuple[LinkedTableRow, ...]:
@@ -595,6 +611,12 @@ class MetadataSQLAPI(abc.ABC):
         Order each group by physical row ID. Do not require owners to exist or
         interpret stored metadata. Reads share the caller's current transaction.
         """
+
+    @abc.abstractmethod
+    def replace_backup_workflow_sources(
+        self, workflow_id: int, rows: Iterable[Mapping[str, Any]]
+    ) -> None:
+        """Replace encoded physical source rows for one workflow atomically."""
 
     @abc.abstractmethod
     def get_backup_workflow_sources_for_workflows(

@@ -66,8 +66,8 @@ class ItemIdentifierRepository(BaseRepository):
         """
         Choose the first normalized observation within an optional Item scope.
 
-        Delegate to a fresh matcher, which scans, normalizes and sorts by observation
-        ID. Stored normalization failures and non-integer observation IDs are skipped;
+        Delegate to a fresh matcher, which filters in SQL where supported, then
+        normalizes and sorts candidates by observation ID. Stored normalization failures and non-integer observation IDs are skipped;
         source/provenance is not matching evidence. Incoming normalization errors propagate.
 
         Example:

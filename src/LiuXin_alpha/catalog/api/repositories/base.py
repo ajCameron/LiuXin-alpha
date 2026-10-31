@@ -11,7 +11,7 @@ Portable macros own persistence; this protocol adds no transaction or locking la
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
 from typing import Protocol, runtime_checkable
 
 from LiuXin_alpha.catalog.api.common import EntityId, RowInput, RowMapping
@@ -85,25 +85,23 @@ class BaseRepositoryAPI(Protocol):
         """
 
     def list(self, *, limit: int = 100, offset: int = 0) -> Sequence[RowMapping]:
+        """Read an ID-ordered page using SQL pagination when available.
+
+        Pagination requires nonnegative non-boolean integers. Limit zero
+        returns without database access after validating both arguments.
         """
-        Return an ID-ordered page after materializing the table's rows.
 
-        The base implementation validates both paging arguments even for limit zero, then returns an
-        empty tuple without database access for zero. A positive limit fetches and copies all rows
-        in ID order before slicing in Python; it does not bound database work. Row dictionaries are
-        shallow copies with no write-through behavior.
+    def list_after(
+        self, after_id: EntityId | None = None, *, limit: int = 100
+    ) -> Sequence[RowMapping]:
+        """Read a bounded page strictly after the supplied nonnegative ID.
 
-        Example:
-            >>> page = catalog.works.list(limit=10, offset=20)  # doctest: +SKIP
-
-
-        :param limit: Nonnegative integer page size; booleans are rejected.
-        :param offset: Nonnegative integer count of rows to skip; booleans are rejected.
-        :return: An ID-ordered sequence, implemented as a tuple by BaseRepository.
-        :raises TypeError: If either paging argument is not an integer or is a boolean.
-        :raises ValueError: If either paging argument is negative.
-        :raises Exception: Database reads and row conversion failures propagate.
+        None starts at the beginning; missing cursor IDs are allowed. Each
+        call sees its current transaction, without creating a new snapshot.
         """
+
+    def iter_rows(self, *, batch_size: int = 500) -> Iterator[RowMapping]:
+        """Yield ID-ordered rows using positive, bounded cursor pages."""
 
     def create(self, data: RowInput) -> EntityId:
         """

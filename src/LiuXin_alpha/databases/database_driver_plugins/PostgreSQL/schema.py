@@ -46,6 +46,7 @@ _HELPER_SQL_FOLDERS = (
     _SQL_FRBR_TABLE_ROOT / "metadata_additional",
     _SQL_FRBR_TABLE_ROOT / "frbr_metadata_core_attributes",
     _SQL_FRBR_TABLE_ROOT / "frbr_metadata_core_tables",
+    _SQL_FRBR_TABLE_ROOT / "storage_tables",
 )
 
 _CATALOG_TABLES = frozenset({
@@ -53,6 +54,11 @@ _CATALOG_TABLES = frozenset({
     "tags", "labels", "genres", "subjects", "series", "ratings", "comments",
     "synopses", "notes", "annotations", "entity_identifiers", "item_identifiers",
     "human_agents", "org_agents", "org_agent_relations",
+})
+
+_STORAGE_HELPER_TABLES = frozenset({
+    "backup_workflows", "backup_workflow_sources", "backup_workflow_outputs",
+    "backup_workflow_state",
 })
 
 
@@ -270,7 +276,7 @@ def _helper_sql_statements() -> tuple[str, ...]:
     grouped: dict[str, list[str]] = {}
     discovery_order: list[str] = []
     explicit = {definition.name for definition in TABLE_DEFINITIONS}
-    helper_tables = (set(HELPER_TABLES) | _CATALOG_TABLES) - explicit
+    helper_tables = (set(HELPER_TABLES) | _CATALOG_TABLES | _STORAGE_HELPER_TABLES) - explicit
     for sqlite_statement in _sqlite_helper_statements():
         table_name = _statement_table_name(sqlite_statement) or _statement_index_table_name(sqlite_statement)
         if table_name not in helper_tables:
@@ -351,7 +357,7 @@ def _helper_table_catalog() -> dict[str, tuple[str, ...]]:
     """
     catalog: dict[str, tuple[str, ...]] = {}
     explicit = {definition.name for definition in TABLE_DEFINITIONS}
-    helper_tables = (set(HELPER_TABLES) | _CATALOG_TABLES) - explicit
+    helper_tables = (set(HELPER_TABLES) | _CATALOG_TABLES | _STORAGE_HELPER_TABLES) - explicit
     for sqlite_statement in _sqlite_helper_statements():
         table_name = _statement_table_name(sqlite_statement)
         if table_name not in helper_tables:

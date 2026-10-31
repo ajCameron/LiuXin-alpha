@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable, Mapping
 from typing import TYPE_CHECKING
 
 from LiuXin_alpha.databases.db_types.macro_types import LINK_TYPE_UNSET, LinkedTableRow
@@ -19,6 +20,23 @@ class WorksSQLMixin:
     """
 
     db: DatabaseAPI
+
+    def count_works_linked_from(
+        self,
+        source_table: str,
+        source_ids: Iterable[int],
+        *,
+        link_type: object = LINK_TYPE_UNSET,
+    ) -> dict[int, Mapping[str, int]]:
+        """Count Work links, distinct Works and missing Work endpoints per source.
+
+        A caller chooses whether its category counts relationships or Works.
+        SQL applies no author-role, preferred-Work or projection policy.
+        """
+        spec = self.db.driver_wrapper.get_link_spec(source_table, "works")
+        return self.db.macros.get_link_counts_bulk(
+            spec, source_ids, link_type=link_type
+        )
 
     def get_works_for_expression(
         self, expression_id: int, *, link_type: object = LINK_TYPE_UNSET

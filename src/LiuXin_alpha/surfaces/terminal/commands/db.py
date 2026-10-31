@@ -498,6 +498,9 @@ def _run_recovery_pragmas(
     """
     conn = sqlite3.connect(str(db_path), timeout=5.0, isolation_level=None)
     try:
+        from LiuXin_alpha.databases.search_functions import register_search_functions
+
+        register_search_functions(conn)
         conn.execute("PRAGMA busy_timeout = 5000;")
         checkpoint = conn.execute("PRAGMA wal_checkpoint(TRUNCATE);").fetchone()
         busy = int(checkpoint[0]) if checkpoint and len(checkpoint) > 0 else -1

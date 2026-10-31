@@ -11,16 +11,21 @@ those schemas automatically.
 
 from __future__ import annotations
 
-from typing import Any, Iterator, Mapping, TYPE_CHECKING
-
 import uuid
-
 from copy import deepcopy
+from typing import TYPE_CHECKING, Any, Iterator, Mapping
 
 from LiuXin_alpha.databases.column_metadata import (
     ColumnMetadata,
     ColumnOptions,
 )
+from LiuXin_alpha.databases.db_types.macro_types import (
+    CanonicalIdentity,
+    NormalizedIdentityMigrationReport,
+)
+from LiuXin_alpha.databases.normalized_identities import NormalizedIdentitySpec
+from LiuXin_alpha.databases.query_indexes import QueryIndexReport
+from LiuXin_alpha.databases.schema_specs import LinkCapabilities
 from LiuXin_alpha.metadata.value_policies import (
     ColumnEmptyValuePolicy,
     ColumnMergePolicy,
@@ -28,12 +33,6 @@ from LiuXin_alpha.metadata.value_policies import (
     ColumnSemanticRole,
     ColumnValidationProfile,
 )
-from LiuXin_alpha.databases.db_types.macro_types import (
-    CanonicalIdentity,
-    NormalizedIdentityMigrationReport,
-)
-from LiuXin_alpha.databases.normalized_identities import NormalizedIdentitySpec
-from LiuXin_alpha.databases.schema_specs import LinkCapabilities
 from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 
 if TYPE_CHECKING:
@@ -744,6 +743,14 @@ class DatabaseMetadataMixin:
         """
 
         return self.macros.migrate_normalized_identities()
+
+    def audit_query_indexes(self) -> QueryIndexReport:
+        """Inspect physical query-index definitions without changing the database."""
+        return self.macros.audit_query_indexes()
+
+    def migrate_query_indexes(self) -> QueryIndexReport:
+        """Install missing physical query indexes through the shared transaction."""
+        return self.macros.migrate_query_indexes()
 
     def set_comparison_column(
         self: "DatabaseAPI",

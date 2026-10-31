@@ -20,6 +20,8 @@ import codecs
 import os
 import re
 import sqlite3
+
+from LiuXin_alpha.databases.search_functions import register_search_functions
 import uuid
 from functools import partial
 from typing import Iterator
@@ -386,6 +388,8 @@ class DatabaseDriver(
     # Todo: We need a registyr to make sure we have singleton connections to each db
     # Todo: We need a registyr to make sure we have singleton connections to each db
     # Internal, implementation dependant method. Should not be exposed to the outside
+    supports_normalized_search = True
+
     def get_connection(self) -> "sqlite3.Connection":
         """
         Open, configure and track a fresh SQLite connection.
@@ -505,6 +509,7 @@ class DatabaseDriver(
             reg = re.compile(expr)
             return reg.search(item) is not None
 
+        register_search_functions(conn)
         conn.create_function("REGEXP", 2, regexp)
 
         # Add the TREE_AGGREGATOR to the connection - allows for string representation of the position of a row in a
@@ -797,6 +802,7 @@ class DatabaseDriver(
                 try:
                     # Ensure compat collations/functions exist during schema creation.
                     restore_conn.execute("PRAGMA foreign_keys=ON")
+                    register_search_functions(restore_conn)
                     restore_conn.create_function("title_sort", 1, title_to_title_sort)
                     restore_conn.create_function(
                         "author_to_author_sort", 1, _author_sort_sql_value

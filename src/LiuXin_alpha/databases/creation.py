@@ -17,6 +17,8 @@ from contextlib import closing
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+from LiuXin_alpha.databases.search_functions import register_search_functions
+
 
 # Todo: These could be public and - probably - in utils
 def _path(value: str | os.PathLike[str]) -> Path:
@@ -131,6 +133,7 @@ def replace_sqlite_file(
                 source.execute("BEGIN")
                 source.execute("SELECT count(*) FROM sqlite_schema").fetchone()
                 with closing(sqlite3.connect(destination)) as output:
+                    register_search_functions(output)
                     source.backup(output)
                     if output.execute("PRAGMA integrity_check").fetchone() != ("ok",):
                         raise RuntimeError(

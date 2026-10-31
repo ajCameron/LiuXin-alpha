@@ -13,6 +13,7 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from typing import ClassVar
 
+from LiuXin_alpha.databases.db_types.query_types import IdentifierMatch
 from LiuXin_alpha.metadata.identifiers import normalise_identifier_scheme
 
 from ..api.common import (
@@ -163,7 +164,8 @@ class IdentifierRepository(BaseRepository):
         Return the first stored row matching normalized scheme and value, regardless of owner.
 
         Validate both arguments as strings and normalize the incoming candidate before
-        materializing all rows in requested ascending identifier-ID order. For each row,
+        lookup in ascending identifier-ID order. Supported drivers use indexed SQL
+        comparison; other adapters stream bounded pages. For stored comparisons,
         convert its raw scheme/value columns to strings (false-valued fields become empty)
         and normalize them, skipping TypeError/ValueError failures. Compare canonical
         scheme and normalised_value, ignoring provenance, primary flags, and ownership.
@@ -184,7 +186,18 @@ class IdentifierRepository(BaseRepository):
         if not isinstance(identifier_type, str) or not isinstance(value, str):
             raise TypeError("identifier_type and value must be strings")
         wanted = self.normalise(IdentifierCandidate(identifier_type, value))
-        for row in self._all_rows():
+        rows = self._matching_rows(
+            IdentifierMatch(
+                self._scheme_column,
+                self._value_column,
+                wanted.identifier_type,
+                wanted.normalised_value,
+            ),
+            limit=1,
+        )
+        if rows is not None:
+            return next(iter(rows), None)
+        for row in self._scan_rows():
             try:
                 existing = self.normalise(
                     IdentifierCandidate(

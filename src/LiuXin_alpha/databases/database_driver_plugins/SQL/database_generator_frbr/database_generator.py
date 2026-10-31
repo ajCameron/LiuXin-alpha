@@ -643,6 +643,14 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
         # 1) Building the main tables from SQLite - the main tables have to be created by direct SQL execution
         self.create_main_tables()
 
+        # Expression indexes use the same comparison policy as Catalog matching.
+        # PostgreSQL generates its own schema and does not install these functions.
+        from LiuXin_alpha.databases.query_indexes import install_sqlite_search_indexes
+        from LiuXin_alpha.databases.search_functions import register_search_functions
+
+        register_search_functions(self.conn)
+        install_sqlite_search_indexes(self.conn)
+
         # 2) Build the triggers
         self.create_main_triggers()
 
