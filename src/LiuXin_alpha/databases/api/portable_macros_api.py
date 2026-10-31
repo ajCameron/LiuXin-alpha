@@ -11,7 +11,7 @@ from __future__ import annotations
 import abc
 from collections.abc import Iterable, Mapping
 from contextlib import AbstractContextManager
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from LiuXin_alpha.databases.db_types.macro_types import (
     LINK_TYPE_UNSET,
@@ -22,8 +22,10 @@ from LiuXin_alpha.databases.db_types.macro_types import (
     NormalizedIdentityMigrationReport,
     UnreferencedRowsSpec,
 )
-from LiuXin_alpha.databases.query_indexes import QueryIndexReport
 from LiuXin_alpha.databases.schema_specs import StorageLinkSpec
+
+if TYPE_CHECKING:
+    from LiuXin_alpha.databases.query_indexes import QueryIndexReport
 
 
 class PortableMacrosAPI(abc.ABC):

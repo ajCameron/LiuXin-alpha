@@ -11,21 +11,24 @@ from __future__ import annotations
 
 import abc
 from collections.abc import Mapping
-from typing import Optional, Iterable, Iterator, Any
+from typing import TYPE_CHECKING, Optional, Iterable, Iterator, Any
 
-from LiuXin_alpha.databases.column_metadata import (
-    ColumnMetadata,
-    ColumnOptions,
-)
-from LiuXin_alpha.metadata.value_policies import (
-    ColumnEmptyValuePolicy,
-    ColumnMergePolicy,
-    ColumnNormalizationProfile,
-    ColumnSemanticRole,
-    ColumnValidationProfile,
-)
-from LiuXin_alpha.databases.normalized_identities import NormalizedIdentitySpec
 from LiuXin_alpha.databases.schema_specs import LinkCapabilities
+
+
+if TYPE_CHECKING:
+    from LiuXin_alpha.databases.column_metadata import (
+        ColumnMetadata,
+        ColumnOptions,
+    )
+    from LiuXin_alpha.metadata.value_policies import (
+        ColumnEmptyValuePolicy,
+        ColumnMergePolicy,
+        ColumnNormalizationProfile,
+        ColumnSemanticRole,
+        ColumnValidationProfile,
+    )
+    from LiuXin_alpha.databases.normalized_identities import NormalizedIdentitySpec
 
 
 class DriverDatabasePropertiesMixinAPI(abc.ABC):

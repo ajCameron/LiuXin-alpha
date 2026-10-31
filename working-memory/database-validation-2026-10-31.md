@@ -23,7 +23,8 @@ The dirty `LiuXin_alpha_data` submodule is outside this delivery.
   the SQL efficiency increment; full-suite and benchmark evidence remain pending.
 - The first live PostgreSQL selection passed 18 tests. New efficiency tests
   exposed reversed Catalog priority ownership and omitted backup-workflow tables
-  in PostgreSQL schema creation. Both are corrected; live reruns are in progress.
+  in PostgreSQL schema creation. Both are corrected; all three new live efficiency
+  regressions and all 32 backend unit tests now pass.
 - The local quality runner found two leading blank lines in its format targets;
   those formatting-only corrections are included with validation.
 - Full-suite CI already captures resource/event telemetry and removes per-test
@@ -35,6 +36,13 @@ The dirty `LiuXin_alpha_data` submodule is outside this delivery.
 - Benchmark queries must cover pagination, shared WEMI graphs, exact lookups and
   bulk writes, reporting time, memory and query counts. Existing benchmark tools
   supply conventions, but their older read scenarios do not cover every new path.
+
+PR: https://github.com/ajCameron/LiuXin-alpha/pull/152 (`17b3b293` initially).
+The first CI run stopped during collection because a moved type module imported
+undeclared `typing_extensions`. Python 3.12 supplies the needed `TypedDict`.
+The import-boundary check also caught annotation-only imports loading metadata
+implementations; deferring those imports restores all 25 cold-import budgets.
+Full-suite results remain pending after these corrections.
 
 Implementation contracts and earlier focused evidence live in
 `dev-docs/databases/sql-efficiency-2026-10-31.md`.

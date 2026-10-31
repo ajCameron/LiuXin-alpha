@@ -4,7 +4,7 @@ import sqlite3
 from enum import Enum
 from types import TracebackType
 from typing import Optional, Any, NotRequired, Literal, Union, Sequence, Iterable, Callable, Protocol, Self, Iterator
-from typing_extensions import TypedDict
+from typing import TypedDict
 
 TriStateBool = Optional[bool]
 LangMap = dict[int, Optional[list[str]]]

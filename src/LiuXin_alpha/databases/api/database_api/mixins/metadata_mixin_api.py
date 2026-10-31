@@ -8,26 +8,29 @@ described for callers without changing that implementation.
 from __future__ import annotations
 
 import abc
-from typing import Any, Iterable, Iterator, Mapping
+from typing import TYPE_CHECKING, Any, Iterable, Iterator, Mapping
 
-from LiuXin_alpha.databases.column_metadata import (
-    ColumnMetadata,
-    ColumnOptions,
-)
 from LiuXin_alpha.databases.db_types.macro_types import (
     CanonicalIdentity,
     NormalizedIdentityMigrationReport,
 )
-from LiuXin_alpha.databases.normalized_identities import NormalizedIdentitySpec
-from LiuXin_alpha.databases.query_indexes import QueryIndexReport
 from LiuXin_alpha.databases.schema_specs import LinkCapabilities
-from LiuXin_alpha.metadata.value_policies import (
-    ColumnEmptyValuePolicy,
-    ColumnMergePolicy,
-    ColumnNormalizationProfile,
-    ColumnSemanticRole,
-    ColumnValidationProfile,
-)
+
+
+if TYPE_CHECKING:
+    from LiuXin_alpha.databases.column_metadata import (
+        ColumnMetadata,
+        ColumnOptions,
+    )
+    from LiuXin_alpha.databases.normalized_identities import NormalizedIdentitySpec
+    from LiuXin_alpha.databases.query_indexes import QueryIndexReport
+    from LiuXin_alpha.metadata.value_policies import (
+        ColumnEmptyValuePolicy,
+        ColumnMergePolicy,
+        ColumnNormalizationProfile,
+        ColumnSemanticRole,
+        ColumnValidationProfile,
+    )
 
 
 class DatabaseMetadataMixinAPI(abc.ABC):

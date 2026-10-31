@@ -7,31 +7,36 @@ its shared SQL backend. Two concrete case-sensitivity aliases forward to canonic
 hooks.
 """
 
+from __future__ import annotations
+
 # Suggested additions to DatabaseDriverWrapperAPI (or a new SchemaIntrospectionAPI)
 
 import abc
 from abc import abstractmethod
 from collections.abc import Mapping
-from typing import Iterator, Optional
+from typing import TYPE_CHECKING, Iterator, Optional
 
-from LiuXin_alpha.databases.column_metadata import (
-    ColumnMetadata,
-    ColumnOptions,
-)
-from LiuXin_alpha.metadata.value_policies import (
-    ColumnEmptyValuePolicy,
-    ColumnMergePolicy,
-    ColumnNormalizationProfile,
-    ColumnSemanticRole,
-    ColumnValidationProfile,
-)
-from LiuXin_alpha.databases.normalized_identities import NormalizedIdentitySpec
 from LiuXin_alpha.databases.schema_specs import (
     LinkCapabilities,
     StorageSchemaSpec,
     StorageTableSpec,
     StorageLinkSpec,
 )
+
+
+if TYPE_CHECKING:
+    from LiuXin_alpha.databases.column_metadata import (
+        ColumnMetadata,
+        ColumnOptions,
+    )
+    from LiuXin_alpha.metadata.value_policies import (
+        ColumnEmptyValuePolicy,
+        ColumnMergePolicy,
+        ColumnNormalizationProfile,
+        ColumnSemanticRole,
+        ColumnValidationProfile,
+    )
+    from LiuXin_alpha.databases.normalized_identities import NormalizedIdentitySpec
 
 
 class SchemaIntrospectionAPI(abc.ABC):
