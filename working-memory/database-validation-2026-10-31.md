@@ -76,3 +76,26 @@ regressions pass. The push confidence, wheel and format lanes already pass.
 
 Implementation contracts and earlier focused evidence live in
 `dev-docs/databases/sql-efficiency-2026-10-31.md`.
+
+The first complete CI run (`41161229466`, head `17198623`) finished with
+8,020 passed, 44 failed, 362 skipped and 17 xfailed. Its telemetry sampled a
+1.06 GiB peak test-process-tree RSS, at least 84.7 GiB runner disk headroom,
+and no OOM kills or swap activity. These are CI runner measurements, not WSL
+headroom guarantees. The run at `887cf6ff` passed all quality lanes and finished
+the full suite with 8,023 passed and 42 failed; failures repeat the remaining
+test-setup groups rather than a resource crash.
+
+The remaining corrections register production index functions on raw fixture
+writer/integrity connections, including the shared semantic-builder helper;
+fault injection follows batched `get_rows_by_ids` reads; and the optional APSW
+function test skips independently without skipping the stdlib check. A first
+targeted run exposed the second fixture connection and a subsequent backend
+variant observing its partially populated template. A new scratch root is used
+for the corrected rerun. Ruff passes the four changed test modules; the support
+helper retains exactly its 21 pre-existing lint findings.
+
+The corrected selection passes **68 tests**, with two expected Windows-only
+skips, in 243 seconds using fresh fixtures and telemetry. It covers every
+remaining full-suite failure group, including both locally installed SQLite
+backends. The final pushed head still requires its own complete CI result;
+consult PR #152 for that result and its retained telemetry artifact.

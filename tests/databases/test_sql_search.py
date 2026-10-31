@@ -245,22 +245,25 @@ def test_agent_resolution_uses_the_normalized_name_index(db, monkeypatch):
     assert "idx_agents_name_key_v1" in " ".join(str(row[3]) for row in plan)
 
 
-def test_shared_functions_on_stdlib_and_apsw_connections():
-    import apsw
-
-    for conn in (sqlite3.connect(":memory:"), apsw.Connection(":memory:")):
-        try:
-            register_search_functions(conn)
-            assert next(
-                iter(
-                    conn.execute(
-                        "SELECT liuxin_text_key_v1(?), liuxin_identifier_key_v1(?, ?)",
-                        ("Straße", "ISBN", "978-0-306-40615-7"),
-                    )
+@pytest.mark.parametrize("backend", ("stdlib", "apsw"))
+def test_shared_functions_on_stdlib_and_apsw_connections(backend):
+    conn = (
+        sqlite3.connect(":memory:")
+        if backend == "stdlib"
+        else pytest.importorskip("apsw").Connection(":memory:")
+    )
+    try:
+        register_search_functions(conn)
+        assert next(
+            iter(
+                conn.execute(
+                    "SELECT liuxin_text_key_v1(?), liuxin_identifier_key_v1(?, ?)",
+                    ("Straße", "ISBN", "978-0-306-40615-7"),
                 )
-            ) == ("strasse", '["isbn13","9780306406157"]')
-        finally:
-            conn.close()
+            )
+        ) == ("strasse", '["isbn13","9780306406157"]')
+    finally:
+        conn.close()
 
 
 def test_recovery_and_replacement_verify_indexed_databases(db, tmp_path):
