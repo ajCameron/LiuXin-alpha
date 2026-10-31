@@ -166,6 +166,39 @@ def test_indexed_matching_preserves_unicode_identifier_rules_and_overrides(
     )
 
 
+def test_exact_title_indexes_survive_analyzed_sparse_canonical_titles(db, monkeypatch):
+    """Sparse optional fields must not turn an indexed OR into a full scan."""
+    macros = db.macros
+    with macros.transaction() as conn:
+        conn.executemany(
+            "INSERT INTO works (work_title) VALUES (?)",
+            ((f"Sparse index example {i}",) for i in range(5000)),
+        )
+        conn.execute("ANALYZE")
+    plans = []
+    original = macros._macro_connection
+
+    class Connection:
+        def execute(self, sql, bindings=()):
+            conn = original()
+            if sql.startswith("SELECT root."):
+                plans.extend(
+                    row[3]
+                    for row in conn.execute("EXPLAIN QUERY PLAN " + sql, bindings)
+                )
+            return conn.execute(sql, bindings)
+
+        def __getattr__(self, name):
+            return getattr(original(), name)
+
+    monkeypatch.setattr(macros, "_macro_connection", Connection)
+    found = Catalog(db).works.find_by_title("SPARSE INDEX EXAMPLE 4999")
+    assert len(found) == 1 and found[0]["work_title"] == "Sparse index example 4999"
+    assert not any("SCAN" in plan for plan in plans), plans
+    assert any("idx_works_title_key_v1" in plan for plan in plans)
+    assert any("idx_works_canonical_title_key_v1" in plan for plan in plans)
+
+
 def test_predicate_validation_and_current_transaction(db):
     macros = db.macros
     catalog = Catalog(db)

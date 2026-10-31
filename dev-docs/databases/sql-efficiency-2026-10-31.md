@@ -121,7 +121,7 @@ The normalized SQL capability is explicit. SQLite and the APSW-backed driver
 provide it; PostgreSQL and minimal adapters keep the semantic Python fallback.
 Candidate pages are bounded when the adapter supports cursor reads. PostgreSQL
 receives the portable query indexes, not SQLite function indexes. Live PostgreSQL
-has not been exercised, and equivalent indexed normalization there remains future
+regressions now pass; equivalent indexed normalization there remains future
 work. General substring and fuzzy matching are not full-text indexes and can
 still scan; exact title/identifier lookup is the indexed path.
 
@@ -161,8 +161,99 @@ normalized overrides, all four WEMI result levels and pagination, missing links,
 backend failures, read-only execution and borrowed transactions. Final layer
 validation passes (1,855 modules, 15 reviewed backward edges, 28 unresolved
 dynamic imports). Targeted Ruff lint and formatting checks and `git diff --check`
-pass. The full suite and live PostgreSQL tests have not been run.
+pass. The later delivery validation below records live PostgreSQL and CI results.
 
 Logs and resource telemetry are under `/tmp/liuxin-search-*` and
 `/tmp/liuxin-sql-efficiency-*`; the merged latest-case results are saved in
 `/tmp/liuxin-sql-efficiency-completed-results.json`.
+
+### Delivery validation
+
+[PR #152](https://github.com/ajCameron/LiuXin-alpha/pull/152) packages the ownership
+refactor and SQL efficiency increment in separate commits. Live PostgreSQL 16
+validation passed 18 existing regression cases, followed by all three new
+efficiency cases after schema corrections. The PostgreSQL backend unit selection
+also passed all 32 cases. The new cases cover 1,001-owner shared graph reads,
+pagination and aggregates, staged write failure/temporary-table cleanup, outer
+rollback, and query-index migration idempotence/conflict detection.
+
+This exposed two PostgreSQL creation gaps: Catalog priority constraints followed
+alphabetical physical names instead of declared source ownership, and the four
+backup-workflow tables were missing. Fresh schemas now follow the shared
+declarations. These creation changes do not rewrite existing PostgreSQL schemas;
+older schemas need an explicit structural repair before the affected operations
+can be used. Query-index migration adds indexes, not missing tables or changed
+relationship constraints.
+
+The first CI attempt stopped in collection on an undeclared `typing_extensions`
+import and failed API import-footprint checks. The runtime now uses Python 3.12's
+`TypedDict`, and annotation-only imports are deferred. All 25 import budgets pass;
+local collection finds 9,574 tests. The corrected full-suite CI run is pending.
+
+`scripts/benchmark_sql_efficiency.py` creates a disposable catalogue, checks
+equivalent result digests, and measures pagination, shared graph traversal,
+normalized title/identifier lookup, WEMI search and rollback-only bulk insertion.
+All 12 smoke scenarios pass. The representative results follow below.
+The full suite runs on CI with resource/event telemetry because
+the local Windows volume has only about 4 GiB of headroom.
+
+### Representative catalogue benchmark
+
+The disposable catalogue contains 50,000 Works, 50,000 Expressions, 25,000 shared
+Manifestations, 50,000 Items, 50,000 DOI identifiers and 500 additional shared
+Expression links. SQLite statistics are populated with `ANALYZE`. The database
+occupies 35.7 MiB; fixture construction uses raw SQL, while measured operations
+use production Catalog/macros APIs. It does not measure archive decompression,
+file inspection, storage effects or complete import throughput.
+
+Each scenario has a fresh process, one warmup and three timed samples. Separate
+invocations collect Python allocation peaks and SQLite trace-event counts,
+including metadata reads and triggers but excluding connection initialization.
+Process RSS includes startup and SQLite memory. These are local WSL observations,
+not performance thresholds; background activity can affect the timings. The
+`SQLite_apsw` driver currently opens stdlib SQLite connections for ordinary queries.
+
+| Operation | Optimized median | Reference median | SQL trace events, optimized/reference |
+| --- | ---: | ---: | ---: |
+| 100-Work midpoint page, offset | 14.1 ms | 897.3 ms, materialize all Works | 8 / 1 |
+| 100-Work midpoint page, ID cursor | 3.1 ms | 897.3 ms, materialize all Works | 8 / 1 |
+| Graph reads for 1,000 owners | 61.9 ms | 5,330.8 ms, scalar calls | 31 / 29,000 |
+| Exact preferred/canonical title, after plan correction | 2.0 ms | 1,283.9 ms, bounded Python fallback | 15 / 808 |
+| Exact DOI | 1.3 ms | 1,525.1 ms, bounded Python fallback | 8 / 800 |
+| Insert 1,000 normalized tags, then roll back | 11,754.1 ms | 10,595.6 ms, scalar calls in one transaction | 2,029 / 6,016 |
+
+Paired result digests agree. Page allocation peaks drop from 87.8 MiB for
+materialization to about 0.20 MiB. Graph batching uses about 2.39 MiB versus
+1.56 MiB for the scalar reference. The shared-manifestation Work-to-Item search
+returns the expected two Items in 2.50 seconds, with 46 SQL trace events after
+the title-plan correction. Its graph/integrity work remains a useful profiling
+target.
+
+The first run exposed a statistics-dependent scan for exact title lookup: a
+mostly-null canonical-title column made SQLite reject the indexed OR plan.
+Combining independently indexed ID searches with `UNION` preserves deduplication
+and ID ordering and reduces that lookup from 298 ms to 2 ms. The new regression
+failed on both SQLite drivers before the correction; all 43 search/WEMI checks
+pass afterward. Only the affected search scenarios were remeasured; unrelated
+pagination, graph, DOI and write paths retain the initial measurements.
+
+Bulk insertion does **not** demonstrate a latency gain here despite fewer SQL
+events. `prepare_normalized_values()` reloads identity declarations for every
+row, and batch preparation occurs before the write transaction. A follow-up
+should resolve policies and physical columns once per operation, preserving
+persisted declarations, rollback and normalization semantics. Do not substitute
+global caches that can outlive policy changes.
+
+Reproduction and raw samples:
+
+```bash
+.venv/bin/python scripts/benchmark_sql_efficiency.py \
+  --works 50000 --batch 1000 --iterations 3 --output /tmp/sql-efficiency.json
+```
+
+See the [initial complete report](sql-efficiency-benchmark-2026-10-31.json) and
+[search rerun after the plan correction](sql-efficiency-index-benchmark-2026-10-31.json).
+References are current materializing/scalar/fallback APIs, not historical-release
+measurements. The harness deletes its own temporary catalogue and rolls back
+every measured write. The disposable PostgreSQL cluster was also stopped and its
+data removed after validation; logs and test telemetry were retained.

@@ -86,8 +86,24 @@ Return to [Databases](README.md).
 ## Table SQL ownership follow-up — 2026-10-30
 
 **Implemented for review.** All 36 physical main tables now have a nonempty SQL
-mixin; feeds and shared normalization bring the total to 38 mixins and 62 public
+mixin; feeds and shared normalization bring the total to 38 mixins and 65 public
 operations. [The ownership guide](table-sql-ownership.md) records helper families,
 callers, batch/paging contracts and test evidence. SQL targets stored rows and
 references; Catalog, Core and storage retain validation, selection and policy.
 DB04's broader semantic enforcement and the other open tasks above remain open.
+
+## Measured SQL follow-up — 2026-10-31
+
+The [SQL efficiency measurements](sql-efficiency-2026-10-31.md) establish the next
+priorities after the current PR passes its full-suite gates:
+
+1. Resolve normalized identity declarations and column metadata once per bulk
+   operation. The 1,000-tag benchmark reduces SQL events but does not improve
+   latency; preserve persisted policy changes and atomic failure behavior.
+2. Profile shared WEMI search and its integrity preflight. The 50,000-Work
+   Work-to-Item query still takes about 2.5 seconds despite exact lookup indexes.
+3. Provide an explicit structural repair for older PostgreSQL schemas missing
+   backup-workflow tables or using the old Catalog priority direction. New-schema
+   creation is corrected; index migration deliberately does not perform this DDL.
+4. Consider native indexed normalized search on PostgreSQL, preserving the exact
+   shared text/identifier semantics before advertising the capability.

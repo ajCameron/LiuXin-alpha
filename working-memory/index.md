@@ -4,8 +4,9 @@ Active work, **2026-10-31**: [database review validation](database-validation-20
 packages the Catalog/database ownership and SQL-efficiency work on
 `database-review`, with live PostgreSQL checks, full-suite telemetry and catalogue
 benchmarks in [PR #152](https://github.com/ajCameron/LiuXin-alpha/pull/152).
-Live PostgreSQL checks pass; CI collection/import corrections and benchmarking
-are in progress. The dirty data submodule remains outside this delivery.
+Live PostgreSQL checks and the 50,000-Work benchmark pass; a measured title-plan
+regression is fixed. Full-suite CI and final quality gates remain open.
+The dirty data submodule remains outside this delivery.
 
 Active work, **2026-10-20**: [Composite ownership](storage-composite-owner-2026-10-20.md)
 continues A10 on `storage-owned-composite-mutations`, based on policy PR #143

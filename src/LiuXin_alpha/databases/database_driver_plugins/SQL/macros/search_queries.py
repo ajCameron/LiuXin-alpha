@@ -47,6 +47,8 @@ class PredicateCompiler:
         """Return SQL, bindings and (table, guard SQL, bindings) integrity checks."""
         if isinstance(predicate, TextMatch):
             self.columns(table, predicate.columns)
+            if predicate.exact and len(predicate.columns) > 1:
+                return self.exact_text_union(table, alias, predicate)
             clauses, values = [], []
             for column in predicate.columns:
                 expression = f"{TEXT_KEY_FUNCTION}({alias}.{_q(column)})"
@@ -192,6 +194,29 @@ class PredicateCompiler:
                 guards,
             )
         raise InputIntegrityError("Unsupported physical row predicate")
+
+    def exact_text_union(self, table, alias, predicate):
+        """Search optional text keys independently before reading matching rows.
+
+        After ANALYZE, a mostly-null canonical-title index can make SQLite choose
+        a full scan for the equivalent OR. Independent indexed ID searches avoid
+        that plan while UNION preserves one result when several fields match.
+        """
+        identity = _q(self.macros._row_id_column(table, None))
+        table_sql = self.table(table)
+        candidates = []
+        for column in predicate.columns:
+            source = self.alias()
+            expression = f"{TEXT_KEY_FUNCTION}({source}.{_q(column)})"
+            candidates.append(
+                f"SELECT {source}.{identity} FROM {table_sql} AS {source} "
+                f"WHERE {expression} IS NOT NULL AND {expression} = ?"
+            )
+        return (
+            f"{alias}.{identity} IN ({' UNION '.join(candidates)})",
+            (predicate.term,) * len(candidates),
+            [],
+        )
 
 
 def find_rows(macros, table, predicate, *, limit, offset):

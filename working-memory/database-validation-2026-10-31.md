@@ -44,5 +44,21 @@ The import-boundary check also caught annotation-only imports loading metadata
 implementations; deferring those imports restores all 25 cold-import budgets.
 Full-suite results remain pending after these corrections.
 
+The corrected CI run is `41161229466` at `17198623`; the full suite is running.
+Its remaining quality failure was an import ordering issue in a migrated test,
+now corrected locally. Callback annotations fix the subsequent basedpyright
+complaint. Basedpyright, fresh-cache mypy (227 files), and both 38-case negative
+type-contract checks pass. The default local mypy cache crashed; the isolated
+cache succeeded without a tool upgrade.
+
+All 12 benchmark scenarios completed on 50,000 Works. Raw reports and analysis
+are in `dev-docs/databases/sql-efficiency-2026-10-31.md`. An ANALYZE-dependent
+exact-title scan was reproduced on both SQLite drivers and fixed using independent
+indexed ID searches; 43 search/WEMI tests pass and a targeted benchmark rerun
+reduces the lookup from 298 ms to 2 ms. The write benchmark reduces SQL events
+but not latency; operation-scoped normalization-policy preparation is documented
+as the next task. The benchmark script cleans its temporary catalogues. The
+disposable PostgreSQL server is stopped and its data removed; logs remain.
+
 Implementation contracts and earlier focused evidence live in
 `dev-docs/databases/sql-efficiency-2026-10-31.md`.
