@@ -94,14 +94,19 @@ DB04's broader semantic enforcement and the other open tasks above remain open.
 
 ## Measured SQL follow-up — 2026-10-31
 
-The [SQL efficiency measurements](sql-efficiency-2026-10-31.md) establish the next
-priorities after the current PR passes its full-suite gates:
+The [SQL efficiency measurements](sql-efficiency-2026-10-31.md) established these
+priorities. PR #152 subsequently passed its full-suite gates; the 2026-11-01
+follow-up addresses the first two measured sources of overhead:
 
-1. Resolve normalized identity declarations and column metadata once per bulk
-   operation. The 1,000-tag benchmark reduces SQL events but does not improve
-   latency; preserve persisted policy changes and atomic failure behavior.
-2. Profile shared WEMI search and its integrity preflight. The 50,000-Work
-   Work-to-Item query still takes about 2.5 seconds despite exact lookup indexes.
+1. **Implemented for review, 2026-11-01:** resolve normalized identity declarations
+   and column metadata once per bulk operation. Snapshots belong to one operation;
+   the next operation reloads persisted policy. Portable inserts/updates and direct
+   SQLite/PostgreSQL batches preserve normalization and atomic failure behavior.
+2. **Profiled and addressed for review, 2026-11-01:** millions of default progress
+   callbacks dominated shared WEMI search and its integrity preflight.
+   [Explicit hooks](sqlite-progress.md) retain observation/cancellation while leaving
+   the handler unset by default. Further query-plan work can follow the remaining
+   measured cost; the integrity checks remain enabled.
 3. Provide an explicit structural repair for older PostgreSQL schemas missing
    backup-workflow tables or using the old Catalog priority direction. New-schema
    creation is corrected; index migration deliberately does not perform this DDL.

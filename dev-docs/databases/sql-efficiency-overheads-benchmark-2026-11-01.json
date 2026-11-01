@@ -1,0 +1,202 @@
+{
+  "created_at": "2026-11-01T17:44:53.384124+00:00",
+  "python": "3.12.3",
+  "platform": "Linux-6.18.33.1-microsoft-standard-WSL2-x86_64-with-glibc2.39",
+  "backend": "SQLite_apsw driver (stdlib SQLite connections)",
+  "sqlite_version": "3.45.1",
+  "dataset": {
+    "works": 50000,
+    "expressions": 50000,
+    "manifestations": 25000,
+    "items": 50000,
+    "identifiers": 50000,
+    "shared_expression_links": 500,
+    "database_bytes": 37470208,
+    "setup_seconds": 16.832535232999362
+  },
+  "batch": 1000,
+  "iterations": 3,
+  "results": [
+    {
+      "scenario": "page_offset",
+      "seconds": [
+        0.0029816599562764168,
+        0.003539358964189887,
+        0.004985286039300263
+      ],
+      "median_seconds": 0.003539358964189887,
+      "process_peak_rss_kib": 65352,
+      "operation_python_peak_bytes": 209365,
+      "sql_statements": 8,
+      "connection_opens": 0,
+      "result_count": 100,
+      "result_sha256": "e5d5aa86f84ea990e31210c01b040bba0bf6cc14189d5f4f24222c6421a076e6"
+    },
+    {
+      "scenario": "page_keyset",
+      "seconds": [
+        0.002517885062843561,
+        0.002362209022976458,
+        0.0022388179786503315
+      ],
+      "median_seconds": 0.002362209022976458,
+      "process_peak_rss_kib": 63476,
+      "operation_python_peak_bytes": 209405,
+      "sql_statements": 8,
+      "connection_opens": 0,
+      "result_count": 100,
+      "result_sha256": "e5d5aa86f84ea990e31210c01b040bba0bf6cc14189d5f4f24222c6421a076e6"
+    },
+    {
+      "scenario": "page_materialized",
+      "seconds": [
+        0.9710349760716781,
+        1.0102292340015993,
+        1.0779626209987327
+      ],
+      "median_seconds": 1.0102292340015993,
+      "process_peak_rss_kib": 156860,
+      "operation_python_peak_bytes": 92062688,
+      "sql_statements": 1,
+      "connection_opens": 0,
+      "result_count": 100,
+      "result_sha256": "e5d5aa86f84ea990e31210c01b040bba0bf6cc14189d5f4f24222c6421a076e6"
+    },
+    {
+      "scenario": "graph_batch",
+      "seconds": [
+        0.06648094393312931,
+        0.055699065094813704,
+        0.0421292259125039
+      ],
+      "median_seconds": 0.055699065094813704,
+      "process_peak_rss_kib": 66696,
+      "operation_python_peak_bytes": 2510426,
+      "sql_statements": 31,
+      "connection_opens": 0,
+      "result_count": 1010,
+      "result_sha256": "232e3fd1e12cb115ea3a13a034a722a82fe4ff6754b45d53c5f19287f74f0900"
+    },
+    {
+      "scenario": "graph_scalar",
+      "seconds": [
+        5.341694521019235,
+        6.941504206042737,
+        7.147022134042345
+      ],
+      "median_seconds": 6.941504206042737,
+      "process_peak_rss_kib": 66220,
+      "operation_python_peak_bytes": 1637916,
+      "sql_statements": 29000,
+      "connection_opens": 0,
+      "result_count": 1010,
+      "result_sha256": "232e3fd1e12cb115ea3a13a034a722a82fe4ff6754b45d53c5f19287f74f0900"
+    },
+    {
+      "scenario": "title_index",
+      "seconds": [
+        0.0028653100598603487,
+        0.002917742938734591,
+        0.007865653024055064
+      ],
+      "median_seconds": 0.002917742938734591,
+      "process_peak_rss_kib": 63648,
+      "operation_python_peak_bytes": 55540,
+      "sql_statements": 15,
+      "connection_opens": 0,
+      "result_count": 1,
+      "result_sha256": "5c3e6ad4119ed2d270e1ff567668ca6f69a56e7a10f036a3d37c7bceab3d119a"
+    },
+    {
+      "scenario": "title_fallback",
+      "seconds": [
+        3.108593376004137,
+        2.143303969060071,
+        2.6520189000293612
+      ],
+      "median_seconds": 2.6520189000293612,
+      "process_peak_rss_kib": 66420,
+      "operation_python_peak_bytes": 1476341,
+      "sql_statements": 808,
+      "connection_opens": 0,
+      "result_count": 1,
+      "result_sha256": "5c3e6ad4119ed2d270e1ff567668ca6f69a56e7a10f036a3d37c7bceab3d119a"
+    },
+    {
+      "scenario": "identifier_index",
+      "seconds": [
+        0.0025641429238021374,
+        0.0021836759988218546,
+        0.0023564680013805628
+      ],
+      "median_seconds": 0.0023564680013805628,
+      "process_peak_rss_kib": 63580,
+      "operation_python_peak_bytes": 44511,
+      "sql_statements": 8,
+      "connection_opens": 0,
+      "result_count": 1,
+      "result_sha256": "5c3e6ad4119ed2d270e1ff567668ca6f69a56e7a10f036a3d37c7bceab3d119a"
+    },
+    {
+      "scenario": "identifier_fallback",
+      "seconds": [
+        3.6166884819976985,
+        3.8634225440910086,
+        3.2817959809908643
+      ],
+      "median_seconds": 3.6166884819976985,
+      "process_peak_rss_kib": 66644,
+      "operation_python_peak_bytes": 1080730,
+      "sql_statements": 800,
+      "connection_opens": 0,
+      "result_count": 1,
+      "result_sha256": "5c3e6ad4119ed2d270e1ff567668ca6f69a56e7a10f036a3d37c7bceab3d119a"
+    },
+    {
+      "scenario": "shared_wemi",
+      "seconds": [
+        1.5444086419884115,
+        0.9650620060274377,
+        0.8156361429719254
+      ],
+      "median_seconds": 0.9650620060274377,
+      "process_peak_rss_kib": 65028,
+      "operation_python_peak_bytes": 59831,
+      "sql_statements": 46,
+      "connection_opens": 0,
+      "result_count": 2,
+      "result_sha256": "385c9a4aa719b62e9d6252a050deaa8f21a8c7a11857f850da9e7abee723e322"
+    },
+    {
+      "scenario": "insert_batch",
+      "seconds": [
+        0.06567657005507499,
+        0.067725153057836,
+        0.07754470699001104
+      ],
+      "median_seconds": 0.067725153057836,
+      "process_peak_rss_kib": 67868,
+      "operation_python_peak_bytes": 622781,
+      "sql_statements": 31,
+      "connection_opens": 2,
+      "result_count": 1,
+      "result_sha256": "7cd0293cbae2e0b1605df002902aa71db533aed523261212b4a6d8536c5cea2f"
+    },
+    {
+      "scenario": "insert_scalar",
+      "seconds": [
+        15.810404428979382,
+        23.93163388001267,
+        25.60123174393084
+      ],
+      "median_seconds": 23.93163388001267,
+      "process_peak_rss_kib": 72208,
+      "operation_python_peak_bytes": 1318224,
+      "sql_statements": 6016,
+      "connection_opens": 1001,
+      "result_count": 1,
+      "result_sha256": "7cd0293cbae2e0b1605df002902aa71db533aed523261212b4a6d8536c5cea2f"
+    }
+  ],
+  "methodology": "Warm operation timings; separate SQLite trace-event counts (including metadata and triggers, excluding connection setup) and tracemalloc samples; process RSS includes startup. References are current APIs, not historical releases. Writes roll back."
+}

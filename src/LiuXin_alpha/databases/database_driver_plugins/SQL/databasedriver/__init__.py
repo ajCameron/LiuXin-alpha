@@ -438,6 +438,10 @@ class SQLBaseDriver:
         """
         Print the counter at multiples of one hundred million, then increment it.
 
+        SQLite drivers retain this observer for explicit registration through
+        set_progress_callbacks; it is not installed by default. The counter counts
+        callback invocations, matching VM instructions only at interval one.
+
         Example:
             With ``event_count = 0``, the first call prints zero and advances the
             counter to one.

@@ -50,6 +50,7 @@ from LiuXin_alpha.databases.database_driver_plugins.SQL.macros.portable_macros_m
     SQLPortableMacrosMixin,
 )
 from LiuXin_alpha.databases.normalized_identities import (
+    NormalizedValuePreparer,
     prepare_normalized_values,
 )
 from LiuXin_alpha.databases.maintenance.dummy_maintenance_bot import DummyMaintenanceBot
@@ -2040,17 +2041,24 @@ class DatabaseDriver(
         except Exception as exc:
             raise DatabaseDriverError(f"PostgreSQL row insert failed: {exc}") from exc
 
-    def _insert_row_on_connection(self, conn, row_dict):
+    def _insert_row_on_connection(self, conn, row_dict, *, normalizers=None):
         """Insert using the caller's transaction, without committing an inner batch.
 
         :param conn: Active PostgreSQL connection adapter.
         :param row_dict: Mapping copied before table inference and normalization.
+        :param normalizers: Optional per-batch table snapshots, discarded after the
+            batch. A scalar insert resolves a fresh snapshot.
         :return: Inserted identity from RETURNING.
         """
         row_dict = dict(row_dict)
         table = self.direct_identify_table_from_row(row_dict)
         row_dict.pop("table", None)
-        payload = prepare_normalized_values(self, table, row_dict)
+        normalizer = None if normalizers is None else normalizers.get(table)
+        if normalizer is None:
+            normalizer = NormalizedValuePreparer.from_source(self, table)
+            if normalizers is not None:
+                normalizers[table] = normalizer
+        payload = normalizer.prepare(row_dict)
         id_column = self.direct_get_id_column(table)
         if payload:
             columns = ", ".join(_q(column) for column in payload)
@@ -2084,8 +2092,9 @@ class DatabaseDriver(
         conn = self._primary_connection()
         try:
             with conn:
+                normalizers = {}
                 for row in row_dict_list:
-                    self._insert_row_on_connection(conn, row)
+                    self._insert_row_on_connection(conn, row, normalizers=normalizers)
             self._zero_prop_cache()
             return True
         except Exception as exc:

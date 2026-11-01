@@ -19,7 +19,8 @@ meaning belongs to metadata/Catalog; physical storage policy belongs to storage.
   all 36 physical main-table owners, batched relationship/owner reads and bounded pages.
 - [SQL efficiency implementation, 2026-10-31](sql-efficiency-2026-10-31.md):
   pagination, many-owner graphs, normalized SQL search/matching, aggregates, bulk
-  writes and explicit query-index migrations, with backend limits and validation.
+  writes and explicit query-index migrations, with backend limits, validation and
+  2026-11-01 progress/batch overhead measurements.
 - [Schema overview](<../03 - Database Schema.md>): current WEMI graph, assets,
   replicas, generated relations, compatibility views and schema source map.
 - [Worked link examples](wemi-link-examples.md): WEMI rows and paths, novels with
@@ -35,6 +36,8 @@ meaning belongs to metadata/Catalog; physical storage policy belongs to storage.
   [PostgreSQL runbook](postgresql-backend.md).
 - [Connection ownership](<02 - Connection ownership and stale connections.md>) and
   [TEMP trigger cleanup](<03 - TEMP triggers for custom-column cleanup.md>).
+- [Optional SQLite progress callbacks](sqlite-progress.md): explicit observers and
+  cancellation hooks on existing/future connections, with no default VM handler.
 
 ## Schema design and historical notes
 

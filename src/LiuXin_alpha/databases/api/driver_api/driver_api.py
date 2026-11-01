@@ -725,11 +725,12 @@ class DatabaseDriverAPI(
 
         Request foreign-key enforcement and warn if SQLite does not report it enabled.
         Install aggregates, collations, regex/tree/sort/UUID helpers, an always-true
-        books_list_filter, maintenance callbacks and a progress callback after every
-        virtual-machine instruction. The progress handler prints the initial counter
-        value, zero. DIRTY_RECORD and NEW_DIRTY_RECORD look up the current maintainer on
-        each invocation; DIRTY_INTERLINK_RECORD binds the maintainer method at
-        connection creation. Cross-thread access still requires caller coordination.
+        books_list_filter and maintenance callbacks. SQLite drivers can opt into
+        progress callbacks through set_progress_callbacks after connection setup;
+        no progress handler is installed by default. DIRTY_RECORD and NEW_DIRTY_RECORD
+        look up the current maintainer on each invocation; DIRTY_INTERLINK_RECORD
+        binds the maintainer method at connection creation. Cross-thread access still
+        requires caller coordination.
 
         Best-effort LANGUAGE_ID registration may seed and lock an existing FRBR
         languages table, committing changes; exceptions from that registration are

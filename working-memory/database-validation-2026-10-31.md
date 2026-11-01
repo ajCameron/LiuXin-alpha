@@ -4,6 +4,14 @@ The requested delivery is a commit/PR checkpoint, live PostgreSQL regression
 coverage, a full test run with telemetry, and representative catalogue benchmarks.
 Keep all four parts open until their results are recorded.
 
+**Completed delivery:** final head `8203b737` passed every CI gate in run
+`41195661329`. The full suite passed 8,065 tests, skipped 363 and xfailed 17 in
+34m02s. Its telemetry recorded a 1.06 GiB process-tree RSS peak, 14.1 GiB minimum
+available RAM and 84.7 GiB minimum free disk, with no OOM or swap. PR #152's final
+description records the live PostgreSQL, benchmark and CI evidence. Earlier
+pending/failure notes below are historical checkpoints. The next measured work
+is tracked in [batch overheads](database-batch-overheads-2026-11-01.md).
+
 ## Commit boundaries
 
 The existing staged changes form the Catalog/database ownership checkpoint:
