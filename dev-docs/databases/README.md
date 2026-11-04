@@ -32,6 +32,15 @@ meaning belongs to metadata/Catalog; physical storage policy belongs to storage.
   explicit offline replacement, recovery backups and server-schema refusal.
 - [Transaction ownership](transactions.md): resource cleanup, owned transactions,
   nested savepoints, borrowed connections and the remaining direct commit points.
+- [Driver-wrapper boundary fixes](next_tasks.md#db08-correct-driver-wrapper-boundaries-and-keep-its-api-declarative):
+  transaction-preserving inspection, targeted updates, atomic custom-column creation,
+  current folder discovery, view filtering and a declarative wrapper API.
+- [Driver-wrapper follow-up and typing](driver-wrapper-review-2026-11-04.md):
+  attachment-preserving edits, transactional deletion, schema-cache hooks,
+  declared types and permanently checked wrapper contracts.
+- [Driver-wrapper reads and diagnostics](driver-wrapper-features-2026-11-04.md):
+  native schema facts, connection ownership, resumable scans, backend capability
+  reports, optional observations and hierarchy cycle detection.
 - [Backend strategy](liuxin_database_backend_strategy.md) and
   [PostgreSQL runbook](postgresql-backend.md).
 - [Connection ownership](<02 - Connection ownership and stale connections.md>) and

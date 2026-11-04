@@ -1,5 +1,52 @@
 # Working Memory Index
 
+Completed, **2026-11-04**: [driver-wrapper features](driver-wrapper-features-2026-11-04.md).
+Native schema facts, explicit read ownership, resumable bounded scans, backend
+capabilities and optional query observations are implemented, alongside view-row
+cleanup and hierarchy cycle detection. Final checks passed 138 focused, 230
+integration, 49 live PostgreSQL and six final PG cases; selections overlap.
+All quality gates pass, including both 47-invalid-call probes and unchanged
+import budgets. Guide links and protected preferences check out. The private
+server is stopped/removed. Changes remain uncommitted on `maintenance-plugin-modes`;
+the handoff identifies new files and remaining compatibility/operational work.
+
+Completed, **2026-11-04**: [driver-wrapper follow-up and typing](driver-wrapper-followup-2026-11-04.md).
+Five reproduced faults are fixed: WEMI custom-column attachment preservation,
+transactional edits/deletion, view inspection resources, schema-version cache
+invalidation and declared-type discovery. The whole wrapper/API now participate
+in both type checkers, with portable query protocols and accurate missing-row
+results. Final checks passed 119 boundary/tooling, 137 integration (three skips,
+four existing xfails), 25 live PostgreSQL and six API cases; selections overlap.
+All quality gates and both 44-invalid-call probes pass. The private server is
+removed, 105 guide links resolve and preference hashes are unchanged. Changes
+remain uncommitted on `maintenance-plugin-modes`; preserve all unrelated work.
+
+Completed, **2026-11-04**: driver-wrapper review fixes. Schema reads and refresh
+preserve primary transactions/TEMP objects, including probe failure; targeted
+column updates preserve concurrent unrelated edits. Custom-column definitions
+and SQLite DDL commit/roll back together in an owned outermost unit. Folder
+parent discovery follows the backend; table-spec iteration excludes views when
+requested. The wrapper API and schema API base now contain abstract declarations
+only, with a regression guarding every method body. See
+[DB08](../dev-docs/databases/next_tasks.md#db08-correct-driver-wrapper-boundaries-and-keep-its-api-declarative)
+and [transaction ownership](../dev-docs/databases/transactions.md).
+
+Validation: final boundary **73 passed**; cache/custom-column/maintenance
+integration **94 passed, nine PG skips**; live PG wrapper **nine passed**; final
+API checks **nine passed**. Selections overlap. The earlier broad lane had 274
+passes/four existing xfails and one API annotation mismatch, subsequently fixed
+and retested. The original PG lane had 21 passes/two new test-assumption failures,
+both corrected and covered by the final nine passes. All quality gates pass and
+94 edited-guide links resolve. No full-repo invocation claimed. Logs/telemetry
+are `/tmp/liuxin-wrapper-fixes-*`. The private PG cluster is stopped and removed;
+three preference hashes match the previous snapshot. Changes remain uncommitted
+on `maintenance-plugin-modes`; preserve existing maintenance work, preferences,
+user TODOs and the dirty data submodule. New wrapper regression files are
+untracked, ready to include with the eventual commit. PostgreSQL compatibility
+custom-column DDL remains unsupported; its failed creation now leaves no orphan
+definition. The monitored SquashFS import awaits physical server access Friday.
+
+
 Active work, **2026-11-01**: [database batch overheads](database-batch-overheads-2026-11-01.md)
 retains opt-in SQLite progress hooks with no default handler and resolves
 normalization metadata once per batch on `database-batch-overheads`. Broader

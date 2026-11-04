@@ -132,12 +132,29 @@ select = ["E4", "E7", "E9", "F", "I", "UP", "B"]
 # Positive scope: directory entries also protect newly added Python modules.
 # Formatting does not implicitly expand the separate lint or typing ratchets.
 paths = [
+  "src/LiuXin_alpha/databases/driver_wrapper",
+  "src/LiuXin_alpha/databases/api/driver_wrapper_api",
+  "src/LiuXin_alpha/databases/db_types/driver_types.py",
+  "src/LiuXin_alpha/databases/db_types/backend_capabilities.py",
+  "src/LiuXin_alpha/databases/db_types/query_observation.py",
+  "src/LiuXin_alpha/databases/schema_readers.py",
+  "src/LiuXin_alpha/databases/table_pages.py",
+  "src/LiuXin_alpha/databases/view_reads.py",
+  "src/LiuXin_alpha/databases/database_driver_plugins/SQL/databasedriver/physical_schema.py",
+  "src/LiuXin_alpha/databases/database_driver_plugins/PostgreSQL/physical_schema.py",
+  "tests/databases/test_driver_wrapper_boundaries.py",
+  "tests/databases/test_driver_wrapper_features.py",
+  "tests/databases/test_driver_wrapper_features_postgres_live.py",
+  "tests/databases/test_physical_schema_sqlite.py",
+  "tests/databases/test_driver_wrapper_review.py",
+  "tests/databases/test_driver_wrapper_review_postgres_live.py",
   "tests/metadata/test_rating_values.py",
   "tests/catalog/test_rating_validation.py",
   "src/LiuXin_alpha/metadata/ratings.py",
   "src/LiuXin_alpha/catalog/retrieval/selection.py",
   "src/LiuXin_alpha/catalog/retrieval/bundles.py",
   "src/LiuXin_alpha/catalog/api/retrieval/bundles.py",
+  "tests/databases/test_read_transaction.py",
   "tests/catalog/retrieval/test_wemi_selection.py",
   "src/LiuXin_alpha/databases/creation.py",
   "src/LiuXin_alpha/databases/transactions.py",
@@ -280,6 +297,16 @@ paths = [
 [tool.basedpyright]
 typeCheckingMode = "standard"
 include = [
+  "src/LiuXin_alpha/databases/driver_wrapper",
+  "src/LiuXin_alpha/databases/api/driver_wrapper_api",
+  "src/LiuXin_alpha/databases/db_types/driver_types.py",
+  "src/LiuXin_alpha/databases/db_types/backend_capabilities.py",
+  "src/LiuXin_alpha/databases/db_types/query_observation.py",
+  "src/LiuXin_alpha/databases/schema_readers.py",
+  "src/LiuXin_alpha/databases/table_pages.py",
+  "src/LiuXin_alpha/databases/view_reads.py",
+  "src/LiuXin_alpha/databases/database_driver_plugins/SQL/databasedriver/physical_schema.py",
+  "src/LiuXin_alpha/databases/database_driver_plugins/PostgreSQL/physical_schema.py",
   "src/LiuXin_alpha/jobs/handler_api.py",
   "src/LiuXin_alpha/utils/jobs/api.py",
   "src/LiuXin_alpha/utils/jobs/manager.py",
@@ -384,6 +411,16 @@ pythonVersion = "3.12"
 [tool.mypy]
 python_version = "3.12"
 files = [
+  "src/LiuXin_alpha/databases/driver_wrapper",
+  "src/LiuXin_alpha/databases/api/driver_wrapper_api",
+  "src/LiuXin_alpha/databases/db_types/driver_types.py",
+  "src/LiuXin_alpha/databases/db_types/backend_capabilities.py",
+  "src/LiuXin_alpha/databases/db_types/query_observation.py",
+  "src/LiuXin_alpha/databases/schema_readers.py",
+  "src/LiuXin_alpha/databases/table_pages.py",
+  "src/LiuXin_alpha/databases/view_reads.py",
+  "src/LiuXin_alpha/databases/database_driver_plugins/SQL/databasedriver/physical_schema.py",
+  "src/LiuXin_alpha/databases/database_driver_plugins/PostgreSQL/physical_schema.py",
   "src/LiuXin_alpha/jobs/handler_api.py",
   "src/LiuXin_alpha/utils/jobs/api.py",
   "src/LiuXin_alpha/utils/jobs/manager.py",

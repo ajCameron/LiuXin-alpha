@@ -13,6 +13,7 @@ from collections.abc import Iterable, Mapping
 from contextlib import AbstractContextManager
 from typing import TYPE_CHECKING, Any
 
+from LiuXin_alpha.databases.db_types.driver_types import QueryConnection
 from LiuXin_alpha.databases.db_types.macro_types import (
     LINK_TYPE_UNSET,
     CanonicalIdentity,
@@ -43,6 +44,10 @@ class PortableMacrosAPI(abc.ABC):
         Given an open database db, use db.driver.macros.get_rows("tags",
         order_by=("tag_id",)) to retrieve tag rows in ID order.
     """
+
+    @abc.abstractmethod
+    def current_transaction_connection(self) -> QueryConnection | None:
+        """Borrow the active thread's macro handle, or None; never open a handle."""
 
     @abc.abstractmethod
     def supports_normalized_search(self) -> bool:
@@ -88,6 +93,15 @@ class PortableMacrosAPI(abc.ABC):
             writes in this thread.
         :raises DatabaseIntegrityError: The driver cannot provide a transaction
             connection.
+        """
+
+    @abc.abstractmethod
+    def read_transaction(self) -> AbstractContextManager[Any]:
+        """Own a read-only snapshot for composed portable reads.
+
+        Refuse nesting or borrowing an active transaction. PostgreSQL uses
+        repeatable read and SQLite uses a deferred snapshot. The backend rejects
+        writes; this operation does not reserve the database's writer boundary.
         """
 
     @abc.abstractmethod
@@ -720,7 +734,6 @@ class PortableMacrosAPI(abc.ABC):
         :raises DatabaseIntegrityError: Lookup finds duplicate logical identities or
             cannot recover a required inserted row.
         """
-
 
     @abc.abstractmethod
     def derive_identity_value(

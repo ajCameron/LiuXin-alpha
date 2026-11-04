@@ -12,12 +12,15 @@ PortableMacrosAPI for the backend-neutral record-based operations.
 from __future__ import annotations
 
 import abc
-import sqlite3
-
-from typing import Optional, Union, TYPE_CHECKING, Any, Iterable
 import datetime
+import sqlite3
+from collections.abc import Iterable, Mapping
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 from LiuXin_alpha.databases.api.portable_macros_api import PortableMacrosAPI
+from LiuXin_alpha.databases.db_types.driver_types import (
+    QueryConnection,
+)
 
 if TYPE_CHECKING:
     from LiuXin_alpha.databases.api.database_api.database_api import DatabaseAPI
@@ -428,35 +431,12 @@ class MacrosAPI(PortableMacrosAPI, abc.ABC):
         ordered=False,
         conn=None,
     ):
-        """
-        Create the physical value/link tables and helper objects for a custom column.
+        """Create SQLite custom-column storage in one owned or borrowed unit.
 
-        Normalized columns receive value/link tables, indexes, validation triggers and
-        tag-browser views; absent ratings tables yield NULL average ratings.
-        Non-normalized columns store one value per owner. The optional connection is
-        used for capability probes, but final DDL always goes through
-        driver.direct_execute_sql_script. No custom_columns metadata row is inserted
-        here. The legacy normalized value-update trigger names an unprefixed value
-        column; do not treat every trigger as verified referential enforcement.
-
-        Example:
-            macros.create_cc_table(True, "text", "TEXT", custom_table, link_table,
-            "COLLATE PYNOCASE", in_table=owner_table)
-
-
-        :param normalized: Whether to separate reusable values from owner links.
-        :param datatype: Logical datatype; series adds a REAL extra column to normalized
-            links.
-        :param dt: Trusted SQL value-type fragment.
-        :param table: Custom value-table name.
-        :param link_table: Custom link-table name used when normalized is true.
-        :param collate: Trusted SQL collation fragment.
-        :param in_table: Existing owner table whose primary key is introspected.
-        :param ordered: Retained argument; current SQLite implementation does not use
-            it.
-        :param conn: Optional project SQLite-compatible connection; None selects the
-            implementation’s default connection.
-        :return: None; the abstract method supplies no implementation.
+        Execute complete DDL statements individually. A supplied active connection
+        is borrowed through a savepoint; failure rolls back this call's DDL.
+        The caller must register its definition in the same outer transaction.
+        Without conn, the macro transaction owner supplies the connection.
         """
 
         ...
@@ -606,7 +586,7 @@ class MacrosAPI(PortableMacrosAPI, abc.ABC):
         ...
 
     @abc.abstractmethod
-    def direct_get_custom_tables(self, conn=None):
+    def direct_get_custom_tables(self, conn=None) -> set[str]:
         """
         Discover custom value/link table names from SQLite schema metadata.
 
@@ -835,7 +815,7 @@ class MacrosAPI(PortableMacrosAPI, abc.ABC):
         ...
 
     @abc.abstractmethod
-    def get_all_cc_id_val_pairs(self, table, conn: Optional[sqlite3.Connection]=None):
+    def get_all_cc_id_val_pairs(self, table: str, conn: QueryConnection | None = None) -> list[tuple[int, Any]]:
         """
         Read ID/value rows from a conventional custom value table.
 
@@ -1320,7 +1300,8 @@ class MacrosAPI(PortableMacrosAPI, abc.ABC):
         Set one custom-column metadata row’s deferred-delete flag.
 
         Update the flag only. Physical cleanup and loaded metadata-map changes occur
-        elsewhere.
+        elsewhere. Preserve an active macro or primary transaction through a
+        savepoint; commit only when the operation owns its transaction.
 
         Example:
             macros.mark_cc_for_delete(column_id)
@@ -1337,8 +1318,8 @@ class MacrosAPI(PortableMacrosAPI, abc.ABC):
         """
         Mark a custom-column metadata row for later cleanup.
 
-        Compatibility spelling using driver_wrapper.execute. It does not immediately
-        drop tables or remove metadata.
+        Compatibility spelling of mark_cc_for_delete, with the same transaction
+        ownership. It does not immediately drop tables or remove metadata.
 
         Example:
             macros.mark_custom_column_for_delete(column_id)
@@ -1351,29 +1332,22 @@ class MacrosAPI(PortableMacrosAPI, abc.ABC):
         ...
 
     @abc.abstractmethod
+    def delete_marked_custom_columns(self, conn=None) -> None:
+        """Select and remove marked definitions/storage in one SQLite transaction.
+
+        Use the macro transaction connection when present, otherwise the primary
+        connection. A borrowed transaction remains open and can undo the cleanup.
+        """
+
+    @abc.abstractmethod
     def preform_cc_column_delete_from_map(self, num_table_lt_map: dict[int, tuple[str, str]], conn=None) -> None:
-        """
-        Drop mapped custom-column schema objects and remove all marked metadata rows.
+        """Atomically drop mapped SQLite objects and their marked definitions.
 
-        Retain the historical preform spelling. For each pair, drop the listed indexes,
-        triggers, tag-browser views and tables with IF EXISTS. Then delete every
-        metadata row marked for deletion, including marked rows absent from the map, and
-        commit the chosen connection. The map key is not used to restrict that final
-        deletion. Script execution has no enclosing rollback wrapper here.
-
-        Example:
-            macros.preform_cc_column_delete_from_map({column_id: (custom_table,
-            link_table)}, conn=conn)
-
-
-        :param num_table_lt_map: Mapping from custom-column number to (value_table,
-            link_table) names.
-        :param conn: Optional project SQLite-compatible connection; None selects the
-            implementation’s default connection.
-        :return: None; the abstract method supplies no implementation.
+        IDs restrict the definition DELETE. Empty mappings do nothing; unmarked
+        definitions are rejected before any DDL. Complete statements execute
+        individually, so no executescript can commit a borrowed transaction.
         """
 
-        ...
 
 
 
@@ -1550,40 +1524,21 @@ class MacrosAPI(PortableMacrosAPI, abc.ABC):
     def set_custom_column_metadata(
         self,
         num: int,
-        name: Optional[str]=None,
-        label: Optional[str]=None,
-        is_editable: Optional[bool]=None,
-        display: Optional[str]=None,
-        in_table: Optional[str]=None,
+        name: str | None = None,
+        label: str | None = None,
+        is_editable: bool | None = None,
+        display: Mapping[str, Any] | None = None,
+        in_table: str | None = None,
         conn=None,
     ) -> bool:
-        """
-        Update supplied custom-column metadata fields and commit when any are supplied.
+        """Update definition fields in one owned transaction or borrowed savepoint.
 
-        Update normalized name/label companions when present, using NFC/trim/casefold
-        policy. Issue separate statements and commit even a supplied connection if
-        changed=True. No rollback wrapper or loaded metadata-map refresh occurs here;
-        None cannot clear a field.
-
-        Example:
-            changed = macros.set_custom_column_metadata(column_id, name="Reading state",
-            conn=conn)
-
-
-        :param num: custom_column_id to update.
-        :param name: Optional replacement name; None leaves it unchanged.
-        :param label: Optional replacement label; None leaves it unchanged.
-        :param is_editable: Optional editability flag coerced to bool.
-        :param display: Optional JSON-serializable display value; serialized with
-            json.dumps despite the str annotation.
-        :param in_table: Optional replacement owner-table name.
-        :param conn: Optional project SQLite-compatible connection; None selects the
-            implementation’s default connection.
-        :return: True when at least one non-None field was supplied, regardless of row
-            existence or value equality.
+        Omitted fields retain their values. The attachment table may be checked
+        but cannot be changed without migrating physical storage. Prepare JSON
+        and normalized names before issuing one UPDATE. A failure preserves the
+        previous definition and any caller-owned writes.
         """
 
-        ...
 
     @abc.abstractmethod
     def set_database_version(self, new_val):

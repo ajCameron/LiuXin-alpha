@@ -28,6 +28,7 @@ from LiuXin_alpha.databases.database_driver_plugins.PostgreSQL.config import (
     store_postgres_password,
     url_has_password,
 )
+from LiuXin_alpha.databases.db_types.driver_types import SQLParameters
 from LiuXin_alpha.utils.logging import default_log
 
 
@@ -776,7 +777,7 @@ class PostgresConnectionAdapter:
         """
         return PostgresCursorAdapter(self.raw_connection.cursor(*args, **kwargs))
 
-    def execute(self, sql: str, values: Sequence[Any] | None = None) -> "PostgresCursorAdapter":
+    def execute(self, sql: str, values: SQLParameters | None = None) -> "PostgresCursorAdapter":
         """
         Open a cursor and execute one translated statement.
 
@@ -789,10 +790,14 @@ class PostgresConnectionAdapter:
         :return: New cursor adapter; the caller owns cursor cleanup.
         """
         cur = self.cursor()
-        cur.execute(sql, values)
+        try:
+            cur.execute(sql, values)
+        except BaseException:
+            cur.close()
+            raise
         return cur
 
-    def executemany(self, sql: str, values: Iterable[Sequence[Any]]) -> "PostgresCursorAdapter":
+    def executemany(self, sql: str, values: Iterable[SQLParameters]) -> "PostgresCursorAdapter":
         """
         Open a cursor and execute translated SQL for each parameter sequence.
 
@@ -806,7 +811,11 @@ class PostgresConnectionAdapter:
         :return: New cursor adapter; the caller owns cursor cleanup.
         """
         cur = self.cursor()
-        cur.executemany(sql, values)
+        try:
+            cur.executemany(sql, values)
+        except BaseException:
+            cur.close()
+            raise
         return cur
 
     def executescript(self, sqlscript: str) -> None:
@@ -968,7 +977,7 @@ class PostgresCursorAdapter:
         """
         self.raw_cursor = raw_cursor
 
-    def execute(self, sql: str, values: Sequence[Any] | None = None) -> "PostgresCursorAdapter":
+    def execute(self, sql: str, values: SQLParameters | None = None) -> "PostgresCursorAdapter":
         """
         Translate SQL and execute with optional bound values.
 
@@ -989,7 +998,7 @@ class PostgresCursorAdapter:
             self.raw_cursor.execute(translated, values)
         return self
 
-    def executemany(self, sql: str, values: Iterable[Sequence[Any]]) -> "PostgresCursorAdapter":
+    def executemany(self, sql: str, values: Iterable[SQLParameters]) -> "PostgresCursorAdapter":
         """
         Translate one SQL template and pass all parameter sequences to the raw cursor.
 

@@ -865,16 +865,16 @@ class DriverDatabasePropertiesMixinAPI(abc.ABC):
         Initialize the per-instance cache lazily, then return a cached dictionary
         directly on later calls. A miss reads table_info and stores column names mapped
         to their original type strings, replacing null declarations with empty text.
-        Unknown tables can yield an empty mapping. The connection closes after
-        successful iteration; this method has no finally cleanup on failure. Table text
-        is interpolated into PRAGMA without quoting or validation.
+        Unknown tables can yield an empty mapping. Quote the relation name and
+        inspect the primary connection's pending schema. Close the cursor on
+        every path, and close the connection only when this method opened it.
+        Failed reads are not cached; schema refresh invalidates cached types.
 
         Example:
             >>> driver.direct_get_declared_types_for_table("works")  # doctest: +SKIP
 
 
-        :param table: Trusted SQL table spelling suitable for direct PRAGMA
-            interpolation; also the exact cache key.
+        :param table: Relation name and exact cache key.
         :return: The cached mutable column-to-declared-type dictionary, not a copy.
         """
 
@@ -898,14 +898,12 @@ class DriverDatabasePropertiesMixinAPI(abc.ABC):
         """
         Look up cached column names after canonicalizing the table identifier.
 
-        Abstract backend hook. The behavior below describes the shared SQL/SQLite
-        implementation; this declaration itself has no operational body.
-
-        Populate the combined cache only when absent; an existing cache is not
-        independently version-checked here. Unknown tables raise InputIntegrityError.
+        Check the combined cache's schema version before using it. Unknown tables
+        raise InputIntegrityError; inspection preserves the primary transaction.
 
         Example:
-            >>> driver.direct_get_column_headings("works")  # doctest: +SKIP
+            ``driver.direct_get_column_headings("`books`")`` uses the unquoted cache
+            key.
 
 
         :param table: Table or view name used for schema introspection.
@@ -953,23 +951,19 @@ class DriverDatabasePropertiesMixinAPI(abc.ABC):
         """
 
     @abc.abstractmethod
-    def direct_get_tables(self, force_refresh: bool = False) -> dict[str, list[str]]:
+    def direct_get_tables(self, force_refresh: bool = False) -> list[str]:
         """
         Return cached table/view names, rebuilding when a known schema version changes.
 
-        Abstract backend hook. The behavior below describes the shared SQL/SQLite
-        implementation; this declaration itself has no operational body.
-
         Suppress an ``_v`` name when its unsuffixed counterpart exists. The returned
-        list is the cache itself; forcing refresh closes and replaces the primary
-        handle.
+        list is the cache itself. Refresh invalidates caches while preserving the
+        primary connection, its pending transaction and connection-local objects.
 
         Example:
-            >>> driver.direct_get_tables()  # doctest: +SKIP
+            ``driver.direct_get_tables(force_refresh=True)`` re-reads sqlite_master.
 
 
-        :param force_refresh: Invalidate cached schema data and reopen the primary
-            connection before introspection.
+        :param force_refresh: Invalidate cached schema data before introspection.
         :return: The mutable list of visible table and view names.
         """
 
@@ -978,18 +972,16 @@ class DriverDatabasePropertiesMixinAPI(abc.ABC):
         """
         Build or reuse the table/view-to-column-list cache with schema-version checks.
 
-        Abstract backend hook. The behavior below describes the shared SQL/SQLite
-        implementation; this declaration itself has no operational body.
-
-        Use a fresh connection for PRAGMA table_info and close it on success. Return the
-        cache object directly; force-refresh also replaces the primary connection.
+        Use the primary connection for a consistent view of pending schema changes.
+        Return the cache object directly; refresh preserves the connection and its
+        transaction.
 
         Example:
-            >>> driver.direct_get_tables_and_columns()  # doctest: +SKIP
+            ``driver.direct_get_tables_and_columns()["books"]`` yields the books column
+            names.
 
 
-        :param force_refresh: Invalidate cached schema data and reopen the primary
-            connection before introspection.
+        :param force_refresh: Invalidate cached schema data before introspection.
         :return: The cached mapping from visible table/view names to ordered column
             lists.
         """

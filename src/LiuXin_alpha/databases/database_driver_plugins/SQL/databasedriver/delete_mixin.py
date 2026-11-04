@@ -80,7 +80,7 @@ class DeleteMixin:
         return True
 
     # Todo: Standardize on "table" not "target_table"
-    def direct_delete_many(self, target_table: str, column: str, values: Any) -> None:
+    def direct_delete_many(self, target_table: str, column: str, values: Iterable[Any]) -> bool:
         """
         Delegate repeated column-value deletion to ``direct_delete``.
 

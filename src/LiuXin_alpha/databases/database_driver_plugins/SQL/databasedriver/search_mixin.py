@@ -8,20 +8,23 @@ ownership; their individual contracts describe those differences.
 
 from __future__ import annotations
 
-import sqlite3
 import random
 import re
+import sqlite3
+from collections.abc import Iterable
 from copy import deepcopy
-
-from typing import Any, Optional, Iterator, Iterable, Union
-
-from LiuXin_alpha.errors import LogicalError, InputIntegrityError, DatabaseIntegrityError, DatabaseDriverError
-
-from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode as unicode, force_unicode
-
-from LiuXin_alpha.utils.logging import LiuXin_debug_print, default_log
+from typing import Any, Iterator, Literal, Optional, Union
 
 from LiuXin_alpha.constants import VERBOSE_DEBUG
+from LiuXin_alpha.errors import (
+    DatabaseDriverError,
+    DatabaseIntegrityError,
+    InputIntegrityError,
+    LogicalError,
+)
+from LiuXin_alpha.utils.libraries.liuxin_six import force_unicode
+from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode as unicode
+from LiuXin_alpha.utils.logging import LiuXin_debug_print, default_log
 
 
 class SearchMixin:
@@ -302,7 +305,7 @@ class SearchMixin:
         for value in values_set:
             yield value
 
-    def direct_get_row_dict_from_id(self, table: str, row_id: int) -> Optional[dict[str, Any]] | bool:
+    def direct_get_row_dict_from_id(self, table: str, row_id: int) -> dict[str, Any] | Literal[False]:
         """
         Bind a text-coerced ID and require at most one matching row.
 

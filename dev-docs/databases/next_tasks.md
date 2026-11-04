@@ -71,6 +71,83 @@ SQLite-only probes that silently aborted PostgreSQL's shared transaction.
 
 This does not provide SQLite's compatibility views or full legacy Library parity.
 
+## DB08. Correct driver-wrapper boundaries and keep its API declarative
+
+**Implemented and locally verified, 2026-11-04.** Native relation
+inspection and SQLite schema refresh preserve the primary transaction and TEMP
+objects. Single-column updates submit a targeted normalized write, preserving
+other writers' unrelated fields. Custom-column definition insertion and DDL now
+share an owned transaction; public creation refuses nested macro units so facade
+bookkeeping follows a real commit. The generated legacy DDL remains SQLite-only.
+
+Parent lookup delegates to the driver's current `*_parent`/`*_parent_id` rule, and
+table-spec iteration filters views by actual relation kind. The wrapper API and
+its schema-introspection base contain abstract declarations only: concrete
+mixins own initialization and case-sensitivity aliases. New regressions guard
+transaction ownership, interleaved writes, early/late DDL failures, real folder
+traversal, view exclusion and API bodies. See
+[transaction ownership](transactions.md) and
+[connection lifetime](<02 - Connection ownership and stale connections.md>).
+
+Validation: the final SQLite/APSW boundary selection passed **73 tests**; cache,
+custom-column and maintenance integration passed **94**, with **nine PostgreSQL
+cases skipped in that SQLite lane**. The separate live PostgreSQL wrapper
+selection passed **nine tests**, including atomic rollback when its unsupported
+SQLite custom-column helper is requested. PostgreSQL's existing direct-writer
+and transaction cases also passed. These selections overlap; their counts are
+not a unique-test total. Logs are under `/tmp/liuxin-wrapper-fixes-*.log`.
+
+The final API/declaration selection passed **nine checks**. The full scoped
+quality runner passed formatting, lint, complexity, import/layer/footprint checks,
+basedpyright, mypy and both 38-invalid-call contract probes. All 94 local links in
+the four edited guides resolve to versioned content. The private PostgreSQL
+server was stopped and removed, and protected preference hashes are unchanged.
+
+The regression owners are `tests/databases/test_driver_wrapper_review.py` and
+`tests/databases/test_driver_wrapper_review_postgres_live.py`. They also verify
+schema-query failures preserve the caller's transaction, native column discovery
+notices schema changes, and the wrapper API has no operational method bodies.
+Custom-column DDL remains SQLite-specific; adding PostgreSQL compatibility DDL
+is separate work. No new full-repository suite run is claimed.
+
+## DB09. Correct remaining wrapper metadata boundaries and type the wrapper
+
+**Implemented and locally verified, 2026-11-04.** The
+[follow-up review](driver-wrapper-review-2026-11-04.md) records five reproduced
+faults and their repairs: preserving WEMI custom-column attachments, atomic
+metadata/deletion operations, primary-connection view inspection, working
+schema-version cache invalidation and restored declared types in table specs.
+
+The whole wrapper package and its abstract API are included in both static
+checkers and the formatting/lint gates. Portable query protocols and actual
+missing-row sentinels are checked through valid and rejected-call examples.
+The review records regression evidence. DB10 below implements physical
+constraint introspection, view-row resource handling and cycle detection;
+custom-column placeholders remain unresolved. The monitored real import remains
+the next operational exercise.
+
+Validation: **119** final boundary/API/tooling passes, **137** integration passes
+(three skips/four existing xfails) and **25** live PostgreSQL passes. Selections
+overlap. All scoped quality gates and both 44-invalid-call contract probes pass;
+105 edited-guide links resolve. The private server is removed and protected
+preferences are unchanged. See the review for logs and evidence limits.
+
+## DB10. Add physical schema facts, bounded reads and optional diagnostics
+
+**Implemented for review, 2026-11-04.** The
+[feature guide](driver-wrapper-features-2026-11-04.md) records native constraint
+facts, connection-aware fetch helpers, projected/filtered scans with resumable
+IDs, live backend capability reports, and opt-in query observations. View-row
+reads now preserve borrowed transactions and close resources on errors; hierarchy
+traversal detects cycles. API declarations, concrete signatures and typed caller
+examples cover the new surface.
+
+Scans share the portable macros' existing pagination primitive. Callers own
+snapshot lifetime and checkpoint durability; observations have no default timer
+or SQLite progress handler. Remaining custom-column placeholders, compatibility
+DDL portability and historical direct commit points remain separately scoped.
+The guide records final validation evidence and limits.
+
 ## Review evidence and checks
 
 The 2026-10-20 review built a fresh SQLite schema and compared explicit table

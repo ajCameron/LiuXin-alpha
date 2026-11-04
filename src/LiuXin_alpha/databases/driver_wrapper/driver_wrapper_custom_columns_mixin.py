@@ -1,4 +1,3 @@
-
 """
 Manage custom-column definitions and physical value tables.
 
@@ -7,20 +6,24 @@ attachment names can map to current main tables. Connection overrides are resolv
 lazily, while unfinished custom-value mutation hooks retain their existing behavior.
 """
 
-import re
+from __future__ import annotations
 
-from typing import List, TYPE_CHECKING, Any, Optional
+import re
+from collections.abc import Mapping
+from typing import TYPE_CHECKING, Any, Never
 
 from LiuXin_alpha.databases.constants import CUSTOM_DATA_TYPES
+from LiuXin_alpha.databases.db_types.driver_types import (
+    QueryConnection,
+)
 from LiuXin_alpha.utils.localization import trans as _
 from LiuXin_alpha.utils.logging import default_log
 from LiuXin_alpha.utils.python_tools import to_json_str
 
 if TYPE_CHECKING:
-
     from LiuXin_alpha.databases.api.database_api import DatabaseAPI
     from LiuXin_alpha.databases.api.macros_api import MacrosAPI
-    from LiuXin_alpha.databases.api.row_api import RowAPI
+
 
 # Todo: Round these up and move them to the custom columns mixin - as with everything else
 # Todo: Or, perhaps preferably, move them down into the driver and integrate properly
@@ -36,8 +39,7 @@ class CustomColumnsDriverWrapperMixin:
         >>> wrapper.create_custom_column("note", in_table="works")  # doctest: +SKIP
     """
 
-
-    def __init__(self, db: "DatabaseAPI", macros: "MacrosAPI") -> None:
+    def __init__(self, db: DatabaseAPI | None, macros: MacrosAPI | None) -> None:
         """
         Initialize database ownership, connection override and custom-table tracking.
 
@@ -60,13 +62,14 @@ class CustomColumnsDriverWrapperMixin:
         """
         # Worker objects
         self.db = db
-        self._conn_override = None  # prefer using the live driver connection via @property conn
+        self._conn_override: QueryConnection | None = (
+            None  # prefer using the live driver connection via @property conn
+        )
 
         # Don't assign to self.macros directly: subclasses (e.g. DriverWrapper) may expose
         # macros as a read-only @property (no setter). Also avoid clobbering an already-set
         # macros when macros is None.
         if macros is not None:
-
             macros_setter = getattr(self, "set_macros", None)
 
             if callable(macros_setter):
@@ -76,11 +79,17 @@ class CustomColumnsDriverWrapperMixin:
                     self.macros = macros
                 except AttributeError:
                     # Last resort: common convention used by wrappers
-                    setattr(self, "_macros", macros)
+                    self._macros = macros
 
         # Todo: Might want to rename this to custom_column_tables
         # Stores properties of the database
-        self.custom_tables = set()
+        self.custom_tables: set[str] = set()
+
+    def _require_database(self) -> DatabaseAPI:
+        """Reject owner-dependent operations before the facade has been wired."""
+        if self.db is None:
+            raise RuntimeError("Custom-column operations require an owning database")
+        return self.db
 
     def _canonicalise_cc_in_table(self, in_table: str) -> str:
         """
@@ -107,7 +116,10 @@ class CustomColumnsDriverWrapperMixin:
         :return: Resolved attachment name, or the original name.
         """
 
-        available = self.db.main_tables.union(self.db.interlink_tables).union(self.db.intralink_tables)
+        db = self._require_database()
+        available = db.main_tables.union(db.interlink_tables).union(
+            db.intralink_tables or ()
+        )
         if in_table in available:
             return in_table
         if in_table == "books":
@@ -116,9 +128,8 @@ class CustomColumnsDriverWrapperMixin:
                     return candidate
         return in_table
 
-
     @property
-    def conn(self):
+    def conn(self) -> QueryConnection | None:
         """
         Resolve an override or the current owner/driver connection.
 
@@ -177,7 +188,7 @@ class CustomColumnsDriverWrapperMixin:
         return override
 
     @conn.setter
-    def conn(self, value):
+    def conn(self, value: QueryConnection | None) -> None:
         # Backwards-compat: allow code to assign self.conn = <connection>.
         # Prefer leaving this unset so the property resolves a fresh connection from the driver.
         """
@@ -199,55 +210,16 @@ class CustomColumnsDriverWrapperMixin:
         """
         self._conn_override = value
 
-
     # ----------------------------------------------------------------------------------------------------------------------
     #
     # - CUSTOM COLUMN METHODS
     def deleted_marked_custom_columns(self) -> None:
+        """Atomically remove marked definitions and their physical SQLite storage.
+
+        The macro reuses the current transaction through a savepoint, or owns a
+        new unit on an idle connection. Selection and deletion share that unit.
         """
-        Remove custom tables for definitions already marked for deletion.
-
-        Reads IDs and attachment tables through the resolved connection, accepting dict
-        or positional rows and defaulting empty attachment names to books. Any initial
-        query error selects a legacy macro fallback that assumes books for every result.
-        Builds the physical-table map and delegates deletion only when it is nonempty.
-        Shared macros commit drops and remove marked metadata; local custom_tables is
-        not refreshed here.
-
-        Example:
-            >>> wrapper.deleted_marked_custom_columns()  # doctest: +SKIP
-
-
-        :return: None.
-        """
-        # Custom columns can be attached to any table (not just books). The link-table name
-        # depends on the attachment table, so we must include custom_column_in_table when
-        # computing table/link-table pairs.
-        num_table_lt_map: dict[int, tuple[str, str]] = {}
-
-        # Prefer executing via the connection bound to this instance to avoid
-        # side effects from driver_wrapper connection/lock aliasing.
-        try:
-            rows = self.conn.get_row(
-                "SELECT custom_column_id, custom_column_in_table FROM custom_columns "
-                "WHERE custom_column_mark_for_delete=1"
-            )
-        except Exception:
-            # Backwards-compat path for older DBs/schemas/macros (books-only).
-            rows = [(num, "books") for num in self.db.macros.get_all_cc_ids_marked_for_delete(conn=self.conn)]
-
-        for r in rows:
-            if isinstance(r, dict):
-                num = int(r.get("custom_column_id"))
-                in_table = r.get("custom_column_in_table") or "books"
-            else:
-                num = int(r[0])
-                in_table = (r[1] if len(r) > 1 else None) or "books"
-
-            num_table_lt_map[num] = self.custom_table_names(num, in_table=in_table)
-
-        if num_table_lt_map:
-            self.db.macros.preform_cc_column_delete_from_map(num_table_lt_map, conn=self.conn)
+        self._require_database().macros.delete_marked_custom_columns()
 
     def get_custom_tables(self) -> set[str]:
         """
@@ -265,7 +237,9 @@ class CustomColumnsDriverWrapperMixin:
         """
         # Always use the driver's live connection to avoid stale db.conn aliases pointing
         # at a closed connection after driver/connection churn.
-        return self.db.macros.direct_get_custom_tables(conn=self.db.driver.conn)
+        return self._require_database().macros.direct_get_custom_tables(
+            conn=self._require_database().driver.conn
+        )
 
     def direct_get_custom_extra(self, link_table: str, index: int) -> Any:
         """
@@ -285,9 +259,11 @@ class CustomColumnsDriverWrapperMixin:
         :param index: Owner identifier matched against the link _book column.
         :return: Selected extra scalar or the connection adapter's missing-value result.
         """
-        return self.db.macros.direct_get_custom_and_extra(link_table, index, conn=self.conn)
+        return self._require_database().macros.direct_get_custom_and_extra(
+            link_table, index, conn=self.conn
+        )
 
-    def direct_get_custom_id_val_pairs(self, table: str) -> tuple[int, Any]:
+    def direct_get_custom_id_val_pairs(self, table: str) -> list[tuple[int, Any]]:
         """
         Read all ID/value pairs from a custom table on the resolved connection.
 
@@ -303,7 +279,9 @@ class CustomColumnsDriverWrapperMixin:
         :param table: Table name in the current schema.
         :return: Macro result, normally a list of (ID, value) tuples.
         """
-        return self.db.macros.get_all_cc_id_val_pairs(table, conn=self.conn)
+        return self._require_database().macros.get_all_cc_id_val_pairs(
+            table, conn=self.conn
+        )
 
     @staticmethod
     def custom_table_names(num: int, in_table: str = "books") -> tuple[str, str]:
@@ -329,49 +307,31 @@ class CustomColumnsDriverWrapperMixin:
             num = int(num)
         except ValueError as e:
             err_str = "Cannot coerce table num (id) to an integer"
-            err_str = default_log.log_exception(err_str, e, "ERROR", ("num", num), ("num_type", type(num)))
-            raise ValueError(err_str)
+            err_str = default_log.log_exception(
+                err_str, e, "ERROR", ("num", num), ("num_type", type(num))
+            )
+            raise ValueError(err_str) from e
 
-        return "custom_column_%d" % num, "%s_custom_column_%d_link" % (in_table, num)
+        return f"custom_column_{num}", f"{in_table}_custom_column_{num}_link"
 
     # Todo: Custom columns needed to be added to the appropriate table name cache after they've been created - check
     #       that this is happening
     def set_custom_column_metadata(
-            self,
-            num: int,
-            name: Optional[str] = None,
-            label: Optional[str] = None,
-            is_editable: Optional[str] = None,
-            display: Optional[str] = None,
-            in_table: str = "books"):
+        self,
+        num: int,
+        name: str | None = None,
+        label: str | None = None,
+        is_editable: bool | None = None,
+        display: Mapping[str, Any] | None = None,
+        in_table: str | None = None,
+    ) -> bool:
+        """Atomically update definition fields, preserving omitted fields.
+
+        Attachment changes require a storage migration and are rejected here.
+        The macro joins the current transaction without committing unrelated
+        writes. The caller remains responsible for facade metadata refresh.
         """
-        Write supplied custom-column definition fields through the owner macro.
-
-        No connection override is passed, so shared macros use db.driver.conn. Non-None
-        fields are requested updates; display is JSON-encoded and editable is converted
-        to bool. The concrete default in_table="books" therefore requests an attachment
-        change unless None is passed explicitly. Changing attachment metadata does not
-        move physical tables. Shared macros commit requested updates, including other
-        pending work; the caller schedules any metadata backup.
-
-        Example:
-            >>> wrapper.set_custom_column_metadata(1)  # doctest: +SKIP
-
-
-        :param num: Custom-column metadata identifier.
-        :param name: Replacement name, or None to retain it.
-        :param label: Replacement label, or None to retain it.
-        :param is_editable: Value converted to bool when provided; None retains the
-            existing flag.
-        :param display: JSON-serializable display options despite the str annotation;
-            None retains them.
-        :param in_table: Replacement attachment metadata; defaults to books, while None
-            retains it.
-        :return: Macro changed flag: True for requested updates, not proof that an
-            existing row changed.
-        """
-        # Note: the caller is responsible for scheduling a metadata backup if necessary
-        changed = self.db.macros.set_custom_column_metadata(
+        return self._require_database().macros.set_custom_column_metadata(
             num=num,
             name=name,
             label=label,
@@ -379,9 +339,6 @@ class CustomColumnsDriverWrapperMixin:
             display=display,
             in_table=in_table,
         )
-
-        # Note: the caller is responsible for scheduling a metadata backup if necessary
-        return changed
 
     # Todo: Restrict multiple to the known values
     # Todo: The combination of name and table should be unique
@@ -393,13 +350,13 @@ class CustomColumnsDriverWrapperMixin:
         name: str,
         datatype: str = "text",
         is_multiple: bool = False,
-        label: Optional[str] = None,
+        label: str | None = None,
         editable: bool = True,
-        display: Optional[str] = None,
-        in_table: bool = "books",
-        table: Optional[str] = None,
-        make_category = None,
-    ):
+        display: Mapping[str, Any] | None = None,
+        in_table: str = "books",
+        table: str | None = None,
+        make_category: bool | None = None,
+    ) -> int:
         """
         Create a custom-column definition and its physical value storage.
 
@@ -412,10 +369,10 @@ class CustomColumnsDriverWrapperMixin:
 
         Text, rating, series and enumeration use normalized value/link storage. Multiple
         comments and series request ordering. display is serialized as JSON; for
-        composite columns, make_category updates that mapping. Reserves and updates a
-        custom_columns row before invoking physical DDL, so failures need not undo the
-        metadata write. Adds generated names to custom_tables and returns the definition
-        ID; it does not reload all owner caches.
+        composite columns, make_category updates that mapping. Definition insertion
+        and physical DDL share one owned transaction: either both commit or both roll
+        back. Nested macro transactions are refused before writing, so facade caches
+        are updated only after a real commit. Returns the definition ID.
 
         Example:
             >>> wrapper.create_custom_column("note")  # doctest: +SKIP
@@ -429,10 +386,8 @@ class CustomColumnsDriverWrapperMixin:
         :param label: Optional lowercase registry label; None derives one from
             attachment and name.
         :param editable: Editable flag recorded in the definition.
-        :param display: JSON-serializable display options mapping despite the
-            annotation; None becomes an empty dict.
-        :param in_table: Attachment table name despite the bool annotation; defaults to
-            books.
+        :param display: JSON-serializable options; None becomes an empty dict.
+        :param in_table: Attachment table name; defaults to books.
         :param table: Optional alias for in_table; conflicting explicit names raise
             TypeError.
         :param make_category: Optional boolean-like composite browser-category setting;
@@ -444,18 +399,24 @@ class CustomColumnsDriverWrapperMixin:
         # Support newer/clearer keyword alias: `table=` (same as `in_table=`)
         if table is not None:
             if in_table != "books" and in_table != table:
-                raise TypeError("Pass only one of table= or in_table= (or keep them identical).")
+                raise TypeError(
+                    "Pass only one of table= or in_table= (or keep them identical)."
+                )
             in_table = table
 
         in_table = self._canonicalise_cc_in_table(in_table)
 
-        assert in_table in self.db.main_tables.union(self.db.interlink_tables).union(
-            self.db.intralink_tables
-        ), "in_table {} not found in main, intralink or interlink tables".format(in_table)
+        assert in_table in self._require_database().main_tables.union(
+            self._require_database().interlink_tables
+        ).union(self._require_database().intralink_tables or ()), (
+            f"in_table {in_table} not found in main, intralink or interlink tables"
+        )
 
         # Some datatypes just don't make much sense to be multiple - so throwing an error if we can some combinations
         if is_multiple and datatype in ("rating", "int", "float", "datetime", "bool"):
-            err_str = "Cannot have a mutliple column of type {} - makes no sense".format(datatype)
+            err_str = (
+                f"Cannot have a mutliple column of type {datatype} - makes no sense"
+            )
             raise NotImplementedError(err_str)
 
         if display is None:
@@ -469,18 +430,25 @@ class CustomColumnsDriverWrapperMixin:
 
         # Update the custom columns table with the new entry - once this has been done it will, at a minimum, be created
         # at the next startup
-        label = label if label is not None else "{}__{}".format(in_table, name)
+        label = label if label is not None else f"{in_table}__{name}"
 
         if not label:
             raise ValueError(_("The label must be non-empty."))
 
-
-        if re.match(r"^\w+$", label) is None or (not label) or (not label[0].isalpha()) or label.lower() != label:
+        if (
+            re.match(r"^\w+$", label) is None
+            or (not label)
+            or (not label[0].isalpha())
+            or label.lower() != label
+        ):
             raise ValueError(
-                _("The label must contain only lower case letters, digits and underscores, and start " "with a letter")
+                _(
+                    "The label must contain only lower case letters, digits and underscores, and start "
+                    "with a letter"
+                )
             )
         if datatype not in CUSTOM_DATA_TYPES:
-            raise ValueError("%r is not a supported data type" % datatype)
+            raise ValueError(f"{datatype!r} is not a supported data type")
 
         # If normalized - a link table is required and generated
         normalized = datatype not in (
@@ -518,38 +486,44 @@ class CustomColumnsDriverWrapperMixin:
             dt = "BOOL"
         else:
             err_str = "datatype not recognize and not supported"
-            err_str = default_log.log_variables(err_str, "ERROR", ("datatype", datatype))
+            err_str = default_log.log_variables(
+                err_str, "ERROR", ("datatype", datatype)
+            )
             raise NotImplementedError(err_str)
 
-        # Todo: Really rating should point over to a rating table of some sort
-        cc_row_dict = self.db.driver_wrapper.get_blank_row("custom_columns")
+        # Register the complete definition and its storage in one transaction.
         cc = "custom_column_"
+        cc_row_dict: dict[str, Any] = {cc + "scratch": ""}
         cc_row_dict[cc + "label"] = label
         cc_row_dict[cc + "name"] = name
         cc_row_dict[cc + "datatype"] = datatype
-        cc_row_dict[cc + "is_multiple"] = is_multiple
-        cc_row_dict[cc + "editable"] = editable
-        cc_row_dict[cc + "display"] = to_json_str(display)  # display is a dict, and so has to be serialized
-        cc_row_dict[cc + "normalized"] = normalized
+        cc_row_dict[cc + "is_multiple"] = int(is_multiple)
+        cc_row_dict[cc + "editable"] = int(editable)
+        cc_row_dict[cc + "display"] = to_json_str(
+            display
+        )  # display is a dict, and so has to be serialized
+        cc_row_dict[cc + "normalized"] = int(normalized)
         cc_row_dict[cc + "in_table"] = in_table
-        cc_row_dict[cc + "ordered"] = ordered
-        self.db.driver_wrapper.update_row(cc_row_dict)
-
-        num = cc_row_dict["custom_column_id"]
-
+        cc_row_dict[cc + "ordered"] = int(ordered)
         collate = "COLLATE NOCASE" if dt == "TEXT" else ""
-        cc_table, link_table = self.custom_table_names(num, in_table=in_table)
-
-        self.db.macros.create_cc_table(
-            normalized=normalized,
-            datatype=datatype,
-            dt=dt,
-            table=cc_table,
-            link_table=link_table,
-            collate=collate,
-            in_table=in_table,
-            ordered=ordered,
-        )
+        with self._require_database().macros.transaction(
+            serialized=True, require_outermost=True
+        ) as conn:
+            num = self._require_database().macros.insert_row(
+                "custom_columns", cc_row_dict
+            )
+            cc_table, link_table = self.custom_table_names(num, in_table=in_table)
+            self._require_database().macros.create_cc_table(
+                normalized=normalized,
+                datatype=datatype,
+                dt=dt,
+                table=cc_table,
+                link_table=link_table,
+                collate=collate,
+                in_table=in_table,
+                ordered=ordered,
+                conn=conn,
+            )
         # Todo: Need to notify the database that the custom columns have been updated
 
         # Update the tables name cache in the database to reflect the fact that new tables have just been created
@@ -579,7 +553,7 @@ class CustomColumnsDriverWrapperMixin:
         self.macros.mark_custom_column_for_delete(num=num)
 
     # Todo: CustomColumnRowAPI class?
-    def _get_custom_column_row(self, in_table: str, cc_name: str) -> "RowAPI":
+    def _get_custom_column_row(self, in_table: str, cc_name: str) -> None:
         """
         Reserve a hook for retrieving a custom-column definition row.
 
@@ -594,12 +568,14 @@ class CustomColumnsDriverWrapperMixin:
 
         :param in_table: Table to which the custom column is attached.
         :param cc_name: Custom column name.
-        :return: None; this hook is unimplemented despite its RowAPI annotation.
+        :return: None; this hook remains unimplemented.
         """
         pass
 
     # Todo: We've got a known list of link table additional info - not just extra - use it
-    def update_custom_column(self, in_table, cc_name, value, extra: Optional[str] = None) -> "RowAPI":
+    def update_custom_column(
+        self, in_table: str, cc_name: str, value: Any, extra: str | None = None
+    ) -> Never:
         """
         Reject the unfinished custom-column value update operation.
 

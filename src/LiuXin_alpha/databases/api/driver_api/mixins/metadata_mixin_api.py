@@ -10,7 +10,6 @@ transaction clocks.
 from __future__ import annotations
 
 import abc
-
 from typing import Any, Optional
 
 
@@ -29,6 +28,10 @@ class DriverMetadataMixinAPI(abc.ABC):
         >>> inspect.isabstract(DriverMetadataMixinAPI)
         True
     """
+
+    @abc.abstractmethod
+    def direct_get_relation_type(self, name: str) -> str | None:
+        """Inspect a table/view without completing any caller-owned transaction."""
 
     # Toodo: not clear how different to database version.
     @property
@@ -87,23 +90,10 @@ class DriverMetadataMixinAPI(abc.ABC):
 
     @abc.abstractmethod
     def direct_get_schema_version(self) -> Optional[int]:
-        """
-        Read SQLite's schema change counter, retrying on a fresh connection after
-        failure.
+        """Read the schema counter without completing or replacing a borrowed handle.
 
-        Abstract backend hook. The behavior below describes the shared SQL/SQLite
-        implementation; this declaration itself has no operational body.
-
-        Temporary connections are closed. A failing primary handle may be closed without
-        replacing ``self.conn``; failure of the retry propagates. Failed integer
-        conversion preserves the raw value.
-
-        Example:
-            >>> driver.direct_get_schema_version()  # doctest: +SKIP
-
-
-        :return: The integer counter, a raw non-convertible value, or ``None`` if no row
-            is produced.
+        Query errors propagate. Only a connection acquired for this inspection is
+        closed; callers explicitly reconnect an unusable primary connection.
         """
 
     @abc.abstractmethod
@@ -144,7 +134,7 @@ class DriverMetadataMixinAPI(abc.ABC):
         """
 
     @abc.abstractmethod
-    def direct_set_db_unique_id(self, force_value: Optional[str] = None) -> None:
+    def direct_set_db_unique_id(self, force_value: str | None = None) -> bool:
         """
         Write a supplied identity or new UUID4, commit, and verify it by rereading.
 

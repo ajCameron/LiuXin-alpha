@@ -14,18 +14,18 @@ import datetime
 import json
 import sqlite3
 import types
-from typing import Optional, Union, Any, Iterable
+from collections.abc import Iterable
+from typing import Any, Optional, Union
 
-from LiuXin_alpha.utils.libraries.liuxin_six import iteritems
-
-from LiuXin_alpha.utils.language_tools import plural_singular_mapper
-
-from LiuXin_alpha.databases.database_driver_plugins.SQL.macros.cc_macros_mixin.cc_management_macros import (
-    CustomColumnsManagementMacrosMixin)
 from LiuXin_alpha.databases.database_driver_plugins.SQL.macros.cc_macros_mixin.cc_ensure_values_mixin import (
     CustomColumnsEnsureValueMacrosMixin,
 )
-
+from LiuXin_alpha.databases.database_driver_plugins.SQL.macros.cc_macros_mixin.cc_management_macros import (
+    CustomColumnsManagementMacrosMixin,
+)
+from LiuXin_alpha.databases.db_types.driver_types import QueryConnection
+from LiuXin_alpha.utils.language_tools import plural_singular_mapper
+from LiuXin_alpha.utils.libraries.liuxin_six import iteritems
 
 
 class SQLiteDatabaseCustomColumnMacros(
@@ -516,7 +516,7 @@ class SQLiteDatabaseCustomColumnMacros(
         else:
             return conn.get("SELECT custom_%s FROM meta2 WHERE id=?" % num, (book_id,), all=False)
 
-    def get_all_cc_id_val_pairs(self, table, conn: Optional[sqlite3.Connection] = None):
+    def get_all_cc_id_val_pairs(self, table: str, conn: QueryConnection | None = None) -> list[tuple[int, Any]]:
         """
         Read ID/value pairs from a custom table using the default get result mode.
 
@@ -1438,7 +1438,7 @@ class SQLiteDatabaseCustomColumnMacros(
 
     #
     # ------------------------------------------------------------------------------------------------------------------
-    def direct_get_custom_tables(self, conn=None):
+    def direct_get_custom_tables(self, conn=None) -> set[str]:
         """
         Return main-schema physical table names matching the legacy custom-table
         patterns.

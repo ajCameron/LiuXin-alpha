@@ -4,15 +4,13 @@ Execute SQL statements, batches and scripts with explicit driver connection poli
 """
 
 import sqlite3
+from collections.abc import Iterable
+from typing import Optional, Union
 
-from typing import Union, Optional
-
-from LiuXin_alpha.errors import InputIntegrityError
-
+from LiuXin_alpha.databases.db_types.driver_types import QueryCursor, SQLParameters
+from LiuXin_alpha.errors import DatabaseDriverError, InputIntegrityError
 from LiuXin_alpha.utils.libraries.liuxin_six import basestring, force_unicode
-
 from LiuXin_alpha.utils.logging import default_log
-from LiuXin_alpha.errors import DatabaseDriverError
 
 
 class SQLExecutionMixin:
@@ -120,10 +118,7 @@ class SQLExecutionMixin:
 
     # Todo: Add zero methods for all the data caches after any of these are used
     # Ideally these would never be used. They are here for testing,
-    def direct_execute(
-            self,
-            sql: Union[str, tuple[str, ...], list[str]],
-            values: Optional[tuple[str]] = None) -> None:
+    def direct_execute(self, sql: str, values: SQLParameters | int | None = None) -> QueryCursor:
         """
         Execute one statement using a live primary connection and its transaction
         context.
@@ -203,7 +198,7 @@ class SQLExecutionMixin:
             except Exception:
                 pass
 
-    def direct_executemany(self, sql: str, values: Optional[tuple[str, ...]] = None) -> None:
+    def direct_executemany(self, sql: str, values: Iterable[SQLParameters] | None = None) -> None:
         """
         Execute a batch on the primary connection, or delegate an unbound script.
 

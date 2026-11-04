@@ -8,14 +8,15 @@ helpers that this mixin does not define.
 
 import sqlite3
 from copy import deepcopy
-
-from typing import TYPE_CHECKING, Any
-
-from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode, force_unicode
-from LiuXin_alpha.errors import DatabaseIntegrityError, InputIntegrityError, DatabaseDriverError
+from typing import Any
 
 from LiuXin_alpha.constants import VERBOSE_DEBUG
-
+from LiuXin_alpha.errors import (
+    DatabaseDriverError,
+    DatabaseIntegrityError,
+    InputIntegrityError,
+)
+from LiuXin_alpha.utils.libraries.liuxin_six import force_unicode, six_unicode
 from LiuXin_alpha.utils.logging import default_log
 
 

@@ -1,4 +1,3 @@
-
 """
 Expose database identity, relation discovery and column policy helpers.
 
@@ -7,15 +6,17 @@ validation and presentation; policy changes do not themselves rewrite existing r
 The relation-type helper queries SQLite catalog metadata directly.
 """
 
-from __future__ import absolute_import, division, print_function, unicode_literals, annotations
+from __future__ import annotations
 
-
-from typing import Optional, Iterable, Iterator, Mapping, TYPE_CHECKING
+from collections.abc import Iterator, Mapping
+from typing import Any
 
 from LiuXin_alpha.databases.column_metadata import (
     ColumnMetadata,
     ColumnOptions,
 )
+from LiuXin_alpha.databases.driver_wrapper._base import DriverWrapperBase
+from LiuXin_alpha.databases.normalized_identities import NormalizedIdentitySpec
 from LiuXin_alpha.metadata.value_policies import (
     ColumnEmptyValuePolicy,
     ColumnMergePolicy,
@@ -23,15 +24,9 @@ from LiuXin_alpha.metadata.value_policies import (
     ColumnSemanticRole,
     ColumnValidationProfile,
 )
-from LiuXin_alpha.databases.normalized_identities import NormalizedIdentitySpec
-
-if TYPE_CHECKING:
-
-    from LiuXin_alpha.databases.api.driver_api.driver_api import DatabaseDriverAPI
 
 
-
-class DriverWrapperMetadataMixin:
+class DriverWrapperMetadataMixin(DriverWrapperBase):
     """
     Expose database identity, relation discovery and column policy helpers.
 
@@ -43,12 +38,10 @@ class DriverWrapperMetadataMixin:
         >>> wrapper.get_tables()  # doctest: +SKIP
     """
 
-    driver: "DatabaseDriverAPI"
-
     # ------------------------------------------------------------------------------------------------------------------
     # - METHODS TO GET BASIC INFORMATION ABOUT THE DATABASE START HERE
     # ------------------------------------------------------------------------------------------------------------------
-    def get_tables(self, force_refresh: bool = False) -> Iterable[str]:
+    def get_tables(self, force_refresh: bool = False) -> list[str]:
         """
         Return cached table/view names, rebuilding when a known schema version changes.
 
@@ -56,8 +49,8 @@ class DriverWrapperMetadataMixin:
         describe the shared SQL/SQLite implementation; backend errors propagate.
 
         Suppress an ``_v`` name when its unsuffixed counterpart exists. The returned
-        list is the cache itself; forcing refresh closes and replaces the primary
-        handle.
+        list is the cache itself; refresh preserves the primary connection and its
+        pending transaction.
 
         A refresh first clears derived wrapper schema caches when that hook exists, then
         refreshes backend table discovery.
@@ -66,66 +59,30 @@ class DriverWrapperMetadataMixin:
             >>> wrapper.get_tables()  # doctest: +SKIP
 
 
-        :param force_refresh: Invalidate cached schema data and reopen the primary
-            connection before introspection.
+        :param force_refresh: Invalidate cached schema data before introspection.
         :return: The mutable list of visible table and view names.
         """
         if force_refresh and hasattr(self, "_clear_derived_schema_caches"):
             self._clear_derived_schema_caches()
         return self.driver.direct_get_tables(force_refresh=force_refresh)
 
-    def get_relation_type(self, name: str) -> Optional[str]:
+    def get_relation_type(self, name: str) -> str | None:
+        """Return table/view/None through the backend's read-only lookup.
+
+        Inspection never commits, rolls back or replaces the primary connection.
+        Backend errors propagate rather than being reported as an absent relation.
         """
-        Use native backend relation introspection, or the SQLite catalog adapter.
+        return self.driver.direct_get_relation_type(str(name))
 
-        Stringifies name, binds it in a case-insensitive sqlite_master query and
-        lowercases/strips the first non-None type cell. Does not restrict catalog types
-        to table/view, and does not inspect TEMP objects. Query/iteration exceptions are
-        swallowed as None; errors stringifying name occur before that guard.
-
-        Example:
-            >>> import sqlite3
-            >>> from types import SimpleNamespace
-            >>> connection = sqlite3.connect(":memory:")
-            >>> _ = connection.execute("CREATE TABLE sample (id INTEGER)")
-            >>> host = SimpleNamespace(execute=connection.execute)
-            >>> DriverWrapperMetadataMixin.get_relation_type(host, "SAMPLE")
-            'table'
-            >>> DriverWrapperMetadataMixin.get_relation_type(host, "missing") is None
-            True
-            >>> connection.close()
-
-
-        :param name: Schema object name to match case-insensitively.
-        :return: Catalog type such as table, view, index or trigger; None for no result
-            or a query failure.
-        """
-        name = str(name)
-        driver = getattr(self, "driver", None)
-        native = getattr(type(driver), "direct_get_relation_type", None)
-        if callable(native):
-            return native(driver, name)
-        try:
-            cur = self.execute(
-                "SELECT type FROM sqlite_master WHERE name = ? COLLATE NOCASE LIMIT 1;",
-                (name,),
-            )
-            for row in cur:
-                if row and row[0] is not None:
-                    return str(row[0]).strip().lower()
-        except Exception:
-            return None
-        return None
-
-    def get_column_headings(self, table: str) -> Iterable[str]:
+    def get_column_headings(self, table: str) -> list[str]:
         """
         Look up cached column names after canonicalizing the table identifier.
 
         Delegates to the driver's direct_get_column_headings hook. The following backend
         details describe the shared SQL/SQLite implementation; backend errors propagate.
 
-        Populate the combined cache only when absent; an existing cache is not
-        independently version-checked here. Unknown tables raise InputIntegrityError.
+        Check the combined cache's schema version before using it. Unknown tables
+        raise InputIntegrityError; inspection preserves the primary transaction.
 
         Example:
             >>> wrapper.get_column_headings("works")  # doctest: +SKIP
@@ -410,7 +367,9 @@ class DriverWrapperMetadataMixin:
 
         return self.driver.direct_get_normalized_identity_spec(table, value_column)
 
-    def iter_normalized_identity_specs(self, *, table: str | None = None) -> Iterator[NormalizedIdentitySpec]:
+    def iter_normalized_identity_specs(
+        self, *, table: str | None = None
+    ) -> Iterator[NormalizedIdentitySpec]:
         """
         Yield database identity declarations after checking physical references.
 
@@ -867,7 +826,7 @@ class DriverWrapperMetadataMixin:
 
         self.set_case_sensitivity(table, column, case_sensitive)
 
-    def get_tables_and_columns(self) -> dict[str, set[str]]:
+    def get_tables_and_columns(self) -> dict[str, list[str]]:
         """
         Build or reuse the table/view-to-column-list cache with schema-version checks.
 
@@ -875,8 +834,8 @@ class DriverWrapperMetadataMixin:
         backend details describe the shared SQL/SQLite implementation; backend errors
         propagate.
 
-        Use a fresh connection for PRAGMA table_info and close it on success. Return the
-        cache object directly; force-refresh also replaces the primary connection.
+        Read schema metadata without replacing the primary connection or ending its
+        transaction. Return the cache object directly.
 
         Example:
             >>> wrapper.get_tables_and_columns()  # doctest: +SKIP
@@ -887,7 +846,7 @@ class DriverWrapperMetadataMixin:
         """
         return self.driver.direct_get_tables_and_columns()
 
-    def get_highest_id(self, target_table: str) -> int:
+    def get_highest_id(self, target_table: str) -> int | None:
         """
         Query the maximum ID value in a table, closing the connection after its result.
 
@@ -904,13 +863,13 @@ class DriverWrapperMetadataMixin:
         return self.driver.direct_get_highest_id(target_table)
 
     @property
-    def user_version(self) -> str:
+    def user_version(self) -> int | str | None:
         """
         Return the driver's application-controlled user_version value.
 
         This property simply forwards driver.user_version; it does not query or modify
-        SQLite schema_version. SQLite backends currently return an integer despite the
-        historical str annotation.
+        SQLite schema_version. SQLite backends return an integer; other backends
+        may return text or None.
 
         Example:
             >>> wrapper.user_version  # doctest: +SKIP
@@ -921,7 +880,7 @@ class DriverWrapperMetadataMixin:
         return self.driver.user_version
 
     # Todo: Need to standardize target_table, table and table_name to something
-    def get_record_count(self, target_table):
+    def get_record_count(self, target_table: str) -> int:
         """
         Validate a table name and count its rows using a fresh connection.
 
@@ -946,7 +905,7 @@ class DriverWrapperMetadataMixin:
     # Todo: Be nice to be able to get a full readout of all the metadata fields
     # Todo: ... Actually use this?
     # Todo: This maaayyy be typable with a protocol
-    def read_metadata(self, field):
+    def read_metadata(self, field: str) -> Any:
         """
         Read a validated metadata field, creating the placeholder row if needed.
 
@@ -966,7 +925,7 @@ class DriverWrapperMetadataMixin:
         """
         return self.driver.direct_read_metadata(md_field_name=field)
 
-    def write_metadata(self, field, value):
+    def write_metadata(self, field: str, value: Any) -> None:
         """
         Validate a metadata field, initialize the sole row and update its value.
 
@@ -985,9 +944,11 @@ class DriverWrapperMetadataMixin:
         :param value: Value assigned to the validated metadata column.
         :return: ``None``.
         """
-        return self.driver.direct_write_metadata(md_field_name=field, md_field_value=value)
+        return self.driver.direct_write_metadata(
+            md_field_name=field, md_field_value=value
+        )
 
-    def get_uuid(self):
+    def get_uuid(self) -> str | None:
         """
         Read the database identity from its sole metadata row.
 
@@ -1006,7 +967,7 @@ class DriverWrapperMetadataMixin:
         """
         return self.driver.direct_get_db_unique_id()
 
-    def set_uuid(self, new_force_value: Optional[str] = None) -> None:
+    def set_uuid(self, new_force_value: str | None = None) -> bool:
         """
         Write a supplied identity or new UUID4, commit, and verify it by rereading.
 
