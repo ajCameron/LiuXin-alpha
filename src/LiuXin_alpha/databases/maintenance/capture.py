@@ -9,14 +9,15 @@ from __future__ import annotations
 
 import hashlib
 from collections.abc import Iterable
-from typing import Any
 
+from LiuXin_alpha.databases.db_types.driver_types import RowSQLConnection
 from LiuXin_alpha.databases.maintenance.schema import TABLES, quote, table_sql
 
 
 # Todo: We should be able to do better that Any for connection - need a specific type?
+# RowSQLConnection now describes the operations; the caller owns the transaction.
 def install_capture(
-    connection: Any,
+    connection: RowSQLConnection,
     *,
     table: str,
     id_column: str,
@@ -39,7 +40,9 @@ def install_capture(
         _install_sqlite(connection, table, id_column, identity_columns, token)
 
 
-def remove_capture(connection: Any, *, table: str, schema: str | None = None) -> None:
+def remove_capture(
+    connection: RowSQLConnection, *, table: str, schema: str | None = None
+) -> None:
     """Remove only this runtime's guards after the final subscription is removed."""
     if connection.execute(
         f"SELECT 1 FROM {table_sql('maintenance_subscriptions', schema)} WHERE table_name=? LIMIT 1",
@@ -78,7 +81,13 @@ def _identity_json(prefix: str, columns: tuple[str, ...], *, postgres: bool) -> 
     )
 
 
-def _install_sqlite(connection, table, id_column, columns, token):
+def _install_sqlite(
+    connection: RowSQLConnection,
+    table: str,
+    id_column: str,
+    columns: tuple[str, ...],
+    token: str,
+) -> None:
     source = quote(table)
     subscribed = (
         "SELECT p.plugin_id, p.version, p.mode, p.enabled "
@@ -124,8 +133,15 @@ def _install_sqlite(connection, table, id_column, columns, token):
         )
 
 
-def _install_postgres(connection, schema, table, id_column, columns, token):
-    def q(name):
+def _install_postgres(
+    connection: RowSQLConnection,
+    schema: str,
+    table: str,
+    id_column: str,
+    columns: tuple[str, ...],
+    token: str,
+) -> None:
+    def q(name: str) -> str:
         return table_sql(name, schema)
 
     function = q(f"liuxin_m_{token}_capture_v1")

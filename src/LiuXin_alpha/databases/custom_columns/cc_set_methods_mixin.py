@@ -1,4 +1,3 @@
-
 """
 Mutate legacy custom-column SQL values and their results-cache projections.
 
@@ -9,11 +8,13 @@ methods do not provide a rollback context spanning the whole operation.
 
 from __future__ import annotations
 
-from typing import Iterable, Optional, Any, Union
+from LiuXin_alpha.databases.database_driver_plugins._macro_state import require_legacy_macros
+
+from typing import Iterable, Optional, Any, Mapping, Sequence
 
 from functools import partial
 
-from LiuXin_alpha.errors import InvalidUpdate
+from LiuXin_alpha.errors import DatabaseIntegrityError, InvalidUpdate
 
 from LiuXin_alpha.databases.api.custom_columns_api import CustomColumnsAPI
 
@@ -33,10 +34,11 @@ class CCSetMethodsMixin:
         stages a scalar update and dirtying while leaving the final explicit commit to
         its caller.
     """
+
     def set_custom_bulk_multiple(
         self: "CustomColumnsAPI",
         cc_row_ids: Iterable[int],
-        add: Optional[Iterable[Any]] = None,
+        add: Optional[Iterable[str | bytes]] = None,
         remove: Optional[Iterable[str]] = None,
         label: Optional[str] = None,
         num: Optional[int] = None,
@@ -49,16 +51,16 @@ class CCSetMethodsMixin:
         empty owners or a no-op. Tag normalization accepts text and bytes. Exact
         additions win over identical removals, new values are inserted, fixed-name TEMP
         tables drive link changes, then owners are dirtied and committed before cache
-        refresh. Temporary tables are not removed in a finally block, and one-shot owner
-        iterators can be exhausted before later steps.
+        refresh. Owner IDs are materialized once so every step sees the same IDs.
+        Temporary tables are not removed in a finally block.
 
         Example:
             With a host supplying a reusable ID list, set_custom_bulk_multiple([1, 2],
             add=["Travel"], num=column_id) adds the tag to both owners.
 
 
-        :param cc_row_ids: Reusable owner-ID iterable; consumed by several
-            database/cache/notification steps.
+        :param cc_row_ids: Owner-ID iterable, including a single-pass iterator;
+            materialized before database/cache/notification steps.
         :param add: Tags to add, or None for none.
         :param remove: Tags to remove, or None for none.
         :param label: Optional custom-column label; takes precedence over num.
@@ -80,7 +82,9 @@ class CCSetMethodsMixin:
         elif num is not None:
             data = self.custom_column_num_map[num]
         else:
-            raise NotImplementedError("There is no information here to designate the custom column")
+            raise NotImplementedError(
+                "There is no information here to designate the custom column"
+            )
 
         if not data["editable"]:
             raise ValueError("Column %r is not editable" % data["label"])
@@ -89,19 +93,25 @@ class CCSetMethodsMixin:
 
         add = self.cleanup_tags(add)
         remove = self.cleanup_tags(remove)
-        remove = set(remove) - set(add)
+        remove = list(set(remove) - set(add))
+        # These IDs are reused for SQL, dirtying, cache refresh and notification.
+        cc_row_ids = tuple(cc_row_ids)
         if not cc_row_ids or (not add and not remove):
             return
         # get custom table names
         in_table = data.get("in_table") or "books"
-        custom_table, link_table = self.custom_table_names(data["num"], in_table=in_table)
+        custom_table, link_table = self.custom_table_names(
+            data["num"], in_table=in_table
+        )
 
         # Add tags that do not already exist into the custom_table
         all_tags = self.all_custom(num=data["num"])
         lt = [t.lower() for t in all_tags]
         new_tags = [t for t in add if t.lower() not in lt]
         if new_tags:
-            self.db.macros.insert_multiple_values_into_cc_table(custom_table, new_tags, conn=self.conn)
+            require_legacy_macros(self.db.macros).insert_multiple_values_into_cc_table(
+                custom_table, new_tags, conn=self.conn
+            )
 
         # Create the temporary temp_tables to store the ids for books and tags
         # to be operated on
@@ -110,22 +120,28 @@ class CCSetMethodsMixin:
             "temp_bulk_tag_edit_add",
             "temp_bulk_tag_edit_remove",
         )
-        self.db.macros.create_cc_temp_tables(temp_tables, conn=self.conn)
+        require_legacy_macros(self.db.macros).create_cc_temp_tables(temp_tables, conn=self.conn)
 
         # Populate the books temp custom_table
-        self.db.macros.insert_values_into_temp_table("temp_bulk_tag_edit_books", cc_row_ids, conn=self.conn)
+        require_legacy_macros(self.db.macros).insert_values_into_temp_table(
+            "temp_bulk_tag_edit_books", cc_row_ids, conn=self.conn
+        )
 
         # Populate the add/remove tags temp temp_tables
-        self.db.macros.do_cc_db_bulk_addition(temp_tables, custom_table, link_table, add, remove, conn=self.conn)
+        require_legacy_macros(self.db.macros).do_cc_db_bulk_addition(
+            temp_tables, custom_table, link_table, add, remove, conn=self.conn
+        )
 
         # get rid of the temp tables
-        self.db.macros.destroy_cc_temp_tables(temp_tables, conn=self.conn)
+        require_legacy_macros(self.db.macros).destroy_cc_temp_tables(temp_tables, conn=self.conn)
         self.dirtied(cc_row_ids, commit=False)
-        self.conn.commit()
+        self._custom_connection().commit()
 
         # set the in-memory copies of the tags
         for x in cc_row_ids:
-            tags = self.db.macros.read_cc_value_from_meta_2(data["num"], x, conn=self.conn)
+            tags = require_legacy_macros(self.db.macros).read_cc_value_from_meta_2(
+                data["num"], x, conn=self.conn
+            )
             self.data.set(x, self.FIELD_MAP[data["num"]], tags, row_is_id=True)
 
         if notify:
@@ -133,13 +149,13 @@ class CCSetMethodsMixin:
 
     def set_custom_bulk(
         self: "CustomColumnsAPI",
-        cc_row_ids: Union[list[int], tuple[int, ...]],
+        cc_row_ids: Sequence[int],
         val: Any,
         label: Optional[str] = None,
         num: Optional[int] = None,
         append: bool = False,
         notify: bool = True,
-        extras: list[Any] = None,
+        extras: Sequence[Any] | Mapping[int, Any] | None = None,
     ) -> None:
         """
         Call the single-owner worker in sequence, then dirty and commit the batch.
@@ -172,9 +188,11 @@ class CCSetMethodsMixin:
         for idx, id in enumerate(cc_row_ids):
             if extras is not None:
                 ev = extras[idx]
-            self._set_custom(id, val, label=label, num=num, append=append, notify=notify, extra=ev)
+            self._set_custom(
+                id, val, label=label, num=num, append=append, notify=notify, extra=ev
+            )
         self.dirtied(cc_row_ids, commit=False)
-        self.conn.commit()
+        self._custom_connection().commit()
 
     def set_custom(
         self: "CustomColumnsAPI",
@@ -227,7 +245,7 @@ class CCSetMethodsMixin:
         )
         self.dirtied({cc_row_id} | rv, commit=False)
         if commit:
-            self.conn.commit()
+            self._custom_connection().commit()
         return rv
 
     def _set_custom(
@@ -249,8 +267,8 @@ class CCSetMethodsMixin:
         before adding truthy requested values; an existing series link does not update
         its extra. Unnormalized storage deletes the old owner value and inserts a
         non-None replacement. Reload the value through legacy meta2 SQL and update the
-        cache. Current allow_case_change calls update_cc_value(table, value, id),
-        reversing that macro’s ID/value parameters and omitting the explicit connection.
+        cache. Case changes pass the resolved ID and replacement value explicitly;
+        missing lookup/insert IDs raise DatabaseIntegrityError before link creation.
         No complete-operation commit or rollback is supplied here; delegated macros can
         have independent effects.
 
@@ -295,7 +313,9 @@ class CCSetMethodsMixin:
                 )
                 raise
         else:
-            raise NotImplementedError("There is no information here to designate the custom column")
+            raise NotImplementedError(
+                "There is no information here to designate the custom column"
+            )
 
         # The column is made up from data from other columns - thus changing it makes no sense and is ignored.
         if data["datatype"] == "composite":
@@ -324,12 +344,13 @@ class CCSetMethodsMixin:
             if extra is None:
                 extra = 1.0
 
-        books_to_refresh = set([])
+        books_to_refresh: set[int] = set()
         if data["normalized"] and data["datatype"] != "series":
-
             # Checks that, if a column is an enumeration type column, that some value is provided and that the values
             # is in the valid enumeration types
-            if data["datatype"] == "enumeration" and (val and val not in data["display"]["enum_values"]):
+            if data["datatype"] == "enumeration" and (
+                val and val not in data["display"]["enum_values"]
+            ):
                 err_str = "A Custom Column of type enumeration was passed a value not in the allowed write set."
                 err_str = default_log.log_variables(
                     err_str,
@@ -346,12 +367,20 @@ class CCSetMethodsMixin:
                 raise InvalidUpdate(err_str)
 
             if not append or not data["is_multiple"]:
-                self.db.macros.break_cc_links_by_book_id(lt, id_, conn=self.conn)
-                self.db.macros.clear_cc_unused_table_entries(table=table, lt=lt, conn=self.conn)
+                require_legacy_macros(self.db.macros).break_cc_links_by_book_id(lt, id_, conn=self.conn)
+                require_legacy_macros(self.db.macros).clear_cc_unused_table_entries(
+                    table=table, lt=lt, conn=self.conn
+                )
                 # Does the work of actually nullifying the value for the stored data
                 self.data._data[id_][self.FIELD_MAP[data["num"]]] = None
 
-            set_val = val if data["is_multiple"] else [val] if not isinstance(val, list) else val
+            set_val = (
+                val
+                if data["is_multiple"]
+                else [val]
+                if not isinstance(val, list)
+                else val
+            )
             existing = getter()
             if not existing:
                 existing = set([])
@@ -374,36 +403,63 @@ class CCSetMethodsMixin:
 
                 if idx > -1:
                     ex = existing[idx]
-                    xid = self.db.macros.get_cc_id_from_value(table, ex, all=False, conn=self.conn)
+                    xid = require_legacy_macros(self.db.macros).get_cc_id_from_value(
+                        table, ex, all=False, conn=self.conn
+                    )
+                    if xid is None:
+                        raise DatabaseIntegrityError(
+                            f"Custom value {ex!r} disappeared from {table!r}"
+                        )
                     if allow_case_change and ex != x:
                         case_change = True
-                        self.db.macros.update_cc_value(table, x, xid)
+                        require_legacy_macros(self.db.macros).update_cc_value(table, cc_id=xid, cc_value=x)
                 else:
-                    xid = self.db.macros.add_cc_table_value(table, x, conn=self.conn)
+                    xid = require_legacy_macros(self.db.macros).add_cc_table_value(table, x, conn=self.conn)
 
-                if not self.db.macros.check_for_cc_link(lt, id_, xid, self.conn):
+                if xid is None:
+                    raise DatabaseIntegrityError(
+                        f"Custom value {x!r} has no ID in {table!r}"
+                    )
+                if not require_legacy_macros(self.db.macros).check_for_cc_link(lt, id_, xid, self.conn):
                     if data["datatype"] == "series":
-                        self.db.macros.add_cc_link_with_extra(lt, id_, xid, extra, conn=self.conn)
-                        self.data.set(id_, self.FIELD_MAP[data["num"]] + 1, extra, row_is_id=True)
+                        require_legacy_macros(self.db.macros).add_cc_link_with_extra(
+                            lt, id_, xid, extra, conn=self.conn
+                        )
+                        self.data.set(
+                            id_, self.FIELD_MAP[data["num"]] + 1, extra, row_is_id=True
+                        )
                     else:
-                        self.db.macros.add_cc_link_with_extra(lt, id_, xid, conn=self.conn)
+                        require_legacy_macros(self.db.macros).add_cc_link_with_extra(
+                            lt, id_, xid, conn=self.conn
+                        )
 
                 if case_change:
-                    bks = self.db.macros.get_cc_lt_books_from_lt_value(lt, xid, conn=self.conn)
+                    bks = require_legacy_macros(self.db.macros).get_cc_lt_books_from_lt_value(
+                        lt, xid, conn=self.conn
+                    )
                     books_to_refresh |= set([bk[0] for bk in bks])
 
-            nval = self.db.macros.read_cc_value_from_meta_2(data["num"], id_, conn=self.conn)
+            nval = require_legacy_macros(self.db.macros).read_cc_value_from_meta_2(
+                data["num"], id_, conn=self.conn
+            )
             self.data.set(id_, self.FIELD_MAP[data["num"]], nval, row_is_id=True)
 
         elif data["normalized"] and data["datatype"] == "series":
-
             if not append or not data["is_multiple"]:
-                self.db.macros.break_cc_links_by_book_id(lt, id_, conn=self.conn)
-                self.db.macros.clear_cc_unused_table_entries(table=table, lt=lt, conn=self.conn)
+                require_legacy_macros(self.db.macros).break_cc_links_by_book_id(lt, id_, conn=self.conn)
+                require_legacy_macros(self.db.macros).clear_cc_unused_table_entries(
+                    table=table, lt=lt, conn=self.conn
+                )
                 # Does the work of actually nullifying the value for the stored data
                 self.data._data[id_][self.FIELD_MAP[data["num"]]] = None
 
-            set_val = val if data["is_multiple"] else [val] if not isinstance(val, list) else val
+            set_val = (
+                val
+                if data["is_multiple"]
+                else [val]
+                if not isinstance(val, list)
+                else val
+            )
             existing = getter()
             if not existing:
                 existing = set([])
@@ -426,33 +482,57 @@ class CCSetMethodsMixin:
 
                 if idx > -1:
                     ex = existing[idx]
-                    xid = self.db.macros.get_cc_id_from_value(table, ex, all=False, conn=self.conn)
+                    xid = require_legacy_macros(self.db.macros).get_cc_id_from_value(
+                        table, ex, all=False, conn=self.conn
+                    )
+                    if xid is None:
+                        raise DatabaseIntegrityError(
+                            f"Custom value {ex!r} disappeared from {table!r}"
+                        )
                     if allow_case_change and ex != x:
                         case_change = True
-                        self.db.macros.update_cc_value(table, x, xid)
+                        require_legacy_macros(self.db.macros).update_cc_value(table, cc_id=xid, cc_value=x)
                 else:
-                    xid = self.db.macros.add_cc_table_value(table, x, conn=self.conn)
+                    xid = require_legacy_macros(self.db.macros).add_cc_table_value(table, x, conn=self.conn)
 
-                if not self.db.macros.check_for_cc_link(lt, id_, xid, self.conn):
+                if xid is None:
+                    raise DatabaseIntegrityError(
+                        f"Custom value {x!r} has no ID in {table!r}"
+                    )
+                if not require_legacy_macros(self.db.macros).check_for_cc_link(lt, id_, xid, self.conn):
                     if data["datatype"] == "series":
-                        self.db.macros.add_cc_link_with_extra(lt, id_, xid, extra, conn=self.conn)
-                        self.data.set(id_, self.FIELD_MAP[data["num"]] + 1, extra, row_is_id=True)
+                        require_legacy_macros(self.db.macros).add_cc_link_with_extra(
+                            lt, id_, xid, extra, conn=self.conn
+                        )
+                        self.data.set(
+                            id_, self.FIELD_MAP[data["num"]] + 1, extra, row_is_id=True
+                        )
                     else:
-                        self.db.macros.add_cc_link_with_extra(lt, id_, xid, conn=self.conn)
+                        require_legacy_macros(self.db.macros).add_cc_link_with_extra(
+                            lt, id_, xid, conn=self.conn
+                        )
 
                 if case_change:
-                    bks = self.db.macros.get_cc_lt_books_from_lt_value(lt, xid, conn=self.conn)
+                    bks = require_legacy_macros(self.db.macros).get_cc_lt_books_from_lt_value(
+                        lt, xid, conn=self.conn
+                    )
                     books_to_refresh |= set([bk[0] for bk in bks])
 
-            nval = self.db.macros.read_cc_value_from_meta_2(data["num"], id_, conn=self.conn)
+            nval = require_legacy_macros(self.db.macros).read_cc_value_from_meta_2(
+                data["num"], id_, conn=self.conn
+            )
             self.data.set(id_, self.FIELD_MAP[data["num"]], nval, row_is_id=True)
 
         else:
-            self.db.macros.clear_cc_entries_from_table(table, id_, conn=self.conn)
+            require_legacy_macros(self.db.macros).clear_cc_entries_from_table(table, id_, conn=self.conn)
             if val is not None:
-                self.db.macros.add_cc_link_with_extra(lt=table, book_id=id_, value_id=val, conn=self.conn)
+                require_legacy_macros(self.db.macros).add_cc_link_with_extra(
+                    lt=table, book_id=id_, value_id=val, conn=self.conn
+                )
 
-            nval = self.db.macros.read_cc_value_from_meta_2(data["num"], id_, conn=self.conn)
+            nval = require_legacy_macros(self.db.macros).read_cc_value_from_meta_2(
+                data["num"], id_, conn=self.conn
+            )
             self.data.set(id_, self.FIELD_MAP[data["num"]], nval, row_is_id=True)
 
         if notify:

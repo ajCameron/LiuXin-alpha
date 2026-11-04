@@ -1,4 +1,3 @@
-
 """
 Describe relational schema structure without retaining backend row objects.
 
@@ -12,7 +11,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field, make_dataclass
 from enum import Enum
-from typing import Any, Iterable, Mapping, Optional
+from typing import Any, Mapping, Optional
 
 
 # Todo: This isn't a super descriptive name at the moment - TableKind might be better?
@@ -48,6 +47,7 @@ class LinkCardinality(str, Enum):
         >>> LinkCardinality.MANY_TO_ONE.value
         'many_to_one'
     """
+
     ONE_TO_ONE = "one_to_one"
     ONE_TO_MANY = "one_to_many"
     MANY_TO_ONE = "many_to_one"
@@ -203,6 +203,7 @@ class StorageColumnSpec:
         >>> col.is_primary_key, col.has_default
         (True, False)
     """
+
     name: str
     ordinal: int
     declared_type: Optional[str] = None
@@ -290,6 +291,7 @@ class StorageTableSpec:
         >>> spec.columns[0].name
         'work_id'
     """
+
     name: str
     relation_kind: RelationKind
     columns: tuple[StorageColumnSpec, ...]
@@ -334,6 +336,7 @@ class StorageLinkSpec:
         >>> link.destination_owned, link.type_part_of_identity
         (False, False)
     """
+
     primary_table: str
     secondary_table: str
     link_table: str
@@ -415,10 +418,10 @@ def build_row_dataclass_for_table(spec: StorageTableSpec) -> type:
     :raises TypeError: Dataclass field names or ordering are invalid.
     :raises ValueError: A field default is unsuitable for a dataclass.
     """
-    dc_fields: list[tuple] = []
+    dc_fields: list[tuple[str, object] | tuple[str, object, Any]] = []
 
     for col in spec.columns:
-        py_type = Any
+        py_type: object = Any
         affinity = (col.affinity or "").upper()
 
         if affinity == "INTEGER":

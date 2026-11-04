@@ -1,4 +1,3 @@
-
 """
 Specify selection, sizing and deletion of pending import groups.
 
@@ -9,7 +8,7 @@ not start ingestion or process archive contents.
 
 import abc
 
-from typing import Iterable, Any
+from typing import Iterable, Mapping, Any
 
 
 class DriverNewBooksCompressedFilesMixinAPI(abc.ABC):
@@ -29,7 +28,7 @@ class DriverNewBooksCompressedFilesMixinAPI(abc.ABC):
 
     # Todo: Switch over to returning the affected ids?
     @abc.abstractmethod
-    def direct_delete_book_group(self, group_id: str) -> None:
+    def direct_delete_book_group(self, group_id: int | str) -> None:
         """
         Delete all rows for a bound group ID, then commit and close on success.
 
@@ -48,7 +47,7 @@ class DriverNewBooksCompressedFilesMixinAPI(abc.ABC):
         """
 
     @abc.abstractmethod
-    def direct_get_next_book_group(self):
+    def direct_get_next_book_group(self) -> tuple[list[dict[str, Any]], int | None]:
         """
         Read rows with the smallest non-null group ID without dequeuing them.
 
@@ -56,7 +55,7 @@ class DriverNewBooksCompressedFilesMixinAPI(abc.ABC):
         implementation; this declaration itself has no operational body.
 
         Close the query connection on success. Rows have no explicit ordering; an empty
-        table returns ``([], None)`` despite the integer ID annotation.
+        table returns ``([], None)``.
 
         Example:
             >>> driver.direct_get_next_book_group()  # doctest: +SKIP
@@ -67,7 +66,7 @@ class DriverNewBooksCompressedFilesMixinAPI(abc.ABC):
         """
 
     @abc.abstractmethod
-    def sum_book_group_sizes(self, book_group) -> int:
+    def sum_book_group_sizes(self, book_group: Iterable[Mapping[str, Any]]) -> int:
         """
         Sum new_book_size values without coercion or validation.
 

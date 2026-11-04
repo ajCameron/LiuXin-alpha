@@ -11,11 +11,19 @@ also satisfy these surfaces by duck typing rather than inheriting every ABC.
 from __future__ import annotations
 
 import abc
-from collections.abc import Iterable
-from typing import Any
+from collections.abc import Hashable, Iterable
+from queue import Queue
+from typing import TYPE_CHECKING, Protocol
 
 from LiuXin_alpha.databases.api.database_api.database_api import DatabaseAPI
 from LiuXin_alpha.databases.db_types.maintenance_types import MaintenanceMode
+
+if TYPE_CHECKING:
+    from LiuXin_alpha.databases.maintenance.events import MaintenanceEvent
+    from LiuXin_alpha.databases.maintenance.plugins import (
+        MaintenancePluginContext,
+        MaintenancePluginResult,
+    )
 
 
 class DatabaseMaintainerAPI(abc.ABC):
@@ -50,7 +58,14 @@ class DatabaseMaintainerAPI(abc.ABC):
         self.db = db
 
     @abc.abstractmethod
-    def _do_merge_one_table(self, src_table: str, dst_table: str, link_table: str, item_1_id: int, item_2_id: int) -> None:
+    def _do_merge_one_table(
+        self,
+        src_table: str,
+        dst_table: str,
+        link_table: str,
+        item_1_id: int,
+        item_2_id: int,
+    ) -> None:
         """
         Repoint one relation’s links from the removed item to the surviving item.
 
@@ -101,7 +116,9 @@ class DatabaseMaintainerAPI(abc.ABC):
         ...
 
     @abc.abstractmethod
-    def dirty_interlink_record(self, update_type: str, table1: str, table2: str, table1_id: int, table2_id: int) -> None:
+    def dirty_interlink_record(
+        self, update_type: str, table1: str, table2: str, table1_id: int, table2_id: int
+    ) -> None:
         """
         Enqueue a notification describing a changed relation between two rows.
 
@@ -188,7 +205,7 @@ class DatabaseMaintainerAPI(abc.ABC):
         ...
 
 
-class MaintenanceCallbackSinkAPI(abc.ABC):
+class MaintenanceCallbackSinkAPI(Protocol):
     """
     Specify the lightweight dirty-event callbacks invoked by driver hooks.
 
@@ -243,7 +260,9 @@ class MaintenanceCallbackSinkAPI(abc.ABC):
         ...
 
     @abc.abstractmethod
-    def dirty_interlink_record(self, update_type: str, table1: str, table2: str, table1_id: int, table2_id: int) -> None:
+    def dirty_interlink_record(
+        self, update_type: str, table1: str, table2: str, table1_id: int, table2_id: int
+    ) -> None:
         """
         Enqueue a notification describing a changed relation between two rows.
 
@@ -266,14 +285,14 @@ class MaintenanceCallbackSinkAPI(abc.ABC):
         ...
 
 
-class MaintenancePluginAPI(abc.ABC):
+class MaintenancePluginAPI(Protocol):
     """
     Define optional lifecycle/filter hooks and the required maintenance batch handler.
 
     name identifies the installed implementation, dependencies precede priority,
     and enabled_by_default supplies its initial persisted setting. The legacy
     queue adapter treats that setting as advisory. Plugins may implement this shape
-    without subclassing this ABC. Default hooks do nothing, accept every event and
+    without subclassing this protocol. Default hooks do nothing, accept every event and
     preserve every event separately.
 
     mode declares LAZY or PROMPT consistency independently of priority. Install
@@ -298,7 +317,7 @@ class MaintenancePluginAPI(abc.ABC):
     retry_limit: int = 5
     retry_backoff_s: float = 1.0
 
-    def startup(self, context: Any) -> None:
+    def startup(self, context: MaintenancePluginContext) -> None:
         """
         Provide a no-op default for plugin initialization.
 
@@ -316,7 +335,7 @@ class MaintenancePluginAPI(abc.ABC):
 
         return None
 
-    def shutdown(self, context: Any) -> None:
+    def shutdown(self, context: MaintenancePluginContext) -> None:
         """
         Provide a no-op default for plugin resource cleanup.
 
@@ -333,7 +352,7 @@ class MaintenancePluginAPI(abc.ABC):
 
         return None
 
-    def wants_event(self, event: Any) -> bool:
+    def wants_event(self, event: MaintenanceEvent) -> bool:
         """
         Accept every maintenance event unless a plugin overrides this filter.
 
@@ -351,7 +370,7 @@ class MaintenancePluginAPI(abc.ABC):
 
         return True
 
-    def coalesce_key(self, event: Any) -> object | None:
+    def coalesce_key(self, event: MaintenanceEvent) -> Hashable | None:
         """
         Disable event coalescing by returning None by default.
 
@@ -371,7 +390,9 @@ class MaintenancePluginAPI(abc.ABC):
         return None
 
     @abc.abstractmethod
-    def handle_events(self, context: Any, events: Iterable[Any]) -> Any:
+    def handle_events(
+        self, context: MaintenancePluginContext, events: Iterable[MaintenanceEvent]
+    ) -> MaintenancePluginResult:
         """
         Require a plugin to process its selected, coalesced event batch.
 
@@ -387,7 +408,7 @@ class MaintenancePluginAPI(abc.ABC):
         :param context: Maintenance context containing the database and optional logger.
         :param events: Iterable of events accepted by this plugin; the engine currently
             supplies a list.
-        :return: Plugin-specific result, conventionally MaintenancePluginResult with
+        :return: MaintenancePluginResult with
             handled/deferred/errors counts.
         :raises NotImplementedError: The abstract base implementation is called
             directly.
@@ -436,7 +457,7 @@ class MaintenanceServiceAPI(abc.ABC):
         ...
 
     @abc.abstractmethod
-    def iter_plugins(self):
+    def iter_plugins(self) -> tuple[MaintenancePluginAPI, ...]:
         """
         Return a snapshot of plugins in their current dispatch order.
 
@@ -453,7 +474,7 @@ class MaintenanceServiceAPI(abc.ABC):
         ...
 
     @abc.abstractmethod
-    def run_once(self, *, max_events: int = 128):
+    def run_once(self, *, max_events: int = 128) -> dict[str, MaintenancePluginResult]:
         """
         Drain one bounded batch and dispatch it synchronously to interested plugins.
 
@@ -495,7 +516,9 @@ class MaintenanceServiceAPI(abc.ABC):
         ...
 
     @abc.abstractmethod
-    def rename_item(self, item_id: int, table: str, value: str, now: bool = True) -> None:
+    def rename_item(
+        self, item_id: int, table: str, value: str, now: bool = True
+    ) -> None:
         """
         Dispatch or enqueue a rename request for maintenance plugins.
 
@@ -535,7 +558,14 @@ class MaintenanceBotAPI(MaintenanceServiceAPI):
     """
 
     @abc.abstractmethod
-    def __init__(self, db: DatabaseAPI, dirtied_main_queue=None, dirtied_interlink_queue=None, interval: int = 2, scheduling_interval: float = 0.5) -> None:
+    def __init__(
+        self,
+        db: DatabaseAPI,
+        dirtied_main_queue: Queue[tuple[str, int]] | None = None,
+        dirtied_interlink_queue: Queue[tuple[str, str, str, int, int]] | None = None,
+        interval: int = 2,
+        scheduling_interval: float = 0.5,
+    ) -> None:
         """
         Describe the legacy database, queue and timing inputs for a maintenance bot.
 
@@ -562,7 +592,7 @@ class MaintenanceBotAPI(MaintenanceServiceAPI):
         ...
 
     @abc.abstractmethod
-    def run(self):
+    def run(self) -> None:
         """
         Run plugin lifecycle hooks and repeated maintenance cycles until stopped.
 

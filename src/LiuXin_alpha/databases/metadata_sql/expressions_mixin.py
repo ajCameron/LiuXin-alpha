@@ -6,6 +6,8 @@ from typing import TYPE_CHECKING
 
 from LiuXin_alpha.databases.db_types.macro_types import LINK_TYPE_UNSET, LinkedTableRow
 
+from ._relationships import require_link_spec
+
 if TYPE_CHECKING:
     from LiuXin_alpha.databases.api.database_api import DatabaseAPI
 
@@ -29,7 +31,7 @@ class ExpressionsSQLMixin:
         no preferred Expression is selected. Supplied type filters require a
         typed relation; the current core WEMI relation is untyped.
         """
-        spec = self.db.driver_wrapper.get_link_spec("works", "expressions")
+        spec = require_link_spec(self.db, "works", "expressions")
         return self.db.macros.get_linked_rows(spec, work_id, link_type=link_type)
 
     def get_expressions_for_manifestation(
@@ -40,7 +42,7 @@ class ExpressionsSQLMixin:
         Preserve all embodied Expressions in link order, including repeated
         destinations. Missing rows remain None; no singular book is projected.
         """
-        spec = self.db.driver_wrapper.get_link_spec("manifestations", "expressions")
+        spec = require_link_spec(self.db, "manifestations", "expressions")
         return self.db.macros.get_linked_rows(
             spec, manifestation_id, link_type=link_type
         )

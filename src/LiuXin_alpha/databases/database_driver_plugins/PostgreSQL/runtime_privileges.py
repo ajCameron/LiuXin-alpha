@@ -9,7 +9,10 @@ from __future__ import annotations
 
 import re
 from collections.abc import Mapping
-from typing import Any
+from typing import Any, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from psycopg2.extras import RealDictCursor
 
 from LiuXin_alpha.databases.database_driver_plugins.PostgreSQL.connection import (
     DEFAULT_POSTGRES_STATEMENT_TIMEOUT_MS,
@@ -363,7 +366,7 @@ def _create_role_if_missing_statement(role: str) -> str:
     )
 
 
-def _scalar_text(cur: Any, statement: str) -> str:
+def _scalar_text(cur: RealDictCursor, statement: str) -> str:
     """
     Execute a query and stringify the first mapping value or sequence element.
 

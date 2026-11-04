@@ -1,19 +1,29 @@
-
 """
 Execute SQL statements, batches and scripts with explicit driver connection policies.
 """
 
 import sqlite3
 from collections.abc import Iterable
-from typing import Optional, Union
+from typing import Optional
+from contextlib import closing
 
-from LiuXin_alpha.databases.db_types.driver_types import QueryCursor, SQLParameters
+from LiuXin_alpha.databases.db_types.driver_types import (
+    QueryCursor,
+    SQLParameters,
+    RowSQLConnection,
+)
 from LiuXin_alpha.errors import DatabaseDriverError, InputIntegrityError
 from LiuXin_alpha.utils.libraries.liuxin_six import basestring, force_unicode
 from LiuXin_alpha.utils.logging import default_log
 
 
-class SQLExecutionMixin:
+from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver._state import (
+    SQLDriverMixinState,
+    driver_operations,
+)
+
+
+class SQLExecutionMixin(SQLDriverMixinState):
     """
     Provide low-level SQL execution helpers for concrete drivers.
 
@@ -26,40 +36,38 @@ class SQLExecutionMixin:
     """
 
     # Todo: This should be something like "execute sql script" - to distinguish it from the execute method in the conn
-    def direct_execute_sql_script(
-            self,
-            script: Union[str, list[str]]) -> None:
+    def direct_execute_sql_script(self, script: str) -> None:
         """
         Run a script on a fresh connection and close it after success.
 
-        No cache refresh or finally cleanup is performed. Despite the annotation, list
-        input is passed directly to the backend and is not joined.
+        The supplied script must be text; SQL backend errors propagate. The owned
+        connection closes even when execution fails. No cache refresh is requested.
 
         Example:
             ``driver.direct_execute_sql_script("CREATE TABLE example (id INTEGER);")``
             runs a script.
 
 
-        :param script: SQL script text; the backend must accept any non-string input.
+        :param script: SQL script text, not a list of statement fragments.
         :return: ``None``.
         """
         # Defensive: legacy code sometimes used raw triple-quoted strings beginning with "\\\n"
         # (intended to suppress the first newline). In raw strings that backslash becomes literal,
         # and SQLite fails with "unrecognized token: \\".
         if isinstance(script, str):
-
             if script.startswith("\\\r\n"):
                 script = script[3:]
 
             elif script.startswith("\\\n"):
                 script = script[2:]
 
-        conn = self.get_connection()
-        conn.executescript(script)
-        conn.close()
+        with closing(driver_operations(self).get_connection()) as conn:
+            conn.executescript(script)
 
     # Todo: Check that the return is correctly typed
-    def direct_execute_sql(self, sql: str, parameters: Optional[tuple[str, ...]] = None) -> Optional[int]:
+    def direct_execute_sql(
+        self, sql: str, parameters: SQLParameters | None = None
+    ) -> Optional[int]:
         """
         Execute one statement on a fresh connection and commit.
 
@@ -82,7 +90,7 @@ class SQLExecutionMixin:
             elif sql.startswith("\\\n"):
                 sql = sql[2:]
 
-        conn = self.get_connection()
+        conn = driver_operations(self).get_connection()
         if parameters is None:
             last_row_id = conn.execute(sql).lastrowid
         else:
@@ -90,7 +98,9 @@ class SQLExecutionMixin:
         conn.commit()
         return last_row_id
 
-    def direct_get_table_sqlite(self, table, conn=None):
+    def direct_get_table_sqlite(
+        self, table: str, conn: RowSQLConnection | None = None
+    ) -> str | None:
         """
         Read a table's stored CREATE statement from sqlite_master.
 
@@ -107,7 +117,7 @@ class SQLExecutionMixin:
         :return: The stored SQL text, which may be null for internal tables.
         """
         if conn is None:
-            conn = self.get_connection()
+            conn = driver_operations(self).get_connection()
 
         # Parameterize table name to avoid quoting issues and accidental injection.
         stmt = "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = ?;"
@@ -118,7 +128,9 @@ class SQLExecutionMixin:
 
     # Todo: Add zero methods for all the data caches after any of these are used
     # Ideally these would never be used. They are here for testing,
-    def direct_execute(self, sql: str, values: SQLParameters | int | None = None) -> QueryCursor:
+    def direct_execute(
+        self, sql: str, values: SQLParameters | int | None = None
+    ) -> QueryCursor:
         """
         Execute one statement using a live primary connection and its transaction
         context.
@@ -136,8 +148,7 @@ class SQLExecutionMixin:
         :param sql: SQL text to execute, with placeholders when bindings are supplied.
         :param values: Optional bindings; a bare integer is converted to a one-element
             string tuple.
-        :return: The backend execution result, normally a cursor, despite the None
-            annotation.
+        :return: The backend result cursor; the caller owns its cursor lifetime.
         """
         if isinstance(values, int):
             values = (force_unicode(values),)
@@ -154,7 +165,7 @@ class SQLExecutionMixin:
         # Ensure we have a usable primary connection.
         conn = getattr(self, "conn", None)
         if conn is None:
-            conn = self.get_connection()
+            conn = driver_operations(self).get_connection()
             self.conn = conn
         else:
             try:
@@ -164,7 +175,7 @@ class SQLExecutionMixin:
                     conn.close()
                 except Exception:
                     pass
-                conn = self.get_connection()
+                conn = driver_operations(self).get_connection()
                 self.conn = conn
 
         try:
@@ -177,28 +188,36 @@ class SQLExecutionMixin:
 
         except sqlite3.OperationalError as e:
             err_str = "Attempting to execute that SQL caused an operational error."
-            err_str = default_log.log_exception(err_str, e, "ERROR", ("sql", sql), ("values", values))
+            err_str = default_log.log_exception(
+                err_str, e, "ERROR", ("sql", sql), ("values", values)
+            )
             raise DatabaseDriverError(err_str)
 
         except ValueError as e:
             err_str = "Attempting to execute that SQL caused a ValueError"
-            err_str = default_log.log_exception(err_str, e, "ERROR", ("sql", sql), ("values", values))
+            err_str = default_log.log_exception(
+                err_str, e, "ERROR", ("sql", sql), ("values", values)
+            )
             raise DatabaseDriverError(err_str)
 
         except Exception as e:
             err_str = "Attempting to execute that SQL threw an Exception"
-            err_str = default_log.log_exception(err_str, e, "ERROR", ("sql", sql), ("values", values))
+            err_str = default_log.log_exception(
+                err_str, e, "ERROR", ("sql", sql), ("values", values)
+            )
             raise DatabaseDriverError(err_str)
 
         # Todo: This seems to be a good idea. Do it more?
         finally:
             # Invalidate any driver-side caches without forcibly replacing the primary connection.
             try:
-                self.refresh()
+                driver_operations(self).refresh()
             except Exception:
                 pass
 
-    def direct_executemany(self, sql: str, values: Iterable[SQLParameters] | None = None) -> None:
+    def direct_executemany(
+        self, sql: str, values: Iterable[SQLParameters] | None = None
+    ) -> None:
         """
         Execute a batch on the primary connection, or delegate an unbound script.
 
@@ -244,36 +263,34 @@ class SQLExecutionMixin:
         # Todo: Theoretically possible to fool the database into doing manifestly stupid stuff here by feeding in the
         conn = getattr(self, "conn", None)
         if conn is None:
-            conn = self.get_connection()
+            conn = driver_operations(self).get_connection()
             self.conn = conn
 
         try:
             with conn:
-
-                if values is not None:
+                try:
+                    conn.executemany(sql, values)
+                except ValueError:
                     try:
-                        conn.executemany(sql, values)
+                        conn.executemany(sql, tuple(values))
                     except ValueError:
-                        try:
-                            conn.executemany(sql, tuple(values))
-                        except ValueError:
-                            values = tuple([(v,) for v in values])
-                            conn.executemany(sql, values)
-                else:
-                    conn.executemany(sql, ())
+                        values = tuple([(v,) for v in values])
+                        conn.executemany(sql, values)
 
         except Exception as e:
             err_str = "direct_executemany has failed"
-            err_str = default_log.log_exception(err_str, e, "ERROR", ("sql", sql), ("values", values))
+            err_str = default_log.log_exception(
+                err_str, e, "ERROR", ("sql", sql), ("values", values)
+            )
             raise DatabaseDriverError(err_str)
 
         try:
-            self.refresh()
+            driver_operations(self).refresh()
         except Exception:
             pass
 
     # Todo: Merged with the above, and deprecate one
-    def direct_executescript(self, sqlscript):
+    def direct_executescript(self, sqlscript: str) -> None:
         """
         Run trusted multi-statement SQL on the primary connection and refresh caches.
 
@@ -298,7 +315,7 @@ class SQLExecutionMixin:
 
         conn = getattr(self, "conn", None)
         if conn is None:
-            conn = self.get_connection()
+            conn = driver_operations(self).get_connection()
             self.conn = conn
 
         try:
@@ -306,10 +323,12 @@ class SQLExecutionMixin:
                 conn.executescript(sqlscript)
         except Exception as e:
             err_str = "Executing a script has failed"
-            err_str = default_log.log_exception(err_str, e, "ERROR", ("sql_script", sqlscript))
+            err_str = default_log.log_exception(
+                err_str, e, "ERROR", ("sql_script", sqlscript)
+            )
             raise DatabaseDriverError(err_str)
         finally:
             try:
-                self.refresh()
+                driver_operations(self).refresh()
             except Exception:
                 pass

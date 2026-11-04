@@ -1,4 +1,3 @@
-
 """
 Build FRBR SQLite schemas from packaged table/trigger SQL and TOML link requests.
 
@@ -9,6 +8,8 @@ is neither atomic nor safely repeatable on a populated database.
 
 import sqlite3
 
+from LiuXin_alpha.databases.db_types.driver_types import SQLConnection
+
 # When viewing the database certain information needs to be all present and correct in one place. There are two options
 # for this
 # 1) Views - the sane, professional and reasonable solution. Views execute queries to generate the data requested on the
@@ -18,7 +19,7 @@ import sqlite3
 # 2) aggregate_tables - put all the information needed in one table which updates itself from other tables using
 #                       quite a lot of triggers. Much faster. Needs a lot more code and results in a bloated database
 # Hopefully you will have the option to choose.
-from typing import Any
+from typing import Any, Iterable, Literal, NotRequired, Sequence, TypedDict
 
 try:
     import tomllib  # py3.11+
@@ -33,7 +34,6 @@ import os
 import pathlib
 import pprint
 import re
-import sys
 from copy import deepcopy
 from typing import Optional
 
@@ -47,7 +47,7 @@ from LiuXin_alpha.databases.column_metadata import (
 )
 from LiuXin_alpha.databases.database_driver_plugins.SQL.database_generator_frbr.constants import (
     __ALLOWED_INTERLINK_TYPE_VAL_DICT__,
-    __ALLOWED_INTRALINK_TYPE_VAL_DICT__,
+    __ALLOWED_INTRALINK_TYPE_VAL_DICT__ as __ALLOWED_INTRALINK_TYPE_VAL_DICT__,
     __INTERLINK_TABLE_CONSTRAINTS__,
 )
 from LiuXin_alpha.databases.database_driver_plugins.SQL.utility_mixins import (
@@ -85,7 +85,8 @@ from LiuXin_alpha.utils.logging import LiuXin_print, LiuXin_warning_print
 # Interlink TOML helpers (types expansion / SQL emission)
 # ---------------------------------------------------------------------------
 
-def _parse_toml_bool(value: Any, *, default: bool = False) -> bool:
+
+def _parse_toml_bool(value: object, *, default: bool = False) -> bool:
     """
     Accept bools, integers and common true/false text spellings.
 
@@ -120,7 +121,7 @@ def _parse_toml_bool(value: Any, *, default: bool = False) -> bool:
     raise TypeError(f"TOML boolean value is not parseable: {value!r}")
 
 
-def _require_toml_bool(value: Any, *, context: str) -> bool:
+def _require_toml_bool(value: object, *, context: str) -> bool:
     """
     Require an actual bool for strict TOML settings and identify invalid input.
 
@@ -237,7 +238,9 @@ def _build_observed_item_identifier_scheme_check_sql() -> str:
 
     :return: CHECK fragment ending in a comma.
     """
-    allowed_schemes_sql = _sql_in_list([scheme.value for scheme in OBSERVED_ITEM_IDENTIFIER_SCHEMES])
+    allowed_schemes_sql = _sql_in_list(
+        [scheme.value for scheme in OBSERVED_ITEM_IDENTIFIER_SCHEMES]
+    )
     return f"""CONSTRAINT `item_identifier_scheme_valid`
     CHECK (
       `item_identifier_scheme` IS NULL
@@ -336,7 +339,9 @@ def _substitute_canonical_vocabulary_placeholders(sql_text: str) -> str:
     return sql_text
 
 
-def collect_type_tables(allowed_types_by_link_table: dict[str, Optional[list[str]]]) -> dict[str, set[str]]:
+def collect_type_tables(
+    allowed_types_by_link_table: dict[str, Optional[list[str]]],
+) -> dict[str, set[str]]:
     """
     Collect nonempty link type lists as deduplicated __types table values.
 
@@ -420,7 +425,6 @@ def _bcp47_common_variants() -> dict[str, list[str]]:
     }
 
 
-
 # Constraints on the interlink tables - DO NOT IMPORT - dynamically modified at run time
 
 
@@ -444,7 +448,7 @@ __database_file_path__ = os.path.join(__database_folder__, "LiuXin_main_database
 # See the docs - explanations for what these are
 
 
-def create_new_database(connection: sqlite3.Connection) -> None:
+def create_new_database(connection: SQLConnection) -> None:
     """
     Run the complete FRBR builder on the supplied empty SQLite connection.
 
@@ -465,7 +469,6 @@ def create_new_database(connection: sqlite3.Connection) -> None:
     builder.run()
 
 
-
 def get_main_table_sql_files() -> list[pathlib.Path]:
     """
     Discover lowercase .sql resources recursively under table_sql in deterministic path
@@ -484,7 +487,9 @@ def get_main_table_sql_files() -> list[pathlib.Path]:
     table_sql_folder = pathlib.Path(__folder__) / "table_sql"
 
     if not table_sql_folder.is_dir():
-        raise NotADirectoryError(f"Expected 'table_sql' folder to be a directory: {table_sql_folder!s}")
+        raise NotADirectoryError(
+            f"Expected 'table_sql' folder to be a directory: {table_sql_folder!s}"
+        )
 
     # pathlib.Path.walk() is only available on Python 3.12+; use os.walk for compatibility.
     for root, dirs, files in os.walk(table_sql_folder):
@@ -492,15 +497,11 @@ def get_main_table_sql_files() -> list[pathlib.Path]:
         files.sort()
 
         for file in files:
-
             if os.path.splitext(file)[1] == ".sql":
-
                 all_sql_files.append(pathlib.Path(root) / file)
 
     # Ensure deterministic application order across platforms/filesystems.
     return sorted(all_sql_files)
-
-
 
 
 def get_trigger_sql_files() -> list[pathlib.Path]:
@@ -520,7 +521,9 @@ def get_trigger_sql_files() -> list[pathlib.Path]:
 
     table_sql_folder = pathlib.Path(__folder__) / "trigger_sql"
     if not table_sql_folder.is_dir():
-        raise NotADirectoryError(f"Expected 'trigger_sql' folder to be a directory: {table_sql_folder!s}")
+        raise NotADirectoryError(
+            f"Expected 'trigger_sql' folder to be a directory: {table_sql_folder!s}"
+        )
 
     # pathlib.Path.walk() is only available on Python 3.12+; use os.walk for compatibility.
     for root, dirs, files in os.walk(table_sql_folder):
@@ -528,14 +531,32 @@ def get_trigger_sql_files() -> list[pathlib.Path]:
         files.sort()
 
         for file in files:
-
             if os.path.splitext(file)[1] == ".sql":
-
                 all_sql_files.append(pathlib.Path(root) / file)
 
     # Ensure deterministic application order across platforms/filesystems.
     return sorted(all_sql_files)
 
+
+RequestedColumns = Literal["all"] | set[str]
+
+
+class InterlinkSpec(TypedDict):
+    """Validated TOML relationship options used to materialize a physical link."""
+
+    left_table: str
+    right_table: str
+    link_type: str
+    requested_cols: NotRequired[RequestedColumns | None]
+    nullable_fks: bool
+    allowed_types: list[str] | None
+
+
+class ForbiddenInterlink(TypedDict):
+    """Diagnostic and enforcement policy for an excluded endpoint pair."""
+
+    reason: str
+    severity: str
 
 
 class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
@@ -556,20 +577,20 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
     INTERLINK_TABLE_CONSTRAINTS: dict[str, dict[str, str]] = {}
 
     # Additional optional columns permitted on interlink tables via TOML requested_columns
-    INTERLINK_TABLE_COLUMN_NAME_DICT: dict[str, tuple] = {
-        'priority': ('priority', 'INTEGER', 'DEFAULT 0'),
-        'primary': ('primary', 'INTEGER', 'NULL DEFAULT 0'),
-        'type': ('type', 'TEXT', 'NULL'),
-        'origin': ('origin', 'TEXT', 'NULL'),
-        'source': ('source', 'TEXT', 'NULL'),
-        'policy': ('policy', 'TEXT', 'NULL'),
-        'data': ('data', 'TEXT', 'NULL'),
-        'index': ('index', 'TEXT', 'NULL'),
-        'sequence_number': ('sequence_number', 'INTEGER', 'NULL'),
-        'is_required': ('is_required', 'INTEGER', 'DEFAULT 1'),
+    INTERLINK_TABLE_COLUMN_NAME_DICT: dict[str, tuple[str, str, str]] = {
+        "priority": ("priority", "INTEGER", "DEFAULT 0"),
+        "primary": ("primary", "INTEGER", "NULL DEFAULT 0"),
+        "type": ("type", "TEXT", "NULL"),
+        "origin": ("origin", "TEXT", "NULL"),
+        "source": ("source", "TEXT", "NULL"),
+        "policy": ("policy", "TEXT", "NULL"),
+        "data": ("data", "TEXT", "NULL"),
+        "index": ("index", "TEXT", "NULL"),
+        "sequence_number": ("sequence_number", "INTEGER", "NULL"),
+        "is_required": ("is_required", "INTEGER", "DEFAULT 1"),
     }
 
-    def __init__(self, conn: sqlite3.Connection) -> None:
+    def __init__(self, conn: SQLConnection) -> None:
         """
         Retain the connection and initialize per-run schema/link configuration.
 
@@ -586,35 +607,50 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
         """
         self.conn = conn
 
-        self.main_tables = set()
+        self.main_tables: set[str] = set()
         self.main_tables_sql_files: list[pathlib.Path] = []
 
         self.triggers_sql_files: list[pathlib.Path] = []
 
-        self.interlink_tables = set()
-        self.interlink_table_pairs = set()
+        self.interlink_tables: set[str] = set()
+        self.interlink_table_pairs: set[tuple[str, str]] = set()
+        self.interlink_tables_pairs: set[tuple[str, str]] = set()
+        self.forbidden_interlink_pairs: dict[tuple[str, str], ForbiddenInterlink] = {}
 
         # Per-run interlink spec metadata (direction + declared link type)
-        self.interlink_specs_by_pair: dict[tuple[str, str], dict[str, Any]] = {}
+        self.interlink_specs_by_pair: dict[tuple[str, str], InterlinkSpec] = {}
         self.interlink_default_link_type: str = "many_to_many"
 
         # Per-run interlink column/type/nullable configuration derived from TOML
-        self.interlink_requested_cols_by_table: dict[str, Any] = {}
+        self.interlink_requested_cols_by_table: dict[str, RequestedColumns | None] = {}
         self.interlink_allowed_types_by_table: dict[str, Optional[list[str]]] = {}
         self.interlink_nullable_fks_by_table: dict[str, bool] = {}
         self.intralink_allowed_types_by_table: dict[str, Optional[list[str]]] = {}
-        self.intralink_requested_cols_by_table: dict[str, Any] = {}
+        self.intralink_requested_cols_by_table: dict[str, RequestedColumns | None] = {}
         self.intralink_nullable_fks_by_table: dict[str, bool] = {}
         self.intralink_symmetric_by_table: dict[str, bool] = {}
         self.intralink_symmetric_types_by_table: dict[str, Optional[list[str]]] = {}
 
         # Per-instance copies so we can add dynamic constraints based on TOML
-        self.ALLOWED_INTERLINK_TYPE_VAL_DICT = deepcopy(__ALLOWED_INTERLINK_TYPE_VAL_DICT__)
+        self.ALLOWED_INTERLINK_TYPE_VAL_DICT = deepcopy(
+            __ALLOWED_INTERLINK_TYPE_VAL_DICT__
+        )
         self.INTERLINK_TABLE_CONSTRAINTS = deepcopy(__INTERLINK_TABLE_CONSTRAINTS__)
 
         # FRBR generator is TOML-first: do not fall back to legacy hard-coded type enums.
         self.ALLOWED_INTERLINK_TYPE_VAL_DICT = {}
-        self.intralink_tables = set()
+        self.intralink_tables: set[str] = set()
+
+    def _execute_link_script(self, script: str) -> None:
+        """Execute builder link DDL on the supplied SQLite handle, keeping it open.
+
+        SQLite executescript retains its existing implicit commit behavior; schema
+        generation is a staged operation and does not own the handle's lifetime.
+        """
+        self.conn.executescript(script)
+
+    def _invalidate_link_metadata(self) -> None:
+        """Builder schema reads are uncached; there is no driver cache to clear."""
 
     def run(self) -> None:
         """
@@ -646,8 +682,12 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
         # Expression indexes use the same comparison policy as Catalog matching.
         # PostgreSQL generates its own schema and does not install these functions.
         from LiuXin_alpha.databases.query_indexes import install_sqlite_search_indexes
-        from LiuXin_alpha.databases.search_functions import register_search_functions
+        from LiuXin_alpha.databases.search_functions import (
+            APSWSearchConnection, SQLiteSearchConnection, register_search_functions,
+        )
 
+        if not isinstance(self.conn, (SQLiteSearchConnection, APSWSearchConnection)):
+            raise TypeError("SQLite schema creation requires SQL function registration")
         register_search_functions(self.conn)
         install_sqlite_search_indexes(self.conn)
 
@@ -678,8 +718,8 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
         self.validate_interlink_table_column_requests()
 
         # 6) Build the interlink tables
-        for table in self.interlink_tables_pairs:
-            self.create_interlink_table(table[0], table[1], connection=self.conn)
+        for left_table, right_table in self.interlink_tables_pairs:
+            self.create_interlink_table(left_table, right_table, connection=self.conn)
 
         # 7) Read the intralink tables
         self.intralink_tables = self.get_requested_intralink_tables()
@@ -702,7 +742,6 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
 
         # 12) Lock constant tables so they are stable reference data.
         self.lock_constant_tables()
-
 
     # ------------------------------------------------------------------
     # Constant tables (seed + lock)
@@ -744,7 +783,9 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
             return
 
         rows: list[tuple[Any, ...]] = []
-        for table in sorted(table for table in tables if not table.startswith("sqlite_")):
+        for table in sorted(
+            table for table in tables if not table.startswith("sqlite_")
+        ):
             quoted_table = table.replace("`", "``")
             table_info = list(
                 self.conn.execute(f"PRAGMA table_info(`{quoted_table}`);")
@@ -857,7 +898,6 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
         )
         self.conn.commit()
 
-
     def seed_languages_table(self) -> None:
         """
         Seed bundled ISO-639 language data with stable sorted IDs and convenience
@@ -890,8 +930,12 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
         variants_map = _bcp47_common_variants()
 
         # Deterministic IDs: stable ordering by ISO-639-2/B.
-        rows: list[tuple] = []
-        for idx, entry in enumerate(sorted(iso639_data or [], key=lambda d: str(d.get("iso639_2_b") or ""))):
+        rows: list[
+            tuple[int, str, str, str | None, str, str | None, str, str | None]
+        ] = []
+        for idx, entry in enumerate(
+            sorted(iso639_data or [], key=lambda d: str(d.get("iso639_2_b") or ""))
+        ):
             code_b = (entry.get("iso639_2_b") or "").strip().lower()
             if not code_b:
                 continue
@@ -946,7 +990,6 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
         )
         self.conn.commit()
 
-
     def lock_constant_tables(self) -> None:
         """
         Install write-blocking triggers on languages through the shared lock helper.
@@ -959,7 +1002,6 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
         :return: None; creates guards and commits.
         """
         self._lock_table_read_only("languages", message="languages is read-only")
-
 
     def _lock_table_read_only(self, table: str, *, message: str) -> None:
         """
@@ -978,18 +1020,15 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
         msg = _sql_quote_literal(message)
         for action in ("INSERT", "UPDATE", "DELETE"):
             trig = f"block_{action.lower()}_on_{table}"
-            stmt = (
-                f"""
+            stmt = f"""
                 CREATE TRIGGER IF NOT EXISTS `{trig}`
                 BEFORE {action} ON `{table}`
                 BEGIN
                     SELECT RAISE(ABORT, {msg});
                 END;
                 """
-            )
             self.conn.execute(stmt)
         self.conn.commit()
-
 
     # Todo: Add annotations table?
     # Todo: Add a unified tasks table?
@@ -1045,7 +1084,20 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
         if not isinstance(interlinks, list):
             raise TypeError("TOML key `interlinks` must be a list")
 
-        allowed_req_cols = {"priority", "primary", "type", "origin", "source", "policy", "data", "index", "sequence_number", "is_required", "nullable", "all"}
+        allowed_req_cols = {
+            "priority",
+            "primary",
+            "type",
+            "origin",
+            "source",
+            "policy",
+            "data",
+            "index",
+            "sequence_number",
+            "is_required",
+            "nullable",
+            "all",
+        }
 
         for idx, entry in enumerate(interlinks):
             if not isinstance(entry, dict):
@@ -1070,19 +1122,24 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
                 continue
 
             if not isinstance(requested_columns, list):
-                raise TypeError(f"requested_columns for interlink {idx} must be a list or string")
+                raise TypeError(
+                    f"requested_columns for interlink {idx} must be a list or string"
+                )
 
             for rc in requested_columns:
                 rcs = str(rc).strip().lower()
                 if rcs not in allowed_req_cols:
                     # Permit bespoke per-link metadata columns as long as the name is safe.
                     if not re.fullmatch(r"[a-z][a-z0-9_]*", rcs):
-                        raise TypeError(f"Unknown requested_columns entry {rcs!r} in interlink {idx}")
-
+                        raise TypeError(
+                            f"Unknown requested_columns entry {rcs!r} in interlink {idx}"
+                        )
 
             # Validate optional per-interlink nullable flag (must be a *real* TOML bool).
-            if 'nullable' in entry and entry.get('nullable') is not None:
-                _require_toml_bool(entry.get('nullable'), context=f"interlinks[{idx}].nullable")
+            if "nullable" in entry and entry.get("nullable") is not None:
+                _require_toml_bool(
+                    entry.get("nullable"), context=f"interlinks[{idx}].nullable"
+                )
 
     def sanity_check_intralink_inputs(self) -> None:
         """
@@ -1121,7 +1178,6 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
         statements = []
 
         for main_table_sql_file in self.main_tables_sql_files:
-
             try:
                 sql_text = main_table_sql_file.read_text(encoding="utf-8")
             except OSError as e:
@@ -1151,7 +1207,6 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
             current_statement = """ """
 
             for line in test:
-
                 if line[0:8] == "-- BREAK":
                     break_count += 1
 
@@ -1196,9 +1251,10 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
         statements = []
 
         for main_table_sql_file in self.triggers_sql_files:
-
             try:
-                with main_table_sql_file.open("r", encoding="utf-8") as main_tables_sqlite_file:
+                with main_table_sql_file.open(
+                    "r", encoding="utf-8"
+                ) as main_tables_sqlite_file:
                     test = main_tables_sqlite_file.readlines()
             except OSError as e:
                 raise FileNotFoundError(
@@ -1224,7 +1280,6 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
             current_statement = """ """
 
             for line in test:
-
                 if line[0:8] == "-- BREAK":
                     break_count += 1
 
@@ -1319,26 +1374,37 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
 
         for fent in forbidden:
             if not isinstance(fent, dict):
-                LiuXin_warning_print("Warning - forbidden_interlinks entry is not a dict: " + repr(fent))
+                LiuXin_warning_print(
+                    "Warning - forbidden_interlinks entry is not a dict: " + repr(fent)
+                )
                 continue
             fleft = fent.get("left_table") or fent.get("left") or fent.get("a")
             fright = fent.get("right_table") or fent.get("right") or fent.get("b")
 
             if not fleft or not fright:
-                LiuXin_warning_print("Warning - forbidden_interlinks entry missing left_table/right_table: " + repr(fent))
+                LiuXin_warning_print(
+                    "Warning - forbidden_interlinks entry missing left_table/right_table: "
+                    + repr(fent)
+                )
                 continue
 
             cf1 = self.match_to_table_name(str(fleft))
             cf2 = self.match_to_table_name(str(fright))
             if cf1 is None or cf2 is None:
-                LiuXin_warning_print("Warning - forbidden_interlinks references unknown table: " + repr((fleft, fright)))
+                LiuXin_warning_print(
+                    "Warning - forbidden_interlinks references unknown table: "
+                    + repr((fleft, fright))
+                )
                 continue
 
             if cf1 == cf2:
-                LiuXin_warning_print("Warning - forbidden_interlinks contains self-link (ignored): " + repr((cf1, cf2)))
+                LiuXin_warning_print(
+                    "Warning - forbidden_interlinks contains self-link (ignored): "
+                    + repr((cf1, cf2))
+                )
                 continue
 
-            fpair = tuple(sorted((cf1, cf2)))
+            fpair = (cf1, cf2) if cf1 <= cf2 else (cf2, cf1)
 
             reason = str(fent.get("rationale") or fent.get("reason", ""))
 
@@ -1347,10 +1413,16 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
             if fpair in self.forbidden_interlink_pairs:
                 prev = self.forbidden_interlink_pairs[fpair]
                 if (prev.get("reason"), prev.get("severity")) != (reason, severity):
-                    LiuXin_warning_print("Warning - duplicate forbidden_interlinks entry differs (keeping first): " + repr(fpair))
+                    LiuXin_warning_print(
+                        "Warning - duplicate forbidden_interlinks entry differs (keeping first): "
+                        + repr(fpair)
+                    )
                 continue
 
-            self.forbidden_interlink_pairs[fpair] = {"reason": reason, "severity": severity}
+            self.forbidden_interlink_pairs[fpair] = {
+                "reason": reason,
+                "severity": severity,
+            }
 
         default_link_type_raw = data.get("default_link_type", "many_to_many")
         default_link_type = self._canonicalize_link_type(str(default_link_type_raw))
@@ -1372,7 +1444,20 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
         if not isinstance(interlinks, list):
             raise TypeError("TOML key `interlinks` must be a list")
 
-        allowed_req_cols = {"priority", "primary", "type", "origin", "source", "policy", "data", "index", "sequence_number", "is_required", "nullable", "all"}
+        allowed_req_cols = {
+            "priority",
+            "primary",
+            "type",
+            "origin",
+            "source",
+            "policy",
+            "data",
+            "index",
+            "sequence_number",
+            "is_required",
+            "nullable",
+            "all",
+        }
 
         # Build a set of unordered FK edges to warn about redundant interlinks
         fk_pairs: set[tuple[str, str]] = set()
@@ -1381,7 +1466,11 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
                 for fk in c.execute(f"PRAGMA foreign_key_list(`{table}`);"):
                     ref_table = fk[2]
                     if isinstance(ref_table, str) and ref_table in current_tables:
-                        fk_pairs.add(tuple(sorted((table, ref_table))))
+                        fk_pairs.add(
+                            (table, ref_table)
+                            if table <= ref_table
+                            else (ref_table, table)
+                        )
             except sqlite3.OperationalError:
                 continue
 
@@ -1392,17 +1481,36 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
 
         for idx, entry in enumerate(interlinks):
             if not isinstance(entry, dict):
-                LiuXin_warning_print(f"Warning - interlink spec entry {idx} is not a table (dict): {entry!r}")
+                LiuXin_warning_print(
+                    f"Warning - interlink spec entry {idx} is not a table (dict): {entry!r}"
+                )
                 continue
 
-            left = entry.get("left_table") or entry.get("left") or entry.get("table1") or entry.get("a")
-            right = entry.get("right_table") or entry.get("right") or entry.get("table2") or entry.get("b")
+            left = (
+                entry.get("left_table")
+                or entry.get("left")
+                or entry.get("table1")
+                or entry.get("a")
+            )
+            right = (
+                entry.get("right_table")
+                or entry.get("right")
+                or entry.get("table2")
+                or entry.get("b")
+            )
 
             if not left or not right:
-                LiuXin_warning_print(f"Warning - interlink spec entry {idx} missing left_table/right_table: {entry!r}")
+                LiuXin_warning_print(
+                    f"Warning - interlink spec entry {idx} missing left_table/right_table: {entry!r}"
+                )
                 continue
 
-            link_type = entry.get("link_type") or entry.get("link") or entry.get("cardinality") or default_link_type
+            link_type = (
+                entry.get("link_type")
+                or entry.get("link")
+                or entry.get("cardinality")
+                or default_link_type
+            )
 
             link_type_canon = self._canonicalize_link_type(str(link_type))
             allowed_link_types = {
@@ -1424,19 +1532,23 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
                 requested_columns = entry.get("requested_cols") or entry.get("columns")
 
             nullable_fks = False
-            requested_cols: Any = {"priority"}  # default
+            requested_cols: RequestedColumns | None = {"priority"}  # default
 
             if requested_columns is not None:
                 if isinstance(requested_columns, str):
                     if requested_columns.strip().lower() == "all":
                         requested_cols = "all"
                     else:
-                        raise TypeError(f"requested_columns must be 'all' or a list; got: {requested_columns!r}")
+                        raise TypeError(
+                            f"requested_columns must be 'all' or a list; got: {requested_columns!r}"
+                        )
                 elif isinstance(requested_columns, list):
                     lowered = [str(x).strip().lower() for x in requested_columns]
                     for rc in lowered:
                         if rc not in allowed_req_cols:
-                            raise TypeError(f"Unknown requested_columns entry {rc!r} in interlink {idx}")
+                            raise TypeError(
+                                f"Unknown requested_columns entry {rc!r} in interlink {idx}"
+                            )
                     if "nullable" in lowered:
                         nullable_fks = True
                         lowered = [x for x in lowered if x != "nullable"]
@@ -1445,18 +1557,24 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
                     else:
                         requested_cols = set(lowered) if lowered else set()
                 else:
-                    raise TypeError(f"requested_columns must be a list or string; got: {type(requested_columns)}")
+                    raise TypeError(
+                        f"requested_columns must be a list or string; got: {type(requested_columns)}"
+                    )
 
             # Support an explicit per-interlink `nullable` key (preferred), in addition to the
             # legacy `requested_columns = [..., 'nullable', ...]` sentinel.
-            if 'nullable' in entry and entry.get('nullable') is not None:
-                nullable_fks = _require_toml_bool(entry.get('nullable'), context=f"interlinks[{idx}].nullable")
+            if "nullable" in entry and entry.get("nullable") is not None:
+                nullable_fks = _require_toml_bool(
+                    entry.get("nullable"), context=f"interlinks[{idx}].nullable"
+                )
             # allowed_types: optional explicit allowed values for the type column
             allowed_types = entry.get("allowed_types") or entry.get("types")
             allowed_types_list: Optional[list[str]] = None
             if allowed_types is not None:
                 if not isinstance(allowed_types, list):
-                    raise TypeError(f"allowed_types must be a list of strings; got: {allowed_types!r}")
+                    raise TypeError(
+                        f"allowed_types must be a list of strings; got: {allowed_types!r}"
+                    )
 
                 raw_items = [str(x).strip() for x in allowed_types if str(x).strip()]
 
@@ -1470,15 +1588,20 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
                                 MARC_ROLE_DESC,
                             )
                         except Exception as e:  # pragma: no cover
-                            raise RuntimeError("Unable to import MARC_ROLE_DESC for insert_marc_roles expansion") from e
+                            raise RuntimeError(
+                                "Unable to import MARC_ROLE_DESC for insert_marc_roles expansion"
+                            ) from e
                         expanded.extend(sorted(MARC_ROLE_DESC.keys()))
                         continue
                     if key.lower() == "insert_known_hash_types":
                         import hashlib
+
                         expanded.extend(sorted(hashlib.algorithms_guaranteed))
                         continue
                     if key.lower().startswith("insert_"):
-                        raise TypeError(f"Unknown types placeholder {key!r} in interlink {idx}")
+                        raise TypeError(
+                            f"Unknown types placeholder {key!r} in interlink {idx}"
+                        )
                     expanded.append(key)
 
                 # De-duplicate while preserving order (deterministic for MARC roles because we sort that expansion).
@@ -1491,7 +1614,9 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
                     allowed_types_list.append(v)
 
                 if not allowed_types_list:
-                    raise TypeError(f"allowed_types list is empty after expansion in interlink {idx}")
+                    raise TypeError(
+                        f"allowed_types list is empty after expansion in interlink {idx}"
+                    )
 
             # If the spec defines an explicit enumeration for the type column, ensure the type column is present.
             if allowed_types_list is not None and requested_cols != "all":
@@ -1503,16 +1628,19 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
 
             # Strict guardrail: if non-exclusive M2M explicitly declares requested columns,
             # `type` must be included by the user (or use requested_columns='all').
-            if link_type_canon == "many_to_many_non_exclusive" and requested_columns is not None:
+            if (
+                link_type_canon == "many_to_many_non_exclusive"
+                and requested_columns is not None
+            ):
                 has_type = requested_cols == "all" or (
-                    isinstance(requested_cols, (set, list, tuple)) and "type" in requested_cols
+                    isinstance(requested_cols, (set, list, tuple))
+                    and "type" in requested_cols
                 )
                 if not has_type:
                     raise TypeError(
                         "many_to_many_non_exclusive requires requested_columns to include 'type' "
                         "(or set requested_columns='all')."
                     )
-
 
             c_table1 = self.match_to_table_name(str(left))
             c_table2 = self.match_to_table_name(str(right))
@@ -1550,17 +1678,22 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
                 raise ValueError(msg)
 
             if c_table1 == c_table2:
-                LiuXin_warning_print("Warning - self-link requested (ignored): " + repr((c_table1, c_table2)))
+                LiuXin_warning_print(
+                    "Warning - self-link requested (ignored): "
+                    + repr((c_table1, c_table2))
+                )
                 continue
 
-            current_pair = tuple(sorted((c_table1, c_table2)))
+            current_pair = (
+                (c_table1, c_table2) if c_table1 <= c_table2 else (c_table2, c_table1)
+            )
 
             # Hard fail if the pair is explicitly forbidden
-            forbid = getattr(self, "forbidden_interlink_pairs", {}).get(current_pair)
+            forbid = self.forbidden_interlink_pairs.get(current_pair)
             if forbid is not None:
                 severity = str(forbid.get("severity", "error")).lower().strip()
                 reason = str(forbid.get("reason", ""))
-                msg = ("Forbidden interlink requested: " + repr(current_pair))
+                msg = "Forbidden interlink requested: " + repr(current_pair)
                 if reason:
                     msg += "\nReason: " + reason
                 if severity in ("warn", "warning"):
@@ -1582,13 +1715,17 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
             if current_pair in fk_pairs:
                 if warn_on_redundant_links:
                     LiuXin_warning_print(
-                        "Warning - interlink request duplicates an existing FK edge: " + repr(current_pair)
+                        "Warning - interlink request duplicates an existing FK edge: "
+                        + repr(current_pair)
                     )
                 if not allow_redundant_links:
                     continue
 
             if (c_table1 not in current_tables) or (c_table2 not in current_tables):
-                LiuXin_warning_print("Warning - interlink request references non-main table: " + repr((left, right)))
+                LiuXin_warning_print(
+                    "Warning - interlink request references non-main table: "
+                    + repr((left, right))
+                )
                 continue
 
             # Record spec metadata (direction + link_type + requested columns + allowed types + nullable flag)
@@ -1604,7 +1741,7 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
         return link_tables
 
     @staticmethod
-    def _canonicalize_link_type(link_type: str) -> str:
+    def _canonicalize_link_type(link_type: str | None) -> str:
         """
         Normalize separators and recognized cardinality aliases without rejecting
         unknown text.
@@ -1659,14 +1796,14 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
 
         :return: None; updates constraint and per-link option mappings.
         """
-        default_link_type = getattr(self, "interlink_default_link_type", "many_to_many")
+        default_link_type = self.interlink_default_link_type
 
-        for pair in getattr(self, "interlink_tables_pairs", set()):
+        for pair in self.interlink_tables_pairs:
             table_a, table_b = pair
 
-            spec = getattr(self, "interlink_specs_by_pair", {}).get(pair)
-            left_table = spec.get("left_table") if spec else table_a
-            right_table = spec.get("right_table") if spec else table_b
+            spec = self.interlink_specs_by_pair.get(pair)
+            left_table = spec["left_table"] if spec else table_a
+            right_table = spec["right_table"] if spec else table_b
             link_type_raw = spec.get("link_type") if spec else default_link_type
 
             link_type = self._canonicalize_link_type(link_type_raw)
@@ -1676,20 +1813,33 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
                 # Use many_many_non_exclusive so (A,B,type) is unique while allowing multiple roles.
                 if spec is not None:
                     rc = spec.get("requested_cols")
-                    has_type = (rc == "all") or (isinstance(rc, (set, list, tuple)) and ("type" in rc))
+                    has_type = (rc == "all") or (
+                        isinstance(rc, (set, list, tuple)) and ("type" in rc)
+                    )
                 else:
                     has_type = False
 
                 if has_type:
-                    primary_table, secondary_table, internal_link_type = left_table, right_table, "many_many_non_exclusive"
+                    primary_table, secondary_table, internal_link_type = (
+                        left_table,
+                        right_table,
+                        "many_many_non_exclusive",
+                    )
                 else:
-                    primary_table, secondary_table, internal_link_type = left_table, right_table, "many_many"
-
+                    primary_table, secondary_table, internal_link_type = (
+                        left_table,
+                        right_table,
+                        "many_many",
+                    )
 
             elif link_type == "many_to_many_non_exclusive":
                 # Explicit role-style many-to-many: allow multiple (A,B) links as long as `type` differs.
                 # This requires a `type` column; ensure it is requested.
-                primary_table, secondary_table, internal_link_type = left_table, right_table, "many_many_non_exclusive"
+                primary_table, secondary_table, internal_link_type = (
+                    left_table,
+                    right_table,
+                    "many_many_non_exclusive",
+                )
                 if spec is not None:
                     rc = spec.get("requested_cols")
                     if rc is None:
@@ -1699,11 +1849,23 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
                             spec["requested_cols"] = set(rc) | {"type"}
 
             elif link_type == "one_to_many":
-                primary_table, secondary_table, internal_link_type = left_table, right_table, "one_many"
+                primary_table, secondary_table, internal_link_type = (
+                    left_table,
+                    right_table,
+                    "one_many",
+                )
             elif link_type == "many_to_one":
-                primary_table, secondary_table, internal_link_type = left_table, right_table, "many_one"
+                primary_table, secondary_table, internal_link_type = (
+                    left_table,
+                    right_table,
+                    "many_one",
+                )
             elif link_type == "one_to_one":
-                primary_table, secondary_table, internal_link_type = left_table, right_table, "one_one"
+                primary_table, secondary_table, internal_link_type = (
+                    left_table,
+                    right_table,
+                    "one_one",
+                )
             else:
                 raise TypeError(
                     f"Unknown interlink link_type {link_type_raw!r} (canonical: {link_type!r}) for pair {pair!r}."
@@ -1719,9 +1881,15 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
 
             # Materialise TOML per-link-table options
             if spec is not None:
-                self.interlink_requested_cols_by_table[link_table_name] = spec.get("requested_cols", {"priority"})
-                self.interlink_nullable_fks_by_table[link_table_name] = bool(spec.get("nullable_fks", False))
-                self.interlink_allowed_types_by_table[link_table_name] = spec.get("allowed_types")
+                self.interlink_requested_cols_by_table[link_table_name] = spec.get(
+                    "requested_cols", {"priority"}
+                )
+                self.interlink_nullable_fks_by_table[link_table_name] = bool(
+                    spec.get("nullable_fks", False)
+                )
+                self.interlink_allowed_types_by_table[link_table_name] = spec.get(
+                    "allowed_types"
+                )
             else:
                 self.interlink_requested_cols_by_table[link_table_name] = {"priority"}
                 self.interlink_nullable_fks_by_table[link_table_name] = False
@@ -1731,8 +1899,8 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
         """
         Parse a legacy name-name_ prefix and resolve its two table names.
 
-        No regex match returns None. Unresolved names are not filtered before sorting,
-        so matching malformed requests may raise TypeError.
+        No regex match returns None. Unresolved endpoint names raise TypeError
+        before sorting, with the invalid request included in the diagnostic.
 
         Example:
             A matching works-agents_ request resolves and sorts those known tables.
@@ -1752,6 +1920,10 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
         c_table1 = self.match_to_table_name(i_table1)
         c_table2 = self.match_to_table_name(i_table2)
 
+        if c_table1 is None or c_table2 is None:
+            raise TypeError(
+                f"Unresolved endpoint in interlink request: {interlink_request!r}"
+            )
         return sorted([c_table1, c_table2])
 
     def validate_interlink_table_constraints(self) -> None:
@@ -1767,7 +1939,6 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
         for link_table in self.interlink_tables:
             if link_table not in self.INTERLINK_TABLE_CONSTRAINTS:
                 raise KeyError(self.__constraint_not_found_error(link_table))
-
 
     def validate_allowed_type_val_dict(self) -> None:
         """
@@ -1787,10 +1958,14 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
             if allowed is None:
                 continue
             if not isinstance(allowed, list):
-                raise TypeError(f"allowed_types for {link_table} must be a list[str], got: {type(allowed)}")
+                raise TypeError(
+                    f"allowed_types for {link_table} must be a list[str], got: {type(allowed)}"
+                )
             for v in allowed:
                 if not isinstance(v, str):
-                    raise TypeError(f"allowed_types entry for {link_table} must be a string, got: {type(v)}: {v!r}")
+                    raise TypeError(
+                        f"allowed_types entry for {link_table} must be a string, got: {type(v)}: {v!r}"
+                    )
 
     def validate_interlink_table_column_requests(self) -> None:
         """
@@ -1811,7 +1986,9 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
             if req is None or req == "all":
                 continue
             if not isinstance(req, set):
-                raise TypeError(f"requested_columns for {link_table} must be a set or 'all', got: {type(req)}")
+                raise TypeError(
+                    f"requested_columns for {link_table} must be a set or 'all', got: {type(req)}"
+                )
             for cr in req:
                 # Legacy no-op (nullable is now derived from TOML key `nullable`)
                 if cr == "nullable":
@@ -1820,6 +1997,7 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
                     raise TypeError(
                         f"requested column {cr!r} not valid for {link_table} (allowed: {sorted(allowed_cols)})"
                     )
+
     def materialize_interlink_type_reference_tables(self) -> None:
         """
         Create and seed nonempty type-reference tables from the stored link options.
@@ -1860,7 +2038,7 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
         return "\n".join(err_msg)
 
     @staticmethod
-    def get_interlink_name(link_pair: list[str]) -> str:
+    def get_interlink_name(link_pair: Sequence[str]) -> str:
         """
         Sort table names, singularize the first two and compose the link-table name.
 
@@ -1874,9 +2052,11 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
         :return: Conventional link name; fewer than two inputs raise IndexError.
         """
         link_pair = sorted(link_pair)
-        return "{}_{}_links".format(plural_singular_mapper(link_pair[0]), plural_singular_mapper(link_pair[1]))
+        return "{}_{}_links".format(
+            plural_singular_mapper(link_pair[0]), plural_singular_mapper(link_pair[1])
+        )
 
-    def get_interlink_constraint(self, link_pair: list[str]) -> dict[str, str]:
+    def get_interlink_constraint(self, link_pair: Sequence[str]) -> dict[str, str]:
         """
         Return the stored mutable constraint mapping for a derived link name.
 
@@ -1921,7 +2101,9 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
         else:
             return None
 
-    def create_interlink_table(self, table1: str, table2: str, connection: sqlite3.Connection) -> None:
+    def create_interlink_table(
+        self, table1: str, table2: str, connection: SQLConnection
+    ) -> None:
         """
         Create an expected link from stored options, commit, then add optional type
         guards.
@@ -1950,7 +2132,9 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
 
         table_name, column_name = self.get_interlink_table_name(table1, table2)
 
-        requested_cols: Any = self.interlink_requested_cols_by_table.get(table_name, {"priority"})
+        requested_cols: RequestedColumns | None = (
+            self.interlink_requested_cols_by_table.get(table_name, {"priority"})
+        )
 
         if requested_cols is None:
             requested_cols = set()
@@ -1958,10 +2142,11 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
         allowed_types = self.interlink_allowed_types_by_table.get(table_name)
         nullable_fks = self.interlink_nullable_fks_by_table.get(table_name, False)
 
-
         # Check that the table we're building is actually expected
         if table_name not in self.interlink_tables:
-            raise ValueError(f"Unexpected interlink table_name {table_name!r} (not in known interlink tables)")
+            raise ValueError(
+                f"Unexpected interlink table_name {table_name!r} (not in known interlink tables)"
+            )
 
         # Up to two tables need to be constructed, and one needs to be populated
         # If required, an allowed_type_table will be constructed and populated from the list of statements already
@@ -1990,14 +2175,12 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
                 connection=conn,
             )
 
-
-    
     def direct_create_interlink_types_reference_table(
         self,
         interlink_table_name: str,
         interlink_column_base: str,
         allowed_types: list[str],
-        connection: sqlite3.Connection,
+        connection: SQLConnection,
     ) -> None:
         """
         Use the shared __types table seeding and insert/update guard implementation.
@@ -2022,11 +2205,12 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
             connection=connection,
         )
 
-
     # this section deals with adding the intralink tables
-        # examples might be authors and their pseudonames.
-        # The format is always primary is type of secondary
-    def create_intralink_table(self, table_name: str, connection: sqlite3.Connection) -> None:
+    # examples might be authors and their pseudonames.
+    # The format is always primary is type of secondary
+    def create_intralink_table(
+        self, table_name: str, connection: SQLConnection
+    ) -> None:
         """
         Build one configured self-link with nullable endpoints, then optional type
         guards.
@@ -2053,7 +2237,9 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
         name_local = six_unicode(name_local)
 
         # TOML-derived configuration for this intralink table
-        requested_cols: Any = self.intralink_requested_cols_by_table.get(name_local, {"type"})
+        requested_cols: RequestedColumns | None = (
+            self.intralink_requested_cols_by_table.get(name_local, {"type"})
+        )
         allowed_types = self.intralink_allowed_types_by_table.get(name_local)
         # NOTE:
         # DriverWrapper.get_blank_row() creates placeholder rows by inserting ONLY the scratch column first,
@@ -2093,22 +2279,46 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
                 connection=conn,
             )
 
-    def direct_build_intralink_table_sql(self, name: str, **kwargs: Any) -> list[str]:
+    def direct_build_intralink_table_sql(
+        self,
+        name: str,
+        allowed_types: Iterable[str] | None = None,
+        requested_cols: str | Iterable[str] | None = None,
+        index_both: bool = True,
+        nullable_fks: bool = True,
+        symmetric: bool = False,
+        symmetric_types: Iterable[str] | None = None,
+        use_reference_types_table: bool = False,
+    ) -> list[str]:
         """
         Forward self-link SQL generation to the shared utility implementation.
 
         Example:
-            Pass symmetric=True through kwargs to request canonical endpoint-order
+            Pass symmetric=True to request canonical endpoint-order
             guards.
 
 
         :param name: Main-table name passed to the shared builder.
-        :param kwargs: Supported shared-builder options, including columns, types,
-            nullability and symmetry.
+        :param allowed_types: Optional allowed type labels.
+        :param requested_cols: Optional column selection, or all.
+        :param index_both: Index both endpoint columns.
+        :param nullable_fks: Permit incomplete endpoint pairs.
+        :param symmetric: Require canonical endpoint ordering.
+        :param symmetric_types: Type labels subject to canonical ordering.
+        :param use_reference_types_table: Install reference-type guards separately.
         :return: List of generated SQL statements without executing them.
         """
 
-        return super().direct_build_intralink_table_sql(name, **kwargs)
+        return super().direct_build_intralink_table_sql(
+            name,
+            allowed_types,
+            requested_cols,
+            index_both,
+            nullable_fks,
+            symmetric,
+            symmetric_types,
+            use_reference_types_table,
+        )
 
     def get_requested_intralink_tables(self) -> set[str]:
         """
@@ -2152,7 +2362,20 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
         if not isinstance(intralinks, list):
             raise TypeError("TOML key `intralinks` must be a list")
 
-        allowed_req_cols = {"priority", "primary", "type", "origin", "source", "policy", "data", "index", "sequence_number", "is_required", "nullable", "all"}
+        allowed_req_cols = {
+            "priority",
+            "primary",
+            "type",
+            "origin",
+            "source",
+            "policy",
+            "data",
+            "index",
+            "sequence_number",
+            "is_required",
+            "nullable",
+            "all",
+        }
 
         intralink_tables: set[str] = set()
 
@@ -2167,7 +2390,9 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
 
             name = entry.get("table") or entry.get("table_name") or entry.get("name")
             if not name:
-                LiuXin_warning_print(f"Warning - intralink spec entry {idx} missing `table`: {entry!r}")
+                LiuXin_warning_print(
+                    f"Warning - intralink spec entry {idx} missing `table`: {entry!r}"
+                )
                 continue
 
             c_table = self.match_to_table_name(str(name)) or str(name)
@@ -2180,9 +2405,13 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
             # requested columns
             requested_columns = entry.get("requested_columns")
             if requested_columns is None:
-                requested_columns = entry.get("requested_cols") or entry.get("requested_col") or entry.get("columns")
+                requested_columns = (
+                    entry.get("requested_cols")
+                    or entry.get("requested_col")
+                    or entry.get("columns")
+                )
 
-            requested_cols: Any = {"type"}
+            requested_cols: RequestedColumns | None = {"type"}
             nullable_fks: bool = False  # prefer strictness for self-links
 
             if requested_columns is not None:
@@ -2208,18 +2437,24 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
                     else:
                         requested_cols = set(lowered) if lowered else set()
                 else:
-                    raise TypeError(f"requested_cols must be a list or string; got: {type(requested_columns)}")
+                    raise TypeError(
+                        f"requested_cols must be a list or string; got: {type(requested_columns)}"
+                    )
 
             # explicit nullable key (preferred)
             if "nullable" in entry and entry.get("nullable") is not None:
-                nullable_fks = _require_toml_bool(entry.get("nullable"), context=f"intralinks[{idx}].nullable")
+                nullable_fks = _require_toml_bool(
+                    entry.get("nullable"), context=f"intralinks[{idx}].nullable"
+                )
 
             # allowed types (optional)
             allowed_types = entry.get("allowed_types") or entry.get("types")
             allowed_types_list: Optional[list[str]] = None
             if allowed_types is not None:
                 if not isinstance(allowed_types, list):
-                    raise TypeError(f"types for intralink {c_table!r} must be a list[str]")
+                    raise TypeError(
+                        f"types for intralink {c_table!r} must be a list[str]"
+                    )
                 raw_items = [str(x).strip() for x in allowed_types if str(x).strip()]
                 expanded: list[str] = []
                 for item in raw_items:
@@ -2230,7 +2465,9 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
                                 MARC_ROLE_DESC,
                             )
                         except Exception as e:  # pragma: no cover
-                            raise RuntimeError("Unable to import MARC_ROLE_DESC for insert_marc_roles expansion") from e
+                            raise RuntimeError(
+                                "Unable to import MARC_ROLE_DESC for insert_marc_roles expansion"
+                            ) from e
                         expanded.extend(sorted(MARC_ROLE_DESC.keys()))
                         continue
                     if key.lower() == "insert_known_hash_types":
@@ -2239,7 +2476,9 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
                         expanded.extend(sorted(hashlib.algorithms_guaranteed))
                         continue
                     if key.lower().startswith("insert_"):
-                        raise TypeError(f"Unknown types placeholder {key!r} in intralink {idx}")
+                        raise TypeError(
+                            f"Unknown types placeholder {key!r} in intralink {idx}"
+                        )
                     expanded.append(key)
 
                 seen: set[str] = set()
@@ -2251,7 +2490,9 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
                     allowed_types_list.append(v)
 
                 if not allowed_types_list:
-                    raise TypeError(f"types list is empty after expansion in intralink {idx}")
+                    raise TypeError(
+                        f"types list is empty after expansion in intralink {idx}"
+                    )
 
             # ensure type column exists if types are declared
             if allowed_types_list is not None and requested_cols != "all":
@@ -2263,12 +2504,18 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
             if "symmetric" in entry and entry.get("symmetric") is not None:
                 symmetric = _parse_toml_bool(entry.get("symmetric"), default=False)
 
-            symmetric_types = entry.get("symmetric_types") or entry.get("symmetric_type")
+            symmetric_types = entry.get("symmetric_types") or entry.get(
+                "symmetric_type"
+            )
             symmetric_types_list: Optional[list[str]] = None
             if symmetric_types is not None:
                 if not isinstance(symmetric_types, list):
-                    raise TypeError(f"symmetric_types for intralink {c_table!r} must be a list[str]")
-                symmetric_types_list = [str(x).strip() for x in symmetric_types if str(x).strip()]
+                    raise TypeError(
+                        f"symmetric_types for intralink {c_table!r} must be a list[str]"
+                    )
+                symmetric_types_list = [
+                    str(x).strip() for x in symmetric_types if str(x).strip()
+                ]
                 if not symmetric_types_list:
                     symmetric_types_list = None
 
@@ -2276,9 +2523,13 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
             if symmetric_types_list is not None:
                 if requested_cols != "all":
                     if isinstance(requested_cols, set) and "type" not in requested_cols:
-                        raise TypeError(f"symmetric_types requires requested_cols to include 'type' in intralink {idx}")
+                        raise TypeError(
+                            f"symmetric_types requires requested_cols to include 'type' in intralink {idx}"
+                        )
                 if allowed_types_list is not None:
-                    unknown = sorted(set(symmetric_types_list) - set(allowed_types_list))
+                    unknown = sorted(
+                        set(symmetric_types_list) - set(allowed_types_list)
+                    )
                     if unknown:
                         raise TypeError(
                             f"symmetric_types contains values not present in types list for intralink {idx}: {unknown!r}"
@@ -2294,6 +2545,7 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
             intralink_tables.add(c_table)
 
         return intralink_tables
+
     def create_aggregate_tables(self) -> None:
         """
         Execute explicitly enabled aggregate SQL resources with a commit after each
@@ -2325,7 +2577,9 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
 
         enabled_raw = data.get("enabled", False)
         if "enabled" in data:
-            enabled = _require_toml_bool(enabled_raw, context="aggregate_tables.enabled")
+            enabled = _require_toml_bool(
+                enabled_raw, context="aggregate_tables.enabled"
+            )
         else:
             enabled = False
 
@@ -2345,7 +2599,9 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
                 rel_str = str(rel)
                 abs_path = os.path.join(__folder__, rel_str)
                 if not os.path.exists(abs_path):
-                    raise FileNotFoundError(f"Aggregate SQL file not found: {rel_str!r}")
+                    raise FileNotFoundError(
+                        f"Aggregate SQL file not found: {rel_str!r}"
+                    )
                 with open(abs_path, "r", encoding="utf-8") as f:
                     scripts.append(f.read())
 
@@ -2356,19 +2612,19 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
                 for dirpath, _, filenames in os.walk(folder_path):
                     for fn in sorted(filenames):
                         if fn.lower().endswith(".sql"):
-                            with open(os.path.join(dirpath, fn), "r", encoding="utf-8") as f:
+                            with open(
+                                os.path.join(dirpath, fn), "r", encoding="utf-8"
+                            ) as f:
                                 scripts.append(f.read())
 
         if not scripts:
             return
 
-        c = self.conn.cursor()
         for script in scripts:
             if VERBOSE_DEBUG:
                 LiuXin_print(script)
-            c.executescript(script)
+            self.conn.executescript(script)
             self.conn.commit()
-
 
     def set_database_version(self) -> None:
         """
@@ -2401,7 +2657,9 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
         for row in c.execute("SELECT database_version_version FROM database_version;"):
             version_val = row[0]
         if version_val != version_str:
-            raise RuntimeError(f"database_version insert mismatch: expected {version_str!r}, got {version_val!r}")
+            raise RuntimeError(
+                f"database_version insert mismatch: expected {version_str!r}, got {version_val!r}"
+            )
 
         ins_stmt_block = """
         CREATE TRIGGER IF NOT EXISTS block_insert_on_database_version_table

@@ -1,4 +1,3 @@
-
 """
 Resolve conventional SQL column names and validate names against the driver schema.
 """
@@ -18,7 +17,13 @@ from LiuXin_alpha.utils.libraries.liuxin_six import force_unicode
 from LiuXin_alpha.utils.logging import default_log
 
 
-class TableNamesMixin:
+from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver._state import (
+    SQLDriverMixinState,
+    driver_operations,
+)
+
+
+class TableNamesMixin(SQLDriverMixinState):
     """
     Provide schema-based ID, display, timestamp and tree-column discovery.
 
@@ -29,7 +34,7 @@ class TableNamesMixin:
     """
 
     # Todo: To driver base class
-    @ staticmethod
+    @staticmethod
     def direct_get_column_name(table_name: str) -> str:
         """
         Map a plural table name to its conventional singular column base.
@@ -44,7 +49,7 @@ class TableNamesMixin:
         """
         return plural_singular_mapper(table_name)
 
-    def direct_validate_existing_table_name(self, test_name):
+    def direct_validate_existing_table_name(self, test_name: str) -> bool:
         """
         Check a trimmed name against cached tables and selected symmetric wrappers.
 
@@ -63,7 +68,7 @@ class TableNamesMixin:
         """
         # If the name matches a pre-existing one it is automatically valid (this function is used to validate input)
         # Not to validate potential new table names.
-        tables_and_columns = self.direct_get_tables_and_columns()
+        tables_and_columns = driver_operations(self).direct_get_tables_and_columns()
 
         # intended to help with SQL injection attack proofing
         try:
@@ -100,9 +105,8 @@ class TableNamesMixin:
     # Currently assumes that there is a column with a name ending in id and that if this is true for multiple rows that
     # the shortest string ending in id is the id string. Should be tested every time a new column is added
     def direct_get_id_column(
-            self,
-            table: str,
-            tables_and_columns: Optional[dict[str, list[str]]] = None) -> str:
+        self, table: str, tables_and_columns: Optional[dict[str, list[str]]] = None
+    ) -> str:
         """
         Choose literal id, otherwise the shortest heading ending in _id.
 
@@ -121,7 +125,7 @@ class TableNamesMixin:
         """
 
         table = force_unicode(table)
-        tables_and_columns = self.direct_get_tables_and_columns()
+        tables_and_columns = driver_operations(self).direct_get_tables_and_columns()
         try:
             headings = tables_and_columns[table]
         except KeyError as e:
@@ -148,15 +152,16 @@ class TableNamesMixin:
             return candidate_ids[0]
         elif len(candidate_ids) == 0:
             err_str = "Error - get_id_column failed - no column with a name ending in id found"
-            err_str = default_log.log_variables(err_str, "ERROR", ("headings", headings))
+            err_str = default_log.log_variables(
+                err_str, "ERROR", ("headings", headings)
+            )
             raise InputIntegrityError(err_str)
         else:
             return candidate_ids[0]
 
     def direct_get_datestamp_column(
-            self,
-            table: str,
-            tables_and_columns: Optional[dict[str, list[str]]] = None) -> str:
+        self, table: str, tables_and_columns: Optional[dict[str, list[str]]] = None
+    ) -> str:
         """
         Choose literal datestamp, otherwise the shortest recognized timestamp heading.
 
@@ -174,7 +179,7 @@ class TableNamesMixin:
         :return: The selected timestamp column name.
         """
         table = force_unicode(table)
-        tables_and_columns = self.direct_get_tables_and_columns()
+        tables_and_columns = driver_operations(self).direct_get_tables_and_columns()
         try:
             headings = tables_and_columns[table]
         except KeyError as e:
@@ -206,15 +211,18 @@ class TableNamesMixin:
             return candidate_ids[0]
         elif len(candidate_ids) == 0:
             err_str = "Error - direct_get_datestamp_column failed - no column with a name ending in datestamp found"
-            err_str = default_log.log_variables(err_str, "ERROR", ("headings", headings))
+            err_str = default_log.log_variables(
+                err_str, "ERROR", ("headings", headings)
+            )
             raise InputIntegrityError(err_str)
         else:
             return candidate_ids[0]
 
     def direct_identify_table_from_column(
-            self,
-            column_heading: str,
-            headings_and_columns: Optional[dict[str, list[str]]] = None) -> str:
+        self,
+        column_heading: str,
+        headings_and_columns: Optional[dict[str, list[str]]] = None,
+    ) -> str:
         """
         Return the first table containing a column in the supplied or current mapping.
 
@@ -234,7 +242,9 @@ class TableNamesMixin:
         :return: The first matching table name.
         """
         if headings_and_columns is None:
-            headings_and_columns_local = self.direct_get_tables_and_columns()
+            headings_and_columns_local = driver_operations(
+                self
+            ).direct_get_tables_and_columns()
         else:
             headings_and_columns_local = headings_and_columns
         tables = headings_and_columns_local.keys()
@@ -266,7 +276,7 @@ class TableNamesMixin:
         """
         table_name = deepcopy(table_name)
         table_id_column = self.direct_get_id_column(table_name)
-        tables_and_columns = self.direct_get_tables_and_columns()
+        tables_and_columns = driver_operations(self).direct_get_tables_and_columns()
         # Don't want to accidentally remove the title_id from the tables_and_columns cache
         column_names = deepcopy(tables_and_columns[table_name])
 
@@ -292,7 +302,7 @@ class TableNamesMixin:
         :param target_table: Existing table whose derived column is required.
         :return: The matching column, or ``None``; unknown table keys raise KeyError.
         """
-        table_and_columns = self.direct_get_tables_and_columns()
+        table_and_columns = driver_operations(self).direct_get_tables_and_columns()
         columns = table_and_columns[target_table]
 
         full_pat = r"^.*_full$"
@@ -315,7 +325,7 @@ class TableNamesMixin:
         :param target_table: Existing table whose derived column is required.
         :return: The matching column, or ``None``; unknown table keys raise KeyError.
         """
-        table_and_columns = self.direct_get_tables_and_columns()
+        table_and_columns = driver_operations(self).direct_get_tables_and_columns()
         columns = table_and_columns[target_table]
 
         full_pat = r"^.*_tree_id$"
@@ -362,7 +372,7 @@ class TableNamesMixin:
         :return: The parent column name, or ``False`` when there is none.
         """
         table_name = deepcopy(table_name)
-        tables_and_columns = self.direct_get_tables_and_columns()
+        tables_and_columns = driver_operations(self).direct_get_tables_and_columns()
         if table_name not in tables_and_columns:
             if VERBOSE_DEBUG:
                 err_str = "Input to get_parent_column_name not recognized.\n"
@@ -380,7 +390,9 @@ class TableNamesMixin:
                 candidate_index.append(name)
 
         if len(candidate_index) > 1:
-            preferred_candidates = [name for name in candidate_index if name.lower().endswith("_parent_id")]
+            preferred_candidates = [
+                name for name in candidate_index if name.lower().endswith("_parent_id")
+            ]
             if len(preferred_candidates) == 1:
                 return preferred_candidates[0]
 

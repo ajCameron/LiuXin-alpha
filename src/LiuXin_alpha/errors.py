@@ -16,7 +16,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def _log_exception_message(message):
+def _log_exception_message(message: object) -> None:
     """
     Perform the log exception message operation under explicit file-format and conversion rules.
 
@@ -58,7 +58,7 @@ class BadInputException(LiuXinException):
 
             python -m pytest -q tests/surfaces/test_surface_read_errors.py
     """
-    def __init__(self, argument=None):
+    def __init__(self, argument: object = None) -> None:
         """
         Initialize and validate the badinputexception state.
 
@@ -78,7 +78,7 @@ class BadInputException(LiuXinException):
         else:
             pass
 
-    def __str__(self):
+    def __str__(self) -> str:
         """
         Perform the str operation under explicit file-format and conversion rules.
 
@@ -105,7 +105,7 @@ class LogicalError(LiuXinException):
 
             python -m pytest -q tests/surfaces/test_surface_read_errors.py
     """
-    def __init__(self, argument=None):
+    def __init__(self, argument: object = None) -> None:
         """
         Initialize and validate the logicalerror state.
 
@@ -125,7 +125,7 @@ class LogicalError(LiuXinException):
         else:
             pass
 
-    def __str__(self):
+    def __str__(self) -> str:
         """
         Perform the str operation under explicit file-format and conversion rules.
 
@@ -151,7 +151,7 @@ class ImportError(LiuXinException):
 
             python -m pytest -q tests/surfaces/test_surface_read_errors.py
     """
-    def __init__(self, argument=None):
+    def __init__(self, argument: object = None) -> None:
         """
         Initialize and validate the importerror state.
 
@@ -171,7 +171,7 @@ class ImportError(LiuXinException):
         else:
             pass
 
-    def __str__(self):
+    def __str__(self) -> str:
         """
         Perform the str operation under explicit file-format and conversion rules.
 
@@ -209,7 +209,7 @@ class PreferenceError(LiuXinException):
 
             python -m pytest -q tests/surfaces/test_surface_read_errors.py
     """
-    def __init__(self, argument):
+    def __init__(self, argument: object) -> None:
         """
         Initialize and validate the preferenceerror state.
 
@@ -226,7 +226,7 @@ class PreferenceError(LiuXinException):
         if argument is not None:
             _log_exception_message(self.argument)
 
-    def __str__(self):
+    def __str__(self) -> str:
         """
         Perform the str operation under explicit file-format and conversion rules.
 
@@ -252,7 +252,7 @@ class PlatformError(LiuXinException):
             python -m pytest -q tests/surfaces/test_surface_read_errors.py
     """
 
-    def __init__(self, argument):
+    def __init__(self, argument: object) -> None:
         """
         Initialize and validate the platformerror state.
 
@@ -269,7 +269,7 @@ class PlatformError(LiuXinException):
         if argument is not None:
             _log_exception_message(self.argument)
 
-    def __str__(self):
+    def __str__(self) -> str:
         """
         Perform the str operation under explicit file-format and conversion rules.
 
@@ -297,7 +297,7 @@ class LXImportError(LiuXinException):
             python -m pytest -q tests/surfaces/test_surface_read_errors.py
     """
 
-    def __init__(self, argument):
+    def __init__(self, argument: object) -> None:
         """
         Initialize and validate the lximporterror state.
 
@@ -314,7 +314,7 @@ class LXImportError(LiuXinException):
         if argument is not None:
             _log_exception_message(self.argument)
 
-    def __str__(self):
+    def __str__(self) -> str:
         """
         Perform the str operation under explicit file-format and conversion rules.
 
@@ -340,7 +340,7 @@ class LocationError(LiuXinException):
             python -m pytest -q tests/surfaces/test_surface_read_errors.py
     """
 
-    def __init__(self, argument):
+    def __init__(self, argument: object) -> None:
         """
         Initialize and validate the locationerror state.
 
@@ -357,7 +357,7 @@ class LocationError(LiuXinException):
         if argument is not None:
             _log_exception_message(self.argument)
 
-    def __str__(self):
+    def __str__(self) -> str:
         """
         Perform the str operation under explicit file-format and conversion rules.
 
@@ -485,7 +485,7 @@ class DatabaseIntegrityError(LiuXinDatabaseException):
 
             python -m pytest -q tests/surfaces/test_surface_read_errors.py
     """
-    def __init__(self, argument):
+    def __init__(self, argument: object) -> None:
         """
         Initialize and validate the databaseintegrityerror state.
 
@@ -503,7 +503,7 @@ class DatabaseIntegrityError(LiuXinDatabaseException):
         else:
             self.argument = None
 
-    def __str__(self):
+    def __str__(self) -> str:
         """
         Perform the str operation under explicit file-format and conversion rules.
 
@@ -528,7 +528,7 @@ class DatabaseConstraintError(LiuXinDatabaseException):
 
             python -m pytest -q tests/surfaces/test_surface_read_errors.py
     """
-    def __init__(self, argument):
+    def __init__(self, argument: object) -> None:
         """
         Initialize and validate the databaseconstrainterror state.
 
@@ -546,7 +546,7 @@ class DatabaseConstraintError(LiuXinDatabaseException):
         else:
             self.argument = None
 
-    def __str__(self):
+    def __str__(self) -> str:
         """
         Perform the str operation under explicit file-format and conversion rules.
 
@@ -571,7 +571,7 @@ class DatabaseDriverError(LiuXinDatabaseException):
 
             python -m pytest -q tests/surfaces/test_surface_read_errors.py
     """
-    def __init__(self, argument=None):
+    def __init__(self, argument: object = None) -> None:
         """
         Initialize and validate the databasedrivererror state.
 
@@ -591,7 +591,7 @@ class DatabaseDriverError(LiuXinDatabaseException):
         else:
             pass
 
-    def __str__(self):
+    def __str__(self) -> str:
         """
         Perform the str operation under explicit file-format and conversion rules.
 
@@ -616,7 +616,7 @@ class RowIntegrityError(LiuXinDatabaseException):
 
             python -m pytest -q tests/surfaces/test_surface_read_errors.py
     """
-    def __init__(self, argument):
+    def __init__(self, argument: object) -> None:
         """
         Initialize and validate the rowintegrityerror state.
 
@@ -633,7 +633,7 @@ class RowIntegrityError(LiuXinDatabaseException):
         if argument is not None:
             _log_exception_message(self.argument)
 
-    def __str__(self):
+    def __str__(self) -> str:
         """
         Perform the str operation under explicit file-format and conversion rules.
 
@@ -657,7 +657,7 @@ class SQLParseError(LiuXinDatabaseException):
 
             python -m pytest -q tests/surfaces/test_surface_read_errors.py
     """
-    def __init__(self, argument):
+    def __init__(self, argument: object) -> None:
         """
         Initialize and validate the sqlparseerror state.
 
@@ -674,7 +674,7 @@ class SQLParseError(LiuXinDatabaseException):
         if argument is not None:
             _log_exception_message(self.argument)
 
-    def __str__(self):
+    def __str__(self) -> str:
         """
         Perform the str operation under explicit file-format and conversion rules.
 
@@ -701,7 +701,7 @@ class SearchParseError(LiuXinDatabaseException):
             python -m pytest -q tests/surfaces/test_surface_read_errors.py
     """
 
-    def __init__(self, argument):
+    def __init__(self, argument: object) -> None:
         """
         Initialize and validate the searchparseerror state.
 
@@ -718,7 +718,7 @@ class SearchParseError(LiuXinDatabaseException):
         if argument is not None:
             _log_exception_message(self.argument)
 
-    def __str__(self):
+    def __str__(self) -> str:
         """
         Perform the str operation under explicit file-format and conversion rules.
 
@@ -764,7 +764,7 @@ class LiuXinConversionError(LiuXinException):
 
             python -m pytest -q tests/surfaces/test_surface_read_errors.py
     """
-    def __init__(self, msg, only_msg=False):
+    def __init__(self, msg: object, only_msg: bool = False) -> None:
         """
         Initialize and validate the liuxinconversionerror state.
 
@@ -836,7 +836,7 @@ class ResourceError(LiuXinException):
             python -m pytest -q tests/surfaces/test_surface_read_errors.py
     """
 
-    def __init__(self, argument):
+    def __init__(self, argument: object) -> None:
         """
         Initialize and validate the resourceerror state.
 
@@ -853,7 +853,7 @@ class ResourceError(LiuXinException):
         if argument is not None:
             _log_exception_message(self.argument)
 
-    def __str__(self):
+    def __str__(self) -> str:
         """
         Perform the str operation under explicit file-format and conversion rules.
 
@@ -1001,7 +1001,7 @@ class FolderStoreIntegrityError(LiuXinException):
 
             python -m pytest -q tests/surfaces/test_surface_read_errors.py
     """
-    def __init__(self, argument=None):
+    def __init__(self, argument: object = None) -> None:
         """
         Initialize and validate the folderstoreintegrityerror state.
 
@@ -1021,7 +1021,7 @@ class FolderStoreIntegrityError(LiuXinException):
         else:
             pass
 
-    def __str__(self):
+    def __str__(self) -> str:
         """
         Perform the str operation under explicit file-format and conversion rules.
 
@@ -1047,7 +1047,7 @@ class InvalidFolderStore(LiuXinException):
             python -m pytest -q tests/surfaces/test_surface_read_errors.py
     """
 
-    def __init__(self, argument):
+    def __init__(self, argument: object) -> None:
         """
         Initialize and validate the invalidfolderstore state.
 
@@ -1075,7 +1075,7 @@ class InvalidFolderStoreDriver(LiuXinException):
             python -m pytest -q tests/surfaces/test_surface_read_errors.py
     """
 
-    def __init__(self, err_str):
+    def __init__(self, err_str: object) -> None:
         """
         Initialize and validate the invalidfolderstoredriver state.
 
@@ -1103,7 +1103,7 @@ class FSDriverError(LiuXinException):
             python -m pytest -q tests/surfaces/test_surface_read_errors.py
     """
 
-    def __init__(self, argument):
+    def __init__(self, argument: object) -> None:
         """
         Initialize and validate the fsdrivererror state.
 
@@ -1120,7 +1120,7 @@ class FSDriverError(LiuXinException):
         if argument is not None:
             _log_exception_message(self.argument)
 
-    def __str__(self):
+    def __str__(self) -> str:
         """
         Perform the str operation under explicit file-format and conversion rules.
 
@@ -1146,7 +1146,7 @@ class FSError(LiuXinException):
             python -m pytest -q tests/surfaces/test_surface_read_errors.py
     """
 
-    def __init__(self, argument):
+    def __init__(self, argument: object) -> None:
         """
         Initialize and validate the fserror state.
 
@@ -1163,7 +1163,7 @@ class FSError(LiuXinException):
         if argument is not None:
             _log_exception_message(self.argument)
 
-    def __str__(self):
+    def __str__(self) -> str:
         """
         Perform the str operation under explicit file-format and conversion rules.
 
@@ -1189,7 +1189,7 @@ class FolderStoreError(LiuXinException):
             python -m pytest -q tests/surfaces/test_surface_read_errors.py
     """
 
-    def __init__(self, argument):
+    def __init__(self, argument: object) -> None:
         """
         Initialize and validate the folderstoreerror state.
 
@@ -1206,7 +1206,7 @@ class FolderStoreError(LiuXinException):
         if argument is not None:
             _log_exception_message(self.argument)
 
-    def __str__(self):
+    def __str__(self) -> str:
         """
         Perform the str operation under explicit file-format and conversion rules.
 
@@ -1233,7 +1233,7 @@ class FolderError(LiuXinException):
             python -m pytest -q tests/surfaces/test_surface_read_errors.py
     """
 
-    def __init__(self, argument):
+    def __init__(self, argument: object) -> None:
         """
         Initialize and validate the foldererror state.
 
@@ -1250,7 +1250,7 @@ class FolderError(LiuXinException):
         if argument is not None:
             _log_exception_message(self.argument)
 
-    def __str__(self):
+    def __str__(self) -> str:
         """
         Perform the str operation under explicit file-format and conversion rules.
 

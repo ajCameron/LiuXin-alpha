@@ -9,15 +9,95 @@ declarations do not validate payloads or provide persistence implementations.
 
 from __future__ import annotations
 
-from typing import Any, Callable, Iterable, Mapping, MutableMapping, Optional, Protocol, TYPE_CHECKING, TypeAlias
+from typing import (
+    Sequence,
+    Any,
+    Callable,
+    Iterable,
+    Mapping,
+    MutableMapping,
+    MutableSequence,
+    Optional,
+    Protocol,
+    TYPE_CHECKING,
+    TypeAlias,
+)
 
 if TYPE_CHECKING:
-    from LiuXin_alpha.catalog.api.field_metadata_api import FieldMetadataAPI
     from LiuXin_alpha.databases.api.database_api.database_api import DatabaseAPI
     from LiuXin_alpha.databases.db_types.database_types import MainTableName
+    from LiuXin_alpha.databases.db_types.driver_types import SQLConnection
 
 CustomColumnMetadata: TypeAlias = MutableMapping[str, Any]
 CustomColumnDataAdapter: TypeAlias = Callable[[Any, Mapping[str, Any]], Any]
+
+
+class CustomColumnRows(Protocol):
+    """Index mutable cache rows by persistent owner ID."""
+
+    def __getitem__(self, owner_id: int, /) -> MutableSequence[Any]: ...
+
+
+class CustomColumnCache(Protocol):
+    """Legacy cache operations; row positions and persistent IDs are distinct."""
+
+    @property
+    def _data(self) -> CustomColumnRows: ...
+
+    def __getitem__(self, position: int, /) -> MutableSequence[Any]: ...
+
+    def set(self, row: int, col: int, val: Any, row_is_id: bool = False) -> None: ...
+
+
+class CustomColumnPreferences(Protocol):
+    """Preference writes requested after successful definition mutations."""
+
+    def set(self, key: str, value: Any) -> None: ...
+
+
+class CustomColumnDirtied(Protocol):
+    """Replaceable owner-dirtying hook with the public default commit flag."""
+
+    def __call__(self, ids: Iterable[int], commit: bool = True) -> None: ...
+
+
+class CustomColumnNotify(Protocol):
+    """Replaceable synchronous metadata notification hook."""
+
+    def __call__(self, event: str, ids: Iterable[int]) -> None: ...
+
+
+class CustomColumnFieldMetadata(Protocol):
+    """Descriptor operations consumed by the legacy custom-column service.
+
+    Catalog supplies the descriptor implementation. Database mixins depend only
+    on registration, slot assignment and storage hints, not Catalog queries.
+    """
+
+    @property
+    def custom_field_prefix(self) -> str: ...
+
+    def __getitem__(self, key: str) -> Mapping[str, object]: ...
+
+    def set_field_record_index(
+        self, label: str, index: int, prefer_custom: bool = False
+    ) -> None: ...
+
+    def add_custom_field(
+        self,
+        label: str,
+        table: str | None,
+        column: str | None,
+        datatype: str | None,
+        colnum: int | None,
+        name: str | None,
+        display: Mapping[str, object],
+        is_editable: bool,
+        is_multiple: Mapping[str, str | None],
+        is_category: bool,
+        is_csp: bool = False,
+        in_table: str = "books",
+    ) -> None: ...
 
 
 class CustomColumnsAPI(Protocol):
@@ -27,9 +107,9 @@ class CustomColumnsAPI(Protocol):
     Hosts supply db, attachment table, row data, preferences, field metadata/index maps,
     label/number metadata maps and datatype adapters. This structural Protocol is not
     runtime_checkable; its method bodies are declarations without operational defaults.
-    Existing concrete mixins use some different positional parameter names, notably
-    cc_row_id(s) for public writes and book_ids for cached rename updates. Positional
-    calls avoid those keyword mismatches; this protocol does not repair them.
+    Parameter names match the concrete mixins, including cc_row_id(s) for writes
+    and book_ids for cached rename updates. Cache operations require an explicitly
+    supplied results cache; standalone definition management does not need one.
 
     Example:
         A mixin can annotate ``self: CustomColumnsAPI`` and read
@@ -39,17 +119,20 @@ class CustomColumnsAPI(Protocol):
 
     db: "DatabaseAPI"
     table: "MainTableName"
-    data: Any
-    prefs: Any
-    FIELD_MAP: MutableMapping[Any, int]
-    field_metadata: "FieldMetadataAPI"
+
+    @property
+    def data(self) -> CustomColumnCache: ...
+
+    prefs: CustomColumnPreferences | None
+    FIELD_MAP: MutableMapping[str | int, int]
+    field_metadata: CustomColumnFieldMetadata
     custom_column_label_map: MutableMapping[str, CustomColumnMetadata]
     custom_column_num_map: MutableMapping[int, CustomColumnMetadata]
     custom_column_num_to_label_map: MutableMapping[int, str]
     custom_data_adapters: Mapping[str, CustomColumnDataAdapter]
 
     @property
-    def conn(self) -> Any:
+    def conn(self) -> SQLConnection | None:
         """
         Expose the connection supplied or resolved by the implementing host.
 
@@ -62,12 +145,12 @@ class CustomColumnsAPI(Protocol):
             used by its custom-column helpers.
 
 
-        :return: Host connection object; the protocol does not enforce its concrete type
-            or liveness.
+        :return: Physical connection, or None when the host has none available.
         """
+        ...
 
     @conn.setter
-    def conn(self, value: Any) -> None:
+    def conn(self, value: SQLConnection | None) -> None:
         """
         Accept an explicit connection override for the host.
 
@@ -83,6 +166,7 @@ class CustomColumnsAPI(Protocol):
             driver-wrapper host.
         :return: None; the implementing host performs the described operation.
         """
+        ...
 
     @property
     def custom_tables(self) -> Iterable[str]:
@@ -97,6 +181,15 @@ class CustomColumnsAPI(Protocol):
 
         :return: Iterable of custom-table names; callers should not assume an ordering.
         """
+        ...
+
+    def _custom_connection(self) -> SQLConnection:
+        """Require a live physical connection for context/commit operations."""
+        ...
+
+    def refresh_db_custom_columns_metadata(self) -> None:
+        """Reload definition maps after validating every selected record."""
+        ...
 
     def get_custom_tables(self) -> set[str]:
         """
@@ -109,8 +202,11 @@ class CustomColumnsAPI(Protocol):
 
         :return: Set of discovered table names.
         """
+        ...
 
-    def all_custom(self, label: Optional[str] = None, num: Optional[int] = None) -> set[Any]:
+    def all_custom(
+        self, label: Optional[str] = None, num: Optional[int] = None
+    ) -> set[Any]:
         """
         Return the distinct stored values for a selected custom column.
 
@@ -130,6 +226,7 @@ class CustomColumnsAPI(Protocol):
         :raises NotImplementedError: The legacy getter receives neither label nor num.
         :raises KeyError: The selected metadata entry is unknown.
         """
+        ...
 
     @staticmethod
     def cleanup_tags(tags_list: Iterable[str | bytes]) -> list[str]:
@@ -148,6 +245,7 @@ class CustomColumnsAPI(Protocol):
             write.
         :return: Cleaned list of tag strings.
         """
+        ...
 
     def create_custom_column(
         self,
@@ -189,13 +287,15 @@ class CustomColumnsAPI(Protocol):
         :param make_category: Optional override for category creation.
         :return: Numeric ID of the new custom-column definition.
         """
+        ...
 
-    def custom_dirty_books_referencing(self, field: str, book_id: Any, commit: bool = True) -> Iterable[Any]:
+    def custom_dirty_books_referencing(
+        self, field: str, id: int, commit: bool = True
+    ) -> list[Sequence[Any]]:
         """
         Find and mark owners that reference one custom-column value.
 
-        The concrete CustomColumns helper names the second parameter id. Its lookup rows
-        are returned after a flattened owner-ID list is passed to dirtied.
+        Lookup rows are returned after a flattened owner-ID list is passed to dirtied.
 
         Example:
             ``references = host.custom_dirty_books_referencing("#state", value_id,
@@ -203,12 +303,12 @@ class CustomColumnsAPI(Protocol):
 
 
         :param field: Field-metadata key, commonly a prefixed custom label.
-        :param book_id: ID of the referenced custom value, despite the historical
-            book_id parameter name.
+        :param id: ID of the referenced custom value.
         :param commit: Whether the host dirtying operation should commit.
         :return: Iterable of owner references; the current helper returns raw one-column
             database rows.
         """
+        ...
 
     def custom_field_metadata(
         self,
@@ -229,6 +329,7 @@ class CustomColumnsAPI(Protocol):
         :return: Mutable metadata record owned by the host, not a detached copy.
         :raises KeyError: The requested label/number has no metadata entry.
         """
+        ...
 
     @staticmethod
     def custom_table_names(num: int, in_table: str = "books") -> tuple[str, str]:
@@ -248,8 +349,11 @@ class CustomColumnsAPI(Protocol):
         :param in_table: Attachment table name included in the link-table name.
         :return: Pair (custom_column_N, attachment_custom_column_N_link).
         """
+        ...
 
-    def delete_custom_column(self, num: Optional[int] = None, *, label: Optional[str] = None) -> None:
+    def delete_custom_column(
+        self, num: Optional[int] = None, *, label: Optional[str] = None
+    ) -> None:
         """
         Mark a selected definition for removal during a later custom-column load.
 
@@ -266,10 +370,11 @@ class CustomColumnsAPI(Protocol):
         :param num: Custom-column definition ID, used when label is absent.
         :return: None; the implementing host performs the described operation.
         """
+        ...
 
     def delete_custom_item_using_id(
         self,
-        idx: int,
+        idx: int | None,
         label: Optional[str] = None,
         num: Optional[int] = None,
     ) -> None:
@@ -277,9 +382,8 @@ class CustomColumnsAPI(Protocol):
         Delete one normalized value and update references through the host helpers.
 
         The legacy implementation ignores false IDs, dirties referencing owners before
-        deletion, then requests a cache update. Its cache-update call uses target_ids,
-        but the current concrete rename helper names that parameter book_ids; that
-        keyword mismatch is not resolved by this protocol.
+        deletion, then requests a cache update using the owner-reference rows.
+        Database writes and cache updates retain separate failure boundaries.
 
         Example:
             For a compatible host, ``host.delete_custom_item_using_id(value_id,
@@ -292,6 +396,7 @@ class CustomColumnsAPI(Protocol):
         :param num: Custom-column definition ID, used when label is absent.
         :return: None; the implementing host performs the described operation.
         """
+        ...
 
     def delete_item_from_multiple(
         self,
@@ -319,6 +424,7 @@ class CustomColumnsAPI(Protocol):
         :raises ValueError: The selected legacy column is not text with is_multiple
             enabled.
         """
+        ...
 
     def direct_get_custom_extra(self, link_table: str, index: int) -> Any:
         """
@@ -333,8 +439,9 @@ class CustomColumnsAPI(Protocol):
         :param index: Persistent owner ID used by the underlying extra-value query.
         :return: Backend extra value, or its missing-value result.
         """
+        ...
 
-    def direct_get_custom_id_val_pairs(self, table: str) -> tuple[int, Any]:
+    def direct_get_custom_id_val_pairs(self, table: str) -> list[tuple[int, Any]]:
         """
         Retrieve stored value IDs and values from a custom-column table.
 
@@ -348,9 +455,9 @@ class CustomColumnsAPI(Protocol):
 
 
         :param table: Physical custom value-table name.
-        :return: Backend ID/value row collection; the retained legacy annotation does
-            not express the outer collection accurately.
+        :return: List of (ID, value) pairs, empty when there are no values.
         """
+        ...
 
     def dirtied(self, ids: Iterable[int], commit: bool = True) -> None:
         """
@@ -368,6 +475,7 @@ class CustomColumnsAPI(Protocol):
         :param commit: Whether the host dirtying operation should commit.
         :return: None; the implementing host performs the described operation.
         """
+        ...
 
     def get_custom(
         self,
@@ -398,6 +506,7 @@ class CustomColumnsAPI(Protocol):
             than a current row position.
         :return: Cached scalar value or a list for a multiple-text column.
         """
+        ...
 
     def get_custom_extra(
         self,
@@ -424,6 +533,7 @@ class CustomColumnsAPI(Protocol):
         :return: Series extra value, or None when the selected datatype has no series
             extra.
         """
+        ...
 
     def get_custom_and_extra(
         self,
@@ -453,12 +563,13 @@ class CustomColumnsAPI(Protocol):
             than a current row position.
         :return: Pair (value, extra); non-series columns return None for extra.
         """
+        ...
 
     def get_custom_items_with_ids(
         self,
         label: Optional[str] = None,
         num: Optional[int] = None,
-    ) -> Any:
+    ) -> list[tuple[int, Any]]:
         """
         Expose ID/value choices for a normalized custom column.
 
@@ -470,9 +581,9 @@ class CustomColumnsAPI(Protocol):
         :param label: Custom-column label; when supplied, legacy mixins prefer it over
             num.
         :param num: Custom-column definition ID, used when label is absent.
-        :return: Backend ID/value pair collection, or an empty list for unnormalized
-            storage.
+        :return: All ID/value pairs, or an empty list for unnormalized storage.
         """
+        ...
 
     def get_next_cc_series_num_for(
         self,
@@ -499,6 +610,7 @@ class CustomColumnsAPI(Protocol):
         :return: Next index according to host preference policy, or None for a
             non-series column.
         """
+        ...
 
     def id(self, idx: int) -> int:
         """
@@ -512,6 +624,7 @@ class CustomColumnsAPI(Protocol):
         :param idx: Position in the host current row ordering.
         :return: Persistent owner ID supplied by the host row-data interface.
         """
+        ...
 
     def notify(self, event: str, ids: Iterable[int]) -> None:
         """
@@ -529,37 +642,37 @@ class CustomColumnsAPI(Protocol):
         :param ids: Persistent owner IDs associated with the event.
         :return: None; the implementing host performs the described operation.
         """
+        ...
 
     def rename_custom_item_in_data(
         self,
-        target_ids: Iterable[Any],
-        column_num: Any,
+        book_ids: Iterable[Sequence[int]],
+        column_num: int | str,
         new_value: Any,
     ) -> None:
         """
         Replace cached custom values for the supplied owner-reference rows.
 
-        The concrete helper parameter is named book_ids, so positional calls are
-        compatible with both vocabularies. This changes the row-data cache only and does
-        not persist a database rename.
+        This changes the row-data cache only and does not persist a database rename.
 
         Example:
             ``host.rename_custom_item_in_data([(7,), (8,)], column_id, None)`` clears
             the cached projection for two owners.
 
 
-        :param target_ids: Owner references; the current helper expects indexable rows
+        :param book_ids: Owner references; the current helper expects indexable rows
             with the ID at position zero.
         :param column_num: Custom-column key used in FIELD_MAP.
         :param new_value: Value assigned in the row-data cache, including None for
             clearing.
         :return: None; the implementing host performs the described operation.
         """
+        ...
 
     def set_custom_bulk_multiple(
         self,
-        ids: Iterable[int],
-        add: Optional[Iterable[str]] = None,
+        cc_row_ids: Iterable[int],
+        add: Optional[Iterable[str | bytes]] = None,
         remove: Optional[Iterable[str]] = None,
         label: Optional[str] = None,
         num: Optional[int] = None,
@@ -579,7 +692,7 @@ class CustomColumnsAPI(Protocol):
             owners.
 
 
-        :param ids: Reusable collection of persistent owner IDs.
+        :param cc_row_ids: Persistent owner IDs; one-pass iterators are materialized.
         :param add: Choices to add; None means none.
         :param remove: Choices to remove; additions take precedence for overlapping
             cleaned values.
@@ -589,31 +702,30 @@ class CustomColumnsAPI(Protocol):
         :param notify: Whether to call the host metadata notification hook.
         :return: None; the implementing host performs the described operation.
         """
+        ...
 
     def set_custom_bulk(
         self,
-        ids: Iterable[int],
+        cc_row_ids: Sequence[int],
         val: Any,
         label: Optional[str] = None,
         num: Optional[int] = None,
         append: bool = False,
         notify: bool = True,
-        extras: Optional[Mapping[int, Any]] = None,
+        extras: Sequence[Any] | Mapping[int, Any] | None = None,
     ) -> None:
         """
         Apply one custom value to multiple owners, with optional per-position extras.
 
-        The concrete mixin names its first parameter cc_row_ids, checks equal lengths
-        for extras and owners, calls _set_custom per owner, then dirties the owners and
-        commits. Its implementation accepts positional-indexed extras even though its
-        own annotation is a list and this protocol retains Mapping.
+        Check equal lengths for extras and owners, call _set_custom per owner,
+        then dirty the owners and commit. Extras use input positions as indices.
 
         Example:
             ``host.set_custom_bulk([7, 8], "Cycle", num=series_column_id, extras={0:
             1.0, 1: 2.0})`` assigns per-position series indexes.
 
 
-        :param ids: Sized, reusable owner-ID collection for the current mixin
+        :param cc_row_ids: Sized, reusable owner-ID collection for the current mixin
             implementation.
         :param val: Value applied to each owner.
         :param label: Custom-column label; when supplied, legacy mixins prefer it over
@@ -627,10 +739,11 @@ class CustomColumnsAPI(Protocol):
         :raises ValueError: The current mixin receives extras and owner collections with
             different lengths.
         """
+        ...
 
     def set_custom(
         self,
-        id: int,
+        cc_row_id: int,
         val: Any,
         label: Optional[str] = None,
         num: Optional[int] = None,
@@ -652,8 +765,7 @@ class CustomColumnsAPI(Protocol):
             updates owner 7 while leaving the caller to commit.
 
 
-        :param id: Persistent owner ID; the concrete mixin names this parameter
-            cc_row_id.
+        :param cc_row_id: Persistent owner ID.
         :param val: Value to adapt and write.
         :param label: Custom-column label; when supplied, legacy mixins prefer it over
             num.
@@ -667,6 +779,7 @@ class CustomColumnsAPI(Protocol):
         :return: Set of additional owners needing refresh from the inner write; the
             requested owner is dirtied separately.
         """
+        ...
 
     def set_custom_column_metadata(
         self,
@@ -674,11 +787,11 @@ class CustomColumnsAPI(Protocol):
         name: Optional[str] = None,
         label: Optional[str] = None,
         is_editable: Optional[bool] = None,
-        display: Optional[str] = None,
+        display: Optional[Mapping[str, Any]] = None,
         in_table: Optional[str] = None,
         notify: bool = True,
         update_last_modified: bool = False,
-    ) -> Any:
+    ) -> bool:
         """
         Update selected attributes of a custom-column definition.
 
@@ -699,11 +812,13 @@ class CustomColumnsAPI(Protocol):
         :param notify: Whether to request a metadata notification.
         :param update_last_modified: Request date refresh through the host preference
             store when present.
-        :return: Host-specific change result, forwarded from the storage metadata
-            update.
+        :return: Whether the storage metadata changed.
         """
+        ...
 
-    def _get_next_series_num_for_list(self, series_indices: Iterable[int | float]) -> Optional[float]:
+    def _get_next_series_num_for_list(
+        self, series_indices: Sequence[Sequence[int | float]]
+    ) -> int | float:
         """
         Apply the host next-series-index policy to existing positions.
 
@@ -716,12 +831,10 @@ class CustomColumnsAPI(Protocol):
             position for a new series.
 
 
-        :param series_indices: Existing positions; the current host forwards nonempty
-            input to a helper expecting one-column rows, despite the numeric-iterable
-            annotation.
-        :return: Next numeric position under the current helper; the protocol leaves
-            None available to other hosts.
+        :param series_indices: Ordered rows containing each position at index zero.
+        :return: Next numeric position under the host policy.
         """
+        ...
 
     def _get_series_values(self, val: Any) -> tuple[str, Optional[float]]:
         """
@@ -739,6 +852,7 @@ class CustomColumnsAPI(Protocol):
         :param val: Series text, a supported legacy list form, or a false value.
         :return: Pair of series name and parsed optional float index.
         """
+        ...
 
     def _set_custom(
         self,
@@ -780,3 +894,4 @@ class CustomColumnsAPI(Protocol):
         :return: Set of additional owner IDs affected by shared value case changes;
             composite writes return an empty set.
         """
+        ...

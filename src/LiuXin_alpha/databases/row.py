@@ -1,4 +1,3 @@
-
 """
 Represent mutable local database rows with explicit synchronization.
 
@@ -7,20 +6,45 @@ does not persist a payload. Factory and blank-row helpers can insert records
 immediately. FixedTableStorageRow adds a declared table and subclass validation hook.
 These classes delegate database operations to the driver wrapper.
 """
+
 from __future__ import annotations
 
-import datetime
 import pprint
 from copy import deepcopy
+from collections.abc import Collection, KeysView
 
-from typing import Optional, Union, Iterator, Any, Self, ClassVar
+from typing import Optional, Iterator, Any, Self, ClassVar, TYPE_CHECKING
 
-from LiuXin_alpha.errors import DatabaseDriverError, InputIntegrityError, RowReadOnlyError
+from LiuXin_alpha.errors import (
+    DatabaseDriverError,
+    DatabaseIntegrityError,
+    InputIntegrityError,
+    RowReadOnlyError,
+)
 
 from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 from LiuXin_alpha.utils.logging import default_log
 
 from LiuXin_alpha.databases.api import DatabaseAPI, RowAPI
+
+
+if TYPE_CHECKING:
+    from LiuXin_alpha.databases.db_types.row_types import RowPayload
+
+
+def _require_database(
+    database: DatabaseAPI | None, row_dict: dict[str, Any] | None
+) -> DatabaseAPI:
+    """Retain the defensive error for untyped callers without weakening Row's API."""
+    if database is None:
+        message = default_log.log_variables(
+            "Row called without a DatabasePing",
+            "ERROR",
+            ("row_dict", row_dict),
+            ("database", database),
+        )
+        raise DatabaseDriverError(message)
+    return database
 
 
 class Row(RowAPI):
@@ -38,7 +62,18 @@ class Row(RowAPI):
         row.sync() assigns an ID and persists its values.
     """
 
-    def __init__(self, database: DatabaseAPI, row_dict: Optional[dict[str, str]] = None, read_only: bool = False) -> None:
+    _table: str | None
+    _row_id: int | None
+    allowed_tables: frozenset[str] | None
+    linkable_tables: Collection[str]
+    allowed_columns: Collection[str]
+
+    def __init__(
+        self,
+        database: DatabaseAPI,
+        row_dict: Optional[dict[str, Any]] = None,
+        read_only: bool = False,
+    ) -> None:
         """
         Copy local values, infer schema metadata and configure synchronization.
 
@@ -62,19 +97,15 @@ class Row(RowAPI):
         :raises DatabaseIntegrityError: Supplied fields cannot be assigned unambiguously
             to a table.
         """
+        database = _require_database(database, row_dict)
         super().__init__(database=database, row_dict=row_dict, read_only=read_only)
 
         self.read_only = read_only
 
-        # Preform checking on the inputs
-        if database is None:
-            err_str = "Row called without a DatabasePing"
-            err_str = default_log.log_variables(err_str, "ERROR", ("row_dict", row_dict), ("database", database))
-            raise DatabaseDriverError(err_str)
         self.db = database
 
         # Copy the given row_dict into the local row_dict
-        local_row_dict = dict()
+        local_row_dict: dict[str, Any] = {}
         if row_dict is not None:
             local_row_dict = deepcopy(row_dict)
         self.int_row_dict = local_row_dict
@@ -90,10 +121,12 @@ class Row(RowAPI):
         self.refresh_db_properties()
 
         if self.read_only:
-            self.sync = self.no_sync
+            # Keep the existing per-instance binding: changing read_only later
+            # must not silently restore the class's writable sync method.
+            vars(self)["sync"] = self.no_sync
 
     @property
-    def table(self) -> str:
+    def table(self) -> str | None:
         """
         Return the table name currently cached for this row.
 
@@ -103,7 +136,7 @@ class Row(RowAPI):
 
 
         :return: Inferred or explicitly loaded table name; None for an unidentified
-            empty Row despite the str annotation.
+            empty Row.
         """
         return self._table
 
@@ -125,19 +158,21 @@ class Row(RowAPI):
         :raises InputIntegrityError: Neither a cached ID nor an identified table is
             available.
         """
-        cached_row_id = getattr(self, "_row_id", None)
+        cached_row_id = self._row_id
         if cached_row_id is not None or cached_row_id == 0:
             return cached_row_id
 
         table = self.table
         if table is None:
-            raise InputIntegrityError("Cannot resolve row_id for a row with no identified table")
+            raise InputIntegrityError(
+                "Cannot resolve row_id for a row with no identified table"
+            )
 
         # If the id column is present but None, omit it so SQLite assigns an id.
         id_col = self.db.driver_wrapper.get_id_column(table)
 
         try:
-            return self.row_dict[id_col]
+            return self._require_row_dict()[id_col]
         except KeyError:
             return None
 
@@ -160,7 +195,7 @@ class Row(RowAPI):
         """
         object.__setattr__(self, "_row_id", value)
 
-    def make_read_only(self):
+    def make_read_only(self) -> None:
         """
         Mark the row read-only and replace its instance sync method with no_sync.
 
@@ -176,11 +211,12 @@ class Row(RowAPI):
         :return: None; future normal sync() calls raise RowReadOnlyError.
         """
         self.read_only = True
-        self.sync = self.no_sync
+        vars(self)["sync"] = self.no_sync
 
-    
     @staticmethod
-    def _best_effort_sqlite_object_type(database: DatabaseAPI, name: str) -> Optional[str]:
+    def _best_effort_sqlite_object_type(
+        database: DatabaseAPI, name: str
+    ) -> Optional[str]:
         """
         Probe sqlite_master to classify a named schema object when possible.
 
@@ -200,24 +236,18 @@ class Row(RowAPI):
             any probe error.
         """
         try:
-            driver = getattr(database, "driver_wrapper", None)
-            driver = getattr(driver, "driver", None)
-            get_conn = getattr(driver, "get_connection", None)
-            if get_conn is None:
-                return None
-            conn = get_conn()
+            conn = database.driver_wrapper.driver.get_connection()
             try:
-                cur = conn.cursor()
-                cur.execute("SELECT type FROM sqlite_master WHERE name = ? LIMIT 1;", (name,))
-                row = cur.fetchone()
-                if row:
-                    return row[0]
-                return None
-            finally:
+                cursor = conn.execute(
+                    "SELECT type FROM sqlite_master WHERE name = ? LIMIT 1;", (name,)
+                )
                 try:
-                    conn.close()
-                except Exception:
-                    pass
+                    row = cursor.fetchone()
+                    return row[0] if row else None
+                finally:
+                    cursor.close()
+            finally:
+                conn.close()
         except Exception:
             return None
 
@@ -267,9 +297,13 @@ class Row(RowAPI):
             raise TypeError("from_idless_row_dict requires a row_dict")
         local_row_dict: dict[str, Any] = deepcopy(row_dict)
 
-        target_table = table or database.driver_wrapper.identify_table_from_row_dict(local_row_dict)
+        target_table = table or database.driver_wrapper.identify_table_from_row_dict(
+            local_row_dict
+        )
 
         # If the inferred target is a view, error early with a helpful message.
+        if not target_table:
+            raise DatabaseIntegrityError("Cannot identify a table for the new row")
         obj_type = cls._best_effort_sqlite_object_type(database, target_table)
         if obj_type == "view":
             raise DatabaseDriverError(
@@ -339,11 +373,12 @@ class Row(RowAPI):
         """
         if obj is None or isinstance(obj, (str, int, float, bool)):
             if isinstance(obj, str) and len(obj) > max_text:
-                return obj[: max(0, max_text - 3)] + '...'
+                return obj[: max(0, max_text - 3)] + "..."
             return obj
 
         # Dates / times
         import datetime as _dt
+
         if isinstance(obj, (_dt.datetime, _dt.date, _dt.time)):
             try:
                 return obj.isoformat()
@@ -355,26 +390,31 @@ class Row(RowAPI):
             b = bytes(obj)
             hx = b.hex()
             if len(hx) > max_text:
-                hx = hx[: max(0, max_text - 3)] + '...'
-            return {'__type__': 'bytes', 'encoding': 'hex', 'value': hx}
+                hx = hx[: max(0, max_text - 3)] + "..."
+            return {"__type__": "bytes", "encoding": "hex", "value": hx}
 
         # Rows: avoid deep recursion/cycles
         if isinstance(obj, Row):
-            return {'__type__': 'RowRef', 'table': obj.table, 'row_id': obj.row_id}
+            return {"__type__": "RowRef", "table": obj.table, "row_id": obj.row_id}
 
         if _depth >= _max_depth:
             return repr(obj)
 
         try:
             from collections.abc import Mapping
+
             if isinstance(obj, Mapping):
                 out: dict[str, Any] = {}
                 for i, (k, v) in enumerate(obj.items()):
                     if i >= max_items:
-                        out['__truncated__'] = True
+                        out["__truncated__"] = True
                         break
                     out[str(k)] = Row._json_sanitize(
-                        v, max_text=max_text, max_items=max_items, _depth=_depth + 1, _max_depth=_max_depth
+                        v,
+                        max_text=max_text,
+                        max_items=max_items,
+                        _depth=_depth + 1,
+                        _max_depth=_max_depth,
                     )
                 return out
 
@@ -382,11 +422,15 @@ class Row(RowAPI):
                 out_list = []
                 for i, v in enumerate(obj):
                     if i >= max_items:
-                        out_list.append({'__truncated__': True})
+                        out_list.append({"__truncated__": True})
                         break
                     out_list.append(
                         Row._json_sanitize(
-                            v, max_text=max_text, max_items=max_items, _depth=_depth + 1, _max_depth=_max_depth
+                            v,
+                            max_text=max_text,
+                            max_items=max_items,
+                            _depth=_depth + 1,
+                            _max_depth=_max_depth,
                         )
                     )
                 return out_list
@@ -395,7 +439,7 @@ class Row(RowAPI):
 
         s = repr(obj)
         if len(s) > max_text:
-            s = s[: max(0, max_text - 3)] + '...'
+            s = s[: max(0, max_text - 3)] + "..."
         return s
 
     def to_jsonable(
@@ -432,24 +476,26 @@ class Row(RowAPI):
         :raises InputIntegrityError: An unidentified row cannot resolve its ID.
         """
         payload: dict[str, Any] = {
-            '__type__': 'Row',
-            'table': object.__getattribute__(self, 'table'),
-            'row_id': object.__getattribute__(self, 'row_id'),
-            'read_only': bool(getattr(self, 'read_only', False)),
+            "__type__": "Row",
+            "table": object.__getattribute__(self, "table"),
+            "row_id": object.__getattribute__(self, "row_id"),
+            "read_only": bool(getattr(self, "read_only", False)),
         }
 
         if include_db_uuid:
-            payload['db_uuid'] = getattr(getattr(self, 'db', None), 'uuid', None)
+            payload["db_uuid"] = getattr(getattr(self, "db", None), "uuid", None)
 
         if include_values:
-            rd = object.__getattribute__(self, 'int_row_dict') or {}
+            rd = self.int_row_dict or {}
             out: dict[str, Any] = {}
             for i, (k, v) in enumerate(rd.items()):
                 if i >= max_cols:
-                    payload['row_dict_truncated'] = True
+                    payload["row_dict_truncated"] = True
                     break
-                out[str(k)] = Row._json_sanitize(v, max_text=max_text, max_items=max_cols)
-            payload['row_dict'] = out
+                out[str(k)] = Row._json_sanitize(
+                    v, max_text=max_text, max_items=max_cols
+                )
+            payload["row_dict"] = out
 
         return payload
 
@@ -470,13 +516,15 @@ class Row(RowAPI):
 
         :return: None; update cached properties without fetching stored row values.
         """
-        row_dict = object.__getattribute__(self, "int_row_dict")
+        row_dict = self.int_row_dict
         if not row_dict:
             allowed_tables = self.db.driver_wrapper.get_allowed_tables_snapshot()
             object.__setattr__(self, "allowed_tables", allowed_tables)
             return None
 
         table = self.db.driver_wrapper.identify_table_from_row_dict(row_dict)
+        if not table:
+            raise DatabaseIntegrityError("Cannot identify a table for this row payload")
         object.__setattr__(self, "_table", table)
 
         allowed_tables = self.db.driver_wrapper.get_allowed_tables_snapshot()
@@ -493,7 +541,9 @@ class Row(RowAPI):
 
         object.__setattr__(self, "row_id", row_id)
 
-        self_linkable = True if self.db.driver_wrapper.check_for_intralink_table(table) else False
+        self_linkable = (
+            True if self.db.driver_wrapper.check_for_intralink_table(table) else False
+        )
         object.__setattr__(self, "self_linkable", self_linkable)
 
         linkable_tables = self.db.driver_wrapper.get_interlinked_tables(table)
@@ -503,7 +553,7 @@ class Row(RowAPI):
         object.__setattr__(self, "allowed_columns", allowed_columns)
 
     @property
-    def row_dict(self):
+    def row_dict(self) -> RowPayload:
         """
         Expose the mutable local column/value mapping directly.
 
@@ -515,14 +565,14 @@ class Row(RowAPI):
             local mapping until sync.
 
 
-        :return: The internal mapping itself, not a copy; legacy missing-row loads may
-            retain a false sentinel.
+        :return: The internal mapping itself, or the backend's False/None sentinel
+            after a missing-row lookup.
         """
 
         return self.int_row_dict
 
     @row_dict.setter
-    def row_dict(self, val):
+    def row_dict(self, val: RowPayload) -> None:
         """
         Deep-copy replacement local values without refreshing row metadata.
 
@@ -541,13 +591,20 @@ class Row(RowAPI):
 
         self.int_row_dict = deepcopy(val)
 
+    def _require_row_dict(self) -> dict[str, Any]:
+        """Keep missing-record sentinels distinct from mutable draft values."""
+        payload = self.row_dict
+        if not isinstance(payload, dict):
+            raise TypeError("Row has no local payload: its record was not found")
+        return payload
+
     # ----------------------------------------------------------------------------------------------------------------------
     #
     # - OUTPUT OPTIONS START HERE
     #
     # ----------------------------------------------------------------------------------------------------------------------
 
-    def __unicode__(self):
+    def __unicode__(self) -> str:
         """
         Render the local payload and cached row/schema metadata as diagnostic text.
 
@@ -565,14 +622,38 @@ class Row(RowAPI):
         """
         info_str = "LiuXin Row Object\n"
 
-        info_str += "row_dict: \n" + pprint.pformat(object.__getattribute__(self, "row_dict")) + "\n"
+        info_str += (
+            "row_dict: \n"
+            + pprint.pformat(object.__getattribute__(self, "row_dict"))
+            + "\n"
+        )
 
-        info_str += "table: " + six_unicode(object.__getattribute__(self, "table")) + "\n"
-        info_str += "allowed_tables: " + pprint.pformat(object.__getattribute__(self, "allowed_tables")) + "\n"
-        info_str += "row_id: " + six_unicode(object.__getattribute__(self, "row_id")) + "\n"
-        info_str += "self_linkable: " + six_unicode(object.__getattribute__(self, "self_linkable")) + "\n"
-        info_str += "linkable_tables: " + six_unicode(object.__getattribute__(self, "linkable_tables")) + "\n"
-        info_str += "allowed_columns: " + six_unicode(object.__getattribute__(self, "allowed_columns")) + "\n"
+        info_str += (
+            "table: " + six_unicode(object.__getattribute__(self, "table")) + "\n"
+        )
+        info_str += (
+            "allowed_tables: "
+            + pprint.pformat(object.__getattribute__(self, "allowed_tables"))
+            + "\n"
+        )
+        info_str += (
+            "row_id: " + six_unicode(object.__getattribute__(self, "row_id")) + "\n"
+        )
+        info_str += (
+            "self_linkable: "
+            + six_unicode(object.__getattribute__(self, "self_linkable"))
+            + "\n"
+        )
+        info_str += (
+            "linkable_tables: "
+            + six_unicode(object.__getattribute__(self, "linkable_tables"))
+            + "\n"
+        )
+        info_str += (
+            "allowed_columns: "
+            + six_unicode(object.__getattribute__(self, "allowed_columns"))
+            + "\n"
+        )
 
         return info_str
 
@@ -591,8 +672,7 @@ class Row(RowAPI):
 
         return self.__unicode__()
 
-    def __repr__(self):
-
+    def __repr__(self) -> str:
         """
         Format a compact diagnostic label containing database, table and ID.
 
@@ -618,7 +698,7 @@ class Row(RowAPI):
     #
     # ----------------------------------------------------------------------------------------------------------------------
 
-    def __setitem__(self, key: str, value: Union[str, int, float, datetime.datetime]) -> None:
+    def __setitem__(self, key: str, value: Any) -> None:
         """
         Stage a column value locally after checking its schema membership.
 
@@ -637,11 +717,15 @@ class Row(RowAPI):
         :return: None; the local mapping is changed.
         :raises KeyError: No table recognizes the key, or it is not allowed on this row.
         """
-        row_dict = object.__getattribute__(self, "int_row_dict")
-        target_table = self.db.driver_wrapper.identify_table_from_column(key, error=False)
+        row_dict = self._require_row_dict()
+        target_table = self.db.driver_wrapper.identify_table_from_column(
+            key, error=False
+        )
         if target_table is None:
             err_str = "Cannot set item - does not correspond to a column heading from any table in this database"
-            err_str = default_log.log_variables(err_str, "ERROR", ("db", self.db), ("key", key), ("value", value))
+            err_str = default_log.log_variables(
+                err_str, "ERROR", ("db", self.db), ("key", key), ("value", value)
+            )
             raise KeyError(err_str)
 
         # If the row_dict has nothing in it add the value and proceed
@@ -651,7 +735,7 @@ class Row(RowAPI):
             return None
 
         # Check to make sure the key is on the list of allowed column headings
-        allowed_cols = object.__getattribute__(self, "allowed_columns")
+        allowed_cols = self.allowed_columns
         if key not in allowed_cols:
             err_str = "Cannot set item - key is not one of the column headings allowed for this table."
             err_str = default_log.log_variables(
@@ -667,7 +751,7 @@ class Row(RowAPI):
         row_dict[key] = value
         return None
 
-    def __getitem__(self, item: str) -> Union[str, int, float, datetime.datetime]:
+    def __getitem__(self, item: str) -> Any:
         """
         Read a local value, materializing None for an absent recognized column.
 
@@ -680,14 +764,14 @@ class Row(RowAPI):
 
 
         :param item: Existing payload key or recognized column for the inferred table.
-        :return: Stored value, including None despite the narrower return annotation.
+        :return: Stored SQL value, including None and backend-specific value types.
         :raises KeyError: The key is neither stored nor allowed for the table.
         """
-        row_dict = object.__getattribute__(self, "int_row_dict")
+        row_dict = self._require_row_dict()
         if item in row_dict:
             return row_dict[item]
 
-        allowed_columns = object.__getattribute__(self, "allowed_columns")
+        allowed_columns = self.allowed_columns
         if item in allowed_columns:
             row_dict[item] = None
             return row_dict[item]
@@ -722,7 +806,9 @@ class Row(RowAPI):
         """
         self.refresh_db_properties()
 
-    def load_row_from_id(self, row_id: int = None, table: str = None) -> None:
+    def load_row_from_id(
+        self, row_id: int | None = None, table: str | None = None
+    ) -> None:
         """
         Replace local values with a driver lookup for the selected table and ID.
 
@@ -749,8 +835,8 @@ class Row(RowAPI):
         if table is not None:
             object.__setattr__(self, "_table", table)
 
-        row_id = object.__getattribute__(self, "row_id")
-        table = object.__getattribute__(self, "table")
+        row_id = self.row_id
+        table = self.table
         if row_id is None or table is None:
             err_str = "Unable to load_from_id  - id or table has yet to be set."
             default_log.error(err_str)
@@ -784,7 +870,10 @@ class Row(RowAPI):
         if table is not None:
             object.__setattr__(self, "_table", table)
 
-        blank_row_dict = self.db.driver_wrapper.get_blank_row(object.__getattribute__(self, "table"))
+        target_table = self.table
+        if target_table is None:
+            raise InputIntegrityError("Cannot create a blank row without a table")
+        blank_row_dict = self.db.driver_wrapper.get_blank_row(target_table)
         object.__setattr__(self, "int_row_dict", blank_row_dict)
 
         self.refresh_db_properties()
@@ -806,7 +895,9 @@ class Row(RowAPI):
         :return: None; replace the local payload with the wrapper result and cache its
             extracted ID.
         """
-        new_row_dict = self.db.driver_wrapper.ensure_row_has_id(object.__getattribute__(self, "row_dict"))
+        new_row_dict = self.db.driver_wrapper.ensure_row_has_id(
+            self._require_row_dict()
+        )
         new_id = self.db.driver_wrapper.get_id_from_row(new_row_dict)
 
         object.__setattr__(self, "row_dict", new_row_dict)
@@ -833,7 +924,7 @@ class Row(RowAPI):
         if self.row_id is None:
             self.ensure_row_has_id()
 
-        row_dict = object.__getattribute__(self, "int_row_dict")
+        row_dict = self.int_row_dict
         if row_dict:
             self.db.driver_wrapper.update_row(row_dict)
 
@@ -873,8 +964,8 @@ class Row(RowAPI):
         if self.table is None or self.row_id is None:
             raise TypeError("An unsaved Row has no stable database identity")
         uuid = self.db.uuid
-        row_id = object.__getattribute__(self, "row_id")
-        table = object.__getattribute__(self, "table")
+        row_id = self.row_id
+        table = self.table
         return hash((uuid, row_id, table))
 
     def __eq__(self, other: object) -> bool:
@@ -911,7 +1002,7 @@ class Row(RowAPI):
     #
     # - DICTIONARY EMULATION MAGIC METHODS START HERE
 
-    def keys(self) -> None:
+    def keys(self) -> KeysView[str]:
         """
         Expose the live dictionary view of materialized local column names.
 
@@ -923,9 +1014,9 @@ class Row(RowAPI):
             row.row_dict.
 
 
-        :return: dict_keys view in the concrete Row, despite the None return annotation.
+        :return: Live view of the materialized column names.
         """
-        row_dict = object.__getattribute__(self, "int_row_dict")
+        row_dict = self._require_row_dict()
         return row_dict.keys()
 
     def __iter__(self) -> Iterator[str]:
@@ -942,7 +1033,7 @@ class Row(RowAPI):
 
         :return: Iterator yielding keys in dictionary insertion order.
         """
-        row_dict = object.__getattribute__(self, "int_row_dict")
+        row_dict = self._require_row_dict()
         keys_list = row_dict.keys()
         for key in keys_list:
             yield key
@@ -962,7 +1053,7 @@ class Row(RowAPI):
         :param item: Column key to test without materializing a missing value.
         :return: True only for keys currently stored in row_dict.
         """
-        row_dict = object.__getattribute__(self, "int_row_dict")
+        row_dict = self._require_row_dict()
         if item in row_dict.keys():
             return True
         else:
@@ -995,9 +1086,15 @@ class Row(RowAPI):
         # if memo:
         #     info_str = "Row __deepcopy__ passed a non-trivial memo"
         #     default_log.log_variables(info_str, "INFO", ("memo", memo))
-        row_dict = object.__getattribute__(self, "int_row_dict")
+        row_dict = self.int_row_dict
         new_row_dict = deepcopy(row_dict)
-        return Row(database=self.db, row_dict=new_row_dict)
+        clone = Row(
+            database=self.db,
+            row_dict=new_row_dict if isinstance(new_row_dict, dict) else None,
+        )
+        if new_row_dict is False:
+            clone.row_dict = False
+        return clone
 
     # ------------------------
 
@@ -1023,10 +1120,11 @@ class FixedTableStorageRow(Row):
     ID_COLUMN: ClassVar[Optional[str]] = None
 
     def __init__(
-            self,
-            database: "DatabaseAPI",
-            row_dict: Optional[dict[str, Any]] = None,
-            read_only: bool = False) -> None:
+        self,
+        database: "DatabaseAPI",
+        row_dict: Optional[dict[str, Any]] = None,
+        read_only: bool = False,
+    ) -> None:
         """
         Initialize a Row, enforce its declared table and run subclass validation.
 
@@ -1084,13 +1182,25 @@ class FixedTableStorageRow(Row):
         :return: None; set table, allowed tables/columns, linkability and cached ID.
         """
         object.__setattr__(self, "_table", table_name)
-        object.__setattr__(self, "allowed_tables", self.db.driver_wrapper.get_allowed_tables_snapshot())
-        object.__setattr__(self, "self_linkable", bool(self.db.driver_wrapper.check_for_intralink_table(table_name)))
-        object.__setattr__(self, "linkable_tables", self.db.driver_wrapper.get_interlinked_tables(table_name))
-        object.__setattr__(self, "allowed_columns", self.db.get_column_headings(table_name))
+        object.__setattr__(
+            self, "allowed_tables", self.db.driver_wrapper.get_allowed_tables_snapshot()
+        )
+        object.__setattr__(
+            self,
+            "self_linkable",
+            bool(self.db.driver_wrapper.check_for_intralink_table(table_name)),
+        )
+        object.__setattr__(
+            self,
+            "linkable_tables",
+            self.db.driver_wrapper.get_interlinked_tables(table_name),
+        )
+        object.__setattr__(
+            self, "allowed_columns", self.db.get_column_headings(table_name)
+        )
 
         id_column = self.ID_COLUMN or self.db.driver_wrapper.get_id_column(table_name)
-        object.__setattr__(self, "row_id", self.int_row_dict.get(id_column))
+        object.__setattr__(self, "row_id", self._require_row_dict().get(id_column))
 
     @classmethod
     def blank(cls, database: "DatabaseAPI", *, read_only: bool = False) -> Self:
@@ -1184,7 +1294,9 @@ class FixedTableStorageRow(Row):
             payload identifies another table.
         """
         if table is not None and table != cls.TABLE_NAME:
-            raise ValueError(f"{cls.__name__} only supports table '{cls.TABLE_NAME}', not '{table}'.")
+            raise ValueError(
+                f"{cls.__name__} only supports table '{cls.TABLE_NAME}', not '{table}'."
+            )
 
         draft = cls(database=database, row_dict=row_dict, read_only=read_only)
         draft.validate()
@@ -1196,6 +1308,14 @@ class FixedTableStorageRow(Row):
             read_only=read_only,
             reload_from_db=reload_from_db,
         )
+
+    @classmethod
+    def _fixed_table_name(cls) -> str:
+        """Require the subclass's declared table before column discovery."""
+        table = cls.TABLE_NAME
+        if table is None:
+            raise TypeError(f"{cls.__name__} must define TABLE_NAME.")
+        return table
 
     @property
     def primary_id(self) -> Optional[int]:
@@ -1211,8 +1331,10 @@ class FixedTableStorageRow(Row):
 
         :return: Payload ID value, or None if the field is absent.
         """
-        id_column = self.ID_COLUMN or self.db.driver_wrapper.get_id_column(self.TABLE_NAME)
-        return self.row_dict.get(id_column)
+        id_column = self.ID_COLUMN or self.db.driver_wrapper.get_id_column(
+            self._fixed_table_name()
+        )
+        return self._require_row_dict().get(id_column)
 
     @primary_id.setter
     def primary_id(self, value: Optional[int]) -> None:
@@ -1231,7 +1353,9 @@ class FixedTableStorageRow(Row):
         :return: None; update the local field through __setitem__, then cache it.
         """
 
-        id_column = self.ID_COLUMN or self.db.driver_wrapper.get_id_column(self.TABLE_NAME)
+        id_column = self.ID_COLUMN or self.db.driver_wrapper.get_id_column(
+            self._fixed_table_name()
+        )
         self[id_column] = value
         object.__setattr__(self, "row_id", value)
 

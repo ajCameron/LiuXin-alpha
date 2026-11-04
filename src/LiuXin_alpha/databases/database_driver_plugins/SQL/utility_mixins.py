@@ -1,4 +1,3 @@
-
 """
 Share SQL naming conventions and SQLite link-table DDL construction.
 
@@ -14,11 +13,42 @@ from __future__ import absolute_import, annotations
 import re
 import sqlite3
 from copy import deepcopy
-from typing import TYPE_CHECKING, Iterable, Literal, LiteralString, Optional, Union
+from collections.abc import Mapping
+from typing import TYPE_CHECKING, Iterable, Literal, Optional, Protocol, Union, cast
 
+from LiuXin_alpha.errors import DatabaseIntegrityError
 from LiuXin_alpha.utils.language_tools.pluralizers import plural_singular_mapper
 from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 from LiuXin_alpha.utils.libraries.liuxin_six import string_types as basestring
+
+if TYPE_CHECKING:
+    from LiuXin_alpha.databases.db_types.driver_types import SQLConnection
+
+
+class _LinkBuilderHost(Protocol):
+    """Host capabilities used by connection-bound and legacy configured builders."""
+
+    @property
+    def conn(self) -> SQLConnection | None: ...
+
+    @property
+    def INTERLINK_TABLE_CONSTRAINTS(self) -> Mapping[str, str | Mapping[str, str]]: ...
+
+    @property
+    def ALLOWED_INTERLINK_TYPE_VAL_DICT(self) -> Mapping[str, Iterable[str]]: ...
+
+
+class _LinkExecutionHost(Protocol):
+    """Driver-only execution/cache hooks; standalone generators override them."""
+
+    def direct_executescript(self, script: str) -> None: ...
+
+    def _zero_prop_cache(self) -> None: ...
+
+
+def _link_host(host: object) -> _LinkBuilderHost:
+    """Resolve the capabilities supplied by the concrete driver or schema builder."""
+    return cast(_LinkBuilderHost, host)
 
 
 class ColumnNameMixin:
@@ -57,7 +87,9 @@ class ColumnNameMixin:
         :param for_table: Table whose allowed-type lookup name is derived.
         :return: Allowed-type name for the repeated main-table intralink spelling.
         """
-        return self.get_allowed_types_table_name("{}_{}_intralinks".format(for_table, for_table))
+        return self.get_allowed_types_table_name(
+            "{}_{}_intralinks".format(for_table, for_table)
+        )
 
     @staticmethod
     def direct_get_column_base(table_name: str) -> str:
@@ -75,7 +107,9 @@ class ColumnNameMixin:
         return plural_singular_mapper(table_name)
 
     @staticmethod
-    def _get_link_table_name_col_name(primary_table: str, secondary_table: str) -> tuple[str, str]:
+    def _get_link_table_name_col_name(
+        primary_table: str, secondary_table: str
+    ) -> tuple[str, str]:
         """
         Sort supplied table names, singularize each and derive link table/prefix names.
 
@@ -169,6 +203,14 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
         ]
     )
 
+    def _execute_link_script(self, script: str) -> None:
+        """Use the driver's existing script execution and ownership policy."""
+        cast(_LinkExecutionHost, self).direct_executescript(script)
+
+    def _invalidate_link_metadata(self) -> None:
+        """Invalidate the driver's schema caches after successful link creation."""
+        cast(_LinkExecutionHost, self)._zero_prop_cache()
+
     # Todo: Standardize table names for this type of method to primary and secondary
     def set_database_version(self) -> None:
         """
@@ -191,7 +233,12 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
 
         version_str = get_SQLite_driver_master_version()
 
-        c = self.conn.cursor()
+        connection = _link_host(self).conn
+        if connection is None:
+            raise DatabaseIntegrityError(
+                "Cannot set the version without an open connection"
+            )
+        c = connection.cursor()
         try:
             c.execute(
                 "INSERT OR REPLACE INTO database_version (database_version_id, database_version_version) VALUES (?, ?);",
@@ -201,7 +248,7 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
             raise AssertionError(
                 "database_version table is missing; ensure metadata tables are created before calling set_database_version()"
             ) from e
-        self.conn.commit()
+        connection.commit()
 
         row = c.execute(
             "SELECT database_version_version FROM database_version WHERE database_version_id = ?;",
@@ -214,8 +261,8 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
         self,
         primary_table: str,
         secondary_table: str,
-        link_type: Literal["many_many", "one_many", "many_one", "one_one"] = "many_many",
-        requested_cols: Union[str, Iterable[str]] = "all",
+        link_type: str = "many_many",
+        requested_cols: str | Iterable[str] | None = "all",
         index_both: bool = True,
         allowed_types: Optional[Iterable[str]] = None,
         override_restriction_sql: Optional[str] = None,
@@ -224,8 +271,8 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
         """
         Generate a link script, execute it through the host and clear property caches.
 
-        The legacy OperationalError diagnostic accesses e.message, which may itself
-        raise AttributeError on modern sqlite3 exceptions and mask the original failure.
+        Preserve the original SQLite OperationalError after reporting its context.
+        Concrete driver/generator hooks own script execution and cache invalidation.
 
         Example:
             Linking agents and works returns agent_work_links after script execution.
@@ -256,20 +303,26 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
         )
 
         try:
-            self.direct_executescript("\n".join(link_sql_list))
+            self._execute_link_script("\n".join(link_sql_list))
         except sqlite3.OperationalError as e:
-            err_msg = ["Operational error when trying to link tables", "primary_table: {}".format(primary_table),
-                       "secondary_table: {}".format(secondary_table), "link_type: {}".format(link_type),
-                       "requested_cols: {}".format(requested_cols), "index_both: {}".format(index_both),
-                       "\n" + "\n--------\n".join(link_sql_list) + "\n", "e: {}".format(e),
-                       "e.message : {}".format(e.message)]
+            err_msg = [
+                "Operational error when trying to link tables",
+                "primary_table: {}".format(primary_table),
+                "secondary_table: {}".format(secondary_table),
+                "link_type: {}".format(link_type),
+                "requested_cols: {}".format(requested_cols),
+                "index_both: {}".format(index_both),
+                "\n" + "\n--------\n".join(link_sql_list) + "\n",
+                "e: {}".format(e),
+                "error text: {}".format(str(e)),
+            ]
 
             print("\n".join(err_msg))
 
             raise
 
         # Changes have been made to the database - register this fact for later info
-        self._zero_prop_cache()
+        self._invalidate_link_metadata()
 
         # Return the generated table name for additional work
         return table_name
@@ -279,13 +332,13 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
         primary_table: str,
         secondary_table: str,
         link_type: str = "many_many",
-        requested_cols: str = "all",
+        requested_cols: str | Iterable[str] | None = "all",
         index_both: bool = True,
         allowed_types: Optional[Iterable[str]] = None,
         one_link_with_one_type: bool = True,
         override_restriction_sql: Optional[str] = None,
         nullable_fks: bool = True,
-    ) -> tuple[list[str], Union[str, LiteralString]]:
+    ) -> tuple[list[str], str]:
         """
         Generate link DDL, optional type-table inserts and endpoint/sequence indexes.
 
@@ -392,12 +445,14 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
         table_sql_stmt_component_list = []
 
         if requested_cols is None:
-            requested_cols_norm: Union[str, set[str]] = set()
+            requested_cols_norm: Literal["all"] | set[str] = set()
         elif isinstance(requested_cols, str):
             if requested_cols.strip().lower() == "all":
                 requested_cols_norm = "all"
             else:
-                raise TypeError(f"requested_cols must be 'all' or an iterable; got: {requested_cols!r}")
+                raise TypeError(
+                    f"requested_cols must be 'all' or an iterable; got: {requested_cols!r}"
+                )
         else:
             requested_cols_norm = {str(x).strip().lower() for x in requested_cols}
 
@@ -419,7 +474,6 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
         decrement_requested_cols = deepcopy(requested_cols_norm)
 
         if decrement_requested_cols == "all":
-
             # "all" includes the full standard metadata surface for link tables.
             link_rows = """
                 CREATE TABLE IF NOT EXISTS `{0}s`(
@@ -446,7 +500,6 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
             # UNIQUE(..., type) semantics (SQLite treats NULL as distinct) to preserve non-exclusive behaviour.
 
         else:
-
             assert isinstance(decrement_requested_cols, set)
 
             # Support "nullable" sentinel (documented in TOML) but it does not create a physical column.
@@ -505,7 +558,9 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
                 assert re.match(
                     r"^[a-z][a-z0-9_]*$",
                     extra_col,
-                ), f"Unsafe requested column name {extra_col!r} for link table {table_name!r}"
+                ), (
+                    f"Unsafe requested column name {extra_col!r} for link table {table_name!r}"
+                )
                 link_rows_header += f"\n      `{{0}}_{extra_col}` TEXT NULL,"
 
             decrement_requested_cols.clear()
@@ -524,7 +579,9 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
         # (We can revisit strict FK NOT NULL constraints once row construction is not placeholder-based.)
         fk_null_sql = "NULL"
 
-        link_rows = comment_row + link_rows.format(column_name, table1_l_s, table2_l_s, fk_null_sql)
+        link_rows = comment_row + link_rows.format(
+            column_name, table1_l_s, table2_l_s, fk_null_sql
+        )
         table_sql_stmt_component_list.append(link_rows)
 
         # If the entry in either the left or the right table is deleted then it should remove this entry in the link
@@ -534,40 +591,35 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
                   FOREIGN KEY (`{0}_{1}_id`)
                   REFERENCES `{2}` (`{1}_id`)
                   ON DELETE CASCADE
-                  ON UPDATE CASCADE""".format(
-            column_name, table1_l_s, table1_l_p, table2_l_s, table2_l_p
-        )
+                  ON UPDATE CASCADE""".format(column_name, table1_l_s, table1_l_p)
 
         right_foreign_key = """
-                CONSTRAINT `{0}_{3}_id`
-                  FOREIGN KEY (`{0}_{3}_id`)
-                  REFERENCES `{4}` (`{3}_id`)
+                CONSTRAINT `{0}_{1}_id`
+                  FOREIGN KEY (`{0}_{1}_id`)
+                  REFERENCES `{2}` (`{1}_id`)
                   ON DELETE CASCADE
-                  ON UPDATE CASCADE""".format(
-            column_name, table1_l_s, table1_l_p, table2_l_s, table2_l_p
-        )
+                  ON UPDATE CASCADE""".format(column_name, table2_l_s, table2_l_p)
         table_sql_stmt_component_list.append(left_foreign_key)
         table_sql_stmt_component_list.append(right_foreign_key)
 
         # 3) Apply the restrictions to ensure the link is of the given type
         if override_restriction_sql is None:
-
             # Some link tables carry a `type` column. For strict many-many mappings we still
             # enforce uniqueness on just the pair (A,B). For role-style mappings, use
             # many_many_non_exclusive which uses (A,B,type) to allow multiple roles.
-            has_type_col = (
-                requested_cols_norm == "all"
-                or (isinstance(requested_cols_norm, set) and "type" in requested_cols_norm)
+            has_type_col = requested_cols_norm == "all" or (
+                isinstance(requested_cols_norm, set) and "type" in requested_cols_norm
             )
 
             if link_type == "many_many":
-
                 many_many_restrictions_list = []
 
                 # Strict many-to-many: the same pair cannot be linked twice (even if a type column exists).
                 many_many_restriction = (
                     "\n    CONSTRAINT `{0}_and_{1}_non_repeating_many_many_mapping`\n"
-                    "      UNIQUE ({2}_{1}_id, {2}_{0}_id)".format(table1_l_s, table2_l_s, column_name)
+                    "      UNIQUE ({2}_{1}_id, {2}_{0}_id)".format(
+                        table1_l_s, table2_l_s, column_name
+                    )
                 )
                 many_many_restrictions_list.append(many_many_restriction)
 
@@ -584,10 +636,11 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
                     )
                     many_many_restrictions_list.append(m_t_m_ordering)
 
-                table_sql_stmt_component_list.append(",\n".join(many_many_restrictions_list))
+                table_sql_stmt_component_list.append(
+                    ",\n".join(many_many_restrictions_list)
+                )
 
             elif link_type == "many_many_non_exclusive":
-
                 many_many_ne_restrictions_list = []
 
                 # Role-style many-to-many: allow the same pair multiple times as long as `type` differs.
@@ -614,7 +667,6 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
                 many_many_ne_restrictions_list.append(many_many_ne_restriction)
 
                 if requested_col_enabled("priority"):
-
                     if has_type_col:
                         m_t_m_ordering = (
                             "\n    CONSTRAINT `{0}_well_ordered_on_secondary_{1}`\n"
@@ -637,49 +689,60 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
                         )
                     many_many_ne_restrictions_list.append(m_t_m_ordering)
 
-                table_sql_stmt_component_list.append(",\n".join(many_many_ne_restrictions_list))
+                table_sql_stmt_component_list.append(
+                    ",\n".join(many_many_ne_restrictions_list)
+                )
             elif link_type == "one_many":
-
                 one_many_restrictions_list = []
 
                 # table 1 is linked to table 2 with a relation of type one_many - thus restrict the number of entries from
                 # table 1 to one
                 one_many_restriction = (
                     "\n    CONSTRAINT `{0}_and_{1}_have_many_one_mapping`\n"
-                    "      UNIQUE ({2}_{1}_id)".format(table1_l_s, table2_l_s, column_name)
+                    "      UNIQUE ({2}_{1}_id)".format(
+                        table1_l_s, table2_l_s, column_name
+                    )
                 )
                 one_many_restrictions_list.append(one_many_restriction)
 
                 if requested_col_enabled("priority"):
-
                     o_t_m_ordering = (
                         "\n CONSTRAINT `{1}_well_ordered_on_{0}`\n"
-                        "   UNIQUE ({2}_{0}_id, {2}_priority)".format(table1_l_s, table2_l_s, column_name)
+                        "   UNIQUE ({2}_{0}_id, {2}_priority)".format(
+                            table1_l_s, table2_l_s, column_name
+                        )
                     )
                     one_many_restrictions_list.append(o_t_m_ordering)
 
-                table_sql_stmt_component_list.append(",".join(one_many_restrictions_list))
+                table_sql_stmt_component_list.append(
+                    ",".join(one_many_restrictions_list)
+                )
 
             elif link_type == "many_one":
-
                 many_one_restrictions_list = []
 
                 # table 1 is linked to table 2 with a relation of type many_one - thus restricting the number of entries
                 # from table 2 to one
                 many_one_restriction = (
                     "\n    CONSTRAINT `{0}_and_{1}_have_one_many_mapping`\n"
-                    "      UNIQUE ({2}_{0}_id)".format(table1_l_s, table2_l_s, column_name)
+                    "      UNIQUE ({2}_{0}_id)".format(
+                        table1_l_s, table2_l_s, column_name
+                    )
                 )
                 many_one_restrictions_list.append(many_one_restriction)
 
                 if requested_col_enabled("priority"):
                     m_t_o_ordering = (
                         "\n CONSTRAINT `{0}_well_ordered_on_{1}`\n"
-                        "   UNIQUE ({2}_{1}_id, {2}_priority)".format(table1_l_s, table2_l_s, column_name)
+                        "   UNIQUE ({2}_{1}_id, {2}_priority)".format(
+                            table1_l_s, table2_l_s, column_name
+                        )
                     )
                     many_one_restrictions_list.append(m_t_o_ordering)
 
-                table_sql_stmt_component_list.append(",".join(many_one_restrictions_list))
+                table_sql_stmt_component_list.append(
+                    ",".join(many_one_restrictions_list)
+                )
 
             elif link_type == "one_one":
                 # table 1 is linked to table 2 with a relation of type one_one - thus restricting the number of entries
@@ -688,7 +751,9 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
                     "\n    CONSTRAINT `{2}_{1}_id_appears_once`\n"
                     "      UNIQUE ({2}_{1}_id),"
                     "\n    CONSTRAINT `{2}_{0}_id_appears_once`\n"
-                    "      UNIQUE ({2}_{0}_id)".format(table1_l_s, table2_l_s, column_name)
+                    "      UNIQUE ({2}_{0}_id)".format(
+                        table1_l_s, table2_l_s, column_name
+                    )
                 )
                 table_sql_stmt_component_list.append(one_one_restriction)
 
@@ -696,16 +761,16 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
                 # Todo: The concept of a priority column for this type of table is meaningless. Remove it.
 
             elif link_type == "one_one_normalized":
-
-                one_one_normalized_restriction = "\n CONSTRAINT `primary_appears_once`\n " "UNIQUE ({0}_{1}_id)".format(
-                    column_name, primary_table_row_name
+                one_one_normalized_restriction = (
+                    "\n CONSTRAINT `primary_appears_once`\n UNIQUE ({0}_{1}_id)".format(
+                        column_name, primary_table_row_name
+                    )
                 )
                 table_sql_stmt_component_list.append(one_one_normalized_restriction)
 
                 # Todo: The concept of a priority column for this type of table is meaningless. Remove it.
 
             elif link_type == "rating":
-
                 rating_title_linked_once = (
                     "\n    CONSTRAINT `one_type_of_{2}_per_{1}`\n"
                     "      UNIQUE({0}_{1}_id, {0}_type)\n".format(
@@ -715,12 +780,10 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
                 table_sql_stmt_component_list.append(rating_title_linked_once)
 
             else:
-
                 raise NotImplementedError("link_type not recognized")
 
             # In the case where there are types specified, we must construct and populate a link type table for it
             if requested_col_enabled("type") and allowed_types is not None:
-
                 # Add in the foreign key linking out to the allowed_types table
                 att_name = self.get_allowed_types_table_name(table_name)
                 att_col_name = att_name[:-1]  # Consistently just trimming the s off
@@ -730,9 +793,7 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
                   FOREIGN KEY (`{1}_type`)
                   REFERENCES `{2}` (`{3}_type`)
     
-                """.format(
-                    att_name, column_name, att_name, att_col_name
-                )
+                """.format(att_name, column_name, att_name, att_col_name)
 
                 table_sql_stmt_component_list.append(at_foreign_key)
 
@@ -747,7 +808,6 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
                 ]
 
             else:
-
                 table_sqlite = ",".join(table_sql_stmt_component_list) + ");"
                 full_script = [
                     table_sqlite,
@@ -761,30 +821,21 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
             ]
 
         if index_both:
-
             # Index on the left - the reference out to the custom column
-            left_index_stmt = "CREATE INDEX IF NOT EXISTS {2}_{0}_id_index ON {2}s ({2}_{0}_id);".format(
-                table1_l_s,
-                table2_l_s,
-                column_name,
+            left_index_stmt = "CREATE INDEX IF NOT EXISTS {1}_{0}_id_index ON {1}s ({1}_{0}_id);".format(
+                table1_l_s, column_name
             )
             full_script.append(left_index_stmt)
 
             # Index on the left - the reference to the original table that the custom column will appear in
-            right_index_stmt = "CREATE INDEX IF NOT EXISTS  {2}_{1}_id_index ON {2}s ({2}_{1}_id);".format(
-                table1_l_s,
-                table2_l_s,
-                column_name,
+            right_index_stmt = "CREATE INDEX IF NOT EXISTS  {1}_{0}_id_index ON {1}s ({1}_{0}_id);".format(
+                table2_l_s, column_name
             )
             full_script.append(right_index_stmt)
 
         if requested_col_enabled("sequence_number"):
-            sequence_index_stmt = (
-                "CREATE UNIQUE INDEX IF NOT EXISTS {2}_{0}_sequence_idx ON {2}s ({2}_{0}_id, {2}_sequence_number);"
-            ).format(
-                table1_l_s,
-                table2_l_s,
-                column_name,
+            sequence_index_stmt = "CREATE UNIQUE INDEX IF NOT EXISTS {1}_{0}_sequence_idx ON {1}s ({1}_{0}_id, {1}_sequence_number);".format(
+                table1_l_s, column_name
             )
             full_script.append(sequence_index_stmt)
 
@@ -810,12 +861,12 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
         return "\n".join(err_msg)
 
     def build_interlink_table_sqlite(
-            self,
-            table1: str,
-            table2: str,
-            requested_cols: Optional[Union[str, Iterable[str]]] = None,
-            allowed_types: Optional[Iterable[str]] = None,
-            nullable_fks: bool = True,
+        self,
+        table1: str,
+        table2: str,
+        requested_cols: Optional[Union[str, Iterable[str]]] = None,
+        allowed_types: Optional[Iterable[str]] = None,
+        nullable_fks: bool = True,
     ) -> list[str]:
         """
         Resolve a required legacy constraint entry and generate the matching link
@@ -841,28 +892,42 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
         """
 
         table_name, _ = self.get_interlink_table_name(table1, table2)
+        if requested_cols is not None and not isinstance(requested_cols, str):
+            requested_cols = tuple(requested_cols)
 
         sql_override_restriction = None
-        if table_name in self.INTERLINK_TABLE_CONSTRAINTS:
-            sql_override_restriction = self.INTERLINK_TABLE_CONSTRAINTS[table_name]
-        assert sql_override_restriction is not None, "This should not be none - {}".format(table_name)
+        if table_name in _link_host(self).INTERLINK_TABLE_CONSTRAINTS:
+            sql_override_restriction = _link_host(self).INTERLINK_TABLE_CONSTRAINTS[
+                table_name
+            ]
+        assert sql_override_restriction is not None, (
+            "This should not be none - {}".format(table_name)
+        )
 
         # If a type column is requested, callers may optionally provide an explicit allowed-types
         # set. If they don't, we fall back to any legacy mapping present; otherwise the type
         # column remains free-form text (no allowed-types table will be built).
         if allowed_types is None:
             try:
-                if requested_cols == "all" or (requested_cols is not None and "type" in requested_cols):
-                    allowed_types = self.ALLOWED_INTERLINK_TYPE_VAL_DICT.get(table_name)
+                if requested_cols == "all" or (
+                    requested_cols is not None and "type" in requested_cols
+                ):
+                    allowed_types = _link_host(
+                        self
+                    ).ALLOWED_INTERLINK_TYPE_VAL_DICT.get(table_name)
             except TypeError:
                 # requested_cols might be a non-iterable sentinel; ignore
-                allowed_types = self.ALLOWED_INTERLINK_TYPE_VAL_DICT.get(table_name)
+                allowed_types = _link_host(self).ALLOWED_INTERLINK_TYPE_VAL_DICT.get(
+                    table_name
+                )
 
         allowed_link_types = allowed_types
 
         # We have a simple string to use instead of any generated restrictions - just use that
         # Todo: Eventually should be able to pull this out - it's becoming increasingly redundant
-        if sql_override_restriction is None or isinstance(sql_override_restriction, basestring):
+        if sql_override_restriction is None or isinstance(
+            sql_override_restriction, basestring
+        ):
             full_script, table_name = self.direct_get_direct_link_main_tables_sql(
                 primary_table=table1,
                 secondary_table=table2,
@@ -873,8 +938,7 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
             )
 
         # We have a dictionary which characterises the link - use that
-        elif isinstance(sql_override_restriction, dict):
-
+        elif isinstance(sql_override_restriction, Mapping):
             primary_table = sql_override_restriction["primary"]
             secondary_table = sql_override_restriction["secondary"]
             link_tyoe = sql_override_restriction["link_type"]
@@ -901,11 +965,8 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
 
     # Todo: How is this different from the above?
 
-
     def build_allowed_types_table_interlink(
-            self,
-            for_table: str,
-            allowed_types: Optional[Iterable[str]] = None
+        self, for_table: str, allowed_types: Optional[Iterable[str]] = None
     ) -> list[str]:
         """
         Return no statements for None, otherwise build a legacy allowed-type table.
@@ -923,7 +984,9 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
 
         return self._build_allowed_types_table_interlink(for_table, allowed_types)
 
-    def _build_allowed_types_table_interlink(self, for_table, allowed_types):
+    def _build_allowed_types_table_interlink(
+        self, for_table: str, allowed_types: Iterable[str]
+    ) -> list[str]:
         """
         Generate a legacy allowed-type table and one unescaped insert per label.
 
@@ -954,22 +1017,21 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
           UNIQUE({column}_type)
           );
 
-        """.format(
-            table=allowed_table_name, column=allowed_table_col_name
-        )
+        """.format(table=allowed_table_name, column=allowed_table_col_name)
 
         # Add a statement for every element we want to add to the table
         att_add_sqlite = []
         for at in allowed_types:
-            at_insert_stmt = 'INSERT INTO {table} ({column}_type) VALUES ("{at}");'.format(
-                table=allowed_table_name, column=allowed_table_col_name, at=at
+            at_insert_stmt = (
+                'INSERT INTO {table} ({column}_type) VALUES ("{at}");'.format(
+                    table=allowed_table_name, column=allowed_table_col_name, at=at
+                )
             )
             att_add_sqlite.append(at_insert_stmt)
 
         return [
             att_table_sqlite,
         ] + att_add_sqlite
-
 
     # ---------------------------------------------------------------------
     # FRBR generator helpers
@@ -986,7 +1048,7 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
         interlink_column_base: str,
         allowed_types: list[str],
         # Todo: This should probably be a protocol
-        connection: sqlite3.Connection,
+        connection: SQLConnection,
     ) -> None:
         """
         Create/seed a __types table, install nonnull-type guard triggers and commit.
@@ -1021,7 +1083,9 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
         )
 
         for t in allowed_types:
-            c.execute(f"INSERT OR IGNORE INTO `{types_table}` (`type`) VALUES (?);", (t,))
+            c.execute(
+                f"INSERT OR IGNORE INTO `{types_table}` (`type`) VALUES (?);", (t,)
+            )
 
         link_type_col = f"{interlink_column_base}_type"
 
@@ -1081,10 +1145,14 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
         # meaningful for tables explicitly requested for intralinks.
         intralink_tables = getattr(self, "intralink_tables", None)
         if intralink_tables is not None:
-            assert for_table in intralink_tables, f"Unknown intralink main table: {for_table!r}"
+            assert for_table in intralink_tables, (
+                f"Unknown intralink main table: {for_table!r}"
+            )
 
         if allowed_types is None:
-            allowed_types = getattr(self, "intralink_allowed_types_by_table", {}).get(for_table)
+            allowed_types = getattr(self, "intralink_allowed_types_by_table", {}).get(
+                for_table
+            )
         if not allowed_types:
             return []
 
@@ -1101,14 +1169,14 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
           UNIQUE({column}_type)
           );
 
-        """.format(
-            table=allowed_table_name, column=allowed_table_col_name
-        )
+        """.format(table=allowed_table_name, column=allowed_table_col_name)
 
         att_add_sqlite: list[str] = []
         for at in allowed_types:
-            at_insert_stmt = 'INSERT INTO {table} ({column}_type) VALUES ("{at}");'.format(
-                table=allowed_table_name, column=allowed_table_col_name, at=at
+            at_insert_stmt = (
+                'INSERT INTO {table} ({column}_type) VALUES ("{at}");'.format(
+                    table=allowed_table_name, column=allowed_table_col_name, at=at
+                )
             )
             att_add_sqlite.append(at_insert_stmt)
 
@@ -1159,7 +1227,9 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
         name_local = deepcopy(name)
         name_local = six_unicode(name_local)
 
-        target_table_name = getattr(self, "match_to_table_name", lambda x: x)(name_local)
+        target_table_name = getattr(self, "match_to_table_name", lambda x: x)(
+            name_local
+        )
         if target_table_name is None:
             target_table_name = name_local
 
@@ -1170,12 +1240,14 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
         # Normalise requested columns.
         if requested_cols is None:
             # Historical behaviour: always include `type` for intralinks.
-            req: Union[str, set[str]] = {"type"}
+            req: Literal["all"] | set[str] = {"type"}
         elif isinstance(requested_cols, str):
             if requested_cols.strip().lower() == "all":
                 req = "all"
             else:
-                raise TypeError(f"requested_cols must be 'all' or an iterable; got: {requested_cols!r}")
+                raise TypeError(
+                    f"requested_cols must be 'all' or an iterable; got: {requested_cols!r}"
+                )
         else:
             req = {str(x).strip().lower() for x in requested_cols}
 
@@ -1190,7 +1262,9 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
         # If symmetric_types is used we must have a type column.
         if symmetric_types:
             if req != "all" and "type" not in req:
-                raise ValueError("symmetric_types requires a `type` requested column in the intralink table")
+                raise ValueError(
+                    "symmetric_types requires a `type` requested column in the intralink table"
+                )
 
         # Decide FK nullability.
         fk_null_sql = "NULL" if nullable_fks else "NOT NULL"
@@ -1205,7 +1279,9 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
                 target_table_name, allowed_types=allowed_types
             )
             if allowed_type_table_sqlite:
-                att_name = self.get_allowed_types_table_name_intralinks(target_table_name)
+                att_name = self.get_allowed_types_table_name_intralinks(
+                    target_table_name
+                )
                 att_col_name = att_name[:-1]
                 at_foreign_key = f"""
       CONSTRAINT `{att_name}_type_is_allowed`
@@ -1235,23 +1311,23 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
             """
             col_lines.append(f"  `{row_name}_{col}` {ddl},")
 
-        if req == "all" or (req != "all" and "priority" in req):
+        if req == "all" or "priority" in req:
             _add_optional("priority", "INTEGER DEFAULT 0")
-        if req == "all" or (req != "all" and "primary" in req):
+        if req == "all" or "primary" in req:
             _add_optional("primary", "INTEGER NULL DEFAULT 0")
-        if req == "all" or (req != "all" and "type" in req):
+        if req == "all" or "type" in req:
             _add_optional("type", "TEXT NULL")
-        if req == "all" or (req != "all" and "index" in req):
+        if req == "all" or "index" in req:
             _add_optional("index", "TEXT NULL")
-        if req == "all" or (req != "all" and "sequence_number" in req):
+        if req == "all" or "sequence_number" in req:
             _add_optional("sequence_number", "INTEGER NULL")
-        if req == "all" or (req != "all" and "is_required" in req):
+        if req == "all" or "is_required" in req:
             _add_optional("is_required", "INTEGER DEFAULT 1")
-        if req == "all" or (req != "all" and "origin" in req):
+        if req == "all" or "origin" in req:
             _add_optional("origin", "TEXT NULL")
-        if req == "all" or (req != "all" and "policy" in req):
+        if req == "all" or "policy" in req:
             _add_optional("policy", "TEXT NULL")
-        if req == "all" or (req != "all" and "data" in req):
+        if req == "all" or "data" in req:
             _add_optional("data", "TEXT NULL")
         _add_optional("source", "TEXT NULL")
 
@@ -1269,11 +1345,15 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
             }
             for extra in sorted(req - reserved):
                 if not re.fullmatch(r"[a-z][a-z0-9_]*", extra):
-                    raise TypeError(f"Unsafe intralink requested column name: {extra!r}")
+                    raise TypeError(
+                        f"Unsafe intralink requested column name: {extra!r}"
+                    )
                 _add_optional(extra, "TEXT NULL")
 
         # Standard tail columns
-        col_lines.append(f"  `{row_name}_datestamp` DATETIME DEFAULT (STRFTIME('%s', 'now')),")
+        col_lines.append(
+            f"  `{row_name}_datestamp` DATETIME DEFAULT (STRFTIME('%s', 'now')),"
+        )
         col_lines.append(f"  `{row_name}_scratch` TEXT NULL,")
 
         # Constraints
@@ -1284,7 +1364,7 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
             f"  CONSTRAINT `{row_name}_no_self_link` CHECK (`{row_name}_primary_id` IS NULL OR `{row_name}_secondary_id` IS NULL OR `{row_name}_primary_id` != `{row_name}_secondary_id`),"
         )
 
-        has_type_col = (req == "all") or (req != "all" and "type" in req)
+        has_type_col = (req == "all") or "type" in req
 
         # Uniqueness on (primary,secondary[,type])
         if has_type_col:
@@ -1297,7 +1377,7 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
             )
 
         # If priority exists, enforce ordering uniqueness per primary (and per type if present).
-        has_priority = (req == "all") or (req != "all" and "priority" in req)
+        has_priority = (req == "all") or "priority" in req
         if has_priority:
             if has_type_col:
                 constraint_lines.append(
@@ -1358,7 +1438,9 @@ CREATE TABLE IF NOT EXISTS `{table_name}` (
         if symmetric or symmetric_types:
             if symmetric_types:
                 types_list = [str(t) for t in symmetric_types]
-                in_list = ", ".join(["'" + t.replace("'", "''") + "'" for t in types_list])
+                in_list = ", ".join(
+                    ["'" + t.replace("'", "''") + "'" for t in types_list]
+                )
                 type_pred = f"NEW.`{row_name}_type` IN ({in_list})"
                 label = " (symmetric_types)"
             else:
@@ -1368,12 +1450,10 @@ CREATE TABLE IF NOT EXISTS `{table_name}` (
             trig_ins = f"{table_name}__symmetric_order_guard_insert"
             trig_upd = f"{table_name}__symmetric_order_guard_update"
 
-            cond = (
-                f"""WHEN {type_pred}
+            cond = f"""WHEN {type_pred}
  AND NEW.`{row_name}_primary_id` IS NOT NULL
  AND NEW.`{row_name}_secondary_id` IS NOT NULL
  AND NEW.`{row_name}_primary_id` >= NEW.`{row_name}_secondary_id`"""
-            )
 
             stmts.append(
                 f"""CREATE TRIGGER IF NOT EXISTS `{trig_ins}`

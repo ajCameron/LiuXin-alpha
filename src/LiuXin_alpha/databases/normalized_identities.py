@@ -45,7 +45,7 @@ from __future__ import annotations
 import json
 from collections.abc import Callable, Iterable, Iterator, Mapping
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Protocol, cast
 
 from LiuXin_alpha.errors import InputIntegrityError
 from LiuXin_alpha.metadata.value_policies import ColumnNormalizationProfile
@@ -102,7 +102,12 @@ class NormalizedIdentitySpec:
             checking.
         """
 
-        fields = (self.table, self.value_column, self.identity_column, *self.scope_columns)
+        fields = (
+            self.table,
+            self.value_column,
+            self.identity_column,
+            *self.scope_columns,
+        )
         if any(not str(value).strip() for value in fields):
             raise ValueError("Normalized identity names cannot be blank.")
         if len(set(self.scope_columns)) != len(self.scope_columns):
@@ -174,8 +179,7 @@ NORMALIZED_IDENTITY_DEFAULTS: tuple[NormalizedIdentitySpec, ...] = (
 )
 
 _DEFAULTS_BY_VALUE_COLUMN = {
-    (spec.table, spec.value_column): spec
-    for spec in NORMALIZED_IDENTITY_DEFAULTS
+    (spec.table, spec.value_column): spec for spec in NORMALIZED_IDENTITY_DEFAULTS
 }
 _DEFAULTS_BY_TABLE: dict[str, tuple[NormalizedIdentitySpec, ...]] = {}
 for _spec in NORMALIZED_IDENTITY_DEFAULTS:
@@ -362,6 +366,12 @@ def add_derived_identity_values(
     return prepared
 
 
+class _IdentityReader(Protocol):
+    """Callable spelling shared by driver and wrapper declaration readers."""
+
+    def __call__(self, *, table: str) -> Iterable[NormalizedIdentitySpec]: ...
+
+
 @dataclass(frozen=True, slots=True)
 class NormalizedValuePreparer:
     """Retain declarations and physical headings for one write operation.
@@ -379,7 +389,7 @@ class NormalizedValuePreparer:
     @classmethod
     def from_source(
         cls,
-        source: Any,
+        source: object,
         table: str,
         *,
         available_columns: frozenset[str] | None = None,
@@ -399,7 +409,7 @@ class NormalizedValuePreparer:
         if not callable(iterator):
             iterator = getattr(source, "direct_iter_normalized_identity_specs", None)
         specs = (
-            tuple(iterator(table=table))
+            tuple(cast(_IdentityReader, iterator)(table=table))
             if callable(iterator)
             else normalized_identity_defaults_for_table(table)
         )
@@ -408,7 +418,9 @@ class NormalizedValuePreparer:
             if not callable(headings):
                 headings = getattr(source, "direct_get_column_headings", None)
             if callable(headings):
-                available_columns = frozenset(headings(table))
+                available_columns = frozenset(
+                    cast(Callable[[str], Iterable[str]], headings)(table)
+                )
         return cls(table, specs, available_columns)
 
     def prepare(
@@ -452,7 +464,7 @@ class NormalizedValuePreparer:
 
 
 def prepare_normalized_values(
-    source: Any,
+    source: object,
     table: str,
     values: Mapping[str, Any],
     *,

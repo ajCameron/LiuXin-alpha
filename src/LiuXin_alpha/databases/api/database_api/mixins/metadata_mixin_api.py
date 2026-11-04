@@ -18,10 +18,8 @@ from LiuXin_alpha.databases.schema_specs import LinkCapabilities
 
 
 if TYPE_CHECKING:
-    from LiuXin_alpha.databases.column_metadata import (
-        ColumnMetadata,
-        ColumnOptions,
-    )
+    from LiuXin_alpha.databases.column_metadata import ColumnMetadata
+    from LiuXin_alpha.databases.db_types.column_types import ColumnOptions
     from LiuXin_alpha.databases.normalized_identities import NormalizedIdentitySpec
     from LiuXin_alpha.databases.query_indexes import QueryIndexReport
     from LiuXin_alpha.metadata.value_policies import (
@@ -47,7 +45,6 @@ class DatabaseMetadataMixinAPI(abc.ABC):
         >>> inspect.isabstract(DatabaseMetadataMixinAPI)
         True
     """
-
 
     @abc.abstractmethod
     def get_tables(self, force_refresh: bool = False) -> Iterable[str]:
@@ -371,7 +368,9 @@ class DatabaseMetadataMixinAPI(abc.ABC):
         """
 
     @abc.abstractmethod
-    def iter_normalized_identity_specs(self, *, table: str | None = None) -> Iterator[NormalizedIdentitySpec]:
+    def iter_normalized_identity_specs(
+        self, *, table: str | None = None
+    ) -> Iterator[NormalizedIdentitySpec]:
         """
         Yield normalized-identity declarations from the wrapper iterator.
 
@@ -960,7 +959,7 @@ class DatabaseMetadataMixinAPI(abc.ABC):
         """
 
     @abc.abstractmethod
-    def get_max(self, column: str) -> Any:
+    def get_max(self, column: str) -> int | None:
         """
         Delegate a column maximum directly to the backend driver.
 
@@ -977,7 +976,7 @@ class DatabaseMetadataMixinAPI(abc.ABC):
         """
 
     @abc.abstractmethod
-    def get_min(self, column: str) -> Any:
+    def get_min(self, column: str) -> int | None:
         """
         Delegate a column minimum directly to the backend driver.
 
@@ -1016,7 +1015,7 @@ class DatabaseMetadataMixinAPI(abc.ABC):
     # ---------------------------------------------------------------------------------------------
     @property
     @abc.abstractmethod
-    def uuid(self) -> str:
+    def uuid(self) -> str | None:
         """
         Return the cached database UUID or load it once from the wrapper.
 
@@ -1059,17 +1058,16 @@ class DatabaseMetadataMixinAPI(abc.ABC):
         Read a cached library identifier, generating one when the query returns None.
 
         Abstract hook; subclasses supply the operation. Concrete Database behavior: The
-        nonempty query result is retained directly without extracting its first column;
-        its shape therefore depends on wrapper.get(all=False). A missing value invokes
-        the setter and writes through macros. Reading this property is not always
-        read-only.
+        scalar UUID column is cached. An absent or NULL value invokes the setter
+        and writes a generated UUID through macros. Reading this property is not
+        always read-only.
 
         Example:
             For an initialized concrete db, db.library_id reads its cached value or
             follows the documented backend lookup path.
 
 
-        :return: Cached wrapper query result, or generated UUID text.
+        :return: Stored or generated UUID text.
         """
 
     @library_id.setter
@@ -1095,14 +1093,15 @@ class DatabaseMetadataMixinAPI(abc.ABC):
 
     @property
     @abc.abstractmethod
-    def database_version(self) -> str:
+    def database_version(self) -> str | None:
         """
         Return the cached version or read the last version row from the primary
         connection.
 
         Abstract hook; subclasses supply the operation. Concrete Database behavior: A
         None result is queried again on the next access. This method does not create a
-        version row or explicitly close its cursor.
+        version row. Its result cursor is closed without completing the borrowed
+        primary connection transaction.
 
         Example:
             For an initialized concrete db, db.database_version reads its cached value

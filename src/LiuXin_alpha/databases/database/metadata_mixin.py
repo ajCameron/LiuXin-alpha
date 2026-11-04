@@ -1,4 +1,3 @@
-
 """
 Expose schema metadata, column policies and canonical identities through a database
 facade.
@@ -11,14 +10,18 @@ those schemas automatically.
 
 from __future__ import annotations
 
-import uuid
-from copy import deepcopy
-from typing import TYPE_CHECKING, Any, Iterator, Mapping
+from LiuXin_alpha.databases.database_driver_plugins._macro_state import require_legacy_macros
 
-from LiuXin_alpha.databases.column_metadata import (
-    ColumnMetadata,
-    ColumnOptions,
-)
+from LiuXin_alpha.databases.database._state import DatabaseMixinState
+
+import uuid
+from contextlib import closing
+from copy import deepcopy
+from typing import Any, Iterator, Mapping
+
+from LiuXin_alpha.databases.column_metadata import ColumnMetadata
+from LiuXin_alpha.databases.db_types.column_types import ColumnOptions
+from LiuXin_alpha.databases.db_types.driver_types import SQLConnection
 from LiuXin_alpha.databases.db_types.macro_types import (
     CanonicalIdentity,
     NormalizedIdentityMigrationReport,
@@ -35,12 +38,8 @@ from LiuXin_alpha.metadata.value_policies import (
 )
 from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 
-if TYPE_CHECKING:
 
-    from LiuXin_alpha.databases.api.database_api import DatabaseAPI
-
-
-class DatabaseMetadataMixin:
+class DatabaseMetadataMixin(DatabaseMixinState):
     """
     Combine cached library identifiers with schema and column-policy delegates.
 
@@ -53,8 +52,14 @@ class DatabaseMetadataMixin:
         its column policy; db.get_tables(force_refresh=True) asks the wrapper for fresh
         schema names.
     """
+
+    _uuid: str | None
+    _library_id_: str | None
+    _database_version_: str | None
+    conn: SQLConnection | None
+
     @property
-    def uuid(self: "DatabaseAPI") -> str:
+    def uuid(self) -> str | None:
         """
         Return the cached database UUID or load it once from the wrapper.
 
@@ -73,11 +78,11 @@ class DatabaseMetadataMixin:
         if self._uuid is not None:
             return self._uuid
         else:
-            self._uuid = self.driver_wrapper.get_uuid()
+            self._uuid = self._database.driver_wrapper.get_uuid()
             return self._uuid
 
     @uuid.setter
-    def uuid(self: "DatabaseAPI", value: str) -> None:
+    def uuid(self, value: str) -> None:
         """
         Assign the UUID cache before asking the wrapper to persist it.
 
@@ -92,17 +97,16 @@ class DatabaseMetadataMixin:
         :return: None.
         """
         self._uuid = value
-        self.driver_wrapper.set_uuid(value)
+        self._database.driver_wrapper.set_uuid(value)
 
     @property
-    def library_id(self: "DatabaseAPI") -> str:
+    def library_id(self) -> str:
         """
         Read a cached library identifier, generating one when the query returns None.
 
-        The nonempty query result is retained directly without extracting its first
-        column; its shape therefore depends on wrapper.get(all=False). A missing value
-        invokes the setter and writes through macros. Reading this property is not
-        always read-only.
+        Read the scalar UUID column, rather than retaining its containing SQL row.
+        An absent or NULL value invokes the setter and writes a generated UUID
+        through macros. Reading this property is not always read-only.
 
         Example:
             >>> state = DatabaseMetadataMixin()
@@ -111,19 +115,23 @@ class DatabaseMetadataMixin:
             'cached-library'
 
 
-        :return: Cached wrapper query result, or generated UUID text.
+        :return: Stored or generated UUID text.
         """
-        if getattr(self, "_library_id_", None) is None:
-            ans = self.driver_wrapper.get("SELECT library_id_uuid FROM library_id", all=False)
-            if ans is None:
-                ans = str(uuid.uuid4())
-                self.library_id = ans
-            else:
-                self._library_id_ = ans
-        return self._library_id_
+        cached: str | None = getattr(self, "_library_id_", None)
+        if cached is not None:
+            return cached
+        stored: str | None = self._database.driver_wrapper.fetch_scalar(
+            "SELECT library_id_uuid FROM library_id"
+        )
+        value = str(uuid.uuid4()) if stored is None else stored
+        if stored is None:
+            self.library_id = value
+        else:
+            self._library_id_ = value
+        return value
 
     @library_id.setter
-    def library_id(self: "DatabaseAPI", value: str) -> None:
+    def library_id(self, value: str) -> None:
         """
         Cache the textual library identifier and delegate storage of the original value.
 
@@ -139,16 +147,17 @@ class DatabaseMetadataMixin:
         :return: None.
         """
         self._library_id_ = six_unicode(value)
-        self.macros.set_library_id(value)
+        require_legacy_macros(self._database.macros).set_library_id(value)
 
     @property
-    def database_version(self: "DatabaseAPI") -> str:
+    def database_version(self) -> str | None:
         """
         Return the cached version or read the last version row from the primary
         connection.
 
         A None result is queried again on the next access. This method does not create a
-        version row or explicitly close its cursor.
+        version row. The result cursor is closed without completing the borrowed
+        primary connection's transaction.
 
         Example:
             >>> state = DatabaseMetadataMixin()
@@ -160,16 +169,22 @@ class DatabaseMetadataMixin:
         :return: Last queried version value, or None when there are no rows.
         """
         if getattr(self, "_database_version_", None) is None:
-            c = self.conn.cursor()
-            version_val = None
-
-            for row in c.execute("SELECT database_version_version FROM database_version;"):
-                version_val = row[0]
+            connection = self.conn
+            if connection is None:
+                raise RuntimeError("Database connection is not available")
+            version_val: str | None = None
+            with closing(
+                connection.execute(
+                    "SELECT database_version_version FROM database_version;"
+                )
+            ) as cursor:
+                for row in cursor:
+                    version_val = row[0]
             self._database_version_ = version_val
         return self._database_version_
 
     @database_version.setter
-    def database_version(self: "DatabaseAPI", value: str) -> None:
+    def database_version(self, value: str) -> None:
         """
         Cache version text before passing the original value to its storage macro.
 
@@ -186,14 +201,13 @@ class DatabaseMetadataMixin:
         :return: None.
         """
         self._database_version_ = six_unicode(value)
-        self.macros.set_database_version(value)
-
+        require_legacy_macros(self._database.macros).set_database_version(value)
 
     # ----------------------------------------------------------------
     #
     # - METHODS TO GET BASIC INFORMATION ABOUT THE DATABASE START HERE
 
-    def get_tables(self: "DatabaseAPI", force_refresh: bool = False) -> list[str]:
+    def get_tables(self, force_refresh: bool = False) -> list[str]:
         """
         Delegate table discovery and optional schema-cache refresh to the wrapper.
 
@@ -205,10 +219,10 @@ class DatabaseMetadataMixin:
         :param force_refresh: Request fresh backend discovery when True.
         :return: Wrapper table-name list.
         """
-        return self.driver_wrapper.get_tables(force_refresh=force_refresh)
+        return self._database.driver_wrapper.get_tables(force_refresh=force_refresh)
 
     # Methods to get basic information about the database start here
-    def get_column_headings(self: "DatabaseAPI", table: str) -> list[str]:
+    def get_column_headings(self, table: str) -> list[str]:
         """
         Delegate ordered column discovery for a table.
 
@@ -220,9 +234,9 @@ class DatabaseMetadataMixin:
         :param table: Target table name.
         :return: Wrapper column-name list in backend order.
         """
-        return self.driver_wrapper.get_column_headings(table)
+        return self._database.driver_wrapper.get_column_headings(table)
 
-    def get_declared_column_datatype(self: "DatabaseAPI", table: str, column: str) -> str:
+    def get_declared_column_datatype(self, table: str, column: str) -> str:
         """
         Read the backend-declared type name for one column.
 
@@ -235,10 +249,10 @@ class DatabaseMetadataMixin:
         :param column: Column name within that table.
         :return: Datatype string returned by the wrapper.
         """
-        return self.driver_wrapper.get_declared_column_datatype(table, column)
+        return self._database.driver_wrapper.get_declared_column_datatype(table, column)
 
     def get_link_capabilities(
-        self: "DatabaseAPI",
+        self,
         table1: str,
         table2: str,
         *,
@@ -258,14 +272,14 @@ class DatabaseMetadataMixin:
         :return: LinkCapabilities, or None when no supported relationship is found.
         """
 
-        return self.driver_wrapper.get_link_capabilities(
+        return self._database.driver_wrapper.get_link_capabilities(
             table1,
             table2,
             force_refresh=force_refresh,
         )
 
     def is_link_typed(
-        self: "DatabaseAPI",
+        self,
         table1: str,
         table2: str,
         *,
@@ -285,14 +299,14 @@ class DatabaseMetadataMixin:
         :return: Wrapper boolean capability result.
         """
 
-        return self.driver_wrapper.is_link_typed(
+        return self._database.driver_wrapper.is_link_typed(
             table1,
             table2,
             force_refresh=force_refresh,
         )
 
     def is_link_priority(
-        self: "DatabaseAPI",
+        self,
         table1: str,
         table2: str,
         *,
@@ -312,13 +326,13 @@ class DatabaseMetadataMixin:
         :return: Wrapper boolean capability result.
         """
 
-        return self.driver_wrapper.is_link_priority(
+        return self._database.driver_wrapper.is_link_priority(
             table1,
             table2,
             force_refresh=force_refresh,
         )
 
-    def get_case_sensitivity(self: "DatabaseAPI", table: str, column: str) -> bool:
+    def get_case_sensitivity(self, table: str, column: str) -> bool:
         """
         Read the case-sensitive comparison flag.
 
@@ -334,10 +348,10 @@ class DatabaseMetadataMixin:
         :param column: Column name within that table.
         :return: The wrapper bool flag result.
         """
-        return self.driver_wrapper.get_case_sensitivity(table, column)
+        return self._database.driver_wrapper.get_case_sensitivity(table, column)
 
     def get_column_metadata(
-        self: "DatabaseAPI",
+        self,
         table: str,
         column: str,
     ) -> ColumnMetadata:
@@ -355,10 +369,10 @@ class DatabaseMetadataMixin:
             legacy read fallbacks.
         """
 
-        return self.driver_wrapper.get_column_metadata(table, column)
+        return self._database.driver_wrapper.get_column_metadata(table, column)
 
     def set_column_metadata(
-        self: "DatabaseAPI",
+        self,
         metadata: ColumnMetadata,
     ) -> None:
         """
@@ -378,10 +392,10 @@ class DatabaseMetadataMixin:
         :return: None.
         """
 
-        self.driver_wrapper.set_column_metadata(metadata)
+        self._database.driver_wrapper.set_column_metadata(metadata)
 
     def get_semantic_role(
-        self: "DatabaseAPI",
+        self,
         table: str,
         column: str,
     ) -> ColumnSemanticRole:
@@ -401,10 +415,10 @@ class DatabaseMetadataMixin:
         :return: The wrapper ColumnSemanticRole describing the value meaning result.
         """
 
-        return self.driver_wrapper.get_semantic_role(table, column)
+        return self._database.driver_wrapper.get_semantic_role(table, column)
 
     def set_semantic_role(
-        self: "DatabaseAPI",
+        self,
         table: str,
         column: str,
         semantic_role: ColumnSemanticRole,
@@ -428,10 +442,10 @@ class DatabaseMetadataMixin:
         :return: None.
         """
 
-        self.driver_wrapper.set_semantic_role(table, column, semantic_role)
+        self._database.driver_wrapper.set_semantic_role(table, column, semantic_role)
 
     def get_normalization_profile(
-        self: "DatabaseAPI",
+        self,
         table: str,
         column: str,
     ) -> ColumnNormalizationProfile:
@@ -451,10 +465,10 @@ class DatabaseMetadataMixin:
         :return: The wrapper ColumnNormalizationProfile result.
         """
 
-        return self.driver_wrapper.get_normalization_profile(table, column)
+        return self._database.driver_wrapper.get_normalization_profile(table, column)
 
     def set_normalization_profile(
-        self: "DatabaseAPI",
+        self,
         table: str,
         column: str,
         normalization_profile: ColumnNormalizationProfile,
@@ -477,14 +491,14 @@ class DatabaseMetadataMixin:
         :return: None.
         """
 
-        self.driver_wrapper.set_normalization_profile(
+        self._database.driver_wrapper.set_normalization_profile(
             table,
             column,
             normalization_profile,
         )
 
     def get_comparison_column(
-        self: "DatabaseAPI",
+        self,
         table: str,
         column: str,
     ) -> str | None:
@@ -504,10 +518,10 @@ class DatabaseMetadataMixin:
         :return: The wrapper Companion column name, or None result.
         """
 
-        return self.driver_wrapper.get_comparison_column(table, column)
+        return self._database.driver_wrapper.get_comparison_column(table, column)
 
     def get_normalized_identity_spec(
-        self: "DatabaseAPI",
+        self,
         table: str,
         value_column: str,
     ) -> NormalizedIdentitySpec | None:
@@ -524,11 +538,14 @@ class DatabaseMetadataMixin:
         :return: NormalizedIdentitySpec, or None when no declaration applies.
         """
 
-        return self.driver_wrapper.get_normalized_identity_spec(table, value_column)
+        return self._database.driver_wrapper.get_normalized_identity_spec(
+            table, value_column
+        )
 
     def iter_normalized_identity_specs(
-        self: "DatabaseAPI",
-        *, table: str | None = None,
+        self,
+        *,
+        table: str | None = None,
     ) -> Iterator[NormalizedIdentitySpec]:
         """
         Yield normalized-identity declarations from the wrapper iterator.
@@ -544,10 +561,12 @@ class DatabaseMetadataMixin:
         :return: Iterator yielding NormalizedIdentitySpec objects.
         """
 
-        yield from self.driver_wrapper.iter_normalized_identity_specs(table=table)
+        yield from self._database.driver_wrapper.iter_normalized_identity_specs(
+            table=table
+        )
 
     def derive_identity_value(
-        self: "DatabaseAPI",
+        self,
         table: str,
         value_column: str,
         value: Any,
@@ -569,10 +588,10 @@ class DatabaseMetadataMixin:
         :return: Derived identity key returned by macros, without creating a row.
         """
 
-        return self.macros.derive_identity_value(table, value_column, value)
+        return self._database.macros.derive_identity_value(table, value_column, value)
 
     def get_canonical_identity(
-        self: "DatabaseAPI",
+        self,
         table: str,
         value_column: str,
         value: Any,
@@ -599,7 +618,7 @@ class DatabaseMetadataMixin:
         :return: CanonicalIdentity for a unique match, or None when absent.
         """
 
-        return self.macros.get_canonical_identity(
+        return self._database.macros.get_canonical_identity(
             table,
             value_column,
             value,
@@ -608,7 +627,7 @@ class DatabaseMetadataMixin:
         )
 
     def get_canonical_identity_by_key(
-        self: "DatabaseAPI",
+        self,
         table: str,
         value_column: str,
         identity_value: Any,
@@ -636,7 +655,7 @@ class DatabaseMetadataMixin:
         :return: CanonicalIdentity for a unique match, or None when absent.
         """
 
-        return self.macros.get_canonical_identity_by_key(
+        return self._database.macros.get_canonical_identity_by_key(
             table,
             value_column,
             identity_value,
@@ -645,7 +664,7 @@ class DatabaseMetadataMixin:
         )
 
     def get_canonical_value(
-        self: "DatabaseAPI",
+        self,
         table: str,
         value_column: str,
         value: Any,
@@ -667,7 +686,7 @@ class DatabaseMetadataMixin:
         :return: Canonical stored value, or None when no row matches.
         """
 
-        return self.macros.get_canonical_value(
+        return self._database.macros.get_canonical_value(
             table,
             value_column,
             value,
@@ -675,7 +694,7 @@ class DatabaseMetadataMixin:
         )
 
     def get_canonical_value_by_identity(
-        self: "DatabaseAPI",
+        self,
         table: str,
         value_column: str,
         identity_value: Any,
@@ -698,7 +717,7 @@ class DatabaseMetadataMixin:
         :return: Canonical stored value, or None when no row matches.
         """
 
-        return self.macros.get_canonical_value_by_identity(
+        return self._database.macros.get_canonical_value_by_identity(
             table,
             value_column,
             identity_value,
@@ -706,7 +725,7 @@ class DatabaseMetadataMixin:
         )
 
     def audit_normalized_identities(
-        self: "DatabaseAPI",
+        self,
     ) -> NormalizedIdentityMigrationReport:
         """
         Delegate inspection of stale identity keys and collisions without migration
@@ -721,10 +740,10 @@ class DatabaseMetadataMixin:
             rows.
         """
 
-        return self.macros.audit_normalized_identities()
+        return self._database.macros.audit_normalized_identities()
 
     def migrate_normalized_identities(
-        self: "DatabaseAPI",
+        self,
     ) -> NormalizedIdentityMigrationReport:
         """
         Delegate transactional identity-catalog installation, backfill and indexing.
@@ -742,18 +761,18 @@ class DatabaseMetadataMixin:
         :return: NormalizedIdentityMigrationReport describing completed changes.
         """
 
-        return self.macros.migrate_normalized_identities()
+        return self._database.macros.migrate_normalized_identities()
 
     def audit_query_indexes(self) -> QueryIndexReport:
         """Inspect physical query-index definitions without changing the database."""
-        return self.macros.audit_query_indexes()
+        return self._database.macros.audit_query_indexes()
 
     def migrate_query_indexes(self) -> QueryIndexReport:
         """Install missing physical query indexes through the shared transaction."""
-        return self.macros.migrate_query_indexes()
+        return self._database.macros.migrate_query_indexes()
 
     def set_comparison_column(
-        self: "DatabaseAPI",
+        self,
         table: str,
         column: str,
         comparison_column: str | None,
@@ -776,14 +795,14 @@ class DatabaseMetadataMixin:
         :return: None.
         """
 
-        self.driver_wrapper.set_comparison_column(
+        self._database.driver_wrapper.set_comparison_column(
             table,
             column,
             comparison_column,
         )
 
     def get_empty_value_policy(
-        self: "DatabaseAPI",
+        self,
         table: str,
         column: str,
     ) -> ColumnEmptyValuePolicy:
@@ -803,10 +822,10 @@ class DatabaseMetadataMixin:
         :return: The wrapper ColumnEmptyValuePolicy result.
         """
 
-        return self.driver_wrapper.get_empty_value_policy(table, column)
+        return self._database.driver_wrapper.get_empty_value_policy(table, column)
 
     def set_empty_value_policy(
-        self: "DatabaseAPI",
+        self,
         table: str,
         column: str,
         empty_value_policy: ColumnEmptyValuePolicy,
@@ -829,14 +848,14 @@ class DatabaseMetadataMixin:
         :return: None.
         """
 
-        self.driver_wrapper.set_empty_value_policy(
+        self._database.driver_wrapper.set_empty_value_policy(
             table,
             column,
             empty_value_policy,
         )
 
     def get_merge_policy(
-        self: "DatabaseAPI",
+        self,
         table: str,
         column: str,
     ) -> ColumnMergePolicy:
@@ -856,10 +875,10 @@ class DatabaseMetadataMixin:
         :return: The wrapper ColumnMergePolicy result.
         """
 
-        return self.driver_wrapper.get_merge_policy(table, column)
+        return self._database.driver_wrapper.get_merge_policy(table, column)
 
     def set_merge_policy(
-        self: "DatabaseAPI",
+        self,
         table: str,
         column: str,
         merge_policy: ColumnMergePolicy,
@@ -883,10 +902,10 @@ class DatabaseMetadataMixin:
         :return: None.
         """
 
-        self.driver_wrapper.set_merge_policy(table, column, merge_policy)
+        self._database.driver_wrapper.set_merge_policy(table, column, merge_policy)
 
     def get_validation_profile(
-        self: "DatabaseAPI",
+        self,
         table: str,
         column: str,
     ) -> ColumnValidationProfile:
@@ -906,10 +925,10 @@ class DatabaseMetadataMixin:
         :return: The wrapper ColumnValidationProfile result.
         """
 
-        return self.driver_wrapper.get_validation_profile(table, column)
+        return self._database.driver_wrapper.get_validation_profile(table, column)
 
     def set_validation_profile(
-        self: "DatabaseAPI",
+        self,
         table: str,
         column: str,
         validation_profile: ColumnValidationProfile,
@@ -932,14 +951,14 @@ class DatabaseMetadataMixin:
         :return: None.
         """
 
-        self.driver_wrapper.set_validation_profile(
+        self._database.driver_wrapper.set_validation_profile(
             table,
             column,
             validation_profile,
         )
 
     def get_formatting_options(
-        self: "DatabaseAPI",
+        self,
         table: str,
         column: str,
     ) -> ColumnOptions:
@@ -959,10 +978,10 @@ class DatabaseMetadataMixin:
         :return: The wrapper Mapping of formatting option names to values result.
         """
 
-        return self.driver_wrapper.get_formatting_options(table, column)
+        return self._database.driver_wrapper.get_formatting_options(table, column)
 
     def set_formatting_options(
-        self: "DatabaseAPI",
+        self,
         table: str,
         column: str,
         formatting_options: Mapping[str, object],
@@ -986,14 +1005,14 @@ class DatabaseMetadataMixin:
         :return: None.
         """
 
-        self.driver_wrapper.set_formatting_options(
+        self._database.driver_wrapper.set_formatting_options(
             table,
             column,
             formatting_options,
         )
 
     def get_display_options(
-        self: "DatabaseAPI",
+        self,
         table: str,
         column: str,
     ) -> ColumnOptions:
@@ -1013,10 +1032,10 @@ class DatabaseMetadataMixin:
         :return: The wrapper Mapping of presentation option names to values result.
         """
 
-        return self.driver_wrapper.get_display_options(table, column)
+        return self._database.driver_wrapper.get_display_options(table, column)
 
     def set_display_options(
-        self: "DatabaseAPI",
+        self,
         table: str,
         column: str,
         display_options: Mapping[str, object],
@@ -1040,14 +1059,14 @@ class DatabaseMetadataMixin:
         :return: None.
         """
 
-        self.driver_wrapper.set_display_options(
+        self._database.driver_wrapper.set_display_options(
             table,
             column,
             display_options,
         )
 
     def set_case_sensitivity(
-        self: "DatabaseAPI",
+        self,
         table: str,
         column: str,
         case_sensitive: bool,
@@ -1069,9 +1088,11 @@ class DatabaseMetadataMixin:
         :param case_sensitive: Whether comparisons should be case-sensitive.
         :return: None.
         """
-        self.driver_wrapper.set_case_sensitivity(table, column, case_sensitive)
+        self._database.driver_wrapper.set_case_sensitivity(
+            table, column, case_sensitive
+        )
 
-    def is_column_case_sensitive(self: "DatabaseAPI", table: str, column: str) -> bool:
+    def is_column_case_sensitive(self, table: str, column: str) -> bool:
         """
         Read the case-sensitivity flag through the facade alias.
 
@@ -1088,7 +1109,7 @@ class DatabaseMetadataMixin:
         return self.get_case_sensitivity(table, column)
 
     def set_column_case_sensitive(
-        self: "DatabaseAPI",
+        self,
         table: str,
         column: str,
         case_sensitive: bool,
@@ -1109,7 +1130,7 @@ class DatabaseMetadataMixin:
 
         self.set_case_sensitivity(table, column, case_sensitive)
 
-    def get_view_column_headings(self: "DatabaseAPI", view: str) -> list[str]:
+    def get_view_column_headings(self, view: str) -> list[str]:
         """
         Delegate ordered column discovery for a view.
 
@@ -1121,9 +1142,9 @@ class DatabaseMetadataMixin:
         :param view: Target view name.
         :return: Wrapper column-name list.
         """
-        return self.driver_wrapper.get_view_column_headings(view)
+        return self._database.driver_wrapper.get_view_column_headings(view)
 
-    def get_tables_and_columns(self: "DatabaseAPI") -> dict[str, list[str]]:
+    def get_tables_and_columns(self) -> dict[str, list[str]]:
         """
         Return the wrapper mapping of tables to column collections.
 
@@ -1137,9 +1158,9 @@ class DatabaseMetadataMixin:
         :return: Table-to-columns mapping; concrete backend collections may differ from
             the list annotation.
         """
-        return self.driver_wrapper.get_tables_and_columns()
+        return self._database.driver_wrapper.get_tables_and_columns()
 
-    def get_record_count(self: "DatabaseAPI", target_table: str) -> int:
+    def get_record_count(self, target_table: str) -> int:
         """
         Delegate the current row count of a table.
 
@@ -1151,9 +1172,9 @@ class DatabaseMetadataMixin:
         :param target_table: Target table name.
         :return: Wrapper integer row count.
         """
-        return self.driver_wrapper.get_record_count(target_table)
+        return self._database.driver_wrapper.get_record_count(target_table)
 
-    def get_max(self: "DatabaseAPI", column: str) -> int:
+    def get_max(self, column: str) -> int | None:
         """
         Delegate a column maximum directly to the backend driver.
 
@@ -1163,12 +1184,11 @@ class DatabaseMetadataMixin:
 
 
         :param column: Column identifier understood by the driver.
-        :return: Driver maximum result; an empty column may produce None despite the
-            annotation.
+        :return: Driver maximum result, or None for an empty column.
         """
-        return self.driver.direct_get_max(column)
+        return self._database.driver.direct_get_max(column)
 
-    def get_min(self: "DatabaseAPI", column: str) -> int:
+    def get_min(self, column: str) -> int | None:
         """
         Delegate a column minimum directly to the backend driver.
 
@@ -1177,12 +1197,11 @@ class DatabaseMetadataMixin:
 
 
         :param column: Column identifier understood by the driver.
-        :return: Driver minimum result; an empty column may produce None despite the
-            annotation.
+        :return: Driver minimum result, or None for an empty column.
         """
-        return self.driver.direct_get_min(column)
+        return self._database.driver.direct_get_min(column)
 
-    def row_counts(self: "DatabaseAPI") -> dict[str, int]:
+    def row_counts(self) -> str:
         """
         Format record counts for each cached main, interlink, self-link and helper
         table.
@@ -1196,7 +1215,7 @@ class DatabaseMetadataMixin:
             categorized table counts as text.
 
 
-        :return: Multiline string, despite the legacy dictionary annotation.
+        :return: Multiline string summarizing the categorized table counts.
         """
         ans = list()
         ans.append("LiuXin _Database: Table row_counts")
@@ -1208,15 +1227,15 @@ class DatabaseMetadataMixin:
             "intralink_tables",
             "helper_tables",
         ]:
-
-            type_tables = sorted([t for t in deepcopy(object.__getattribute__(self, table_type))])
+            type_tables = sorted(
+                [t for t in deepcopy(object.__getattribute__(self, table_type))]
+            )
             ans.append("\n{}:\n".format(table_type))
 
             for table in type_tables:
                 ans.append("{}: {}".format(table, self.get_record_count(table)))
 
         return "\n".join(ans)
-
 
     #
     # ----------------------------------------------------------------

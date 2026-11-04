@@ -1,4 +1,3 @@
-
 """
 Specify insertion of individual rows and homogeneous row batches.
 
@@ -8,6 +7,7 @@ failures roll back the complete operation.
 """
 
 import abc
+from typing import Literal
 
 from typing import Iterable, Any
 
@@ -28,7 +28,9 @@ class DriverAddMixinAPI(abc.ABC):
     """
 
     @abc.abstractmethod
-    def direct_add_multiple_simple_row_dicts(self, row_dict_list: Iterable[dict[str, Any]]) -> None:
+    def direct_add_multiple_simple_row_dicts(
+        self, row_dict_list: Iterable[dict[str, Any]]
+    ) -> Literal[True] | None:
         """
         Insert a batch atomically, binding values by named column.
 

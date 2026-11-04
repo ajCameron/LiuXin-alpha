@@ -6,6 +6,8 @@ from typing import TYPE_CHECKING
 
 from LiuXin_alpha.databases.db_types.macro_types import LINK_TYPE_UNSET, LinkedTableRow
 
+from ._relationships import require_link_spec
+
 if TYPE_CHECKING:
     from LiuXin_alpha.databases.api.database_api import DatabaseAPI
 
@@ -33,5 +35,5 @@ class SynopsesSQLMixin:
         remain None. Callers validate source existence and choose relationships.
         Supplied type filters require a typed relation. No new transaction opens.
         """
-        spec = self.db.driver_wrapper.get_link_spec(source_table, "synopses")
+        spec = require_link_spec(self.db, source_table, "synopses")
         return self.db.macros.get_linked_rows(spec, source_id, link_type=link_type)

@@ -9,12 +9,22 @@ shared cache/connection tracking, while ValueCastingMixin converts returned cell
 from __future__ import annotations
 
 import uuid
-from collections.abc import Iterator, Mapping, Sequence
+from collections.abc import Iterable, Iterator, Mapping, Sequence
 from copy import deepcopy
+from contextlib import closing
 from dataclasses import replace
-from typing import Any
+from typing import TYPE_CHECKING, Any, Literal, Never
+from queue import Queue
+from os import PathLike
 
-from LiuXin_alpha.databases.api.portable_macros_api import PortableMacrosAPI
+if TYPE_CHECKING:
+    from LiuXin_alpha.databases.api import DatabaseAPI
+    from LiuXin_alpha.databases.db_types.driver_types import (
+        SQLExecuteOperation, SQLExecuteManyOperation, SQLGetOperation, SQLConnection,
+        SQLCursor, SQLParameters, SQLRow,
+    )
+
+from LiuXin_alpha.databases.api.portable_macros_api import DatabaseMacrosAPI
 from LiuXin_alpha.databases.column_metadata import (
     COLUMN_METADATA_TABLE,
     ColumnMetadata,
@@ -81,7 +91,7 @@ from LiuXin_alpha.databases.schema_specs import PhysicalTableSpec
 class PostgresDatabaseMacros(
     MacrosBase,
     SQLPortableMacrosMixin,
-    PortableMacrosAPI,
+    DatabaseMacrosAPI,
 ):
     """
     Combine portable macros with native PostgreSQL column updates.
@@ -95,7 +105,7 @@ class PostgresDatabaseMacros(
     """
 
     @property
-    def get(self):
+    def get(self) -> SQLGetOperation:
         """
         Expose the attached database facade fetch callable.
 
@@ -105,10 +115,13 @@ class PostgresDatabaseMacros(
 
         :return: Bound db.get callable.
         """
-        return self.db.get
+        operation = self._macro_database.get
+        if operation is None:
+            raise DatabaseIntegrityError("The database result reader is not available")
+        return operation
 
     @property
-    def execute(self):
+    def execute(self) -> SQLExecuteOperation:
         """
         Expose the attached driver wrapper single-statement callable.
 
@@ -118,10 +131,10 @@ class PostgresDatabaseMacros(
 
         :return: Bound driver_wrapper.execute callable.
         """
-        return self.db.driver_wrapper.execute
+        return self._macro_database.driver_wrapper.execute
 
     @property
-    def executemany(self):
+    def executemany(self) -> SQLExecuteManyOperation:
         """
         Expose the attached driver wrapper repeated-execution callable.
 
@@ -131,9 +144,11 @@ class PostgresDatabaseMacros(
 
         :return: Bound driver_wrapper.executemany callable.
         """
-        return self.db.driver_wrapper.executemany
+        return self._macro_database.driver_wrapper.executemany
 
-    def direct_update_column_in_table(self, table, column, table_id_col, item_id, new_value):
+    def direct_update_column_in_table(
+        self, table: str, column: str, table_id_col: str, item_id: int, new_value: Any
+    ) -> None:
         """Update through portable row preparation and its transaction owner."""
         self.update_row(table, item_id, {column: new_value}, id_column=table_id_col)
 
@@ -157,7 +172,7 @@ class PostgresDatabaseMacros(
         table_name = canonicalise(table) if callable(canonicalise) else str(table)
         return _qualified_table(str(schema), str(table_name))
 
-    def __getattr__(self, name: str) -> Any:
+    def __getattr__(self, name: str) -> Never:
         """
         Reject macro attributes absent from this class and its inherited interfaces.
 
@@ -205,7 +220,10 @@ class DatabaseDriver(
 
         return plural_singular_mapper(table_name)
 
-    def __init__(self, db_metadata: Mapping[str, object], db=None, set_conn: bool = True, dirty_records_queue=None):
+    def __init__(
+        self, db_metadata: Mapping[str, object], db: DatabaseAPI | None = None,
+        set_conn: bool = True, dirty_records_queue: Queue[tuple[str, int]] | None = None,
+    ) -> None:
         """
         Resolve configuration and initialize caches, macros and optional connection.
 
@@ -330,7 +348,7 @@ class DatabaseDriver(
                 except Exception:
                     pass
 
-    def direct_backup(self, path=None):
+    def direct_backup(self, path: str | PathLike[str] | None = None) -> Never:
         """
         Reject file-copy backup through the database driver.
 
@@ -346,7 +364,7 @@ class DatabaseDriver(
         """
         raise DatabaseDriverError("PostgreSQL backup is not a file copy. Use pg_dump/base backups outside this driver.")
 
-    def direct_self_delete(self):
+    def direct_self_delete(self) -> Never:
         """
         Reject dropping a PostgreSQL database through this driver.
 
@@ -388,7 +406,7 @@ class DatabaseDriver(
         create_postgres_schema(conn, schema=self.schema)
         self._zero_prop_cache()
 
-    def direct_replace_database(self, *, backup_path):
+    def direct_replace_database(self, *, backup_path: str | PathLike[str]) -> Never:
         """Refuse file-style replacement without changing any server objects."""
         raise DatabaseDriverError(
             "PostgreSQL replacement requires an operator-managed backup and schema migration."
@@ -425,7 +443,7 @@ class DatabaseDriver(
         """
         return self.direct_executescript("\n".join(script) if isinstance(script, list) else script)
 
-    def direct_execute_sql(self, sql: str, parameters: Sequence[Any] | None = None) -> Any:
+    def direct_execute_sql(self, sql: str, parameters: SQLParameters | None = None) -> int | None:
         """
         Execute SQL and return the cursor lastrowid attribute when available.
 
@@ -441,10 +459,10 @@ class DatabaseDriver(
         :param parameters: Optional values bound by the direct executor.
         :return: Cursor lastrowid, normally None for this backend.
         """
-        cur = self.direct_execute(sql, parameters)
-        return getattr(cur, "lastrowid", None)
+        with closing(self.direct_execute(sql, parameters)) as cur:
+            return cur.lastrowid
 
-    def direct_execute(self, sql: str, values: Sequence[Any] | None = None) -> Any:
+    def direct_execute(self, sql: str, values: SQLParameters | int | None = None) -> SQLCursor:
         """
         Execute one statement in the primary transaction context and refresh caches.
 
@@ -458,13 +476,14 @@ class DatabaseDriver(
 
 
         :param sql: Direct SQL passed through the connection adapter translations.
-        :param values: Optional bound parameter sequence.
+        :param values: Optional sequence/mapping bindings, or one integer binding.
         :return: Cursor adapter returned by connection.execute.
         """
         conn = self._primary_connection()
         try:
             with conn:
-                cur = conn.execute(sql, values)
+                parameters = (values,) if isinstance(values, int) else values
+                cur = conn.execute(sql) if parameters is None else conn.execute(sql, parameters)
             self._zero_prop_cache()
             return cur
         except Exception as exc:
@@ -478,7 +497,7 @@ class DatabaseDriver(
             )
             raise DatabaseDriverError(err_str) from exc
 
-    def direct_executemany(self, sql: str, values: Sequence[Sequence[Any]] | None = None) -> None:
+    def direct_executemany(self, sql: str, values: Iterable[SQLParameters] | None = None) -> None:
         """
         Execute repeated parameter sets in one primary-connection transaction.
 
@@ -496,7 +515,8 @@ class DatabaseDriver(
         conn = self._primary_connection()
         try:
             with conn:
-                conn.executemany(sql, values or ())
+                with closing(conn.executemany(sql, values or ())):
+                    pass
             self._zero_prop_cache()
         except Exception as exc:
             err_str = default_log.log_exception(
@@ -615,7 +635,7 @@ class DatabaseDriver(
                 column_items = list(column_headings.items())
             else:
                 column_items = [(str(column), {}) for column in column_headings]
-            requested_index_cols = None
+            requested_index_cols: Literal["all"] | set[str]
             if index_on == "all":
                 requested_index_cols = "all"
             elif index_on is None:
@@ -1476,7 +1496,7 @@ class DatabaseDriver(
 
         self.direct_set_case_sensitivity(table, column, case_sensitive)
 
-    def _sync_explicit_identity(self, conn: Any, table: str, column: str) -> None:
+    def _sync_explicit_identity(self, conn: SQLConnection, table: str, column: str) -> None:
         """Keep automatic IDs above explicit inserts without rewinding a sequence.
 
         Use the caller's transaction and serialize allocation-table writes while
@@ -1643,7 +1663,7 @@ class DatabaseDriver(
             )
             raise DatabaseDriverError(err_str) from exc
 
-    def _trigger_tables(self, trigger_name: str, *, conn: PostgresConnectionAdapter) -> list[str]:
+    def _trigger_tables(self, trigger_name: str, *, conn: SQLConnection) -> list[str]:
         """
         Find sorted table attachments for a trigger on a caller-owned connection.
 
@@ -2052,7 +2072,10 @@ class DatabaseDriver(
         except Exception as exc:
             raise DatabaseDriverError(f"PostgreSQL row insert failed: {exc}") from exc
 
-    def _insert_row_on_connection(self, conn, row_dict, *, normalizers=None):
+    def _insert_row_on_connection(
+        self, conn: SQLConnection, row_dict: Mapping[str, Any], *,
+        normalizers: dict[str, NormalizedValuePreparer] | None = None,
+    ) -> Any:
         """Insert using the caller's transaction, without committing an inner batch.
 
         :param conn: Active PostgreSQL connection adapter.
@@ -2063,6 +2086,8 @@ class DatabaseDriver(
         """
         row_dict = dict(row_dict)
         table = self.direct_identify_table_from_row(row_dict)
+        if table is False:
+            raise InputIntegrityError("Cannot identify the row's target table")
         row_dict.pop("table", None)
         normalizer = None if normalizers is None else normalizers.get(table)
         if normalizer is None:
@@ -2082,7 +2107,8 @@ class DatabaseDriver(
         else:
             stmt = f"insert into {self._table_sql(table)} default values returning {_q(id_column)}"
             values = None
-        return _row_value(conn.execute(stmt, values).fetchone(), 0, id_column)
+        with closing(conn.execute(stmt) if values is None else conn.execute(stmt, values)) as cursor:
+            return _row_value(cursor.fetchone(), 0, id_column)
 
     def direct_add_multiple_simple_row_dicts(
         self, row_dict_list: list[dict[str, Any]]
@@ -2103,7 +2129,7 @@ class DatabaseDriver(
         conn = self._primary_connection()
         try:
             with conn:
-                normalizers = {}
+                normalizers: dict[str, NormalizedValuePreparer] = {}
                 for row in row_dict_list:
                     self._insert_row_on_connection(conn, row, normalizers=normalizers)
             self._zero_prop_cache()
@@ -2125,6 +2151,8 @@ class DatabaseDriver(
         """
         row_dict = deepcopy(dict(row_dict))
         table = self.direct_identify_table_from_row(row_dict)
+        if table is False:
+            raise InputIntegrityError("Cannot identify the row's target table")
         row_dict.pop("table", None)
         id_column = self.direct_get_id_column(table)
         if id_column not in row_dict:
@@ -2143,7 +2171,10 @@ class DatabaseDriver(
         except Exception as exc:
             raise DatabaseDriverError(f"PostgreSQL row update failed: {exc}") from exc
 
-    def _update_row_on_connection(self, conn, table, id_column, row_id, values):
+    def _update_row_on_connection(
+        self, conn: SQLConnection, table: str, id_column: str, row_id: int,
+        values: Mapping[str, Any],
+    ) -> None:
         """Derive keys and update a row without ending the caller's transaction.
 
         :param conn: Active PostgreSQL connection adapter.
@@ -2167,7 +2198,10 @@ class DatabaseDriver(
             (*payload.values(), row_id),
         )
 
-    def direct_update_columns(self, id_values_map, field=None, table=None) -> bool:
+    def direct_update_columns(
+        self, id_values_map: Mapping[int, Any], field: str | None = None,
+        table: str | None = None,
+    ) -> bool:
         """Apply a scalar-field batch atomically using the row normalization contract.
 
         Both literal text and identity-only changes follow direct_update_row_dict.
@@ -2197,7 +2231,7 @@ class DatabaseDriver(
         self._zero_prop_cache()
         return True
 
-    def direct_delete_many_by_ids(self, target_table: str, row_ids) -> bool:
+    def direct_delete_many_by_ids(self, target_table: str, row_ids: Iterable[int]) -> bool:
         """
         Delete supplied IDs in one primary transaction after validating the table.
 
@@ -2299,7 +2333,7 @@ class DatabaseDriver(
             )
             raise DatabaseDriverError(err_str) from exc
 
-    def direct_delete_many(self, target_table: str, column: str, values: Any) -> bool:
+    def direct_delete_many(self, target_table: str, column: str, values: Iterable[Any]) -> bool:
         """
         Delete repeated column values through direct_delete with many enabled.
 
@@ -2409,7 +2443,7 @@ class DatabaseDriver(
         finally:
             conn.close()
 
-    def direct_get_db_unique_id(self):
+    def direct_get_db_unique_id(self) -> str | None:
         """
         Read the database identity while checking that metadata has at most one row.
 
@@ -2433,7 +2467,7 @@ class DatabaseDriver(
             raise DatabaseDriverError("database_metadata has more than one row.")
         return _row_value(rows[0], 0, "database_metadata_unique_id")
 
-    def direct_set_db_unique_id(self, force_value=None) -> None:
+    def direct_set_db_unique_id(self, force_value: object = None) -> None:
         """
         Update the first metadata row, or insert one, with a supplied/generated UUID
         text.
@@ -2578,7 +2612,7 @@ class DatabaseDriver(
         if column not in self.direct_get_column_headings(table):
             raise InputIntegrityError(f"column {column!r} not found in table {table!r}")
 
-    def _row_to_dict_from_db_row(self, *, table: str, headings: Sequence[str], row: Any) -> dict[str, Any]:
+    def _row_to_dict_from_db_row(self, *, table: str, headings: Sequence[str], row: SQLRow) -> dict[str, Any]:
         """
         Align raw row values to headings and apply inherited declared-type conversion.
 
@@ -2721,7 +2755,7 @@ class DatabaseDriver(
             return text[1:-1]
         return text
 
-    def _primary_connection(self) -> PostgresConnectionAdapter:
+    def _primary_connection(self) -> SQLConnection:
         """
         Return the retained connection, reopening it when absent or its probe fails.
 
@@ -2736,13 +2770,14 @@ class DatabaseDriver(
 
         :return: Tracked reusable connection stored in self.conn.
         """
-        conn = getattr(self, "conn", None)
+        conn = self.conn
         if conn is None:
             conn = self.get_connection()
             self.conn = conn
         else:
             try:
-                conn.execute("select 1")
+                with closing(conn.execute("select 1")):
+                    pass
             except Exception:
                 try:
                     conn.close()
@@ -2814,7 +2849,7 @@ def _postgres_column_type(datatype: str) -> str:
 
 
 
-def _row_value(row: Any, position: int, key: str) -> Any:
+def _row_value(row: SQLRow | None, position: int, key: str) -> Any:
     """
     Read a mapping key or positional cell, tolerating missing rows/index failures.
 

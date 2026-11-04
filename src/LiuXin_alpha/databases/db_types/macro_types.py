@@ -1,4 +1,3 @@
-
 # Todo: We need to improve the typing in general in this module - so let's had a db_typing submodule at the top level
 
 """
@@ -12,11 +11,19 @@ link type.
 
 from __future__ import annotations
 
+from collections import defaultdict
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
 from LiuXin_alpha.databases.schema_specs import StorageLinkSpec
+
+
+# Legacy readers vary the ID container with typed/priority flags. Link type
+# cells retain backend values; absence of a declared link can return a flat set/list.
+type LegacyLinkData = (
+    set[int] | list[int] | defaultdict[Any, set[int]] | defaultdict[Any, list[int]]
+)
 
 
 class UnsetLinkType:

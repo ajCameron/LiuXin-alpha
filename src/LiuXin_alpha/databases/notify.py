@@ -1,4 +1,3 @@
-
 """
 Provide inert notification hooks for non-embedded legacy custom-column objects.
 
@@ -11,10 +10,17 @@ implement an event bus, dirtied-row persistence or transaction commits.
 
 from __future__ import annotations
 
-from typing import Iterable, Optional, Any
+from typing import Iterable, Protocol
 
 
-def dummy_notify(event: str, ids: Iterable[int], cc_class: Optional[Any]) -> None:
+class EmbeddedColumnHost(Protocol):
+    """Embedding state required by the inert compatibility notification hooks."""
+
+    @property
+    def embed(self) -> bool: ...
+
+
+def dummy_notify(event: str, ids: Iterable[int], cc_class: EmbeddedColumnHost) -> None:
     """
     Ignore a notification unless the custom-column object claims to be embedded.
 
@@ -25,24 +31,28 @@ def dummy_notify(event: str, ids: Iterable[int], cc_class: Optional[Any]) -> Non
 
     :param event: Event label, ignored without validation.
     :param ids: Affected IDs, neither inspected nor consumed.
-    :param cc_class: Object providing embed; None is unsupported despite the Optional
-        annotation.
+    :param cc_class: Object providing the embed flag; None is unsupported.
     :return: None when embed is false.
     :raises NotImplementedError: cc_class.embed is truthy and the real host hook should
         have been used.
     :raises AttributeError: cc_class does not provide embed, including when it is None.
     """
     if cc_class.embed:
-        raise NotImplementedError("This method should not be called when the class is embedded")
+        raise NotImplementedError(
+            "This method should not be called when the class is embedded"
+        )
     else:
         pass
+
 
 # Todo: We also need a ways of noting upodates on arbitary tables
 # Todo: We need rules as to when to regenerate metadata and when not to
 
 
 # Todo: This needs to be replaced with a full system of some sort
-def dummy_dirtied(book_ids, commit, cc_class):
+def dummy_dirtied(
+    book_ids: Iterable[int], commit: bool, cc_class: EmbeddedColumnHost
+) -> None:
     """
     Ignore a dirtiness request for a non-embedded custom-column object.
 
@@ -59,6 +69,8 @@ def dummy_dirtied(book_ids, commit, cc_class):
     :raises AttributeError: cc_class does not provide embed.
     """
     if cc_class.embed:
-        raise NotImplementedError("This method should not be called when the class is embedded")
+        raise NotImplementedError(
+            "This method should not be called when the class is embedded"
+        )
     else:
         pass

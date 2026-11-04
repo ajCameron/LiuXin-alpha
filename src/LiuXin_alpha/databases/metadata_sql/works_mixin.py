@@ -7,6 +7,8 @@ from typing import TYPE_CHECKING
 
 from LiuXin_alpha.databases.db_types.macro_types import LINK_TYPE_UNSET, LinkedTableRow
 
+from ._relationships import require_link_spec
+
 if TYPE_CHECKING:
     from LiuXin_alpha.databases.api.database_api import DatabaseAPI
 
@@ -33,7 +35,7 @@ class WorksSQLMixin:
         A caller chooses whether its category counts relationships or Works.
         SQL applies no author-role, preferred-Work or projection policy.
         """
-        spec = self.db.driver_wrapper.get_link_spec(source_table, "works")
+        spec = require_link_spec(self.db, source_table, "works")
         return self.db.macros.get_link_counts_bulk(
             spec, source_ids, link_type=link_type
         )
@@ -48,5 +50,5 @@ class WorksSQLMixin:
         The omitted filter includes all types. Supplied filters, including None,
         require a typed relation; the current core WEMI relation is untyped.
         """
-        spec = self.db.driver_wrapper.get_link_spec("expressions", "works")
+        spec = require_link_spec(self.db, "expressions", "works")
         return self.db.macros.get_linked_rows(spec, expression_id, link_type=link_type)

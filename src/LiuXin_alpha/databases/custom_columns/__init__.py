@@ -1,4 +1,3 @@
-
 """
 Export custom-column contracts, the legacy facade and the per-table manager.
 
@@ -14,7 +13,9 @@ from LiuXin_alpha.databases.api.custom_columns_api import (
     CustomColumnsAPI,
 )
 from LiuXin_alpha.databases.custom_columns.custom_columns import CustomColumns
-from LiuXin_alpha.databases.custom_columns.custom_columns_manager import CustomColumnsManager
+from LiuXin_alpha.databases.custom_columns.custom_columns_manager import (
+    CustomColumnsManager,
+)
 
 __all__ = [
     "CustomColumnDataAdapter",

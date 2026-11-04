@@ -5,6 +5,8 @@ Write scalar legacy fields in owner columns or linked value tables.
 
 from __future__ import division, absolute_import, print_function, unicode_literals
 
+from LiuXin_alpha.databases.database_driver_plugins._macro_state import require_legacy_macros
+
 from LiuXin_alpha.utils.adaptors import string_to_datetime
 from LiuXin_alpha.caches.write.base_writer import BaseWriter
 from LiuXin_alpha.catalog.catalog import Catalog
@@ -313,7 +315,7 @@ class OneToOneWriter(BaseWriter):
             comment_row = db.get_blank_row("comments")
             comment_row["comment"] = val
             comment_row.sync()
-            db.macros.make_generic_link(
+            require_legacy_macros(db.macros).make_generic_link(
                 field.table.link_table,
                 field.table.link_table_bt_id_column,
                 field.table.link_table_table_id_column,
@@ -343,9 +345,9 @@ class OneToOneWriter(BaseWriter):
         for book_id, val in iteritems(updated):
 
             # break the old link - if one exists
-            db.macros.break_cc_lt_link(lt=field.metadata["table"], book=book_id)
+            require_legacy_macros(db.macros).break_cc_lt_link(lt=field.metadata["table"], book=book_id)
 
             # write the new value to the custom column table
-            db.macros.add_cc_link_with_extra(lt=field.metadata["table"], book_id=book_id, value_id=val)
+            require_legacy_macros(db.macros).add_cc_link_with_extra(lt=field.metadata["table"], book_id=book_id, value_id=val)
 
         return None, None

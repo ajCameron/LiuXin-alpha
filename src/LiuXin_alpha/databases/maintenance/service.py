@@ -18,8 +18,8 @@ from LiuXin_alpha.databases.maintenance.builtin_plugins import (
 from LiuXin_alpha.databases.maintenance.engine import MaintenanceEngine
 
 if TYPE_CHECKING:
-    from LiuXin_alpha.databases.api import DatabaseAPI
-    from LiuXin_alpha.databases.maintenance.engine import MaintenancePluginResult
+    from LiuXin_alpha.databases.api import DatabaseAPI, MaintenancePluginAPI
+    from LiuXin_alpha.databases.maintenance.plugins import MaintenancePluginResult
 
 
 class Maintainer(DatabaseMaintainerAPI):
@@ -40,7 +40,7 @@ class Maintainer(DatabaseMaintainerAPI):
         self,
         db: DatabaseAPI,
         *,
-        plugins=None,
+        plugins: Iterable[MaintenancePluginAPI] | None = None,
         interval: float = 2.0,
         scheduling_interval: float = 0.25,
     ) -> None:
@@ -78,7 +78,7 @@ class Maintainer(DatabaseMaintainerAPI):
         self.interlink_dirtied_queue = self.maintainer.interlink_dirtied_queue
         self.maintainer.start()
 
-    def register_plugin(self, plugin) -> None:  # noqa: ANN001 - plugin base is intentionally duck-typed
+    def register_plugin(self, plugin: MaintenancePluginAPI) -> None:
         """
         Delegate registration and possible immediate startup to the engine.
 
@@ -92,7 +92,7 @@ class Maintainer(DatabaseMaintainerAPI):
         """
         self.maintainer.register_plugin(plugin)
 
-    def iter_plugins(self) -> None:
+    def iter_plugins(self) -> tuple[MaintenancePluginAPI, ...]:
         """
         Return the engine's priority-ordered plugin snapshot.
 
@@ -100,7 +100,7 @@ class Maintainer(DatabaseMaintainerAPI):
             >>> worker.iter_plugins()  # doctest: +SKIP
 
 
-        :return: Tuple of plugin instances, despite the None annotation.
+        :return: Tuple of plugin instances in dispatch order.
         """
         return self.maintainer.iter_plugins()
 
@@ -336,7 +336,12 @@ class Maintainer(DatabaseMaintainerAPI):
                     spec.secondary_link_col: row[spec.secondary_link_col],
                 }
                 if spec.type_part_of_identity:
-                    identity[spec.type_link_col] = row[spec.type_link_col]
+                    type_column = spec.type_link_col
+                    if type_column is None:
+                        raise ValueError(
+                            "Typed link identity requires a physical type column"
+                        )
+                    identity[type_column] = row[type_column]
                 duplicates = macros.get_rows(link_table, where=identity)
                 if duplicates:
                     ignored = {

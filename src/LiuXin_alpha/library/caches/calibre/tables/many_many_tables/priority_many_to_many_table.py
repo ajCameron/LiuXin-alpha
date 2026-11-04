@@ -11,6 +11,8 @@ Example:
         python -m pytest -q tests/library/test_unified_library.py
 """
 
+from LiuXin_alpha.databases.database_driver_plugins._macro_state import require_legacy_macros
+
 from collections import defaultdict
 from copy import deepcopy
 
@@ -264,7 +266,7 @@ class CalibrePriorityManyToManyTable(CalibreManyToManyTable[T]):
         :return: None; the operation mutates state, writes output or performs cleanup in
             place.
         """
-        self.known_book_ids = set(db.macros.get_unique_values("titles", "title_id"))
+        self.known_book_ids = set(require_legacy_macros(db.macros).get_unique_values("titles", "title_id"))
 
     def internal_update_cache(
         self, book_id_item_id_map: dict[SrcTableID, list[DstTableID, ...]], id_map_update: dict[DstTableID, T]

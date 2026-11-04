@@ -1,4 +1,3 @@
-
 """
 Compose the live database facade from drivers, row helpers and runtime services.
 
@@ -14,9 +13,16 @@ from __future__ import annotations, unicode_literals
 
 import os
 import pprint
+import pathlib
 import re
 from copy import deepcopy
-from typing import TYPE_CHECKING, Optional
+from collections.abc import Callable, Iterable, Mapping, Set
+from types import TracebackType
+from LiuXin_alpha.databases.db_types.driver_types import (
+    QueryConnection, SQLConnection, SQLExecuteOperation, SQLExecuteManyOperation,
+    SQLGetOperation,
+)
+from typing import TYPE_CHECKING, Optional, Any, Literal
 from urllib.parse import urlsplit
 
 from LiuXin_alpha.constants.paths import LiuXin_default_database
@@ -24,6 +30,7 @@ from LiuXin_alpha.databases.api import (
     DatabaseAPI,
     DatabaseDriverAPI,
     DatabaseDriverWrapperAPI,
+    DatabaseMacrosAPI,
     MetadataSQLAPI,
 )
 from LiuXin_alpha.databases.database.constants import (
@@ -60,7 +67,10 @@ from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 from LiuXin_alpha.utils.logging import default_log
 
 if TYPE_CHECKING:
-    from LiuXin_alpha.storage.durable_manager import StorageBootstrapReport
+    from LiuXin_alpha.storage.durable_manager import StorageBootstrapReport, StorageManager
+    from LiuXin_alpha.databases.api.row_api import RowAPI
+    from LiuXin_alpha.databases.api.maintenance_api import MaintenanceCallbackSinkAPI
+    from _thread import RLock
 
 
 # Todo: Embed this version number in the database - so that we can check the version of the code used to produce each
@@ -83,7 +93,7 @@ class _NoopMaintainerCallback:
         >>> sink.dirty_record("works", 1)
     """
 
-    def dirty_record(self, table, row_id):  # noqa: ANN001 - driver callback compatibility
+    def dirty_record(self, table: str, row_id: int) -> None:
         """
         Discard a dirty-row callback without examining its table or ID.
 
@@ -98,7 +108,7 @@ class _NoopMaintainerCallback:
 
         pass
 
-    def new_dirty_record(self, table, row_id):  # noqa: ANN001 - driver callback compatibility
+    def new_dirty_record(self, table: str, row_id: int) -> None:
         """
         Discard a newly dirty-row callback.
 
@@ -113,7 +123,9 @@ class _NoopMaintainerCallback:
 
         pass
 
-    def dirty_interlink_record(self, update_type, table1, table2, table1_id, table2_id):  # noqa: ANN001
+    def dirty_interlink_record(
+        self, update_type: str, table1: str, table2: str, table1_id: int, table2_id: int
+    ) -> None:
         """
         Discard a relationship-change callback for two endpoint rows.
 
@@ -134,7 +146,9 @@ class _NoopMaintainerCallback:
         pass
 
 
-def _metadata_uses_server_database(metadata, db_type: str) -> bool:
+def _metadata_uses_server_database(
+    metadata: Mapping[str, Any] | None, db_type: str
+) -> bool:
     """
     Recognize PostgreSQL-oriented metadata before applying file-creation rules.
 
@@ -225,8 +239,13 @@ class Database(
         inside the block. Disabling maintenance alone does not disable bootstrap writes.
     """
 
-    _driver: DatabaseDriverAPI
-    _driver_wrapper: DatabaseDriverWrapperAPI
+    _driver: DatabaseDriverAPI | None = None
+    _driver_wrapper: DatabaseDriverWrapperAPI | None = None
+    _macros: DatabaseMacrosAPI | None = None
+    dirtiable_tables: Set[str] | None
+    helper_tables: Set[str]
+    write_telemetry: DatabaseWriteTelemetry | None
+    clean: Callable[[str, Iterable[int]], None]
 
     # Legacy convenience aliases (kept for backwards compatibility / test contracts):
     # - conn: primary driver connection
@@ -236,21 +255,29 @@ class Database(
     #   Non-SQL drivers may leave them unset.
     # These are *attributes* (not methods) so Database.close() can clear them to
     # help release handles on Windows.
-    conn = None
-    lock = None
-    execute = None
-    executemany = None
-    executescript = None
-    get = None
-    shell = None
-    get_connection = None
-    storage = None
-    storage_bootstrap_report = None
+    conn: SQLConnection | None = None
+    lock: RLock | None = None
+    execute: SQLExecuteOperation | None = None
+    executemany: SQLExecuteManyOperation | None = None
+    executescript: Callable[[str], None] | None = None
+    get: SQLGetOperation | None = None
+    shell: Callable[[], None] | None = None
+    get_connection: Callable[[], QueryConnection] | None = None
+    storage: StorageManager | None = None
+    storage_bootstrap_report: StorageBootstrapReport | None = None
 
     # Todo: Split some of these out into factory methods and slim this down
+    _main_tables: set[str] | None
+    _interlink_tables: set[str] | None
+    _metadata_sql: MetadataSQLAPI | None
+    _maintainer_callback_proxy: MaintenanceCallbackSinkAPI | None
+    maintenance: Maintainer | None
+    maintainer: Maintainer | None
+    _link_has_priority: dict[str, bool] | None
+
     def __init__(
         self,
-        metadata=None,
+        metadata: dict[str, Any] | None = None,
         db_type: str = "SQLite",
         create: bool = False,
         backup: bool = True,
@@ -260,7 +287,7 @@ class Database(
         storage_startup_on_add: bool = False,
         repair_bootstrap_rows: bool = True,
         enable_maintenance: bool = False,
-        application_preferences=None,
+        application_preferences: Mapping[str, Any] | None = None,
     ) -> None:
         """
         Open or create a backend and attach the shared queues and runtime services.
@@ -299,14 +326,20 @@ class Database(
         :return: None; the instance owns the resulting database connections.
         :raises AssertionError: Both existing_driver and metadata are supplied.
         """
-        self.preferences = current_preferences() if application_preferences is None else application_preferences
+        self.preferences = (
+            current_preferences()
+            if application_preferences is None
+            else application_preferences
+        )
         self.metadata = None
         self.type = None
 
         self._macros = None
         self._metadata_sql = None
         self.write_telemetry = DatabaseWriteTelemetry()
-        self.dirty_records_queue = ObservedDirtyRecordsQueue(telemetry=self.write_telemetry)
+        self.dirty_records_queue = ObservedDirtyRecordsQueue[tuple[str, int, str]](
+            telemetry=self.write_telemetry
+        )
         self._maintainer_callback_proxy = None
 
         # Fundamental constants for this database
@@ -320,7 +353,9 @@ class Database(
                 enable_maintenance=enable_maintenance,
             )
         else:
-            assert metadata is None, "driver is provided - it's assumed that the db metadata is contained within"
+            assert metadata is None, (
+                "driver is provided - it's assumed that the db metadata is contained within"
+            )
             self.existing_driver_init(
                 existing_driver,
                 repair_bootstrap_rows=repair_bootstrap_rows,
@@ -332,7 +367,6 @@ class Database(
 
         # Persistent helper table for metadata sidecar write-out (historic name: metadata_dirtied_books)
         self._metadata_dirtied_table = "metadata_dirtied_books"
-
 
         self.driver.dirty_records_queue = self.dirty_records_queue
         self.driver_wrapper.dirty_records_queue = self.dirty_records_queue
@@ -355,8 +389,11 @@ class Database(
             the driver exposes one.
 
 
-        :return: Driver object, or None after cleanup.
+        :return: Bound driver object.
+        :raises DatabaseIntegrityError: The facade is unbound or closed.
         """
+        if self._driver is None:
+            raise DatabaseIntegrityError("Database driver is not bound or is closed")
         return self._driver
 
     @property
@@ -369,12 +406,15 @@ class Database(
             get_connection() for caller-owned SQL.
 
 
-        :return: Current wrapper, or None after cleanup.
+        :return: Bound wrapper object.
+        :raises DatabaseIntegrityError: The facade is unbound or closed.
         """
+        if self._driver_wrapper is None:
+            raise DatabaseIntegrityError("Database wrapper is not bound or is closed")
         return self._driver_wrapper
 
     @property
-    def macros(self):
+    def macros(self) -> DatabaseMacrosAPI:
         """
         Return the currently bound schema-specific SQL macros.
 
@@ -383,11 +423,14 @@ class Database(
             driver.
 
 
-        :return: Macros collaborator, or None before binding or after cleanup.
+        :return: Bound common macro provider; legacy capabilities are backend-specific.
+        :raises DatabaseIntegrityError: The facade is unbound or closed.
         """
+        if self._macros is None:
+            raise DatabaseIntegrityError("Database macros are not bound or are closed")
         return self._macros
 
-    def set_macros(self, new_macros) -> None:
+    def set_macros(self, new_macros: DatabaseMacrosAPI) -> None:
         """
         Replace the facade macros reference after rejecting None.
 
@@ -508,13 +551,13 @@ class Database(
 
     def standard_init(
         self,
-        metadata=None,
-        db_type="SQLite",
-        create=False,
-        backup=True,
+        metadata: dict[str, Any] | None = None,
+        db_type: str = "SQLite",
+        create: bool = False,
+        backup: bool = True,
         repair_bootstrap_rows: bool = True,
         enable_maintenance: bool = False,
-    ):
+    ) -> None:
         """
         Select a backend and create its schema when explicit or required for a new file.
 
@@ -544,13 +587,21 @@ class Database(
         db_path = metadata.get("database_path")
         server_database = _metadata_uses_server_database(metadata, db_type)
         path_backed = not server_database
-        path_existed = bool(db_path) and path_backed and db_path != ":memory:" and os.path.lexists(db_path)
+        path_existed = (
+            db_path is not None
+            and bool(db_path)
+            and path_backed
+            and db_path != ":memory:"
+            and os.path.lexists(db_path)
+        )
 
         self.metadata = metadata
         self.type = db_type
         driver_type = load_database_driver(db_type)
 
-        if create or (path_backed and not path_existed and db_path not in (None, ":memory:")):
+        if create or (
+            path_backed and not path_existed and db_path not in (None, ":memory:")
+        ):
             initializer = driver_type(self.metadata, self, set_conn=False)
             try:
                 initializer.direct_create_new_database()
@@ -583,7 +634,6 @@ class Database(
 
             self.helper_tables = HELPER_TABLES
 
-
             # DatabasePing uuid - unique identifier given to the database
             self._uuid = None
 
@@ -605,7 +655,12 @@ class Database(
 
         self._initialise_runtime_collaborators(enable_maintenance=enable_maintenance)
 
-    def _initialise_runtime_collaborators(self, *, enable_maintenance: bool = False) -> None:
+    def _initialise_runtime_collaborators(
+        self, *, enable_maintenance: bool = False,
+        callback_proxy_cls: Callable[
+            [Maintainer, DatabaseWriteTelemetry | None], MaintenanceCallbackSinkAPI
+        ] = TelemetryMaintainerProxy,
+    ) -> None:
         """
         Bind maintenance callbacks, preferences and collaborator back-references.
 
@@ -620,14 +675,23 @@ class Database(
 
         :param enable_maintenance: Start a Maintainer and telemetry proxy when True;
             otherwise install no-op callbacks.
+        :param callback_proxy_cls: Factory for the maintenance callback sink.
         :return: None.
         """
+        # Resolve required owners before starting a background service. Public
+        # collaborator access rejects use before binding or after cleanup.
+        driver, wrapper, macros = self.driver, self.driver_wrapper, self.macros
+        metadata_sql = self.metadata_sql
+        if metadata_sql is None:
+            raise RuntimeError("Table SQL helpers are not initialized")
         if enable_maintenance:
             from LiuXin_alpha.databases.maintenance.service import Maintainer
 
             self.maintenance = Maintainer(self)
             self.maintainer = self.maintenance
-            self._maintainer_callback_proxy = TelemetryMaintainerProxy(self.maintenance, self.write_telemetry)
+            self._maintainer_callback_proxy = callback_proxy_cls(
+                self.maintenance, self.write_telemetry
+            )
             self.driver.maintainer_callback = self._maintainer_callback_proxy
             self.clean = self.maintenance.clean
         else:
@@ -643,10 +707,10 @@ class Database(
         # As this probably hasn't been done for the existing driver - load a reference to this database into the macros
         # and the driver - the two places that it should be needed
         # Todo: This should be handled by properties
-        self.driver_wrapper.db = self
-        self.driver.db = self
-        self.macros.db = self
-        self.metadata_sql.db = self
+        wrapper.db = self
+        driver.db = self
+        macros.db = self
+        metadata_sql.db = self
 
     def bootstrap_storage_manager(
         self,
@@ -687,7 +751,6 @@ class Database(
             clear_existing=clear_existing,
             strict=strict,
         )
-
 
     def set_driver(self, new_driver: DatabaseDriverAPI) -> None:
         """
@@ -801,9 +864,9 @@ class Database(
         """
         self._driver_wrapper = new_driver_wrapper
         assert self._driver_wrapper.macros is not None
-        self._driver_wrapper.macros = self.macros
+        self._driver_wrapper.set_macros(self.macros)
 
-    def __del__(self):
+    def __del__(self) -> None:
         """
         Attempt close during finalization and suppress ordinary cleanup exceptions.
 
@@ -925,7 +988,7 @@ class Database(
         except Exception:
             pass
 
-    def __enter__(self):
+    def __enter__(self) -> "Database":
         """
         Return this facade for use inside a cleanup context.
 
@@ -941,7 +1004,12 @@ class Database(
 
         return self
 
-    def __exit__(self, exc_type, exc, tb):
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        tb: TracebackType | None,
+    ) -> Literal[False]:
         """
         Close the facade and allow a context-body exception to propagate.
 
@@ -963,7 +1031,7 @@ class Database(
         return False
 
     # Todo: Might actually want to delete these objects - and this might be an internal method
-    def break_cycles(self):
+    def break_cycles(self) -> None:
         """
         Clear selected runtime and connection references without closing resources.
 
@@ -1019,7 +1087,10 @@ class Database(
         :return: New frozenset of main-table names.
         :raises TypeError: The underlying category is still None.
         """
-        return frozenset(self._main_tables)
+        tables = self._main_tables
+        if tables is None:
+            raise TypeError("The main-table category is not initialized")
+        return frozenset(tables)
 
     @property
     def interlink_tables(self) -> frozenset[str]:
@@ -1034,9 +1105,12 @@ class Database(
         :return: New frozenset of interlink-table names.
         :raises TypeError: The underlying category is still None.
         """
-        return frozenset(self._interlink_tables)
+        tables = self._interlink_tables
+        if tables is None:
+            raise TypeError("The interlink-table category is not initialized")
+        return frozenset(tables)
 
-    def check_exists(self):
+    def check_exists(self) -> bool:
         """
         Ask the bound driver whether its database exists.
 
@@ -1053,7 +1127,7 @@ class Database(
         return self.driver.exists()
 
     # Todo: These methods also private?
-    def refresh_db_metadata(self):
+    def refresh_db_metadata(self) -> None:
         """
         Rebuild cached table categories and validate required helper tables.
 
@@ -1082,15 +1156,15 @@ class Database(
         # optional so older databases can open and use their inferred read
         # fallbacks until explicitly migrated.
         missing_helpers = sorted(
-            set(self.helper_tables)
-            - set(OPTIONAL_HELPER_TABLES)
-            - set(self.all_tables)
+            set(self.helper_tables) - set(OPTIONAL_HELPER_TABLES) - set(self.all_tables)
         )
         if missing_helpers:
             import difflib
 
             suggestions = {
-                t: difflib.get_close_matches(t, sorted(self.all_tables), n=3, cutoff=0.6)
+                t: difflib.get_close_matches(
+                    t, sorted(self.all_tables), n=3, cutoff=0.6
+                )
                 for t in missing_helpers
             }
 
@@ -1131,11 +1205,15 @@ class Database(
                 continue
 
             err_str = "This position should never be reached"
-            err_str = default_log.log_variables(err_str, "ERROR", ("table_cat", table_cat), ("table", table))
+            err_str = default_log.log_variables(
+                err_str, "ERROR", ("table_cat", table_cat), ("table", table)
+            )
             raise NotImplementedError(err_str)
 
         # The dirtiable tables are a union of the main tables and the two types of link table
-        self.dirtiable_tables = deepcopy(self.main_tables.union(self.interlink_tables).union(self.intralink_tables))
+        self.dirtiable_tables = deepcopy(
+            self.main_tables.union(self.interlink_tables).union(self.intralink_tables)
+        )
 
         self._uuid = self.driver_wrapper.get_uuid()
         if six_unicode(self._uuid).lower().strip() == "none":
@@ -1145,7 +1223,7 @@ class Database(
         self._main_tables.discard("sqlite_sequence")
 
     # Todo: Backup is somewhat useless if there is no way to restore
-    def backup(self):
+    def backup(self) -> None:
         """
         Request a backend-specific backup of the current database.
 
@@ -1159,7 +1237,7 @@ class Database(
         self.driver.direct_backup()
 
     # Todo: This is not, actually, write locking. This just makes a throwaway copy of the database
-    def lock_writing(self):
+    def lock_writing(self) -> None:
         """
         Request a scratch copy through the driver make_scratch hook.
 
@@ -1185,7 +1263,13 @@ class Database(
         self.driver.direct_create_new_database()
 
     @classmethod
-    def replace_database(cls, metadata, *, backup_path, db_type: str = "SQLite"):
+    def replace_database(
+        cls,
+        metadata: dict[str, Any],
+        *,
+        backup_path: str | os.PathLike[str],
+        db_type: str = "SQLite",
+    ) -> pathlib.Path:
         """Replace an offline file database after preparing a verified recovery backup.
 
         Stop all database users first. The required backup path must be absent and
@@ -1204,7 +1288,7 @@ class Database(
     #
     # - METHODS TO OUTPUT BASIC INFORMATION ABOUT THE DATABASE START HERE
 
-    def __unicode__(self):
+    def __unicode__(self) -> str:
         """
         Render backend type and the complete metadata mapping as text.
 
@@ -1222,26 +1306,22 @@ class Database(
         rtn_str += pprint.pformat(self.metadata) + "\n"
         return rtn_str
 
-    def __str__(self):
+    def __str__(self) -> str:
         """
-        Encode the legacy textual representation as UTF-8 bytes.
-
-        Calling this method directly returns bytes; str(db) raises TypeError in Python
-        3.
+        Return the diagnostic Unicode representation as Python text.
 
         Example:
             >>> db = object.__new__(Database)
             >>> db.type, db.metadata = "SQLite", {}
-            >>> isinstance(db.__str__(), bytes)
+            >>> str(db) == db.__unicode__()
             True
 
-
-        :return: Bytes, which do not satisfy the Python 3 __str__ protocol.
+        :return: Text containing the backend type and metadata.
         """
 
-        return self.__unicode__().encode("utf-8")
+        return self.__unicode__()
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         """
         Format the facade type and metadata database_path in a short label.
 
@@ -1260,11 +1340,20 @@ class Database(
         :raises TypeError: Metadata is not subscriptable, including None.
         """
         db_type = self.type
-        db_path = self.metadata["database_path"]
-        return "[ LX_database - type - " + six_unicode(db_type) + " at " + six_unicode(db_path) + " ]"
+        metadata = self.metadata
+        if metadata is None:
+            raise TypeError("Database metadata is unavailable")
+        db_path = metadata["database_path"]
+        return (
+            "[ LX_database - type - "
+            + six_unicode(db_type)
+            + " at "
+            + six_unicode(db_path)
+            + " ]"
+        )
 
     # Todo: Might want to consider renaming this to full_repr, for consistency
-    def full_rep(self):
+    def full_rep(self) -> str:
         """
         Render cached identity, metadata and table categories for inspection.
 
@@ -1310,7 +1399,7 @@ class Database(
     #
     # - METHODS TO DEAL WITH TABLE CATEGORIES START HERE
 
-    def categorize_table(self, table_name):
+    def categorize_table(self, table_name: str) -> str:
         """
         Classify a known table name using ordered naming conventions.
 
@@ -1335,9 +1424,11 @@ class Database(
         :raises InputIntegrityError: The text name is absent from all_tables.
         """
         table_name = six_unicode(table_name)
-        if table_name not in self.all_tables:
+        if self.all_tables is None or table_name not in self.all_tables:
             err_str = "Error - categorize_table has been passed an invalid table name."
-            err_str = default_log.log_variables(err_str, "ERROR", ("table_name", table_name))
+            err_str = default_log.log_variables(
+                err_str, "ERROR", ("table_name", table_name)
+            )
             raise InputIntegrityError(err_str)
 
         if table_name.startswith("allowed_types__"):
@@ -1370,7 +1461,7 @@ class Database(
     #
     # - METHODS TO ADD TO THE DATABASE START HERE
 
-    def dupe_row(self, row):
+    def dupe_row(self, row: "RowAPI") -> "RowAPI":
         """
         Insert a blank row, copy source fields and synchronize under the new ID.
 
@@ -1388,14 +1479,15 @@ class Database(
         :return: New persisted Row with its allocated identity.
         :raises DatabaseIntegrityError: Synchronization violates a database constraint.
         """
-        row_table = row.table
+        row_table = self._row_table(row)
         row_table_id_col = self.driver_wrapper.get_id_column(row_table)
 
+        payload = row._require_row_dict()
         new_row = self.get_blank_row(row_table)
         new_row_id = new_row.row_id
 
         # Store the old row id - replace the row dict in the new blank row - replace the row_id - sync
-        new_row.row_dict = row.row_dict
+        new_row.row_dict = payload
         new_row[row_table_id_col] = new_row_id
         try:
             new_row.sync()
@@ -1412,7 +1504,7 @@ class Database(
     #
     # - METHODS TO DELETE FROM THE DATABASE START HERE
 
-    def delete(self, row):
+    def delete(self, row: "RowAPI") -> None:
         """
         Delete the supplied row identity through this facade wrapper.
 
@@ -1428,7 +1520,7 @@ class Database(
         :return: None.
         :raises InputIntegrityError: The supplied row_id is None.
         """
-        row_table = row.table
+        row_table = self._row_table(row)
         row_id = row.row_id
         if row_id is None:
             err_str = "Unable to delete given row - row_id is not found."
@@ -1439,7 +1531,7 @@ class Database(
     #
     # ----------------------------------------------------------------------------------------------------------------------
 
-    def get_blank_row(self, table):
+    def get_blank_row(self, table: Optional[str] = None) -> "RowAPI":
         """
         Insert a backend blank record and wrap its generated fields in a Row.
 
@@ -1454,6 +1546,8 @@ class Database(
         :param table: Target table name understood by the wrapper.
         :return: Row bound to this facade, carrying the inserted identity.
         """
+        if table is None:
+            raise InputIntegrityError("A table is required to create a blank row")
         blank_row_dict = self.driver_wrapper.get_blank_row(table)
         return Row(database=self, row_dict=blank_row_dict)
 
@@ -1461,7 +1555,7 @@ class Database(
     # - TRIGGER HELPERS
     # ------------------------------------------------------------------------------------------------------------------
 
-    def get_triggers(self):
+    def get_triggers(self) -> list[str]:
         """
         Retrieve trigger names through the wrapper and selected driver.
 
@@ -1475,7 +1569,7 @@ class Database(
 
         return self.driver_wrapper.get_triggers()
 
-    def drop_triggers(self, triggers):
+    def drop_triggers(self, triggers: list[str]) -> bool:
         """
         Delegate removal of the supplied trigger names.
 
@@ -1493,7 +1587,7 @@ class Database(
 
         return self.driver_wrapper.drop_triggers(triggers)
 
-    def drop_all_triggers(self):
+    def drop_all_triggers(self) -> bool:
         """
         Discover current trigger names and delegate their removal.
 
@@ -1513,7 +1607,12 @@ class Database(
     #
     # - SPECIALIZED UPDATE METHODS START HERE
 
-    def update_columns(self, values_map, field=None, table=None):
+    def update_columns(
+        self,
+        values_map: dict[int, Any],
+        field: Optional[str] = None,
+        table: Optional[str] = None,
+    ) -> None:
         """
         Forward a bulk value mapping and optional column/table hints to the wrapper.
 
@@ -1527,7 +1626,9 @@ class Database(
         :param table: Optional target table hint.
         :return: None; the wrapper return value is discarded.
         """
-        self.driver_wrapper.update_columns(values_map=values_map, field=field, table=table)
+        self.driver_wrapper.update_columns(
+            values_map=values_map, field=field, table=table
+        )
 
     #
     # ----------------------------------------------------------------------------------------------------------------------
@@ -1535,7 +1636,7 @@ class Database(
     #
     # - MAGIC METHODS START HERE
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         """
         Compare facade metadata without comparing type, UUID or connections.
 
@@ -1553,7 +1654,7 @@ class Database(
         :return: True when the metadata values compare equal, otherwise False.
         :raises AttributeError: other has no metadata attribute.
         """
-        if self.metadata == other.metadata:
+        if self.metadata == getattr(other, "metadata"):
             return True
         else:
             return False
@@ -1562,28 +1663,26 @@ class Database(
 
     def get_table_from_column(self, column_name: str) -> str:
         """
-        Search an iterable of table/column pairs for the first containing table.
+        Find the first table whose discovered columns contain the requested name.
 
-        The loop iterates get_tables_and_columns directly. The normal implementation
-        returns a dictionary, so table-name keys are unpacked rather than key/value
-        pairs; ordinary names raise ValueError before lookup. This legacy method does
-        not currently adapt that mapping with items().
+        Iterate the table-to-columns mapping in its returned order. This reads schema
+        metadata, not row contents. When several tables share a column name, the first
+        match wins; callers needing disambiguation should supply their own table.
 
         Example:
-            With the normal mapping-returning wrapper, use explicit iteration over
-            db.get_tables_and_columns().items() when looking up a column; this method
-            retains its legacy unpacking limitation.
+            db.get_table_from_column("work_title") returns "works" in the current schema.
 
-
-        :param column_name: Column name to find in each yielded collection.
-        :return: First matching table name if pair iteration succeeds.
-        :raises ValueError: A yielded table-name key cannot unpack into two values.
-        :raises InputIntegrityError: Iteration finishes without finding the column.
+        :param column_name: Column name to find in the discovered column collections.
+        :return: First matching table name.
+        :raises InputIntegrityError: No discovered table contains the column.
         """
-        for tab, col_set in self.get_tables_and_columns():
+        for tab, col_set in self.get_tables_and_columns().items():
             if column_name in col_set:
                 return tab
-        raise InputIntegrityError("The column is not in a table - as far as we can tell.")
+        raise InputIntegrityError(
+            "The column is not in a table - as far as we can tell."
+        )
+
 
 #
 # ----------------------------------------------------------------------------------------------------------------------

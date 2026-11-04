@@ -11,16 +11,17 @@ from __future__ import annotations
 
 import abc
 from collections.abc import Mapping
-from typing import TYPE_CHECKING, Optional, Iterable, Iterator, Any
+from typing import TYPE_CHECKING, Iterator
 
 from LiuXin_alpha.databases.schema_specs import LinkCapabilities
 
 
 if TYPE_CHECKING:
+    from LiuXin_alpha.databases.db_types.driver_types import RowSQLConnection
     from LiuXin_alpha.databases.column_metadata import (
         ColumnMetadata,
-        ColumnOptions,
     )
+    from LiuXin_alpha.databases.db_types.column_types import ColumnOptions
     from LiuXin_alpha.metadata.value_policies import (
         ColumnEmptyValuePolicy,
         ColumnMergePolicy,
@@ -412,7 +413,8 @@ class DriverDatabasePropertiesMixinAPI(abc.ABC):
     @abc.abstractmethod
     def direct_iter_normalized_identity_specs(
         self,
-        *, table: str | None = None,
+        *,
+        table: str | None = None,
     ) -> Iterator[NormalizedIdentitySpec]:
         """
         Yield database identity declarations after checking physical references.
@@ -894,7 +896,9 @@ class DriverDatabasePropertiesMixinAPI(abc.ABC):
         """
 
     @abc.abstractmethod
-    def direct_get_column_headings(self, table: str, normalize: bool = False) -> list[str]:
+    def direct_get_column_headings(
+        self, table: str, normalize: bool = False
+    ) -> list[str]:
         """
         Look up cached column names after canonicalizing the table identifier.
 
@@ -968,7 +972,9 @@ class DriverDatabasePropertiesMixinAPI(abc.ABC):
         """
 
     @abc.abstractmethod
-    def direct_get_tables_and_columns(self, force_refresh: bool = False) -> dict[str, list[str]]:
+    def direct_get_tables_and_columns(
+        self, force_refresh: bool = False
+    ) -> dict[str, list[str]]:
         """
         Build or reuse the table/view-to-column-list cache with schema-version checks.
 
@@ -988,7 +994,9 @@ class DriverDatabasePropertiesMixinAPI(abc.ABC):
 
     # Todo: direct_*
     @abc.abstractmethod
-    def direct_get_table_sqlite(self, table: str, conn: Any = None) -> str:
+    def direct_get_table_sqlite(
+        self, table: str, conn: RowSQLConnection | None = None
+    ) -> str | None:
         """
         Read a table's stored CREATE statement from sqlite_master.
 

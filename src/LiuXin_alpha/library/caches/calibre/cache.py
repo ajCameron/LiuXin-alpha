@@ -16,6 +16,8 @@ Example:
 
 from __future__ import unicode_literals, division, absolute_import, print_function
 
+from LiuXin_alpha.databases.database_driver_plugins._macro_state import require_legacy_macros
+
 import json
 import os
 import pprint
@@ -262,7 +264,7 @@ class BaseCalibreCache(BaseCache):
         :return: None; the operation mutates state, writes output or performs cleanup in
             place.
         """
-        self.dirtied_cache = self.backend.macros.get_dirtied_cache()
+        self.dirtied_cache = require_legacy_macros(self.backend.macros).get_dirtied_cache()
         if self.dirtied_cache:
             self.dirtied_sequence = max(itervalues(self.dirtied_cache)) + 1
 

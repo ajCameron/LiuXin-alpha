@@ -10,15 +10,18 @@ from databases.row.Row; abstract method bodies do not perform those operations.
 from __future__ import annotations
 
 import abc
-import datetime
+from collections.abc import KeysView
 
-from typing import Any, Iterator, Optional, Union, TYPE_CHECKING
+from typing import Any, Iterator, Optional, TYPE_CHECKING
 
 from LiuXin_alpha.errors import NoSuchPropertyForLinkException
 
 if TYPE_CHECKING:
     from LiuXin_alpha.databases.api import DatabaseAPI
-    from LiuXin_alpha.databases.db_types.database_types import MainTableName, InterlinkTableID
+    from LiuXin_alpha.databases.db_types.database_types import (
+        MainTableName,
+    )
+    from LiuXin_alpha.databases.db_types.row_types import RowPayload
 
 
 class RowAPI(abc.ABC):
@@ -37,13 +40,15 @@ class RowAPI(abc.ABC):
 
     @classmethod
     @abc.abstractmethod
-    def from_idless_row_dict(cls,
-                             database: "DatabaseAPI",
-                             row_dict: dict[str, Any],
-                             *,
-                             table: Optional[str] = None,
-                             read_only: bool = False,
-                             reload_from_db: bool = True) -> "RowAPI":
+    def from_idless_row_dict(
+        cls,
+        database: "DatabaseAPI",
+        row_dict: dict[str, Any],
+        *,
+        table: Optional[str] = None,
+        read_only: bool = False,
+        reload_from_db: bool = True,
+    ) -> "RowAPI":
         """
         Insert an ID-less payload and return a row representing the inserted record.
 
@@ -76,11 +81,12 @@ class RowAPI(abc.ABC):
         """
 
     def __init__(
-            self,
-            database: "DatabaseAPI",
-            row_dict: Optional[dict[str, str]] = None,
-            *,
-            read_only: bool=False) -> None:
+        self,
+        database: "DatabaseAPI",
+        row_dict: Optional[dict[str, Any]] = None,
+        *,
+        read_only: bool = False,
+    ) -> None:
         """
         Store the database, read-only flag and a shallow copy of supplied values.
 
@@ -100,7 +106,7 @@ class RowAPI(abc.ABC):
         """
         self.db = database
         self.read_only = read_only
-        self.int_row_dict = dict(row_dict or {})
+        self.int_row_dict: RowPayload = dict(row_dict or {})
 
     @abc.abstractmethod
     def __contains__(self, item: str) -> bool:
@@ -158,7 +164,7 @@ class RowAPI(abc.ABC):
         """
 
     @abc.abstractmethod
-    def __getitem__(self, item: str) -> Union[str, int, float, datetime.datetime]:
+    def __getitem__(self, item: str) -> Any:
         """
         Read a local value, materializing None for an absent recognized column.
 
@@ -171,7 +177,7 @@ class RowAPI(abc.ABC):
 
 
         :param item: Existing payload key or recognized column for the inferred table.
-        :return: Stored value, including None despite the narrower return annotation.
+        :return: Stored SQL value, including None and backend-specific value types.
         :raises KeyError: The key is neither stored nor allowed for the table.
         """
 
@@ -230,7 +236,7 @@ class RowAPI(abc.ABC):
         """
 
     @abc.abstractmethod
-    def __setitem__(self, key: str, value: Union[str, int, float, datetime.datetime]) -> None:
+    def __setitem__(self, key: str, value: Any) -> None:
         """
         Stage a column value locally after checking its schema membership.
 
@@ -286,7 +292,9 @@ class RowAPI(abc.ABC):
     # Todo: The return is going to be Literal strings - work out what they are
     @staticmethod
     @abc.abstractmethod
-    def _best_effort_sqlite_object_type(database: "DatabaseAPI", name: str) -> Optional[str]:
+    def _best_effort_sqlite_object_type(
+        database: "DatabaseAPI", name: str
+    ) -> Optional[str]:
         """
         Probe sqlite_master to classify a named schema object when possible.
 
@@ -362,7 +370,7 @@ class RowAPI(abc.ABC):
         """
 
     @abc.abstractmethod
-    def keys(self) -> None:
+    def keys(self) -> KeysView[str]:
         """
         Expose the live dictionary view of materialized local column names.
 
@@ -374,7 +382,7 @@ class RowAPI(abc.ABC):
             row.row_dict.
 
 
-        :return: dict_keys view in the concrete Row, despite the None return annotation.
+        :return: Live view of the materialized column names.
         """
 
     # Todo: Corresponding factory method?
@@ -401,7 +409,9 @@ class RowAPI(abc.ABC):
         """
 
     @abc.abstractmethod
-    def load_row_from_id(self, row_id: int=None, table: str=None) -> None:
+    def load_row_from_id(
+        self, row_id: int | None = None, table: str | None = None
+    ) -> None:
         """
         Replace local values with a driver lookup for the selected table and ID.
 
@@ -494,10 +504,15 @@ class RowAPI(abc.ABC):
             available.
         """
 
+    @row_id.setter
+    @abc.abstractmethod
+    def row_id(self, value: int | None) -> None:
+        """Replace the cached identity without changing the local payload."""
+
     # Todo: We can _probably_ tighten this Any - with abuse of protocols and overloads perhaps for all rows?
     @property
     @abc.abstractmethod
-    def row_dict(self) -> dict[str, Any]:
+    def row_dict(self) -> RowPayload:
         """
         Expose the mutable local column/value mapping directly.
 
@@ -509,8 +524,21 @@ class RowAPI(abc.ABC):
             local mapping until sync.
 
 
-        :return: The internal mapping itself, not a copy; legacy missing-row loads may
-            retain a false sentinel.
+        :return: The internal mapping itself, not a copy; missing-row loads retain
+            the backend's False or None sentinel.
+        """
+
+    @row_dict.setter
+    @abc.abstractmethod
+    def row_dict(self, val: RowPayload) -> None:
+        """Copy the supplied payload or sentinel without refreshing cached metadata."""
+
+    @abc.abstractmethod
+    def _require_row_dict(self) -> dict[str, Any]:
+        """Require loaded or draft values before a mapping operation.
+
+        The missing-record sentinel remains intact. Mapping operations cannot
+        turn a failed lookup into a new draft row implicitly.
         """
 
     @abc.abstractmethod
@@ -535,7 +563,7 @@ class RowAPI(abc.ABC):
 
     @property
     @abc.abstractmethod
-    def table(self) -> str:
+    def table(self) -> str | None:
         """
         Return the table name currently cached for this row.
 
@@ -545,7 +573,7 @@ class RowAPI(abc.ABC):
 
 
         :return: Inferred or explicitly loaded table name; None for an unidentified
-            empty Row despite the str annotation.
+            empty Row.
         """
 
     @abc.abstractmethod
@@ -579,6 +607,7 @@ class InterlinkRowAPI(RowAPI):
         A concrete interlink subclass with _has_priority=True and priority_col
         configured can expose link.priority as an integer backed by row_dict.
     """
+
     src_table: MainTableName
     dst_table: MainTableName
 
@@ -612,13 +641,13 @@ class InterlinkRowAPI(RowAPI):
     is_required_col: str
 
     def __init__(
-            self,
-            database: "DatabaseAPI",
-            row_dict: Optional[dict[str, str]] = None,
-            *,
-            read_only: bool=False,
-            src_table: MainTableName,
-            dst_table: MainTableName
+        self,
+        database: "DatabaseAPI",
+        row_dict: Optional[dict[str, Any]] = None,
+        *,
+        read_only: bool = False,
+        src_table: MainTableName,
+        dst_table: MainTableName,
     ) -> None:
         """
         Initialize local row state and retain the source/destination table labels.
@@ -664,8 +693,13 @@ class InterlinkRowAPI(RowAPI):
         :raises ValueError: Stored text is not a valid integer.
         """
         if not self._has_priority:
-            raise NoSuchPropertyForLinkException(f"{self.table} does not support priority.")
-        return int(self.row_dict.get(self.priority_col))
+            raise NoSuchPropertyForLinkException(
+                f"{self.table} does not support priority."
+            )
+        value = self._require_row_dict().get(self.priority_col)
+        if value is None:
+            raise TypeError("The link priority has no value")
+        return int(value)
 
     @priority.setter
     def priority(self, new_priority: int) -> None:
@@ -687,8 +721,10 @@ class InterlinkRowAPI(RowAPI):
         :raises ValueError: The proposed text is not a valid integer.
         """
         if not self._has_priority:
-            raise NoSuchPropertyForLinkException(f"{self.table} does not support priority.")
-        self.row_dict[self.priority_col] = int(new_priority)
+            raise NoSuchPropertyForLinkException(
+                f"{self.table} does not support priority."
+            )
+        self._require_row_dict()[self.priority_col] = int(new_priority)
 
     @property
     def primary(self) -> bool:
@@ -708,8 +744,10 @@ class InterlinkRowAPI(RowAPI):
             _has_primary.
         """
         if not self._has_primary:
-            raise NoSuchPropertyForLinkException(f"{self.table} does not support primary.")
-        return bool(self.row_dict.get(self.primary_col))
+            raise NoSuchPropertyForLinkException(
+                f"{self.table} does not support primary."
+            )
+        return bool(self._require_row_dict().get(self.primary_col))
 
     @primary.setter
     def primary(self, new_primary: bool) -> None:
@@ -729,8 +767,10 @@ class InterlinkRowAPI(RowAPI):
             _has_primary.
         """
         if not self._has_primary:
-            raise NoSuchPropertyForLinkException(f"{self.table} does not support primary.")
-        self.row_dict[self.primary_col] = new_primary
+            raise NoSuchPropertyForLinkException(
+                f"{self.table} does not support primary."
+            )
+        self._require_row_dict()[self.primary_col] = new_primary
 
     @property
     @abc.abstractmethod
@@ -751,7 +791,7 @@ class InterlinkRowAPI(RowAPI):
         """
         if not self._has_type:
             raise NoSuchPropertyForLinkException(f"{self.table} does not support type.")
-        return str(self.row_dict.get(self.type_col))
+        return str(self._require_row_dict().get(self.type_col))
 
     @type.setter
     def type(self, new_type: str) -> None:
@@ -777,7 +817,9 @@ class InterlinkRowAPI(RowAPI):
         if not self._has_type:
             raise NoSuchPropertyForLinkException(f"{self.table} does not support type.")
 
-        assert new_type in self._allowed_types, f"{new_type = } not in allowed_types = {self._allowed_types}"
+        assert new_type in self._allowed_types, (
+            f"{new_type = } not in allowed_types = {self._allowed_types}"
+        )
 
     @property
     def origin(self) -> str:
@@ -797,9 +839,11 @@ class InterlinkRowAPI(RowAPI):
             _has_origin.
         """
         if not self._has_origin:
-            raise NoSuchPropertyForLinkException(f"{self.table} does not support origin.")
+            raise NoSuchPropertyForLinkException(
+                f"{self.table} does not support origin."
+            )
 
-        return str(self.row_dict.get(self.origin_col))
+        return str(self._require_row_dict().get(self.origin_col))
 
     @origin.setter
     def origin(self, new_origin: str) -> None:
@@ -819,9 +863,11 @@ class InterlinkRowAPI(RowAPI):
             _has_origin.
         """
         if not self._has_origin:
-            raise NoSuchPropertyForLinkException(f"{self.table} does not support origin.")
+            raise NoSuchPropertyForLinkException(
+                f"{self.table} does not support origin."
+            )
 
-        self.row_dict[self.origin_col] = str(new_origin)
+        self._require_row_dict()[self.origin_col] = str(new_origin)
 
     @property
     def policy(self) -> str:
@@ -841,9 +887,11 @@ class InterlinkRowAPI(RowAPI):
             _has_policy.
         """
         if not self._has_policy:
-            raise NoSuchPropertyForLinkException(f"{self.table} does not support policy.")
+            raise NoSuchPropertyForLinkException(
+                f"{self.table} does not support policy."
+            )
 
-        return str(self.row_dict.get(self.policy_col))
+        return str(self._require_row_dict().get(self.policy_col))
 
     @policy.setter
     def policy(self, new_policy: str) -> None:
@@ -863,9 +911,11 @@ class InterlinkRowAPI(RowAPI):
             _has_policy.
         """
         if not self._has_policy:
-            raise NoSuchPropertyForLinkException(f"{self.table} does not support policy.")
+            raise NoSuchPropertyForLinkException(
+                f"{self.table} does not support policy."
+            )
 
-        self.row_dict[self.policy_col] = str(new_policy)
+        self._require_row_dict()[self.policy_col] = str(new_policy)
 
     @property
     def data(self) -> str:
@@ -886,7 +936,7 @@ class InterlinkRowAPI(RowAPI):
         if not self._has_data:
             raise NoSuchPropertyForLinkException(f"{self.table} does not support data.")
 
-        return str(self.row_dict.get(self.data_col))
+        return str(self._require_row_dict().get(self.data_col))
 
     @data.setter
     def data(self, new_data: str) -> None:
@@ -907,7 +957,7 @@ class InterlinkRowAPI(RowAPI):
         if not self._has_data:
             raise NoSuchPropertyForLinkException(f"{self.table} does not support data.")
 
-        self.row_dict[self.data_col] = str(new_data)
+        self._require_row_dict()[self.data_col] = str(new_data)
 
     @property
     def index(self) -> str:
@@ -926,9 +976,11 @@ class InterlinkRowAPI(RowAPI):
         :raises NoSuchPropertyForLinkException: The subclass has not enabled _has_index.
         """
         if not self._has_index:
-            raise NoSuchPropertyForLinkException(f"{self.table} does not support index.")
+            raise NoSuchPropertyForLinkException(
+                f"{self.table} does not support index."
+            )
 
-        return str(self.row_dict.get(self.index_col))
+        return str(self._require_row_dict().get(self.index_col))
 
     @index.setter
     def index(self, new_index: str) -> None:
@@ -947,9 +999,11 @@ class InterlinkRowAPI(RowAPI):
         :raises NoSuchPropertyForLinkException: The subclass has not enabled _has_index.
         """
         if not self._has_index:
-            raise NoSuchPropertyForLinkException(f"{self.table} does not support index.")
+            raise NoSuchPropertyForLinkException(
+                f"{self.table} does not support index."
+            )
 
-        self.row_dict[self.index_col] = str(new_index)
+        self._require_row_dict()[self.index_col] = str(new_index)
 
     @property
     def sequence_number(self) -> int:
@@ -973,8 +1027,13 @@ class InterlinkRowAPI(RowAPI):
         :raises ValueError: Stored text is not a valid integer.
         """
         if not self._has_sequence_number:
-            raise NoSuchPropertyForLinkException(f"{self.table} does not support sequence_number.")
-        return int(self.row_dict.get(self.sequence_number_col))
+            raise NoSuchPropertyForLinkException(
+                f"{self.table} does not support sequence_number."
+            )
+        value = self._require_row_dict().get(self.sequence_number_col)
+        if value is None:
+            raise TypeError("The link sequence number has no value")
+        return int(value)
 
     @sequence_number.setter
     def sequence_number(self, new_sequence_number: int) -> None:
@@ -997,8 +1056,10 @@ class InterlinkRowAPI(RowAPI):
         :raises ValueError: The proposed text is not a valid integer.
         """
         if not self._has_sequence_number:
-            raise NoSuchPropertyForLinkException(f"{self.table} does not support sequence_number.")
-        self.row_dict[self.sequence_number_col] = int(new_sequence_number)
+            raise NoSuchPropertyForLinkException(
+                f"{self.table} does not support sequence_number."
+            )
+        self._require_row_dict()[self.sequence_number_col] = int(new_sequence_number)
 
     @property
     def is_required(self) -> bool:
@@ -1018,8 +1079,10 @@ class InterlinkRowAPI(RowAPI):
             _has_is_required.
         """
         if not self._has_is_required:
-            raise NoSuchPropertyForLinkException(f"{self.table} does not support is_required.")
-        return bool(self.row_dict.get(self.is_required_col))
+            raise NoSuchPropertyForLinkException(
+                f"{self.table} does not support is_required."
+            )
+        return bool(self._require_row_dict().get(self.is_required_col))
 
     @is_required.setter
     def is_required(self, new_is_required: bool) -> None:
@@ -1041,8 +1104,10 @@ class InterlinkRowAPI(RowAPI):
             _has_is_required.
         """
         if not self._has_is_required:
-            raise NoSuchPropertyForLinkException(f"{self.table} does not support is_required.")
-        self.row_dict[self.is_required_col] = int(bool(new_is_required))
+            raise NoSuchPropertyForLinkException(
+                f"{self.table} does not support is_required."
+            )
+        self._require_row_dict()[self.is_required_col] = int(bool(new_is_required))
 
 
 # Todo: Actually write this

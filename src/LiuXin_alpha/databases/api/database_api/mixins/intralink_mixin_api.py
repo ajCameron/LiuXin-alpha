@@ -2,8 +2,7 @@
 Directed relationships within one database table.
 
 Abstract declarations describe the concrete facade conventions; their bodies do not
-execute database operations. Concrete get_intralinked_rows and secondary-only deletion
-have documented legacy limitations.
+execute database operations. Concrete get_intralinked_rows retains its documented legacy link-row result.
 """
 
 from __future__ import annotations
@@ -20,7 +19,7 @@ class DatabaseIntralinkRowsMixinAPI(abc.ABC):
     Declare directed relationships within one database table.
 
     Implement all abstract members before instantiation. Concrete get_intralinked_rows
-    and secondary-only deletion have documented legacy limitations.
+    retains its documented legacy link-row result.
 
     Example:
         >>> import inspect
@@ -28,9 +27,7 @@ class DatabaseIntralinkRowsMixinAPI(abc.ABC):
         True
     """
 
-
     # Todo: Merge with the method below
-
 
     # Todo: unlink_all_intralinks
 
@@ -38,7 +35,9 @@ class DatabaseIntralinkRowsMixinAPI(abc.ABC):
     # Intralink tables (many-to-many within the *same* table)
     # ---------------------------------------------------------------------------------------------
     @abc.abstractmethod
-    def intralink_rows(self, primary_row: "RowAPI", secondary_row: "RowAPI", link_type: str) -> "RowAPI":
+    def intralink_rows(
+        self, primary_row: "RowAPI", secondary_row: "RowAPI", link_type: str
+    ) -> "RowAPI":
         """
         Create and synchronize a typed directed link between rows in the same table.
 
@@ -63,7 +62,9 @@ class DatabaseIntralinkRowsMixinAPI(abc.ABC):
         """
 
     @abc.abstractmethod
-    def get_intralink_row(self, primary_row: "RowAPI", secondary_row: "RowAPI") -> Optional["RowAPI"]:
+    def get_intralink_row(
+        self, primary_row: "RowAPI", secondary_row: "RowAPI"
+    ) -> Optional["RowAPI"]:
         """
         Find the unique directed self-link for an endpoint pair.
 
@@ -142,26 +143,25 @@ class DatabaseIntralinkRowsMixinAPI(abc.ABC):
         """
 
     @abc.abstractmethod
-    def unlinked_intralink(self, primary_row: Optional["RowAPI"], secondary_row: Optional["RowAPI"]) -> None:
+    def unlinked_intralink(
+        self, primary_row: Optional["RowAPI"], secondary_row: Optional["RowAPI"]
+    ) -> None:
         """
-        Delete a unique directed pair or every outgoing link from a primary seed.
+        Delete a unique directed pair or every link in one endpoint direction.
 
         Abstract hook; subclasses supply the operation. Concrete Database behavior: Both
         seeds select a unique pair; only a primary seed selects all outgoing links. The
-        secondary-only branch incorrectly reads primary_row.table while primary_row is
-        None and raises AttributeError. There is no grouped rollback for multi-row
-        deletion.
+        secondary seed selects all incoming links. There is no grouped rollback for
+        multi-row deletion.
 
         Example:
             For a valid seed, db.unlinked_intralink(primary_row=seed,
             secondary_row=None) removes its outgoing links and retains endpoint records.
 
 
-        :param primary_row: Primary seed, or None for the legacy incoming-only branch.
+        :param primary_row: Primary seed, or None for incoming-only deletion.
         :param secondary_row: Secondary seed, or None to delete all outgoing links.
         :return: None; a missing explicitly requested pair is a no-op.
         :raises InputIntegrityError: Both seeds are None.
-        :raises AttributeError: Only secondary_row is supplied, due to the legacy branch
-            defect.
         :raises DatabaseIntegrityError: A requested pair has more than one link.
         """

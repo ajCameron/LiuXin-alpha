@@ -57,6 +57,7 @@ typing = [
   "basedpyright>=1.39,<2",
   "libcst>=1.8,<2",
   "mypy>=1.20,<3",
+  "types-psycopg2>=2.9,<3",
   "ruff==0.16.5",
 ]
 
@@ -85,6 +86,7 @@ namespaces = true
 
 [tool.setuptools.package-data]
 "LiuXin_alpha.catalog" = ["py.typed"]
+"LiuXin_alpha.databases" = ["py.typed"]
 "LiuXin_alpha.resources" = [
   "calibre/*",
   "calibre/catalog/*",
@@ -319,18 +321,13 @@ paths = [
 ]
 
 [tool.basedpyright]
+# Resolve optional backend stubs from the same environment as the quality runner.
+venvPath = "."
+venv = ".venv"
 typeCheckingMode = "standard"
 include = [
-  "src/LiuXin_alpha/databases/driver_wrapper",
-  "src/LiuXin_alpha/databases/api/driver_wrapper_api",
-  "src/LiuXin_alpha/databases/db_types/driver_types.py",
-  "src/LiuXin_alpha/databases/db_types/backend_capabilities.py",
-  "src/LiuXin_alpha/databases/db_types/query_observation.py",
-  "src/LiuXin_alpha/databases/schema_readers.py",
-  "src/LiuXin_alpha/databases/table_pages.py",
-  "src/LiuXin_alpha/databases/view_reads.py",
-  "src/LiuXin_alpha/databases/database_driver_plugins/SQL/databasedriver/physical_schema.py",
-  "src/LiuXin_alpha/databases/database_driver_plugins/PostgreSQL/physical_schema.py",
+  "src/LiuXin_alpha/errors.py",
+  "src/LiuXin_alpha/databases",
   "src/LiuXin_alpha/jobs/history.py",
   "src/LiuXin_alpha/jobs/handler_api.py",
   "src/LiuXin_alpha/utils/jobs/api.py",
@@ -341,8 +338,6 @@ include = [
   "src/LiuXin_alpha/core/storage_composite_mutations.py",
   "src/LiuXin_alpha/metadata/ratings.py",
   "src/LiuXin_alpha/catalog/retrieval/selection.py",
-  "src/LiuXin_alpha/databases/creation.py",
-  "src/LiuXin_alpha/databases/transactions.py",
   "src/LiuXin_alpha/configuration.py",
   "src/LiuXin_alpha/configuration_defaults.py",
   "src/LiuXin_alpha/core/settings.py",
@@ -436,16 +431,8 @@ pythonVersion = "3.12"
 [tool.mypy]
 python_version = "3.12"
 files = [
-  "src/LiuXin_alpha/databases/driver_wrapper",
-  "src/LiuXin_alpha/databases/api/driver_wrapper_api",
-  "src/LiuXin_alpha/databases/db_types/driver_types.py",
-  "src/LiuXin_alpha/databases/db_types/backend_capabilities.py",
-  "src/LiuXin_alpha/databases/db_types/query_observation.py",
-  "src/LiuXin_alpha/databases/schema_readers.py",
-  "src/LiuXin_alpha/databases/table_pages.py",
-  "src/LiuXin_alpha/databases/view_reads.py",
-  "src/LiuXin_alpha/databases/database_driver_plugins/SQL/databasedriver/physical_schema.py",
-  "src/LiuXin_alpha/databases/database_driver_plugins/PostgreSQL/physical_schema.py",
+  "src/LiuXin_alpha/errors.py",
+  "src/LiuXin_alpha/databases",
   "src/LiuXin_alpha/jobs/history.py",
   "src/LiuXin_alpha/jobs/handler_api.py",
   "src/LiuXin_alpha/utils/jobs/api.py",
@@ -456,8 +443,6 @@ files = [
   "src/LiuXin_alpha/core/storage_composite_mutations.py",
   "src/LiuXin_alpha/metadata/ratings.py",
   "src/LiuXin_alpha/catalog/retrieval/selection.py",
-  "src/LiuXin_alpha/databases/creation.py",
-  "src/LiuXin_alpha/databases/transactions.py",
   "src/LiuXin_alpha/configuration.py",
   "src/LiuXin_alpha/configuration_defaults.py",
   "src/LiuXin_alpha/core/settings.py",

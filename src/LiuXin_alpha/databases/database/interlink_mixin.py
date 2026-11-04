@@ -1,4 +1,3 @@
-
 """
 Read and mutate relationships between rows in different database tables.
 
@@ -10,10 +9,11 @@ failure.
 
 from __future__ import annotations
 
-from copy import deepcopy
+from LiuXin_alpha.databases.database._state import DatabaseMixinState
+
 from numbers import Number
 
-from typing import TYPE_CHECKING, Optional, Union, Any, Optional, Literal, Iterable
+from typing import TYPE_CHECKING, Optional, Union, Any, Literal, Iterable, overload
 
 from LiuXin_alpha.databases.row import Row
 
@@ -24,12 +24,10 @@ from LiuXin_alpha.utils.logging import default_log
 from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 
 if TYPE_CHECKING:
-
-    from LiuXin_alpha.databases.api.database_api import DatabaseAPI
-    from LiuXin_alpha.databases.api.row_api import RowAPI, IntralinkRowAPI
+    from LiuXin_alpha.databases.api.row_api import RowAPI
 
 
-class DatabaseInterlinkRowsMixin:
+class DatabaseInterlinkRowsMixin(DatabaseMixinState):
     """
     Provide relationship lookup, creation, ordering and deletion through a facade.
 
@@ -43,16 +41,34 @@ class DatabaseInterlinkRowsMixin:
         the schema.
     """
 
+    _link_has_priority: dict[str, bool] | None
+
     # ----------------------------------------------------------------------------------------------------------------------
     #
     # - METHODS TO READ INTERLINK TABLES START HERE
     # Todo: We can have multiple links with different types...
     # Todo: Givne the existence of onlink, we eprobably want two different methods ... for typing
+    @overload
     def get_interlink_row(
-            self: "DatabaseAPI",
-            primary_row: "RowAPI",
-            secondary_row: "RowAPI",
-            onelink: bool = True) -> Optional[Union["RowAPI", list["RowAPI"]]]:
+        self,
+        primary_row: "RowAPI",
+        secondary_row: "RowAPI",
+        onelink: Literal[True] = True,
+    ) -> Optional["RowAPI"]: ...
+
+    @overload
+    def get_interlink_row(
+        self, primary_row: "RowAPI", secondary_row: "RowAPI", onelink: Literal[False]
+    ) -> Optional[list["RowAPI"]]: ...
+
+    @overload
+    def get_interlink_row(
+        self, primary_row: "RowAPI", secondary_row: "RowAPI", onelink: bool
+    ) -> Optional[Union["RowAPI", list["RowAPI"]]]: ...
+
+    def get_interlink_row(
+        self, primary_row: "RowAPI", secondary_row: "RowAPI", onelink: bool = True
+    ) -> Optional[Union["RowAPI", list["RowAPI"]]]:
         """
         Find relationship Rows connecting one ordered endpoint pair.
 
@@ -74,10 +90,12 @@ class DatabaseInterlinkRowsMixin:
             table.
         :raises DatabaseIntegrityError: Multiple matches exist while onelink=True.
         """
-        primary_table = primary_row.table
-        secondary_table = secondary_row.table
+        primary_table = self._row_table(primary_row)
+        secondary_table = self._row_table(secondary_row)
 
-        link_table_name = self.driver_wrapper.get_link_table_name(primary_table, secondary_table)
+        link_table_name = self._database.driver_wrapper.get_link_table_name(
+            primary_table, secondary_table
+        )
         if not link_table_name or (primary_table == secondary_table):
             err_str = "Given tables cannot be connected - or you have used an interlink method, not the intralink one"
             err_str = default_log.log_variables(
@@ -90,21 +108,21 @@ class DatabaseInterlinkRowsMixin:
             raise InputIntegrityError(err_str)
 
         # Search the interlink table for a row which matches the required criteria
-        interlink_table = self.driver_wrapper.get_link_table_name(primary_table, secondary_table)
-        primary_link_col = self.driver_wrapper.get_link_column(
+        interlink_table = link_table_name
+        primary_link_col = self._database.driver_wrapper.get_link_column(
             primary_table,
             secondary_table,
-            self.driver_wrapper.get_id_column(primary_table),
+            self._database.driver_wrapper.get_id_column(primary_table),
         )
-        secondary_link_col = self.driver_wrapper.get_link_column(
+        secondary_link_col = self._database.driver_wrapper.get_link_column(
             primary_table,
             secondary_table,
-            self.driver_wrapper.get_id_column(secondary_table),
+            self._database.driver_wrapper.get_id_column(secondary_table),
         )
 
         # Search for links which reference the primary_row
         candidate_rows = []
-        link_rows = self.search(
+        link_rows = self._database.search(
             table=interlink_table,
             column=primary_link_col,
             search_term=primary_row.row_id,
@@ -137,9 +155,8 @@ class DatabaseInterlinkRowsMixin:
                 return candidate_rows
 
     def get_interlink_rows(
-            self: "DatabaseAPI" ,
-            primary_row: "RowAPI",
-            secondary_table: str) -> list["RowAPI"]:
+        self, primary_row: "RowAPI", secondary_table: str
+    ) -> list["RowAPI"]:
         """
         Return relationship Rows from one endpoint to a target table.
 
@@ -157,9 +174,11 @@ class DatabaseInterlinkRowsMixin:
             column resolves.
         :raises InputIntegrityError: Same-table or unavailable interlink schema.
         """
-        primary_table = primary_row.table
+        primary_table = self._row_table(primary_row)
 
-        link_table_name = self.driver_wrapper.get_link_table_name(primary_table, secondary_table)
+        link_table_name = self._database.driver_wrapper.get_link_table_name(
+            primary_table, secondary_table
+        )
         if not link_table_name or (primary_table == secondary_table):
             err_str = "Given tables cannot be connected - or you have used an interlink method, not the intralink one"
             err_str = default_log.log_variables(
@@ -172,20 +191,22 @@ class DatabaseInterlinkRowsMixin:
             raise InputIntegrityError(err_str)
 
         # Search the interlink table for a row which matches the required criteria
-        interlink_table = self.driver_wrapper.get_link_table_name(primary_table, secondary_table)
-        primary_link_col = self.driver_wrapper.get_link_column(
+        interlink_table = link_table_name
+        primary_link_col = self._database.driver_wrapper.get_link_column(
             primary_table,
             secondary_table,
-            self.driver_wrapper.get_id_column(primary_table),
+            self._database.driver_wrapper.get_id_column(primary_table),
         )
 
-        link_rows = self.search(
+        link_rows = self._database.search(
             table=interlink_table,
             column=primary_link_col,
             search_term=primary_row.row_id,
         )
         try:
-            priority_col = self.driver_wrapper.get_link_column(primary_table, secondary_table, "priority")
+            priority_col = self._database.driver_wrapper.get_link_column(
+                primary_table, secondary_table, "priority"
+            )
         except DatabaseIntegrityError:
             pass
         else:
@@ -193,12 +214,12 @@ class DatabaseInterlinkRowsMixin:
         return link_rows
 
     def get_interlinked_rows(
-        self: "DatabaseAPI",
+        self,
         target_row: Optional["RowAPI"] = None,
         secondary_table: Optional[str] = None,
         type_filter: Optional[str] = None,
         **kwargs: Any,
-    ) -> list["RowAPI"]:
+    ) -> list["RowAPI | None"]:
         """
         Resolve endpoint Rows reached through inter-table relationships.
 
@@ -219,7 +240,7 @@ class DatabaseInterlinkRowsMixin:
         :param kwargs: Compatibility primary_row alias accepted only when target_row is
             None; all other keywords fail.
         :return: Endpoint Row list, descending by link priority when available; [] when
-            no link table or matches exist.
+            no link table or matches exist. Missing endpoint records remain None.
         :raises TypeError: Keywords are unexpected or secondary_table is missing.
         :raises InputIntegrityError: The seed is not a concrete Row, the target category
             is invalid, or the tables match.
@@ -253,7 +274,7 @@ class DatabaseInterlinkRowsMixin:
             raise InputIntegrityError(err_str)
 
         if (
-            secondary_table not in self.main_tables
+            secondary_table not in self._database.main_tables
             and secondary_table not in self.helper_tables
         ):
             err_str = "Secondary table needs to be in either the main tables or the helper tables"
@@ -275,26 +296,26 @@ class DatabaseInterlinkRowsMixin:
             )
             raise InputIntegrityError(err_str)
 
-        primary_table = target_row.table
+        primary_table = self._row_table(target_row)
         primary_id = target_row.row_id
-        primary_id_col = self.driver_wrapper.get_id_column(primary_table)
+        primary_id_col = self._database.driver_wrapper.get_id_column(primary_table)
 
-        secondary_id_col = self.driver_wrapper.get_id_column(secondary_table)
+        secondary_id_col = self._database.driver_wrapper.get_id_column(secondary_table)
 
         # Get the name of the link table - check to see if it exists (if it doesn't, returns None) - signalling that no
         # link exists
-        link_table = self.driver_wrapper.get_link_table_name(
+        link_table = self._database.driver_wrapper.get_link_table_name(
             primary_table, secondary_table
         )
         if not link_table:
             return []
 
-        link_table_col = self.driver_wrapper.get_column_base(link_table)
+        link_table_col = self._database.driver_wrapper.get_column_base(link_table)
         primary_table_link_col = link_table_col + "_" + primary_id_col
         secondary_table_link_col = link_table_col + "_" + secondary_id_col
         link_priority_col = link_table_col + "_priority"
 
-        link_rows = self.driver_wrapper.search(
+        link_rows = self._database.driver_wrapper.search(
             table=link_table, column=primary_table_link_col, search_term=primary_id
         )
         if not link_rows:
@@ -312,32 +333,33 @@ class DatabaseInterlinkRowsMixin:
             link_type_column = link_table_col + "_type"
             link_rows = [r for r in link_rows if r[link_type_column] == type_filter]
         secondary_ids = [r[secondary_table_link_col] for r in link_rows]
-        batch = getattr(self.macros, "get_rows_by_ids", None)
-        relation_type = getattr(self.driver_wrapper, "get_relation_type", None)
+        batch = getattr(self._database.macros, "get_rows_by_ids", None)
+        relation_type = getattr(
+            self._database.driver_wrapper, "get_relation_type", None
+        )
         if (
             callable(batch)
             and callable(relation_type)
             and relation_type(secondary_table) == "table"
         ):
-            rows = batch(
+            rows = self._database.macros.get_rows_by_ids(
                 secondary_table, (value for value in secondary_ids if value is not None)
             )
             # Preserve the legacy link ordering, duplicates and absent endpoints.
             return [
-                Row(row_dict=dict(rows[value]), database=self)
+                Row(row_dict=dict(rows[value]), database=self._database)
                 if value in rows
                 else None
                 for value in secondary_ids
             ]
         return [
-            self.get_row_from_id(table=secondary_table, row_id=value)
+            self._database.get_row_from_id(table=secondary_table, row_id=value)
             for value in secondary_ids
         ]
 
     def get_interlink_values(
-            self: "DatabaseAPI",
-            target_row: "RowAPI",
-            secondary_column: str) -> set[Any]:
+        self, target_row: "RowAPI", secondary_column: str
+    ) -> set[Any]:
         """
         Collect distinct column values from linked endpoint Rows.
 
@@ -351,9 +373,15 @@ class DatabaseInterlinkRowsMixin:
         :return: Set of values; relationship priority and duplicates are discarded.
         :raises TypeError: A retrieved column value is unhashable.
         """
-        secondary_table = self.driver_wrapper.identify_table_from_column(secondary_column)
-        linked_rows = self.get_interlinked_rows(target_row=target_row, secondary_table=secondary_table)
-        return set([r[secondary_column] for r in linked_rows])
+        secondary_table = self._database.driver_wrapper.identify_table_from_column(
+            secondary_column
+        )
+        linked_rows = self.get_interlinked_rows(
+            target_row=target_row, secondary_table=secondary_table
+        )
+        if any(row is None for row in linked_rows):
+            raise DatabaseIntegrityError("Interlink refers to a missing endpoint")
+        return {row[secondary_column] for row in linked_rows if row is not None}
 
     #
     # ----------------------------------------------------------------------------------------------------------------------
@@ -362,10 +390,11 @@ class DatabaseInterlinkRowsMixin:
     # - METHODS TO WRITE TO INTERLINK TABLES START HERE
 
     def check_for_link_table_priority(
-            self: "DatabaseAPI",
-            link_table_name: str,
-            primary_link_table_name: str,
-            secondary_link_table_name: str) -> bool:
+        self,
+        link_table_name: str,
+        primary_link_table_name: str,
+        secondary_link_table_name: str,
+    ) -> bool:
         """
         Cache whether resolved relationship capabilities declare a priority column.
 
@@ -382,10 +411,13 @@ class DatabaseInterlinkRowsMixin:
         :param secondary_link_table_name: Second endpoint table.
         :return: Cached or newly determined boolean.
         """
-        if link_table_name in self._link_has_priority:
-            return self._link_has_priority[link_table_name]
+        cache = self._link_has_priority
+        if cache is None:
+            raise RuntimeError("Database link cache is unavailable after cleanup")
+        if link_table_name in cache:
+            return cache[link_table_name]
 
-        capabilities = self.get_link_capabilities(
+        capabilities = self._database.get_link_capabilities(
             primary_link_table_name,
             secondary_link_table_name,
         )
@@ -394,18 +426,19 @@ class DatabaseInterlinkRowsMixin:
             and capabilities.link_table == link_table_name
             and capabilities.priority
         )
-        self._link_has_priority[link_table_name] = has_priority
+        cache[link_table_name] = has_priority
         return has_priority
 
     # Todo: Remain type to link type
     # Todo: Extend with the other permissable link attributes
     def interlink_rows(
-            self: "DatabaseAPI",
-            primary_row: "RowAPI",
-            secondary_row: "RowAPI",
-            priority: str = "highest",
-            type: Optional[Union[Literal["not-set"], Literal["highest"], Literal["lowest"], Number]] = None,
-            **col_value_pairs: Any) -> "IntralinkRowAPI":
+        self,
+        primary_row: "RowAPI",
+        secondary_row: "RowAPI",
+        priority: Optional[Union[int, float, str]] = "highest",
+        type: Optional[str] = None,
+        **col_value_pairs: Any,
+    ) -> "RowAPI":
         """
         Allocate a relationship record, populate endpoint fields and synchronize it.
 
@@ -436,9 +469,11 @@ class DatabaseInterlinkRowsMixin:
             synchronization violates a constraint.
         """
         # Check that the tables can be interlinked
-        primary_row_table = primary_row.table
-        secondary_row_table = secondary_row.table
-        link_table = self.driver_wrapper.get_link_table_name(primary_row_table, secondary_row_table)
+        primary_row_table = self._row_table(primary_row)
+        secondary_row_table = self._row_table(secondary_row)
+        link_table = self._database.driver_wrapper.get_link_table_name(
+            primary_row_table, secondary_row_table
+        )
         if not link_table:
             err_str = "Tables cannot be linked - no such link table exists"
             err_str = default_log.log_variables(
@@ -462,49 +497,69 @@ class DatabaseInterlinkRowsMixin:
             )
             raise InputIntegrityError(err_str)
 
-        link_row = dict()
+        payload: dict[str, Any] = {}
+        type_col: str | None
         for col in col_value_pairs:
-            link_row_col = self.driver_wrapper.get_link_column(primary_row_table, secondary_row_table, col)
-            link_row[link_row_col] = col_value_pairs[col]
+            link_row_col = self._database.driver_wrapper.get_link_column(
+                primary_row_table, secondary_row_table, col
+            )
+            payload[link_row_col] = col_value_pairs[col]
 
         # Make the link dict - do not add it as yet
-        primary_row_id_col = self.driver_wrapper.get_id_column(primary_row_table)
-        primary_link_col = self.driver_wrapper.get_link_column(
+        primary_row_id_col = self._database.driver_wrapper.get_id_column(
+            primary_row_table
+        )
+        primary_link_col = self._database.driver_wrapper.get_link_column(
             primary_row_table, secondary_row_table, primary_row_id_col
         )
 
-        secondary_row_id_col = self.driver_wrapper.get_id_column(secondary_row_table)
-        secondary_link_col = self.driver_wrapper.get_link_column(
+        secondary_row_id_col = self._database.driver_wrapper.get_id_column(
+            secondary_row_table
+        )
+        secondary_link_col = self._database.driver_wrapper.get_link_column(
             primary_row_table, secondary_row_table, secondary_row_id_col
         )
 
-        link_row[primary_link_col] = primary_id
-        link_row[secondary_link_col] = secondary_id
+        payload[primary_link_col] = primary_id
+        payload[secondary_link_col] = secondary_id
 
         # Process the priority - only numbers can be written into the priority column
         if priority != "not_set":
-
-            if self.check_for_link_table_priority(link_table, primary_row_table, secondary_row_table):
-                priority_col = self.driver_wrapper.get_link_column(primary_row_table, secondary_row_table, "priority")
+            if self.check_for_link_table_priority(
+                link_table, primary_row_table, secondary_row_table
+            ):
+                priority_col = self._database.driver_wrapper.get_link_column(
+                    primary_row_table, secondary_row_table, "priority"
+                )
 
                 # Set the priority of the link if the table has a priority column
                 if priority_col is not None:
                     priority_key = six_unicode(priority).lower().strip()
                     if priority is None:
-                        link_row[priority_col] = 0
+                        payload[priority_col] = 0
                     elif priority_key == "highest" or priority_key == "lowest":
                         priority_num = (
-                            self.get_max(priority_col) if priority_key == "highest" else self.get_min(priority_col)
+                            self._database.get_max(priority_col)
+                            if priority_key == "highest"
+                            else self._database.get_min(priority_col)
                         )
                         try:
-                            priority_val = int(priority_num) + 1 if priority_key == "highest" else int(priority_num) - 1
+                            if priority_num is None:
+                                raise ValueError("Priority column is empty")
+                            priority_val = (
+                                int(priority_num) + 1
+                                if priority_key == "highest"
+                                else int(priority_num) - 1
+                            )
                         except (ValueError, TypeError) as e:
                             # Correct a bug which throws an error when t a link table is empty
-                            link_row_count = self.driver_wrapper.get_record_count(target_table=link_table)
-                            if link_row_count != 0:
-                                err_str = (
-                                    "get_max for a priority column appears to have returned something not a number"
+                            link_row_count = (
+                                self._database.driver_wrapper.get_record_count(
+                                    target_table=link_table
                                 )
+                            )
+                            if link_row_count != 0:
+                                err_str = "get_max for a priority column appears to have returned something not a number"
                                 err_str = default_log.log_exception(
                                     err_str,
                                     e,
@@ -519,10 +574,10 @@ class DatabaseInterlinkRowsMixin:
                                 info_str = "Link table appeared to be empty - setting piority_val to 1 and continuing"
                                 default_log.log_variables(info_str, "INFO")
                                 priority_val = 1
-                        link_row[priority_col] = priority_val
+                        payload[priority_col] = priority_val
 
                     elif isinstance(priority, Number):
-                        link_row[priority_col] = priority
+                        payload[priority_col] = priority
 
                     else:
                         err_str = "priority type not recognized and cannot be parsed"
@@ -537,21 +592,26 @@ class DatabaseInterlinkRowsMixin:
 
         # Process the type - Todo: Add checking that the type is valid for that combination
         if type is not None:
-            type_col = self.driver_wrapper.get_link_column(primary_row_table, secondary_row_table, "type")
-            link_row[type_col] = type
+            type_col = self._database.driver_wrapper.get_link_column(
+                primary_row_table, secondary_row_table, "type"
+            )
+            payload[type_col] = type
 
         # Acquire an id for the link row and add it
-        link_table_id = self.driver_wrapper.get_id_column(link_table)
-        blank_link_row = self.driver_wrapper.get_blank_row(link_table)
-        link_row[link_table_id] = blank_link_row[link_table_id]
-
+        link_table_id = self._database.driver_wrapper.get_id_column(link_table)
+        blank_link_row = self._database.driver_wrapper.get_blank_row(link_table)
+        payload[link_table_id] = blank_link_row[link_table_id]
 
         # If priority wasn't explicitly set but this link table has a priority column with a non-NULL default,
         # multiple links for the same primary row may collide with UNIQUE(primary_id, priority).
         # In that case, auto-assign the next available priority for this primary (and type, if relevant).
         if priority == "not_set":
-            if self.check_for_link_table_priority(link_table, primary_row_table, secondary_row_table):
-                priority_col = self.driver_wrapper.get_link_column(primary_row_table, secondary_row_table, "priority")
+            if self.check_for_link_table_priority(
+                link_table, primary_row_table, secondary_row_table
+            ):
+                priority_col = self._database.driver_wrapper.get_link_column(
+                    primary_row_table, secondary_row_table, "priority"
+                )
                 if priority_col is not None:
                     blank_default = blank_link_row.get(priority_col, None)
                     # If the DB default is NULL, UNIQUE constraints won't collide on it in SQLite (multiple NULLs allowed).
@@ -559,8 +619,10 @@ class DatabaseInterlinkRowsMixin:
                         type_col = None
                         if type is not None:
                             try:
-                                type_col = self.driver_wrapper.get_link_column(
-                                    primary_row_table, secondary_row_table, "type"
+                                type_col = (
+                                    self._database.driver_wrapper.get_link_column(
+                                        primary_row_table, secondary_row_table, "type"
+                                    )
                                 )
                             except Exception:
                                 type_col = None
@@ -568,62 +630,73 @@ class DatabaseInterlinkRowsMixin:
                         blank_default_cmp = blank_default
                         if isinstance(blank_default_cmp, str):
                             try:
-                                blank_default_cmp = float(blank_default_cmp) if "." in blank_default_cmp else int(blank_default_cmp)
+                                blank_default_cmp = (
+                                    float(blank_default_cmp)
+                                    if "." in blank_default_cmp
+                                    else int(blank_default_cmp)
+                                )
                             except Exception:
                                 blank_default_cmp = blank_default
 
-                        where = "`{}` = ? AND `{}` = ?".format(primary_link_col, priority_col)
-                        vals = [primary_id, blank_default_cmp]
+                        where = "`{}` = ? AND `{}` = ?".format(
+                            primary_link_col, priority_col
+                        )
+                        vals: list[Any] = [primary_id, blank_default_cmp]
                         if type is not None and type_col is not None:
                             where += " AND `{}` = ?".format(type_col)
                             vals.append(type)
 
-                        exists = self.driver_wrapper.get(
-                            "SELECT 1 FROM `{}` WHERE {} LIMIT 1;".format(link_table, where),
+                        exists = self._database.driver_wrapper.fetch_scalar(
+                            "SELECT 1 FROM `{}` WHERE {} LIMIT 1;".format(
+                                link_table, where
+                            ),
                             vals,
-                            all=False,
                         )
                         if exists is not None:
                             where2 = "`{}` = ?".format(primary_link_col)
-                            vals2 = [primary_id]
+                            vals2: list[Any] = [primary_id]
                             if type is not None and type_col is not None:
                                 where2 += " AND `{}` = ?".format(type_col)
                                 vals2.append(type)
 
-                            max_row = self.driver_wrapper.get(
-                                "SELECT MAX(`{}`) FROM `{}` WHERE {};".format(priority_col, link_table, where2),
+                            max_val = self._database.driver_wrapper.fetch_scalar(
+                                "SELECT MAX(`{}`) FROM `{}` WHERE {};".format(
+                                    priority_col, link_table, where2
+                                ),
                                 vals2,
-                                all=False,
                             )
-                            max_val = None
-                            if max_row is not None and len(max_row) > 0:
-                                max_val = max_row[0]
 
                             try:
                                 if max_val is None:
                                     next_val = 1
                                 else:
                                     if isinstance(max_val, str):
-                                        max_val = float(max_val) if "." in max_val else int(max_val)
+                                        max_val = (
+                                            float(max_val)
+                                            if "." in max_val
+                                            else int(max_val)
+                                        )
                                     next_val = max_val + 1
                             except Exception:
                                 next_val = 1
 
-                            link_row[priority_col] = next_val
+                            payload[priority_col] = next_val
 
         # Todo: This is pretty inefficient - try and tidy it up
         # Sync the new data back to the database
-        link_row = Row(row_dict=link_row, database=self)
+        link_row = Row(row_dict=payload, database=self._database)
         try:
             link_row.sync()
         except DatabaseIntegrityError:
-            self.delete(link_row)
+            self._database.delete(link_row)
             raise
 
         # The Row instance created above may not include every link-table column (e.g. columns with DB defaults
         # like priority). Many callers expect those defaults to be visible immediately, so reload from the DB.
         try:
-            link_row.load_row_from_id(row_id=link_row.row_id, table=link_table)
+            link_row.load_row_from_id(
+                row_id=int(blank_link_row[link_table_id]), table=link_table
+            )
         except Exception:
             # Best-effort only: if reload fails, still return the successfully-created link.
             pass
@@ -637,13 +710,13 @@ class DatabaseInterlinkRowsMixin:
     # - METHODS TO UPDATE A LINK BETWEEN TWO ROWS START HERE
 
     def dupe_interlinks(
-            self,
-            src_row: "RowAPI",
-            dst_row: "RowAPI",
-            swap_priorities: bool = False,
-            restrict_to_tables: Optional[Iterable[str]]=None,
-            force_priority: Optional[str] = None,
-    ):
+        self,
+        src_row: "RowAPI",
+        dst_row: "RowAPI",
+        swap_priorities: bool = False,
+        restrict_to_tables: Optional[Iterable[str]] = None,
+        force_priority: Optional[Union[int, float, str]] = None,
+    ) -> None:
         """
         Recreate a source row relationships on a destination using the normal link
         writer.
@@ -670,19 +743,28 @@ class DatabaseInterlinkRowsMixin:
         """
         # So this method only tries to handle interlinks
         if restrict_to_tables is None:
-            other_main_tables = set(t for t in deepcopy(self.main_tables))
-            other_main_tables.remove(src_row.table)
+            other_main_tables: Iterable[str] = self._database.main_tables - {
+                src_row.table
+            }
         else:
             other_main_tables = restrict_to_tables
 
         # Identify all the rows linked to the src_row - then link them to the dst row
         for main_table in other_main_tables:
-            src_linked_rows = self.get_interlinked_rows(target_row=src_row, secondary_table=main_table)
+            src_linked_rows = self.get_interlinked_rows(
+                target_row=src_row, secondary_table=main_table
+            )
             src_linked_rows.reverse()
             for src_linked_row in src_linked_rows:
+                if src_linked_row is None:
+                    raise DatabaseIntegrityError(
+                        "Interlink refers to a missing endpoint"
+                    )
 
                 if force_priority is None:
-                    self.interlink_rows(primary_row=dst_row, secondary_row=src_linked_row)
+                    self.interlink_rows(
+                        primary_row=dst_row, secondary_row=src_linked_row
+                    )
                 else:
                     self.interlink_rows(
                         primary_row=dst_row,
@@ -691,13 +773,13 @@ class DatabaseInterlinkRowsMixin:
                     )
 
                 if swap_priorities:
-                    self.swap_priorities(src_row=src_linked_row, dst_row_1=src_row, dst_row_2=dst_row)
+                    self.swap_priorities(
+                        src_row=src_linked_row, dst_row_1=src_row, dst_row_2=dst_row
+                    )
 
     def swap_priorities(
-            self: "DatabaseAPI",
-            src_row: "RowAPI",
-            dst_row_1: "RowAPI",
-            dst_row_2: "RowAPI") -> None:
+        self, src_row: "RowAPI", dst_row_1: "RowAPI", dst_row_2: "RowAPI"
+    ) -> None:
         """
         Apply the legacy two-link priority update sequence.
 
@@ -717,13 +799,23 @@ class DatabaseInterlinkRowsMixin:
         :param dst_row_2: Second linked endpoint in the same target table.
         :return: None.
         """
-        src_row_table = src_row.table
-        dst_table = dst_row_1.table
-        link_priority_column = self.driver_wrapper.get_link_column(src_row_table, dst_table, "priority")
+        src_row_table = self._row_table(src_row)
+        dst_table = self._row_table(dst_row_1)
+        link_priority_column = self._database.driver_wrapper.get_link_column(
+            src_row_table, dst_table, "priority"
+        )
 
-        dst_row_1_link = self.get_interlink_row(primary_row=src_row, secondary_row=dst_row_1)
-        dst_row_2_link = self.get_interlink_row(primary_row=src_row, secondary_row=dst_row_2)
+        dst_row_1_link = self.get_interlink_row(
+            primary_row=src_row, secondary_row=dst_row_1
+        )
+        dst_row_2_link = self.get_interlink_row(
+            primary_row=src_row, secondary_row=dst_row_2
+        )
 
+        if dst_row_1_link is None or dst_row_2_link is None:
+            raise InputIntegrityError(
+                "Both links must exist before swapping priorities"
+            )
         priority_hold = dst_row_1_link[link_priority_column]
         dst_row_1_link[link_priority_column] = dst_row_2_link[link_priority_column]
         dst_row_2_link[link_priority_column] = priority_hold
@@ -738,18 +830,19 @@ class DatabaseInterlinkRowsMixin:
 
     # Todo: Need tests for the other col-value pairs
     def update_interlink(
-            self: "DatabaseAPI",
-            primary_row: "RowAPI",
-            secondary_row: "RowAPI",
-            priority: Union[Literal["unchanged"], Literal["highest"], Literal["lowest"]] = "unchanged",
-            **col_value_pairs: Any) -> "IntralinkRowAPI":
+        self,
+        primary_row: "RowAPI",
+        secondary_row: "RowAPI",
+        priority: Optional[Union[int, float, str]] = "unchanged",
+        **col_value_pairs: Any,
+    ) -> "RowAPI":
         """
         Modify the unique relationship Row and synchronize requested fields.
 
         Resolve a priority column even when unchanged is requested. Highest/lowest use
         whole-column integer extrema; extra keyword columns can override earlier
-        assignments. No rollback is added around sync. Missing links are not explicitly
-        checked before subsequent Row use.
+        assignments. No rollback is added around sync. Missing links are rejected before
+        column resolution or mutation.
 
         Example:
             For an existing unique relationship, db.update_interlink(agent, work,
@@ -762,26 +855,42 @@ class DatabaseInterlinkRowsMixin:
         :param col_value_pairs: Other link-column values, resolved after priority
             processing.
         :return: Updated relationship Row.
-        :raises InputIntegrityError: The priority value is unsupported.
+        :raises InputIntegrityError: The link is missing or the priority is unsupported.
         :raises DatabaseIntegrityError: The pair is ambiguous, extrema are invalid, or
             synchronization fails.
         """
-        interlink_row = self.get_interlink_row(primary_row=primary_row, secondary_row=secondary_row)
-        primary_row_table = primary_row.table
-        secondary_row_table = secondary_row.table
+        interlink_row = self.get_interlink_row(
+            primary_row=primary_row, secondary_row=secondary_row
+        )
+        if interlink_row is None:
+            raise InputIntegrityError("Cannot update a missing interlink")
+        primary_row_table = self._row_table(primary_row)
+        secondary_row_table = self._row_table(secondary_row)
 
         # Update the priority to the newly given quantity
         # Process the priority - only numbers can be written into the priority column
-        priority_col = self.driver_wrapper.get_link_column(primary_row_table, secondary_row_table, "priority")
+        priority_col = self._database.driver_wrapper.get_link_column(
+            primary_row_table, secondary_row_table, "priority"
+        )
         priority_key = six_unicode(priority).lower().strip()
         if priority is None:
             interlink_row[priority_col] = 0
         elif priority_key == "unchanged":
             pass
         elif priority_key == "highest" or priority_key == "lowest":
-            priority_num = self.get_max(priority_col) if priority_key == "highest" else self.get_min(priority_col)
+            priority_num = (
+                self._database.get_max(priority_col)
+                if priority_key == "highest"
+                else self._database.get_min(priority_col)
+            )
             try:
-                priority_val = int(priority_num) + 1 if priority_key == "highest" else int(priority_num) - 1
+                if priority_num is None:
+                    raise ValueError("Priority column is empty")
+                priority_val = (
+                    int(priority_num) + 1
+                    if priority_key == "highest"
+                    else int(priority_num) - 1
+                )
             except (ValueError, TypeError) as e:
                 err_str = "get_max for a priority column appears to have returned something not a number"
                 err_str = default_log.log_exception(
@@ -812,7 +921,9 @@ class DatabaseInterlinkRowsMixin:
 
         # Update everything else specified by the keyword pairs
         for col in col_value_pairs:
-            link_row_col = self.driver_wrapper.get_link_column(primary_row_table, secondary_row_table, col)
+            link_row_col = self._database.driver_wrapper.get_link_column(
+                primary_row_table, secondary_row_table, col
+            )
             interlink_row[link_row_col] = col_value_pairs[col]
 
         interlink_row.sync()
@@ -820,10 +931,8 @@ class DatabaseInterlinkRowsMixin:
 
     # Todo: Test this with both a tuple and list of ids
     def update_interlink_priority(
-            self: "DatabaseAPI",
-            primary_row: "RowAPI",
-            secondary_table: str,
-            ordered_ids: Union[tuple[int, ...], list[int]]) -> None:
+        self, primary_row: "RowAPI", secondary_table: str, ordered_ids: Iterable[int]
+    ) -> None:
         """
         Assign successive global highest priorities in reverse requested ID order.
 
@@ -844,16 +953,19 @@ class DatabaseInterlinkRowsMixin:
         :raises AssertionError: The number of linked endpoints differs from ordered_ids.
         :raises KeyError: A requested ID is absent from the linked endpoint map.
         """
-        secondary_rows = self.get_interlinked_rows(target_row=primary_row, secondary_table=secondary_table)
-        assert len(secondary_rows) == len(ordered_ids)
-
-        secondary_row_map = dict((int(r.row_id), r) for r in secondary_rows)
+        secondary_rows = self.get_interlinked_rows(
+            target_row=primary_row, secondary_table=secondary_table
+        )
+        ordered = list(ordered_ids)
+        assert len(secondary_rows) == len(ordered)
+        secondary_row_map: dict[int, RowAPI] = {}
+        for row in secondary_rows:
+            if row is None or row.row_id is None:
+                raise DatabaseIntegrityError("Interlink refers to a missing endpoint")
+            secondary_row_map[int(row.row_id)] = row
 
         # Add the rows in the order specified by the ordered_ids
-        ordered_ids = [_ for _ in deepcopy(ordered_ids)]
-        ordered_ids.reverse()
-
-        for row_id in ordered_ids:
+        for row_id in reversed(ordered):
             secondary_row = secondary_row_map[int(row_id)]
             self.update_interlink(primary_row, secondary_row, priority="highest")
 
@@ -863,7 +975,7 @@ class DatabaseInterlinkRowsMixin:
     #
     # - METHOD TO UNLINK TWO ROWS STARTS HERE
 
-    def unlink_interlink(self: "DatabaseAPI", primary_row: "RowAPI", secondary_row: "RowAPI") -> None:
+    def unlink_interlink(self, primary_row: "RowAPI", secondary_row: "RowAPI") -> None:
         """
         Delete the unique relationship Row connecting an endpoint pair.
 
@@ -880,26 +992,31 @@ class DatabaseInterlinkRowsMixin:
         :return: None.
         :raises DatabaseIntegrityError: The endpoint pair has multiple relationship
             Rows.
-        :raises AttributeError: No relationship exists and delete receives None.
+        :raises InputIntegrityError: No relationship exists for the endpoint pair.
         """
-        link_row = self.get_interlink_row(primary_row=primary_row, secondary_row=secondary_row)
-        self.delete(link_row)
+        link_row = self.get_interlink_row(
+            primary_row=primary_row, secondary_row=secondary_row
+        )
+        if link_row is None:
+            raise InputIntegrityError("Cannot unlink a missing interlink")
+        self._database.delete(link_row)
 
     # Todo: Test on a table like ratings, where we can have multiple links between the same title and rating but with
     #       different types. That caused this method to error.
     # Todo: Test on multiple different type filters - including types filters which are lists
     def unlink_all(
-            self: "DatabaseAPI",
-            primary_row: "RowAPI",
-            secondary_table: str,
-            type_filter: Optional[str] = None) -> None:
+        self,
+        primary_row: "RowAPI",
+        secondary_table: str,
+        type_filter: Optional[str] = None,
+    ) -> None:
         """
         Delete relationships from a seed to a target table, optionally by type.
 
         Initially fetch endpoints without filtering. The typed path retries ambiguous
         single-link lookups in multi-link mode; the unfiltered path does not. Repeated
-        endpoints can revisit already deleted links, so missing-link failures and
-        partial deletion remain possible. No group transaction or endpoint deletion is
+        endpoints can revisit already deleted links; absent links are skipped. Partial
+        deletion remains possible. No group transaction or endpoint deletion is
         performed.
 
         Example:
@@ -913,28 +1030,50 @@ class DatabaseInterlinkRowsMixin:
         :param type_filter: Exact type value to remove, or None for unfiltered deletion.
         :return: None.
         """
-        linked_to_rows = self.get_interlinked_rows(target_row=primary_row, secondary_table=secondary_table)
+        linked_to_rows = self.get_interlinked_rows(
+            target_row=primary_row, secondary_table=secondary_table
+        )
         if type_filter is None:
             for linked_row in linked_to_rows:
-                interlink_row = self.get_interlink_row(primary_row=primary_row, secondary_row=linked_row)
-                self.delete(interlink_row)
+                if linked_row is None:
+                    raise DatabaseIntegrityError(
+                        "Interlink refers to a missing endpoint"
+                    )
+                interlink_row = self.get_interlink_row(
+                    primary_row=primary_row, secondary_row=linked_row
+                )
+                if interlink_row is not None:
+                    self._database.delete(interlink_row)
         else:
-            interlink_column = self.driver_wrapper.get_link_column(primary_row.table, secondary_table, "type")
+            interlink_column = self._database.driver_wrapper.get_link_column(
+                self._row_table(primary_row), secondary_table, "type"
+            )
             for linked_row in linked_to_rows:
+                if linked_row is None:
+                    raise DatabaseIntegrityError(
+                        "Interlink refers to a missing endpoint"
+                    )
                 try:
-                    interlink_row = self.get_interlink_row(primary_row=primary_row, secondary_row=linked_row)
-                    interlink_rows = [
-                        interlink_row,
-                    ]
+                    interlink_row = self.get_interlink_row(
+                        primary_row=primary_row, secondary_row=linked_row
+                    )
+                    interlink_rows = (
+                        [interlink_row] if interlink_row is not None else []
+                    )
                 except DatabaseIntegrityError:
                     # We might be dealing with a table like ratings
-                    interlink_rows = self.get_interlink_row(
-                        primary_row=primary_row, secondary_row=linked_row, onelink=False
+                    interlink_rows = (
+                        self.get_interlink_row(
+                            primary_row=primary_row,
+                            secondary_row=linked_row,
+                            onelink=False,
+                        )
+                        or []
                     )
 
                 for ilr in interlink_rows:
                     if ilr[interlink_column] == type_filter:
-                        self.delete(ilr)
+                        self._database.delete(ilr)
 
     #
     # ----------------------------------------------------------------------------------------------------------------------

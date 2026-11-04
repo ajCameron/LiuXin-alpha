@@ -228,19 +228,43 @@ def test_item_owner_reads_filter_in_sql_and_observe_rollback(db, monkeypatch):
 
 
 def test_pages_bound_materialization_and_preserve_completion(db, monkeypatch):
+    from LiuXin_alpha.databases.database_driver_plugins.SQL.macros import (
+        portable_macros_mixin,
+    )
+
     ids = [
         db.macros.insert_row("digital_assets", {"digital_asset_name": "page"})
         for _ in range(5)
     ]
     seen = []
-    original = db.macros._mapping_rows
+    original = portable_macros_mixin.read_page
+    closed = []
 
-    def capture(columns, cursor):
-        rows = original(columns, cursor)
-        seen.append(len(rows))
-        return rows
+    class ObservedCursor:
+        def __init__(self, cursor):
+            self.cursor = cursor
 
-    monkeypatch.setattr(db.macros, "_mapping_rows", capture)
+        def __iter__(self):
+            seen.append(0)
+            for row in self.cursor:
+                seen[-1] += 1
+                yield row
+
+        def close(self):
+            self.cursor.close()
+            closed.append(True)
+
+    class ObservedConnection:
+        def __init__(self, connection):
+            self.connection = connection
+
+        def execute(self, sql, values):
+            return ObservedCursor(self.connection.execute(sql, values))
+
+    def capture(connection, **kwargs):
+        return original(ObservedConnection(connection), **kwargs)
+
+    monkeypatch.setattr(portable_macros_mixin, "read_page", capture)
     runtime = SimpleNamespace(database=db)
     for offset, limit, expected, complete in (
         (0, 2, ids[:2], False),
@@ -250,6 +274,7 @@ def test_pages_bound_materialization_and_preserve_completion(db, monkeypatch):
         (50, 3, [], True),
     ):
         seen.clear()
+        closed.clear()
         result = CoreStorageGraphAPI.resource_list(
             runtime,
             CoreQuery(
@@ -265,6 +290,7 @@ def test_pages_bound_materialization_and_preserve_completion(db, monkeypatch):
         assert [row["id"] for row in result["records"]] == expected
         assert result["complete"] is complete
         assert seen == [min(limit + 1, max(0, 5 - offset))]
+        assert closed == [True]
     for bad in (True, -1, 1.5, "2"):
         with pytest.raises(InputIntegrityError):
             db.macros.get_rows_page("digital_assets", limit=bad)
@@ -358,3 +384,33 @@ def test_backup_readers_roundtrip_on_production_database(db, tmp_path, monkeypat
     assert db.metadata_sql.get_backup_workflow_outputs_for_workflows([workflow_id]) == {
         workflow_id: ()
     }
+
+
+def test_relationship_readers_reject_absent_specs_before_querying():
+    queries = []
+
+    def unexpected_query(*args, **kwargs):
+        queries.append((args, kwargs))
+        pytest.fail("Missing relationships must be rejected before querying rows")
+
+    db = SimpleNamespace(
+        driver_wrapper=SimpleNamespace(get_link_spec=lambda source, target: None),
+        macros=SimpleNamespace(
+            get_linked_rows=unexpected_query, get_link_counts_bulk=unexpected_query
+        ),
+    )
+    readers = metadata_sql.MetadataSQL(db)
+    for target in "agents comments notes synopses genres subjects labels languages ratings images folders devices stores digital_assets composite_digital_assets tags series files".split():
+        with pytest.raises(InputIntegrityError, match="No physical relationship"):
+            getattr(readers, f"get_{target}_linked_from")("works", 1)
+    for reader in (
+        readers.get_works_for_expression,
+        readers.get_expressions_for_work,
+        readers.get_manifestations_for_expression,
+        readers.get_expressions_for_manifestation,
+    ):
+        with pytest.raises(InputIntegrityError, match="No physical relationship"):
+            reader(1)
+    with pytest.raises(InputIntegrityError, match="No physical relationship"):
+        readers.count_works_linked_from("expressions", [1])
+    assert queries == []

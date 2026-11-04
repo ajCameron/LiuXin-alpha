@@ -1,4 +1,3 @@
-
 """
 Manage legacy custom-column definitions, physical tables and deferred deletion.
 
@@ -12,22 +11,28 @@ they own. Compatibility table creation remains SQLite-specific.
 from __future__ import annotations
 
 # Todo: Swap out to our hardened parser
+from LiuXin_alpha.databases.database_driver_plugins._macro_state import (
+    MacroHostState,
+    macro_connection,
+    macro_operations,
+)
 import json
 from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Any
+from typing import Any
+from LiuXin_alpha.databases.db_types.driver_types import SQLConnection, QueryConnection
+from LiuXin_alpha.databases.database_driver_plugins.SQL.macros.cc_macros_mixin._reads import (
+    read_rows,
+)
+from LiuXin_alpha.errors import DatabaseIntegrityError
 
 from LiuXin_alpha.databases.normalized_identities import normalize_identity_value
 from LiuXin_alpha.databases.transactions import transaction_active, transaction_scope
 from LiuXin_alpha.metadata.value_policies import ColumnNormalizationProfile
 from LiuXin_alpha.utils.language_tools import plural_singular_mapper
 
-if TYPE_CHECKING:
 
-    from LiuXin_alpha.databases.api.database_api import DatabaseAPI
-
-
-class CustomColumnsManagementMacrosMixin:
+class CustomColumnsManagementMacrosMixin(MacroHostState):
     """
     Supply custom-column definition operations to a database-backed macro host.
 
@@ -40,8 +45,6 @@ class CustomColumnsManagementMacrosMixin:
     For example, mark_custom_column_for_delete(7) sets the definition's flag;
     delete_marked_custom_columns() later removes its physical storage and row.
     """
-
-    db: "DatabaseAPI"
 
     def mark_cc_for_delete(self, cc_column_id: int) -> None:
         """
@@ -70,7 +73,7 @@ class CustomColumnsManagementMacrosMixin:
         is_editable: bool | None = None,
         display: Mapping[str, Any] | None = None,
         in_table: str | None = None,
-        conn=None,
+        conn: SQLConnection | None = None,
     ) -> bool:
         """Update definition fields in one owned transaction or borrowed savepoint.
 
@@ -79,8 +82,10 @@ class CustomColumnsManagementMacrosMixin:
         and normalized names before issuing one UPDATE. A failure preserves the
         previous definition and any caller-owned writes.
         """
-        headings = set(self.db.driver_wrapper.get_column_headings("custom_columns"))
-        values = {}
+        headings = set(
+            self._macro_database.driver_wrapper.get_column_headings("custom_columns")
+        )
+        values: dict[str, Any] = {}
         for suffix, value in (("name", name), ("label", label)):
             if value is not None:
                 field = "custom_column_" + suffix
@@ -104,7 +109,9 @@ class CustomColumnsManagementMacrosMixin:
                 finally:
                     cursor.close()
                 if row is not None and row[0] != in_table:
-                    raise ValueError("Changing a custom column's attachment requires a storage migration")
+                    raise ValueError(
+                        "Changing a custom column's attachment requires a storage migration"
+                    )
             if not values:
                 return False
             assignments = ", ".join(f'"{field}"=?' for field in values)
@@ -115,15 +122,17 @@ class CustomColumnsManagementMacrosMixin:
         return True
 
     @contextmanager
-    def _cc_transaction(self, conn=None) -> Iterator[Any]:
+    def _cc_transaction(
+        self, conn: SQLConnection | None = None
+    ) -> Iterator[SQLConnection]:
         """Use the active macro connection, preserving any enclosing transaction."""
-        connection = self._macro_connection() if conn is None else conn
+        connection = macro_connection(self) if conn is None else conn
         with transaction_scope(
             connection, owns_transaction=not transaction_active(connection)
         ) as active:
             yield active
 
-    def delete_marked_custom_columns(self, conn=None) -> None:
+    def delete_marked_custom_columns(self, conn: SQLConnection | None = None) -> None:
         """Select and remove marked definitions/storage in one SQLite transaction.
 
         Use the macro transaction connection when present, otherwise the primary
@@ -139,25 +148,26 @@ class CustomColumnsManagementMacrosMixin:
             finally:
                 cursor.close()
             objects = {
-                int(num): self.db.driver_wrapper.custom_table_names(int(num), in_table=in_table)
+                int(num): self._macro_database.driver_wrapper.custom_table_names(
+                    int(num), in_table=in_table
+                )
                 for num, in_table in rows
             }
             self.preform_cc_column_delete_from_map(objects, conn=active)
-
 
     def create_cc_table(
         self,
         normalized: bool,
         # Todo: We can type this.
         datatype: str,
-        dt,
+        dt: str,
         table: str,
-        link_table,
-        collate,
-        in_table="books",
-        ordered = False,
-        conn=None,
-    ):
+        link_table: str,
+        collate: str,
+        in_table: str = "books",
+        ordered: bool = False,
+        conn: SQLConnection | None = None,
+    ) -> None:
         """Create SQLite custom-column tables and helper objects atomically.
 
         A supplied connection participates through a savepoint when already in a
@@ -178,15 +188,14 @@ class CustomColumnsManagementMacrosMixin:
         :return: None; failure rolls back this call's DDL statements.
         """
         supplied_conn = conn
-        conn = conn if conn is not None else self.db.driver.conn
+        conn = conn if conn is not None else self._macro_database.driver.conn
 
-        in_table_id_col = self.db.driver_wrapper.get_id_column(in_table)
+        in_table_id_col = self._macro_database.driver_wrapper.get_id_column(in_table)
 
         cc_table = table
         cc_table_col = plural_singular_mapper(cc_table)
 
         if normalized:
-
             lt_col = plural_singular_mapper(link_table)
 
             if datatype == "series":
@@ -217,11 +226,13 @@ class CustomColumnsManagementMacrosMixin:
                     {lt_col}_value INTEGER NOT NULL,
                     {s_index}
                     UNIQUE({lt_col}_book, {lt_col}_value)
-                    );""".format(
-                    lt=link_table, s_index=s_index, lt_col=lt_col
+                    );""".format(lt=link_table, s_index=s_index, lt_col=lt_col),
+                "CREATE INDEX {lt}_aidx ON {lt} ({lt_col}_value);".format(
+                    lt=link_table, lt_col=lt_col
                 ),
-                "CREATE INDEX {lt}_aidx ON {lt} ({lt_col}_value);".format(lt=link_table, lt_col=lt_col),
-                "CREATE INDEX {lt}_bidx ON {lt} ({lt_col}_book);".format(lt=link_table, lt_col=lt_col),
+                "CREATE INDEX {lt}_bidx ON {lt} ({lt_col}_book);".format(
+                    lt=link_table, lt_col=lt_col
+                ),
                 # Todo: Need tests for these triggers
                 # Update trigger on left link - the link to the table the cc is in - check the value it's in actually
                 # exists
@@ -237,7 +248,6 @@ class CustomColumnsManagementMacrosMixin:
                 """.format(
                     lt=link_table,
                     lt_col=lt_col,
-                    table=cc_table,
                     in_table=in_table,
                     in_table_id_col=in_table_id_col,
                 ),
@@ -293,7 +303,7 @@ class CustomColumnsManagementMacrosMixin:
                     cc_table=cc_table,
                     cc_table_col=cc_table_col,
                 ),
-                            ]
+            ]
 
             # Tag browser helper views (Calibre-style).
             #
@@ -325,6 +335,8 @@ class CustomColumnsManagementMacrosMixin:
                 :return: True for a fetched physical-table row; False for no row or a
                     caught exception.
                 """
+                if conn is None:
+                    return False
                 try:
                     row = conn.execute(
                         "SELECT 1 FROM sqlite_master WHERE type='table' AND name=? LIMIT 1;",
@@ -446,7 +458,6 @@ class CustomColumnsManagementMacrosMixin:
                     ]
                 )
         else:
-
             lines = [
                 """
                 CREATE TABLE {cc_table}(
@@ -495,9 +506,11 @@ class CustomColumnsManagementMacrosMixin:
         # Each generated entry is one complete statement, including trigger bodies.
         # executescript would implicitly commit SQLite's enclosing transaction.
         scope = (
-            self.transaction()
+            macro_operations(self).transaction()
             if supplied_conn is None
-            else transaction_scope(conn, owns_transaction=not transaction_active(conn))
+            else transaction_scope(
+                supplied_conn, owns_transaction=not transaction_active(supplied_conn)
+            )
         )
         with scope as active:
             for statement in lines:
@@ -530,7 +543,9 @@ class CustomColumnsManagementMacrosMixin:
         :param num: Custom-column definition ID bound to custom_column_id.
         :return: None; the wrapper result is discarded.
         """
-        self.db.driver_wrapper.execute("DELETE FROM custom_columns WHERE custom_column_id=?", (num,))
+        self._macro_database.driver_wrapper.execute(
+            "DELETE FROM custom_columns WHERE custom_column_id=?", (num,)
+        )
 
     def do_custom_column_delete_by_id(self, cc_id: int) -> None:
         """
@@ -559,7 +574,7 @@ class CustomColumnsManagementMacrosMixin:
         :return: None; no affected-row count is checked.
         """
         del_stmt = "DELETE FROM custom_columns WHERE custom_column_id=?;"
-        self.db.driver_wrapper.execute(del_stmt, cc_id)
+        self._macro_database.driver_wrapper.execute(del_stmt, cc_id)
 
     def mark_custom_column_for_delete(self, num: int) -> None:
         """
@@ -580,7 +595,9 @@ class CustomColumnsManagementMacrosMixin:
         """
         self.mark_cc_for_delete(num)
 
-    def get_all_cc_ids_marked_for_delete(self, conn = None) -> list[int]:
+    def get_all_cc_ids_marked_for_delete(
+        self, conn: QueryConnection | None = None
+    ) -> list[int]:
         """
         Collect IDs whose deferred-deletion flag equals 1 on the selected connection.
 
@@ -603,16 +620,27 @@ class CustomColumnsManagementMacrosMixin:
         :return: A list of returned ID cells, possibly empty, despite the int-only
             annotation.
         """
-        conn = conn if conn is not None else self.db.driver.conn
+        conn = conn if conn is not None else self._macro_database.driver.conn
 
         ids_list = []
-        for record in conn.get(
-            "SELECT custom_column_id " "FROM custom_columns " "WHERE custom_column_mark_for_delete=1;"
+        if conn is None:
+            raise DatabaseIntegrityError(
+                "Custom-column reads have no active connection"
+            )
+        for record in read_rows(
+            conn,
+            "SELECT custom_column_id "
+            "FROM custom_columns "
+            "WHERE custom_column_mark_for_delete=1;",
         ):
             ids_list.append(record[0])
         return ids_list
 
-    def preform_cc_column_delete_from_map(self, num_table_lt_map: dict[int, tuple[str, str]], conn=None) -> None:
+    def preform_cc_column_delete_from_map(
+        self,
+        num_table_lt_map: dict[int, tuple[str, str]],
+        conn: SQLConnection | None = None,
+    ) -> None:
         """Atomically drop mapped SQLite objects and their marked definitions.
 
         IDs restrict the definition DELETE. Empty mappings do nothing; unmarked

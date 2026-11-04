@@ -1,4 +1,3 @@
-
 """
 Specify physical custom-value tables and their relationship layouts.
 
@@ -8,8 +7,6 @@ values and reusable linked values; unsupported normalization modes remain explic
 """
 
 import abc
-
-from typing import Iterable, Any
 
 
 class DriverCustomColumnsMixinAPI(abc.ABC):
@@ -51,11 +48,12 @@ class DriverCustomColumnsMixinAPI(abc.ABC):
 
     @abc.abstractmethod
     def direct_create_custom_column(
-            self,
-            in_table: str,
-            column_name: str,
-            data_type: str = 'TEXT',
-            multi: bool = False) -> None:
+        self,
+        in_table: str,
+        column_name: str,
+        data_type: str = "TEXT",
+        multi: bool | str = False,
+    ) -> str:
         """
         Dispatch physical custom-column creation by relationship type.
 
@@ -64,8 +62,8 @@ class DriverCustomColumnsMixinAPI(abc.ABC):
 
         Falsy multi selects inline one-to-one; True selects many_many. Other supported
         values are one_many and many_one. Reject custom_columns as a target by assertion
-        and unknown modes with NotImplementedError. Despite the annotation, return the
-        created table name from the selected helper.
+        and unknown modes with NotImplementedError. Return the created table name
+        from the selected helper.
 
         Example:
             >>> driver.direct_create_custom_column("works", "note")  # doctest: +SKIP
@@ -82,9 +80,7 @@ class DriverCustomColumnsMixinAPI(abc.ABC):
 
     @abc.abstractmethod
     def direct_create_many_many_custom_column(
-            self,
-            target_table: str,
-            custom_column_name: str
+        self, target_table: str, custom_column_name: str
     ) -> str:
         """
         Create shared custom values and strict many-to-many links without optional
@@ -110,9 +106,7 @@ class DriverCustomColumnsMixinAPI(abc.ABC):
 
     @abc.abstractmethod
     def direct_create_many_to_one_custom_column(
-            self,
-            target_table: str,
-            custom_column_name: str
+        self, target_table: str, custom_column_name: str
     ) -> str:
         """
         Create reusable custom values with at most one linked value per parent.
@@ -137,10 +131,8 @@ class DriverCustomColumnsMixinAPI(abc.ABC):
 
     @abc.abstractmethod
     def direct_create_one_to_many_custom_column(
-            self,
-            target_table: str,
-            custom_column_name: str,
-            datatype: str = 'TEXT') -> str:
+        self, target_table: str, custom_column_name: str, datatype: str = "TEXT"
+    ) -> str:
         """
         Create a value table and exclusive one-to-many links plus an unlink cleanup
         trigger.
@@ -166,11 +158,12 @@ class DriverCustomColumnsMixinAPI(abc.ABC):
 
     @abc.abstractmethod
     def direct_create_one_to_one_custom_column(
-            self,
-            target_table: str,
-            custom_column_name: str,
-            datatype: str = 'TEXT',
-            normalized: bool = False) -> str:
+        self,
+        target_table: str,
+        custom_column_name: str,
+        datatype: str = "TEXT",
+        normalized: bool = False,
+    ) -> str:
         """
         Create an inline custom-value table with a unique parent reference and cascade
         FK.

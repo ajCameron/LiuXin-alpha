@@ -1,4 +1,3 @@
-
 """
 Declare the legacy SQL macro surface alongside inherited portable macros.
 
@@ -12,51 +11,37 @@ PortableMacrosAPI for the backend-neutral record-based operations.
 from __future__ import annotations
 
 import abc
-import datetime
-import sqlite3
-from collections.abc import Iterable, Mapping
-from typing import TYPE_CHECKING, Any, Optional, Union
+from collections.abc import Callable, Iterable, Mapping, Sequence
+from LiuXin_alpha.databases.db_types.driver_types import (
+    SQLConnection,
+    SQLCursor,
+    SQLParameters,
+    QueryCursor,
+)
+from typing import Any, Literal, overload
 
-from LiuXin_alpha.databases.api.portable_macros_api import PortableMacrosAPI
+from LiuXin_alpha.databases.api.portable_macros_api import DatabaseMacrosAPI
+from LiuXin_alpha.databases.db_types.macro_types import LegacyLinkData
 from LiuXin_alpha.databases.db_types.driver_types import (
     QueryConnection,
 )
 
-if TYPE_CHECKING:
-    from LiuXin_alpha.databases.api.database_api.database_api import DatabaseAPI
-
-
-class MacrosAPI(PortableMacrosAPI, abc.ABC):
+class MacrosAPI(DatabaseMacrosAPI, abc.ABC):
     """
     Specify database-bound SQL shortcuts and custom-column compatibility operations.
 
     Inherit portable link/identity/transaction operations and declare the older macro
     methods expected by SQLiteDatabaseMacros. Implementations must provide abstract
-    methods and callable properties. Legacy annotations do not consistently describe
-    nullable or row-shaped query results. No shared transaction or cache-invalidation
+    methods and callable properties. Results distinguish nullable scalars from
+    row lists and typed link groups. No shared transaction or cache-invalidation
     guarantee applies to every method; consult each operation’s concrete behavior.
 
     Example:
-        macros: MacrosAPI = db.macros
+        macros = require_legacy_macros(db.macros)
         linked = macros.get_link_data("works", "agents", work_id)
     """
 
-    @abc.abstractmethod
-    def __init__(self, db: "DatabaseAPI") -> None:
-        """
-        Bind a concrete macro provider to its database host.
 
-        SQLiteDatabaseMacros delegates to MacrosBase, which stores db without opening an
-        additional connection here.
-
-        Example:
-            macros = SQLiteDatabaseMacros(db)
-
-
-        :param db: Database providing driver_wrapper, driver connections, row helpers
-            and portable macro services.
-        :return: None; the abstract method supplies no implementation.
-        """
 
     @staticmethod
     @abc.abstractmethod
@@ -95,7 +80,15 @@ class MacrosAPI(PortableMacrosAPI, abc.ABC):
         ...
 
     @abc.abstractmethod
-    def add_cc_link_with_extra(self, lt, book_id, value_id, extra=None, conn=None, target_column='value'):
+    def add_cc_link_with_extra(
+        self,
+        lt: str,
+        book_id: int,
+        value_id: int,
+        extra: Any = None,
+        conn: SQLConnection | None = None,
+        target_column: str = "value",
+    ) -> None:
         """
         Insert one conventional owner/value link with an optional extra value.
 
@@ -121,7 +114,14 @@ class MacrosAPI(PortableMacrosAPI, abc.ABC):
         ...
 
     @abc.abstractmethod
-    def add_cc_link_with_extra_multi(self, lt, sequence, extra=False, conn=None, target_column='value'):
+    def add_cc_link_with_extra_multi(
+        self,
+        lt: str,
+        sequence: Iterable[SQLParameters],
+        extra: bool = False,
+        conn: SQLConnection | None = None,
+        target_column: str = "value",
+    ) -> None:
         """
         Insert owner/value pairs or owner/value/extra triples in bulk.
 
@@ -147,7 +147,9 @@ class MacrosAPI(PortableMacrosAPI, abc.ABC):
         ...
 
     @abc.abstractmethod
-    def add_cc_table_value(self, table, value, conn=None):
+    def add_cc_table_value(
+        self, table: str, value: Any, conn: SQLConnection | None = None
+    ) -> int | None:
         """
         Insert one value into a conventional custom value table.
 
@@ -168,20 +170,19 @@ class MacrosAPI(PortableMacrosAPI, abc.ABC):
 
         ...
 
-
-
-
-
-
-
     @abc.abstractmethod
-    def break_cc_links_by_book_id(self, lt, book_id, conn=None):
+    def break_cc_links_by_book_id(
+        self,
+        lt: str,
+        book_id: str | int | Iterable[str | int | tuple[str | int]],
+        conn: SQLConnection | None = None,
+    ) -> None:
         """
         Delete conventional custom links for one owner or a supported owner collection.
 
-        Single IDs use execute. Collections with conn become one-item binding tuples;
-        the default path forwards a flat tuple to db.executemany or its driver fallback,
-        so standard executemany adapters may reject it. No explicit commit occurs here.
+        Single IDs use execute. Bulk inputs may contain scalar IDs or one-cell
+        parameter tuples; both connection paths submit one binding per owner.
+        No explicit commit or rollback occurs here.
 
         Example:
             macros.break_cc_links_by_book_id(link_table, [1, 2], conn=conn)
@@ -199,7 +200,9 @@ class MacrosAPI(PortableMacrosAPI, abc.ABC):
         ...
 
     @abc.abstractmethod
-    def break_cc_links_by_book_id_and_value(self, lt, book_id, value_id, conn=None):
+    def break_cc_links_by_book_id_and_value(
+        self, lt: str, book_id: int, value_id: int, conn: SQLConnection | None = None
+    ) -> None:
         """
         Delete one owner/value pair through the default driver connection.
 
@@ -220,7 +223,7 @@ class MacrosAPI(PortableMacrosAPI, abc.ABC):
         ...
 
     @abc.abstractmethod
-    def break_cc_lt_link(self, lt, book, value=None):
+    def break_cc_lt_link(self, lt: str, book: int, value: int | None = None) -> None:
         """
         Delete all owner links or restrict deletion to a truthy value ID.
 
@@ -240,16 +243,14 @@ class MacrosAPI(PortableMacrosAPI, abc.ABC):
 
         ...
 
-
-
-
-
-
-
-
-
     @abc.abstractmethod
-    def bulk_add_links(self, link_table, src_col, dst_col, values):
+    def bulk_add_links(
+        self,
+        link_table: str,
+        src_col: str,
+        dst_col: str,
+        values: Iterable[tuple[int, int]],
+    ) -> None:
         """
         Insert endpoint pairs and assign increasing priorities when the schema has them.
 
@@ -273,7 +274,9 @@ class MacrosAPI(PortableMacrosAPI, abc.ABC):
         ...
 
     @abc.abstractmethod
-    def bulk_delete_in_table(self, table, column, column_values):
+    def bulk_delete_in_table(
+        self, table: str, column: str, column_values: Iterable[Iterable[Any]]
+    ) -> None:
         """Delete equality matches through the portable transaction owner.
 
         Validate the table, column and all one-cell bindings before writing.
@@ -284,8 +287,8 @@ class MacrosAPI(PortableMacrosAPI, abc.ABC):
 
     @abc.abstractmethod
     def bulk_delete_items_in_table_two_matching_cols(
-        self, table, col_1, col_2, column_values
-    ):
+        self, table: str, col_1: str, col_2: str, column_values: Iterable[Iterable[Any]]
+    ) -> None:
         """Delete matching column pairs through the portable transaction owner.
 
         Validate both physical columns and every binding before effects. Bind
@@ -295,7 +298,13 @@ class MacrosAPI(PortableMacrosAPI, abc.ABC):
         ...
 
     @abc.abstractmethod
-    def bulk_update_link_table(self, link_table, update_column, other_column, values):
+    def bulk_update_link_table(
+        self,
+        link_table: str,
+        update_column: str,
+        other_column: str,
+        values: Iterable[tuple[Any, Any, Any]],
+    ) -> None:
         """
         Replace a link column where its old value and a second column both match.
 
@@ -314,7 +323,13 @@ class MacrosAPI(PortableMacrosAPI, abc.ABC):
         ...
 
     @abc.abstractmethod
-    def check_for_cc_link(self, link_table: str, book_id: int, value_id: int, conn: Optional[sqlite3.Connection]=None) -> bool:
+    def check_for_cc_link(
+        self,
+        link_table: str,
+        book_id: int,
+        value_id: int,
+        conn: QueryConnection | None = None,
+    ) -> int | None:
         """
         Look up the owner ID for a conventional custom owner/value link.
 
@@ -337,14 +352,13 @@ class MacrosAPI(PortableMacrosAPI, abc.ABC):
 
         ...
 
-
-
-
-
-
-
     @abc.abstractmethod
-    def clean_custom(self, cc_num_map, cc_table_name_factory=None, conn=None):
+    def clean_custom(
+        self,
+        cc_num_map: Mapping[int, Mapping[str, Any]],
+        cc_table_name_factory: Callable[[int], tuple[str, str]] | None = None,
+        conn: SQLConnection | None = None,
+    ) -> None:
         """
         Prune unlinked values from every normalized custom column in a metadata map.
 
@@ -368,7 +382,9 @@ class MacrosAPI(PortableMacrosAPI, abc.ABC):
         ...
 
     @abc.abstractmethod
-    def clear_cc_entries_from_table(self, table, book_id, conn=None):
+    def clear_cc_entries_from_table(
+        self, table: str, book_id: int, conn: SQLConnection | None = None
+    ) -> None:
         """
         Delete custom-table entries belonging to one conventional book owner.
 
@@ -389,7 +405,9 @@ class MacrosAPI(PortableMacrosAPI, abc.ABC):
         ...
 
     @abc.abstractmethod
-    def clear_cc_unused_table_entries(self, table, lt, conn=None):
+    def clear_cc_unused_table_entries(
+        self, table: str, lt: str, conn: SQLConnection | None = None
+    ) -> None:
         """
         Attempt to prune values with no matching row in a custom link table.
 
@@ -411,26 +429,19 @@ class MacrosAPI(PortableMacrosAPI, abc.ABC):
 
         ...
 
-
-
-
-
-
-
-
     @abc.abstractmethod
     def create_cc_table(
         self,
         normalized: bool,
         datatype: str,
-        dt,
+        dt: str,
         table: str,
-        link_table,
-        collate,
-        in_table='books',
-        ordered=False,
-        conn=None,
-    ):
+        link_table: str,
+        collate: str,
+        in_table: str = "books",
+        ordered: bool = False,
+        conn: SQLConnection | None = None,
+    ) -> None:
         """Create SQLite custom-column storage in one owned or borrowed unit.
 
         Execute complete DDL statements individually. A supplied active connection
@@ -442,7 +453,9 @@ class MacrosAPI(PortableMacrosAPI, abc.ABC):
         ...
 
     @abc.abstractmethod
-    def create_cc_temp_tables(self, temp_tables: Iterable[str], conn: Any=None) -> None:
+    def create_cc_temp_tables(
+        self, temp_tables: Iterable[str], conn: SQLConnection | None = None
+    ) -> None:
         """
         Replace named temporary ID tables on the chosen connection.
 
@@ -463,10 +476,10 @@ class MacrosAPI(PortableMacrosAPI, abc.ABC):
 
         ...
 
-
-
     @abc.abstractmethod
-    def delete_cc_item(self, table, lt, target_id, conn=None):
+    def delete_cc_item(
+        self, table: str, lt: str, target_id: int, conn: SQLConnection | None = None
+    ) -> None:
         """
         Delete links to one custom value, then delete the value row and commit.
 
@@ -487,12 +500,10 @@ class MacrosAPI(PortableMacrosAPI, abc.ABC):
 
         ...
 
-
-
-
-
     @abc.abstractmethod
-    def delete_from_cc_table_by_id(self, table, target_id, conn=None):
+    def delete_from_cc_table_by_id(
+        self, table: str, target_id: int, conn: SQLConnection | None = None
+    ) -> None:
         """
         Delete custom value rows matching the conventional ID column.
 
@@ -513,7 +524,7 @@ class MacrosAPI(PortableMacrosAPI, abc.ABC):
         ...
 
     @abc.abstractmethod
-    def delete_from_cc_table_by_value(self, table, target_id):
+    def delete_from_cc_table_by_value(self, table: str, target_id: Any) -> None:
         """
         Delete custom rows by stored value rather than row ID.
 
@@ -530,7 +541,7 @@ class MacrosAPI(PortableMacrosAPI, abc.ABC):
         ...
 
     @abc.abstractmethod
-    def delete_in_table(self, table, column, value):
+    def delete_in_table(self, table: str, column: str, value: Any) -> None:
         """Delete equality matches through the validated portable row primitive.
 
         The selected column need not be unique. No match is a no-op, and None
@@ -538,12 +549,10 @@ class MacrosAPI(PortableMacrosAPI, abc.ABC):
         """
         ...
 
-
-
-
-
     @abc.abstractmethod
-    def destroy_cc_temp_tables(self, temp_tables: Iterable[str], conn: Any=None) -> None:
+    def destroy_cc_temp_tables(
+        self, temp_tables: Iterable[str], conn: SQLConnection | None = None
+    ) -> None:
         """
         Drop named temporary tables without touching namesakes in the main schema.
 
@@ -563,7 +572,9 @@ class MacrosAPI(PortableMacrosAPI, abc.ABC):
         ...
 
     @abc.abstractmethod
-    def direct_get_custom_and_extra(self, link_table, index, conn=None):
+    def direct_get_custom_and_extra(
+        self, link_table: str, index: int, conn: QueryConnection | None = None
+    ) -> Any:
         """
         Read only the extra scalar for the first custom link owned by a book.
 
@@ -586,7 +597,7 @@ class MacrosAPI(PortableMacrosAPI, abc.ABC):
         ...
 
     @abc.abstractmethod
-    def direct_get_custom_tables(self, conn=None) -> set[str]:
+    def direct_get_custom_tables(self, conn: QueryConnection | None = None) -> set[str]:
         """
         Discover custom value/link table names from SQLite schema metadata.
 
@@ -604,32 +615,17 @@ class MacrosAPI(PortableMacrosAPI, abc.ABC):
 
         ...
 
-    @abc.abstractmethod
-    def direct_update_column_in_table(self, table, column, table_id_col, item_id, new_value):
-        """
-        Update one physical column and its known normalized identity when available.
-
-        If a default identity declaration exists and its identity column is present,
-        derive and write both values in one statement. Otherwise update only the
-        requested column. This bypasses Row.sync and does not explicitly refresh caches.
-
-        Example:
-            macros.direct_update_column_in_table("tags", "tag", "tag_id", 7, "History")
-
-
-        :param table: Trusted physical table name.
-        :param column: Column receiving new_value.
-        :param table_id_col: Column used to select the target row.
-        :param item_id: ID or key value matched in table_id_col.
-        :param new_value: Replacement stored value; None also clears an available
-            identity column.
-        :return: None; the abstract method supplies no implementation.
-        """
-
-        ...
 
     @abc.abstractmethod
-    def do_cc_db_bulk_addition(self, temp_tables, custom_table, link_table, add, remove, conn=None):
+    def do_cc_db_bulk_addition(
+        self,
+        temp_tables: tuple[str, str, str],
+        custom_table: str,
+        link_table: str,
+        add: Sequence[Any],
+        remove: Sequence[Any],
+        conn: SQLConnection | None = None,
+    ) -> None:
         """
         Add and remove existing custom values for owner IDs staged in temporary tables.
 
@@ -718,41 +714,15 @@ class MacrosAPI(PortableMacrosAPI, abc.ABC):
 
         ...
 
-    @property
-    @abc.abstractmethod
-    def execute(self):
-        """
-        Expose the host driver-wrapper single-statement executor.
 
-        This is a property returning a bound callable, not an execution performed while
-        reading the property.
-
-        Example:
-            macros.execute("SELECT 1")
-
-
-        :return: Callable db.driver_wrapper.execute on the current SQLite provider.
-        """
-
-        ...
-
-    @property
-    @abc.abstractmethod
-    def executemany(self):
-        """
-        Expose the host driver-wrapper batch executor.
-
-        Example:
-            macros.executemany("UPDATE tags SET tag=? WHERE tag_id=?", [("History", 7)])
-
-
-        :return: Callable db.driver_wrapper.executemany on the current SQLite provider.
-        """
-
-        ...
 
     @abc.abstractmethod
-    def generic_clean_update(self, link_table, link_col, value_for_clear):
+    def generic_clean_update(
+        self,
+        link_table: str,
+        link_col: str,
+        value_for_clear: int | Iterable[SQLParameters],
+    ) -> None:
         """
         Delete links selected by an integer or supplied batch bindings.
 
@@ -773,26 +743,11 @@ class MacrosAPI(PortableMacrosAPI, abc.ABC):
 
         ...
 
-    @property
-    @abc.abstractmethod
-    def get(self):
-        """
-        Expose the database host’s result-fetching compatibility helper.
-
-        Result shape and keyword handling belong to that host helper rather than this
-        abstract property.
-
-        Example:
-            rows = macros.get("SELECT tag_id FROM tags")
-
-
-        :return: Callable db.get supplied by the database host.
-        """
-
-        ...
 
     @abc.abstractmethod
-    def get_all_cc_custom_values(self, cc_table: str, distinct: bool=False, conn: Optional[sqlite3.Connection]=None) -> Iterable[Union[int, str, float]]:
+    def get_all_cc_custom_values(
+        self, cc_table: str, distinct: bool = False, conn: QueryConnection | None = None
+    ) -> list[Sequence[Any]]:
         """
         Select every stored custom value, optionally with SQL DISTINCT.
 
@@ -815,7 +770,9 @@ class MacrosAPI(PortableMacrosAPI, abc.ABC):
         ...
 
     @abc.abstractmethod
-    def get_all_cc_id_val_pairs(self, table: str, conn: QueryConnection | None = None) -> list[tuple[int, Any]]:
+    def get_all_cc_id_val_pairs(
+        self, table: str, conn: QueryConnection | None = None
+    ) -> list[tuple[int, Any]]:
         """
         Read ID/value rows from a conventional custom value table.
 
@@ -833,7 +790,9 @@ class MacrosAPI(PortableMacrosAPI, abc.ABC):
         ...
 
     @abc.abstractmethod
-    def get_all_cc_ids_marked_for_delete(self, conn=None) -> list[int]:
+    def get_all_cc_ids_marked_for_delete(
+        self, conn: QueryConnection | None = None
+    ) -> list[int]:
         """
         Collect metadata IDs whose deferred-delete flag equals one.
 
@@ -849,7 +808,9 @@ class MacrosAPI(PortableMacrosAPI, abc.ABC):
         ...
 
     @abc.abstractmethod
-    def get_all_table_link_data(self, table1, table2, typed=False, priority=False):
+    def get_all_table_link_data(
+        self, table1: str, table2: str, typed: bool = False, priority: bool = False
+    ) -> dict[int, LegacyLinkData]:
         """
         Read links for every primary row and shape them for legacy cache callers.
 
@@ -873,7 +834,9 @@ class MacrosAPI(PortableMacrosAPI, abc.ABC):
         ...
 
     @abc.abstractmethod
-    def get_cc_books_for_dirtying(self, table: str, link: str, id: int, conn: Optional[Any]=None) -> Iterable[str]:
+    def get_cc_books_for_dirtying(
+        self, table: str, link: str, id: int, conn: QueryConnection | None = None
+    ) -> list[Sequence[Any]]:
         """
         Read owner rows linked to a custom value through a conventional books link
         table.
@@ -898,7 +861,9 @@ class MacrosAPI(PortableMacrosAPI, abc.ABC):
         ...
 
     @abc.abstractmethod
-    def get_cc_books_from_link_table(self, lt: str, lt_value: Any) -> Iterable[int]:
+    def get_cc_books_from_link_table(
+        self, lt: str, lt_value: Any
+    ) -> list[Sequence[Any]]:
         """
         Read owner rows whose conventional custom-link value matches an ID.
 
@@ -917,7 +882,9 @@ class MacrosAPI(PortableMacrosAPI, abc.ABC):
         ...
 
     @abc.abstractmethod
-    def get_cc_id_and_value_from_id(self, custom_column: str, target_id: int, conn: Optional[sqlite3.Connection]=None) -> tuple[int, str]:
+    def get_cc_id_and_value_from_id(
+        self, custom_column: str, target_id: int, conn: QueryConnection | None = None
+    ) -> tuple[int, Any]:
         """
         Read the first ID/value row for a conventional custom-row ID.
 
@@ -936,8 +903,44 @@ class MacrosAPI(PortableMacrosAPI, abc.ABC):
 
         ...
 
+    @overload
     @abc.abstractmethod
-    def get_cc_id_from_value(self, target_table: str, cc_value: Union[str, int, datetime.datetime], all: bool=False, conn: Optional[sqlite3.Connection]=None) -> int:
+    def get_cc_id_from_value(
+        self,
+        target_table: str,
+        cc_value: Any,
+        all: Literal[False] = False,
+        conn: QueryConnection | None = None,
+    ) -> int | None: ...
+
+    @overload
+    @abc.abstractmethod
+    def get_cc_id_from_value(
+        self,
+        target_table: str,
+        cc_value: Any,
+        all: Literal[True],
+        conn: QueryConnection | None = None,
+    ) -> list[Sequence[Any]]: ...
+
+    @overload
+    @abc.abstractmethod
+    def get_cc_id_from_value(
+        self,
+        target_table: str,
+        cc_value: Any,
+        all: bool,
+        conn: QueryConnection | None = None,
+    ) -> int | None | list[Sequence[Any]]: ...
+
+    @abc.abstractmethod
+    def get_cc_id_from_value(
+        self,
+        target_table: str,
+        cc_value: Any,
+        all: bool = False,
+        conn: QueryConnection | None = None,
+    ) -> int | None | list[Sequence[Any]]:
         """
         Resolve custom-row IDs by SQL equality against the stored value.
 
@@ -960,7 +963,7 @@ class MacrosAPI(PortableMacrosAPI, abc.ABC):
         ...
 
     @abc.abstractmethod
-    def get_cc_id_value_from_cc_id(self, table: str, old_id: int) -> tuple[int, str]:
+    def get_cc_id_value_from_cc_id(self, table: str, old_id: int) -> tuple[int, Any]:
         """
         Read an existing custom ID/value row through the default connection.
 
@@ -979,10 +982,8 @@ class MacrosAPI(PortableMacrosAPI, abc.ABC):
     # Todo: This seems to be an interface weirdness
     @abc.abstractmethod
     def get_cc_lt_books_from_lt_value(
-            self,
-            lt: str,
-            value: Union[str, int, datetime.datetime],
-            conn: Optional[sqlite3.Connection]=None) -> Iterable[int]:
+        self, lt: str, value: Any, conn: QueryConnection | None = None
+    ) -> list[Sequence[Any]]:
         """
         Read owner rows for a stored custom-link value.
 
@@ -1004,10 +1005,11 @@ class MacrosAPI(PortableMacrosAPI, abc.ABC):
 
     @abc.abstractmethod
     def get_cc_series_index_indices(
-            self,
-            cc_series_link_table: str,
-            series_id: int,
-            conn: Optional[sqlite3.Connection] = None) -> tuple[Union[float, int], ...]:
+        self,
+        cc_series_link_table: str,
+        series_id: int,
+        conn: QueryConnection | None = None,
+    ) -> list[Sequence[Any]]:
         """
         Read ordered extras for owners linked to the selected custom series.
 
@@ -1031,10 +1033,8 @@ class MacrosAPI(PortableMacrosAPI, abc.ABC):
 
         ...
 
-
-
     @abc.abstractmethod
-    def get_dirtied_cache(self):
+    def get_dirtied_cache(self) -> dict[Any, int]:
         """
         Build a legacy owner-to-position map from metadata dirtiness rows.
 
@@ -1054,7 +1054,13 @@ class MacrosAPI(PortableMacrosAPI, abc.ABC):
         ...
 
     @abc.abstractmethod
-    def get_foreign_key_replacement_trigger(self, target_table, search_column='book', target_id='book_id', old=True):
+    def get_foreign_key_replacement_trigger(
+        self,
+        target_table: str,
+        search_column: str = "book",
+        target_id: str = "book_id",
+        old: bool = True,
+    ) -> str:
         """
         Build a DELETE fragment referring to the triggering row’s OLD key.
 
@@ -1075,33 +1081,16 @@ class MacrosAPI(PortableMacrosAPI, abc.ABC):
 
         ...
 
-    @abc.abstractmethod
-    def get_link_data(self, table1, table2, table1_id, typed=False, priority=False):
-        """
-        Return one primary row’s linked IDs in a legacy cache container.
-
-        The SQLite implementation delegates to portable link-row retrieval. With no link
-        spec, return an empty list or set based only on priority, even when typed=True.
-        List order follows link-row retrieval, and numeric priority values are not
-        included.
-
-        Example:
-            agents_by_role = macros.get_link_data("works", "agents", work_id,
-            typed=True, priority=True)
-
-
-        :param table1: Primary table.
-        :param table2: Secondary table resolved through the oriented link specification.
-        :param table1_id: Primary row ID.
-        :param typed: Group results by link_type when true.
-        :param priority: Use ordered lists instead of sets when true.
-        :return: Set/list of secondary IDs, or a defaultdict of per-type sets/lists.
-        """
-
-        ...
 
     @abc.abstractmethod
-    def get_linked_ids(self, link_table, left_id_col, right_id_col, left_id, type_filter=None):
+    def get_linked_ids(
+        self,
+        link_table: str,
+        left_id_col: str,
+        right_id_col: str,
+        left_id: int,
+        type_filter: Any = None,
+    ) -> set[int]:
         """
         Collect distinct right-endpoint IDs for one left endpoint.
 
@@ -1124,12 +1113,8 @@ class MacrosAPI(PortableMacrosAPI, abc.ABC):
 
         ...
 
-
-
-
-
     @abc.abstractmethod
-    def get_unique_values(self, table, column):
+    def get_unique_values(self, table: str, column: str) -> set[Any]:
         """
         Collect distinct stored values from one column using a Python set.
 
@@ -1148,7 +1133,14 @@ class MacrosAPI(PortableMacrosAPI, abc.ABC):
         ...
 
     @abc.abstractmethod
-    def get_values_one_condition(self, table, rtn_column, cond_column, value, default_value=None):
+    def get_values_one_condition[DefaultT](
+        self,
+        table: str,
+        rtn_column: str,
+        cond_column: str,
+        value: Any,
+        default_value: DefaultT | None = None,
+    ) -> set[Any] | DefaultT | None:
         """
         Collect values matching one SQL equality condition.
 
@@ -1194,7 +1186,9 @@ class MacrosAPI(PortableMacrosAPI, abc.ABC):
         ...
 
     @abc.abstractmethod
-    def insert_multiple_values_into_cc_table(self, table, values, conn=None):
+    def insert_multiple_values_into_cc_table(
+        self, table: str, values: Iterable[Any], conn: SQLConnection | None = None
+    ) -> None:
         """
         Insert each supplied scalar into a conventional custom value column.
 
@@ -1216,7 +1210,9 @@ class MacrosAPI(PortableMacrosAPI, abc.ABC):
         ...
 
     @abc.abstractmethod
-    def insert_values_into_temp_table(self, temp_table: str, values: Iterable[Any], conn: Any=None) -> None:
+    def insert_values_into_temp_table(
+        self, temp_table: str, values: Iterable[Any], conn: SQLConnection | None = None
+    ) -> None:
         """
         Insert scalar IDs into a previously created temporary one-column table.
 
@@ -1237,12 +1233,16 @@ class MacrosAPI(PortableMacrosAPI, abc.ABC):
 
         ...
 
-
-
-
-
     @abc.abstractmethod
-    def make_generic_link(self, link_table, left_link_col, right_link_col, priority_col, left_id, right_id):
+    def make_generic_link(
+        self,
+        link_table: str,
+        left_link_col: str,
+        right_link_col: str,
+        priority_col: str,
+        left_id: int,
+        right_id: int,
+    ) -> None:
         """
         Insert an endpoint pair at one above the source’s current maximum priority.
 
@@ -1267,7 +1267,15 @@ class MacrosAPI(PortableMacrosAPI, abc.ABC):
         ...
 
     @abc.abstractmethod
-    def make_generic_link_no_priority(self, link_table, left_link_col, right_link_col, left_id=None, right_id=None, id_pairs=None):
+    def make_generic_link_no_priority(
+        self,
+        link_table: str,
+        left_link_col: str,
+        right_link_col: str,
+        left_id: int | None = None,
+        right_id: int | None = None,
+        id_pairs: Iterable[tuple[int, int]] | None = None,
+    ) -> None:
         """
         Insert endpoint bindings using the legacy unprioritized column order.
 
@@ -1332,7 +1340,7 @@ class MacrosAPI(PortableMacrosAPI, abc.ABC):
         ...
 
     @abc.abstractmethod
-    def delete_marked_custom_columns(self, conn=None) -> None:
+    def delete_marked_custom_columns(self, conn: SQLConnection | None = None) -> None:
         """Select and remove marked definitions/storage in one SQLite transaction.
 
         Use the macro transaction connection when present, otherwise the primary
@@ -1340,7 +1348,11 @@ class MacrosAPI(PortableMacrosAPI, abc.ABC):
         """
 
     @abc.abstractmethod
-    def preform_cc_column_delete_from_map(self, num_table_lt_map: dict[int, tuple[str, str]], conn=None) -> None:
+    def preform_cc_column_delete_from_map(
+        self,
+        num_table_lt_map: dict[int, tuple[str, str]],
+        conn: SQLConnection | None = None,
+    ) -> None:
         """Atomically drop mapped SQLite objects and their marked definitions.
 
         IDs restrict the definition DELETE. Empty mappings do nothing; unmarked
@@ -1348,16 +1360,10 @@ class MacrosAPI(PortableMacrosAPI, abc.ABC):
         individually, so no executescript can commit a borrowed transaction.
         """
 
-
-
-
-
-
-
-
-
     @abc.abstractmethod
-    def read_cc_value_from_meta_2(self, num: int, book_id: int, conn: Optional[sqlite3.Connection]=None) -> Iterable[Union[int, str, float]]:
+    def read_cc_value_from_meta_2(
+        self, num: int, book_id: int, conn: QueryConnection | None = None
+    ) -> Any:
         """
         Read one custom_N projection value from the legacy meta2 view.
 
@@ -1378,11 +1384,10 @@ class MacrosAPI(PortableMacrosAPI, abc.ABC):
 
         ...
 
-
-
-
     @abc.abstractmethod
-    def read_link_property_trios(self, link_table, link_property_col, first_id, second_id):
+    def read_link_property_trios(
+        self, link_table: str, link_property_col: str, first_id: str, second_id: str
+    ) -> QueryCursor:
         """
         Execute a three-column read over every row of a link table.
 
@@ -1424,7 +1429,9 @@ class MacrosAPI(PortableMacrosAPI, abc.ABC):
         ...
 
     @abc.abstractmethod
-    def replace_in_folder_store_marker_path(self, target_str: str, replacement: str) -> None:
+    def replace_in_folder_store_marker_path(
+        self, target_str: str, replacement: str
+    ) -> None:
         """
         Replace literal text throughout stored folder_store_marker_path values.
 
@@ -1464,15 +1471,8 @@ class MacrosAPI(PortableMacrosAPI, abc.ABC):
 
         ...
 
-
-
-
-
-
-
-
     @abc.abstractmethod
-    def repoint_cc_lt_values(self, lt, new_id, old_id):
+    def repoint_cc_lt_values(self, lt: str, new_id: int, old_id: int) -> None:
         """
         Replace one conventional custom-link target ID everywhere it occurs.
 
@@ -1492,7 +1492,16 @@ class MacrosAPI(PortableMacrosAPI, abc.ABC):
         ...
 
     @abc.abstractmethod
-    def reprioritize_link(self, link_table, left_link_col, right_link_col, left_id, right_id, new_type=None, new_priority='MAX'):
+    def reprioritize_link(
+        self,
+        link_table: str,
+        left_link_col: str,
+        right_link_col: str,
+        left_id: int,
+        right_id: int,
+        new_type: Any = None,
+        new_priority: Literal["MAX"] = "MAX",
+    ) -> None:
         """
         Move matching endpoint links above the source’s current maximum priority.
 
@@ -1518,8 +1527,6 @@ class MacrosAPI(PortableMacrosAPI, abc.ABC):
 
         ...
 
-
-
     @abc.abstractmethod
     def set_custom_column_metadata(
         self,
@@ -1529,7 +1536,7 @@ class MacrosAPI(PortableMacrosAPI, abc.ABC):
         is_editable: bool | None = None,
         display: Mapping[str, Any] | None = None,
         in_table: str | None = None,
-        conn=None,
+        conn: SQLConnection | None = None,
     ) -> bool:
         """Update definition fields in one owned transaction or borrowed savepoint.
 
@@ -1539,9 +1546,8 @@ class MacrosAPI(PortableMacrosAPI, abc.ABC):
         previous definition and any caller-owned writes.
         """
 
-
     @abc.abstractmethod
-    def set_database_version(self, new_val):
+    def set_database_version(self, new_val: str) -> None:
         """
         Replace every stored database-version value, inserting one row if empty.
 
@@ -1558,13 +1564,8 @@ class MacrosAPI(PortableMacrosAPI, abc.ABC):
 
         ...
 
-
-
-
-
-
     @abc.abstractmethod
-    def set_library_id(self, new_val):
+    def set_library_id(self, new_val: str) -> None:
         """
         Replace every stored library UUID value, inserting one row if empty.
 
@@ -1581,15 +1582,14 @@ class MacrosAPI(PortableMacrosAPI, abc.ABC):
 
         ...
 
-
-
-
-
-
-
-
     @abc.abstractmethod
-    def update_cc_lt_value_by_value(self, lt, new_value_id, old_value_id, conn=None):
+    def update_cc_lt_value_by_value(
+        self,
+        lt: str,
+        new_value_id: int,
+        old_value_id: int,
+        conn: SQLConnection | None = None,
+    ) -> None:
         """
         Replace every occurrence of one custom-link target ID.
 
@@ -1612,7 +1612,13 @@ class MacrosAPI(PortableMacrosAPI, abc.ABC):
         ...
 
     @abc.abstractmethod
-    def update_cc_value(self, cc_column, cc_id, cc_value, conn=None):
+    def update_cc_value(
+        self,
+        cc_column: str,
+        cc_id: int,
+        cc_value: Any,
+        conn: SQLConnection | None = None,
+    ) -> SQLCursor | None:
         """
         Replace a custom row’s stored value by conventional row ID.
 
@@ -1634,7 +1640,9 @@ class MacrosAPI(PortableMacrosAPI, abc.ABC):
         ...
 
     @abc.abstractmethod
-    def update_column_in_table(self, table, column, table_id_col, item_id, new_value):
+    def update_column_in_table(
+        self, table: str, column: str, table_id_col: str, item_id: int, new_value: Any
+    ) -> None:
         """
         Replace a row field through the database Row interface and sync it.
 
@@ -1656,10 +1664,10 @@ class MacrosAPI(PortableMacrosAPI, abc.ABC):
 
         ...
 
-
-
     @abc.abstractmethod
-    def update_custom_column_additional_column_many(self, table, column, sequence):
+    def update_custom_column_additional_column_many(
+        self, table: str, column: str, sequence: Iterable[SQLParameters]
+    ) -> None:
         """
         Update an additional custom-link field for owner/value pairs in bulk.
 

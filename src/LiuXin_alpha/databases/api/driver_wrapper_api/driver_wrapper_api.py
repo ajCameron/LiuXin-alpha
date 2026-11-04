@@ -11,7 +11,7 @@ typed row containers and portable connection/cursor protocols.
 from __future__ import annotations
 
 import abc
-from collections.abc import Iterable, Iterator, Mapping
+from collections.abc import Iterable, Iterator, Mapping, Set
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -33,8 +33,12 @@ from LiuXin_alpha.databases.db_types.driver_types import (
 )
 
 if TYPE_CHECKING:
+    from queue import Queue
+    from threading import RLock
+
     from LiuXin_alpha.databases.api.database_api.database_api import DatabaseAPI
-    from LiuXin_alpha.databases.api.macros_api import MacrosAPI
+    from LiuXin_alpha.databases.api.driver_api import DatabaseDriverAPI
+    from LiuXin_alpha.databases.api.portable_macros_api import DatabaseMacrosAPI
     from LiuXin_alpha.databases.schema_specs import StorageLinkSpec
 
 
@@ -54,6 +58,33 @@ class DatabaseDriverWrapperAPI(SchemaIntrospectionAPI, QueryOperationsAPI):
     """
 
     db: DatabaseAPI | None
+    lock: RLock | None
+    all_tables: Set[str] | None
+    main_tables: Set[str] | None
+    interlink_tables: Set[str] | None
+    intralink_tables: Set[str] | None
+    helper_tables: Set[str] | None
+    dirtiable_tables: Set[str] | None
+    dirty_records_queue: Queue[tuple[str, int, str]] | None
+
+    @property
+    @abc.abstractmethod
+    def driver(self) -> DatabaseDriverAPI:
+        """Return the bound backend; a detached wrapper raises RuntimeError."""
+
+    @driver.setter
+    @abc.abstractmethod
+    def driver(self, driver: DatabaseDriverAPI) -> None:
+        """Bind a backend without transferring ownership of its connections."""
+
+    @abc.abstractmethod
+    def get_allowed_tables_snapshot(self) -> frozenset[str]:
+        """Snapshot populated table groups, falling back to relation discovery.
+
+        The concrete wrapper unions its cached groups first. If they are empty,
+        it queries tables and views, treating either discovery failure as empty.
+        The resulting names are not independently checked for existence.
+        """
 
     @abc.abstractmethod
     def __del__(self) -> None:
@@ -427,7 +458,7 @@ class DatabaseDriverWrapperAPI(SchemaIntrospectionAPI, QueryOperationsAPI):
     # Todo: Rename for greater clarity.
     # Todo: Might want to return the affected ids
     @abc.abstractmethod
-    def delete(self, target_table: str, column: str, value: Any) -> bool:
+    def delete(self, target_table: str, column: str, value: Any) -> bool | None:
         """
         Delete rows matching a scalar value or a list/set of values.
 
@@ -445,8 +476,8 @@ class DatabaseDriverWrapperAPI(SchemaIntrospectionAPI, QueryOperationsAPI):
         :param target_table: Table whose rows are affected.
         :param column: Column name in the selected table.
         :param value: Scalar match value, or list/set selecting the bulk deletion path.
-        :return: Unmodified driver result; shared SQL normally returns True after
-            execution.
+        :return: Unmodified driver result: shared SQL returns None for list/set
+            batches and True for scalar deletion; PostgreSQL returns True.
         """
 
     @abc.abstractmethod
@@ -1511,7 +1542,7 @@ class DatabaseDriverWrapperAPI(SchemaIntrospectionAPI, QueryOperationsAPI):
 
     @property
     @abc.abstractmethod
-    def macros(self) -> MacrosAPI:
+    def macros(self) -> DatabaseMacrosAPI:
         """
         Return the macro provider currently stored on the wrapper.
 
@@ -1639,7 +1670,7 @@ class DatabaseDriverWrapperAPI(SchemaIntrospectionAPI, QueryOperationsAPI):
         """
 
     @abc.abstractmethod
-    def set_macros(self, new_macros: MacrosAPI) -> None:
+    def set_macros(self, new_macros: DatabaseMacrosAPI) -> None:
         """
         Store a non-None macro provider on this wrapper.
 

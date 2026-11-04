@@ -109,7 +109,8 @@ class DriverWrapperQueryMixin(DriverWrapperBase):
                 active.execute(sql) if values is None else active.execute(sql, values)
             )
             try:
-                return cursor.fetchall()
+                rows = cursor.fetchall()
+                return rows if isinstance(rows, list) else list(rows)
             finally:
                 cursor.close()
 

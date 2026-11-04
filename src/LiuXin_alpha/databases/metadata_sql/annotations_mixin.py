@@ -32,7 +32,7 @@ class AnnotationsSQLMixin:
         Optional filters use exact stored values; None leaves them unfiltered.
         Read the current connection without committing or creating a snapshot.
         """
-        where = {}
+        where: dict[str, int | str] = {}
         if user_id is not None:
             where["annotation_user_id"] = user_id
         if kind is not None:

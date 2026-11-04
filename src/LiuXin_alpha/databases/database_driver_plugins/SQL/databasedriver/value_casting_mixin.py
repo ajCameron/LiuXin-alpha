@@ -18,10 +18,10 @@ import re
 from collections.abc import Mapping
 from typing import Any, Dict, Iterator, Optional, Sequence, Union
 
+from LiuXin_alpha.databases.db_types.column_types import ColumnOptions
 from LiuXin_alpha.databases.column_metadata import (
     COLUMN_METADATA_TABLE,
     ColumnMetadata,
-    ColumnOptions,
     column_options_from_json,
     column_options_to_json,
     default_column_metadata,
@@ -47,7 +47,13 @@ from LiuXin_alpha.errors import DatabaseIntegrityError, InputIntegrityError
 from LiuXin_alpha.utils.libraries.liuxin_six import force_unicode
 
 
-class ValueCastingMixin:
+from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver._state import (
+    SQLDriverMixinState,
+    driver_operations,
+)
+
+
+class ValueCastingMixin(SQLDriverMixinState):
     """
     Supply schema policy access and type-aware row conversion to SQL drivers.
 
@@ -92,19 +98,23 @@ class ValueCastingMixin:
         :return: LinkCapabilities for the physical link table, or None if it is absent.
         """
 
-        primary_table = self._canonicalise_table_name_for_cache(table1)
-        secondary_table = self._canonicalise_table_name_for_cache(table2)
-        tables_and_columns = self.direct_get_tables_and_columns(
+        primary_table = driver_operations(self)._canonicalise_table_name_for_cache(
+            table1
+        )
+        secondary_table = driver_operations(self)._canonicalise_table_name_for_cache(
+            table2
+        )
+        tables_and_columns = driver_operations(self).direct_get_tables_and_columns(
             force_refresh=force_refresh,
         )
         for endpoint in (primary_table, secondary_table):
             if endpoint not in tables_and_columns:
-                raise InputIntegrityError(
-                    f"link endpoint table {endpoint!r} not found"
-                )
+                raise InputIntegrityError(f"link endpoint table {endpoint!r} not found")
 
-        primary_base = self.direct_get_table_col_base(primary_table)
-        secondary_base = self.direct_get_table_col_base(secondary_table)
+        primary_base = driver_operations(self).direct_get_table_col_base(primary_table)
+        secondary_base = driver_operations(self).direct_get_table_col_base(
+            secondary_table
+        )
         if primary_table == secondary_table:
             link_column_base = f"{primary_base}_{primary_base}_intralink"
             link_table = f"{link_column_base}s"
@@ -124,11 +134,7 @@ class ValueCastingMixin:
             secondary_table=secondary_table,
             link_table=link_table,
             type_column=type_column if type_column in headings else None,
-            priority_column=(
-                priority_column
-                if priority_column in headings
-                else None
-            ),
+            priority_column=(priority_column if priority_column in headings else None),
         )
 
     def direct_is_link_typed(
@@ -216,11 +222,13 @@ class ValueCastingMixin:
         :return: The original declared type string, including an empty string for no
             type.
         """
-        table_name = self._canonicalise_table_name_for_cache(table)
+        table_name = driver_operations(self)._canonicalise_table_name_for_cache(table)
         column_name = str(column)
-        headings = self.direct_get_column_headings(table_name)
+        headings = driver_operations(self).direct_get_column_headings(table_name)
         if column_name not in headings:
-            raise InputIntegrityError(f"column {column_name!r} not found in table {table_name!r}")
+            raise InputIntegrityError(
+                f"column {column_name!r} not found in table {table_name!r}"
+            )
 
         declared_types = self.direct_get_declared_types_for_table(table_name)
         try:
@@ -286,10 +294,14 @@ class ValueCastingMixin:
             column_name,
             declared_type,
         )
-        if COLUMN_METADATA_TABLE not in set(self.direct_get_tables()):
+        if COLUMN_METADATA_TABLE not in set(
+            driver_operations(self).direct_get_tables()
+        ):
             return fallback
 
-        catalog_columns = set(self.direct_get_column_headings(COLUMN_METADATA_TABLE))
+        catalog_columns = set(
+            driver_operations(self).direct_get_column_headings(COLUMN_METADATA_TABLE)
+        )
         expanded_columns = {
             "column_metadata_semantic_role",
             "column_metadata_normalization_profile",
@@ -302,7 +314,7 @@ class ValueCastingMixin:
             "column_metadata_formatting_options_json",
             "column_metadata_display_options_json",
         }
-        conn = self.get_connection()
+        conn = driver_operations(self).get_connection()
         try:
             if expanded_columns <= catalog_columns:
                 option_selection = (
@@ -394,7 +406,9 @@ class ValueCastingMixin:
 
         metadata = self._validated_column_metadata_input(metadata)
         self._validate_normalized_identity_metadata(metadata)
-        if COLUMN_METADATA_TABLE not in set(self.direct_get_tables()):
+        if COLUMN_METADATA_TABLE not in set(
+            driver_operations(self).direct_get_tables()
+        ):
             raise DatabaseIntegrityError(
                 "database has no column_metadata table; migrate the schema before storing column policy"
             )
@@ -408,12 +422,14 @@ class ValueCastingMixin:
             "column_metadata_formatting_options_json",
             "column_metadata_display_options_json",
         }
-        if not required_columns <= set(self.direct_get_column_headings(COLUMN_METADATA_TABLE)):
+        if not required_columns <= set(
+            driver_operations(self).direct_get_column_headings(COLUMN_METADATA_TABLE)
+        ):
             raise DatabaseIntegrityError(
                 "column_metadata schema is outdated; migrate it before storing expanded policy"
             )
 
-        conn = self.get_connection()
+        conn = driver_operations(self).get_connection()
         try:
             conn.execute(
                 """
@@ -668,7 +684,7 @@ class ValueCastingMixin:
         spec = default_normalized_identity_spec(table, value_column)
         if spec is None:
             return None
-        available = set(self.direct_get_column_headings(table))
+        available = set(driver_operations(self).direct_get_column_headings(table))
         required = {
             spec.value_column,
             spec.identity_column,
@@ -705,13 +721,15 @@ class ValueCastingMixin:
             table,
             value_column,
         )
-        if NORMALIZED_IDENTITIES_TABLE not in set(self.direct_get_tables()):
+        if NORMALIZED_IDENTITIES_TABLE not in set(
+            driver_operations(self).direct_get_tables()
+        ):
             return self._default_normalized_identity_if_supported(
                 table_name,
                 column_name,
             )
 
-        conn = self.get_connection()
+        conn = driver_operations(self).get_connection()
         try:
             row = conn.execute(
                 """
@@ -734,7 +752,7 @@ class ValueCastingMixin:
         if row is None:
             return None
         spec = normalized_identity_from_db_values(*row)
-        available = set(self.direct_get_column_headings(table_name))
+        available = set(driver_operations(self).direct_get_column_headings(table_name))
         required = {
             spec.value_column,
             spec.identity_column,
@@ -749,7 +767,8 @@ class ValueCastingMixin:
 
     def direct_iter_normalized_identity_specs(
         self,
-        *, table: str | None = None,
+        *,
+        table: str | None = None,
     ) -> Iterator[NormalizedIdentitySpec]:
         """
         Yield database identity declarations after checking physical references.
@@ -768,11 +787,13 @@ class ValueCastingMixin:
             database.
         """
 
-        if NORMALIZED_IDENTITIES_TABLE not in set(self.direct_get_tables()):
+        if NORMALIZED_IDENTITIES_TABLE not in set(
+            driver_operations(self).direct_get_tables()
+        ):
             for spec in iter_normalized_identity_defaults():
                 if table is not None and spec.table != table:
                     continue
-                if spec.table not in set(self.direct_get_tables()):
+                if spec.table not in set(driver_operations(self).direct_get_tables()):
                     continue
                 supported = self._default_normalized_identity_if_supported(
                     spec.table,
@@ -782,7 +803,7 @@ class ValueCastingMixin:
                     yield supported
             return
 
-        conn = self.get_connection()
+        conn = driver_operations(self).get_connection()
         try:
             rows = list(
                 conn.execute(
@@ -806,7 +827,9 @@ class ValueCastingMixin:
             conn.close()
         for row in rows:
             spec = normalized_identity_from_db_values(*row)
-            available = set(self.direct_get_column_headings(spec.table))
+            available = set(
+                driver_operations(self).direct_get_column_headings(spec.table)
+            )
             required = {
                 spec.value_column,
                 spec.identity_column,
@@ -1236,12 +1259,14 @@ class ValueCastingMixin:
                 case_sensitive=case_sensitive,
             )
         )
-        if COLUMN_METADATA_TABLE not in set(self.direct_get_tables()):
+        if COLUMN_METADATA_TABLE not in set(
+            driver_operations(self).direct_get_tables()
+        ):
             raise DatabaseIntegrityError(
                 "database has no column_metadata table; migrate the schema before storing column policy"
             )
 
-        conn = self.get_connection()
+        conn = driver_operations(self).get_connection()
         try:
             conn.execute(
                 """
@@ -1308,7 +1333,9 @@ class ValueCastingMixin:
 
         self.direct_set_case_sensitivity(table, column, case_sensitive)
 
-    def _validated_column_metadata_target(self, table: str, column: str) -> tuple[str, str]:
+    def _validated_column_metadata_target(
+        self, table: str, column: str
+    ) -> tuple[str, str]:
         """
         Canonicalize a table and require its physical column to exist.
 
@@ -1325,14 +1352,18 @@ class ValueCastingMixin:
             headings.
         :return: A pair containing the canonical table name and string column name.
         """
-        table_name = self._canonicalise_table_name_for_cache(table)
+        table_name = driver_operations(self)._canonicalise_table_name_for_cache(table)
         column_name = str(column)
-        headings = self.direct_get_column_headings(table_name)
+        headings = driver_operations(self).direct_get_column_headings(table_name)
         if column_name not in headings:
-            raise InputIntegrityError(f"column {column_name!r} not found in table {table_name!r}")
+            raise InputIntegrityError(
+                f"column {column_name!r} not found in table {table_name!r}"
+            )
         return table_name, column_name
 
-    def _validated_column_metadata_input(self, metadata: ColumnMetadata) -> ColumnMetadata:
+    def _validated_column_metadata_input(
+        self, metadata: ColumnMetadata
+    ) -> ColumnMetadata:
         """
         Copy policy into canonical, schema-checked metadata with enum members.
 
@@ -1362,7 +1393,9 @@ class ValueCastingMixin:
         comparison_column = metadata.comparison_column
         if comparison_column is not None:
             comparison_column = str(comparison_column)
-            if comparison_column not in set(self.direct_get_column_headings(table_name)):
+            if comparison_column not in set(
+                driver_operations(self).direct_get_column_headings(table_name)
+            ):
                 raise InputIntegrityError(
                     f"comparison column {comparison_column!r} not found in table {table_name!r}"
                 )
@@ -1378,9 +1411,7 @@ class ValueCastingMixin:
                 comparison_column=comparison_column,
                 empty_value_policy=ColumnEmptyValuePolicy(metadata.empty_value_policy),
                 merge_policy=ColumnMergePolicy(metadata.merge_policy),
-                validation_profile=ColumnValidationProfile(
-                    metadata.validation_profile
-                ),
+                validation_profile=ColumnValidationProfile(metadata.validation_profile),
                 formatting_options=metadata.formatting_options,
                 display_options=metadata.display_options,
             )
@@ -1570,8 +1601,8 @@ class ValueCastingMixin:
 
         conn = getattr(self, "conn", None)
         owned = conn is None
-        if owned:
-            conn = self.get_connection()
+        if conn is None:
+            conn = driver_operations(self).get_connection()
         quoted = '"' + str(table).replace('"', '""') + '"'
         try:
             cursor = conn.execute(f"PRAGMA table_info({quoted})")
@@ -1659,9 +1690,8 @@ class ValueCastingMixin:
 
     # Todo: We can... possibly make this better with some protocol work
     def _coerce_db_value(
-            self,
-            value: Any,
-            declared_type: Any) -> Optional[Union[bool, int, float, str, bytes]]:
+        self, value: Any, declared_type: Any
+    ) -> Optional[Union[bool, int, float, str, bytes]]:
         """
         Convert a database cell according to the declared type's conversion bucket.
 
@@ -1737,7 +1767,9 @@ class ValueCastingMixin:
                             pass
                     # Preserve float-ish numeric strings in INTEGER columns
                     # (SQLite allows this; callers often expect numeric back).
-                    if re.fullmatch(r"[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?", s2):
+                    if re.fullmatch(
+                        r"[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?", s2
+                    ):
                         try:
                             return float(s2)
                         except Exception:
@@ -1770,7 +1802,9 @@ class ValueCastingMixin:
                 s = force_unicode(value)
                 if isinstance(s, str):
                     s2 = s.strip()
-                    if re.fullmatch(r"[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?", s2):
+                    if re.fullmatch(
+                        r"[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?", s2
+                    ):
                         try:
                             return float(s2)
                         except Exception:
@@ -1813,7 +1847,9 @@ class ValueCastingMixin:
                             return int(s2)
                         except Exception:
                             pass
-                    if re.fullmatch(r"[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?", s2):
+                    if re.fullmatch(
+                        r"[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?", s2
+                    ):
                         try:
                             return float(s2)
                         except Exception:
@@ -1840,7 +1876,9 @@ class ValueCastingMixin:
         return force_unicode(value)
 
     @staticmethod
-    def _coerce_untyped_value(value: Any) -> Optional[Union[bool, int, float, str, bytes]]:
+    def _coerce_untyped_value(
+        value: Any,
+    ) -> Optional[Union[bool, int, float, str, bytes]]:
         """
         Preserve scalar numeric kinds and stringify values without a declared type.
 
@@ -1932,7 +1970,9 @@ class ValueCastingMixin:
         :param row: Indexable cell sequence with at least one value per heading.
         :return: A new heading-to-value dictionary; retained sets are shared with row.
         """
-        declared_types = self.direct_get_declared_types_for_table(table) if table else {}
+        declared_types = (
+            self.direct_get_declared_types_for_table(table) if table else {}
+        )
         result: Dict[Any, Any] = {}
         for i, head in enumerate(headings):
             val = row[i]

@@ -1,9 +1,11 @@
 """Exercise wrapper fixes against a disposable live PostgreSQL schema."""
 
 from contextlib import closing
+from unittest.mock import Mock
 
 import pytest
 
+from LiuXin_alpha.databases.api.macros_api import MacrosAPI
 from LiuXin_alpha.databases.schema_specs import RelationKind
 from LiuXin_alpha.databases.transactions import transaction_active
 from LiuXin_alpha.errors import DatabaseDriverError
@@ -74,8 +76,12 @@ def test_postgres_custom_definition_and_supplied_ddl_roll_back_together(
         raise RuntimeError("injected DDL failure")
 
     # This backend deliberately lacks the SQLite compatibility DDL helper.
-    # Inject a portable DDL failure to exercise the shared owning transaction.
-    monkeypatch.setitem(vars(db.macros), "create_cc_table", fail)
+    # Supply an explicitly declared legacy capability whose common operations
+    # still use the real PostgreSQL provider and transaction. One injected DDL
+    # failure exercises rollback without pretending PostgreSQL implements it.
+    provider = Mock(spec=MacrosAPI, wraps=db.macros)
+    provider.create_cc_table = fail
+    monkeypatch.setattr(db, "_macros", provider)
     with pytest.raises(RuntimeError, match="injected DDL failure"):
         wrapper.create_custom_column("Failure", label="failure", in_table="works")
     assert stored(pg_db, "custom_columns", "custom_column_id", "custom_column_id") == []
@@ -86,7 +92,7 @@ def test_postgres_custom_definition_and_supplied_ddl_roll_back_together(
 def test_postgres_unsupported_custom_ddl_does_not_leave_a_definition(pg_db):
     """A pre-existing backend limitation must fail without publishing metadata."""
     db, _ = pg_db
-    with pytest.raises(DatabaseDriverError, match="create_cc_table.*not implemented"):
+    with pytest.raises(DatabaseDriverError, match="requires legacy SQLite macros"):
         db.driver_wrapper.create_custom_column(
             "Unsupported", label="unsupported", in_table="works"
         )

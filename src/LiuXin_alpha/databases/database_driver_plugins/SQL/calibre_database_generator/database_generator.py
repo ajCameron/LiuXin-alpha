@@ -65,7 +65,9 @@ class CalibreLibraryPaths:
 _CACHE: Dict[str, CalibreSchemaInfo] = {}
 
 
-def create_new_database(connection: sqlite3.Connection, *, validate: bool = True) -> None:
+def create_new_database(
+    connection: sqlite3.Connection, *, validate: bool = True
+) -> None:
     """
     Execute the metadata snapshot on a caller-owned empty database.
 
@@ -97,8 +99,8 @@ def create_new_database(connection: sqlite3.Connection, *, validate: bool = True
 
 
 def ensure_library_id_row(
-        connection: sqlite3.Connection,
-        library_uuid: str | None = None) -> str:
+    connection: sqlite3.Connection, library_uuid: str | None = None
+) -> str:
     """
     Reuse the first nonempty library UUID or insert a supplied/generated one.
 
@@ -161,15 +163,19 @@ def validate_metadata_database(connection: sqlite3.Connection) -> None:
         "languages",
         "library_id",
     }
-    rows = connection.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
+    rows = connection.execute(
+        "SELECT name FROM sqlite_master WHERE type='table'"
+    ).fetchall()
     existing = {r[0] for r in rows}
     missing = sorted(required_tables - existing)
     if missing:
-        raise AssertionError(f"Calibre metadata.db missing required tables: {missing!r}")
+        raise AssertionError(
+            f"Calibre metadata.db missing required tables: {missing!r}"
+        )
 
 
 def create_calibre_library_skeleton(
-    library_root: str | os.PathLike,
+    library_root: str | os.PathLike[str],
     *,
     overwrite: bool = False,
     validate: bool = True,
@@ -413,7 +419,7 @@ def calibre_sql_paths() -> Mapping[str, str]:
 
     :return: New mapping of resource keys to resolved paths.
     """
-    return {k: get_path(v) for k, v in _RESOURCE_SQL_FILES.items()}
+    return {k: os.fsdecode(get_path(v)) for k, v in _RESOURCE_SQL_FILES.items()}
 
 
 def read_calibre_sql(kind: str) -> str:
@@ -459,18 +465,26 @@ def _extract_schema_info_from_metadata_sql(sql_text: str) -> CalibreSchemaInfo:
         sql_text,
     )
     if not app_m:
-        raise ValueError("Could not locate `pragma application_id` in metadata_sqlite.sql")
+        raise ValueError(
+            "Could not locate `pragma application_id` in metadata_sqlite.sql"
+        )
     app_raw = app_m.group(1).strip()
-    application_id = int(app_raw, 16) if app_raw.lower().startswith("0x") else int(app_raw)
+    application_id = (
+        int(app_raw, 16) if app_raw.lower().startswith("0x") else int(app_raw)
+    )
 
     # user_version: `pragma user_version=27;`
     ver_m = re.search(r"(?im)^\s*pragma\s+user_version\s*=\s*(\d+)\s*;\s*$", sql_text)
     if not ver_m:
-        raise ValueError("Could not locate `pragma user_version` in metadata_sqlite.sql")
+        raise ValueError(
+            "Could not locate `pragma user_version` in metadata_sqlite.sql"
+        )
     user_version = int(ver_m.group(1))
 
     sha256 = hashlib.sha256(sql_text.encode("utf-8")).hexdigest()
-    return CalibreSchemaInfo(application_id=application_id, user_version=user_version, sha256=sha256)
+    return CalibreSchemaInfo(
+        application_id=application_id, user_version=user_version, sha256=sha256
+    )
 
 
 def calibre_metadata_schema_info() -> CalibreSchemaInfo:

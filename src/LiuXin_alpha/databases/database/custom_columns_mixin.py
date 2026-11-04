@@ -1,4 +1,3 @@
-
 """
 Retrieve Calibre-style custom values through normalized links or direct value tables.
 
@@ -9,6 +8,8 @@ dictionaries.
 
 from __future__ import annotations
 
+from LiuXin_alpha.databases.database._state import DatabaseMixinState
+
 from typing import Any, TYPE_CHECKING
 
 from LiuXin_alpha.errors import InputIntegrityError
@@ -17,14 +18,11 @@ from LiuXin_alpha.utils.logging import default_log
 
 
 if TYPE_CHECKING:
-
-    from LiuXin_alpha.databases.api.database_api import DatabaseAPI
     # Todo: We also need a custom columns row api e.t.c
     from LiuXin_alpha.databases.api.row_api import RowAPI
 
 
-
-class CustomColumnDatabaseMixin:
+class CustomColumnDatabaseMixin(DatabaseMixinState):
     """
     Add custom-value lookup to a database with wrapper and row-factory collaborators.
 
@@ -45,10 +43,8 @@ class CustomColumnDatabaseMixin:
     #       by table
     # Todo: Change target_row to primary_row, in line with ALL THE REST
     def get_interlinked_rows_cc(
-            self: "DatabaseAPI",
-            primary_row: "RowAPI",
-            custom_column: str,
-            link_table: bool = True) -> list["RowAPI"]:
+        self, primary_row: "RowAPI", custom_column: str, link_table: bool = True
+    ) -> list["RowAPI | None"] | list[dict[str, Any]]:
         """
         Find custom values for a primary row, ordered by stored record identity.
 
@@ -69,16 +65,20 @@ class CustomColumnDatabaseMixin:
         :param link_table: True to follow a normalized link table; False to search the
             custom table directly.
         :return: List of materialized Rows for normalized storage, or raw row
-            dictionaries for direct storage; [] when no matches exist.
+            dictionaries for direct storage; [] when no matches exist. A missing
+            normalized target retains a None entry in the returned list.
         :raises InputIntegrityError: Normalized lookup has no registered link table for
             this row table and custom column.
         """
         if link_table:
-            target_table = primary_row.table
+            target_table = self._row_table(primary_row)
 
             cand_cc_link_table = "{}_{}_link".format(target_table, custom_column)
 
-            if cand_cc_link_table not in self.custom_tables:
+            if (
+                self.custom_tables is None
+                or cand_cc_link_table not in self.custom_tables
+            ):
                 err_str = "Cannot get link tables - that target_row and custom column combination is invalid"
                 err_str = default_log.log_variables(
                     err_str,
@@ -89,7 +89,7 @@ class CustomColumnDatabaseMixin:
                 raise InputIntegrityError(err_str)
 
             cc_col = plural_singular_mapper(cand_cc_link_table)
-            cc_link_rows = self.driver_wrapper.search(
+            cc_link_rows = self._database.driver_wrapper.search(
                 table=cand_cc_link_table,
                 column=cc_col + "_book",
                 search_term=primary_row.row_id,
@@ -103,14 +103,17 @@ class CustomColumnDatabaseMixin:
             cc_table_rows = []
             for link_row in cc_link_rows:
                 target_id = link_row[cc_col + "_value"]
-                cc_table_rows.append(self.get_row_from_id(table=custom_column, row_id=target_id))
+                cc_table_rows.append(
+                    self._database.get_row_from_id(
+                        table=custom_column, row_id=target_id
+                    )
+                )
 
             return cc_table_rows
 
         else:
-
             cc_col = plural_singular_mapper(custom_column)
-            cc_rows = self.driver_wrapper.search(
+            cc_rows = self._database.driver_wrapper.search(
                 table=custom_column,
                 column=cc_col + "_book",
                 search_term=primary_row.row_id,

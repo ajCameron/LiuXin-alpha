@@ -12,28 +12,52 @@ and writes.
 from __future__ import annotations
 
 import abc
+import builtins
+from collections.abc import Set
+from types import TracebackType
 
+from LiuXin_alpha.databases.db_types.driver_types import SQLGetOperation
 from typing import Any, Iterable, Optional, TYPE_CHECKING
 
 from LiuXin_alpha.databases.api.database_api.mixins import (
     DatabaseNullRowsMixinAPI,
     DatabaseRatingMixinAPI,
 )
-from LiuXin_alpha.databases.api.database_api.mixins.metadata_mixin_api import DatabaseMetadataMixinAPI
+from LiuXin_alpha.databases.api.database_api.mixins.metadata_mixin_api import (
+    DatabaseMetadataMixinAPI,
+)
 
-from LiuXin_alpha.databases.api.database_api.mixins.triggers_mixin_api import DatabaseTriggerHelpersAPI
-from LiuXin_alpha.databases.api.database_api.mixins.tree_mixin_api import DatabaseTreeMixinAPI
-from LiuXin_alpha.databases.api.database_api.mixins.linked_rows_mixin_api import DatabaseLinkedRowsMixinAPI
-from LiuXin_alpha.databases.api.database_api.mixins.interlink_mixin_api import DatabaseInterlinkRowsMixinAPI
-from LiuXin_alpha.databases.api.database_api.mixins.intralink_mixin_api import DatabaseIntralinkRowsMixinAPI
-from LiuXin_alpha.databases.api.database_api.mixins.search_mixin_api import DatabaseSearchMixinAPI
-from LiuXin_alpha.databases.api.database_api.mixins.dirty_records_mixin_api import DatabaseDirtiedRecordsMixinAPI
+from LiuXin_alpha.databases.api.database_api.mixins.triggers_mixin_api import (
+    DatabaseTriggerHelpersAPI,
+)
+from LiuXin_alpha.databases.api.database_api.mixins.tree_mixin_api import (
+    DatabaseTreeMixinAPI,
+)
+from LiuXin_alpha.databases.api.database_api.mixins.linked_rows_mixin_api import (
+    DatabaseLinkedRowsMixinAPI,
+)
+from LiuXin_alpha.databases.api.database_api.mixins.interlink_mixin_api import (
+    DatabaseInterlinkRowsMixinAPI,
+)
+from LiuXin_alpha.databases.api.database_api.mixins.intralink_mixin_api import (
+    DatabaseIntralinkRowsMixinAPI,
+)
+from LiuXin_alpha.databases.api.database_api.mixins.search_mixin_api import (
+    DatabaseSearchMixinAPI,
+)
+from LiuXin_alpha.databases.api.database_api.mixins.dirty_records_mixin_api import (
+    DatabaseDirtiedRecordsMixinAPI,
+)
 
 if TYPE_CHECKING:
+    from _thread import RLock
+    from LiuXin_alpha.databases.api.driver_api.driver_api import DatabaseDriverAPI
+    from LiuXin_alpha.databases.api.driver_wrapper_api.driver_wrapper_api import (
+        DatabaseDriverWrapperAPI,
+    )
     from LiuXin_alpha.databases.api.row_api import RowAPI
-    from LiuXin_alpha.databases.api.macros_api import MacrosAPI
+    from LiuXin_alpha.databases.api.portable_macros_api import DatabaseMacrosAPI
     from LiuXin_alpha.databases.api.metadata_sql_api import MetadataSQLAPI
-
 
 
 # Todo: We need a names mixin
@@ -68,6 +92,9 @@ class DatabaseAPI(
     # ---------------------------------------------------------------------------------------------
     # Driver wiring / core handles
     # ---------------------------------------------------------------------------------------------
+    # Bound from the active wrapper; absent before setup and after cleanup.
+    get: SQLGetOperation | None
+
     @abc.abstractmethod
     def set_driver(self, new_driver: "DatabaseDriverAPI") -> None:
         """
@@ -93,7 +120,9 @@ class DatabaseAPI(
         """
 
     @abc.abstractmethod
-    def set_driver_wrapper(self, new_driver_wrapper: "DatabaseDriverWrapperAPI") -> None:
+    def set_driver_wrapper(
+        self, new_driver_wrapper: "DatabaseDriverWrapperAPI"
+    ) -> None:
         """
         Assign a wrapper and replace its macros reference with the facade macros.
 
@@ -113,7 +142,7 @@ class DatabaseAPI(
         """
 
     @abc.abstractmethod
-    def set_macros(self, new_macros: "MacrosAPI") -> None:
+    def set_macros(self, new_macros: "DatabaseMacrosAPI") -> None:
         """
         Replace the facade macros reference after rejecting None.
 
@@ -145,7 +174,8 @@ class DatabaseAPI(
             the driver exposes one.
 
 
-        :return: Driver object, or None after cleanup.
+        :return: Bound driver object.
+        :raises DatabaseIntegrityError: The facade is unbound or closed.
         """
 
     @property
@@ -159,12 +189,13 @@ class DatabaseAPI(
             get_connection() for caller-owned SQL.
 
 
-        :return: Current wrapper, or None after cleanup.
+        :return: Bound wrapper object.
+        :raises DatabaseIntegrityError: The facade is unbound or closed.
         """
 
     @property
     @abc.abstractmethod
-    def macros(self) -> "MacrosAPI":
+    def macros(self) -> "DatabaseMacrosAPI":
         """
         Return the currently bound schema-specific SQL macros.
 
@@ -176,7 +207,8 @@ class DatabaseAPI(
             driver.
 
 
-        :return: Macros collaborator, or None before binding or after cleanup.
+        :return: Bound common macro provider; legacy capabilities are backend-specific.
+        :raises DatabaseIntegrityError: The facade is unbound or closed.
         """
 
     @property
@@ -197,7 +229,7 @@ class DatabaseAPI(
 
     # These are commonly present on the concrete Database, but are not required for all fakes.
     # They are therefore declared as attributes rather than abstract properties.
-    lock: Any
+    lock: RLock | None
     metadata: Optional[dict[str, Any]]
     type: Optional[str]
 
@@ -344,7 +376,10 @@ class DatabaseAPI(
         ...
 
     @abc.abstractmethod
-    def __exit__(self, exc_type: Any, exc: Any, tb: Any) -> bool:
+    def __exit__(
+        self, exc_type: builtins.type[BaseException] | None, exc: BaseException | None,
+        tb: TracebackType | None,
+    ) -> bool:
         """
         Close the facade and allow a context-body exception to propagate.
 
@@ -371,8 +406,8 @@ class DatabaseAPI(
     all_tables: Optional[set[str]]
     custom_tables: Optional[set[str]]
     intralink_tables: Optional[set[str]]
-    dirtiable_tables: Optional[set[str]]
-    helper_tables: Optional[set[str]]
+    dirtiable_tables: Optional[Set[str]]
+    helper_tables: Set[str]
     allowed_type_tables: Optional[set[str]]
 
     @property
@@ -413,7 +448,7 @@ class DatabaseAPI(
         """
 
     @abc.abstractmethod
-    def categorize_table(self, table: str) -> str:
+    def categorize_table(self, table_name: str) -> str:
         """
         Classify a known table name using ordered naming conventions.
 
@@ -428,7 +463,7 @@ class DatabaseAPI(
             returns "main".
 
 
-        :param table: Name converted to text and checked against all_tables.
+        :param table_name: Name converted to text and checked against all_tables.
         :return: One of allowed_types, helper, custom, interlink, intralink or main.
         :raises InputIntegrityError: The text name is absent from all_tables.
         """
@@ -620,7 +655,12 @@ class DatabaseAPI(
         """
 
     @abc.abstractmethod
-    def update_columns(self, values_map: Any, field: Optional[str] = None, table: Optional[str] = None) -> None:
+    def update_columns(
+        self,
+        values_map: dict[int, Any],
+        field: Optional[str] = None,
+        table: Optional[str] = None,
+    ) -> None:
         """
         Forward a bulk value mapping and optional column/table hints to the wrapper.
 
@@ -646,22 +686,16 @@ class DatabaseAPI(
     @abc.abstractmethod
     def get_table_from_column(self, column_name: str) -> str:
         """
-        Search an iterable of table/column pairs for the first containing table.
+        Find the first table whose discovered columns contain the requested name.
 
-        Abstract declaration; subclasses supply the operation. In the concrete Database
-        implementation: The loop iterates get_tables_and_columns directly. The normal
-        implementation returns a dictionary, so table-name keys are unpacked rather than
-        key/value pairs; ordinary names raise ValueError before lookup. This legacy
-        method does not currently adapt that mapping with items().
+        Iterate the table-to-columns mapping in its returned order. This reads schema
+        metadata, not row contents. When several tables share a column name, the first
+        match wins; callers needing disambiguation should supply their own table.
 
         Example:
-            With the normal mapping-returning wrapper, use explicit iteration over
-            db.get_tables_and_columns().items() when looking up a column; this method
-            retains its legacy unpacking limitation.
+            db.get_table_from_column("work_title") returns "works" in the current schema.
 
-
-        :param column_name: Column name to find in each yielded collection.
-        :return: First matching table name if pair iteration succeeds.
-        :raises ValueError: A yielded table-name key cannot unpack into two values.
-        :raises InputIntegrityError: Iteration finishes without finding the column.
+        :param column_name: Column name to find in the discovered column collections.
+        :return: First matching table name.
+        :raises InputIntegrityError: No discovered table contains the column.
         """

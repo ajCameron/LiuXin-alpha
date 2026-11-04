@@ -11,6 +11,8 @@ modern Cache facade's lifecycle or transaction/reconciliation boundary.
 
 from __future__ import division, absolute_import, print_function, unicode_literals, annotations
 
+from LiuXin_alpha.databases.database_driver_plugins._macro_state import require_legacy_macros
+
 import pprint
 from copy import deepcopy
 
@@ -260,7 +262,7 @@ class BaseWriter:
 
             elif m_table in db.custom_tables:
 
-                item_id = db.macros.ensure_custom_column_value(m_table, val)
+                item_id = require_legacy_macros(db.macros).ensure_custom_column_value(m_table, val)
 
             else:
 
@@ -338,7 +340,7 @@ class BaseWriter:
         """
         deleted_ids = tuple(de[0] for de in deleted)
 
-        db.macros.break_cc_links_by_book_id(lt=field.metadata["table"], book_id=deleted_ids)
+        require_legacy_macros(db.macros).break_cc_links_by_book_id(lt=field.metadata["table"], book_id=deleted_ids)
 
     # Todo: Check that dirtied has an update method
     @staticmethod
@@ -651,7 +653,7 @@ class BaseWriter:
                             )
                         except DatabaseIntegrityError:
                             # The link exists - but it needs to be repointed - and, potentially, retyped
-                            db.macros.reprioritize_link(
+                            require_legacy_macros(db.macros).reprioritize_link(
                                 link_table=table.link_table,
                                 left_link_col=table.link_table_bt_id_column,
                                 right_link_col=table.link_table_table_id_column,
@@ -675,7 +677,7 @@ class BaseWriter:
                     elif isinstance(item_id, (set, list, tuple)):
 
                         # Need to know the links before and after - the valid links will be repointed
-                        existing_item_ids = db.macros.get_linked_ids(
+                        existing_item_ids = require_legacy_macros(db.macros).get_linked_ids(
                             link_table=table.link_table,
                             left_id_col=table.link_table_bt_id_column,
                             right_id_col=table.link_table_table_id_column,
@@ -691,7 +693,7 @@ class BaseWriter:
                             # If the item is already linked to the book, then repoint it
                             # This preserves any additional data which might be associated with the link
                             if true_item_id in existing_item_ids:
-                                db.macros.reprioritize_link(
+                                require_legacy_macros(db.macros).reprioritize_link(
                                     link_table=table.link_table,
                                     left_link_col=table.link_table_bt_id_column,
                                     right_link_col=table.link_table_table_id_column,
@@ -712,7 +714,7 @@ class BaseWriter:
                             except DatabaseIntegrityError:
                                 # Item may already be linked to the book - but with a different type - repointing
                                 # anyway
-                                db.macros.reprioritize_link(
+                                require_legacy_macros(db.macros).reprioritize_link(
                                     link_table=table.link_table,
                                     left_link_col=table.link_table_bt_id_column,
                                     right_link_col=table.link_table_table_id_column,

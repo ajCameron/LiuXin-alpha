@@ -1,4 +1,3 @@
-
 """
 Query SQL rows by ID, equality or compound conditions and expose sentinel-row helpers.
 
@@ -11,9 +10,11 @@ from __future__ import annotations
 import random
 import re
 import sqlite3
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping, Sequence
 from copy import deepcopy
-from typing import Any, Iterator, Literal, Optional, Union
+from typing import cast, Any, Iterator, Literal, Optional, Union, TYPE_CHECKING
+
+from LiuXin_alpha.databases.db_types.driver_types import SQLParameters
 
 from LiuXin_alpha.constants import VERBOSE_DEBUG
 from LiuXin_alpha.errors import (
@@ -27,7 +28,16 @@ from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode as unicode
 from LiuXin_alpha.utils.logging import LiuXin_debug_print, default_log
 
 
-class SearchMixin:
+if TYPE_CHECKING:
+    from LiuXin_alpha.databases.db_types.query_types import SearchIndex
+
+from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver._state import (
+    SQLDriverMixinState,
+    driver_operations,
+)
+
+
+class SearchMixin(SQLDriverMixinState):
     """
     Provide searches using host schema introspection and typed row conversion.
 
@@ -61,9 +71,8 @@ class SearchMixin:
         return force_unicode(value)
 
     def direct_get_random_row_dict(
-            self,
-            target_table: str,
-            direct: bool = False) -> Optional[dict[str, Any]]:
+        self, target_table: str, direct: bool = False
+    ) -> Optional[dict[str, Any]]:
         """
         Pick a random row using SQLite RANDOM or rejection sampling over positive IDs.
 
@@ -80,18 +89,26 @@ class SearchMixin:
         :param direct: Use ORDER BY RANDOM rather than retrying random positive IDs.
         :return: A converted row dictionary, or ``None`` for an empty table.
         """
-        conn = self.get_connection()
+        conn = driver_operations(self).get_connection()
         c = conn.cursor()
         target_table = force_unicode(deepcopy(target_table))
 
         # checks that you're requesting data from an existing table
-        if not self.direct_validate_existing_table_name(target_table):
-            err_str = "table name passed into direct_get_random_row_dict failed validation.\n"
-            err_str = default_log.log_variables(err_str, "ERROR", ("target_table", target_table))
+        if not driver_operations(self).direct_validate_existing_table_name(
+            target_table
+        ):
+            err_str = (
+                "table name passed into direct_get_random_row_dict failed validation.\n"
+            )
+            err_str = default_log.log_variables(
+                err_str, "ERROR", ("target_table", target_table)
+            )
             raise InputIntegrityError(err_str)
 
-        highest_id = self.direct_get_highest_id(target_table)
+        highest_id = driver_operations(self).direct_get_highest_id(target_table)
         try:
+            if highest_id is None:
+                raise TypeError("The table has no maximum identity")
             highest_id = int(highest_id)
         except TypeError:
             wrn_str = (
@@ -99,16 +116,20 @@ class SearchMixin:
                 "Assuming this means that the table is empty. "
                 "Could also mean that non-integer ids are being used - in which case this method cannot be used"
             )
-            wrn_str = default_log.log_variables(wrn_str, "WARN", ("highest_id", highest_id))
+            wrn_str = default_log.log_variables(
+                wrn_str, "WARN", ("highest_id", highest_id)
+            )
             default_log.warn(wrn_str)
             conn.close()
             return None
 
         if direct:
-            headings = self.direct_get_column_headings(target_table)
+            headings = driver_operations(self).direct_get_column_headings(target_table)
             stmt = "SELECT * FROM {} ORDER BY RANDOM() LIMIT 1".format(target_table)
             for row in c.execute(stmt):
-                this_row = self._row_to_dict(table=target_table, headings=headings, row=row)
+                this_row = driver_operations(self)._row_to_dict(
+                    table=target_table, headings=headings, row=row
+                )
                 conn.close()
                 return this_row
 
@@ -118,7 +139,9 @@ class SearchMixin:
 
             while True:
                 new_row_id = random.randint(1, highest_id)
-                candidate_row = self.direct_get_row_dict_from_id(table=target_table, row_id=new_row_id)
+                candidate_row = self.direct_get_row_dict_from_id(
+                    table=target_table, row_id=new_row_id
+                )
                 if candidate_row:
                     return candidate_row
 
@@ -126,10 +149,8 @@ class SearchMixin:
         return None
 
     def direct_get_all_rows(
-            self,
-            table: str,
-            sort_column: Optional[str] = None,
-            reverse: bool = False) -> list[dict[str, Any]]:
+        self, table: str, sort_column: Optional[str] = None, reverse: bool = False
+    ) -> list[dict[str, Any]]:
         """
         Load every row into memory, optionally ordering by a validated column.
 
@@ -148,13 +169,13 @@ class SearchMixin:
             ignored.
         :return: A list of converted row dictionaries.
         """
-        conn = self.get_connection()
+        conn = driver_operations(self).get_connection()
         c = conn.cursor()
         table = force_unicode(table)
-        headings = self.direct_get_column_headings(table)
+        headings = driver_operations(self).direct_get_column_headings(table)
 
         # checks that you're requesting data from an existing table
-        if not self.direct_validate_existing_table_name(table):
+        if not driver_operations(self).direct_validate_existing_table_name(table):
             err_str = "table name passed into direct_get_all_rows failed validation.\n"
             err_str = default_log.log_variables(err_str, "ERROR", ("table", table))
             raise InputIntegrityError(err_str)
@@ -162,7 +183,9 @@ class SearchMixin:
         # Check that the sort_column is in the requested table
         if sort_column not in headings and sort_column is not None:
             err_str = "table and sort_column are not consistent.\n"
-            err_str = default_log.log_variables(err_str, "ERROR", ("table", table), ("sort_column", sort_column))
+            err_str = default_log.log_variables(
+                err_str, "ERROR", ("table", table), ("sort_column", sort_column)
+            )
             raise InputIntegrityError(err_str)
 
         if sort_column is None:
@@ -175,7 +198,9 @@ class SearchMixin:
 
         results = []
         for row in c.execute(stmt):
-            this_row = self._row_to_dict(table=table, headings=headings, row=row)
+            this_row = driver_operations(self)._row_to_dict(
+                table=table, headings=headings, row=row
+            )
             results.append(this_row)
 
         conn.close()
@@ -183,10 +208,7 @@ class SearchMixin:
 
     # Todo: Not sure why reverse is not implemented - fix
     def direct_get_row_dict_iterator(
-            self,
-            table: str,
-            sort_column: str = None,
-            reverse: bool = False
+        self, table: str, sort_column: str | None = None, reverse: bool = False
     ) -> Iterator[dict[str, Any]]:
         """
         Yield positive-ID rows in ascending ID order using ten-row queries.
@@ -208,11 +230,11 @@ class SearchMixin:
         :return: An iterator of converted row dictionaries.
         """
         table = force_unicode(table)
-        table_id_column = self.direct_get_id_column(table)
-        headings = self.direct_get_column_headings(table)
+        table_id_column = driver_operations(self).direct_get_id_column(table)
+        headings = driver_operations(self).direct_get_column_headings(table)
 
         # checks that you're requesting data from an existing table
-        if not self.direct_validate_existing_table_name(table):
+        if not driver_operations(self).direct_validate_existing_table_name(table):
             err_str = "table name passed into direct_get_all_rows failed validation."
             err_str = default_log.log_variables(err_str, "ERROR", ("table", table))
             raise InputIntegrityError(err_str)
@@ -221,23 +243,25 @@ class SearchMixin:
         if sort_column is not None:
             if sort_column not in headings:
                 err_str = "requested sort_column is not in the requested table.\n"
-                err_str = default_log.log_variables(err_str, "ERROR", ("table", table), ("sort_column", sort_column))
+                err_str = default_log.log_variables(
+                    err_str, "ERROR", ("table", table), ("sort_column", sort_column)
+                )
                 raise InputIntegrityError(err_str)
 
         start_id_value = 0
         if sort_column is None:
-
             # reads data from the database in 10 row chunks - then closing the connection. Should leave the database
             # unlocked for most of the time
             while True:
-
-                conn = self.get_connection()
+                conn = driver_operations(self).get_connection()
                 c = conn.cursor()
 
                 # Parameterize the moving boundary value to avoid accidental SQL injection
                 # and to keep statement parsing consistent across drivers.
-                this_stmt = "SELECT * FROM {} WHERE {} > ? ORDER BY {} LIMIT 10;".format(
-                    table, table_id_column, table_id_column
+                this_stmt = (
+                    "SELECT * FROM {} WHERE {} > ? ORDER BY {} LIMIT 10;".format(
+                        table, table_id_column, table_id_column
+                    )
                 )
                 c.execute(this_stmt, (start_id_value,))
                 current_rows = deepcopy(c.fetchall())
@@ -247,18 +271,19 @@ class SearchMixin:
                     conn.close()
                     break
                 for row in current_rows:
-                    this_row = self._row_to_dict(table=table, headings=headings, row=row)
+                    this_row = driver_operations(self)._row_to_dict(
+                        table=table, headings=headings, row=row
+                    )
                     yield this_row
                     start_id_value = this_row[table_id_column]
 
         else:
-
             # Sort the table by the sort_column and then by the id? Don't have a good solution for this yet (due to
             # concern that the sort order will change while the update is running
             # Do something with timestamps
             raise NotImplementedError("Cannot currently cope with this combination")
 
-    def direct_get_unique_values_set(self, target_column: str) -> set[str]:
+    def direct_get_unique_values_set(self, target_column: str) -> set[Any]:
         """
         Collect distinct column values into a set and close the connection on success.
 
@@ -270,10 +295,12 @@ class SearchMixin:
         :param target_column: Trusted column name whose table is inferred by the driver.
         :return: The set of raw distinct values, without string coercion.
         """
-        target_table = self.direct_identify_table_from_column(column_heading=target_column)
+        target_table = driver_operations(self).direct_identify_table_from_column(
+            column_heading=target_column
+        )
         stmt = "SELECT DISTINCT {} FROM {};".format(target_column, target_table)
         values_set = set()
-        conn = self.get_connection()
+        conn = driver_operations(self).get_connection()
         c = conn.cursor()
 
         for value in c.execute(stmt):
@@ -281,7 +308,7 @@ class SearchMixin:
         conn.close()
         return values_set
 
-    def direct_get_unique_values_iterator(self, target_column: str) -> Iterator[str]:
+    def direct_get_unique_values_iterator(self, target_column: str) -> Iterator[Any]:
         """
         Yield from a fully materialized set of distinct values.
 
@@ -305,7 +332,9 @@ class SearchMixin:
         for value in values_set:
             yield value
 
-    def direct_get_row_dict_from_id(self, table: str, row_id: int) -> dict[str, Any] | Literal[False]:
+    def direct_get_row_dict_from_id(
+        self, table: str, row_id: int
+    ) -> dict[str, Any] | Literal[False]:
         """
         Bind a text-coerced ID and require at most one matching row.
 
@@ -322,21 +351,23 @@ class SearchMixin:
         :return: The converted row dictionary, or ``False`` if absent.
         """
         table = force_unicode(table)
-        row_id = force_unicode(row_id)
+        bound_row_id = force_unicode(row_id)
 
-        conn = self.get_connection()
+        conn = driver_operations(self).get_connection()
         c = conn.cursor()
 
-        headings = self.direct_get_column_headings(table)
-        table_id_name = self.direct_get_id_column(table)
+        headings = driver_operations(self).direct_get_column_headings(table)
+        table_id_name = driver_operations(self).direct_get_id_column(table)
 
         stmt = "SELECT * FROM {} WHERE {} = ?".format(table, table_id_name)
 
         rows = []
         result = dict()
         try:
-            for row in c.execute(stmt, (row_id,)):
-                result = self._row_to_dict(table=table, headings=headings, row=row)
+            for row in c.execute(stmt, (bound_row_id,)):
+                result = driver_operations(self)._row_to_dict(
+                    table=table, headings=headings, row=row
+                )
                 rows.append(result)
         except sqlite3.InterfaceError as e:
             err_str = "Interface error while trying to find a row\n"
@@ -352,14 +383,15 @@ class SearchMixin:
 
         elif len(rows) == 0:
             info_str = "Warning - search yielded no results. Consider sources of logical error."
-            default_log.log_variables(info_str, "INFO", ("table", table), ("row_id", row_id))
+            default_log.log_variables(
+                info_str, "INFO", ("table", table), ("row_id", row_id)
+            )
             conn.close()
             return False
 
         else:
             conn.close()
             return result
-
 
     # Todo: Should go sideways and become a null rows mixin
     # ------------------------------------------------------------------
@@ -380,12 +412,12 @@ class SearchMixin:
         :return: Whether a row with ID zero exists.
         """
         table = force_unicode(table)
-        if not self.direct_validate_existing_table_name(table):
+        if not driver_operations(self).direct_validate_existing_table_name(table):
             raise InputIntegrityError(f"Unknown table: {table!r}")
 
-        id_col = self.direct_get_id_column(table)
+        id_col = driver_operations(self).direct_get_id_column(table)
         stmt = f"SELECT 1 FROM `{table}` WHERE `{id_col}` = 0 LIMIT 1;"
-        conn = self.get_connection()
+        conn = driver_operations(self).get_connection()
         try:
             c = conn.cursor()
             row = c.execute(stmt).fetchone()
@@ -393,7 +425,7 @@ class SearchMixin:
         finally:
             conn.close()
 
-    def direct_get_null_row(self, table: str) -> Optional[dict[str, Any]] | bool:
+    def direct_get_null_row(self, table: str) -> dict[str, Any] | Literal[False]:
         """
         Check for and fetch the ID-zero row using separate queries.
 
@@ -413,10 +445,11 @@ class SearchMixin:
 
     # Todo: Go through and add :raises : whereever we can
     def direct_update_null_row(
-            self,
-            table: str,
-            updates: Optional[dict[str, Any]] = None,
-            **fields: Any) -> bool:
+        self,
+        table: str,
+        updates: Mapping[str, Any] | Iterable[tuple[str, Any]] | None = None,
+        **fields: Any,
+    ) -> bool:
         """
         Merge updates and delegate a sentinel-row update to the row writer.
 
@@ -435,19 +468,24 @@ class SearchMixin:
         :return: ``True`` after the update helper returns.
         """
         table = force_unicode(table)
+        values: dict[str, Any]
         if updates is None:
-            updates = {}
-        if not isinstance(updates, dict):
-            updates = dict(updates)
-        updates.update(fields)
+            values = {}
+        elif isinstance(updates, dict):
+            values = cast("dict[str, Any]", updates)
+        else:
+            values = dict(updates)
+        values.update(fields)
 
         if not self.direct_has_null_row(table):
-            raise InputIntegrityError(f"Table {table!r} has no sentinel/null row at id=0")
+            raise InputIntegrityError(
+                f"Table {table!r} has no sentinel/null row at id=0"
+            )
 
-        id_col = self.direct_get_id_column(table)
+        id_col = driver_operations(self).direct_get_id_column(table)
         row_dict = {id_col: 0}
-        row_dict.update(updates)
-        self.direct_update_row_dict(row_dict)
+        row_dict.update(values)
+        driver_operations(self).direct_update_row_dict(row_dict)
         return True
 
     def direct_get_all_hashes(self) -> set[str]:
@@ -474,20 +512,26 @@ class SearchMixin:
         discovered_hashes = set()
         for table, candidate_columns in candidate_columns_by_table.items():
             try:
-                headings = set(self.direct_get_column_headings(table))
+                headings = set(
+                    driver_operations(self).direct_get_column_headings(table)
+                )
             except Exception:
                 continue
 
             for column in candidate_columns:
                 if column in headings:
-                    discovered_hashes.update(self.direct_get_all_values(table=table, column=column))
+                    discovered_hashes.update(
+                        self.direct_get_all_values(table=table, column=column)
+                    )
 
-        return {hash_value for hash_value in discovered_hashes if hash_value is not None}
+        return {
+            hash_value for hash_value in discovered_hashes if hash_value is not None
+        }
 
     # Todo: For typing, can we just declare self has the whole driver api?
     # Todo - Merge with direct_get_unique_values - after an upgrade to allow specify a table
     # Todo - heavy abuse of typing can probably get this into a better place type wise
-    def direct_get_all_values(self, table: str, column: str) -> set[Any]:
+    def direct_get_all_values(self, table: str | None, column: str) -> set[Any]:
         """
         Collect a column's raw values into a set, inferring the table when omitted.
 
@@ -506,11 +550,11 @@ class SearchMixin:
         if table is not None:
             table = deepcopy(force_unicode(table))
         else:
-            table = self.direct_identify_table_from_column(column)
+            table = driver_operations(self).direct_identify_table_from_column(column)
         column = deepcopy(force_unicode(column))
 
         current_values = set()
-        conn = self.get_connection()
+        conn = driver_operations(self).get_connection()
         c = conn.cursor()
 
         stmt = "SELECT {} FROM {}".format(column, table)
@@ -519,11 +563,12 @@ class SearchMixin:
         return current_values
 
     def direct_iterator_return(
-            self,
-            stmt: str,
-            headings: Iterable[str],
-            table: Optional[str] = None,
-            bindings: Optional[tuple[str, ...]] = None) -> None:
+        self,
+        stmt: str,
+        headings: Iterable[str],
+        table: Optional[str] = None,
+        bindings: SQLParameters | None = None,
+    ) -> Iterator[dict[str, Any]]:
         """
         Execute supplied SQL lazily and yield converted row dictionaries.
 
@@ -537,12 +582,13 @@ class SearchMixin:
 
 
         :param stmt: Trusted SQL statement to execute.
-        :param headings: Reusable ordered column-name iterable matching each result row.
+        :param headings: Ordered column names, materialized once before querying.
         :param table: Optional table context for declared-type conversion.
         :param bindings: Optional parameter sequence passed unchanged to execute.
-        :return: A generator of row dictionaries despite the None annotation.
+        :return: A generator of row dictionaries.
         """
-        conn = self.get_connection()
+        column_names = tuple(headings)
+        conn = driver_operations(self).get_connection()
         c = conn.cursor()
         try:
             if bindings is None:
@@ -552,18 +598,19 @@ class SearchMixin:
 
             for row in row_iter:
                 # Centralize row->dict conversion: typed when table provided, best-effort otherwise.
-                this_row = self._row_to_dict(table=table, headings=headings, row=row)
+                this_row = driver_operations(self)._row_to_dict(
+                    table=table, headings=column_names, row=row
+                )
                 yield this_row
         finally:
             default_log.info("Connection has closed!")
             conn.close()
 
-
     def direct_search_table(
-            self,
-            table: Optional[str] = None,
-            column: Optional[str] = None,
-            search_term: Optional[str] = None
+        self,
+        table: Optional[str] = None,
+        column: Optional[str] = None,
+        search_term: Any = None,
     ) -> list[dict[str, Any]]:
         """
         Find exact matches for a bound text search term in a validated column.
@@ -590,7 +637,9 @@ class SearchMixin:
                 column = force_unicode(column)
                 search_term = self._coerce_search_text(search_term)
             except UnicodeDecodeError:
-                err_str = "search_table was passed something it couldn't coerce to unicode?\n"
+                err_str = (
+                    "search_table was passed something it couldn't coerce to unicode?\n"
+                )
                 err_str += "table: " + repr(table) + "\n"
                 err_str += "column: " + repr(column) + "\n"
                 err_str += "search_term: " + repr(search_term) + "\n"
@@ -602,7 +651,9 @@ class SearchMixin:
                 column = force_unicode(column)
                 search_term = self._coerce_search_text(search_term)
             except UnicodeDecodeError:
-                err_str = "search_table was passed something it couldn't coerce to unicode?\n"
+                err_str = (
+                    "search_table was passed something it couldn't coerce to unicode?\n"
+                )
                 err_str += "table: " + repr(table) + "\n"
                 err_str += "column: " + repr(column) + "\n"
                 err_str += "search_term: " + repr(search_term) + "\n"
@@ -617,33 +668,45 @@ class SearchMixin:
             default_log.error(err_str)
             raise InputIntegrityError(err_str)
 
-        conn = self.get_connection()
+        conn = driver_operations(self).get_connection()
         c = conn.cursor()
 
         results = []
-        if not self.direct_validate_existing_table_name(table):
+        if table is None or not driver_operations(
+            self
+        ).direct_validate_existing_table_name(table):
             err_str = "table name passed into direct_search_table failed validation.\n"
             err_str = default_log.log_variables(err_str, "ERROR", ("table", table))
             conn.close()
             raise InputIntegrityError(err_str)
 
-        headings = self.direct_get_column_headings(table)
-        if not re.match(r"^[A-Za-z_][A-Za-z0-9_]*$", column or "") or column not in headings:
+        headings = driver_operations(self).direct_get_column_headings(table)
+        if (
+            not re.match(r"^[A-Za-z_][A-Za-z0-9_]*$", column or "")
+            or column not in headings
+        ):
             err_str = "requested column is not in the requested table.\n"
-            err_str = default_log.log_variables(err_str, "ERROR", ("table", table), ("column", column))
+            err_str = default_log.log_variables(
+                err_str, "ERROR", ("table", table), ("column", column)
+            )
             conn.close()
             raise InputIntegrityError(err_str)
 
         stmt = "SELECT * FROM {} WHERE {} = ?;".format(table, column)
         try:
-
             for row in c.execute(stmt, (search_term,)):
-                this_row = self._row_to_dict(table=table, headings=headings, row=row)
+                this_row = driver_operations(self)._row_to_dict(
+                    table=table, headings=headings, row=row
+                )
                 results.append(this_row)
 
         except sqlite3.OperationalError as e:
-            err_str = "Unable to update - OperationalError - search term might be malformed\n"
-            err_str = default_log.log_exception(err_str, e, "ERROR", ("stmt", stmt), ("search_term", search_term))
+            err_str = (
+                "Unable to update - OperationalError - search term might be malformed\n"
+            )
+            err_str = default_log.log_exception(
+                err_str, e, "ERROR", ("stmt", stmt), ("search_term", search_term)
+            )
             conn.close()
             raise InputIntegrityError(err_str)
 
@@ -652,9 +715,7 @@ class SearchMixin:
 
     # Todo: Paused while adding a method to import metadata from a csv file - so I can test something fancy with a join
     def direct_multi_column_search(
-            self,
-            search_index: list[str],
-            iterator_return: bool = False
+        self, search_index: SearchIndex, iterator_return: bool = False
     ) -> Optional[Union[Iterator[dict[str, Any]], list[dict[str, Any]]]]:
         """
         AND together same-table comparison triples using bound values.
@@ -691,7 +752,9 @@ class SearchMixin:
         for term in search_index:
             columns_set.add(term[0])
         for column in columns_set:
-            table_set.add(self.direct_identify_table_from_column(column))
+            table_set.add(
+                driver_operations(self).direct_identify_table_from_column(column)
+            )
 
         if len(table_set) == 0:
             err_str = "Attempt to parse the search_index has failed.\n"
@@ -720,10 +783,16 @@ class SearchMixin:
         for this_term in search_index:
             # Expected: (column_name, binary_operator, target_value)
             try:
-                column_name, operator, search_term = this_term[0], this_term[1], this_term[2]
+                column_name, operator, search_term = (
+                    this_term[0],
+                    this_term[1],
+                    this_term[2],
+                )
             except Exception as e:
                 raise InputIntegrityError(
-                    "Malformed search term (expected a 3-tuple): {}".format(repr(this_term))
+                    "Malformed search term (expected a 3-tuple): {}".format(
+                        repr(this_term)
+                    )
                 ) from e
 
             op = force_unicode(operator).strip()
@@ -735,15 +804,15 @@ class SearchMixin:
             # treating them as invalid input keeps the public API conservative.
             if isinstance(search_term, (bytes, str)):
                 try:
-                    st = search_term.decode("utf-8", errors="replace") if isinstance(search_term, bytes) else str(search_term)
+                    st = (
+                        search_term.decode("utf-8", errors="replace")
+                        if isinstance(search_term, bytes)
+                        else str(search_term)
+                    )
                 except Exception:
                     st = None
                 if st is not None and (
-                    ";" in st
-                    or "--" in st
-                    or "/*" in st
-                    or "*/" in st
-                    or "\x00" in st
+                    ";" in st or "--" in st or "/*" in st or "*/" in st or "\x00" in st
                 ):
                     raise InputIntegrityError("Unsafe-looking search value rejected")
 
@@ -762,8 +831,12 @@ class SearchMixin:
                     # IN (NULL) is not meaningful; treat as no matches.
                     final_search_terms.append("1=0")
                     continue
-                if isinstance(search_term, (bytes, str)) or not hasattr(search_term, "__iter__"):
-                    raise InputIntegrityError("IN operator requires a non-string iterable")
+                if isinstance(search_term, (bytes, str)) or not hasattr(
+                    search_term, "__iter__"
+                ):
+                    raise InputIntegrityError(
+                        "IN operator requires a non-string iterable"
+                    )
                 values = list(search_term)
                 if not values:
                     # Empty IN list should match nothing.
@@ -780,22 +853,27 @@ class SearchMixin:
 
         final_stmt = stmt + " AND ".join(final_search_terms)
 
-        conn = self.get_connection()
+        conn = driver_operations(self).get_connection()
         c = conn.cursor()
-        headings = self.direct_get_column_headings(target_table)
+        headings = driver_operations(self).direct_get_column_headings(target_table)
         if not iterator_return:
             all_results = []
             try:
                 for row in c.execute(final_stmt, bindings):
-                    this_row = self._row_to_dict(table=target_table, headings=headings, row=row)
+                    this_row = driver_operations(self)._row_to_dict(
+                        table=target_table, headings=headings, row=row
+                    )
                     all_results.append(this_row)
             except (sqlite3.OperationalError, sqlite3.InterfaceError) as e:
-                raise InputIntegrityError(f"Final statement malformed {final_stmt}. Error: {e}") from e
+                raise InputIntegrityError(
+                    f"Final statement malformed {final_stmt}. Error: {e}"
+                ) from e
             conn.close()
             return all_results
         else:
-            return self.direct_iterator_return(final_stmt, headings, target_table, bindings=bindings)
-
+            return self.direct_iterator_return(
+                final_stmt, headings, target_table, bindings=bindings
+            )
 
     # Algorithm is as follows.
     # The output of the search qiuery parser looks something like ['or', ['and', ['or', ['token', u'titles', u'thing'],
@@ -806,7 +884,7 @@ class SearchMixin:
     # 2) Converts it, in place, into a string.
     # 3) Continues, until the entire tree has been converted
     # 4) Should end up with something which is semantically identical to the initial query, before it was parsed
-    def direct_locational_search(self, parsed_query):
+    def direct_locational_search(self, parsed_query: str | Sequence[object]) -> None:
         """
         Inspect a copied parsed-query tree through an unfinished transformation path.
 
@@ -825,7 +903,6 @@ class SearchMixin:
             complete.
         """
         parsed_query = deepcopy(parsed_query)
-        locations = self.locations
         if self.locations is None:
             wrn_str = "DatabaseDriver doesn't have locations loaded.\n"
             LiuXin_debug_print(wrn_str)
@@ -837,11 +914,11 @@ class SearchMixin:
         while not isinstance(parsed_query, unicode):
             # index_location - used to specify a position within the parsed query tree structure
             index_location = []
-            current_level = parsed_query
+            current_level: Sequence[object] = parsed_query
             while not self.can_index_be_transformed(current_level):
                 for i in range(len(current_level)):
                     token = current_level[i]
-                    if hasattr(token, "__iter__"):
+                    if isinstance(token, Sequence):
                         current_level = token
                         index_location.append(i)
                         break
@@ -852,11 +929,13 @@ class SearchMixin:
 
             # Including the location in the list of required locations
             if current_level[0] == "token":
-                required_locations.add(current_level[1])
+                required_locations.add(str(current_level[1]))
 
             # Using the index_location as a guide to build some code to actually change the value (because the number of
             # indices is variable and this seems to be the best way to access it)
-            transformed_index = self.transform_index(current_level)
+            if not all(isinstance(value, str) for value in current_level):
+                raise TypeError("A transformed search triple requires text operands")
+            self.transform_index([str(value) for value in current_level])
             stmt = "parsed_query"
             for value in index_location:
                 stmt += force_unicode("[" + force_unicode(value) + "]")
@@ -866,9 +945,8 @@ class SearchMixin:
             raise NotImplementedError(stmt)
         default_log.debug("%r", parsed_query)
 
-
     @staticmethod
-    def can_index_be_transformed(target_index) -> bool:
+    def can_index_be_transformed(target_index: object) -> bool:
         """
         Check for an iterable triple with non-iterable second and third elements.
 
@@ -882,10 +960,10 @@ class SearchMixin:
             False
 
 
-        :param target_index: Sized, indexable candidate triple, or a non-iterable value.
+        :param target_index: Sequence candidate triple, or another value which returns False.
         :return: Whether the triple passes this structural test.
         """
-        if not hasattr(target_index, "__iter__"):
+        if not isinstance(target_index, Sequence):
             return False
 
         if len(target_index) != 3:
@@ -897,9 +975,8 @@ class SearchMixin:
         else:
             return True
 
-
     @staticmethod
-    def transform_index(target_index):
+    def transform_index(target_index: Sequence[str]) -> str:
         """
         Render a token, OR or AND triple as intermediate query text.
 

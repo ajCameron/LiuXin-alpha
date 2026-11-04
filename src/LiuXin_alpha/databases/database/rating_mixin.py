@@ -1,4 +1,3 @@
-
 """
 Maintain the fixed rating scale expected by the database facade.
 
@@ -8,18 +7,13 @@ bootstrap when repair_bootstrap_rows is enabled.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from LiuXin_alpha.databases.database._state import DatabaseMixinState
+
 
 from LiuXin_alpha.utils.logging import default_log
 
-if TYPE_CHECKING:
 
-    from LiuXin_alpha.databases.api.database_api import DatabaseAPI
-
-
-
-
-class DatabaseRatingMixin:
+class DatabaseRatingMixin(DatabaseMixinState):
     """
     Repair rating IDs 1 through 11 to represent half-step values from zero to five.
 
@@ -29,7 +23,7 @@ class DatabaseRatingMixin:
     """
 
     # Todo: This might also want to be an internal method
-    def check_rating_table(self: "DatabaseAPI") -> None:
+    def check_rating_table(self) -> None:
         """
         Insert missing standard ratings and synchronize incorrect numeric values.
 
@@ -47,12 +41,12 @@ class DatabaseRatingMixin:
         :raises ValueError: An existing rating cannot be converted to float.
         :raises TypeError: An existing rating value does not support float conversion.
         """
-        with self.macros.transaction():
+        with self._database.macros.transaction():
             for rating_id in range(1, 12):
                 rating = (rating_id - 1) / 2.0
-                rating_row = self.macros.get_row("ratings", rating_id)
+                rating_row = self._database.macros.get_row("ratings", rating_id)
                 if rating_row is None:
-                    self.macros.insert_row(
+                    self._database.macros.insert_row(
                         "ratings", {"rating_id": rating_id, "rating": rating}
                     )
                 elif float(rating_row["rating"]) != rating:
@@ -63,4 +57,6 @@ class DatabaseRatingMixin:
                         ("rating", rating),
                         ('rating_row["rating"]', str(rating_row["rating"])),
                     )
-                    self.macros.update_row("ratings", rating_id, {"rating": rating})
+                    self._database.macros.update_row(
+                        "ratings", rating_id, {"rating": rating}
+                    )

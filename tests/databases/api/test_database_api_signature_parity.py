@@ -10,6 +10,7 @@ Example:
 
         python -m pytest -q tests/databases/api/test_database_api_signature_parity.py
 """
+
 from __future__ import annotations
 
 import ast
@@ -33,6 +34,7 @@ class ClassRef:
         >>> ClassRef('pkg.mod', 'API').class_name
         'API'
     """
+
     module: str
     class_name: str
 
@@ -47,6 +49,7 @@ class MethodSpec:
 
             python -m pytest -q tests/databases/api/test_database_api_signature_parity.py
     """
+
     kind: str
     args: str
     returns: str | None
@@ -63,6 +66,7 @@ class ModuleInfo:
 
             python -m pytest -q tests/databases/api/test_database_api_signature_parity.py
     """
+
     module: str
     classes: dict[str, ast.ClassDef]
     imports: dict[str, str]
@@ -94,7 +98,9 @@ def path_from_module(module: str) -> Path | None:
     return None
 
 
-def resolve_relative_module(current_module: str, level: int, imported_module: str | None) -> str:
+def resolve_relative_module(
+    current_module: str, level: int, imported_module: str | None
+) -> str:
     """
     Resolve an import name by slicing the current module or package components.
 
@@ -168,7 +174,9 @@ def load_module(module: str) -> ModuleInfo | None:
                     continue
                 from_imports[alias.asname or alias.name] = (imported_from, alias.name)
 
-    return ModuleInfo(module=module, classes=classes, imports=imports, from_imports=from_imports)
+    return ModuleInfo(
+        module=module, classes=classes, imports=imports, from_imports=from_imports
+    )
 
 
 def decorator_name(dec: ast.AST) -> str | None:
@@ -211,7 +219,11 @@ def classify_method(node: ast.FunctionDef | ast.AsyncFunctionDef) -> str:
     if "property" in names:
         return "property"
     for dec in node.decorator_list:
-        if isinstance(dec, ast.Attribute) and dec.attr in {"setter", "deleter", "getter"}:
+        if isinstance(dec, ast.Attribute) and dec.attr in {
+            "setter",
+            "deleter",
+            "getter",
+        }:
             return "property"
     if "classmethod" in names:
         return "classmethod"
@@ -306,7 +318,9 @@ def _normalize_returns(ret: ast.expr | None) -> str | None:
         return None
     s = ast.unparse(ret)
     # If it's a quoted forward-ref like 'SomeType', normalize to SomeType.
-    if (s.startswith("'") and s.endswith("'")) or (s.startswith('"') and s.endswith('"')):
+    if (s.startswith("'") and s.endswith("'")) or (
+        s.startswith('"') and s.endswith('"')
+    ):
         inner = s[1:-1]
         if inner and all(part.isidentifier() for part in inner.split(".")):
             return inner
@@ -323,48 +337,76 @@ def _normalize_returns(ret: ast.expr | None) -> str | None:
     )
 
 
+def _union_members(annotation: str) -> tuple[str, ...]:
+    """Parse outer unions without splitting nested container arguments."""
+    node = ast.parse(annotation, mode="eval").body
+    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.BitOr):
+        return _union_members(ast.unparse(node.left)) + _union_members(
+            ast.unparse(node.right)
+        )
+    if isinstance(node, ast.Subscript) and isinstance(node.value, ast.Name):
+        if node.value.id == "Optional":
+            return _union_members(ast.unparse(node.slice)) + ("None",)
+        if node.value.id == "Union":
+            elements = (
+                node.slice.elts if isinstance(node.slice, ast.Tuple) else [node.slice]
+            )
+            return tuple(
+                member
+                for element in elements
+                for member in _union_members(ast.unparse(element))
+            )
+    return (ast.unparse(node),)
+
+
 def _returns_compatible(expected: str | None, actual: str | None) -> bool:
-    """
-    Apply the parity test rules for equal annotations, Self, API suffixes, and simple Union members.
+    """Check equal returns and known covariant alternatives without importing code.
 
-    An actual Self is always accepted for a nonmissing expectation. Union membership
-    uses comma-split text rather than recursive type parsing. A missing annotation
-    matches only another missing annotation.
-
-    Example:
-        >>> _returns_compatible('ThingAPI', 'Thing')
-        True
-        >>> _returns_compatible('int', 'str')
-        False
-
-
-    :param expected: Normalized API annotation string, or None.
-    :param actual: Normalized concrete annotation string, or None.
-    :return: True when one of the textual compatibility rules succeeds.
+    Every concrete union member must fit an API member. Nested containers remain
+    exact comparisons; structural connection conformance and generic callbacks
+    also have checker probes. This AST test is not a replacement for a checker.
     """
     if expected is None or actual is None:
         return expected == actual
-
     if expected == actual:
         return True
-
-    # Structural conformance is checked by both static checkers in
-    # tests/typing/internal_contracts.py; the AST comparison cannot infer it.
-    if expected == "QueryConnection" and actual == "sqlite3.Connection":
+    expected_members = _union_members(expected)
+    actual_members = _union_members(actual)
+    if len(expected_members) > 1 or len(actual_members) > 1:
+        return all(
+            any(_returns_compatible(wanted, found) for wanted in expected_members)
+            for found in actual_members
+        )
+    if (
+        expected in {"QueryConnection", "SQLConnection"}
+        and actual == "sqlite3.Connection"
+    ):
         return True
-
     if actual == "Self":
         return True
-
-    if expected.endswith("API") and actual == expected.removesuffix("API"):
+    if expected == "bool" and actual in {"Literal[True]", "Literal[False]"}:
         return True
+    return expected.endswith("API") and actual == expected.removesuffix("API")
 
-    if actual.startswith("Union[") and actual.endswith("]"):
-        members = [member.strip() for member in actual[len("Union[") : -1].split(",")]
-        if expected in members:
-            return True
 
-    return False
+@pytest.mark.parametrize(
+    "expected, actual, compatible",
+    [
+        ("bool | None", "Literal[True] | None", True),
+        ("int | str | None", "Optional[int]", True),
+        ("str | PathLike[str]", "str", True),
+        ("str", "Union[str, int]", False),
+        ("int", "int | None", False),
+        ("Union[tuple[int, str], None]", "tuple[int, str]", True),
+        ("Union[tuple[int, str], None]", "tuple[str, int]", False),
+        ("list[int] | None", "list[str]", False),
+    ],
+)
+def test_return_contract_covariance(
+    expected: str, actual: str, compatible: bool
+) -> None:
+    """Narrow results satisfy the API; new alternatives and changed cells do not."""
+    assert _returns_compatible(expected, actual) is compatible
 
 
 def resolve_base(base: ast.expr, module: ModuleInfo) -> ClassRef | None:
@@ -395,7 +437,9 @@ def resolve_base(base: ast.expr, module: ModuleInfo) -> ClassRef | None:
             return ClassRef(module=module.imports[alias], class_name=base.attr)
         if alias in module.from_imports:
             imported_module, imported_name = module.from_imports[alias]
-            return ClassRef(module=f"{imported_module}.{imported_name}", class_name=base.attr)
+            return ClassRef(
+                module=f"{imported_module}.{imported_name}", class_name=base.attr
+            )
 
     return None
 
@@ -447,7 +491,9 @@ def collect_methods(
     cls = module.classes.get(class_name)
     if cls is None:
         if strict:
-            raise AssertionError(f"Class {class_name!r} not found in module {module_name!r}")
+            raise AssertionError(
+                f"Class {class_name!r} not found in module {module_name!r}"
+            )
         return {}
 
     methods: dict[str, MethodSpec] = {}
@@ -473,7 +519,11 @@ def collect_methods(
         )
 
         existing = methods.get(node.name)
-        if existing is not None and spec.kind == "property" and existing.kind == "property":
+        if (
+            existing is not None
+            and spec.kind == "property"
+            and existing.kind == "property"
+        ):
             # Prefer getter-like property signatures over setter-like signatures.
             if spec.arg_weight < existing.arg_weight:
                 methods[node.name] = spec
@@ -492,7 +542,10 @@ ALWAYS_IGNORED_NAMES: set[str] = {"__init__"}
     ("api_ref", "concrete_refs", "ignored_names"),
     [
         (
-            ClassRef("LiuXin_alpha.databases.api.database_api.database_generator_api", "DatabaseGeneratorAPI"),
+            ClassRef(
+                "LiuXin_alpha.databases.api.database_api.database_generator_api",
+                "DatabaseGeneratorAPI",
+            ),
             [
                 ClassRef(
                     "LiuXin_alpha.databases.database_driver_plugins.SQL.database_generator_frbr.database_generator",
@@ -507,26 +560,43 @@ ALWAYS_IGNORED_NAMES: set[str] = {"__init__"}
             set(),
         ),
         (
-            ClassRef("LiuXin_alpha.databases.api.driver_wrapper_api.driver_wrapper_api", "DatabaseDriverWrapperAPI"),
+            ClassRef(
+                "LiuXin_alpha.databases.api.driver_wrapper_api.driver_wrapper_api",
+                "DatabaseDriverWrapperAPI",
+            ),
             [ClassRef("LiuXin_alpha.databases.driver_wrapper", "DriverWrapper")],
             set(),
         ),
         (
-            ClassRef("LiuXin_alpha.databases.api.driver_api.driver_api", "DatabaseDriverAPI"),
+            ClassRef(
+                "LiuXin_alpha.databases.api.driver_api.driver_api", "DatabaseDriverAPI"
+            ),
             [
-                ClassRef("LiuXin_alpha.databases.database_driver_plugins.SQLite.databasedriver", "DatabaseDriver"),
-                ClassRef("LiuXin_alpha.databases.database_driver_plugins.SQLite_apsw.databasedriver", "DatabaseDriver"),
+                ClassRef(
+                    "LiuXin_alpha.databases.database_driver_plugins.SQLite.databasedriver",
+                    "DatabaseDriver",
+                ),
+                ClassRef(
+                    "LiuXin_alpha.databases.database_driver_plugins.SQLite_apsw.databasedriver",
+                    "DatabaseDriver",
+                ),
             ],
             set(),
         ),
         (
-            ClassRef("LiuXin_alpha.databases.api.maintenance_api", "DatabaseMaintainerAPI"),
+            ClassRef(
+                "LiuXin_alpha.databases.api.maintenance_api", "DatabaseMaintainerAPI"
+            ),
             [ClassRef("LiuXin_alpha.databases.maintenance.service", "Maintainer")],
             set(),
         ),
         (
             ClassRef("LiuXin_alpha.databases.api.maintenance_api", "MaintenanceBotAPI"),
-            [ClassRef("LiuXin_alpha.databases.maintenance.engine", "MaintenanceEngine")],
+            [
+                ClassRef(
+                    "LiuXin_alpha.databases.maintenance.engine", "MaintenanceEngine"
+                )
+            ],
             set(),
         ),
     ],
@@ -579,12 +649,18 @@ def test_database_api_signature_parity(
         )
 
         kind_mismatches = sorted(
-            name for name in api_methods if concrete_methods[name].kind != api_methods[name].kind
+            name
+            for name in api_methods
+            if concrete_methods[name].kind != api_methods[name].kind
         )
         assert not kind_mismatches, (
             f"{ref.class_name} has {len(kind_mismatches)} method-kind mismatches vs {api_ref.class_name}: "
             + ", ".join(kind_mismatches[:20])
-            + (f" ... (+{len(kind_mismatches) - 20} more)" if len(kind_mismatches) > 20 else "")
+            + (
+                f" ... (+{len(kind_mismatches) - 20} more)"
+                if len(kind_mismatches) > 20
+                else ""
+            )
         )
 
         signature_mismatches = sorted(
@@ -595,14 +671,20 @@ def test_database_api_signature_parity(
                 or (
                     concrete_methods[name].returns is not None
                     and api_methods[name].returns is not None
-                    and not _returns_compatible(api_methods[name].returns, concrete_methods[name].returns)
+                    and not _returns_compatible(
+                        api_methods[name].returns, concrete_methods[name].returns
+                    )
                 )
             )
         )
         assert not signature_mismatches, (
             f"{ref.class_name} has {len(signature_mismatches)} signature mismatches vs {api_ref.class_name}: "
             + ", ".join(signature_mismatches[:20])
-            + (f" ... (+{len(signature_mismatches) - 20} more)" if len(signature_mismatches) > 20 else "")
+            + (
+                f" ... (+{len(signature_mismatches) - 20} more)"
+                if len(signature_mismatches) > 20
+                else ""
+            )
         )
 
     # Optional extra sanity: if there are multiple concretes (e.g. sqlite + apsw),
@@ -621,5 +703,9 @@ def test_database_api_signature_parity(
         assert not disagreements, (
             f"Concrete implementations disagree on API method signatures for {api_ref.class_name}: "
             + "; ".join(disagreements[:10])
-            + (f" ... (+{len(disagreements) - 10} more)" if len(disagreements) > 10 else "")
+            + (
+                f" ... (+{len(disagreements) - 10} more)"
+                if len(disagreements) > 10
+                else ""
+            )
         )
