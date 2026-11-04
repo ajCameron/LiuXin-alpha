@@ -22,6 +22,9 @@ import re
 import sqlite3
 
 from LiuXin_alpha.databases.search_functions import register_search_functions
+from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.sqlite_progress import (
+    SQLiteProgressMixin,
+)
 import uuid
 from functools import partial
 from typing import Iterator
@@ -225,6 +228,7 @@ class SQLite_Connection(sqlite3.Connection):
 # NOTE - Using the variable substitution features in SQLite3 provides much better results than anything home baked for
 # preventing SQL injection attacks and escaping strings properly. Use this instead.
 class DatabaseDriver(
+    SQLiteProgressMixin,
     SQLBaseDriver,
     SQLiteCustomColumnsDriverMixin,
     SQLiteTableLinkingMixin,
@@ -317,8 +321,7 @@ class DatabaseDriver(
         # locations are loaded from the DatabasePing object
         self.locations = None
 
-        # Used to keep track of the number of instructions executed on this database, so database activity can be
-        # monitored
+        # Counts callbacks when simple_print_progress_handler is explicitly enabled.
         self.event_count = 0
 
         # Track every connection created by this driver so we can reliably release file handles
@@ -402,12 +405,12 @@ class DatabaseDriver(
 
         Request foreign-key enforcement and warn if SQLite does not report it enabled.
         Install aggregates, collations, regex/tree/sort/UUID helpers, an always-true
-        books_list_filter, maintenance callbacks and a progress callback after every
-        virtual-machine instruction. The progress handler prints the initial counter
-        value, zero. DIRTY_RECORD and NEW_DIRTY_RECORD look up the
-        current maintainer on each invocation; DIRTY_INTERLINK_RECORD binds the
-        maintainer method at connection creation. Cross-thread access still requires
-        caller coordination.
+        books_list_filter and maintenance callbacks. Progress callbacks are opt-in
+        through set_progress_callbacks and are installed after connection setup.
+        With no callbacks, SQLite has no Python progress handler. DIRTY_RECORD and
+        NEW_DIRTY_RECORD look up the current maintainer on each invocation;
+        DIRTY_INTERLINK_RECORD binds the maintainer method at connection creation.
+        Cross-thread access still requires caller coordination.
 
         Best-effort LANGUAGE_ID registration may seed and lock an existing FRBR
         languages table, committing changes; exceptions from that registration are
@@ -419,7 +422,6 @@ class DatabaseDriver(
         Example:
             >>> driver = DatabaseDriver({"database_path": ":memory:"}, set_conn=False)
             >>> conn = driver.get_connection()
-            0
             >>> conn.get("PRAGMA foreign_keys", all=False)
             1
             >>> conn.get_row(
@@ -464,8 +466,6 @@ class DatabaseDriver(
             conn.create_aggregate("pyset", 1, PySetAggregate)
             conn.create_aggregate("sortag", 1, SortAggregate)
             conn.create_aggregate("pylist", 1, PyListAggregate)
-            # The progress handler used to monitor the SQLite virtual machine must be added to the conn
-            conn.set_progress_handler(self.simple_print_progress_handler, 1)
 
         except sqlite3.OperationalError as e:
             error_message = e.message
@@ -564,6 +564,7 @@ class DatabaseDriver(
         except Exception:
             pass
 
+        self._configure_progress_handler(conn)
         return self._register_open_connection(conn)
 
     def last_modified(self) -> "datetime.date":

@@ -10,6 +10,7 @@ from contextlib import closing
 from typing import Any
 
 from LiuXin_alpha.databases.normalized_identities import (
+    NormalizedValuePreparer,
     prepare_normalized_values,
 )
 from LiuXin_alpha.databases.transactions import transaction_scope
@@ -106,6 +107,8 @@ class AddingMixin:
 
         Validate table and column sets before writing. Every parameter tuple follows
         the same column order, regardless of each input mapping's construction order.
+        Resolve normalization declarations/headings once for this batch and reload
+        them for the next call.
         A failure rolls back the whole batch and closes its owned connection.
 
         Example:
@@ -122,7 +125,8 @@ class AddingMixin:
         for row in rows[1:]:
             if self.direct_identify_table_from_row(row) != target_table:
                 raise InputIntegrityError("Rows from different tables.")
-        rows = [prepare_normalized_values(self, target_table, row) for row in rows]
+        normalizer = NormalizedValuePreparer.from_source(self, target_table)
+        rows = [normalizer.prepare(row) for row in rows]
         columns = tuple(rows[0])
         id_column = self.direct_get_id_column(target_table)
         for row in rows:

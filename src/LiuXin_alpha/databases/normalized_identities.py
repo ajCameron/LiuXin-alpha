@@ -30,6 +30,10 @@ declaration table remains authoritative. Inserts and updates receive copied mapp
 with derived keys prepared consistently. A key-only update can read the stored display
 value on the writer's connection to recompute its key.
 
+NormalizedValuePreparer snapshots declarations and headings for one batch. Every
+new operation resolves fresh metadata, so policy changes take effect between
+calls without a long-lived cache. Scalar preparation uses the same helper.
+
 Actual string transformations live in metadata.text_identity. This module connects
 those policies to the storage schema and prepares values; it does not persist rows or
 enforce uniqueness itself. Writers perform the inserts and updates, while schema and
@@ -38,14 +42,13 @@ migration consumers create the constraints that enforce declared uniqueness.
 
 from __future__ import annotations
 
+import json
 from collections.abc import Callable, Iterable, Iterator, Mapping
 from dataclasses import dataclass
-import json
 from typing import Any
 
-from LiuXin_alpha.metadata.value_policies import ColumnNormalizationProfile
 from LiuXin_alpha.errors import InputIntegrityError
-
+from LiuXin_alpha.metadata.value_policies import ColumnNormalizationProfile
 
 NORMALIZED_IDENTITIES_TABLE = "normalized_identities"
 
@@ -359,6 +362,95 @@ def add_derived_identity_values(
     return prepared
 
 
+@dataclass(frozen=True, slots=True)
+class NormalizedValuePreparer:
+    """Retain declarations and physical headings for one write operation.
+
+    Build a fresh instance for each batch. This is an operation-local snapshot,
+    not a database cache: the next operation reloads persisted declarations,
+    including an authoritative empty declaration table. Preparation still copies
+    each payload and delegates transformations to the shared metadata policies.
+    """
+
+    table: str
+    specs: tuple[NormalizedIdentitySpec, ...]
+    available_columns: frozenset[str] | None
+
+    @classmethod
+    def from_source(
+        cls,
+        source: Any,
+        table: str,
+        *,
+        available_columns: frozenset[str] | None = None,
+    ) -> NormalizedValuePreparer:
+        """Resolve one operation's policy from a driver or its wrapper.
+
+        Use built-in declarations only when the source has no declaration reader.
+        Supplied physical headings avoid another lookup by a batch's validator.
+        No source or connection is retained after this call.
+
+        :param source: Driver or wrapper exposing declaration/schema readers.
+        :param table: Exact physical table name.
+        :param available_columns: Already inspected headings, if available.
+        :return: A snapshot to use only within the current operation.
+        """
+        iterator = getattr(source, "iter_normalized_identity_specs", None)
+        if not callable(iterator):
+            iterator = getattr(source, "direct_iter_normalized_identity_specs", None)
+        specs = (
+            tuple(iterator(table=table))
+            if callable(iterator)
+            else normalized_identity_defaults_for_table(table)
+        )
+        if specs and available_columns is None:
+            headings = getattr(source, "get_column_headings", None)
+            if not callable(headings):
+                headings = getattr(source, "direct_get_column_headings", None)
+            if callable(headings):
+                available_columns = frozenset(headings(table))
+        return cls(table, specs, available_columns)
+
+    def prepare(
+        self,
+        values: Mapping[str, Any],
+        *,
+        existing: Mapping[str, Any] | None = None,
+        read_existing: Callable[[], Mapping[str, Any] | None] | None = None,
+    ) -> dict[str, Any]:
+        """Copy a payload and derive keys, reading old display values only if needed.
+
+        :param values: Insert/update values, never changed in place.
+        :param existing: Existing display values for a key-only update.
+        :param read_existing: Lazy reader on the caller's write connection.
+        :return: Copied values with eligible declared keys derived.
+        """
+        if not self.specs:
+            return dict(values)
+        if (
+            existing is None
+            and read_existing is not None
+            and any(
+                spec.table == self.table
+                and spec.identity_column in values
+                and spec.value_column not in values
+                and (
+                    self.available_columns is None
+                    or spec.identity_column in self.available_columns
+                )
+                for spec in self.specs
+            )
+        ):
+            existing = read_existing()
+        return add_derived_identity_values(
+            self.table,
+            values,
+            specs=self.specs,
+            existing=existing,
+            available_columns=self.available_columns,
+        )
+
+
 def prepare_normalized_values(
     source: Any,
     table: str,
@@ -376,37 +468,10 @@ def prepare_normalized_values(
     ``read_existing`` lazily supplies that row on the caller's write connection;
     ordinary inserts and updates containing their display values do not read it.
     """
-    iterator = getattr(source, "iter_normalized_identity_specs", None)
-    if not callable(iterator):
-        iterator = getattr(source, "direct_iter_normalized_identity_specs", None)
-    if callable(iterator):
-        specs = tuple(iterator(table=table))
-    else:
-        specs = normalized_identity_defaults_for_table(table)
-    if not specs:
-        return dict(values)
-    headings = getattr(source, "get_column_headings", None)
-    if not callable(headings):
-        headings = getattr(source, "direct_get_column_headings", None)
-    available = set(headings(table)) if callable(headings) else None
-    if (
-        existing is None
-        and read_existing is not None
-        and any(
-            spec.table == table
-            and spec.identity_column in values
-            and spec.value_column not in values
-            and (available is None or spec.identity_column in available)
-            for spec in specs
-        )
-    ):
-        existing = read_existing()
-    return add_derived_identity_values(
-        table,
+    return NormalizedValuePreparer.from_source(source, table).prepare(
         values,
-        specs=specs,
         existing=existing,
-        available_columns=available,
+        read_existing=read_existing,
     )
 
 
@@ -507,6 +572,7 @@ __all__ = [
     "NORMALIZED_IDENTITIES_TABLE",
     "NORMALIZED_IDENTITY_DEFAULTS",
     "NormalizedIdentitySpec",
+    "NormalizedValuePreparer",
     "add_derived_identity_values",
     "default_normalized_identity_spec",
     "iter_normalized_identity_defaults",

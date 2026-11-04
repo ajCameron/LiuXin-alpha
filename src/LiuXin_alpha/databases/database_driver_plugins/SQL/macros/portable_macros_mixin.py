@@ -43,6 +43,7 @@ from LiuXin_alpha.databases.db_types.macro_types import (
 from LiuXin_alpha.databases.normalized_identities import (
     NORMALIZED_IDENTITIES_TABLE,
     NormalizedIdentitySpec,
+    NormalizedValuePreparer,
     default_normalized_identity_spec,
     iter_normalized_identity_defaults,
     normalize_identity_value,
@@ -1096,7 +1097,8 @@ class SQLPortableMacrosMixin:
     def insert_rows(self, table: str, rows: Iterable[Mapping[str, Any]]) -> None:
         """Insert physical records in bounded multi-value SQL statements.
 
-        Prepare all normalized keys and validate columns before writing. Keep
+        Resolve normalization declarations/headings once for this operation;
+        prepare all normalized keys and validate columns before writing. Keep
         consecutive equal column shapes in input order and bind at most 500
         values per statement. Missing columns use database defaults. No IDs
         are returned: use explicit IDs or look up a declared natural identity
@@ -1106,11 +1108,21 @@ class SQLPortableMacrosMixin:
         table = self._physical_table(table)
         prepared = []
         id_column = self._row_id_column(table, None)
+        normalizer = None
         for values in rows:
             if not values:
                 raise InputIntegrityError("insert_rows payloads cannot be empty")
-            payload = prepare_normalized_values(self.db.driver_wrapper, table, values)
-            columns = tuple(sorted(self._validate_columns(table, payload)))
+            if normalizer is None:
+                available = frozenset(self._column_names(table))
+                normalizer = NormalizedValuePreparer.from_source(
+                    self.db.driver_wrapper, table, available_columns=available
+                )
+            payload = normalizer.prepare(values)
+            columns = tuple(
+                sorted(
+                    self._validate_columns(table, payload, available_columns=available)
+                )
+            )
             if len(columns) > 500:
                 raise InputIntegrityError("insert_rows payload exceeds 500 columns")
             if id_column in payload:
@@ -1408,7 +1420,13 @@ class SQLPortableMacrosMixin:
         headings = self.db.driver_wrapper.get_column_headings(table)
         return tuple(str(column) for column in headings)
 
-    def _validate_columns(self, table: str, columns: Iterable[str]) -> tuple[str, ...]:
+    def _validate_columns(
+        self,
+        table: str,
+        columns: Iterable[str],
+        *,
+        available_columns: frozenset[str] | None = None,
+    ) -> tuple[str, ...]:
         """
         Validate a simple table name and each requested physical column.
 
@@ -1426,10 +1444,16 @@ class SQLPortableMacrosMixin:
             driver wrapper.
         :param columns: Iterable of physical column names; may be empty or contain
             duplicates.
+        :param available_columns: Headings already inspected for this operation,
+            or None to load them now. Never retain this snapshot across operations.
         :return: Requested names after identifier normalization, as a tuple.
         """
         table = _identifier(table, kind="table name")
-        available = set(self._column_names(table))
+        available = (
+            frozenset(self._column_names(table))
+            if available_columns is None
+            else available_columns
+        )
         validated = tuple(_identifier(column, kind="column name") for column in columns)
         missing = sorted(set(validated) - available)
         if missing:
@@ -3417,7 +3441,8 @@ class SQLPortableMacrosMixin:
         """Update physical rows atomically, batching consecutive matching shapes.
 
         Copy and validate every payload before writes; reject ID-column changes.
-        Derive comparison keys through the same declarations as update_row.
+        Resolve declarations/headings once and derive comparison keys through the
+        same policies as update_row. Reload the declarations for the next call.
         Empty payloads and missing IDs are no-ops. Preserve input order so trigger
         and uniqueness behavior does not depend on grouping by column names.
         """
@@ -3425,22 +3450,32 @@ class SQLPortableMacrosMixin:
         id_column = self._row_id_column(table, None)
         materialized = [(row_id, dict(values)) for row_id, values in updates.items()]
         self._batch_row_ids(row_id for row_id, _ in materialized)
+        available = frozenset(self._column_names(table))
         for _, values in materialized:
             if id_column in values:
                 raise InputIntegrityError("update_rows cannot change the ID column")
-            self._validate_columns(table, values)
+            self._validate_columns(table, values, available_columns=available)
         with self._macro_transaction() as conn:
             prepared = []
+            normalizer = None
             for row_id, values in materialized:
                 if not values:
                     continue
-                payload = prepare_normalized_values(
-                    self.db.driver_wrapper,
-                    table,
+                if normalizer is None:
+                    normalizer = NormalizedValuePreparer.from_source(
+                        self.db.driver_wrapper, table, available_columns=available
+                    )
+                payload = normalizer.prepare(
                     values,
                     read_existing=lambda row_id=row_id: self.get_row(table, row_id),
                 )
-                columns = tuple(sorted(self._validate_columns(table, payload)))
+                columns = tuple(
+                    sorted(
+                        self._validate_columns(
+                            table, payload, available_columns=available
+                        )
+                    )
+                )
                 prepared.append(
                     (columns, tuple(payload[c] for c in columns) + (row_id,))
                 )

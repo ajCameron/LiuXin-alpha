@@ -1,6 +1,16 @@
 # Working Memory Index
 
-Active work, **2026-10-31**: [database review validation](database-validation-2026-10-31.md)
+Active work, **2026-11-01**: [database batch overheads](database-batch-overheads-2026-11-01.md)
+retains opt-in SQLite progress hooks with no default handler and resolves
+normalization metadata once per batch on `database-batch-overheads`. Broader
+regressions (176), live PostgreSQL (seven), and full local quality gates pass.
+All 12 benchmark scenarios preserve results; batch inserts use two connections
+and take 67.7 ms locally. Final progress/docs/hygiene (17) and link (16) checks pass.
+The follow-up PR for this branch tracks its CI separately from the parent.
+Preserve the dirty data submodule and the user's `maintenance/builtin_plugins.py`
+comments. Parent PR #152's final full suite passed (8,065 tests; no telemetry OOM).
+
+Completed delivery, **2026-10-31**: [database review validation](database-validation-2026-10-31.md)
 packages the Catalog/database ownership and SQL-efficiency work on
 `database-review`, with live PostgreSQL checks, full-suite telemetry and catalogue
 benchmarks in [PR #152](https://github.com/ajCameron/LiuXin-alpha/pull/152).
@@ -11,7 +21,8 @@ The completed full run exposed raw fixture connection setup and stale fault
 injection; corrections cover shared index functions, batched reads and optional
 APSW coverage. CI telemetry recorded a 1.06 GiB process-tree peak and no OOM kills.
 All 68 corrected regression cases pass locally, with two Windows-only skips;
-the final-head full suite and telemetry remain the delivery gate.
+the final-head full suite subsequently passed all gates at `8203b737`
+(8,065 passed, 363 skipped, 17 xfailed; run `41195661329`).
 The dirty data submodule remains outside this delivery.
 
 Active work, **2026-10-20**: [Composite ownership](storage-composite-owner-2026-10-20.md)
