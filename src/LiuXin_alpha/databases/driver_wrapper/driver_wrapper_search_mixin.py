@@ -1,4 +1,3 @@
-
 """
 Read and search plain row dictionaries through the active driver.
 
@@ -8,10 +7,13 @@ sentinels; read is an alias for get_all_rows.
 
 from __future__ import annotations
 
-from typing import Any, Iterable, Optional
+from typing import Any, Literal
+
+from LiuXin_alpha.databases.driver_wrapper._base import DriverWrapperBase
+from LiuXin_alpha.databases.driver_wrapper.diagnostics import observed
 
 
-class DriverWrapperSearchMixin:
+class DriverWrapperSearchMixin(DriverWrapperBase):
     """
     Read and search plain row dictionaries through the active driver.
 
@@ -40,7 +42,10 @@ class DriverWrapperSearchMixin:
         """
         return self.driver.direct_get_all_hashes()
 
-    def get_random_row(self, table: str, direct_access: bool = False) -> dict[str, Any]:
+    @observed("get_random_row", count="one")
+    def get_random_row(
+        self, table: str, direct_access: bool = False
+    ) -> dict[str, Any] | None:
         """
         Pick a random row using SQLite RANDOM or rejection sampling over positive IDs.
 
@@ -60,13 +65,17 @@ class DriverWrapperSearchMixin:
             IDs.
         :return: A converted row dictionary, or ``None`` for an empty table.
         """
-        return self.driver.direct_get_random_row_dict(target_table=table, direct=direct_access)
-
+        return self.driver.direct_get_random_row_dict(
+            target_table=table, direct=direct_access
+        )
 
     # ------------------------------------------------------------------------------------------------------------------
     # - METHODS TO SEARCH THE DATABASE START HERE
     # ------------------------------------------------------------------------------------------------------------------
-    def get_row_from_id(self, table: str, row_id: int) -> dict[str, Any]:
+    @observed("get_row_from_id", count="one")
+    def get_row_from_id(
+        self, table: str, row_id: int
+    ) -> dict[str, Any] | Literal[False]:
         """
         Bind a text-coerced ID and require at most one matching row.
 
@@ -87,7 +96,10 @@ class DriverWrapperSearchMixin:
         """
         return self.driver.direct_get_row_dict_from_id(table, row_id)
 
-    def get_all_rows(self, table: str, sort_column: str = None, reverse: bool = False) -> Iterable[dict[str, Any]]:
+    @observed("get_all_rows", count="all")
+    def get_all_rows(
+        self, table: str, sort_column: str | None = None, reverse: bool = False
+    ) -> list[dict[str, Any]]:
         """
         Load every row into memory, optionally ordering by a validated column.
 
@@ -110,7 +122,10 @@ class DriverWrapperSearchMixin:
         """
         return self.driver.direct_get_all_rows(table, sort_column, reverse)
 
-    def read(self, table: str, sort_column: Optional[str] = None, reverse: bool = False) -> Iterable[dict[str, Any]]:
+    @observed("read", count="all")
+    def read(
+        self, table: str, sort_column: str | None = None, reverse: bool = False
+    ) -> list[dict[str, Any]]:
         """
         Fetch all rows through the get_all_rows() compatibility alias.
 
@@ -128,7 +143,8 @@ class DriverWrapperSearchMixin:
         """
         return self.get_all_rows(table, sort_column=sort_column, reverse=reverse)
 
-    def search(self, table: str, column: str, search_term: str) -> Iterable[dict[str, Any]]:
+    @observed("search", count="all")
+    def search(self, table: str, column: str, search_term: Any) -> list[dict[str, Any]]:
         """
         Find exact matches for a bound text search term in a validated column.
 

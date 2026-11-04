@@ -19,6 +19,7 @@ import os
 import sqlite3
 
 from LiuXin_alpha.databases.search_functions import register_search_functions
+from LiuXin_alpha.databases.connection_hooks import SQLiteCompletionConnection
 from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.sqlite_progress import (
     SQLiteProgressMixin,
 )
@@ -40,8 +41,6 @@ from LiuXin_alpha.databases.database_driver_plugins.SQL.custom_columns import (
 from LiuXin_alpha.errors import DatabaseDriverError
 
 from LiuXin_alpha.utils.language_tools.lx_name_manip import authors_str_to_sort_str
-
-from LiuXin_alpha.databases.maintenance import run_ta_updates
 
 from LiuXin_alpha.utils.logging import default_log
 
@@ -261,7 +260,7 @@ class Connection(apsw.Connection):
             return self.cursor().executemany(sql, sequence_of_bindings)
 
 
-class SQLite_Connection(sqlite3.Connection):
+class SQLite_Connection(SQLiteCompletionConnection):
     """
     Extend sqlite3.Connection with all-row, single-row and scalar fetching.
 
@@ -495,40 +494,6 @@ class DatabaseDriver(
         # This will be usefully set when the database starts up
         self.dirty_records_queue = dirty_records_queue
 
-    # Todo: This needs to be terminated during shutdown
-    # Todo: This also needs to be written
-    # Todo: May make no sense in a WEMI context
-    def direct_run_ta_update(self, ta_row_id: int) -> None:
-        """
-        Launch the legacy aggregate-update thread when its preference enables it.
-
-        Only the exact string "true" for run_ta_update_after_each_change dispatches
-        run_ta_updates with a one-element ID list and this driver. The helper starts a
-        daemon thread; this method does not wait for completion. "false" and other
-        values, including boolean True, cause no dispatch. Preference lookup and launch
-        errors propagate; background failures are not returned to the caller.
-
-        Example:
-            With the preference set to the string "true", this schedules the update:
-            >>> driver.direct_run_ta_update(42)  # doctest: +SKIP
-
-
-        :param ta_row_id: Aggregate/title row ID passed unchanged in the worker input
-            list; not validated here.
-        :return: None, regardless of whether an update thread is launched.
-        """
-        if preferences["run_ta_update_after_each_change"] == "true":
-            run_ta_updates(
-                [
-                    ta_row_id,
-                ],
-                self,
-            )
-        elif preferences["run_ta_update_after_each_change"] == "false":
-            pass
-        else:
-            pass
-
     # ----------------------------------------------------------------------------------------------------------------------
     #
     # - CONNECTION METHODS TO THE DATABASE
@@ -552,9 +517,9 @@ class DatabaseDriver(
         Install aggregates, collations, regex/tree/sort/UUID helpers, an always-true
         books_list_filter and maintenance callbacks. Progress callbacks are opt-in
         through set_progress_callbacks and are installed after connection setup.
-        With no callbacks, SQLite has no Python progress handler. DIRTY_RECORD and
-        NEW_DIRTY_RECORD look up the current maintainer on each invocation;
-        DIRTY_INTERLINK_RECORD binds the maintainer method at connection creation.
+        With no callbacks, SQLite has no Python progress handler. All three dirty
+        callbacks look up the current maintainer on each invocation, including
+        handles opened before the real maintainer replaces its startup placeholder.
         Cross-thread access still requires caller coordination.
 
         Best-effort LANGUAGE_ID registration may seed and lock an existing FRBR
@@ -665,13 +630,14 @@ class DatabaseDriver(
         # Adds again under a different name for close calibre compatibility
         conn.create_function("AUTHORS_SORT", 1, authors_str_to_sort_str)
 
-        # Adds a function which will be used to update the title_aggregate table in a separate worker process
-        conn.create_function("TA_UPDATE", 1, self.direct_run_ta_update)
-
         # More generally, add a function which will callback to the maintenance bot to tell it that particular row in
         # a table has changed and might need attention
         conn.create_function("DIRTY_RECORD", 2, lambda table, row_id: self.maintainer_callback.dirty_record(table, row_id))
-        conn.create_function("DIRTY_INTERLINK_RECORD", 5, self.maintainer_callback.dirty_interlink_record)
+        conn.create_function(
+            "DIRTY_INTERLINK_RECORD", 5,
+            lambda update_type, table1, table2, table1_id, table2_id:
+                self.maintainer_callback.dirty_interlink_record(update_type, table1, table2, table1_id, table2_id),
+        )
         conn.create_function("NEW_DIRTY_RECORD", 2, lambda table, row_id: self.maintainer_callback.new_dirty_record(table, row_id))
 
         # calibre - functions included here for compatibility

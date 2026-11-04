@@ -5,17 +5,18 @@ Inspect SQLite schema caches and read or update the single-row database metadata
 
 from __future__ import annotations
 
-import uuid
-
 import pprint
+import uuid
 from copy import deepcopy
+from typing import Any, Optional
 
-from typing import Optional, Any
-
-from LiuXin_alpha.utils.libraries.liuxin_six import force_unicode
-
-from LiuXin_alpha.utils.logging import default_log
+from LiuXin_alpha.databases.db_types.backend_capabilities import BackendCapabilities
+from LiuXin_alpha.databases.db_types.driver_types import QueryConnection
+from LiuXin_alpha.databases.schema_readers import schema_connection
+from LiuXin_alpha.databases.schema_specs import PhysicalTableSpec
 from LiuXin_alpha.errors import DatabaseIntegrityError, InputIntegrityError
+from LiuXin_alpha.utils.libraries.liuxin_six import force_unicode
+from LiuXin_alpha.utils.logging import default_log
 
 
 class MetadataMethodMixin:
@@ -27,6 +28,49 @@ class MetadataMethodMixin:
     Example:
         ``driver.direct_get_tables_and_columns()`` obtains the cached schema mapping.
     """
+
+    def direct_get_backend_capabilities(
+        self, *, connection: QueryConnection | None = None
+    ) -> BackendCapabilities:
+        """Inspect supported SQLite facilities without completing a transaction."""
+        from .physical_schema import capabilities
+
+        with schema_connection(self, connection) as active:
+            return capabilities(active)
+
+    def direct_get_physical_table_spec(
+        self, table: str, *, connection: QueryConnection | None = None
+    ) -> PhysicalTableSpec:
+        """Read uncached native schema facts on the supplied or primary handle."""
+        from .physical_schema import inspect_relation
+
+        with schema_connection(self, connection) as active:
+            return inspect_relation(active, table)
+
+    def direct_get_relation_type(self, name: str) -> str | None:
+        """Inspect a relation without completing the caller's transaction.
+
+        Reuse the primary connection so uncommitted schema changes are visible.
+        Close only a connection acquired for this lookup; query errors propagate.
+        """
+        conn = getattr(self, "conn", None)
+        owned = conn is None
+        if owned:
+            conn = self.get_connection()
+        try:
+            cursor = conn.execute(
+                "SELECT type FROM sqlite_master "
+                "WHERE name = ? COLLATE NOCASE AND type IN ('table', 'view') LIMIT 1",
+                (str(name),),
+            )
+            try:
+                row = cursor.fetchone()
+                return str(row[0]) if row else None
+            finally:
+                cursor.close()
+        finally:
+            if owned:
+                conn.close()
 
     @property
     def user_version(self) -> Optional[str]:
@@ -58,63 +102,25 @@ class MetadataMethodMixin:
         return self.user_version
 
     def direct_get_schema_version(self) -> Optional[int]:
-        """
-        Read SQLite's schema change counter, retrying on a fresh connection after
-        failure.
+        """Read SQLite's schema counter without repairing or closing a borrowed handle.
 
-        Temporary connections are closed. A failing primary handle may be closed without
-        replacing ``self.conn``; failure of the retry propagates. Failed integer
-        conversion preserves the raw value.
-
-        Example:
-            ``driver.direct_get_schema_version()`` supports checking for external schema
-            changes.
-
-
-        :return: The integer counter, a raw non-convertible value, or ``None`` if no row
-            is produced.
+        Query errors propagate. Only a connection acquired for this inspection is
+        closed; callers explicitly reconnect an unusable primary connection.
         """
         conn = getattr(self, "conn", None)
-        close_after = False
-        if conn is None:
+        owned = conn is None
+        if owned:
             conn = self.get_connection()
-            close_after = True
-
         try:
-            for row in conn.execute("pragma schema_version;"):
-                try:
-                    return int(row[0])
-                except Exception:
-                    return row[0]
-        except Exception:
-            # If the existing connection is closed/broken, fall back to a fresh one.
+            cursor = conn.execute("PRAGMA schema_version")
             try:
-                if not close_after and conn is not None:
-                    conn.close()
-            except Exception:
-                pass
-
-            conn2 = self.get_connection()
-            try:
-                for row in conn2.execute("pragma schema_version;"):
-                    try:
-                        return int(row[0])
-                    except Exception:
-                        return row[0]
+                row = cursor.fetchone()
+                return int(row[0]) if row else None
             finally:
-                try:
-                    conn2.close()
-                except Exception:
-                    pass
+                cursor.close()
         finally:
-            if close_after:
-                try:
-                    conn.close()
-                except Exception:
-                    pass
-
-        # Should never happen, but keep callers safe.
-        return None
+            if owned:
+                conn.close()
 
     def _invalidate_schema_caches(self) -> None:
         """
@@ -138,31 +144,23 @@ class MetadataMethodMixin:
             pass
 
     # Either uses the data from self.tables_and_columns, or gets the data while populating it
-    def direct_get_tables(self, force_refresh: bool = False) -> dict[str, list[str]]:
+    def direct_get_tables(self, force_refresh: bool = False) -> list[str]:
         """
         Return cached table/view names, rebuilding when a known schema version changes.
 
         Suppress an ``_v`` name when its unsuffixed counterpart exists. The returned
-        list is the cache itself; forcing refresh closes and replaces the primary
-        handle.
+        list is the cache itself. Refresh invalidates caches while preserving the
+        primary connection, its pending transaction and connection-local objects.
 
         Example:
             ``driver.direct_get_tables(force_refresh=True)`` re-reads sqlite_master.
 
 
-        :param force_refresh: Invalidate cached schema data and reopen the primary
-            connection before introspection.
+        :param force_refresh: Invalidate cached schema data before introspection.
         :return: The mutable list of visible table and view names.
         """
         if force_refresh:
             self._invalidate_schema_caches()
-            old = getattr(self, 'conn', None)
-            if old is not None:
-                try:
-                    old.close()
-                except Exception:
-                    pass
-            self.conn = self.get_connection()
 
         # Ensure we have a live connection for introspection.
         if getattr(self, 'conn', None) is None:
@@ -203,8 +201,8 @@ class MetadataMethodMixin:
         """
         Look up cached column names after canonicalizing the table identifier.
 
-        Populate the combined cache only when absent; an existing cache is not
-        independently version-checked here. Unknown tables raise InputIntegrityError.
+        Check the combined cache's schema version before using it. Unknown tables
+        raise InputIntegrityError; inspection preserves the primary transaction.
 
         Example:
             ``driver.direct_get_column_headings("`books`")`` uses the unquoted cache
@@ -219,18 +217,10 @@ class MetadataMethodMixin:
         # Normalise the input table identifier to the unquoted cache key.
         table = self._canonicalise_table_name_for_cache(table)
 
-        if self.tables_and_columns is None:
-            tables_and_columns = self.direct_get_tables_and_columns()
-            try:
-                return tables_and_columns[table]
-            except KeyError:
-                raise InputIntegrityError("table {} not found".format(table))
-
-        else:
-            try:
-                return self.tables_and_columns[table]
-            except KeyError:
-                raise InputIntegrityError("table {} not found".format(table))
+        try:
+            return self.direct_get_tables_and_columns()[table]
+        except KeyError:
+            raise InputIntegrityError("table {} not found".format(table)) from None
 
     @staticmethod
     def _canonicalise_table_name_for_cache(table: str) -> str:
@@ -275,16 +265,16 @@ class MetadataMethodMixin:
         """
         Build or reuse the table/view-to-column-list cache with schema-version checks.
 
-        Use a fresh connection for PRAGMA table_info and close it on success. Return the
-        cache object directly; force-refresh also replaces the primary connection.
+        Use the primary connection for a consistent view of pending schema changes.
+        Return the cache object directly; refresh preserves the connection and its
+        transaction.
 
         Example:
             ``driver.direct_get_tables_and_columns()["books"]`` yields the books column
             names.
 
 
-        :param force_refresh: Invalidate cached schema data and reopen the primary
-            connection before introspection.
+        :param force_refresh: Invalidate cached schema data before introspection.
         :return: The cached mapping from visible table/view names to ordered column
             lists.
         """
@@ -304,16 +294,15 @@ class MetadataMethodMixin:
         # until *after* we have obtained the final table list.
         tables = self.direct_get_tables(force_refresh=force_refresh)
 
-        self.tables_and_columns = dict()
-        conn = self.get_connection()
-        c = conn.cursor()
-        for table in tables:
-            stmt = "PRAGMA table_info({})".format(table)
-            headings = []
-            for row in c.execute(stmt):
-                headings.append(row[1])
-            self.tables_and_columns[table] = headings
-        conn.close()
+        columns = {}
+        c = self.conn.cursor()
+        try:
+            for table in tables:
+                quoted = '"' + table.replace('"', '""') + '"'
+                columns[table] = [row[1] for row in c.execute(f"PRAGMA table_info({quoted})")]
+        finally:
+            c.close()
+        self.tables_and_columns = columns
 
         # Record the schema_version the cache was built against.
         self._schema_version_cached = self.direct_get_schema_version()
@@ -373,7 +362,7 @@ class MetadataMethodMixin:
                 conn.close()
 
 
-    def direct_get_highest_id(self, target_table: str) -> Optional[dict[str, Any]]:
+    def direct_get_highest_id(self, target_table: str) -> int | None:
         """
         Query the maximum ID value in a table, closing the connection after its result.
 
@@ -491,7 +480,7 @@ class MetadataMethodMixin:
             err_str += "unique_ids: " + repr(unique_ids) + "\n"
             raise DatabaseIntegrityError(err_str)
 
-    def direct_set_db_unique_id(self, force_value=None):
+    def direct_set_db_unique_id(self, force_value: str | None = None) -> bool:
         """
         Write a supplied identity or new UUID4, commit, and verify it by rereading.
 

@@ -2,19 +2,20 @@
 Expose the legacy maintainer interface over the plugin engine.
 
 The facade starts background work immediately and retains a database reference.
-Dirty callbacks delegate to the engine; cleanup and merge helpers retain their
-legacy limitations.
+Dirty callbacks delegate to the engine. Selective cleanup is unavailable; physical
+interlink merging uses one transaction and refuses conflicting duplicate payloads.
 """
 
 from __future__ import annotations
 
-from copy import deepcopy
-from typing import Iterable, Optional, TYPE_CHECKING
+from collections.abc import Iterable
+from typing import TYPE_CHECKING
 
 from LiuXin_alpha.databases.api import DatabaseMaintainerAPI
-from LiuXin_alpha.databases.maintenance.builtin_plugins import get_builtin_maintenance_plugins
+from LiuXin_alpha.databases.maintenance.builtin_plugins import (
+    get_builtin_maintenance_plugins,
+)
 from LiuXin_alpha.databases.maintenance.engine import MaintenanceEngine
-from LiuXin_alpha.databases.maintenance.legacy import clean as legacy_clean
 
 if TYPE_CHECKING:
     from LiuXin_alpha.databases.api import DatabaseAPI
@@ -33,11 +34,11 @@ class Maintainer(DatabaseMaintainerAPI):
         >>> maintenance.stop()  # doctest: +SKIP
     """
 
-    db: "DatabaseAPI"
+    db: DatabaseAPI
 
     def __init__(
         self,
-        db: "DatabaseAPI",
+        db: DatabaseAPI,
         *,
         plugins=None,
         interval: float = 2.0,
@@ -103,7 +104,7 @@ class Maintainer(DatabaseMaintainerAPI):
         """
         return self.maintainer.iter_plugins()
 
-    def run_once(self, *, max_events: int = 128) -> dict[str, "MaintenancePluginResult"]:
+    def run_once(self, *, max_events: int = 128) -> dict[str, MaintenancePluginResult]:
         """
         Dispatch one bounded event batch synchronously through the engine.
 
@@ -138,7 +139,7 @@ class Maintainer(DatabaseMaintainerAPI):
         table: str,
         value: str,
         now: bool = True,
-        db: Optional["DatabaseAPI"] = None,
+        db: DatabaseAPI | None = None,
     ) -> None:
         """
         Dispatch or queue a rename through the bound database's engine.
@@ -148,7 +149,7 @@ class Maintainer(DatabaseMaintainerAPI):
         may stop before processing the queued rename.
 
         Example:
-            >>> worker.rename_item(1, "creators", "New name")  # doctest: +SKIP
+            >>> worker.rename_item(1, "works", "New name")  # doctest: +SKIP
 
 
         :param item_id: Identifier of the row to rename.
@@ -164,7 +165,9 @@ class Maintainer(DatabaseMaintainerAPI):
             # Compatibility behaviour only. The new engine is bound to one DB.
             maintenance = Maintainer(target_db)
             try:
-                maintenance.rename_item(item_id=item_id, table=table, value=value, now=now)
+                maintenance.rename_item(
+                    item_id=item_id, table=table, value=value, now=now
+                )
             finally:
                 maintenance.stop()
             return
@@ -178,7 +181,7 @@ class Maintainer(DatabaseMaintainerAPI):
         strings; errors propagate.
 
         Example:
-            >>> worker.dirty_record("creators", 1)  # doctest: +SKIP
+            >>> worker.dirty_record("works", 1)  # doctest: +SKIP
 
 
         :param table: Table associated with the row or operation.
@@ -195,7 +198,7 @@ class Maintainer(DatabaseMaintainerAPI):
         strings; errors propagate.
 
         Example:
-            >>> worker.new_dirty_record("creators", 1)  # doctest: +SKIP
+            >>> worker.new_dirty_record("works", 1)  # doctest: +SKIP
 
 
         :param table: Table associated with the row or operation.
@@ -220,7 +223,7 @@ class Maintainer(DatabaseMaintainerAPI):
 
         Example:
             >>> worker.dirty_interlink_record(
-            ...     "UPDATE", "creators", "titles", 1, 1
+            ...     "UPDATE", "works", "expressions", 1, 1
             ... )  # doctest: +SKIP
 
 
@@ -231,37 +234,27 @@ class Maintainer(DatabaseMaintainerAPI):
         :param table2_id: Second endpoint identifier, converted to int.
         :return: None.
         """
-        self.maintainer.callback_sink.dirty_interlink_record(update_type, table1, table2, table1_id, table2_id)
+        self.maintainer.callback_sink.dirty_interlink_record(
+            update_type, table1, table2, table1_id, table2_id
+        )
 
     def clean(self, table: str, item_ids: Iterable[int]) -> None:
-        """
-        Call the unfinished legacy cleanup helper with a required ID iterable.
-
-        Any non-None item_ids currently reaches raise NotImplemented, which produces
-        TypeError rather than NotImplementedError. This path performs no deletion.
-
-        Example:
-            >>> worker.clean("creators", [1])  # doctest: +SKIP
-
-
-        :param table: Table associated with the row or operation.
-        :param item_ids: Optional restricted ID iterable; this legacy mode is
-            unfinished.
-        :return: None only when the legacy helper returns; ordinary ID iterables raise
-            TypeError.
-        """
-        legacy_clean(self.db, table, item_ids=item_ids)
+        """Report unavailable cleanup explicitly, without deleting candidate rows."""
+        raise NotImplementedError(
+            "Selective maintenance cleanup is unavailable; no rows were changed"
+        )
 
     def merge(self, table: str, item_1_id: int, item_2_id: int) -> None:
         """
         Repoint registered interlinks from the second row to the first, then delete it.
 
-        Iterates other main tables, skipping absent or unregistered link tables. Does
-        not merge scalar row values, intralinks or tree parents. Earlier updates are not
-        rolled back here if a later operation fails.
+        One serialized macro transaction owns every transfer and the final deletion.
+        Only proven identical duplicate link payloads are removed. Other conflicts
+        and write/maintenance failures roll back the entire operation. This physical
+        repair does not combine scalar metadata, intralinks or tree parents.
 
         Example:
-            >>> worker.merge("creators", 1, 1)  # doctest: +SKIP
+            >>> worker.merge("tags", 1, 2)  # doctest: +SKIP
 
 
         :param table: Table associated with the row or operation.
@@ -269,26 +262,34 @@ class Maintainer(DatabaseMaintainerAPI):
         :param item_2_id: Row identifier to delete after attempting to repoint links.
         :return: None.
         """
-        for main_table in self.db.main_tables:
-            if main_table == table:
-                continue
-
-            link_table = self.db.driver_wrapper.get_link_table_name(table1=table, table2=main_table)
-            if link_table is None:
-                continue
-            if link_table not in self.db.interlink_tables:
-                continue
-
-            self._do_merge_one_table(
-                src_table=main_table,
-                dst_table=table,
-                link_table=link_table,
-                item_1_id=item_1_id,
-                item_2_id=item_2_id,
-            )
-
-        item_2_row = self.db.get_row_from_id(table, row_id=item_2_id)
-        self.db.delete(item_2_row)
+        if table not in self.db.main_tables:
+            raise ValueError("Merge requires a registered main table")
+        if any(type(value) is not int or value < 1 for value in (item_1_id, item_2_id)):
+            raise ValueError("Merge requires positive integer row IDs")
+        if item_1_id == item_2_id:
+            raise ValueError("Merge requires distinct retained and removed rows")
+        macros = self.db.macros
+        with macros.transaction(serialized=True):
+            if not macros.get_row(table, item_1_id) or not macros.get_row(
+                table, item_2_id
+            ):
+                raise ValueError("Both merge rows must exist")
+            for main_table in sorted(self.db.main_tables):
+                if main_table == table:
+                    continue
+                link_table = self.db.driver_wrapper.get_link_table_name(
+                    table1=table, table2=main_table
+                )
+                if link_table is None or link_table not in self.db.interlink_tables:
+                    continue
+                self._do_merge_one_table(
+                    src_table=main_table,
+                    dst_table=table,
+                    link_table=link_table,
+                    item_1_id=item_1_id,
+                    item_2_id=item_2_id,
+                )
+            macros.delete_row(table, item_2_id)
 
     def _do_merge_one_table(
         self,
@@ -299,15 +300,16 @@ class Maintainer(DatabaseMaintainerAPI):
         item_2_id: int,
     ) -> None:
         """
-        Replace one endpoint ID in each matching link row and sync it.
+        Repoint links in the shared transaction, preserving typed identities.
 
-        On any sync exception, deletes that link row, assuming a duplicate; unrelated
-        write failures can therefore also trigger deletion. No transaction boundary is
-        added.
+        Check duplicate identity and payload before deleting a redundant row; no
+        write exception is treated as proof of duplication. Timestamps alone may
+        differ. Conflicting roles, priorities or other payloads require an explicit
+        domain decision and fail the whole merge.
 
         Example:
             >>> worker._do_merge_one_table(
-            ...     "creators", "titles", "creator_title_links", 1, 1
+            ...     "expressions", "works", "expression_work_links", 1, 2
             ... )  # doctest: +SKIP
 
 
@@ -318,27 +320,46 @@ class Maintainer(DatabaseMaintainerAPI):
         :param item_2_id: Row identifier to delete after attempting to repoint links.
         :return: None.
         """
-        dst_table_id_col = self.db.driver_wrapper.get_id_column(dst_table)
-        link_table_tag_id_col = self.db.driver_wrapper.get_link_column(
-            table1=dst_table,
-            table2=src_table,
-            column_type=dst_table_id_col,
-        )
-        link_table_id_col = self.db.driver_wrapper.get_id_column(link_table)
-
-        affect_link_ids = self.db.macros.get_values_one_condition(
-            table=link_table,
-            rtn_column=link_table_id_col,
-            cond_column=link_table_tag_id_col,
-            value=item_2_id,
-            default_value=(),
-        )
-
-        for link_table_id in affect_link_ids:
-            link_table_row = self.db.get_row_from_id(link_table, link_table_id)
-            link_table_row[link_table_tag_id_col] = item_1_id
-            try:
-                link_table_row.sync()
-            except Exception:
-                # Link already exists - no repoint is needed - just remove the extraneous link.
-                self.db.delete(link_table_row)
+        if item_1_id == item_2_id:
+            raise ValueError("Merge requires distinct retained and removed rows")
+        wrapper, macros = self.db.driver_wrapper, self.db.macros
+        spec = wrapper.get_link_spec(dst_table, src_table)
+        if spec is None or spec.link_table != link_table:
+            raise ValueError("Merge requires a complete physical link specification")
+        link_id_col = wrapper.get_id_column(link_table)
+        with macros.transaction():
+            for row in macros.get_rows(
+                link_table, where={spec.primary_link_col: item_2_id}
+            ):
+                identity = {
+                    spec.primary_link_col: item_1_id,
+                    spec.secondary_link_col: row[spec.secondary_link_col],
+                }
+                if spec.type_part_of_identity:
+                    identity[spec.type_link_col] = row[spec.type_link_col]
+                duplicates = macros.get_rows(link_table, where=identity)
+                if duplicates:
+                    ignored = {
+                        link_id_col,
+                        spec.primary_link_col,
+                        wrapper.get_table_spec(link_table).datestamp_column,
+                    }
+                    payload = {
+                        key: value
+                        for key, value in row.items()
+                        if key not in ignored
+                        and not key.endswith(
+                            ("_created_timestamp_ep_k", "_modified_timestamp_ep_k")
+                        )
+                    }
+                    if len(duplicates) != 1 or any(
+                        duplicates[0][key] != value for key, value in payload.items()
+                    ):
+                        raise ValueError(
+                            f"Conflicting duplicate link payload in {link_table}"
+                        )
+                    macros.delete_row(link_table, row[link_id_col])
+                else:
+                    macros.update_row(
+                        link_table, row[link_id_col], {spec.primary_link_col: item_1_id}
+                    )

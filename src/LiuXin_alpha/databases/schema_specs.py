@@ -185,11 +185,16 @@ class StorageColumnSpec:
     """
     Record a column’s name, ordinal, type, defaults and constraint metadata.
 
-    declared_type preserves backend declaration text; affinity is the broad type
-    category used by row generation. nullable, primary-key and unique flags describe
-    introspection results without enforcing them. has_default distinguishes no default
-    from a default whose value is None. Reference fields identify an optional foreign
-    target. default_value is retained directly and can be mutable.
+    declared_type preserves backend declaration text. SQLite affinity follows its
+    native rules; other backends may leave it unset. nullable=None means unknown,
+    as for views. Flags record constraints without enforcing them. Composite and
+    partial uniqueness remain table-level facts, not individual unique columns.
+
+    Native defaults are SQL text in default_sql, never evaluated into default_value.
+    has_default includes explicit DEFAULT NULL and server-generated identity values.
+    default_value is reserved for supplied Python literals and may be mutable.
+    Generated/hidden flags describe backend columns; references identify a single
+    unambiguous foreign key, with composite constraints stored at table level.
 
     Example:
         >>> col = StorageColumnSpec(
@@ -202,13 +207,67 @@ class StorageColumnSpec:
     ordinal: int
     declared_type: Optional[str] = None
     affinity: Optional[str] = None
-    nullable: bool = True
+    nullable: bool | None = True
     has_default: bool = False
     default_value: Any = None
     is_primary_key: bool = False
     is_unique: bool = False
     references_table: Optional[str] = None
     references_column: Optional[str] = None
+    default_sql: str | None = None
+    generated: bool = False
+    identity: bool = False
+    hidden: bool = False
+    primary_key_position: int | None = None
+    references_schema: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class StorageIndexSpec:
+    """Physical index keys, with None marking expression keys.
+
+    Included columns do not participate in uniqueness. A partial index never
+    proves global column uniqueness. Definition is backend SQL, not executable
+    migration advice; predicate may be unavailable even when partial is true.
+    """
+
+    name: str
+    columns: tuple[str | None, ...]
+    unique: bool = False
+    primary: bool = False
+    partial: bool = False
+    predicate: str | None = None
+    definition: str | None = None
+    included_columns: tuple[str, ...] = ()
+    valid: bool = True
+
+
+@dataclass(frozen=True, slots=True)
+class StorageForeignKeySpec:
+    """Ordered local and referenced columns, preserving composite constraints."""
+
+    name: str | None
+    columns: tuple[str, ...]
+    references_table: str
+    references_columns: tuple[str | None, ...]
+    references_schema: str | None = None
+    on_update: str = "NO ACTION"
+    on_delete: str = "NO ACTION"
+    deferrable: bool | None = None
+    initially_deferred: bool | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class PhysicalTableSpec:
+    """Native schema facts, independent of bibliographic or naming conventions."""
+
+    name: str
+    relation_kind: RelationKind
+    columns: tuple[StorageColumnSpec, ...]
+    primary_key: tuple[str, ...] = ()
+    indexes: tuple[StorageIndexSpec, ...] = ()
+    foreign_keys: tuple[StorageForeignKeySpec, ...] = ()
+    schema: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -245,6 +304,10 @@ class StorageTableSpec:
 
     linked_tables: tuple[str, ...] = ()
     extra: Mapping[str, Any] = field(default_factory=dict)
+    primary_key: tuple[str, ...] = ()
+    indexes: tuple[StorageIndexSpec, ...] = ()
+    foreign_keys: tuple[StorageForeignKeySpec, ...] = ()
+    schema: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -327,9 +390,10 @@ def build_row_dataclass_for_table(spec: StorageTableSpec) -> type:
 
     Use int/float/bytes/str for INTEGER/REAL/BLOB/TEXT affinity, wrapping nullable
     fields in Optional; all other affinities become Any. These are annotations, not
-    runtime value validators. nullable alone does not give a default. has_default passes
-    default_value directly to dataclasses, without evaluating SQL expressions or
-    reordering fields. Invalid/duplicate field names, unsuitable defaults and required
+    runtime value validators. Unknown nullability also produces Optional. Nullability
+    alone does not give a default. Only supplied literal defaults (has_default with
+    no default_sql or identity) pass default_value to dataclasses. Native SQL defaults
+    and identity generation stay server-side; fields are not reordered. Invalid/duplicate field names, unsuitable defaults and required
     fields following defaulted ones propagate factory errors. The generated class has no
     database connection or persistence methods.
 
@@ -358,17 +422,17 @@ def build_row_dataclass_for_table(spec: StorageTableSpec) -> type:
         affinity = (col.affinity or "").upper()
 
         if affinity == "INTEGER":
-            py_type = Optional[int] if col.nullable else int
+            py_type = Optional[int] if col.nullable is not False else int
         elif affinity == "REAL":
-            py_type = Optional[float] if col.nullable else float
+            py_type = Optional[float] if col.nullable is not False else float
         elif affinity == "BLOB":
-            py_type = Optional[bytes] if col.nullable else bytes
+            py_type = Optional[bytes] if col.nullable is not False else bytes
         elif affinity == "TEXT":
-            py_type = Optional[str] if col.nullable else str
+            py_type = Optional[str] if col.nullable is not False else str
         else:
             py_type = Any
 
-        if col.has_default:
+        if col.has_default and col.default_sql is None and not col.identity:
             dc_fields.append((col.name, py_type, col.default_value))
         else:
             dc_fields.append((col.name, py_type))

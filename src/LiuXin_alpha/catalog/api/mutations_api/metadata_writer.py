@@ -18,9 +18,10 @@ class MetadataWriterAPI(Protocol):
 
     These public methods form the preferred boundary for coordinated semantic
     writes; callers should not reproduce them with raw database operations.
-    Explicit graph/replacement methods require macro transactions. Attachment and
-    merge methods also support legacy handles without a callable transaction,
-    where atomicity is not guaranteed. Each method documents any remaining
+    Explicit graph/replacement methods require macro transactions. Attachment
+    methods also support legacy handles without a callable transaction, where
+    atomicity is not guaranteed. Merge requires an owned serialized transaction
+    and a resolved preview. Each method documents any remaining
     validation or atomicity limitation rather than shifting responsibility to its
     caller.
 
@@ -239,24 +240,21 @@ class MetadataWriterAPI(Protocol):
         """
 
     def merge_entities(
-        self, *, level: WemiLevel, source_id: EntityId, target_id: EntityId
-    ) -> None:
-        """
-        Fill missing target fields and transfer selected relationships before deleting the source.
+        self,
+        *,
+        level: WemiLevel,
+        source_id: EntityId,
+        target_id: EntityId,
+        resolutions=None,
+        relationship_resolutions=None,
+        max_rows=10000,
+        dry_run=True,
+        expected_state=None,
+    ) -> dict:
+        """Preview or apply the Catalog repair policy for one WEMI level.
 
-        Use macros.transaction when callable, otherwise a null context. Only
-        supported WEMI adjacency, Agent/Note links and curated identifiers are
-        explicitly transferred; this is not a complete merge of every metadata
-        family. Target nonempty fields and existing link identities win. Unsupported
-        link specifications are skipped. Deletion/cascades follow repository policy.
-
-        Example:
-            Merging Manifestations reassigns source Items to the target.
-
-
-        :param level: WEMI level selecting the semantic repository.
-        :param source_id: Existing entity to absorb and delete.
-        :param target_id: Distinct existing entity to retain.
-        :return: None; retains target identity and deletes the source on success.
-        :raises CatalogMutationError: Policy rejects level, IDs or entity existence.
+        Apply requires a matching preview, explicit populated-field and link
+        conflict decisions, and complete reference inspection. Unsupported cases
+        block source deletion. Data, source removal and the durable audit receipt
+        share one owned serialized transaction; no file operations occur.
         """

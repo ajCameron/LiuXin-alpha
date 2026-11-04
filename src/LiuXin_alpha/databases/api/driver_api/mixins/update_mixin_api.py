@@ -8,8 +8,7 @@ batches on failure. These abstract stubs have no implementation.
 """
 
 import abc
-
-from typing import Iterable, Any
+from typing import Any
 
 
 class DriverUpdateMixinAPI(abc.ABC):
@@ -27,11 +26,7 @@ class DriverUpdateMixinAPI(abc.ABC):
         True
     """
     @abc.abstractmethod
-    def direct_update_columns(
-            self,
-            id_values_map: dict[str, Any],
-            field: str = None,
-            table: str = None) -> None:
+    def direct_update_columns(self, id_values_map: dict[int, Any], field: str | None = None, table: str | None = None) -> bool | None:
         """
         Update one field for each ID as an atomic batch, preserving derived keys.
 
@@ -52,7 +47,7 @@ class DriverUpdateMixinAPI(abc.ABC):
         """
 
     @abc.abstractmethod
-    def direct_update_row_dict(self, row_dict: dict[str, Any]) -> None:
+    def direct_update_row_dict(self, row_dict: dict[str, Any]) -> bool | None:
         """
         Update the supplied columns of an identified row without mutating the input.
 

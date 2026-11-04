@@ -11,10 +11,11 @@ also satisfy these surfaces by duck typing rather than inheriting every ABC.
 from __future__ import annotations
 
 import abc
-
-from typing import Any, Iterable, Optional
+from collections.abc import Iterable
+from typing import Any
 
 from LiuXin_alpha.databases.api.database_api.database_api import DatabaseAPI
+from LiuXin_alpha.databases.db_types.maintenance_types import MaintenanceMode
 
 
 class DatabaseMaintainerAPI(abc.ABC):
@@ -24,12 +25,13 @@ class DatabaseMaintainerAPI(abc.ABC):
 
     The base constructor only stores db. The concrete Maintainer forwards events to
     MaintenanceEngine and retains synchronous cleanup/merge helpers; background service
-    lifecycle is exposed through separate contracts below. Cleanup and merging have
-    legacy limitations and no common transaction guarantee.
+    lifecycle is exposed through separate contracts below. Selective cleanup is
+    unavailable. Physical interlink merges share a transaction and reject conflicting
+    duplicate payloads; they do not combine scalar metadata or intralinks.
 
     Example:
         maintainer: DatabaseMaintainerAPI = db.maintenance
-        maintainer.dirty_record("creators", creator_id)
+        maintainer.dirty_record("works", work_id)
     """
 
     def __init__(self, db: DatabaseAPI) -> None:
@@ -52,10 +54,10 @@ class DatabaseMaintainerAPI(abc.ABC):
         """
         Repoint one relation’s links from the removed item to the surviving item.
 
-        Concrete Maintainer discovers the destination link column, obtains matching
-        link-row IDs, assigns item_1_id and syncs each row. Any sync exception causes
-        that link row to be deleted, not only a proven duplicate conflict. It does not
-        delete item_2 itself or wrap the operation in one transaction.
+        Concrete Maintainer uses a physical link specification and shared macro
+        transaction. Only proven identical duplicate payloads are deleted; other
+        conflicts or write errors propagate and roll back the unit. This helper
+        does not delete item_2 itself.
 
         Example:
             maintainer._do_merge_one_table("works", "agents", link_table, surviving_id,
@@ -77,8 +79,8 @@ class DatabaseMaintainerAPI(abc.ABC):
         """
         Expose the unfinished legacy unused-row cleanup entry point.
 
-        Concrete Maintainer forwards to legacy.clean. Supplying item_ids currently
-        attempts to raise the NotImplemented singleton and therefore raises TypeError.
+        Concrete Maintainer forwards to legacy.clean. Supplying item_ids raises
+        NotImplementedError before reading or writing.
         Passing None, despite the annotation, only returns quietly for books/titles;
         other recognized main tables reach NotImplementedError after relation
         inspection. No general cleanup operation is implemented.
@@ -92,9 +94,7 @@ class DatabaseMaintainerAPI(abc.ABC):
         :param item_ids: Candidate item IDs; the current legacy implementation cannot
             handle a supplied iterable.
         :return: None; the abstract method supplies no operational default.
-        :raises TypeError: The concrete legacy path receives non-None item_ids.
-        :raises NotImplementedError: Unrestricted cleanup reaches the unfinished
-            implementation.
+        :raises NotImplementedError: Selective or unrestricted cleanup is unavailable.
         :raises KeyError: Unrestricted cleanup names an unknown main table.
         """
 
@@ -133,7 +133,7 @@ class DatabaseMaintainerAPI(abc.ABC):
         separate from Database.dirty_records_queue.
 
         Example:
-            sink.dirty_record("creators", creator_id)
+            sink.dirty_record("works", work_id)
 
 
         :param table: Table name converted to text by the concrete callback sink.
@@ -150,9 +150,10 @@ class DatabaseMaintainerAPI(abc.ABC):
 
         Concrete Maintainer processes available interlinks with every other main table,
         then deletes item_2. It does not merge the two rows’ metadata or explicitly
-        process same-table intralinks. Each relation uses _do_merge_one_table, whose
-        broad sync-error handler can delete a link. Equal IDs are not guarded and no
-        encompassing rollback is provided.
+        process same-table intralinks. One serialized transaction encloses every
+        transfer and deletion. IDs must be distinct, positive and present. Only
+        proven identical duplicate payloads are removed; conflicting payloads or
+        any write failure roll back all transfers and preserve the source row.
 
         Example:
             maintainer.merge("tags", surviving_tag_id, removed_tag_id)
@@ -176,7 +177,7 @@ class DatabaseMaintainerAPI(abc.ABC):
         notification.
 
         Example:
-            sink.new_dirty_record("creators", creator_id)
+            sink.new_dirty_record("works", work_id)
 
 
         :param table: Table name converted to text.
@@ -198,7 +199,7 @@ class MaintenanceCallbackSinkAPI(abc.ABC):
 
     Example:
         sink: MaintenanceCallbackSinkAPI = callback_sink
-        sink.dirty_record("creators", creator_id)
+        sink.dirty_record("works", work_id)
     """
 
     @abc.abstractmethod
@@ -211,7 +212,7 @@ class MaintenanceCallbackSinkAPI(abc.ABC):
         separate from Database.dirty_records_queue.
 
         Example:
-            sink.dirty_record("creators", creator_id)
+            sink.dirty_record("works", work_id)
 
 
         :param table: Table name converted to text by the concrete callback sink.
@@ -231,7 +232,7 @@ class MaintenanceCallbackSinkAPI(abc.ABC):
         notification.
 
         Example:
-            sink.new_dirty_record("creators", creator_id)
+            sink.new_dirty_record("works", work_id)
 
 
         :param table: Table name converted to text.
@@ -269,11 +270,16 @@ class MaintenancePluginAPI(abc.ABC):
     """
     Define optional lifecycle/filter hooks and the required maintenance batch handler.
 
-    name identifies result entries, priority determines descending dispatch order, and
-    enabled_by_default is advisory metadata; the engine does not itself filter
-    registered plugins by that flag. Concrete plugins may implement the same shape
+    name identifies the installed implementation, dependencies precede priority,
+    and enabled_by_default supplies its initial persisted setting. The legacy
+    queue adapter treats that setting as advisory. Plugins may implement this shape
     without subclassing this ABC. Default hooks do nothing, accept every event and
     preserve every event separately.
+
+    mode declares LAZY or PROMPT consistency independently of priority. Install
+    physical-table subscriptions with MaintenanceRuntime for transactional prompt
+    effects and durable lazy obligations. The old queue engine is a transient
+    compatibility adapter; now=True there is not a consistency guarantee.
 
     Example:
         class MyPlugin(MaintenancePluginAPI):
@@ -283,8 +289,14 @@ class MaintenancePluginAPI(abc.ABC):
     """
 
     name: str = "maintenance-plugin"
+    version: str = "1"
+    tables: tuple[str, ...] = ()
+    dependencies: tuple[str, ...] = ()
+    mode: MaintenanceMode = MaintenanceMode.LAZY
     priority: int = 0
     enabled_by_default: bool = True
+    retry_limit: int = 5
+    retry_backoff_s: float = 1.0
 
     def startup(self, context: Any) -> None:
         """
@@ -364,9 +376,9 @@ class MaintenancePluginAPI(abc.ABC):
         Require a plugin to process its selected, coalesced event batch.
 
         The base body raises NotImplementedError. The engine records results by plugin
-        name and converts handler exceptions into an error result while continuing to
-        later plugins. It provides no transaction or rollback around a plugin’s database
-        writes.
+        name. MaintenanceRuntime rolls back a failed/incomplete batch and retains
+        lazy retry evidence. Use context.connection for all database effects;
+        commit, rollback, close and a second connection are forbidden.
 
         Example:
             result = plugin.handle_events(context, selected_events)
@@ -407,6 +419,10 @@ class MaintenanceServiceAPI(abc.ABC):
         results overwrite earlier entries. If its thread is alive, call the new plugin’s
         startup and log startup failures. Registration itself is not synchronized
         against dispatch.
+
+        Only LAZY mode (or an omitted mode on an older duck-typed plugin) is supported
+        by the current engine. Unknown modes raise ValueError; PROMPT raises
+        NotImplementedError before registration or startup.
 
         Example:
             service.register_plugin(plugin)
@@ -483,13 +499,13 @@ class MaintenanceServiceAPI(abc.ABC):
         """
         Dispatch or enqueue a rename request for maintenance plugins.
 
-        The engine creates a RenameRequestEvent and ignores dispatch results. Built-in
-        rename handling currently targets creators only, so the request does not promise
-        a rename for every table or report successful persistence. Plugin failures may
-        be logged or handled by the plugin.
+        The engine creates a RenameRequestEvent for explicitly supplied handlers.
+        There is no built-in rename plugin; the default service refuses this route
+        and directs callers to Catalog. Custom handlers retain their own error
+        policy and the queue does not supply durable completion guarantees.
 
         Example:
-            service.rename_item(creator_id, "creators", "New name", now=False)
+            service.rename_item(work_id, "works", "New name", now=False)
 
 
         :param item_id: ID of the row named by the request.

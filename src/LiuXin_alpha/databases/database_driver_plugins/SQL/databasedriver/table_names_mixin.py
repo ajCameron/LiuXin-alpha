@@ -4,14 +4,15 @@ Resolve conventional SQL column names and validate names against the driver sche
 """
 
 import re
-
 from copy import deepcopy
-from typing import Optional, Iterable
+from typing import Literal, Optional
 
 from LiuXin_alpha.constants import VERBOSE_DEBUG
-
-from LiuXin_alpha.errors import InputIntegrityError, DatabaseIntegrityError, LogicalError
-
+from LiuXin_alpha.errors import (
+    DatabaseIntegrityError,
+    InputIntegrityError,
+    LogicalError,
+)
 from LiuXin_alpha.utils.language_tools import plural_singular_mapper
 from LiuXin_alpha.utils.libraries.liuxin_six import force_unicode
 from LiuXin_alpha.utils.logging import default_log
@@ -345,7 +346,7 @@ class TableNamesMixin:
     # Todo: If this is still true, it really shouldn't be (see below)
     # Tree-like tables may use either a legacy ``*_parent`` column or a foreign-key-shaped
     # ``*_parent_id`` column to point at the row above them.
-    def direct_get_parent_column_name(self, table_name: str) -> Optional[str] | bool:
+    def direct_get_parent_column_name(self, table_name: str) -> str | Literal[False]:
         """
         Find a heading ending in _parent or _parent_id, ignoring case.
 

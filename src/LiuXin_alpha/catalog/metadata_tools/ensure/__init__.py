@@ -160,20 +160,20 @@ class Ensure:
     @atomic_write
     def genre(self, genre_string: str, standardize: bool = True) -> "RowAPI":
         """
-        Resolve a Genre, attempting duplicate maintenance before creating.
+        Resolve a Genre through its Catalog owner, or an unambiguous legacy lookup.
 
-        After maintenance, search again and fail if multiple rows remain. If no
-        match remains, create a Row with only the genre column populated.
+        A legacy host with multiple matches raises without merging or deleting
+        rows. If no match remains, create a Row with only the genre populated.
 
         Example:
-            Multiple matches invoke fix_duplicates even when the caller disabled standardization.
+            Ambiguous legacy matches require explicit resolution by the caller.
 
 
         :param genre_string: Genre input; None is rejected, other values are converted to text.
         :param standardize: Apply standardize_genre before lookup.
         :return: Unique matching Genre Row or newly inserted Genre Row.
         :raises InputIntegrityError: Genre input is None.
-        :raises DatabaseIntegrityError: Duplicate maintenance leaves multiple matches.
+        :raises DatabaseIntegrityError: A legacy lookup returns multiple matches.
         """
         if genre_string is None:
             err_str = "Library.ensure_genre called with None"
@@ -190,26 +190,9 @@ class Ensure:
             return owned_row
         candidate_rows = self.db.search(table="genres", column="genre", search_term=genre)
         if len(candidate_rows) > 1:
-            err_str = (
-                "searching the database for a specific genre returned multiple rows - "
-                "trying to use the maintenance bot to fix the problem"
+            raise DatabaseIntegrityError(
+                "Ambiguous genre lookup; automatic duplicate repair has been retired"
             )
-            default_log.log_variables(
-                err_str,
-                "ERROR",
-                ("genre_string", genre_string),
-                ("genre", genre),
-                ("candidate_rows", candidate_rows),
-            )
-            # Try and fix the problem using the maintenance bot
-            from LiuXin_alpha.databases.maintenance import fix_duplicates
-
-            fix_duplicates(self.db, table="genres", column="genre", comparison=standardize_genre)
-            candidate_rows = self.db.search(table="genres", column="genre", search_term=genre)
-            if len(candidate_rows) > 1:
-                raise DatabaseIntegrityError("Maintenance bot didn't fix the problem")
-            elif len(candidate_rows) == 1:
-                return candidate_rows[0]
         elif len(candidate_rows) == 1:
             return candidate_rows[0]
 

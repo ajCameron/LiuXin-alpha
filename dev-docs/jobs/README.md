@@ -29,6 +29,21 @@ The [Core audit contract](core-storage-audit.md) applies these foundations to
 storage verification, including composition, progress/events, cancellation,
 restart inspection and explicit retry.
 
+**Maintenance integration, 2026-11-03:** Core also publishes catalogue obligations
+through this ledger. Claims honor descending definition priority, with FIFO ties.
+Use `maintenance retry` for maintenance runs; generic Core jobs retry refuses them
+before mutation. The maintenance publisher can reconcile an existing successor
+created by a lower-level jobs caller. See
+[the maintenance contract](../databases/maintenance-modes.md).
+
+[jobs.history](../../src/LiuXin_alpha/jobs/history.py) supplies bounded terminal
+history retirement after a domain owner proves completion. The first consumer is
+`maintenance prune-jobs`: it protects pending catalogue obligations, active jobs,
+retained retry ancestry and foreign journal generations. Deleting request keys is
+an explicit retirement of that delivery history, never ordinary result retention.
+Stale claims against retired runs fail with JobLeaseLost. Storage audit history
+requires its own domain retention policy; this command does not prune it.
+
 ## Lifetime, waiting and outcomes
 
 Core borrows its default process-shared job manager and does not normally shut it

@@ -20,6 +20,7 @@ import pathlib
 import sqlite3
 import uuid
 from collections.abc import Iterable, Iterator
+from itertools import islice
 
 from LiuXin_alpha.jobs.models import (
     JobConcurrencyPolicy,
@@ -464,6 +465,7 @@ class JobRepository:
         *,
         request_key: str,
         acknowledge_possible_effects: bool = False,
+        reuse_successor: bool = False,
     ) -> JobRun:
         """Create one explicit successor of a failed/cancelled/interrupted attempt.
 
@@ -473,11 +475,15 @@ class JobRepository:
         must inspect domain evidence and stop stale workers before requesting it.
         That acknowledgement is not a claim of rollback or exactly-once effects.
         A parent has at most one successor; retry that successor for a later attempt.
+        A coordinating delivery owner may set reuse_successor to recover an
+        existing successor, including one created under another request key.
         Current definition concurrency and result-retention policies still apply.
         """
         self._validate_request_key(request_key)
         if type(acknowledge_possible_effects) is not bool:
             raise ValueError("acknowledge_possible_effects must be a bool")
+        if type(reuse_successor) is not bool:
+            raise ValueError("reuse_successor must be a bool")
         request = self._request_json(
             {
                 "operation": "retry",
@@ -506,10 +512,17 @@ class JobRepository:
                 raise ValueError(
                     "Retry requires acknowledgement of possible effects from the started run"
                 )
-            if conn.execute(
-                "SELECT 1 FROM job_runs WHERE retry_of_job_run_id=?", (job_run_id,)
-            ).fetchone():
-                raise ValueError("Run already has a retry; retry its successor instead")
+            successor = conn.execute(
+                "SELECT * FROM job_runs WHERE retry_of_job_run_id=?", (job_run_id,)
+            ).fetchone()
+            if successor is not None:
+                if not reuse_successor:
+                    raise ValueError(
+                        "Run already has a retry; retry its successor instead"
+                    )
+                run = self._run_from_row(successor)
+                self._remember_request(conn, request_key, request, run)
+                return run
             if parent.payload_json is None or parent.job_name is None:
                 raise ValueError("Run has no captured inputs for retry")
             definition = self._definition_from_row(
@@ -637,16 +650,32 @@ class JobRepository:
             (key, request, run.job_run_id),
         )
 
-    def lease_next_run(self, *, worker_id: str, lease_for_s: float) -> JobRun | None:
+    def lease_next_run(
+        self,
+        *,
+        worker_id: str,
+        lease_for_s: float,
+        job_kinds: tuple[str, ...] | None = None,
+    ) -> JobRun | None:
         """Claim once under a write transaction; replace expired unstarted claims.
 
         Expired running attempts become aborted with uncertain effects. They are
         never silently replayed. Each new claim has a fresh fencing token, even
-        when the same worker name is reused.
+        when the same worker name is reused. An optional kind filter confines
+        claims to a worker's supported or explicitly requested operations; an
+        empty filter claims nothing. Other kinds retain their queued state.
         """
         duration = self._lease_milliseconds(lease_for_s)
         if not str(worker_id).strip():
             raise ValueError("worker_id cannot be blank")
+        if job_kinds is not None:
+            if isinstance(job_kinds, str) or any(
+                not isinstance(kind, str) or not kind.strip() for kind in job_kinds
+            ):
+                raise ValueError("job_kinds must contain nonempty kind names")
+            job_kinds = tuple(dict.fromkeys(job_kinds))
+            if not job_kinds:
+                return None
         with self._connection(write=True) as conn:
             now = now_ep_k()
             self._recover_expired(conn, now)
@@ -660,14 +689,21 @@ class JobRepository:
                     JobRunState.CANCELLED,
                     error_text="Cancelled before execution",
                 )
+            kind_filter = (
+                " AND r.job_kind IN (" + ",".join("?" for _ in job_kinds) + ")"
+                if job_kinds is not None
+                else ""
+            )
             row = conn.execute(
                 """
-                SELECT * FROM job_runs WHERE (
-                    state='queued' OR (state='leased' AND lease_expires_timestamp_ep_k <= ?)
-                ) AND (not_before_timestamp_ep_k IS NULL OR not_before_timestamp_ep_k <= ?)
-                ORDER BY job_run_id LIMIT 1
-                """,
-                (now, now),
+                SELECT r.* FROM job_runs r JOIN job_definitions d
+                    ON d.job_definition_id=r.job_definition_id WHERE (
+                    r.state='queued' OR (r.state='leased' AND r.lease_expires_timestamp_ep_k <= ?)
+                ) AND (r.not_before_timestamp_ep_k IS NULL OR r.not_before_timestamp_ep_k <= ?)
+                """
+                + kind_filter
+                + " ORDER BY d.priority DESC, r.job_run_id LIMIT 1",
+                (now, now, *(job_kinds or ())),
             ).fetchone()
             if row is None:
                 return None
@@ -855,6 +891,48 @@ class JobRepository:
         if row is None:
             raise KeyError(f"Unknown job run id: {job_run_id!r}")
         return self._run_from_row(row)
+
+    def find_run_by_request(self, request_key: str) -> JobRun | None:
+        """Inspect a prior handoff; callers must verify its captured inputs.
+
+        Unlike submit_job, this does not compare a new definition or enqueue work.
+        It permits delivery owners to recover handoffs across scheduling changes.
+        """
+        with self._connection() as conn:
+            row = conn.execute(
+                "SELECT r.* FROM job_requests q JOIN job_runs r "
+                "ON r.job_run_id=q.job_run_id WHERE q.request_key=?",
+                (request_key,),
+            ).fetchone()
+            return None if row is None else self._run_from_row(row)
+
+    def get_runs(self, job_run_ids: Iterable[int]) -> dict[int, JobRun]:
+        """Read up to 500 explicit run IDs in one connection and query.
+
+        Missing IDs fail the whole lookup, matching get_run. The result is a
+        point-in-time snapshot, not a claim or execution reservation. Repeated
+        IDs are returned once; an empty input opens no connection.
+        """
+        identities = tuple(islice(iter(job_run_ids), 501))
+        if len(identities) > 500 or any(
+            type(value) is not int or value < 1 for value in identities
+        ):
+            raise ValueError("Run lookup requires at most 500 positive integer IDs")
+        identities = tuple(dict.fromkeys(identities))
+        if not identities:
+            return {}
+        with self._connection() as conn:
+            rows = conn.execute(
+                "SELECT * FROM job_runs WHERE job_run_id IN ("
+                + ",".join("?" for _ in identities)
+                + ")",
+                identities,
+            ).fetchall()
+        result = {row["job_run_id"]: self._run_from_row(row) for row in rows}
+        missing = set(identities) - result.keys()
+        if missing:
+            raise KeyError(f"Unknown job run IDs: {sorted(missing)!r}")
+        return result
 
     def list_runs(
         self,
@@ -1098,7 +1176,14 @@ class JobRepository:
         *,
         states: tuple[str, ...] = ("leased", "running"),
     ) -> sqlite3.Row:
-        row = self._run_row(conn, run_id)
+        try:
+            row = self._run_row(conn, run_id)
+        except KeyError as error:
+            # Explicit history retirement can remove an expired owner's run.
+            # Its late receipt is still lost ownership, not a polling failure.
+            raise JobLeaseLost(
+                f"Run {run_id} was retired; this claim no longer owns it"
+            ) from error
         if (
             not lease_token
             or row["lease_token"] != lease_token

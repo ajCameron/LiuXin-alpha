@@ -1,13 +1,16 @@
 """
-Expose the plugin maintenance engine and retained compatibility helpers.
+Expose transaction-bound maintenance and the transient callback adapter.
 
-Importing the namespace loads event, plugin, service and legacy definitions but
+Importing the namespace loads event, plugin and service definitions but
 starts no worker. MaintenanceBot is an alias of MaintenanceEngine; constructing
 Maintainer starts its engine.
+MaintenanceRuntime supplies transaction-bound prompt effects and a durable lazy
+journal. MaintenanceEngine retains only the historical transient callback route.
 """
 
 from __future__ import annotations
 
+from LiuXin_alpha.databases.db_types.maintenance_types import MaintenanceMode
 from LiuXin_alpha.databases.maintenance.builtin_plugins import (
     get_builtin_maintenance_plugins,
 )
@@ -23,27 +26,14 @@ from LiuXin_alpha.databases.maintenance.events import (
     ShutdownEvent,
     TickEvent,
 )
-from LiuXin_alpha.databases.maintenance.legacy import (
-    clean,
-    create_creator_insert_update_trigger,
-    direct_create_meta_2_view,
-    direct_create_tag_browser_news,
-    direct_ensure_creators_sort,
-    direct_merge,
-    direct_set_original_one_row_creator_sort,
-    do_pre_view_startup_tasks,
-    do_view_startup_tasks,
-    ensure_creators_sort,
-    find_duplicates,
-    fix_duplicates,
-    repoint_intralink_row,
-    run_ta_updates,
-    ta_trigger,
-)
 from LiuXin_alpha.databases.maintenance.plugins import (
     MaintenancePluginBase,
     MaintenancePluginContext,
     MaintenancePluginResult,
+)
+from LiuXin_alpha.databases.maintenance.runtime import (
+    MaintenanceFailure,
+    MaintenanceRuntime,
 )
 from LiuXin_alpha.databases.maintenance.service import Maintainer
 
@@ -57,6 +47,9 @@ __all__ = [
     "MaintenanceCallbackSink",
     "MaintenanceEngine",
     "MaintenanceEvent",
+    "MaintenanceMode",
+    "MaintenanceRuntime",
+    "MaintenanceFailure",
     "MaintenancePluginBase",
     "MaintenancePluginContext",
     "MaintenancePluginResult",
@@ -64,20 +57,5 @@ __all__ = [
     "RenameRequestEvent",
     "ShutdownEvent",
     "TickEvent",
-    "clean",
-    "create_creator_insert_update_trigger",
-    "direct_create_meta_2_view",
-    "direct_create_tag_browser_news",
-    "direct_ensure_creators_sort",
-    "direct_merge",
-    "direct_set_original_one_row_creator_sort",
-    "do_pre_view_startup_tasks",
-    "do_view_startup_tasks",
-    "ensure_creators_sort",
-    "find_duplicates",
-    "fix_duplicates",
     "get_builtin_maintenance_plugins",
-    "repoint_intralink_row",
-    "run_ta_updates",
-    "ta_trigger",
 ]

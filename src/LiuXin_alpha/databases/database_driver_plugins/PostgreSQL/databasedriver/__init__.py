@@ -9,16 +9,18 @@ shared cache/connection tracking, while ValueCastingMixin converts returned cell
 from __future__ import annotations
 
 import uuid
-from copy import deepcopy
 from collections.abc import Iterator, Mapping, Sequence
+from copy import deepcopy
 from dataclasses import replace
 from typing import Any
 
+from LiuXin_alpha.databases.api.portable_macros_api import PortableMacrosAPI
 from LiuXin_alpha.databases.column_metadata import (
     COLUMN_METADATA_TABLE,
     ColumnMetadata,
     infer_column_metadata,
 )
+from LiuXin_alpha.databases.database_driver_plugins.macros_base import MacrosBase
 from LiuXin_alpha.databases.database_driver_plugins.PostgreSQL.config import (
     DEFAULT_POSTGRES_SCHEMA,
     configured_postgres_schema,
@@ -30,36 +32,50 @@ from LiuXin_alpha.databases.database_driver_plugins.PostgreSQL.connection import
     connect_postgres,
     redact_postgres_error,
 )
-from LiuXin_alpha.databases.database_driver_plugins.PostgreSQL.schema import create_postgres_schema
 from LiuXin_alpha.databases.database_driver_plugins.PostgreSQL.link_ddl import (
+    _assert_safe_identifier,
+    _link_constraints,
+    _link_extra_columns,
+    _link_table_name_col_name,
+    _normalise_requested_link_columns,
+    _pg_literal,
     _q,
     _qualified_table,
-    _assert_safe_identifier,
-    _pg_literal,
-    _normalise_requested_link_columns,
-    _link_extra_columns,
-    _link_constraints,
-    _link_table_name_col_name,
 )
-from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver import SQLBaseDriver
-from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.table_names_mixin import TableNamesMixin
-from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.value_casting_mixin import ValueCastingMixin
-from LiuXin_alpha.databases.database_driver_plugins.macros_base import MacrosBase
-from LiuXin_alpha.databases.api.portable_macros_api import PortableMacrosAPI
+from LiuXin_alpha.databases.database_driver_plugins.PostgreSQL.schema import (
+    create_postgres_schema,
+)
+from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver import (
+    SQLBaseDriver,
+)
+from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.table_names_mixin import (
+    TableNamesMixin,
+)
+from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.value_casting_mixin import (
+    ValueCastingMixin,
+)
 from LiuXin_alpha.databases.database_driver_plugins.SQL.macros.portable_macros_mixin import (
     SQLPortableMacrosMixin,
 )
+from LiuXin_alpha.databases.maintenance.dummy_maintenance_bot import DummyMaintenanceBot
 from LiuXin_alpha.databases.normalized_identities import (
     NormalizedValuePreparer,
     prepare_normalized_values,
 )
-from LiuXin_alpha.databases.maintenance.dummy_maintenance_bot import DummyMaintenanceBot
-from LiuXin_alpha.errors import DatabaseDriverError, DatabaseIntegrityError, InputIntegrityError
+from LiuXin_alpha.errors import (
+    DatabaseDriverError,
+    DatabaseIntegrityError,
+    InputIntegrityError,
+)
 from LiuXin_alpha.utils.language_tools.pluralizers import plural_singular_mapper
 from LiuXin_alpha.utils.logging import default_log
 
-
 DEFAULT_SCHEMA = DEFAULT_POSTGRES_SCHEMA
+
+from LiuXin_alpha.databases.db_types.backend_capabilities import BackendCapabilities
+from LiuXin_alpha.databases.db_types.driver_types import QueryConnection
+from LiuXin_alpha.databases.schema_readers import schema_connection
+from LiuXin_alpha.databases.schema_specs import PhysicalTableSpec
 
 
 class PostgresDatabaseMacros(
@@ -262,6 +278,24 @@ class DatabaseDriver(
         conn.execute(f"set search_path to {_q(self.schema)}")
         conn.commit()
         return self._register_open_connection(conn)
+
+    def direct_get_backend_capabilities(
+        self, *, connection: QueryConnection | None = None
+    ) -> BackendCapabilities:
+        """Report PostgreSQL adapter facilities without committing caller state."""
+        from ..physical_schema import capabilities
+
+        with schema_connection(self, connection) as active:
+            return capabilities(active)
+
+    def direct_get_physical_table_spec(
+        self, table: str, *, connection: QueryConnection | None = None
+    ) -> PhysicalTableSpec:
+        """Read native facts on the supplied or primary connection, without caching."""
+        from ..physical_schema import inspect_relation
+
+        with schema_connection(self, connection) as active:
+            return inspect_relation(active, self.schema, table)
 
     def exists(self) -> bool:
         """
@@ -1530,42 +1564,19 @@ class DatabaseDriver(
             raise InputIntegrityError(f"view {view_name!r} not found or has no columns")
         return headings
 
-    def direct_get_view_row_dict_from_id(self, view: str, row_id: int) -> dict[str, Any] | None:
+    def direct_get_view_row_dict_from_id(
+        self, view: str, row_id: int, *, connection: QueryConnection | None = None
+    ) -> dict[str, Any] | None:
+        """Read at most one view row by its literal id column, on one connection.
+
+        Quote the relation name and inspect/convert it on the same schema snapshot.
+        Fetch at most two rows; duplicates raise DatabaseIntegrityError, missing
+        matches return None. Always close cursors and only owned connections.
+        Borrowed writes and transaction ownership remain with the caller.
         """
-        Read at most one view row using its literal id column.
+        from LiuXin_alpha.databases.view_reads import read_view_row
 
-        Require the relation type to be view. No row returns None; multiple rows raise
-        DatabaseIntegrityError. Returned values use the inherited casting rules.
-
-        Example:
-            A view exposing id and title can be queried with
-            ``driver.direct_get_view_row_dict_from_id(view, 7)``.
-
-
-        :param view: View name canonicalized within the configured schema.
-        :param row_id: ID bound to the row lookup or mutation.
-        :return: Converted row dictionary or None.
-        """
-        view_name = self._canonicalise_table_name_for_cache(view)
-        if self.direct_get_relation_type(view_name) != "view":
-            raise InputIntegrityError(f"view {view_name!r} not found")
-
-        headings = self.direct_get_view_column_headings(view_name)
-        conn = self._short_connection()
-        try:
-            cur = conn.execute(
-                f"select * from {self._table_sql(view_name)} where {_q('id')} = %s",
-                (row_id,),
-            )
-            rows = cur.fetchall()
-        finally:
-            conn.close()
-
-        if len(rows) > 1:
-            raise DatabaseIntegrityError(f"Search yielded multiple rows for view {view_name}.id={row_id!r}")
-        if not rows:
-            return None
-        return self._row_to_dict_from_db_row(table=view_name, headings=headings, row=rows[0])
+        return read_view_row(self, view, row_id, connection=connection)
 
     def direct_get_triggers(self) -> list[str]:
         """

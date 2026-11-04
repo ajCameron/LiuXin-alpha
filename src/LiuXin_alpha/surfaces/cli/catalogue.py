@@ -5,8 +5,9 @@ JSON specifications are read on the CLI host before dispatch. Core owns semantic
 validation, persistence, and resource resolution. Common query/command adapters
 publish receipts after closing their storage-enabled session and return zero
 without interpreting receipt status; a publication failure does not undo a
-mutation. Confirmation policies differ: entity deletion, WEMI unlink, and
-metadata merge refuse without --yes, while custom-field deletion previews locally.
+mutation. Entity deletion and WEMI unlink require --yes; custom-field deletion
+previews locally. Agent and Catalog repairs preview by default and open only
+catalogue services, with no storage or maintenance installation.
 Acquisition byte output uses a CLI-host destination, not a Core-host file path.
 """
 
@@ -15,7 +16,6 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-
 from typing import Any
 
 from LiuXin_alpha.surfaces.cli.common import (
@@ -28,6 +28,29 @@ from LiuXin_alpha.surfaces.cli.common import (
     load_json_object,
     open_cli_core,
 )
+
+
+def cmd_catalog_inherited_tags(args: argparse.Namespace) -> int:
+    """Read attributed WEMI tags without enabling storage or maintenance."""
+    with open_cli_core(args, enable_storage_manager=False, enable_maintenance=False) as core:
+        result = core.query("catalog.inherited.tags", {
+            "level": args.level, "entity_id": args.entity_id, "max_rows": args.max_rows,
+        })
+    emit_json(result, args)
+    return 0
+
+
+def cmd_catalog_repair(args: argparse.Namespace) -> int:
+    """Preview a JSON repair request, or apply it against an expected state."""
+    with open_cli_core(args, enable_storage_manager=False, enable_maintenance=False) as core:
+        if args.repair_action == "receipt":
+            result = core.query("catalog.repair.receipt", {"receipt_id": args.receipt_id})
+        else:
+            payload = load_json_object(args.request_file)
+            payload.update(dry_run=not args.yes, expected_state=args.expected_state)
+            result = core.command("catalog.repair." + args.repair_action, payload)
+    emit_json(result, args)
+    return 0
 
 
 def _query(args: argparse.Namespace, operation: str, payload: dict[str, Any]) -> int:
@@ -448,6 +471,31 @@ def cmd_catalog_agent_resolve(args: argparse.Namespace) -> int:
     return _query(args, "catalog.agent.resolve", payload)
 
 
+def cmd_catalog_agent_names(args: argparse.Namespace) -> int:
+    """Preview name/sort changes by default; --yes applies Catalog's atomic policy.
+
+    Open only catalogue services. Explicit IDs bound repair work; the CLI never
+    selects the entire catalogue or schedules a maintenance worker implicitly.
+    """
+    payload: dict[str, Any] = {
+        "dry_run": not args.yes,
+        "sort_mode": args.sort_mode,
+        "person_sort_method": args.person_sort_method,
+    }
+    if args.agent_action == "rename":
+        operation = "catalog.agent.rename"
+        payload.update(agent_id=args.agent_id, name=args.name, sort_name=args.sort_name)
+    else:
+        operation = "catalog.agent.sort.repair"
+        payload["agent_ids"] = args.agent_ids
+    with open_cli_core(
+        args, enable_storage_manager=False, enable_maintenance=False
+    ) as core:
+        result = core.command(operation, payload)
+    emit_json(result, args)
+    return 0
+
+
 def cmd_catalog_agent_link(args: argparse.Namespace) -> int:
     """
     Attach an agent to an entity with optional role and ordering priority.
@@ -602,32 +650,32 @@ def cmd_catalog_metadata_write(args: argparse.Namespace) -> int:
 
 def cmd_catalog_metadata_merge(args: argparse.Namespace) -> int:
     """
-    Merge source entity metadata into a target only with explicit confirmation.
+    Preview a WEMI merge, or apply explicit decisions against an expected state.
 
-    Refusal precedes dispatch and emits no preview; merge policy belongs to Core.
+    JSON decision files use exact physical columns and relationship row keys.
+    Apply requires --yes and --expected-state; Core owns validation and the audit.
 
     Example:
-        >>> cmd_catalog_metadata_merge(argparse.Namespace(yes=False))
-        Traceback (most recent call last):
-        ...
-        ValueError: Catalogue metadata merge requires --yes.
+        Run ``liuxin catalog metadata merge work 12 18`` to inspect before applying.
 
 
-    :param args: Common controls, yes flag, level, source_id, and target_id.
+    :param args: Connection controls, selected identities, decision files and apply flags.
     :return: Zero after publishing catalog.metadata.merge's receipt.
-    :raises ValueError: Confirmation is absent or an ID cannot convert to int.
+    :raises ValueError: An ID or decision file is malformed.
     """
-    if not args.yes:
-        raise ValueError("Catalogue metadata merge requires --yes.")
-    return _command(
-        args,
-        "catalog.metadata.merge",
-        {
+    payload = {
             "level": args.level,
             "source_id": int(args.source_id),
             "target_id": int(args.target_id),
-        },
-    )
+            "dry_run": not args.yes,
+            "expected_state": args.expected_state,
+            "resolutions": load_json_object(args.resolutions_file) if args.resolutions_file else None,
+            "relationship_resolutions": load_json_object(args.relationship_resolutions_file) if args.relationship_resolutions_file else None,
+    }
+    with open_cli_core(args, enable_storage_manager=False, enable_maintenance=False) as core:
+        result = core.command("catalog.metadata.merge", payload)
+    emit_json(result, args)
+    return 0
 
 
 def cmd_catalog_fields(args: argparse.Namespace) -> int:
@@ -682,7 +730,7 @@ def _custom_field_match(fields: Any, reference: str) -> dict[str, Any]:
             matches.append(field)
     if len(matches) != 1:
         raise ValueError(
-            "Custom field {!r} matched {} definitions.".format(reference, len(matches))
+            f"Custom field {reference!r} matched {len(matches)} definitions."
         )
     return matches[0]
 
@@ -1003,6 +1051,27 @@ def build_catalog_parser(
     )
     commands = parser.add_subparsers(dest="catalog_command", required=True)
 
+    inherited = commands.add_parser("inherited-tags", help="Inspect all WEMI tag contributions and paths.")
+    _core_json(inherited)
+    inherited.add_argument("level", choices=("work", "expression", "manifestation", "item"))
+    inherited.add_argument("entity_id", type=int)
+    inherited.add_argument("--max-rows", type=int, default=10000)
+    inherited.set_defaults(handler=cmd_catalog_inherited_tags)
+
+    repair = commands.add_parser("repair", help="Preview and apply explicit Catalog repairs.")
+    repairs = repair.add_subparsers(dest="repair_action", required=True)
+    for action in ("merge", "cleanup"):
+        leaf = repairs.add_parser(action)
+        _core_json(leaf)
+        leaf.add_argument("request_file", help="JSON operation, identities and decisions.")
+        leaf.add_argument("--expected-state", help="State fingerprint from the inspected preview.")
+        leaf.add_argument("--yes", action="store_true", help="Apply the previewed repair atomically.")
+        leaf.set_defaults(handler=cmd_catalog_repair)
+    receipt = repairs.add_parser("receipt")
+    _core_json(receipt)
+    receipt.add_argument("receipt_id")
+    receipt.set_defaults(handler=cmd_catalog_repair)
+
     search = commands.add_parser("search", help="Search catalogue text across selected tables.")
     _core_json(search)
     search.add_argument("text")
@@ -1086,7 +1155,7 @@ def build_catalog_parser(
     identifier_set.add_argument("identifiers_file")
     identifier_set.set_defaults(handler=cmd_catalog_identifiers_set)
 
-    agents = commands.add_parser("agents", help="Resolve, list, and link catalogue agents.")
+    agents = commands.add_parser("agents", help="Resolve, edit, sort, and link catalogue agents.")
     agent_commands = agents.add_subparsers(dest="agent_action", required=True)
     agent_list = agent_commands.add_parser("list")
     _core_json(agent_list)
@@ -1094,6 +1163,20 @@ def build_catalog_parser(
     agent_list.add_argument("entity_id", type=int)
     agent_list.add_argument("--role")
     agent_list.set_defaults(handler=cmd_catalog_agents)
+    for action in ("rename", "repair-sort"):
+        names = agent_commands.add_parser(action, help="Preview Agent name/sort changes; --yes applies them.")
+        _core_json(names)
+        if action == "rename":
+            names.add_argument("agent_id", type=int)
+            names.add_argument("name")
+            names.add_argument("--sort-name", help="Explicit nonblank sort override.")
+        else:
+            names.add_argument("agent_ids", type=int, nargs="+", help="1–500 explicit Agent IDs.")
+        names.add_argument("--sort-mode", choices=("preserve", "derive"), default="preserve",
+                           help="Preserve nonblank sorts, or explicitly regenerate them.")
+        names.add_argument("--person-sort-method", choices=("comma", "nocomma", "copy"), default="comma")
+        names.add_argument("--yes", action="store_true", help="Apply the proposed changes.")
+        names.set_defaults(handler=cmd_catalog_agent_names)
     resolve = agent_commands.add_parser("resolve")
     _core_json(resolve)
     resolve.add_argument("name")
@@ -1169,6 +1252,9 @@ def build_catalog_parser(
     metadata_merge.add_argument("source_id", type=int)
     metadata_merge.add_argument("target_id", type=int)
     metadata_merge.add_argument("--yes", action="store_true")
+    metadata_merge.add_argument("--expected-state")
+    metadata_merge.add_argument("--resolutions-file")
+    metadata_merge.add_argument("--relationship-resolutions-file")
     metadata_merge.set_defaults(handler=cmd_catalog_metadata_merge)
 
     fields = commands.add_parser("fields", help="Inspect public metadata-field definitions.")

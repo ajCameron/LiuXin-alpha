@@ -11,9 +11,10 @@ Example:
 """
 
 import argparse
-from collections.abc import Mapping
+import sqlite3
+from collections.abc import Iterator, Mapping
 from contextlib import AbstractContextManager
-from typing import Protocol, assert_type
+from typing import Any, Literal, Protocol, assert_type
 
 import LiuXin_alpha.storage.api as storage
 from LiuXin_alpha.core.commands import CoreCommand
@@ -34,6 +35,22 @@ from LiuXin_alpha.core.program_services.evacuation_planning import build_evacuat
 from LiuXin_alpha.core.queries import CoreQuery
 from LiuXin_alpha.core.readonly import CoreReadClientAPI, ReadOnlyCoreClient
 from LiuXin_alpha.core.runtime import CoreRuntime
+from LiuXin_alpha.databases.api.driver_wrapper_api import DatabaseDriverWrapperAPI
+from LiuXin_alpha.databases.database_driver_plugins.PostgreSQL.connection import (
+    PostgresConnectionAdapter,
+)
+from LiuXin_alpha.databases.db_types.backend_capabilities import (
+    BackendCapabilities,
+    BackendFeature,
+)
+from LiuXin_alpha.databases.db_types.driver_types import (
+    QueryConnection,
+    QueryCursor,
+    RowPage,
+    SQLRow,
+)
+from LiuXin_alpha.databases.db_types.query_observation import QueryObservation
+from LiuXin_alpha.databases.driver_wrapper import DriverWrapper
 from LiuXin_alpha.storage.storage_manager.manager import TransientStorageManager
 from LiuXin_alpha.storage.storage_manager.mixins._state import _StorageManagerState
 from LiuXin_alpha.surfaces.acquisition_types import AcquisitionReader, CoreStoredFile
@@ -51,6 +68,71 @@ from LiuXin_alpha.surfaces.terminal.commands.base import TerminalCommandAPI
 from LiuXin_alpha.surfaces.terminal.plugins.base import TerminalLifecyclePluginAPI
 from LiuXin_alpha.surfaces.terminal.windowed_components.models import CursesWindow
 from LiuXin_alpha.surfaces.terminal.windowed_ui import _CursesUiDriver
+
+
+def driver_wrapper_contracts(
+    wrapper: DatabaseDriverWrapperAPI,
+    implementation: DriverWrapper,
+    sqlite_connection: sqlite3.Connection,
+    postgres_connection: PostgresConnectionAdapter,
+) -> None:
+    """Check concrete conformance, result shapes and mistakes at the SQL boundary."""
+    contract: DatabaseDriverWrapperAPI = implementation
+    connection: QueryConnection = sqlite_connection
+    cursor: QueryCursor = connection.execute("SELECT ?", (1,))
+    cursor.close()
+    postgres: QueryConnection = postgres_connection
+    pg_cursor: QueryCursor = postgres.execute("SELECT ?", (1,))
+    pg_cursor.close()
+    assert_type(contract.add_row({"work_title": "Example"}), int)
+    assert_type(wrapper.get_all_rows("works"), list[dict[str, Any]])
+    assert_type(wrapper.get_tables(), list[str])
+    assert_type(wrapper.get_tables_and_columns(), dict[str, list[str]])
+    assert_type(wrapper.get_row_from_id("works", 1), dict[str, Any] | Literal[False])
+    assert_type(wrapper.get_view_row_from_id("some_view", 1), dict[str, Any] | None)
+    assert_type(wrapper.get_link_table_name("works", "agents"), str | Literal[False])
+    assert_type(wrapper.delete_by_id("works", [1, 2]), bool)
+    assert_type(wrapper.update_row({"work_id": 1}), bool | None)
+    assert_type(wrapper.execute("SELECT ?", (1,)), QueryCursor)
+    wrapper.set_custom_column_metadata(1, display={"heading": "Shelf"})
+    wrapper.delete_by_id("works", "one")  # expect-error: reportArgumentType arg-type
+    wrapper.set_custom_column_metadata(
+        1,
+        is_editable="yes",  # expect-error: reportArgumentType arg-type
+    )
+    wrapper.set_custom_column_metadata(
+        1,
+        display="{}",  # expect-error: reportArgumentType arg-type
+    )
+    wrapper.get_all_rows(
+        "works",
+        reverse="yes",  # expect-error: reportArgumentType arg-type
+    )
+    wrapper.get_row_from_id("works", 1)[  # expect-error: reportIndexIssue index
+        "work_title"
+    ]
+    missing_view = wrapper.get_view_row_from_id("some_view", 1)
+    missing_view["id"]  # expect-error: reportOptionalSubscript index
+
+    assert_type(wrapper.fetch_one("SELECT 1", connection=connection), SQLRow | None)
+    assert_type(wrapper.fetch_all("SELECT 1"), list[SQLRow])
+    assert_type(wrapper.scan_page("works", columns=["work_title"], after_id=3), RowPage)
+    assert_type(wrapper.iter_row_batches("works", batch_size=20), Iterator[RowPage])
+    assert_type(wrapper.get_backend_capabilities(), BackendCapabilities)
+    wrapper.get_backend_capabilities().require(BackendFeature.READ_SNAPSHOTS)
+    events: list[QueryObservation] = []
+    wrapper.set_query_observers([events.append])
+    wrapper.scan_page(
+        "works",
+        batch_size="20",  # expect-error: reportArgumentType arg-type
+    )
+    wrapper.fetch_one(
+        "SELECT 1",
+        connection=object(),  # expect-error: reportArgumentType arg-type
+    )
+    wrapper.set_query_observers(
+        [object()],  # expect-error: reportArgumentType list-item
+    )
 
 
 def readonly_client_contracts(

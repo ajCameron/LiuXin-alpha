@@ -1,4 +1,4 @@
-.TH LIUXIN 1 "2026-10-23" "LiuXin-alpha" "User Commands"
+.TH LIUXIN 1 "2026-11-02" "LiuXin-alpha" "User Commands"
 .SH NAME
 liuxin \- manage a LiuXin catalogue, storage and workflows
 .SH SYNOPSIS
@@ -42,6 +42,155 @@ supplies a remote Core bearer token.
 Remote web-ingest execution requires trusted Core authority.
 Local filesystem paths used by managed workflows belong to the Core host;
 CLI output files belong to the CLI host.
+.SH MAINTENANCE
+.B liuxin maintenance install
+explicitly installs catalogue change capture and required Work revision plugins.
+Mutation commands preview unless
+.B \-\-yes
+is supplied. Prompt work succeeds in the source transaction or rolls that write back.
+Lazy work remains durable until a worker completes it.
+.PP
+.B maintenance status
+reports pending work, attempts and errors without starting a worker.
+.B maintenance drain
+runs bounded maintenance job passes; queued storage audits are left for the
+normal jobs worker. Repeat it for continued progress.
+Use
+.B maintenance retry PLUGIN
+to reset failed work,
+.B maintenance pause PLUGIN
+and
+.B maintenance resume PLUGIN
+to control delivery, and
+.B maintenance prune
+to remove fully acknowledged journal records.
+Pausing a required prompt plugin blocks its source writes.
+Queued lazy deliveries encountered while paused retain their obligations and
+retry budget; resume publishes fresh deliveries. Use maintenance retry for these
+jobs; generic Core jobs retry refuses them before creating a successor.
+.PP
+.B maintenance prune-jobs
+retires completed maintenance job history after checking the current catalogue
+journal. Preview is the default; pass
+.B \-\-yes
+to apply. The default
+.B \-\-older-than-days
+is 7 (0 explicitly permits immediate retirement).
+.B \-\-max-events
+bounds the inspected page to 1 through 500 runs, default 128. When has_more is
+true, continue with
+.B \-\-before-run-id
+set to next_before_run_id. Pending obligations, active work, retained retry
+successors and unrelated jobs remain protected. Approved runs, events, request
+keys and unused definitions are removed; retired job IDs cease to be inspectable
+or retryable. Freed SQLite pages are reusable; no VACUUM is performed.
+.PP
+.B maintenance rebuild
+backfills or repairs Work projection receipts and expression counts, resuming a
+saved cursor. Each page scans at most
+.B \-\-max-events
+identities (1 to 500), with
+.B \-\-max-batches
+pages per invocation (1 to 128, default 1).
+Pass
+.B \-\-yes
+to schedule work and
+.B \-\-restart
+to begin a fresh scan. Bibliographic rows and files are unchanged. Derived values
+are invalidated page by page, including stale keys for deleted Works.
+Repeat until scheduling_complete, then drain lazy work. Status distinguishes
+source/projection scanning, waiting for delivery, and completed rebuilds.
+.PP
+.B maintenance upgrade PLUGIN \-\-from-version VERSION
+reads an implementation-authored upgrade plan. Pass
+.B \-\-yes
+to apply, optionally with
+.B \-\-expected-definition HASH
+from the preview. Apply rechecks the installed version under the writer lock.
+Pending work must drain with its old implementation unless the new plugin
+explicitly supports replay; dependent work and mode changes require draining.
+The migration invalidates affected projections and fences old jobs atomically.
+Run the owner's rebuild afterward; an obsolete Work rebuild needs
+.BR \-\-restart .
+Status retains the latest upgrade receipt for each plugin.
+.PP
+.B maintenance duplicates TABLE COLUMN
+reports duplicate candidates without changing rows or starting a worker.
+Results contain value, scope and row_ids; only repeated nonblank text is returned.
+The default
+.B \-\-comparison identity
+uses declared normalization, or NFKC/whitespace/casefold for undeclared text.
+Other modes are nocase (NFC/casefold) and exact (stored text).
+Declared identity scopes apply to every mode. Equal titles do not prove entity identity.
+.B \-\-max-rows
+bounds a complete scan (default 10000, maximum 100000); oversized selections fail
+with scan_limit_exceeded rather than returning incomplete groups.
+.B \-\-where-file PATH
+reads a JSON object of physical-column equality filters.
+Automatic duplicate consolidation is unavailable.
+.PP
+.B maintenance clean
+is unavailable in the built-in service and returns capability_unavailable without
+deleting rows.
+.B maintenance merge
+transfers registered interlinks and deletes the absorbed row in one transaction.
+Conflicting duplicate link payloads or write failures roll back the operation.
+It does not combine scalar metadata, intralinks or tree relationships.
+.PP
+For example:
+.nf
+liuxin maintenance install \-\-database catalog.sqlite \-\-yes
+liuxin maintenance drain \-\-database catalog.sqlite \-\-yes
+liuxin maintenance status \-\-database catalog.sqlite
+.fi
+.SH AGENT NAME MAINTENANCE
+.B catalog agents rename ID NAME
+changes an Agent's canonical name and sort value atomically.
+.B catalog agents repair-sort ID [ID ...]
+repairs sorts for 1 to 500 explicit IDs without changing canonical names.
+Both commands preview unless
+.B \-\-yes
+is supplied; no maintenance installation or worker is required.
+.PP
+.B \-\-sort-mode preserve
+is the default: retain nonblank stored sorts and derive missing ones.
+.B \-\-sort-mode derive
+explicitly regenerates existing sorts. Rename also accepts
+.B \-\-sort-name TEXT
+as a nonblank override, incompatible with derive.
+.B \-\-person-sort-method
+accepts comma (default), nocomma, or copy. Organisations, groups and pseudonyms
+retain display order. Locale is not inferred; use copy or an explicit override
+where person-name inversion is inappropriate.
+.PP
+Aliases, subtype details and credits are preserved. Invalid rows or write failures
+roll back the complete operation. Applying rereads current values under locks;
+a preview is advisory.
+.SH CATALOG REPAIR
+.B catalog inherited-tags LEVEL ID
+reads direct and inherited tags with every WEMI relationship path and source
+identity retained. It does not copy metadata or start a worker.
+.B \-\-max-rows
+bounds the complete inspection; exceeding the budget refuses a partial result.
+.PP
+.B catalog repair merge REQUEST.json
+and
+.B catalog repair cleanup REQUEST.json
+preview explicit JSON identity/conflict or discard/preserve decisions.
+Apply requires
+.B \-\-yes \-\-expected-state HASH
+using the inspected preview's state. Changed references, unsupported ownership
+or unresolved conflicts refuse the whole repair. Changes and their audit receipt
+commit together. Neither operation changes physical files.
+.PP
+.B catalog repair receipt ID
+reads a durable receipt without installing storage. The existing
+.B catalog metadata merge LEVEL SOURCE TARGET
+also previews by default and requires the same apply flags. It accepts
+.B \-\-resolutions-file
+and
+.B \-\-relationship-resolutions-file
+for explicit decisions; silent target precedence is removed.
 .SH OUTPUT
 Operational commands return JSON. Use
 .B \-\-compact

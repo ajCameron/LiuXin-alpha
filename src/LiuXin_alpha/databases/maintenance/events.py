@@ -11,6 +11,8 @@ from __future__ import annotations
 import dataclasses
 import time
 import uuid
+from collections.abc import Mapping
+from types import MappingProxyType
 
 from typing import Literal
 
@@ -82,6 +84,32 @@ class DirtyRowEvent(MaintenanceEvent):
         object.__setattr__(self, "event_id", str(uuid.uuid4()))
         object.__setattr__(self, "table", str(table or ""))
         object.__setattr__(self, "row_id", int(row_id))
+
+
+@dataclasses.dataclass(frozen=True, slots=True)
+class RowChangeEvent(DirtyRowEvent):
+    """Describe a committed or in-transaction physical row change from the journal.
+
+    before/after contain identity columns, including foreign-key IDs needed for
+    deletion cleanup. Display values are read on the handler's bound connection.
+    change_id is monotonic within this catalogue's journal and survives restart.
+    """
+
+    change_id: int = 0
+    operation: str = "update"
+    before: Mapping[str, object] | None = None
+    after: Mapping[str, object] | None = None
+
+    def __init__(self, table, row_id, *, change_id, operation, before=None, after=None):
+        DirtyRowEvent.__init__(
+            self, table, row_id,
+            kind="new_dirty_row" if operation == "insert" else "dirty_row",
+        )
+        object.__setattr__(self, "change_id", int(change_id))
+        object.__setattr__(self, "event_id", f"change:{int(change_id)}")
+        object.__setattr__(self, "operation", operation)
+        object.__setattr__(self, "before", None if before is None else MappingProxyType(dict(before)))
+        object.__setattr__(self, "after", None if after is None else MappingProxyType(dict(after)))
 
 
 @dataclasses.dataclass(frozen=True, slots=True)

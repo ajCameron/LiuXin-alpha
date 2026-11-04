@@ -9,8 +9,8 @@ legacy wrapper handling are documented per method.
 from __future__ import annotations
 
 import abc
+from typing import Literal, Optional
 
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union, Iterable
 
 # Todo: I suspect this is used EVERYWHERE. So let's try and dry out the code base.
 class DriverNamesMixinAPI(abc.ABC):
@@ -265,7 +265,7 @@ class DriverNamesMixinAPI(abc.ABC):
         """
 
     @abc.abstractmethod
-    def direct_get_parent_column_name(self, table_name: str) -> Optional[str] | bool:
+    def direct_get_parent_column_name(self, table_name: str) -> str | Literal[False]:
         """
         Find a heading ending in _parent or _parent_id, ignoring case.
 

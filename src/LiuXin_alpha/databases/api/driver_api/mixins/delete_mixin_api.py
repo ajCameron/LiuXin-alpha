@@ -9,8 +9,8 @@ abstract declarations add no rollback or cascade guarantees.
 """
 
 import abc
-
-from typing import Iterable, Any
+from collections.abc import Iterable
+from typing import Any, Iterable
 
 
 class DriverDeleteMixinAPI(abc.ABC):
@@ -74,11 +74,7 @@ class DriverDeleteMixinAPI(abc.ABC):
 
     # Todo: Switch over to returning the affected ids?
     @abc.abstractmethod
-    def direct_delete_many(
-            self,
-            target_table: str,
-            column: str,
-            values: Iterable[Any]) -> None:
+    def direct_delete_many(self, target_table: str, column: str, values: Iterable[Any]) -> bool:
         """
         Delegate repeated column-value deletion to ``direct_delete``.
 

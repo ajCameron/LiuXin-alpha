@@ -86,6 +86,21 @@ There are two intentionally different path contracts:
 
 ## Command families
 
+- `catalog inherited-tags LEVEL ID` reads every attributed WEMI tag contribution;
+  `--max-rows` bounds the complete inspection. It opens no worker or storage manager.
+- `catalog repair merge REQUEST.json` and `catalog repair cleanup REQUEST.json`
+  preview explicit identity/conflict and discard/preserve decisions. Apply requires
+  `--yes --expected-state HASH`; stale previews and unresolved references/conflicts
+  block the whole operation. `catalog repair receipt ID` reads the durable audit.
+  The older `catalog metadata merge` now uses the same preview/apply policy.
+  See [request examples and exclusions](../catalog/maintenance-repair-policies.md).
+
+- `catalog agents rename ID NAME` and `catalog agents repair-sort ID [ID ...]`
+  preview Agent name/sort maintenance; `--yes` applies it atomically. Preserve
+  nonblank sorts by default, use `--sort-mode derive` to regenerate them, or
+  provide `--sort-name` on rename. Person sort methods are comma/nocomma/copy.
+  Repairs take at most 500 explicit IDs and need no maintenance installation
+  or background worker. See [examples and policy](../../docs/maintenance.md#agent-names-and-sort-repair).
 - `init [SYSTEM_ROOT]` creates or validates a path-backed catalogue and an
   optional managed primary Store. A system-root invocation also creates
   `ingest-materialized/`, `logs/ingest/`, and a mode-0600
@@ -211,6 +226,12 @@ There are two intentionally different path contracts:
 - `maintenance status|duplicates|run|clean|merge` exposes maintenance without
   making repair an accidental side effect. Mutating commands emit a preview
   unless `--yes` is supplied.
+  `maintenance install|drain|retry|pause|resume|prune|rebuild|upgrade` controls the
+  optional durable journal. Rebuild resumes bounded Work projection scans;
+  upgrade previews an implementation-authored migration before explicit apply.
+  Drain runs bounded jobs; status starts no worker. PostgreSQL can use
+  `--job-ledger PATH` for the separate jobs database. See
+  [catalogue maintenance](../../docs/maintenance.md) for the workflow.
 - `serve web|web-write|api|opds|calibre` runs packaged application surfaces.
 - `plugins inspect` consolidates stable program, Store/source, metadata,
   conversion, and ingest capability advertisements. A failed optional probe is
