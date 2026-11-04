@@ -81,7 +81,8 @@ class PostgresConnectionTarget:
         """
         Return a service= label or the unchanged target value.
 
-        URL labels may contain credentials; use redact_postgres_target for status output.
+        URL labels may contain credentials; use redact_postgres_target for status
+        output.
 
         Example:
             >>> PostgresConnectionTarget("service", "library").label
@@ -130,7 +131,8 @@ def is_postgres_service_name(value: object) -> bool:
 
 
     :param value: Value converted to text before inspection.
-    :return: True for nonempty names containing only letters, digits, underscore, dot or hyphen.
+    :return: True for nonempty names containing only letters, digits, underscore, dot or
+        hyphen.
     """
 
     text = _normalise_service_name(value)
@@ -152,9 +154,12 @@ def configured_postgres_url(
         'postgresql:///library'
 
 
-    :param metadata: Optional database metadata mapping; recognized keys are checked in documented precedence order.
-    :param explicit: Explicit candidate considered before metadata and environment values.
-    :return: First valid-scheme URL with surrounding whitespace removed, or an empty string.
+    :param metadata: Optional database metadata mapping; recognized keys are checked in
+        documented precedence order.
+    :param explicit: Explicit candidate considered before metadata and environment
+        values.
+    :return: First valid-scheme URL with surrounding whitespace removed, or an empty
+        string.
     """
 
     candidates: list[object] = []
@@ -178,16 +183,18 @@ def configured_postgres_service(
     """
     Return the first valid service profile from explicit, metadata then environment.
 
-    Metadata uses METADATA_SERVICE_KEYS order; LIUXIN_POSTGRES_SERVICE precedes PGSERVICE.
-    Invalid candidates are skipped and service= prefixes are removed.
+    Metadata uses METADATA_SERVICE_KEYS order; LIUXIN_POSTGRES_SERVICE precedes
+    PGSERVICE. Invalid candidates are skipped and service= prefixes are removed.
 
     Example:
         >>> configured_postgres_service(explicit="service=library")
         'library'
 
 
-    :param metadata: Optional database metadata mapping; recognized keys are checked in documented precedence order.
-    :param explicit: Explicit candidate considered before metadata and environment values.
+    :param metadata: Optional database metadata mapping; recognized keys are checked in
+        documented precedence order.
+    :param explicit: Explicit candidate considered before metadata and environment
+        values.
     :return: Normalized profile name, or an empty string.
     """
 
@@ -223,9 +230,11 @@ def configured_postgres_target(
         'url'
 
 
-    :param metadata: Optional database metadata mapping; recognized keys are checked in documented precedence order.
+    :param metadata: Optional database metadata mapping; recognized keys are checked in
+        documented precedence order.
     :param explicit_url: URL candidate resolved before the explicit service.
-    :param explicit_service: Service candidate resolved if explicit URL resolution yielded nothing.
+    :param explicit_service: Service candidate resolved if explicit URL resolution
+        yielded nothing.
     :return: Resolved target, or an empty-kind/empty-value target.
     """
 
@@ -265,7 +274,8 @@ def configured_postgres_password(explicit: str | None = None) -> str:
 
 
     :param explicit: Password preferred when neither None nor the empty string.
-    :return: Explicit password converted to text, or the environment value/default empty string.
+    :return: Explicit password converted to text, or the environment value/default empty
+        string.
     """
 
     if explicit not in (None, ""):
@@ -288,8 +298,10 @@ def configured_postgres_schema(
         'library'
 
 
-    :param metadata: Optional database metadata mapping; recognized keys are checked in documented precedence order.
-    :param explicit: Explicit candidate considered before metadata and environment values.
+    :param metadata: Optional database metadata mapping; recognized keys are checked in
+        documented precedence order.
+    :param explicit: Explicit candidate considered before metadata and environment
+        values.
     :return: Trimmed schema name, defaulting to public.
     """
 
@@ -310,7 +322,8 @@ def store_postgres_password(password: str) -> str:
     child processes may inherit the environment.
 
     Example:
-        ``store_postgres_password(prompted)`` lets later connections reuse a prompt result.
+        ``store_postgres_password(prompted)`` lets later connections reuse a prompt
+        result.
 
 
     :param password: Password text supplied by the caller.
@@ -333,7 +346,8 @@ def prompt_and_store_postgres_password(url: str, *, overwrite: bool = False) -> 
 
 
     :param url: PostgreSQL URL or service label used by the operation.
-    :param overwrite: Whether to prompt even when an environment password already exists.
+    :param overwrite: Whether to prompt even when an environment password already
+        exists.
     :return: Existing or newly prompted password.
     """
 
@@ -355,10 +369,10 @@ def write_postgres_env_file(
     """
     Overwrite a shell export file with the selected target and optional settings.
 
-    Create missing parent directories, write quoted exports, then chmod the file to 0600.
-    The chmod occurs after writing. include_password controls a separate password export;
-    a password already embedded in a URL remains in that URL export. Invalid unresolved
-    targets raise PostgresConfigError; filesystem errors propagate.
+    Create missing parent directories, write quoted exports, then chmod the file to
+    0600. The chmod occurs after writing. include_password controls a separate password
+    export; a password already embedded in a URL remains in that URL export. Invalid
+    unresolved targets raise PostgresConfigError; filesystem errors propagate.
 
     Example:
         ``write_postgres_env_file(path, url=None, service="library")`` writes a
@@ -369,7 +383,8 @@ def write_postgres_env_file(
     :param url: PostgreSQL URL or service label used by the operation.
     :param service: Optional explicit service candidate used by target resolution.
     :param password: Password text supplied by the caller.
-    :param include_password: Whether to include a separate LIUXIN_POSTGRES_PASSWORD export.
+    :param include_password: Whether to include a separate LIUXIN_POSTGRES_PASSWORD
+        export.
     :param schema: Optional nonblank schema exported as LIUXIN_POSTGRES_SCHEMA.
     :return: Expanded path of the written file.
     """
@@ -478,7 +493,8 @@ def add_password_to_url(url: str, password: str) -> str:
     Insert an encoded password only when no authority password is present.
 
     An empty supplied password or an existing password returns the original URL.
-    Otherwise credentials are quoted and the authority is rebuilt; parse errors propagate.
+    Otherwise credentials are quoted and the authority is rebuilt; parse errors
+    propagate.
 
     Example:
         >>> add_password_to_url("postgresql://reader@localhost/library", "sample")
@@ -624,7 +640,8 @@ def _configured_postgres_url_from_metadata_only(metadata: Mapping[str, object]) 
         'postgresql:///books'
 
 
-    :param metadata: Optional database metadata mapping; recognized keys are checked in documented precedence order.
+    :param metadata: Optional database metadata mapping; recognized keys are checked in
+        documented precedence order.
     :return: First trimmed metadata URL or an empty string.
     """
     for key in METADATA_URL_KEYS:
@@ -643,7 +660,8 @@ def _configured_postgres_service_from_metadata_only(metadata: Mapping[str, objec
         'books'
 
 
-    :param metadata: Optional database metadata mapping; recognized keys are checked in documented precedence order.
+    :param metadata: Optional database metadata mapping; recognized keys are checked in
+        documented precedence order.
     :return: First normalized metadata profile or an empty string.
     """
     for key in METADATA_SERVICE_KEYS:

@@ -167,7 +167,7 @@ def database_migrations_status(
     query: CoreQuery,
 ) -> dict[str, Any]:
     """
-    Compare the storage migration ledger with two required IDs and audit normalized identities.
+    Inspect storage migrations, normalized identities and physical query indexes.
 
     Ledger read/iteration/projection errors become an empty ledger; table enumeration
     errors still propagate. Identity capability/call failures become an unavailable
@@ -181,7 +181,7 @@ def database_migrations_status(
 
     :param runtime: Runtime providing the database ledger and database-first identity audit capability.
     :param query: Ignored query envelope; the required storage schema version is fixed at two.
-    :return: Pending storage IDs, identity report/clean/update state, and ok only when all three checks pass.
+    :return: Storage, identity and query-index reports; ok requires all to be current.
     """
     del query
     tables = set(str(value) for value in runtime.database.get_tables())
@@ -226,8 +226,22 @@ def database_migrations_status(
         if isinstance(value, Mapping)
     }
     pending_storage = sorted(required_storage - recorded)
+    try:
+        indexes = _database_callable(
+            runtime, "audit_query_indexes", area="query indexes"
+        )()
+    except Exception as error:
+        index_value = {"available": False, "error": str(error) or type(error).__name__}
+        indexes_clean = False
+    else:
+        index_value = {"available": True, **plain(indexes)}
+        indexes_clean = indexes.clean
     return {
-        "ok": not pending_storage and normalized_clean and not rows_needing_update,
+        "ok": not pending_storage
+        and normalized_clean
+        and not rows_needing_update
+        and indexes_clean,
+        "query_indexes": index_value,
         "storage": {
             "schema_version": 2,
             "ledger": ledger,
@@ -248,8 +262,9 @@ def database_migrations_plan(
     """
     Derive suggested additive migrations and collision count from a fresh status report without applying changes.
 
-    The plan's ok means no reported collisions, not that status is healthy or its
-    audit was available. Unknown update counts add no identity action; an unavailable
+    The plan's ok means no reported identity collisions or index conflicts, not
+    that status is healthy or its audits were available. Unknown update counts add
+    no identity action; an unavailable
     audit can therefore coexist with ok=True and a no-pending-migrations message.
     Consumers must inspect the retained status as well as actions and collision count.
 
@@ -259,7 +274,7 @@ def database_migrations_plan(
 
     :param runtime: Runtime used for the underlying migration-status inspection.
     :param query: Query forwarded to database_migrations_status without additional options.
-    :return: Status, ordered storage/identity action suggestions, collision count, and a message based only on action presence.
+    :return: Status, ordered storage/index/identity actions, collision count, and a message based on action presence.
     """
     status = database_migrations_status(runtime, query)
     actions: list[dict[str, Any]] = []
@@ -273,6 +288,15 @@ def database_migrations_plan(
             }
         )
     identities = status["normalized_identities"]
+    indexes = status["query_indexes"]
+    if indexes.get("missing"):
+        actions.append(
+            {
+                "action": "migrate_query_indexes",
+                "missing": indexes["missing"],
+                "additive": True,
+            }
+        )
     if identities["rows_needing_update"]:
         actions.append(
             {
@@ -287,7 +311,7 @@ def database_migrations_plan(
         else []
     )
     return {
-        "ok": collision_count == 0,
+        "ok": collision_count == 0 and not indexes.get("conflicts"),
         "status": status,
         "actions": actions,
         "blocked_by_collisions": collision_count,
@@ -347,6 +371,11 @@ def database_backup(
         try:
             connection = sqlite3.connect(path.as_uri() + "?mode=ro", uri=True)
             try:
+                from LiuXin_alpha.databases.search_functions import (
+                    register_search_functions,
+                )
+
+                register_search_functions(connection)
                 rows = connection.execute("PRAGMA quick_check").fetchall()
             finally:
                 connection.close()
@@ -418,7 +447,7 @@ def database_migrations_apply(
     command: CoreCommand,
 ) -> dict[str, Any]:
     """
-    Apply storage-schema migration, then identity migration, refresh field metadata, and reconcile in sequence.
+    Apply storage, identity and query-index migrations, then refresh metadata.
 
     No prior plan, collision report, confirmation, or payload switch is checked by
     this handler. Each subsystem owns its migration policy; failure at a later step
@@ -429,8 +458,8 @@ def database_migrations_apply(
 
 
     :param runtime: Runtime supplying the database, identity migrator, field metadata refresh, and reconciliation.
-    :param command: Ignored command envelope; both migrations are always attempted in order.
-    :return: Reconciled migrated=True receipt with projected storage and identity reports after all preceding steps succeed.
+    :param command: Ignored command envelope; all migrations run in sequence.
+    :return: Reconciled receipt with storage, identity and query-index reports.
     """
     del command
     from LiuXin_alpha.storage.utils.migrations import migrate_storage_schema
@@ -441,11 +470,15 @@ def database_migrations_apply(
         "migrate_normalized_identities",
         area="normalized identities",
     )()
+    index_report = _database_callable(
+        runtime, "migrate_query_indexes", area="query indexes"
+    )()
     runtime.services.refresh_field_metadata()
     return runtime.services.reconcile(
         {
             "migrated": True,
             "storage": plain(storage_report),
             "normalized_identities": plain(identity_report),
+            "query_indexes": plain(index_report),
         }
     )

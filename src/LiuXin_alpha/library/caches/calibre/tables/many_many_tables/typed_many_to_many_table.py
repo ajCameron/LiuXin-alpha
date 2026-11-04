@@ -17,12 +17,7 @@ from copy import deepcopy
 from typing import TypeVar, Optional, Iterable, Union, Any
 
 from LiuXin_alpha.library.caches.calibre.tables.many_many_tables.many_to_many_table import CalibreManyToManyTable
-from LiuXin_alpha.databases.db_types import (
-    MetadataDict,
-    InterLinkTableName,
-    SrcTableID,
-    DstTableID,
-)
+from LiuXin_alpha.databases.db_types.database_types import InterLinkTableName, SrcTableID, DstTableID, MetadataDict
 from LiuXin_alpha.utils.python_tools import uniq
 
 from LiuXin_alpha.errors import (

@@ -79,8 +79,8 @@ class ColumnNameMixin:
         """
         Sort supplied table names, singularize each and derive link table/prefix names.
 
-        Sorting occurs before singularization; no table existence or identifier validation
-        is performed.
+        Sorting occurs before singularization; no table existence or identifier
+        validation is performed.
 
         Example:
             For works and agents, the result is agent_work_links and agent_work_link.
@@ -113,8 +113,8 @@ class ColumnNameMixin:
         """
         Sort supplied table names, singularize each and derive link table/prefix names.
 
-        Sorting occurs before singularization; no table existence or identifier validation
-        is performed.
+        Sorting occurs before singularization; no table existence or identifier
+        validation is performed.
 
         Example:
             For works and agents, the result is agent_work_links and agent_work_link.
@@ -178,7 +178,8 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
         translated to an assertion suggesting that metadata tables are missing.
 
         Example:
-            Call after creating database_version; the method writes and commits its version row.
+            Call after creating database_version; the method writes and commits its
+            version row.
 
 
         :return: None; changes the host connection and checks the stored version.
@@ -223,8 +224,8 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
         """
         Generate a link script, execute it through the host and clear property caches.
 
-        The legacy OperationalError diagnostic accesses e.message, which may itself raise
-        AttributeError on modern sqlite3 exceptions and mask the original failure.
+        The legacy OperationalError diagnostic accesses e.message, which may itself
+        raise AttributeError on modern sqlite3 exceptions and mask the original failure.
 
         Example:
             Linking agents and works returns agent_work_links after script execution.
@@ -236,8 +237,10 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
         :param requested_cols: all, None, or iterable of optional metadata suffixes.
         :param index_both: Whether to index both endpoint foreign-key columns.
         :param allowed_types: Optional iterable of permitted type labels.
-        :param override_restriction_sql: Trusted raw constraint SQL replacing generated cardinality and type constraints.
-        :param nullable_fks: Requested FK nullability; interlink generation currently always emits nullable FKs.
+        :param override_restriction_sql: Trusted raw constraint SQL replacing generated
+            cardinality and type constraints.
+        :param nullable_fks: Requested FK nullability; interlink generation currently
+            always emits nullable FKs.
         :return: Generated link-table name on success.
         """
 
@@ -286,15 +289,16 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
         """
         Generate link DDL, optional type-table inserts and endpoint/sequence indexes.
 
-        Sort singular bases and invert one/many orientation when needed. Strict many_many
-        uniqueness ignores type; nonexclusive uniqueness includes type when requested.
-        FKs remain nullable regardless of nullable_fks to allow blank-row construction.
-        Raw overrides replace automatic cardinality/type handling. This does not execute SQL;
-        identifiers and legacy type-seed literals require trusted inputs.
+        Sort singular bases and invert one/many orientation when needed. Strict
+        many_many uniqueness ignores type; nonexclusive uniqueness includes type when
+        requested. FKs remain nullable regardless of nullable_fks to allow blank-row
+        construction. Raw overrides replace automatic cardinality/type handling. This
+        does not execute SQL; identifiers and legacy type-seed literals require trusted
+        inputs.
 
         Example:
-            With requested_cols=None, the link still contains source, datestamp and scratch
-            columns alongside its IDs and relationship constraints.
+            With requested_cols=None, the link still contains source, datestamp and
+            scratch columns alongside its IDs and relationship constraints.
 
 
         :param primary_table: First main table in the requested relationship.
@@ -303,9 +307,12 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
         :param requested_cols: all, None, or iterable of optional metadata suffixes.
         :param index_both: Whether to index both endpoint foreign-key columns.
         :param allowed_types: Optional iterable of permitted type labels.
-        :param one_link_with_one_type: Accepted but unused; uniqueness follows link_type and requested metadata.
-        :param override_restriction_sql: Trusted raw constraint SQL replacing generated cardinality and type constraints.
-        :param nullable_fks: Requested FK nullability; interlink generation currently always emits nullable FKs.
+        :param one_link_with_one_type: Accepted but unused; uniqueness follows link_type
+            and requested metadata.
+        :param override_restriction_sql: Trusted raw constraint SQL replacing generated
+            cardinality and type constraints.
+        :param nullable_fks: Requested FK nullability; interlink generation currently
+            always emits nullable FKs.
         :return: SQL statement list and generated link-table name.
         """
         # Todo: Checking that primary and secondary are in main tables
@@ -788,7 +795,8 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
         Describe an unsupported cardinality and the host allowed-link set.
 
         Example:
-            An unknown link_type is included in the multiline NotImplementedError detail.
+            An unknown link_type is included in the multiline NotImplementedError
+            detail.
 
 
         :param link_type: Supported cardinality name from allowed_link_types.
@@ -810,22 +818,25 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
             nullable_fks: bool = True,
     ) -> list[str]:
         """
-        Resolve a required legacy constraint entry and generate the matching link script.
+        Resolve a required legacy constraint entry and generate the matching link
+        script.
 
-        A string supplies raw constraints; a mapping supplies primary/secondary/link_type.
-        When type is requested, optional allowed labels can fall back to the legacy mapping.
-        Missing constraints fail by assertion; unexpected constraint representations raise
-        NotImplementedError.
+        A string supplies raw constraints; a mapping supplies
+        primary/secondary/link_type. When type is requested, optional allowed labels can
+        fall back to the legacy mapping. Missing constraints fail by assertion;
+        unexpected constraint representations raise NotImplementedError.
 
         Example:
-            An INTERLINK_TABLE_CONSTRAINTS mapping can select one_many for the generated link.
+            An INTERLINK_TABLE_CONSTRAINTS mapping can select one_many for the generated
+            link.
 
 
         :param table1: First table whose singular prefix participates in the link name.
         :param table2: Second table whose singular prefix participates in the link name.
         :param requested_cols: all, None, or iterable of optional metadata suffixes.
         :param allowed_types: Optional iterable of permitted type labels.
-        :param nullable_fks: Requested FK nullability; interlink generation currently always emits nullable FKs.
+        :param nullable_fks: Requested FK nullability; interlink generation currently
+            always emits nullable FKs.
         :return: Generated statement list without executing it.
         """
 
@@ -916,11 +927,13 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
         """
         Generate a legacy allowed-type table and one unescaped insert per label.
 
-        The type column is unique and nullable. Inputs are interpolated into SQL, including
-        double-quoted seed values; use trusted labels and do not assume repeat seeding is safe.
+        The type column is unique and nullable. Inputs are interpolated into SQL,
+        including double-quoted seed values; use trusted labels and do not assume repeat
+        seeding is safe.
 
         Example:
-            Two labels produce one CREATE TABLE statement followed by two INSERT statements.
+            Two labels produce one CREATE TABLE statement followed by two INSERT
+            statements.
 
 
         :param for_table: Table whose allowed-type lookup name is derived.
@@ -978,12 +991,13 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
         """
         Create/seed a __types table, install nonnull-type guard triggers and commit.
 
-        Seed labels are bound and inserted if absent. Insert/update guards reject nonnull
-        values missing from the reference table; NULL remains allowed. Existing guards
-        are retained by IF NOT EXISTS.
+        Seed labels are bound and inserted if absent. Insert/update guards reject
+        nonnull values missing from the reference table; NULL remains allowed. Existing
+        guards are retained by IF NOT EXISTS.
 
         Example:
-            Adding a label to the reference table extends the accepted nonnull link types.
+            Adding a label to the reference table extends the accepted nonnull link
+            types.
 
 
         :param interlink_table_name: Trusted existing link-table name.
@@ -1054,7 +1068,8 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
         produce no statements; interpolated seed labels are not escaped.
 
         Example:
-            A main table without configured allowed types returns an empty statement list.
+            A main table without configured allowed types returns an empty statement
+            list.
 
 
         :param for_table: Table whose allowed-type lookup name is derived.
@@ -1114,25 +1129,30 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
         Generate self-link DDL, indexes and optional canonical-order guard triggers.
 
         None selects type; allowed labels force a type column. Always include source and
-        reject nonnull self-edges. Symmetric guards reject reversed endpoints rather than
-        swapping them; symmetric_types restricts that guard even when symmetric is true.
-        Reference-type mode omits the FK and requires later guard installation. Explicit
-        sequence_number/is_required subsets currently emit those columns twice because
-        the bespoke-column filter also includes them; all avoids that duplication.
+        reject nonnull self-edges. Symmetric guards reject reversed endpoints rather
+        than swapping them; symmetric_types restricts that guard even when symmetric is
+        true. Reference-type mode omits the FK and requires later guard installation.
+        Explicit sequence_number/is_required subsets currently emit those columns twice
+        because the bespoke-column filter also includes them; all avoids that
+        duplication.
 
         Example:
             A symmetric work self-link accepts primary_id below secondary_id and rejects
             the reverse ordering when both endpoints are nonnull.
 
 
-        :param name: Main-table name, optionally resolved by the host match_to_table_name hook.
+        :param name: Main-table name, optionally resolved by the host
+            match_to_table_name hook.
         :param allowed_types: Optional iterable of permitted type labels.
         :param requested_cols: all, None, or iterable of optional metadata suffixes.
         :param index_both: Whether to index both endpoint foreign-key columns.
         :param nullable_fks: Whether the two self-link foreign keys are nullable.
-        :param symmetric: Whether to guard canonical ordering for all types when no subset is supplied.
-        :param symmetric_types: Optional reusable type-label collection limiting canonical-order guards.
-        :param use_reference_types_table: Whether a separately installed __types guard replaces legacy allowed-type FKs.
+        :param symmetric: Whether to guard canonical ordering for all types when no
+            subset is supplied.
+        :param symmetric_types: Optional reusable type-label collection limiting
+            canonical-order guards.
+        :param use_reference_types_table: Whether a separately installed __types guard
+            replaces legacy allowed-type FKs.
         :return: Ordered statements; no SQL is executed.
         """
 

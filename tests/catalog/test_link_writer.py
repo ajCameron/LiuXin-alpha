@@ -27,7 +27,7 @@ from LiuXin_alpha.catalog.write import (
     CatalogValueWriter,
     LinkUpdate,
 )
-from LiuXin_alpha.databases.macro_types import LinkRow, LinkValue
+from LiuXin_alpha.databases.db_types.macro_types import LinkRow, LinkValue
 from LiuXin_alpha.databases.schema_specs import (
     LinkCardinality,
     StorageLinkSpec,

@@ -48,11 +48,19 @@ class SQLiteDatabaseCustomColumnMacros(
         >>> macros._get_cc_id_val("custom_column_1")
         ('custom_column_1_id', 'custom_column_1_value')
         >>> from types import SimpleNamespace
-        >>> from LiuXin_alpha.databases.database_driver_plugins.SQLite.databasedriver import SQLite_Connection
+        >>> from LiuXin_alpha.databases.database_driver_plugins.SQLite import (
+        ...     databasedriver,
+        ... )
+        >>> SQLite_Connection = databasedriver.SQLite_Connection
         >>> conn = sqlite3.connect(":memory:", factory=SQLite_Connection)
-        >>> _ = conn.execute("CREATE TABLE custom_column_1 (custom_column_1_id INTEGER PRIMARY KEY, custom_column_1_value TEXT)")
+        >>> _ = conn.execute(
+        ...     "CREATE TABLE custom_column_1 (custom_column_1_id INTEGER PRIMARY KEY, "
+        ...     "custom_column_1_value TEXT)"
+        ... )
         >>> macros.db = SimpleNamespace(driver=SimpleNamespace(conn=conn))
-        >>> macros.insert_multiple_values_into_cc_table("custom_column_1", ("A", "B"), conn=conn)
+        >>> macros.insert_multiple_values_into_cc_table(
+        ...     "custom_column_1", ("A", "B"), conn=conn
+        ... )
         >>> macros.get_all_cc_id_val_pairs("custom_column_1", conn=conn)
         [(1, 'A'), (2, 'B')]
         >>> macros.get_cc_id_from_value("custom_column_1", "B", conn=conn)
@@ -122,10 +130,18 @@ class SQLiteDatabaseCustomColumnMacros(
         Example:
             >>> from types import SimpleNamespace
             >>> conn = sqlite3.connect(":memory:")
-            >>> _ = conn.execute("CREATE TABLE metadata_dirtied_books (metadata_dirtied_table TEXT, metadata_dirtied_table_id INTEGER)")
-            >>> _ = conn.executemany("INSERT INTO metadata_dirtied_books VALUES (?, ?)", [("books", 7), ("tags", 8), ("books", None)])
+            >>> _ = conn.execute(
+            ...     "CREATE TABLE metadata_dirtied_books (metadata_dirtied_table TEXT, "
+            ...     "metadata_dirtied_table_id INTEGER)"
+            ... )
+            >>> _ = conn.executemany(
+            ...     "INSERT INTO metadata_dirtied_books VALUES (?, ?)",
+            ...     [("books", 7), ("tags", 8), ("books", None)],
+            ... )
             >>> macros = SQLiteDatabaseCustomColumnMacros()
-            >>> macros.db = SimpleNamespace(driver_wrapper=SimpleNamespace(execute=conn.execute))
+            >>> macros.db = SimpleNamespace(
+            ...     driver_wrapper=SimpleNamespace(execute=conn.execute)
+            ... )
             >>> macros.get_dirtied_cache()
             {7: 0}
             >>> conn.close()
@@ -244,7 +260,9 @@ class SQLiteDatabaseCustomColumnMacros(
 
         Example:
             >>> from types import SimpleNamespace
-            >>> conn = SimpleNamespace(get=lambda sql, params, **kw: [(4,)] if kw["all"] else 4)
+            >>> conn = SimpleNamespace(
+            ...     get=lambda sql, params, **kw: [(4,)] if kw["all"] else 4
+            ... )
             >>> macros = SQLiteDatabaseCustomColumnMacros()
             >>> macros.get_cc_id_from_value("custom_column_1", "A", conn=conn)
             4
@@ -338,7 +356,8 @@ class SQLiteDatabaseCustomColumnMacros(
 
         Example:
             ``macros.get_all_cc_custom_values("custom_column_1", distinct=True,
-            conn=conn)`` returns distinct stored values as one-cell rows on project SQLite.
+            conn=conn)`` returns distinct stored values as one-cell rows on project
+            SQLite.
 
 
         :param cc_table: Trusted table with an inflected _value column.
@@ -382,8 +401,8 @@ class SQLiteDatabaseCustomColumnMacros(
         retained.
 
         Example:
-            If one book links to series 7 at index 2 and series 8 at index 4,
-            requesting series 7 can include both extras because the outer filter is by book.
+            If one book links to series 7 at index 2 and series 8 at index 4, requesting
+            series 7 can include both extras because the outer filter is by book.
 
 
         :param cc_series_link_table: Trusted legacy series link table with _book, _value
@@ -433,7 +452,9 @@ class SQLiteDatabaseCustomColumnMacros(
         Example:
             >>> from types import SimpleNamespace
             >>> conn = SimpleNamespace(get=lambda *args, **kwargs: 0)
-            >>> result = SQLiteDatabaseCustomColumnMacros().check_for_cc_link("links", 0, 7, conn=conn)
+            >>> result = SQLiteDatabaseCustomColumnMacros().check_for_cc_link(
+            ...     "links", 0, 7, conn=conn
+            ... )
             >>> result, bool(result)
             (0, False)
 
@@ -636,8 +657,13 @@ class SQLiteDatabaseCustomColumnMacros(
 
         Example:
             >>> conn = sqlite3.connect(":memory:")
-            >>> _ = conn.execute("CREATE TABLE custom_column_1 (custom_column_1_id INTEGER PRIMARY KEY, custom_column_1_value TEXT)")
-            >>> SQLiteDatabaseCustomColumnMacros().add_cc_table_value("custom_column_1", "A", conn=conn)
+            >>> _ = conn.execute(
+            ...     "CREATE TABLE custom_column_1 (custom_column_1_id INTEGER PRIMARY "
+            ...     "KEY, custom_column_1_value TEXT)"
+            ... )
+            >>> SQLiteDatabaseCustomColumnMacros().add_cc_table_value(
+            ...     "custom_column_1", "A", conn=conn
+            ... )
             1
             >>> conn.in_transaction
             True
@@ -683,8 +709,8 @@ class SQLiteDatabaseCustomColumnMacros(
         transaction rollback or cache invalidation is added.
 
         Example:
-            ``macros.add_cc_link_with_extra("books_custom_column_1_link", 7, 3,
-            extra=0, conn=conn)`` inserts zero and leaves commit ownership with the caller.
+            ``macros.add_cc_link_with_extra("books_custom_column_1_link", 7, 3, extra=0,
+            conn=conn)`` inserts zero and leaves commit ownership with the caller.
 
 
         :param lt: Trusted legacy link-table name with inflected _book and _value column
@@ -739,9 +765,14 @@ class SQLiteDatabaseCustomColumnMacros(
 
         Example:
             >>> conn = sqlite3.connect(":memory:")
-            >>> _ = conn.execute("CREATE TABLE links (link_book INTEGER, link_value INTEGER, link_extra REAL)")
+            >>> _ = conn.execute(
+            ...     "CREATE TABLE links (link_book INTEGER, link_value INTEGER, "
+            ...     "link_extra REAL)"
+            ... )
             >>> macros = SQLiteDatabaseCustomColumnMacros()
-            >>> macros.add_cc_link_with_extra_multi("links", [(7, 3, 2.5)], extra=True, conn=conn)
+            >>> macros.add_cc_link_with_extra_multi(
+            ...     "links", [(7, 3, 2.5)], extra=True, conn=conn
+            ... )
             >>> macros.add_cc_link_with_extra("links", 8, 3, extra=0, conn=conn)
             >>> conn.execute("SELECT * FROM links ORDER BY link_book").fetchall()
             [(7, 3, 2.5), (8, 3, 0.0)]
@@ -838,7 +869,8 @@ class SQLiteDatabaseCustomColumnMacros(
         Example:
             With temp_tables ordered as selected owners, additions and removals,
             ``macros.do_cc_db_bulk_addition(temp_tables, custom_table, link_table,
-            ("A",), ("B",), conn=conn)`` removes B links before adding existing A values.
+            ("A",), ("B",), conn=conn)`` removes B links before adding existing A
+            values.
 
 
         :param temp_tables: Indexable sequence of three existing tables with id columns:
@@ -1049,8 +1081,13 @@ class SQLiteDatabaseCustomColumnMacros(
         Example:
             >>> from types import SimpleNamespace
             >>> calls = []
-            >>> conn = SimpleNamespace(execute=lambda sql, params: calls.append(params), commit=lambda: calls.append("commit"))
-            >>> SQLiteDatabaseCustomColumnMacros().delete_cc_item("custom_column_1", "links", 7, conn=conn)
+            >>> conn = SimpleNamespace(
+            ...     execute=lambda sql, params: calls.append(params),
+            ...     commit=lambda: calls.append("commit"),
+            ... )
+            >>> SQLiteDatabaseCustomColumnMacros().delete_cc_item(
+            ...     "custom_column_1", "links", 7, conn=conn
+            ... )
             >>> calls
             [(7,), (7,), 'commit']
 
@@ -1184,8 +1221,12 @@ class SQLiteDatabaseCustomColumnMacros(
 
         Example:
             >>> conn = sqlite3.connect(":memory:")
-            >>> _ = conn.execute("CREATE TABLE links (link_book INTEGER, link_value INTEGER)")
-            >>> _ = conn.executemany("INSERT INTO links VALUES (?, ?)", [(1, 7), (2, 7), (3, 7)])
+            >>> _ = conn.execute(
+            ...     "CREATE TABLE links (link_book INTEGER, link_value INTEGER)"
+            ... )
+            >>> _ = conn.executemany(
+            ...     "INSERT INTO links VALUES (?, ?)", [(1, 7), (2, 7), (3, 7)]
+            ... )
             >>> macros = SQLiteDatabaseCustomColumnMacros()
             >>> macros.break_cc_links_by_book_id("links", [1, 2], conn=conn)
             >>> conn.execute("SELECT link_book FROM links").fetchall()
@@ -1236,7 +1277,9 @@ class SQLiteDatabaseCustomColumnMacros(
 
         Example:
             >>> try:
-            ...     SQLiteDatabaseCustomColumnMacros().break_cc_links_by_book_id_and_value("links", 7, 3, conn=object())
+            ...     (
+            ...         SQLiteDatabaseCustomColumnMacros()
+            ...     ).break_cc_links_by_book_id_and_value("links", 7, 3, conn=object())
             ... except NotImplementedError:
             ...     print("override unsupported")
             override unsupported
@@ -1305,9 +1348,13 @@ class SQLiteDatabaseCustomColumnMacros(
         Example:
             >>> conn = sqlite3.connect(":memory:")
             >>> _ = conn.execute("CREATE TABLE entries (entry_id INTEGER PRIMARY KEY)")
-            >>> _ = conn.execute("CREATE TABLE links (link_id INTEGER, link_value INTEGER)")
+            >>> _ = conn.execute(
+            ...     "CREATE TABLE links (link_id INTEGER, link_value INTEGER)"
+            ... )
             >>> try:
-            ...     SQLiteDatabaseCustomColumnMacros().clear_cc_unused_table_entries("entries", "links", conn=conn)
+            ...     SQLiteDatabaseCustomColumnMacros().clear_cc_unused_table_entries(
+            ...         "entries", "links", conn=conn
+            ...     )
             ... except sqlite3.OperationalError:
             ...     print("generated links_value is absent")
             generated links_value is absent
@@ -1351,7 +1398,9 @@ class SQLiteDatabaseCustomColumnMacros(
 
         Example:
             >>> SQLiteDatabaseCustomColumnMacros().clean_custom({})
-            >>> SQLiteDatabaseCustomColumnMacros().clean_custom({1: {"normalized": False}})
+            >>> SQLiteDatabaseCustomColumnMacros().clean_custom(
+            ...     {1: {"normalized": False}}
+            ... )
 
 
         :param cc_num_map: Mapping whose values contain normalized and, for eligible

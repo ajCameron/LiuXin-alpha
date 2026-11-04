@@ -26,13 +26,8 @@ from LiuXin_alpha.errors import InvalidCacheUpdate
 from LiuXin_alpha.plugins.cache.base_tables import BaseManyToOneTable, MANY_ONE
 
 from LiuXin_alpha.library.caches.calibre.tables.base import null, MultiTableMixin
-from LiuXin_alpha.databases.db_types import (
-    SrcTableID,
-    DstTableID,
-    MetadataDict,
-    InterLinkTableName,
-    TableTypes,
-)
+from LiuXin_alpha.databases.db_types.database_types import InterLinkTableName, SrcTableID, DstTableID, MetadataDict, \
+    TableTypes
 
 from LiuXin_alpha.metadata.standardization import (
     standardize_publisher,

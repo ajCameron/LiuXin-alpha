@@ -914,16 +914,13 @@ class ApplyAPI(Protocol):
 
     def primary_language(self, language: RowAPI, title_row: RowAPI) -> None:
         """
-        Set a legacy title's primary Language through metadata_sql.
+        Set a Work's original language through its Catalog repository.
 
-        Example:
-            This method does not return an interlink Row or suppress SQL failures.
-
-
-        :param language: Concrete Language Row, asserted before use.
-        :param title_row: Title Row whose row_id identifies the title.
-        :return: None; forwards title and Language row IDs.
-        :raises AssertionError: Language is not a concrete Row, when assertions are enabled.
+        Accept concrete Language Rows and Work or compatibility Title Rows.
+        Validate row kinds and existence before updating the Work foreign key.
+        Preserve Expression languages and additional language relationships.
+        Return None; invalid row kinds raise TypeError, missing rows raise
+        CatalogNotFoundError, and persistence errors propagate atomically.
         """
         ...
 

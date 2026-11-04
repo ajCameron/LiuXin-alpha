@@ -25,7 +25,8 @@ class TriggersMixin:
         TEMP triggers are not included and no ordering is specified.
 
         Example:
-            ``driver.direct_get_triggers()`` returns an empty list when no persistent triggers exist.
+            ``driver.direct_get_triggers()`` returns an empty list when no persistent
+            triggers exist.
 
 
         :return: A list of trigger names.
@@ -46,13 +47,16 @@ class TriggersMixin:
         """
         Drop each named trigger and commit after each removal.
 
-        Names become SQL syntax and must be trusted. A missing trigger raises OperationalError; earlier removals stay committed. Close on success or that error.
+        Names become SQL syntax and must be trusted. A missing trigger raises
+        OperationalError; earlier removals stay committed. Close on success or that
+        error.
 
         Example:
             ``driver.direct_drop_triggers(["example_audit"])`` drops the named trigger.
 
 
-        :param triggers: Iterable of trusted trigger identifiers inserted into DROP TRIGGER statements.
+        :param triggers: Iterable of trusted trigger identifiers inserted into DROP
+            TRIGGER statements.
         :return: ``True`` after all removals, including an empty input.
         """
         conn = self.get_connection()

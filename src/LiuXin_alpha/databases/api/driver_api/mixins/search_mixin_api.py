@@ -36,11 +36,13 @@ class DriverSearchMixinAPI(abc.ABC):
         Abstract backend hook. The behavior below describes the shared SQL/SQLite
         implementation; this declaration itself has no operational body.
 
-        Wrong-length iterables raise InputIntegrityError. Strings count as iterable, so text
-        operands do not satisfy this legacy predicate.
+        Wrong-length iterables raise InputIntegrityError. Strings count as iterable, so
+        text operands do not satisfy this legacy predicate.
 
         Example:
-            >>> driver.can_index_be_transformed(["token", "works", "Example"])  # doctest: +SKIP
+            >>> driver.can_index_be_transformed(
+            ...     ["token", "works", "Example"]
+            ... )  # doctest: +SKIP
 
 
         :param target_index: Sized, indexable candidate triple, or a non-iterable value.
@@ -78,16 +80,16 @@ class DriverSearchMixinAPI(abc.ABC):
         Abstract backend hook. The behavior below describes the shared SQL/SQLite
         implementation; this declaration itself has no operational body.
 
-        Close the query connection after successful iteration. Use only when materializing
-        the whole table is acceptable.
+        Close the query connection after successful iteration. Use only when
+        materializing the whole table is acceptable.
 
         Example:
             >>> driver.direct_get_all_rows("works")  # doctest: +SKIP
 
 
         :param table: Table name resolved by the host driver.
-        :param sort_column: Optional column belonging to the table; ``None`` adds no ORDER
-            BY.
+        :param sort_column: Optional column belonging to the table; ``None`` adds no
+            ORDER BY.
         :param reverse: Use descending order when a sort column is supplied; otherwise
             ignored.
         :return: A list of converted row dictionaries.
@@ -101,8 +103,8 @@ class DriverSearchMixinAPI(abc.ABC):
         Abstract backend hook. The behavior below describes the shared SQL/SQLite
         implementation; this declaration itself has no operational body.
 
-        Identifiers are interpolated and must be trusted. This helper does not explicitly
-        close its acquired connection.
+        Identifiers are interpolated and must be trusted. This helper does not
+        explicitly close its acquired connection.
 
         Example:
             >>> driver.direct_get_all_values("works", "work_title")  # doctest: +SKIP
@@ -132,39 +134,43 @@ class DriverSearchMixinAPI(abc.ABC):
     @abc.abstractmethod
     def direct_get_max(self, column: str) -> Optional[int]:
         """
-        Query MAX and convert it with int, returning None for null or non-convertible values.
+        Query MAX and convert it with int, returning None for null or non-convertible
+        values.
 
         Abstract backend hook. The behavior below describes the shared SQL/SQLite
         implementation; this declaration itself has no operational body.
 
-        Float conversion truncates. SQL/inference errors propagate; the acquired connection
-        is not explicitly closed here.
+        Float conversion truncates. SQL/inference errors propagate; the acquired
+        connection is not explicitly closed here.
 
         Example:
             >>> driver.direct_get_max("work_title")  # doctest: +SKIP
 
 
         :param column: Trusted column name whose table is inferred by the driver.
-        :return: The integer maximum, or ``None`` on TypeError/ValueError during conversion.
+        :return: The integer maximum, or ``None`` on TypeError/ValueError during
+            conversion.
         """
 
     @abc.abstractmethod
     def direct_get_min(self, column: str) -> Optional[int]:
         """
-        Query MIN and convert it with int, returning None for null or non-convertible values.
+        Query MIN and convert it with int, returning None for null or non-convertible
+        values.
 
         Abstract backend hook. The behavior below describes the shared SQL/SQLite
         implementation; this declaration itself has no operational body.
 
-        Float conversion truncates. SQL/inference errors propagate; the acquired connection
-        is not explicitly closed here.
+        Float conversion truncates. SQL/inference errors propagate; the acquired
+        connection is not explicitly closed here.
 
         Example:
             >>> driver.direct_get_min("work_title")  # doctest: +SKIP
 
 
         :param column: Trusted column name whose table is inferred by the driver.
-        :return: The integer minimum, or ``None`` on TypeError/ValueError during conversion.
+        :return: The integer minimum, or ``None`` on TypeError/ValueError during
+            conversion.
         """
 
     @abc.abstractmethod
@@ -175,9 +181,9 @@ class DriverSearchMixinAPI(abc.ABC):
         Abstract backend hook. The behavior below describes the shared SQL/SQLite
         implementation; this declaration itself has no operational body.
 
-        The default repeatedly samples IDs from 1 to the maximum and reseeds Python's global
-        RNG. Sparse IDs can be slow; tables without positive integer IDs are unsuitable. A
-        non-convertible null maximum returns None.
+        The default repeatedly samples IDs from 1 to the maximum and reseeds Python's
+        global RNG. Sparse IDs can be slow; tables without positive integer IDs are
+        unsuitable. A non-convertible null maximum returns None.
 
         Example:
             >>> driver.direct_get_random_row_dict("works")  # doctest: +SKIP
@@ -220,9 +226,10 @@ class DriverSearchMixinAPI(abc.ABC):
         Abstract backend hook. The behavior below describes the shared SQL/SQLite
         implementation; this declaration itself has no operational body.
 
-        Each chunk is buffered and its connection closed before yielding. IDs at or below
-        zero are excluded, and concurrent changes can affect later chunks. A supplied sort
-        column is validated then raises NotImplementedError; reverse is unused.
+        Each chunk is buffered and its connection closed before yielding. IDs at or
+        below zero are excluded, and concurrent changes can affect later chunks. A
+        supplied sort column is validated then raises NotImplementedError; reverse is
+        unused.
 
         Example:
             >>> driver.direct_get_row_dict_iterator("works")  # doctest: +SKIP
@@ -284,17 +291,19 @@ class DriverSearchMixinAPI(abc.ABC):
 
         Normalize NULL equality/inequality and support iterable IN values; empty/None IN
         matches nothing. Columns and operators must be trusted because they become SQL
-        syntax. Some SQL-looking scalar text values are rejected even though bound. Empty
-        input returns None normally but raises in verbose-debug mode. The iterator branch
-        leaves its preparatory connection unclosed and delegates query ownership to a
-        generator.
+        syntax. Some SQL-looking scalar text values are rejected even though bound.
+        Empty input returns None normally but raises in verbose-debug mode. The iterator
+        branch leaves its preparatory connection unclosed and delegates query ownership
+        to a generator.
 
         Example:
-            >>> driver.direct_multi_column_search([("work_id", "IN", [1, 2])])  # doctest: +SKIP
+            >>> driver.direct_multi_column_search(
+            ...     [("work_id", "IN", [1, 2])]
+            ... )  # doctest: +SKIP
 
 
-        :param search_index: Sized sequence of (column, operator, value) triples belonging
-            to one inferred table.
+        :param search_index: Sized sequence of (column, operator, value) triples
+            belonging to one inferred table.
         :param iterator_return: Return a lazy query generator instead of materializing
             matching rows.
         :return: A list or lazy row iterator, or ``None`` for empty input outside
@@ -314,17 +323,21 @@ class DriverSearchMixinAPI(abc.ABC):
         Abstract backend hook. The behavior below describes the shared SQL/SQLite
         implementation; this declaration itself has no operational body.
 
-        The table must validate and the column must be a known simple identifier. Although
-        table defaults to None, this implementation never infers it; callers should supply
-        it. Malformed requests and SQLite operational errors raise InputIntegrityError.
+        The table must validate and the column must be a known simple identifier.
+        Although table defaults to None, this implementation never infers it; callers
+        should supply it. Malformed requests and SQLite operational errors raise
+        InputIntegrityError.
 
         Example:
-            >>> driver.direct_search_table("works", "work_title", "Example")  # doctest: +SKIP
+            >>> driver.direct_search_table(
+            ...     "works", "work_title", "Example"
+            ... )  # doctest: +SKIP
 
 
         :param table: Table name resolved by the host driver.
         :param column: Column name to read or match.
-        :param search_term: Non-null value coerced to text; byte-like inputs must be UTF-8.
+        :param search_term: Non-null value coerced to text; byte-like inputs must be
+            UTF-8.
         :return: Converted matching rows, or an empty list.
         """
 
@@ -338,8 +351,8 @@ class DriverSearchMixinAPI(abc.ABC):
         Abstract backend hook. The behavior below describes the shared SQL/SQLite
         implementation; this declaration itself has no operational body.
 
-        Operands are concatenated without escaping or SQL execution; unknown operators raise
-        LogicalError.
+        Operands are concatenated without escaping or SQL execution; unknown operators
+        raise LogicalError.
 
         Example:
             >>> driver.transform_index(["token", "works", "Example"])  # doctest: +SKIP
@@ -358,9 +371,9 @@ class DriverSearchMixinAPI(abc.ABC):
         Abstract backend hook. The behavior below describes the shared SQL/SQLite
         implementation; this declaration itself has no operational body.
 
-        No database search is executed. A string input is only logged; a transformable tree
-        raises NotImplementedError at the disabled replacement step, and malformed trees may
-        fail earlier.
+        No database search is executed. A string input is only logged; a transformable
+        tree raises NotImplementedError at the disabled replacement step, and malformed
+        trees may fail earlier.
 
         Example:
             >>> driver.direct_locational_search("already transformed")  # doctest: +SKIP
@@ -368,6 +381,7 @@ class DriverSearchMixinAPI(abc.ABC):
 
         :param parsed_query: Search-parser tree or pretransformed Unicode query, copied
             before inspection.
-        :return: ``None`` for an already-string query; tree processing does not complete.
+        :return: ``None`` for an already-string query; tree processing does not
+            complete.
         """
         ...

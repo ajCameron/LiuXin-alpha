@@ -31,13 +31,8 @@ from LiuXin_alpha.plugins.cache.base_tables import (
 
 from LiuXin_alpha.library.caches.calibre.tables.base import null
 from LiuXin_alpha.library.caches.calibre.tables.many_one_tables.many_to_one_table import CalibreManyToOneTable
-from LiuXin_alpha.databases.db_types import (
-    TableTypes,
-    MetadataDict,
-    InterLinkTableName,
-    SrcTableID,
-    DstTableID,
-)
+from LiuXin_alpha.databases.db_types.database_types import InterLinkTableName, SrcTableID, DstTableID, MetadataDict, \
+    TableTypes
 from LiuXin_alpha.utils.python_tools import uniq
 
 from LiuXin_alpha.errors import (

@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from LiuXin_alpha.caches.cache_plugins.registry import create_storage_cache
-from LiuXin_alpha.databases.macro_types import (
+from LiuXin_alpha.databases.db_types.macro_types import (
     LINK_TYPE_UNSET,
     LinkRow,
     LinkValue,

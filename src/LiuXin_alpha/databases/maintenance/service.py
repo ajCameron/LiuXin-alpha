@@ -56,10 +56,10 @@ class Maintainer(DatabaseMaintainerAPI):
         :param db: Database whose rows, driver and schema helpers are used.
         :param plugins: Optional plugin iterable; None selects builtins, while an empty
             iterable selects none.
-        :param interval: Seconds between dispatch passes; converted to float without range
-            validation.
-        :param scheduling_interval: Maximum sleep between scheduling checks, in seconds; not
-            range-validated.
+        :param interval: Seconds between dispatch passes; converted to float without
+            range validation.
+        :param scheduling_interval: Maximum sleep between scheduling checks, in seconds;
+            not range-validated.
         :return: None.
         """
         super().__init__(db=db)
@@ -113,8 +113,10 @@ class Maintainer(DatabaseMaintainerAPI):
             >>> worker.run_once()  # doctest: +SKIP
 
 
-        :param max_events: Combined drain limit, coerced to int and clamped to at least one.
-        :return: Mapping of participating plugin names to MaintenancePluginResult objects.
+        :param max_events: Combined drain limit, coerced to int and clamped to at least
+            one.
+        :return: Mapping of participating plugin names to MaintenancePluginResult
+            objects.
         """
         return self.maintainer.run_once(max_events=max_events)
 
@@ -141,9 +143,9 @@ class Maintainer(DatabaseMaintainerAPI):
         """
         Dispatch or queue a rename through the bound database's engine.
 
-        A different db creates a temporary Maintainer, starts it, forwards the request and
-        stops it in finally without joining. With now=False that temporary engine may stop
-        before processing the queued rename.
+        A different db creates a temporary Maintainer, starts it, forwards the request
+        and stops it in finally without joining. With now=False that temporary engine
+        may stop before processing the queued rename.
 
         Example:
             >>> worker.rename_item(1, "creators", "New name")  # doctest: +SKIP
@@ -151,8 +153,8 @@ class Maintainer(DatabaseMaintainerAPI):
 
         :param item_id: Identifier of the row to rename.
         :param table: Table associated with the row or operation.
-        :param value: Requested new name; event construction converts false values to empty
-            text.
+        :param value: Requested new name; event construction converts false values to
+            empty text.
         :param now: Whether to dispatch synchronously; False enqueues work.
         :param db: Optional target database; None uses the bound database.
         :return: None.
@@ -172,8 +174,8 @@ class Maintainer(DatabaseMaintainerAPI):
         """
         Forward a changed-row notification to the compatibility queue.
 
-        The callback sink converts IDs to integers and false text fields to empty strings;
-        errors propagate.
+        The callback sink converts IDs to integers and false text fields to empty
+        strings; errors propagate.
 
         Example:
             >>> worker.dirty_record("creators", 1)  # doctest: +SKIP
@@ -189,8 +191,8 @@ class Maintainer(DatabaseMaintainerAPI):
         """
         Forward a new-row notification to the manual event queue.
 
-        The callback sink converts IDs to integers and false text fields to empty strings;
-        errors propagate.
+        The callback sink converts IDs to integers and false text fields to empty
+        strings; errors propagate.
 
         Example:
             >>> worker.new_dirty_record("creators", 1)  # doctest: +SKIP
@@ -213,11 +215,13 @@ class Maintainer(DatabaseMaintainerAPI):
         """
         Forward a relationship notification to the compatibility queue.
 
-        The callback sink converts IDs to integers and false text fields to empty strings;
-        errors propagate.
+        The callback sink converts IDs to integers and false text fields to empty
+        strings; errors propagate.
 
         Example:
-            >>> worker.dirty_interlink_record("UPDATE", "creators", "titles", 1, 1)  # doctest: +SKIP
+            >>> worker.dirty_interlink_record(
+            ...     "UPDATE", "creators", "titles", 1, 1
+            ... )  # doctest: +SKIP
 
 
         :param update_type: Relationship change label; false values become empty text.
@@ -241,7 +245,8 @@ class Maintainer(DatabaseMaintainerAPI):
 
 
         :param table: Table associated with the row or operation.
-        :param item_ids: Optional restricted ID iterable; this legacy mode is unfinished.
+        :param item_ids: Optional restricted ID iterable; this legacy mode is
+            unfinished.
         :return: None only when the legacy helper returns; ordinary ID iterables raise
             TypeError.
         """
@@ -251,9 +256,9 @@ class Maintainer(DatabaseMaintainerAPI):
         """
         Repoint registered interlinks from the second row to the first, then delete it.
 
-        Iterates other main tables, skipping absent or unregistered link tables. Does not
-        merge scalar row values, intralinks or tree parents. Earlier updates are not rolled
-        back here if a later operation fails.
+        Iterates other main tables, skipping absent or unregistered link tables. Does
+        not merge scalar row values, intralinks or tree parents. Earlier updates are not
+        rolled back here if a later operation fails.
 
         Example:
             >>> worker.merge("creators", 1, 1)  # doctest: +SKIP
@@ -296,11 +301,14 @@ class Maintainer(DatabaseMaintainerAPI):
         """
         Replace one endpoint ID in each matching link row and sync it.
 
-        On any sync exception, deletes that link row, assuming a duplicate; unrelated write
-        failures can therefore also trigger deletion. No transaction boundary is added.
+        On any sync exception, deletes that link row, assuming a duplicate; unrelated
+        write failures can therefore also trigger deletion. No transaction boundary is
+        added.
 
         Example:
-            >>> worker._do_merge_one_table("creators", "titles", "creator_title_links", 1, 1)  # doctest: +SKIP
+            >>> worker._do_merge_one_table(
+            ...     "creators", "titles", "creator_title_links", 1, 1
+            ... )  # doctest: +SKIP
 
 
         :param src_table: Other endpoint table.

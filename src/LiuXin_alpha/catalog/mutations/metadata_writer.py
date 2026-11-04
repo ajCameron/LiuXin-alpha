@@ -8,7 +8,7 @@ from collections.abc import Iterable, Mapping, Sequence
 from contextlib import nullcontext
 from typing import Any, cast
 
-from LiuXin_alpha.databases.macro_types import LinkValue
+from LiuXin_alpha.databases.db_types.macro_types import LinkValue
 
 from ..api.common import (
     CatalogMutationError,

@@ -723,12 +723,13 @@ class CoreStorageGraphAPI:
         query: CoreQuery,
     ) -> dict[str, Any]:
         """
-        Read all matching resource rows in ID order, then slice an offset/limit window in memory.
+        Read a bounded page of matching resource rows in physical ID order.
 
         limit defaults to 100 and is int-converted/clamped to 0..10,000; offset
         defaults to zero and is clamped nonnegative. Booleans/fractions follow int
         conversion, while explicit None raises. Filters allow IDs but still reject
-        managed timestamp fields. Pagination does not bound the database read.
+        managed timestamp fields. Production SQL reads at most limit + 1 rows;
+        older macro adapters retain their in-memory pagination fallback.
 
         Example:
             >>> result = CoreStorageGraphAPI.resource_list(runtime, query)  # doctest: +SKIP
@@ -736,7 +737,7 @@ class CoreStorageGraphAPI:
 
         :param runtime: Runtime providing macro reads and optional schema headings for field validation.
         :param query: Query with resource, optional Mapping where, and optional limit/offset; where=None is invalid.
-        :return: Resource name, projected records, normalized pagination, and complete based on the full matching row count.
+        :return: Resource name, projected records, normalized pagination, and complete indicating that no matching row follows the page.
         """
         payload = _payload(query)
         spec = _spec(payload)
@@ -746,18 +747,29 @@ class CoreStorageGraphAPI:
         where = _normalise_values(runtime, spec, where_raw, allow_id=True)
         limit = max(0, min(int(payload.get("limit", 100)), 10_000))
         offset = max(0, int(payload.get("offset", 0)))
-        rows = _macros(runtime).get_rows(
-            spec.table,
-            where=where or None,
-            order_by=(spec.id_column,),
-        )
-        selected = rows[offset : offset + limit]
+        macros = _macros(runtime)
+        page_reader = getattr(macros, "get_rows_page", None)
+        if callable(page_reader):
+            selected, complete = page_reader(
+                spec.table,
+                where=where or None,
+                limit=limit,
+                offset=offset,
+            )
+        else:
+            rows = macros.get_rows(
+                spec.table,
+                where=where or None,
+                order_by=(spec.id_column,),
+            )
+            selected = rows[offset : offset + limit]
+            complete = offset + len(selected) >= len(rows)
         return {
             "resource": spec.name,
             "records": [_record(spec, row) for row in selected],
             "offset": offset,
             "limit": limit,
-            "complete": offset + len(selected) >= len(rows),
+            "complete": complete,
         }
 
     @staticmethod
@@ -872,22 +884,21 @@ class CoreStorageGraphAPI:
                 code="storage_asset_not_found",
                 details={"asset_id": asset_id},
             )
-        replicas = macros.get_rows(
-            "asset_replicas",
-            where={"asset_replica_digital_asset_id": asset_id},
-            order_by=("asset_replica_id",),
+        counter = getattr(
+            getattr(runtime.database, "metadata_sql", None),
+            "count_asset_replicas_for_assets",
+            None,
         )
-        healthy = [row for row in replicas if _healthy_replica(row)]
-        active = [
-            row
-            for row in healthy
-            if str(row.get("asset_replica_mode") or "active") == "active"
-        ]
-        backups = [
-            row
-            for row in healthy
-            if str(row.get("asset_replica_mode") or "") in {"backup", "archive"}
-        ]
+        grouped = callable(counter)
+        replicas = (
+            counter([asset_id])[asset_id]
+            if grouped
+            else macros.get_rows(
+                "asset_replicas",
+                where={"asset_replica_digital_asset_id": asset_id},
+                order_by=("asset_replica_id",),
+            )
+        )
         replication_policy_id = asset.get("digital_asset_replication_policy_id")
         backup_policy_id = asset.get("digital_asset_backup_policy_id")
         replication_policy = (
@@ -908,6 +919,50 @@ class CoreStorageGraphAPI:
                 id_column="backup_policy_id",
             )
         )
+        return CoreStorageGraphAPI._assess_rows(
+            asset,
+            replicas,
+            replication_policy,
+            backup_policy,
+            grouped=grouped,
+        )
+
+    @staticmethod
+    def _assess_rows(
+        asset: Mapping[str, Any],
+        replicas: tuple[Mapping[str, Any], ...],
+        replication_policy: Mapping[str, Any] | None,
+        backup_policy: Mapping[str, Any] | None,
+        *,
+        grouped: bool = False,
+    ) -> dict[str, Any]:
+        """Apply the existing row-label policy rules to already-read metadata.
+
+        Selection, truthiness and defaults remain Core policy. SQL readers only
+        supply raw label groups or rows; they do not consult or replace the
+        storage manager's cache. Group counts preserve these row-label rules
+        without loading each Replica payload.
+        """
+        asset_id = int(asset["digital_asset_id"])
+        replication_policy_id = asset.get("digital_asset_replication_policy_id")
+        backup_policy_id = asset.get("digital_asset_backup_policy_id")
+        healthy = [row for row in replicas if _healthy_replica(row)]
+        active = [
+            row
+            for row in healthy
+            if str(row.get("asset_replica_mode") or "active") == "active"
+        ]
+        backups = [
+            row
+            for row in healthy
+            if str(row.get("asset_replica_mode") or "") in {"backup", "archive"}
+        ]
+
+        def count(rows):
+            return sum(int(row["row_count"]) for row in rows) if grouped else len(rows)
+
+        total_count, healthy_count = count(replicas), count(healthy)
+        active_count, backup_count = count(active), count(backups)
         replication_min = int(
             (replication_policy or {}).get("replication_policy_min_copies", 1)
         )
@@ -928,20 +983,20 @@ class CoreStorageGraphAPI:
                 "policy_id": replication_policy_id,
                 "minimum": replication_min,
                 "target": replication_target,
-                "healthy_copies": len(active),
-                "meets_minimum": len(active) >= replication_min,
-                "meets_target": len(active) >= replication_target,
+                "healthy_copies": active_count,
+                "meets_minimum": active_count >= replication_min,
+                "meets_target": active_count >= replication_target,
             },
             "backup": {
                 "policy_id": backup_policy_id,
                 "minimum": backup_min,
                 "target": backup_target,
-                "healthy_copies": len(backups),
-                "meets_minimum": len(backups) >= backup_min,
-                "meets_target": len(backups) >= backup_target,
+                "healthy_copies": backup_count,
+                "meets_minimum": backup_count >= backup_min,
+                "meets_target": backup_count >= backup_target,
             },
-            "replica_count": len(replicas),
-            "healthy_replica_count": len(healthy),
+            "replica_count": total_count,
+            "healthy_replica_count": healthy_count,
         }
 
     def policy_assess(
@@ -1076,7 +1131,8 @@ class CoreStorageGraphAPI:
         The historical route summary mentions targets; selection actually uses
         meets_minimum. All Asset/Replica/policy reads precede pagination. limit is
         int-converted/clamped to 0..10,000 and offset to nonnegative; defaults are
-        100/0. Concurrent disappearance or malformed row data can abort the scan.
+        100/0. Replica and explicit-policy references are batched; assessment stays
+        here. Reads are not a pinned snapshot; malformed row data can abort the scan.
 
         Example:
             >>> result = CoreStorageGraphAPI().policy_violations(runtime, query)  # doctest: +SKIP
@@ -1093,10 +1149,38 @@ class CoreStorageGraphAPI:
             "digital_assets",
             order_by=("digital_asset_id",),
         )
+        sql = getattr(runtime.database, "metadata_sql", None)
+        counter = getattr(sql, "count_asset_replicas_for_assets", None)
+        grouped = callable(counter)
+        if sql is not None:
+            replica_reader = counter if grouped else sql.get_asset_replicas_for_assets
+            replicas = replica_reader(
+                int(asset["digital_asset_id"]) for asset in assets
+            )
+            replication = sql.get_replication_policies_by_ids(
+                asset["digital_asset_replication_policy_id"]
+                for asset in assets
+                if asset.get("digital_asset_replication_policy_id") is not None
+            )
+            backup = sql.get_backup_policies_by_ids(
+                asset["digital_asset_backup_policy_id"]
+                for asset in assets
+                if asset.get("digital_asset_backup_policy_id") is not None
+            )
         violations: list[dict[str, Any]] = []
         for asset in assets:
             asset_id = int(asset["digital_asset_id"])
-            state = self._assess(runtime, asset_id)
+            state = (
+                self._assess(runtime, asset_id)
+                if sql is None
+                else self._assess_rows(
+                    asset,
+                    replicas[asset_id],
+                    replication.get(asset.get("digital_asset_replication_policy_id")),
+                    backup.get(asset.get("digital_asset_backup_policy_id")),
+                    grouped=grouped,
+                )
+            )
             if (
                 not state["replication"]["meets_minimum"]
                 or not state["backup"]["meets_minimum"]

@@ -142,6 +142,12 @@ shipping behavior rather than informal notes.
 
 ### 6. Multiple mutation architectures remain active
 
+**Follow-up 2026-10-30:** `catalog_macros` is removed; `databases.metadata_sql`
+exposes 62 physical-table operations without book/title projections. Row-oriented
+`metadata_tools` remains live through Catalog; see the
+[current owner map](../databases/metadata-sql-wemi-audit-2026-10-29.md#physical-table-sql-boundary--2026-10-30).
+The following finding records the original review state.
+
 Catalog currently has three mutation surfaces:
 
 1. normalized `Catalog.write*()` writers;

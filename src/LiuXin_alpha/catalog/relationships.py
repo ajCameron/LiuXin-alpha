@@ -6,7 +6,7 @@ from collections.abc import Mapping
 from typing import Any
 
 from LiuXin_alpha.catalog.api.common import CatalogMutationError, CatalogNotFoundError
-from LiuXin_alpha.databases.macro_types import LinkRow, LinkValue
+from LiuXin_alpha.databases.db_types.macro_types import LinkRow, LinkValue
 from LiuXin_alpha.databases.schema_specs import LinkCardinality, StorageLinkSpec
 
 
@@ -150,18 +150,10 @@ class CatalogRelationships:
         macros = self.db.macros
         with macros.transaction():
             spec = self._spec(primary_table, primary_id, secondary_table, secondary_id)
-            remaining = tuple(
-                LinkValue(
-                    row.secondary_id,
-                    link_type=row.link_type,
-                    priority=row.priority,
-                    extra={
-                        key: value
-                        for key, value in row.extra.items()
-                        if key != self.db.driver_wrapper.get_id_column(spec.link_table)
-                    },
-                )
-                for row in macros.get_link_rows(spec, primary_id)
-                if row.secondary_id != secondary_id
+            macros.delete_link_pair(
+                spec.link_table,
+                spec.primary_link_col,
+                spec.secondary_link_col,
+                primary_id,
+                secondary_id,
             )
-            macros.replace_links(spec, primary_id, remaining)

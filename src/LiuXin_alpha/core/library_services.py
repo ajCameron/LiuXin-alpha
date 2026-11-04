@@ -118,6 +118,47 @@ class LibraryServices:
             db_type=db_type,
         )
 
+    @staticmethod
+    def recover_sqlite_database(
+        database_path: str | pathlib.Path, *, run_integrity_check: bool
+    ) -> dict[str, object]:
+        """Checkpoint a local SQLite database and optionally inspect its integrity.
+
+        Own and close the recovery connection, including the comparison functions
+        needed by expression indexes. Report checkpoint counters and the first
+        integrity result without promising exclusive access or automatic repair.
+        This writable operation can create a missing file, matching the local
+        unlock command's existing behavior. Callers own process/sidecar handling.
+        """
+        import sqlite3
+
+        from LiuXin_alpha.databases.search_functions import register_search_functions
+
+        conn = sqlite3.connect(str(database_path), timeout=5.0, isolation_level=None)
+        try:
+            register_search_functions(conn)
+            conn.execute("PRAGMA busy_timeout = 5000;")
+            checkpoint = conn.execute("PRAGMA wal_checkpoint(TRUNCATE);").fetchone()
+            busy = int(checkpoint[0]) if checkpoint and len(checkpoint) > 0 else -1
+            log_frames = (
+                int(checkpoint[1]) if checkpoint and len(checkpoint) > 1 else -1
+            )
+            ckpt_frames = (
+                int(checkpoint[2]) if checkpoint and len(checkpoint) > 2 else -1
+            )
+            integrity = None
+            if run_integrity_check:
+                row = conn.execute("PRAGMA integrity_check;").fetchone()
+                integrity = "" if not row else str(row[0])
+            return {
+                "checkpoint_busy": busy,
+                "checkpoint_log_frames": log_frames,
+                "checkpoint_frames_checkpointed": ckpt_frames,
+                "integrity_check": integrity,
+            }
+        finally:
+            conn.close()
+
     @classmethod
     def open(
         cls,

@@ -103,8 +103,8 @@ def postgres_connection_hint(exc: BaseException | None) -> str:
     """
     Select one setup hint from exception text and its cause/context chain.
 
-    The first recognized category wins: missing driver, missing database, missing service,
-    then unreachable server. Traversal avoids exception-chain cycles.
+    The first recognized category wins: missing driver, missing database, missing
+    service, then unreachable server. Traversal avoids exception-chain cycles.
 
     Example:
         >>> postgres_connection_hint(None)
@@ -209,9 +209,9 @@ def connect_postgres(
     Open a raw psycopg2 connection and transfer closing responsibility to the caller.
 
     Resolve configuration before importing the optional driver. Prompt once only for
-    recognized authentication failures with no configured or URL-embedded password.
-    The prompted password is stored in the process environment. Missing configuration
-    raises PostgresConfigError; driver/connection failures raise PostgresConnectionError.
+    recognized authentication failures with no configured or URL-embedded password. The
+    prompted password is stored in the process environment. Missing configuration raises
+    PostgresConfigError; driver/connection failures raise PostgresConnectionError.
 
     Example:
         ``connect_postgres(service="library", prompt_for_password=False)`` opens
@@ -222,10 +222,14 @@ def connect_postgres(
     :param url: Explicit URL candidate, otherwise resolved from configuration.
     :param service: Optional explicit PostgreSQL service profile.
     :param password: Optional password, otherwise read from configuration.
-    :param prompt_for_password: Whether missing authentication may prompt once on a terminal.
-    :param connect_timeout_seconds: Connection timeout coerced to an integer of at least one second.
-    :param application_name: Application name passed to psycopg2 for server-side identification.
-    :return: Open raw psycopg2 connection; this function does not set schema/search_path.
+    :param prompt_for_password: Whether missing authentication may prompt once on a
+        terminal.
+    :param connect_timeout_seconds: Connection timeout coerced to an integer of at least
+        one second.
+    :param application_name: Application name passed to psycopg2 for server-side
+        identification.
+    :return: Open raw psycopg2 connection; this function does not set
+        schema/search_path.
     """
 
     target = configured_postgres_target(metadata, explicit_url=url, explicit_service=service)
@@ -306,7 +310,8 @@ def _connect_psycopg2(
     :param target: Resolved PostgreSQL URL or service target.
     :param password: Optional password, otherwise read from configuration.
     :param connect_timeout: Timeout in seconds, already normalized by the caller.
-    :param application_name: Application name passed to psycopg2 for server-side identification.
+    :param application_name: Application name passed to psycopg2 for server-side
+        identification.
     :return: The connection returned by psycopg2.connect.
     """
     if target.kind == "service":
@@ -444,8 +449,10 @@ def ensure_required_tables(
     :param cur: Open mapping-row cursor owned by the caller.
     :param required_tables: Names to check; blank names are excluded.
     :param schema: Schema name used for unqualified relations.
-    :param create_schema: Optional callback receiving the open cursor to create or upgrade tables.
-    :param always_create_schema: Whether to call create_schema even when all required tables exist.
+    :param create_schema: Optional callback receiving the open cursor to create or
+        upgrade tables.
+    :param always_create_schema: Whether to call create_schema even when all required
+        tables exist.
     :param operation: Operation label used in failure messages.
     :return: Successful required/missing table result.
     """
@@ -493,10 +500,11 @@ def with_postgres_connection(
     Run a callback inside an owned connection, transaction and mapping cursor.
 
     Apply read-only mode when requested, a local timeout and quoted search_path before
-    checking/creating schema and invoking action. Close every connection. OperationalError
-    and InterfaceError can retry the entire callback with a fresh transaction and linear
-    delay; actions must tolerate replay and external side effects. Other failures are
-    wrapped as PostgresConnectionError, while ModuleNotFoundError propagates.
+    checking/creating schema and invoking action. Close every connection.
+    OperationalError and InterfaceError can retry the entire callback with a fresh
+    transaction and linear delay; actions must tolerate replay and external side
+    effects. Other failures are wrapped as PostgresConnectionError, while
+    ModuleNotFoundError propagates.
 
     Example:
         ``with_postgres_connection("count works", action, service="library",
@@ -504,21 +512,29 @@ def with_postgres_connection(
 
 
     :param operation: Operation label used in failure messages.
-    :param action: Callable receiving the open cursor; it may run again after a retryable error.
+    :param action: Callable receiving the open cursor; it may run again after a
+        retryable error.
     :param metadata: Optional target/schema configuration mapping.
     :param url: Explicit URL candidate, otherwise resolved from configuration.
     :param service: Optional explicit PostgreSQL service profile.
     :param schema: Schema name used for unqualified relations.
     :param password: Optional password, otherwise read from configuration.
-    :param prompt_for_password: Whether missing authentication may prompt once on a terminal.
-    :param read_only: Whether to issue SET TRANSACTION READ ONLY before other statements.
+    :param prompt_for_password: Whether missing authentication may prompt once on a
+        terminal.
+    :param read_only: Whether to issue SET TRANSACTION READ ONLY before other
+        statements.
     :param required_tables: Names to check; blank names are excluded.
-    :param create_schema: Optional callback receiving the open cursor to create or upgrade tables.
-    :param always_create_schema: Whether to call create_schema even when all required tables exist.
-    :param statement_timeout_ms: Nonnegative transaction-local query timeout in milliseconds.
+    :param create_schema: Optional callback receiving the open cursor to create or
+        upgrade tables.
+    :param always_create_schema: Whether to call create_schema even when all required
+        tables exist.
+    :param statement_timeout_ms: Nonnegative transaction-local query timeout in
+        milliseconds.
     :param retries: Total attempts, not extra retries; coerced to at least one.
-    :param retry_delay: Base delay in seconds, clamped to zero and multiplied by the failed attempt number.
-    :param application_name: Application name passed to psycopg2 for server-side identification.
+    :param retry_delay: Base delay in seconds, clamped to zero and multiplied by the
+        failed attempt number.
+    :param application_name: Application name passed to psycopg2 for server-side
+        identification.
     :return: Value returned by action after the transaction/context completes.
     """
 
@@ -574,7 +590,8 @@ def retryable_postgres_error(exc: BaseException) -> bool:
 
 
     :param exc: Failure instance checked against psycopg2 exception classes.
-    :return: False when psycopg2 is absent; otherwise whether the exception is one of the retry types.
+    :return: False when psycopg2 is absent; otherwise whether the exception is one of
+        the retry types.
     """
     try:
         import psycopg2
@@ -704,7 +721,9 @@ def translate_sql_for_postgres(sql: str) -> str:
     Translate identifier quotes first, then unquoted SQLite placeholders.
 
     Example:
-        >>> translate_sql_for_postgres("select `work_id` from `works` where work_id = ?")
+        >>> translate_sql_for_postgres(
+        ...     "select `work_id` from `works` where work_id = ?"
+        ... )
         'select "work_id" from "works" where work_id = %s'
 
 
@@ -733,10 +752,12 @@ class PostgresConnectionAdapter:
         Retain a raw connection without opening a transaction or taking a copy.
 
         Example:
-            ``adapter.raw_connection is raw`` after ``adapter = PostgresConnectionAdapter(raw)``.
+            ``adapter.raw_connection is raw`` after ``adapter =
+            PostgresConnectionAdapter(raw)``.
 
 
-        :param raw_connection: Open psycopg2 connection to wrap; no new connection is opened.
+        :param raw_connection: Open psycopg2 connection to wrap; no new connection is
+            opened.
         :return: None; stores the connection.
         """
         self.raw_connection = raw_connection
@@ -792,8 +813,9 @@ class PostgresConnectionAdapter:
         """
         Split text on semicolons and execute nonblank fragments on one cursor.
 
-        Semicolons inside strings, comments or procedural bodies are also split. No commit
-        or explicit cursor close is performed here; use only suitable simple scripts.
+        Semicolons inside strings, comments or procedural bodies are also split. No
+        commit or explicit cursor close is performed here; use only suitable simple
+        scripts.
 
         Example:
             ``adapter.executescript("select 1; select 2;")`` executes two fragments.
@@ -977,7 +999,8 @@ class PostgresCursorAdapter:
 
 
         :param sql: SQL text subjected to the small placeholder/identifier translations.
-        :param values: Iterable of parameter sequences passed through without materialization.
+        :param values: Iterable of parameter sequences passed through without
+            materialization.
         :return: This cursor adapter.
         """
         self.raw_cursor.executemany(translate_sql_for_postgres(sql), values)

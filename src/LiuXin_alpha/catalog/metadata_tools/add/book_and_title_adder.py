@@ -7,7 +7,7 @@ from __future__ import unicode_literals
 import datetime
 import os
 
-from LiuXin_alpha.databases.hashes import generate_title_fingerprint
+from LiuXin_alpha.catalog.hashes import generate_title_fingerprint
 from LiuXin_alpha.catalog.row_mutations import atomic_write, link_rows, create_row, persist_row
 from LiuXin_alpha.databases.row import Row
 from LiuXin_alpha.errors import DatabaseIntegrityError, InputIntegrityError

@@ -294,8 +294,15 @@ def validate_legacy_identifier(identifier_type: str, identifier_value: str) -> N
         raise InputIntegrityError("Identifier did not pass validation")
 
 
-def _normalise_scheme(value: str) -> str:
-    """Return a canonical known scheme or normalized unknown scheme."""
+def normalise_identifier_scheme(value: str) -> str:
+    """Canonicalize a nonblank scheme without requiring an identifier value.
+
+    Generic ``isbn`` remains generic until a value selects ISBN-10 or ISBN-13.
+    This also supports scheme-scoped removal without inventing a dummy value.
+    """
+
+    if not isinstance(value, str):
+        raise TypeError("identifier scheme must be a string")
 
     scheme = re.sub(r"[^a-z0-9]+", "_", value.casefold()).strip("_")
     compact = scheme.replace("_", "")
@@ -312,6 +319,8 @@ def _normalise_scheme(value: str) -> str:
         "uuidish": "uuid-ish",
         "wikipediaurl": "wikipedia_url",
     }
+    if not scheme:
+        raise ValueError("identifier scheme must be non-empty")
     return aliases.get(compact, scheme)
 
 
@@ -374,7 +383,7 @@ def normalise_identifier_pair(
     if not isinstance(identifier_type, str) or not isinstance(identifier_value, str):
         raise TypeError("identifier scheme and value must be strings")
 
-    scheme = _normalise_scheme(identifier_type)
+    scheme = normalise_identifier_scheme(identifier_type)
     raw_value = normalised_value or identifier_value
     value = raw_value.strip()
     if not scheme or not value:
@@ -590,6 +599,7 @@ __all__ = [
     "clean_identifier_mapping",
     "clean_identifier_value",
     "normalise_identifier_pair",
+    "normalise_identifier_scheme",
     "prepare_legacy_identifier_mapping",
     "prepare_legacy_single_identifier",
     "validate_legacy_identifier",

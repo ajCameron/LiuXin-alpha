@@ -206,9 +206,12 @@ model:
   database and Calibre-style map updates;
 - Calibre search-result caching currently located under `catalog.search`;
 - the older cache implementations under `library.caches` and
-  `plugins.cache` (moved from `customize.cache` on 2026-10-19); and
-- frozen `catalog_macros` reference helpers which still display historical
-  cache callback shapes but have no production callers.
+  `plugins.cache` (moved from `customize.cache` on 2026-10-19).
+
+The unused `catalog_macros` facade was removed on 2026-10-30.
+`databases.metadata_sql` retains physical-table helpers without book/title
+projections. Cover-flag writes and legacy format removal refuse effects
+until explicit asset/replica policies are available.
 
 No new modern feature should depend on those shapes. Their long-term owners
 remain a [Catalog roadmap](catalog-roadmap.md) decision; the earlier `utils`

@@ -12,9 +12,9 @@ Example:
 """
 from __future__ import annotations
 
-from dataclasses import replace
 import sqlite3
 import threading
+from dataclasses import replace
 
 import pytest
 
@@ -25,7 +25,7 @@ from LiuXin_alpha.databases.database_driver_plugins.PostgreSQL.databasedriver im
 from LiuXin_alpha.databases.database_driver_plugins.SQL.macros import (
     SQLiteDatabaseMacros,
 )
-from LiuXin_alpha.databases.macro_types import LinkValue, UnreferencedRowsSpec
+from LiuXin_alpha.databases.db_types.macro_types import LinkValue, UnreferencedRowsSpec
 from LiuXin_alpha.databases.schema_specs import (
     LinkCardinality,
     StorageColumnSpec,
@@ -184,6 +184,13 @@ class _Wrapper:
         :return: List of names, empty when the table has no reported columns.
         """
         return [row[1] for row in self.driver.conn.execute(f'PRAGMA table_info("{table}")')]
+
+    def get_relation_type(self, table: str) -> str | None:
+        """Report the SQLite relation behind either backend-shaped test host."""
+        row = self.driver.conn.execute(
+            "SELECT type FROM sqlite_master WHERE name = ?", (table,)
+        ).fetchone()
+        return None if row is None else row[0]
 
     def get_tables(self) -> tuple[str, ...]:
         """
@@ -580,6 +587,89 @@ def macro_db(request):
         yield macros, db
     finally:
         db.driver.conn.close()
+
+
+def test_owner_groups_and_pages_preserve_filters_and_borrowed_transactions(macro_db):
+    """Exercise qualified SQL on both hosts, still using SQLite connections."""
+    macros, db = macro_db
+    conn = db.driver.conn
+    conn.execute(
+        "CREATE TABLE owner_batch_rows (row_id INTEGER PRIMARY KEY, owner_id INTEGER, state TEXT)"
+    )
+    conn.executemany(
+        "INSERT INTO owner_batch_rows VALUES (?, ?, ?)",
+        [(3, 7, None), (1, 7, "exact"), (2, 8, "exact")],
+    )
+    conn.commit()
+    conn.execute("BEGIN")
+    conn.execute("INSERT INTO owner_batch_rows VALUES (4, 7, 'exact')")
+    groups = macros.get_rows_for_ids(
+        "owner_batch_rows", "owner_id", [7, 8, 9, 7], where={"state": "exact"}
+    )
+    assert tuple(groups) == (7, 8, 9)
+    assert [row["row_id"] for row in groups[7]] == [1, 4]
+    assert [row["row_id"] for row in groups[8]] == [2]
+    assert groups[9] == ()
+    rows, complete = macros.get_rows_page(
+        "owner_batch_rows", where={"state": "exact"}, limit=1, offset=1
+    )
+    assert [row["row_id"] for row in rows] == [2]
+    assert complete is False
+    rows, complete = macros.get_rows_page(
+        "owner_batch_rows", where={"state": None}, limit=1
+    )
+    assert [row["row_id"] for row in rows] == [3]
+    assert complete is True
+    assert conn.in_transaction
+    conn.rollback()
+    assert [row["row_id"] for row in macros.get_rows_page("owner_batch_rows")[0]] == [
+        1,
+        2,
+        3,
+    ]
+
+
+def test_linked_batches_keep_types_repeated_destinations_and_independent_rows(macro_db):
+    """Exercise typed link batching on SQLite and the PostgreSQL-shaped host."""
+    macros, db = macro_db
+    spec = _role_link_spec()
+    db.driver.conn.executemany(
+        "INSERT INTO role_links (left_id, right_id, link_type, priority) VALUES (?, ?, ?, ?)",
+        [(1, 10, "author", 1), (1, 10, "editor", 3), (1, 11, None, 2)],
+    )
+    links = macros.get_link_rows(spec, 1)
+    records = macros.get_linked_rows(spec, 1)
+    assert tuple(record.link for record in records) == links
+    assert [record.row["right_id"] for record in records] == [10, 11, 10]
+    records[0].row["name"] = "local"
+    assert records[2].row["name"] != "local"
+    assert macros.get_row("right_rows", 10)["name"] != "local"
+    assert [
+        record.link.link_type
+        for record in macros.get_linked_rows(spec, 1, link_type=None)
+    ] == [None]
+    assert [
+        record.link.link_type
+        for record in macros.get_linked_rows(spec, 1, link_type="editor")
+    ] == ["editor"]
+    assert macros.get_linked_rows(spec, 2) == ()
+    assert tuple(macros.get_rows_by_ids("right_rows", [11, 10, 11, -1])) == (11, 10)
+
+
+def test_linked_batches_retain_dangling_integer_destinations(macro_db):
+    """Read a legacy broken foreign key without hiding its link."""
+    macros, db = macro_db
+    db.driver.conn.commit()
+    db.driver.conn.execute("PRAGMA foreign_keys=OFF")
+    db.driver.conn.execute(
+        "INSERT INTO role_links (left_id, right_id, link_type, priority) VALUES (1, 999, 'author', 1)"
+    )
+    db.driver.conn.commit()
+    db.driver.conn.execute("PRAGMA foreign_keys=ON")
+    result = macros.get_linked_rows(_role_link_spec(), 1)
+    assert len(result) == 1
+    assert result[0].link.secondary_id == 999
+    assert result[0].row is None
 
 
 def test_column_extrema_validate_names_and_observe_transaction_rollback(macro_db):

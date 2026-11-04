@@ -43,7 +43,7 @@ from LiuXin_alpha.databases.column_metadata import (
     default_column_metadata,
 )
 from LiuXin_alpha.databases.row import Row
-from LiuXin_alpha.databases.macro_types import LinkRow
+from LiuXin_alpha.databases.db_types.macro_types import LinkRow
 from LiuXin_alpha.databases.schema_specs import StorageLinkSpec
 from LiuXin_alpha.errors import DatabaseIntegrityError
 from LiuXin_alpha.metadata.api import UnloadedMetadataProjectionError, WorkRelationLink
@@ -495,6 +495,29 @@ class FakeMacros:
 
     def delete_row(self, table, row_id, *, id_column=None):
         self.db.delete(self.db.get_row_from_id(table, row_id))
+
+    def delete_link_pair(
+        self, link_table, left_link_col, right_link_col, left_id, right_id
+    ):
+        """Route pair deletion through the fake's observable unlink operation."""
+        for (primary, owner_id, secondary), links in list(self.db.interlinks.items()):
+            spec = self.db.driver_wrapper.get_link_spec(primary, secondary)
+            if spec.link_table != link_table:
+                continue
+            # Older fixture links encode their primary endpoint in the dict key.
+            matches = [
+                row
+                for row in links
+                if {spec.primary_link_col: owner_id, **row}.get(left_link_col)
+                == left_id
+                and {spec.primary_link_col: owner_id, **row}.get(right_link_col)
+                == right_id
+            ]
+            for row in matches:
+                self.db.unlink_interlink(
+                    self.db.get_row_from_id(primary, owner_id),
+                    self.db.get_row_from_id(secondary, row[spec.secondary_link_col]),
+                )
 
     def get_link_rows(self, spec, primary_id):
         key = (spec.primary_table, primary_id, spec.secondary_table)

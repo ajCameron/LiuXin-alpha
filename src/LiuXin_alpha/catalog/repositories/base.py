@@ -10,13 +10,17 @@ punctuation-preserving comparison text, distinct from fuzzy matching normalizati
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterator, Mapping, Sequence
 from contextlib import nullcontext
 from typing import TYPE_CHECKING, Any, ClassVar
 
-from LiuXin_alpha.databases.macro_types import LINK_TYPE_UNSET, LinkRow, LinkValue
-from LiuXin_alpha.databases.schema_specs import StorageLinkSpec
+from LiuXin_alpha.databases.db_types.macro_types import (
+    LINK_TYPE_UNSET,
+    LinkedTableRow,
+    LinkRow,
+)
 from LiuXin_alpha.databases.normalized_identities import prepare_normalized_values
+from LiuXin_alpha.databases.schema_specs import StorageLinkSpec
 from LiuXin_alpha.metadata.text_identity import normalize_identity_text
 
 from ..api.common import (
@@ -489,36 +493,88 @@ class BaseRepository:
         return row
 
     def list(self, *, limit: int = 100, offset: int = 0) -> Sequence[RowMapping]:
+        """Read an ID-ordered SQL page, returning shallow row copies.
+
+        Validate both arguments even when limit is zero. Zero returns without
+        reading. Production macros materialize at most limit + 1 rows; legacy
+        adapters without pagination retain their full-read fallback.
         """
-        Return an ID-ordered page after materializing the table's rows.
-
-        The base implementation validates both paging arguments even for limit zero, then returns an
-        empty tuple without database access for zero. A positive limit fetches and copies all rows
-        in ID order before slicing in Python; it does not bound database work. Row dictionaries are
-        shallow copies with no write-through behavior.
-
-        Example:
-            >>> page = catalog.works.list(limit=10, offset=20)  # doctest: +SKIP
-
-
-        :param limit: Nonnegative integer page size; booleans are rejected.
-        :param offset: Nonnegative integer count of rows to skip; booleans are rejected.
-        :return: An ID-ordered sequence, implemented as a tuple by BaseRepository.
-        :raises TypeError: If either paging argument is not an integer or is a boolean.
-        :raises ValueError: If either paging argument is negative.
-        :raises Exception: Database reads and row conversion failures propagate.
-        """
-
-        if not isinstance(limit, int) or isinstance(limit, bool):
-            raise TypeError("limit must be an integer")
-        if not isinstance(offset, int) or isinstance(offset, bool):
-            raise TypeError("offset must be an integer")
-        if limit < 0 or offset < 0:
-            raise ValueError("limit and offset cannot be negative")
+        self._validate_page(limit, offset)
         if limit == 0:
             return ()
-        materialised = self._all_rows()
-        return materialised[offset : offset + limit]
+        page = getattr(self.db.macros, "get_rows_page", None)
+        if callable(page):
+            rows, _ = page(self.table_name, limit=limit, offset=offset)
+            return tuple(self._as_mapping(row) for row in rows)
+        return self._all_rows()[offset : offset + limit]
+
+    @staticmethod
+    def _validate_page(limit: int, offset: int = 0) -> None:
+        for name, value in (("limit", limit), ("offset", offset)):
+            if not isinstance(value, int) or isinstance(value, bool):
+                raise TypeError(f"{name} must be an integer")
+            if value < 0:
+                raise ValueError(f"{name} cannot be negative")
+
+    def list_after(
+        self, after_id: EntityId | None = None, *, limit: int = 100
+    ) -> Sequence[RowMapping]:
+        """Read up to limit rows strictly after an ID, or from the beginning.
+
+        Gaps and deleted cursor rows are allowed. Calls share no automatic
+        snapshot; use a caller-owned transaction when a stable scan is needed.
+        Zero limit validates the cursor and returns without reading.
+        """
+        self._validate_page(limit)
+        if after_id is not None:
+            self._validate_entity_id(after_id)
+        if limit == 0:
+            return ()
+        page = getattr(self.db.macros, "get_rows_page", None)
+        if callable(page):
+            rows, _ = page(self.table_name, limit=limit, after_id=after_id)
+            return tuple(self._as_mapping(row) for row in rows)
+        return tuple(
+            row
+            for row in self._all_rows()
+            if after_id is None or row[self.id_column] > after_id
+        )[:limit]
+
+    def iter_rows(self, *, batch_size: int = 500) -> Iterator[RowMapping]:
+        """Yield rows in bounded ID pages, advancing past the last returned ID.
+
+        Hold at most one page in this iterator. Concurrent later inserts may
+        appear; updates to previously visited IDs are not revisited.
+        """
+        self._validate_page(batch_size)
+        if batch_size == 0:
+            raise ValueError("batch_size must be positive")
+        after_id = None
+        while True:
+            rows = self.list_after(after_id, limit=batch_size)
+            yield from rows
+            if len(rows) < batch_size:
+                return
+            after_id = rows[-1][self.id_column]
+
+    def _matching_rows(self, predicate, *, limit=None):
+        """Use physical SQL predicates when the driver has equivalent semantics.
+
+        None denotes an unsupported adapter, distinct from an empty result. This
+        keeps lightweight repositories usable without a concrete database.
+        """
+        macros = getattr(self.db, "macros", None)
+        supports = getattr(macros, "supports_normalized_search", None)
+        if callable(supports) and supports():
+            return macros.find_rows_matching(self.table_name, predicate, limit=limit)
+        return None
+
+    def _scan_rows(self):
+        """Iterate bounded fallback pages, retaining old minimal-adapter support."""
+        macros = getattr(self.db, "macros", None)
+        if callable(getattr(macros, "get_rows_page", None)):
+            return self.iter_rows()
+        return self._all_rows()
 
     def _all_rows(self) -> tuple[RowMapping, ...]:
         """
@@ -791,8 +847,10 @@ class BaseRepository:
         """
         Fetch related rows and attach each traversed link's metadata.
 
-        Require the primary endpoint, resolve the directional spec, then fetch each linked secondary
-        row separately in macro link order. Do not deduplicate rows reached by multiple links.
+        Require the primary endpoint and resolve the directional spec. Declared
+        table SQL readers batch destinations; custom or unsupported destinations
+        retain individual row reads. Preserve macro link order and do not
+        deduplicate rows reached by multiple links.
         Replace any existing _catalog_link key in each shallow row copy. A missing secondary raises
         rather than yielding a partial sequence or silently dropping the relationship.
 
@@ -816,13 +874,37 @@ class BaseRepository:
         """
         self._require_table_row(primary_table, primary_id)
         spec = self._link_spec(primary_table, secondary_table)
-        result: list[RowMapping] = []
-        for link in self._macros.get_link_rows(
-            spec,
-            primary_id,
-            link_type=link_type,
+        reader_name = {
+            ("works", "expressions"): "get_expressions_for_work",
+            ("expressions", "works"): "get_works_for_expression",
+            ("expressions", "manifestations"): "get_manifestations_for_expression",
+            ("manifestations", "expressions"): "get_expressions_for_manifestation",
+        }.get((primary_table, secondary_table))
+        if reader_name is not None:
+            records = getattr(self.db.metadata_sql, reader_name)(
+                primary_id, link_type=link_type
+            )
+        elif callable(
+            reader := getattr(
+                getattr(self.db, "metadata_sql", None),
+                f"get_{secondary_table}_linked_from",
+                None,
+            )
         ):
-            row = self._macros.get_row(secondary_table, link.secondary_id)
+            records = reader(primary_table, primary_id, link_type=link_type)
+        else:
+            # Keep scalar reads lazy so an absent row still fails before later reads.
+            records = (
+                LinkedTableRow(
+                    link, self._macros.get_row(secondary_table, link.secondary_id)
+                )
+                for link in self._macros.get_link_rows(
+                    spec, primary_id, link_type=link_type
+                )
+            )
+        result: list[RowMapping] = []
+        for record in records:
+            link, row = record.link, record.row
             if not row:
                 raise CatalogNotFoundError(
                     f"{secondary_table} row linked from {primary_table}:"

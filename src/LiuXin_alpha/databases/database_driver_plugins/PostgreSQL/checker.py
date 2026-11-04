@@ -105,26 +105,34 @@ def run_postgres_self_test(
     check_helpers: bool = True,
 ) -> dict[str, Any]:
     """
-    Build a readiness report, stopping early when target, driver or connection is absent.
+    Build a readiness report, stopping early when target, driver or connection is
+    absent.
 
-    Enabled groups check tables, columns, selected data types and CRUD privileges. Counts
-    are skipped when SELECT is missing. Connection/query failures become failed checks;
-    any opened connection is closed. Disabled groups add successful skipped checks.
+    Enabled groups check tables, columns, selected data types and CRUD privileges.
+    Counts are skipped when SELECT is missing. Connection/query failures become failed
+    checks; any opened connection is closed. Disabled groups add successful skipped
+    checks.
 
     Example:
-        ``run_postgres_self_test(postgres_service="library", prompt_for_password=False)``
-        checks the configured database without an interactive credential prompt.
+        ``run_postgres_self_test(postgres_service="library",
+        prompt_for_password=False)`` checks the configured database without an
+        interactive credential prompt.
 
 
-    :param metadata: Optional configuration mapping used by target and schema resolution.
-    :param postgres_url: Explicit URL candidate, before metadata and environment resolution.
+    :param metadata: Optional configuration mapping used by target and schema
+        resolution.
+    :param postgres_url: Explicit URL candidate, before metadata and environment
+        resolution.
     :param postgres_service: Explicit service profile candidate.
     :param password: Optional connection password; otherwise use configured credentials.
-    :param prompt_for_password: Whether connection authentication may request a terminal password.
+    :param prompt_for_password: Whether connection authentication may request a terminal
+        password.
     :param check_core: Whether to inspect required core tables and columns.
-    :param check_storage: Whether to inspect storage tables, columns and bigint size fields.
+    :param check_storage: Whether to inspect storage tables, columns and bigint size
+        fields.
     :param check_helpers: Whether to inspect required nonoptional helper tables.
-    :return: Report containing ok, checks, redacted target, schema and available identity/counts.
+    :return: Report containing ok, checks, redacted target, schema and available
+        identity/counts.
     """
 
     target = configured_postgres_target(metadata, explicit_url=postgres_url, explicit_service=postgres_service)
@@ -291,7 +299,8 @@ def _check_table_group(
     :param schema: Schema containing the tables to inspect.
     :param required_tables: Reusable table-name collection to check and count.
     :param required_columns: Table names mapped to required column names.
-    :param required_column_types: Optional table/column mappings to accepted case-insensitive data types.
+    :param required_column_types: Optional table/column mappings to accepted
+        case-insensitive data types.
     :return: None; mutates the report and executes catalog/count queries.
     """
     schema_check = check_required_tables(cur, required_tables, schema=schema)
@@ -591,7 +600,9 @@ def _format_column_type_mismatches(wrong_types: Mapping[str, Iterable[str]]) -> 
     Render type mismatch descriptions grouped in sorted table order.
 
     Example:
-        >>> _format_column_type_mismatches({"assets": ["size: integer expected bigint"]})
+        >>> _format_column_type_mismatches(
+        ...     {"assets": ["size: integer expected bigint"]}
+        ... )
         'assets: size: integer expected bigint'
 
 

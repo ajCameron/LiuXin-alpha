@@ -62,6 +62,8 @@ for the live compatibility boundary.
 | --- | --- |
 | Read/create/update/delete one entity family | `catalog.works`, `catalog.items`, etc. |
 | Decide identity without writing | `catalog.matching` |
+| Search WEMI entities and attached metadata | `catalog.search.find()`; see [WEMI search](catalog-wemi-search.md) |
+| Project/update Expression-centred Calibre fields | `catalog.calibre.project()` and `write_field()`; see [conversion policy](../calibre_compat/expression-conversion-policy.md) |
 | Read a coherent WEMI slice | `catalog.retrieval.bundles` |
 | Hydrate metadata from a database/cache or overlay OPF onto persisted metadata | `catalog.retrieval.metadata` |
 | Read immediate WEMI adjacency or a bounded descendant graph | `catalog.retrieval.hierarchy`, `catalog.retrieval.graph` |
@@ -257,6 +259,66 @@ exact = catalog.matching.tags.exact("gothic")
 
 Approximate reuse is deliberately opt-in with `use_policy=True`.
 
+## Work tag and Series memberships
+
+Added **2026-10-30**. `catalog.tags` and `catalog.series` share the
+`WorkMembershipRepositoryAPI` contract. `entity_id` means a Tag ID when called
+on `catalog.tags`, and a Series ID when called on `catalog.series`; `work_id`
+always identifies a Work. These operations do not resolve Calibre rays or
+Expression IDs. The current schema provides no direct Tag links for the other
+WEMI levels, Agents or Series.
+
+```python
+novel_id = catalog.works.create({"title": "The Novel"})
+introduction_id = catalog.works.create({"title": "Introduction to The Novel"})
+tag_id = catalog.tags.match_or_create(MetadataCandidate({"name": "Gothic"}))
+series_id = catalog.series.match_or_create(
+    MetadataCandidate({"name": "Annotated Classics"})
+)
+
+# Both Works can share a Tag without a priority collision.
+catalog.tags.replace_for_works(
+    {novel_id: [tag_id], introduction_id: [tag_id]}
+)
+assert catalog.tags.is_linked_to_work(entity_id=tag_id, work_id=novel_id)
+tags = catalog.tags.list_for_work(novel_id)
+assert tags[0]["tag_id"] == tag_id
+
+catalog.series.link_to_work(entity_id=series_id, work_id=novel_id)
+catalog.series.replace_for_work(work_id=novel_id, entity_ids=[series_id])
+assert catalog.series.list_for_work(novel_id)[0]["series_id"] == series_id
+
+# Removing one Work's membership preserves the Tag and the other Work's link.
+catalog.tags.unlink_from_work(entity_id=tag_id, work_id=novel_id)
+assert not catalog.tags.is_linked_to_work(entity_id=tag_id, work_id=novel_id)
+assert catalog.tags.is_linked_to_work(entity_id=tag_id, work_id=introduction_id)
+
+# Empty replacement clears memberships; it does not delete the Series row.
+catalog.series.replace_for_work(work_id=novel_id, entity_ids=[])
+assert catalog.series.require(series_id)
+```
+
+All endpoints must exist. A missing Work or Tag/Series raises
+`CatalogNotFoundError`; an existing unlinked Work returns an empty sequence
+or a false membership check. IDs must be nonnegative integers, excluding bool;
+replacement accepts iterables, materializes them and rejects duplicate IDs.
+Every Work and target in a batch is validated before the first mutation, and
+late failures roll back the complete batch. Writes compose with an enclosing
+macro transaction. Link/entity listing also uses one macro transaction.
+
+Membership means an endpoint pair across all link types. Adding an existing
+pair is a no-op. Replacement preserves all retained links, including their
+IDs, type, priority and provenance; removal clears every type for that pair.
+New links have the default null type. These APIs do not edit individual Series
+link roles. They do not delete shared rows or change Series parent hierarchies.
+
+Input order does not reorder retained links. Physical priorities order Works
+within each Tag/Series, and new links are allocated in that direction. Listing
+returns the macro reader's priority-descending/ID order with `_catalog_link`
+metadata; multiple typed Series links can repeat a Series row. This order does
+not select a preferred Series or supply a volume number. Those are separate
+[follow-up tasks](next_tasks.md#cat06-replace-the-retired-metadata-sql-capabilities).
+
 ## Agents and credits
 
 Agents represent people and organisations. A credit is a relationship with a
@@ -330,6 +392,28 @@ primary = catalog.identifiers.primary_values_for_wemi(
 The projection is keyed by normalized scheme and retains the caller-facing
 stored value. Historical/non-primary rows remain available through
 `list_for_wemi`.
+
+To select one primary value while retaining alternatives, use the scoped
+operation. Equivalent values reuse the owned row; invalid ISBN checksums fail
+before writes. `None` clears the selected scheme, and generic `isbn` clearing
+removes both lengths:
+
+```python
+catalog.identifiers.set_primary_for_wemi(
+    level="manifestation", entity_id=manifestation_id,
+    scheme="isbn", value="978-0-14-143947-1",
+)
+catalog.identifiers.clear_for_wemi(
+    level="manifestation", entity_id=manifestation_id, scheme="isbn",
+)
+catalog.works.set_original_language(work_id, language_id)
+```
+
+Work original language is separate from Expression language. The Row-compatible
+`catalog.apply.primary_language(language_row, work_or_title_row)` delegates to
+that Work operation. These operations compose inside `db.macros.transaction()`.
+The former `db.metadata_sql` identifier and primary-language methods are retired;
+see the [ownership decision](catalog-database-ownership.md).
 
 `catalog.item_identifiers` instead stores raw observations on one Item:
 

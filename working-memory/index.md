@@ -1,5 +1,19 @@
 # Working Memory Index
 
+Active work, **2026-10-31**: [database review validation](database-validation-2026-10-31.md)
+packages the Catalog/database ownership and SQL-efficiency work on
+`database-review`, with live PostgreSQL checks, full-suite telemetry and catalogue
+benchmarks in [PR #152](https://github.com/ajCameron/LiuXin-alpha/pull/152).
+Live PostgreSQL checks and the 50,000-Work benchmark pass; a measured title-plan
+regression is fixed. Full-suite CI and final quality outcomes are tracked on the PR.
+Quality lanes now pass, including Core recovery ownership and type documentation.
+The completed full run exposed raw fixture connection setup and stale fault
+injection; corrections cover shared index functions, batched reads and optional
+APSW coverage. CI telemetry recorded a 1.06 GiB process-tree peak and no OOM kills.
+All 68 corrected regression cases pass locally, with two Windows-only skips;
+the final-head full suite and telemetry remain the delivery gate.
+The dirty data submodule remains outside this delivery.
+
 Active work, **2026-10-20**: [Composite ownership](storage-composite-owner-2026-10-20.md)
 continues A10 on `storage-owned-composite-mutations`, based on policy PR #143
 at `527301bf`. Composite CRUD now delegates to storage and raw member writes are

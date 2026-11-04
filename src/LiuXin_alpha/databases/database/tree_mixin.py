@@ -2,7 +2,9 @@
 """
 Wrap hierarchical database records as Rows and delegate parent/child mutations.
 
-These helpers assume a compatible parent-column schema. Driver traversal determines path/walk behavior, while some facade loops do not detect cycles. Deletion relies on backend foreign-key actions rather than recursive facade traversal.
+These helpers assume a compatible parent-column schema. Driver traversal determines
+path/walk behavior, while some facade loops do not detect cycles. Deletion relies on
+backend foreign-key actions rather than recursive facade traversal.
 """
 
 from __future__ import annotations
@@ -21,7 +23,8 @@ class DatabaseTreeMixin:
     Provide parent chains, child searches and tree mutations for facade Rows.
 
     Example:
-        For a Row in a parent-linked table, db.get_linear_row_list(row) retrieves its root-to-row chain.
+        For a Row in a parent-linked table, db.get_linear_row_list(row) retrieves its
+        root-to-row chain.
     """
 
 
@@ -36,7 +39,8 @@ class DatabaseTreeMixin:
         Resolve a root through the legacy get_root_series implementation.
 
         Example:
-            For a descendant Row, root = db.get_root_row(descendant) uses the same parent-chain path as the legacy series-named helper.
+            For a descendant Row, root = db.get_root_row(descendant) uses the same
+            parent-chain path as the legacy series-named helper.
 
 
         :param start_row: Starting Row in a parent-linked table.
@@ -49,10 +53,12 @@ class DatabaseTreeMixin:
         """
         Wrap the first record of the wrapper root-to-row chain.
 
-        Despite the name, the method works with any supported parent-linked table. It assumes the returned chain is nonempty.
+        Despite the name, the method works with any supported parent-linked table. It
+        assumes the returned chain is nonempty.
 
         Example:
-            For a parent-linked folder Row, db.get_root_series(folder) returns the first Row in the wrapper chain.
+            For a parent-linked folder Row, db.get_root_series(folder) returns the first
+            Row in the wrapper chain.
 
 
         :param start_row: Starting Row whose row_dict is passed to the wrapper.
@@ -69,7 +75,8 @@ class DatabaseTreeMixin:
         No recursive traversal or sibling sorting is performed here.
 
         Example:
-            For a parent-linked Row, db.get_children(parent) retrieves its direct children.
+            For a parent-linked Row, db.get_children(parent) retrieves its direct
+            children.
 
 
         :param src_row: Parent Row providing its table and identity.
@@ -85,7 +92,8 @@ class DatabaseTreeMixin:
         Wrap the wrapper parent chain in root-to-start order.
 
         Example:
-            For root, child and grandchild in one chain, db.get_linear_row_list(grandchild) returns those three Rows in that order.
+            For root, child and grandchild in one chain,
+            db.get_linear_row_list(grandchild) returns those three Rows in that order.
 
 
         :param start_row: Starting Row whose row_dict supplies table and identity.
@@ -98,14 +106,18 @@ class DatabaseTreeMixin:
         """
         Collect a root or subtree and its descendants using an unordered work set.
 
-        Each popped Row searches its immediate children. Previously visited Rows are not excluded from the work set; cycles can cause nontermination. Requires a finite acyclic parent structure, and Row hashing determines set identity.
+        Each popped Row searches its immediate children. Previously visited Rows are not
+        excluded from the work set; cycles can cause nontermination. Requires a finite
+        acyclic parent structure, and Row hashing determines set identity.
 
         Example:
-            For an acyclic subtree, db.get_all_tree_rows(parent, back_iterate=False) collects parent and its descendants.
+            For an acyclic subtree, db.get_all_tree_rows(parent, back_iterate=False)
+            collects parent and its descendants.
 
 
         :param start_row: Row selecting the tree or subtree.
-        :param back_iterate: Resolve the root first when True; otherwise start at the supplied Row.
+        :param back_iterate: Resolve the root first when True; otherwise start at the
+            supplied Row.
         :return: Set of visited Rows, including the chosen root.
         """
         row_table = start_row.table
@@ -139,7 +151,8 @@ class DatabaseTreeMixin:
         Lazily wrap records produced by the wrapper tree walk.
 
         Example:
-            For an open db and supported tree Row, for row in db.walk(root): consumes the wrapper traversal without an eager facade list.
+            For an open db and supported tree Row, for row in db.walk(root): consumes
+            the wrapper traversal without an eager facade list.
 
 
         :param start_row: Row whose row_dict starts backend traversal.
@@ -153,10 +166,12 @@ class DatabaseTreeMixin:
         """
         Collect requested IDs encountered in the wrapper traversal.
 
-        The whole traversal is consumed rather than stopping at the first match. No ID coercion is applied.
+        The whole traversal is consumed rather than stopping at the first match. No ID
+        coercion is applied.
 
         Example:
-            For a tree rooted at root, db.search_tree(root, {wanted_id}) returns either an empty set or a set containing that ID.
+            For a tree rooted at root, db.search_tree(root, {wanted_id}) returns either
+            an empty set or a set containing that ID.
 
 
         :param root_row: Root Row selecting table and traversal start.
@@ -185,13 +200,17 @@ class DatabaseTreeMixin:
         """
         Set child parent-column values and update each child record through the wrapper.
 
-        The facade does not validate equal tables, prevent cycles or verify the final structure. A failed update can leave an input Row changed and earlier writes applied.
+        The facade does not validate equal tables, prevent cycles or verify the final
+        structure. A failed update can leave an input Row changed and earlier writes
+        applied.
 
         Example:
-            For compatible Rows in an acyclic tree, db.nest_rows(parent, [first, second]) assigns the parent ID to each child and writes it.
+            For compatible Rows in an acyclic tree, db.nest_rows(parent, [first,
+            second]) assigns the parent ID to each child and writes it.
 
 
-        :param parent_row: Parent Row supplying table, identity and parent-column naming.
+        :param parent_row: Parent Row supplying table, identity and parent-column
+            naming.
         :param child_rows: Single concrete Row or iterable of child Rows.
         :return: None; input Rows are mutated before their individual database updates.
         """
@@ -217,10 +236,12 @@ class DatabaseTreeMixin:
         """
         Delete only the supplied root Row through the normal facade delete path.
 
-        Descendant deletion depends entirely on configured database cascade rules; the facade does not walk or independently delete child Rows.
+        Descendant deletion depends entirely on configured database cascade rules; the
+        facade does not walk or independently delete child Rows.
 
         Example:
-            For a schema with cascading parent foreign keys, db.delete_tree(root) relies on those rules to remove descendants after deleting root.
+            For a schema with cascading parent foreign keys, db.delete_tree(root) relies
+            on those rules to remove descendants after deleting root.
 
 
         :param parent_row: Root Row to delete.

@@ -4,6 +4,10 @@
 """
 Evaluate Calibre-compatible queries over Catalog caches and stored search definitions.
 
+This module retains the cache-hosted Search interface. WEMI row search is owned by
+database_search.CatalogSearch and exposed through catalog.search.find(); it uses
+the shared parser grammar without constructing this legacy cache engine.
+
 Matching supports text, typed fields, grouped aliases and user categories.
 SavedSearchQueries persists query text; LRUCache stores derived values.
 Search coordinates parsing/cache reuse around these components. Existing

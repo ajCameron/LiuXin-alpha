@@ -50,8 +50,10 @@ class SQLiteCustomColumnsDriverMixin:
 
         :param in_table: Existing target table, not a table-category label.
         :param column_name: Custom-column label used to derive the storage name.
-        :param data_type: SQL type forwarded to one-to-one/one-to-many; only one-to-one currently uses it.
-        :param multi: Falsy for one-to-one, True for many_many, or a supported relationship string.
+        :param data_type: SQL type forwarded to one-to-one/one-to-many; only one-to-one
+            currently uses it.
+        :param multi: Falsy for one-to-one, True for many_many, or a supported
+            relationship string.
         :return: Created custom-value table name.
         """
         assert in_table != "custom_columns", "Cannot create custom column in custom_columns table"
@@ -101,11 +103,12 @@ class SQLiteCustomColumnsDriverMixin:
             normalized: bool = False
     ) -> str:
         """
-        Create an inline custom-value table with a unique parent reference and cascade FK.
+        Create an inline custom-value table with a unique parent reference and cascade
+        FK.
 
-        Assert label/target validity and cache nonexistence, create lookup/value indexes,
-        then invoke schema-change/cache hooks. The parent-reference column has TEXT affinity.
-        Normalized mode is unsupported and raises NotImplementedError.
+        Assert label/target validity and cache nonexistence, create lookup/value
+        indexes, then invoke schema-change/cache hooks. The parent-reference column has
+        TEXT affinity. Normalized mode is unsupported and raises NotImplementedError.
 
         Example:
             For each work, at most one linked note row can exist; deleting the work
@@ -113,9 +116,11 @@ class SQLiteCustomColumnsDriverMixin:
 
 
         :param target_table: Existing main table to which the custom values belong.
-        :param custom_column_name: Custom-column label used in its generated storage-table name.
+        :param custom_column_name: Custom-column label used in its generated
+            storage-table name.
         :param datatype: Requested SQL type; only the inline one-to-one builder uses it.
-        :param normalized: Must be False; the normalized link-table variant is not implemented.
+        :param normalized: Must be False; the normalized link-table variant is not
+            implemented.
         :return: Created storage-table name.
         """
         # VALIDATE
@@ -211,7 +216,8 @@ class SQLiteCustomColumnsDriverMixin:
             custom_column_name: str,
             datatype: str = "TEXT") -> str:
         """
-        Create a value table and exclusive one-to-many links plus an unlink cleanup trigger.
+        Create a value table and exclusive one-to-many links plus an unlink cleanup
+        trigger.
 
         The trigger deletes the custom value whenever its link is removed. The datatype
         argument is currently ignored: main-table creation uses its own default type.
@@ -222,7 +228,8 @@ class SQLiteCustomColumnsDriverMixin:
 
 
         :param target_table: Existing main table to which the custom values belong.
-        :param custom_column_name: Custom-column label used in its generated storage-table name.
+        :param custom_column_name: Custom-column label used in its generated
+            storage-table name.
         :param datatype: Requested SQL type; only the inline one-to-one builder uses it.
         :return: Created custom-value table name.
         """
@@ -282,15 +289,16 @@ class SQLiteCustomColumnsDriverMixin:
         """
         Create reusable custom values with at most one linked value per parent.
 
-        Build the main table with default settings, then many_one links and refresh schema
-        state. No unused-value cleanup trigger is installed here.
+        Build the main table with default settings, then many_one links and refresh
+        schema state. No unused-value cleanup trigger is installed here.
 
         Example:
             Several works may share one custom value while each work has at most one.
 
 
         :param target_table: Existing main table to which the custom values belong.
-        :param custom_column_name: Custom-column label used in its generated storage-table name.
+        :param custom_column_name: Custom-column label used in its generated
+            storage-table name.
         :return: Created custom-value table name.
         """
         assert target_table != "custom_columns", "Cannot create custom column in custom_columns"
@@ -320,16 +328,20 @@ class SQLiteCustomColumnsDriverMixin:
             target_table: str,
             custom_column_name: str) -> str:
         """
-        Create shared custom values and strict many-to-many links without optional columns.
+        Create shared custom values and strict many-to-many links without optional
+        columns.
 
-        Build the main table with default settings and notify the host of schema changes.
+        Build the main table with default settings and notify the host of schema
+        changes.
 
         Example:
-            Multiple works can share several custom labels through the generated link table.
+            Multiple works can share several custom labels through the generated link
+            table.
 
 
         :param target_table: Existing main table to which the custom values belong.
-        :param custom_column_name: Custom-column label used in its generated storage-table name.
+        :param custom_column_name: Custom-column label used in its generated
+            storage-table name.
         :return: Created custom-value table name.
         """
         assert target_table != "custom_columns", "Cannot create custom column in custom_columns"
@@ -357,10 +369,13 @@ class SQLiteCustomColumnsDriverMixin:
     @staticmethod
     def direct_get_custom_column_table_name(table: str, column_name: str) -> str:
         """
-        Combine table and label into the custom_column$ naming convention without validation.
+        Combine table and label into the custom_column$ naming convention without
+        validation.
 
         Example:
-            >>> SQLiteCustomColumnsDriverMixin.direct_get_custom_column_table_name("works", "note")
+            >>> SQLiteCustomColumnsDriverMixin.direct_get_custom_column_table_name(
+            ...     "works", "note"
+            ... )
             'custom_column$works$note'
 
 

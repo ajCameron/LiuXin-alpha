@@ -75,8 +75,8 @@ class DriverMetadataMixinAPI(abc.ABC):
         Abstract backend hook. The behavior below describes the shared SQL/SQLite
         implementation; this declaration itself has no operational body.
 
-        More than one row raises DatabaseIntegrityError; the inserted scratch value is the
-        literal string ``None``.
+        More than one row raises DatabaseIntegrityError; the inserted scratch value is
+        the literal string ``None``.
 
         Example:
             >>> driver._initialize_md()  # doctest: +SKIP
@@ -88,21 +88,22 @@ class DriverMetadataMixinAPI(abc.ABC):
     @abc.abstractmethod
     def direct_get_schema_version(self) -> Optional[int]:
         """
-        Read SQLite's schema change counter, retrying on a fresh connection after failure.
+        Read SQLite's schema change counter, retrying on a fresh connection after
+        failure.
 
         Abstract backend hook. The behavior below describes the shared SQL/SQLite
         implementation; this declaration itself has no operational body.
 
         Temporary connections are closed. A failing primary handle may be closed without
-        replacing ``self.conn``; failure of the retry propagates. Failed integer conversion
-        preserves the raw value.
+        replacing ``self.conn``; failure of the retry propagates. Failed integer
+        conversion preserves the raw value.
 
         Example:
             >>> driver.direct_get_schema_version()  # doctest: +SKIP
 
 
-        :return: The integer counter, a raw non-convertible value, or ``None`` if no row is
-            produced.
+        :return: The integer counter, a raw non-convertible value, or ``None`` if no row
+            is produced.
         """
 
     @abc.abstractmethod
@@ -130,8 +131,8 @@ class DriverMetadataMixinAPI(abc.ABC):
         Abstract backend hook. The behavior below describes the shared SQL/SQLite
         implementation; this declaration itself has no operational body.
 
-        SQL null and values whose lowercase string is ``none`` return None. Other values are
-        deep-copied. Unknown fields raise ValueError.
+        SQL null and values whose lowercase string is ``none`` return None. Other values
+        are deep-copied. Unknown fields raise ValueError.
 
         Example:
             >>> driver.direct_read_metadata("scratch")  # doctest: +SKIP
@@ -152,8 +153,8 @@ class DriverMetadataMixinAPI(abc.ABC):
 
         A non-null current identity updates row ID 1 without prompting. A null/missing
         identity takes the insert branch, so a pre-existing null-valued row can produce
-        duplicate metadata rows. Verification failures raise DatabaseIntegrityError after
-        the write commits.
+        duplicate metadata rows. Verification failures raise DatabaseIntegrityError
+        after the write commits.
 
         Example:
             >>> driver.direct_set_db_unique_id()  # doctest: +SKIP
@@ -192,11 +193,11 @@ class DriverMetadataMixinAPI(abc.ABC):
         Abstract backend hook. The behavior below describes the shared SQL/SQLite
         implementation; this declaration itself has no operational body.
 
-        Stat database_path on each call and convert st_mtime with utcfromtimestamp. This is
-        the main file timestamp, so it may not reflect changes still held in a WAL or an
-        uncommitted transaction. The result is a timezone-aware datetime despite the legacy
-        date annotation. Missing-file and other stat errors propagate; no connection is
-        opened.
+        Stat database_path on each call and convert st_mtime with utcfromtimestamp. This
+        is the main file timestamp, so it may not reflect changes still held in a WAL or
+        an uncommitted transaction. The result is a timezone-aware datetime despite the
+        legacy date annotation. Missing-file and other stat errors propagate; no
+        connection is opened.
 
         Example:
             >>> driver.last_modified()  # doctest: +SKIP

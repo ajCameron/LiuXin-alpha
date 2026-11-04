@@ -23,7 +23,7 @@ from LiuXin_alpha.catalog.write import (
     LinkUpdate,
 )
 from LiuXin_alpha.caches.cache import Cache
-from LiuXin_alpha.databases.macro_types import LinkValue
+from LiuXin_alpha.databases.db_types.macro_types import LinkValue
 from LiuXin_alpha.databases.schema_specs import (
     LinkCardinality,
     RelationKind,

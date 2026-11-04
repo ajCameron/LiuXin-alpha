@@ -24,8 +24,8 @@ from collections.abc import (
 )
 from contextlib import contextmanager
 from datetime import UTC, datetime
-from typing import Any, TypeVar, cast
 from threading import local
+from typing import Any, TypeVar, cast
 from uuid import UUID
 
 from LiuXin_alpha.storage.api import errors as storage_errors
@@ -1245,6 +1245,7 @@ class DatabaseStorageMetadataRepository:
                     "composite_digital_asset_digital_asset_link_composite_digital_asset_id": composite_id
                 },
             )
+            member_rows = []
             for member in record.members:
                 member_type = (
                     member.role
@@ -1252,8 +1253,7 @@ class DatabaseStorageMetadataRepository:
                     in {"member", "chapter", "track", "disc_member", "part"}
                     else "member"
                 )
-                self.macros.insert_row(
-                    "composite_digital_asset_digital_asset_links",
+                member_rows.append(
                     {
                         "composite_digital_asset_digital_asset_link_composite_digital_asset_id": composite_id,
                         "composite_digital_asset_digital_asset_link_digital_asset_id": int(
@@ -1270,6 +1270,14 @@ class DatabaseStorageMetadataRepository:
                         ),
                     },
                 )
+            insert = getattr(self.macros, "insert_rows", None)
+            if callable(insert):
+                insert("composite_digital_asset_digital_asset_links", member_rows)
+            else:
+                for values in member_rows:
+                    self.macros.insert_row(
+                        "composite_digital_asset_digital_asset_links", values
+                    )
         self._invalidate_record_ids("composite_digital_assets", composite_id)
         if self.cache is not None:
             self.cache.invalidate(
@@ -2549,7 +2557,13 @@ class DatabaseStorageMetadataRepository:
             for key, value in values.items()
             if key in set(self.db.get_column_headings(table))
         }
-        if self.macros.get_row(table, row_id, id_column=id_column) is None:
+        exists = getattr(self.macros, "has_rows", None)
+        present = (
+            exists(table, where={id_column: row_id})
+            if callable(exists)
+            else self.macros.get_row(table, row_id, id_column=id_column) is not None
+        )
+        if not present:
             self.macros.insert_row(
                 table, {id_column: row_id, **payload}, id_column=id_column
             )
@@ -2563,9 +2577,10 @@ class DatabaseStorageMetadataRepository:
         where: Mapping[str, Any],
     ) -> None:
         """
-        Read rows matching the supplied predicate and delete each by its explicit identity column.
-        No surrounding transaction or invalidation is added; a later deletion failure can follow
-        earlier successful removals.
+        Delete the supplied equality scope in one transactional SQL statement.
+
+        Older macro adapters retain their read-and-delete fallback. This method
+        adds no cache invalidation; the owning storage operation handles it.
 
         Example:
             >>> repository._delete_matching(table, id_column, where)  # doctest: +SKIP
@@ -2577,8 +2592,12 @@ class DatabaseStorageMetadataRepository:
         :return: None after all selected deletions return.
         """
 
-        for row in self.macros.get_rows(table, where=where):
-            self.macros.delete_row(table, row[id_column], id_column=id_column)
+        delete = getattr(self.macros, "delete_rows_where", None)
+        if callable(delete):
+            delete(table, where=where)
+        else:
+            for row in self.macros.get_rows(table, where=where):
+                self.macros.delete_row(table, row[id_column], id_column=id_column)
 
     def _delete_item_target(self, item_id: manager_api.ItemID, role: str) -> None:
         """

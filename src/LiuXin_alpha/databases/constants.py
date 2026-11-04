@@ -2,7 +2,9 @@
 """
 Define the shared field datatypes and 30 MiB spool-size threshold.
 
-VALID_DATA_TYPES is an immutable set including the None sentinel and recognized legacy field datatype names. CUSTOM_DATA_TYPES contains the same names without None. SPOOL_SIZE is expressed in bytes; importing these constants does not construct a database.
+VALID_DATA_TYPES is an immutable set including the None sentinel and recognized legacy
+field datatype names. CUSTOM_DATA_TYPES contains the same names without None. SPOOL_SIZE
+is expressed in bytes; importing these constants does not construct a database.
 """
 
 
@@ -14,6 +16,7 @@ __docformat__ = "restructuredtext en"
 
 SPOOL_SIZE = 30 * 1024 * 1024
 
+# Todo: This is probably a type as well
 # Core recognized metadata / field datatypes used across database, surface and
 # custom-column compatibility layers.
 VALID_DATA_TYPES = frozenset(

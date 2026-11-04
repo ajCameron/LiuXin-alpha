@@ -41,9 +41,14 @@ def get_SQLite_driver_master_version() -> str:
     Example:
         >>> from LiuXin_alpha.databases import database
         >>> version = get_SQLite_driver_master_version()
-        >>> database_part = str(database.__object_version__).replace(",", "_").replace(" ", "_")
+        >>> database_part = (
+        ...     str(database.__object_version__).replace(",", "_").replace(" ", "_")
+        ... )
         >>> driver_part = str(__driver_version__).replace(",", "_").replace(" ", "_")
-        >>> version.startswith(f"driver_version_SQLite-inbuilt-{database_part}_database_version_{driver_part}")
+        >>> version.startswith(
+        ...     f"driver_version_SQLite-inbuilt-{database_part}"
+        ...     f"_database_version_{driver_part}"
+        ... )
         True
         >>> version.endswith(")_lx_constants")
         True

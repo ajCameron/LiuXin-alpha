@@ -2,7 +2,8 @@
 """
 Traverse legacy parent-pointer trees and write derived full-path and tree-ID fields.
 
-Traversal assumes acyclic, valid parent links. Some legacy entry points require host helpers that this mixin does not define.
+Traversal assumes acyclic, valid parent links. Some legacy entry points require host
+helpers that this mixin does not define.
 """
 
 import sqlite3
@@ -28,12 +29,17 @@ class TreeMethodsMixin:
 
     def direct_set_full_column(self, target_table: str) -> bool:
         """
-        Write ancestor display paths for positive-ID rows, committing each row separately.
+        Write ancestor display paths for positive-ID rows, committing each row
+        separately.
 
-        Require the host's ``get_full_column_name`` helper and the aggregation helper's dependencies. A missing full column raises InputIntegrityError; SQLite operational failures become DatabaseDriverError. Sentinel rows are skipped and the acquired write connection is not explicitly closed.
+        Require the host's ``get_full_column_name`` helper and the aggregation helper's
+        dependencies. A missing full column raises InputIntegrityError; SQLite
+        operational failures become DatabaseDriverError. Sentinel rows are skipped and
+        the acquired write connection is not explicitly closed.
 
         Example:
-            On a host providing the required helpers, ``driver.direct_set_full_column("series")`` refreshes stored paths.
+            On a host providing the required helpers,
+            ``driver.direct_set_full_column("series")`` refreshes stored paths.
 
 
         :param target_table: Existing table whose derived column is required.
@@ -78,10 +84,13 @@ class TreeMethodsMixin:
         """
         Write each positive-ID row's root ID and display value as a tree identifier.
 
-        Use ``<root_id>_<root_display>``; an existing ID-zero sentinel receives ``0_<display>`` separately. Commit each update, with no atomic batch or explicit connection close. Missing tree-ID columns raise InputIntegrityError.
+        Use ``<root_id>_<root_display>``; an existing ID-zero sentinel receives
+        ``0_<display>`` separately. Commit each update, with no atomic batch or explicit
+        connection close. Missing tree-ID columns raise InputIntegrityError.
 
         Example:
-            ``driver.direct_set_tree_ids("series")`` groups descendants under their root-derived text ID.
+            ``driver.direct_set_tree_ids("series")`` groups descendants under their
+            root-derived text ID.
 
 
         :param table: Existing table name used for schema lookup.
@@ -126,10 +135,12 @@ class TreeMethodsMixin:
         Return the first row in the starting row's ancestor chain.
 
         Example:
-            ``driver.direct_get_root_series(row)`` returns the row itself when it has no parent.
+            ``driver.direct_get_root_series(row)`` returns the row itself when it has no
+            parent.
 
 
-        :param start_row: Starting row dictionary; table inference may remove its ``table`` key.
+        :param start_row: Starting row dictionary; table inference may remove its
+            ``table`` key.
         :return: The root row dictionary.
         """
         return self.get_linear_row_index(start_row)[0]
@@ -138,14 +149,19 @@ class TreeMethodsMixin:
         """
         Walk from the root down its descendants using a stack of pending rows.
 
-        This legacy path hardcodes ``series_id`` and therefore requires series-shaped rows. It does not exclude previously processed rows from requeueing, so cycles can prevent termination.
+        This legacy path hardcodes ``series_id`` and therefore requires series-shaped
+        rows. It does not exclude previously processed rows from requeueing, so cycles
+        can prevent termination.
 
         Example:
-            ``driver.direct_get_all_tree_rows(series_row)`` collects an acyclic series tree.
+            ``driver.direct_get_all_tree_rows(series_row)`` collects an acyclic series
+            tree.
 
 
-        :param start_row: Starting row dictionary; table inference may remove its ``table`` key.
-        :return: A list of distinct collected row dictionaries, despite the dict annotation.
+        :param start_row: Starting row dictionary; table inference may remove its
+            ``table`` key.
+        :return: A list of distinct collected row dictionaries, despite the dict
+            annotation.
         """
         row_table = self.direct_identify_table_from_row(start_row)
         row_parent_column = self.direct_get_parent_column_name(row_table)
@@ -188,10 +204,13 @@ class TreeMethodsMixin:
         """
         Join ancestor display values from root to the selected row with colon-space.
 
-        This legacy entry point calls the name-mangled ``__get_linear_index_of_columns`` helper, which this mixin does not define. Hosts without that helper raise AttributeError.
+        This legacy entry point calls the name-mangled ``__get_linear_index_of_columns``
+        helper, which this mixin does not define. Hosts without that helper raise
+        AttributeError.
 
         Example:
-            With the required helper supplied, a three-level path renders as ``Root: Parent: Child``.
+            With the required helper supplied, a three-level path renders as ``Root:
+            Parent: Child``.
 
 
         :param table: Existing table name used for schema lookup.
@@ -214,13 +233,16 @@ class TreeMethodsMixin:
         """
         Extract display values from a root-to-start ancestor chain.
 
-        Require the display key on the start and every ancestor; missing keys raise InputIntegrityError. Values are returned without string conversion.
+        Require the display key on the start and every ancestor; missing keys raise
+        InputIntegrityError. Values are returned without string conversion.
 
         Example:
-            ``driver.direct_get_linear_index_of_columns(row, "series")`` reads display values along the chain.
+            ``driver.direct_get_linear_index_of_columns(row, "series")`` reads display
+            values along the chain.
 
 
-        :param start_row: Starting row dictionary; table inference may remove its ``table`` key.
+        :param start_row: Starting row dictionary; table inference may remove its
+            ``table`` key.
         :param display_column: Column key required on every row in the ancestor chain.
         :return: A list of raw display-column values in root-to-start order.
         """
@@ -251,13 +273,18 @@ class TreeMethodsMixin:
         """
         Follow parent IDs and prepend each visited row to produce a root-first chain.
 
-        Treat absent parent keys, nulls and supported None text sentinels as roots. No visited set or missing-parent recovery is provided: callers must supply an acyclic chain of existing rows. Table inference can mutate the original starting mapping.
+        Treat absent parent keys, nulls and supported None text sentinels as roots. No
+        visited set or missing-parent recovery is provided: callers must supply an
+        acyclic chain of existing rows. Table inference can mutate the original starting
+        mapping.
 
         Example:
-            ``driver.get_linear_row_index(row)`` returns ``[root, ..., row]`` for a valid chain.
+            ``driver.get_linear_row_index(row)`` returns ``[root, ..., row]`` for a
+            valid chain.
 
 
-        :param start_row: Starting row dictionary; table inference may remove its ``table`` key.
+        :param start_row: Starting row dictionary; table inference may remove its
+            ``table`` key.
         :return: The ancestor row dictionaries from root through the starting row.
         """
         start_row_dict = start_row

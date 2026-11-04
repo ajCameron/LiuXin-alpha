@@ -13,8 +13,7 @@ import dataclasses
 from typing import Generic, Sequence, Optional, TypeVar
 
 from LiuXin_alpha.caches.api.storage_cache_api.storage_fields_api.util_mixins import LinkDstUpdate
-from LiuXin_alpha.databases.db_types import MainTableName, MainTableColumnName, MainTableID
-
+from LiuXin_alpha.databases.db_types.database_types import MainTableID, MainTableName, MainTableColumnName
 
 T = TypeVar("T")
 

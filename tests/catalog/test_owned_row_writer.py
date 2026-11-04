@@ -23,7 +23,7 @@ from LiuXin_alpha.catalog.write import (
     CatalogOwnedRowOneToOneWriter,
     CatalogOwnedRowUpdate,
 )
-from LiuXin_alpha.databases.macro_types import LinkRow
+from LiuXin_alpha.databases.db_types.macro_types import LinkRow
 from LiuXin_alpha.databases.schema_specs import (
     LinkCardinality,
     RelationKind,

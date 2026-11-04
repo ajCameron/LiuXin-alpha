@@ -15,7 +15,7 @@ from abc import ABC, abstractmethod
 from typing import Any
 
 from LiuXin_alpha.catalog.write.host_api import CatalogWriterHostAPI
-from LiuXin_alpha.databases.db_types import SrcTableID
+from LiuXin_alpha.databases.db_types.database_types import SrcTableID
 
 
 class BaseCatalogWriter[UpdateT, ResultT](ABC):

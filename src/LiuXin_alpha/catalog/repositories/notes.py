@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from typing import ClassVar, Mapping, Sequence
 
-from LiuXin_alpha.databases.macro_types import LinkValue
+from LiuXin_alpha.databases.db_types.macro_types import LinkValue
 
 from ..api.common import EntityId, RowInput, RowMapping, WemiLevel
 from ..matching.entity_specs import NOTE_SPEC

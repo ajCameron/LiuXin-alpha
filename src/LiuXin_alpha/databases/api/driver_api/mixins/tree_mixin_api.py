@@ -39,11 +39,13 @@ class DriverTreeMixinAPI(abc.ABC):
         InputIntegrityError. Values are returned without string conversion.
 
         Example:
-            >>> driver.direct_get_linear_index_of_columns(series_row, "series")  # doctest: +SKIP
+            >>> driver.direct_get_linear_index_of_columns(
+            ...     series_row, "series"
+            ... )  # doctest: +SKIP
 
 
-        :param start_row: Starting row dictionary; table inference may remove its ``table``
-            key.
+        :param start_row: Starting row dictionary; table inference may remove its
+            ``table`` key.
         :param display_column: Column key required on every row in the ancestor chain.
         :return: A list of raw display-column values in root-to-start order.
         """
@@ -61,23 +63,24 @@ class DriverTreeMixinAPI(abc.ABC):
             >>> driver.direct_get_root_series(series_row)  # doctest: +SKIP
 
 
-        :param start_row: Starting row dictionary; table inference may remove its ``table``
-            key.
+        :param start_row: Starting row dictionary; table inference may remove its
+            ``table`` key.
         :return: The root row dictionary.
         """
 
     @abc.abstractmethod
     def direct_set_full_column(self, target_table):
         """
-        Write ancestor display paths for positive-ID rows, committing each row separately.
+        Write ancestor display paths for positive-ID rows, committing each row
+        separately.
 
         Abstract backend hook. The behavior below describes the shared SQL/SQLite
         implementation; this declaration itself has no operational body.
 
         Require the host's ``get_full_column_name`` helper and the aggregation helper's
-        dependencies. A missing full column raises InputIntegrityError; SQLite operational
-        failures become DatabaseDriverError. Sentinel rows are skipped and the acquired
-        write connection is not explicitly closed.
+        dependencies. A missing full column raises InputIntegrityError; SQLite
+        operational failures become DatabaseDriverError. Sentinel rows are skipped and
+        the acquired write connection is not explicitly closed.
 
         Example:
             >>> driver.direct_set_full_column("series")  # doctest: +SKIP
@@ -118,17 +121,18 @@ class DriverTreeMixinAPI(abc.ABC):
         Abstract backend hook. The behavior below describes the shared SQL/SQLite
         implementation; this declaration itself has no operational body.
 
-        This legacy path hardcodes ``series_id`` and therefore requires series-shaped rows.
-        It does not exclude previously processed rows from requeueing, so cycles can prevent
-        termination.
+        This legacy path hardcodes ``series_id`` and therefore requires series-shaped
+        rows. It does not exclude previously processed rows from requeueing, so cycles
+        can prevent termination.
 
         Example:
             >>> driver.direct_get_all_tree_rows(series_row)  # doctest: +SKIP
 
 
-        :param start_row: Starting row dictionary; table inference may remove its ``table``
-            key.
-        :return: A list of distinct collected row dictionaries, despite the dict annotation.
+        :param start_row: Starting row dictionary; table inference may remove its
+            ``table`` key.
+        :return: A list of distinct collected row dictionaries, despite the dict
+            annotation.
         """
 
     @abc.abstractmethod
@@ -140,15 +144,16 @@ class DriverTreeMixinAPI(abc.ABC):
         implementation; this declaration itself has no operational body.
 
         Treat absent parent keys, nulls and supported None text sentinels as roots. No
-        visited set or missing-parent recovery is provided: callers must supply an acyclic
-        chain of existing rows. Table inference can mutate the original starting mapping.
+        visited set or missing-parent recovery is provided: callers must supply an
+        acyclic chain of existing rows. Table inference can mutate the original starting
+        mapping.
 
         Example:
             >>> driver.get_linear_row_index(series_row)  # doctest: +SKIP
 
 
-        :param start_row: Starting row dictionary; table inference may remove its ``table``
-            key.
+        :param start_row: Starting row dictionary; table inference may remove its
+            ``table`` key.
         :return: The ancestor row dictionaries from root through the starting row.
         """
 
@@ -165,7 +170,9 @@ class DriverTreeMixinAPI(abc.ABC):
         AttributeError.
 
         Example:
-            >>> driver.direct_get_tree_aggregation_str("series", "series", 1)  # doctest: +SKIP
+            >>> driver.direct_get_tree_aggregation_str(
+            ...     "series", "series", 1
+            ... )  # doctest: +SKIP
 
 
         :param table: Existing table name used for schema lookup.

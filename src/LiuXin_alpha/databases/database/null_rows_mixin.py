@@ -2,7 +2,9 @@
 """
 Repair the schema-specific sentinel rows used for absent series and publishing agents.
 
-These helpers perform writes through the facade wrapper. Current FRBR schemas use an organisation agent sentinel; a legacy publisher sentinel is considered only when the agents table is absent.
+These helpers perform writes through the facade wrapper. Current FRBR schemas use an
+organisation agent sentinel; a legacy publisher sentinel is considered only when the
+agents table is absent.
 """
 
 from typing import TYPE_CHECKING
@@ -20,7 +22,8 @@ class DatabaseNullRowsMixin:
     Ensure conventional ID-zero records exist with normalized display fields.
 
     Example:
-        During writable database bootstrap, db.ensure_null_rows() repairs sentinel records after schema discovery.
+        During writable database bootstrap, db.ensure_null_rows() repairs sentinel
+        records after schema discovery.
     """
     # Todo: Methods to get null rows?
     # Todo: These methods should be private - only run during startup - probably not
@@ -28,10 +31,16 @@ class DatabaseNullRowsMixin:
         """
         Insert or repair the series and publishing-entity sentinel records.
 
-        When present, series ID 0 has a NULL display value. Prefer agents ID 0 with organisation type and AGENTS_NULL_CANONICAL_NAME; otherwise use publishers ID 0 when that legacy table exists. With no all_tables cache, attempt series and agents directly. Operations are sequential with no grouped rollback, and backend errors propagate.
+        When present, series ID 0 has a NULL display value. Prefer agents ID 0 with
+        organisation type and AGENTS_NULL_CANONICAL_NAME; otherwise use publishers ID 0
+        when that legacy table exists. With no all_tables cache, attempt series and
+        agents directly. Operations are sequential with no grouped rollback, and backend
+        errors propagate.
 
         Example:
-            For an open writable database, db.ensure_null_rows() restores a changed series sentinel display to None and the agent sentinel to its canonical organisation identity.
+            For an open writable database, db.ensure_null_rows() restores a changed
+            series sentinel display to None and the agent sentinel to its canonical
+            organisation identity.
 
 
         :return: None; existing sentinel rows may be updated even when already valid.

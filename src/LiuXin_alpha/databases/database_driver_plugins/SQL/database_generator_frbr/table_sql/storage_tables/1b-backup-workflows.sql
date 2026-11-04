@@ -65,6 +65,12 @@ ON `backup_workflows` (`backup_workflow_destination_store_id`);
 -- BREAK
 -- BREAK
 
+CREATE INDEX IF NOT EXISTS `idx_backup_workflows_status`
+ON `backup_workflows` (`backup_workflow_status`, `backup_workflow_id`);
+
+-- BREAK
+-- BREAK
+
 -- -----------------------------------------------------
 -- Table `backup_workflow_sources`
 -- One designated source row per workflow.

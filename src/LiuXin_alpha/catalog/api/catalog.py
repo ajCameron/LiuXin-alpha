@@ -41,12 +41,15 @@ if TYPE_CHECKING:
         NoteRepositoryAPI,
         SynopsisRepositoryAPI,
         TitleRepositoryAPI,
+        WorkMembershipRepositoryAPI,
         WorkRepositoryAPI,
     )
     from LiuXin_alpha.catalog.api.retrieval import CatalogRetrievalAPI
+    from LiuXin_alpha.catalog.api.search import CatalogSearchAPI
+    from LiuXin_alpha.catalog.api.calibre import CalibreCompatibilityAPI
     from LiuXin_alpha.catalog.write import SchemaCatalogWriter
     from LiuXin_alpha.databases.api.database_api import DatabaseAPI
-    from LiuXin_alpha.databases.db_types import SrcTableID
+    from LiuXin_alpha.databases.db_types.database_types import SrcTableID
 
 
 @runtime_checkable
@@ -67,12 +70,16 @@ class CatalogAddinsAPI(CatalogMetadataToolsAPI, Protocol):
     :ivar repositories: Grouped entity repository contracts.
     :ivar matching: Read-only identity-decision services.
     :ivar retrieval: WEMI traversal, bundle, metadata hydration, graph, and projection services.
+    :ivar search: Read-only WEMI search with an explicit result entity level.
+    :ivar calibre: Expression-centred compatibility conversion and write policy.
     :ivar mutations: Coordinated mutation and merge-policy services.
     """
 
     repositories: "CatalogRepositoriesAPI"
     matching: "CatalogMatchingAPI"
     retrieval: "CatalogRetrievalAPI"
+    search: "CatalogSearchAPI"
+    calibre: "CalibreCompatibilityAPI"
     mutations: "CatalogMutationsAPI"
 
 
@@ -106,11 +113,11 @@ class CatalogAPI(CatalogAddinsAPI, Protocol):
     :ivar item_identifiers: Identifiers observed on individual Items; also available in repositories.
     :ivar titles: Logical titles and their WEMI relationships; also available in repositories.
     :ivar notes: Notes attached to WEMI entities; also available in repositories.
-    :ivar tags: Reusable Tag values; also available in repositories.
+    :ivar tags: Reusable Tag values and Work memberships; also in repositories.
     :ivar labels: Reusable Label values; also available in repositories.
     :ivar genres: Genre values and their entity relationships; also available in repositories.
     :ivar subjects: Subject values and their entity relationships; also available in repositories.
-    :ivar series: Series values and their entity relationships; also available in repositories.
+    :ivar series: Series values and explicit Work memberships; also in repositories.
     :ivar languages: Language values and their entity relationships; also available in repositories.
     :ivar ratings: Rating values and their entity relationships; also available in repositories.
     :ivar comments: Comment values and their entity relationships; also available in repositories.
@@ -128,11 +135,11 @@ class CatalogAPI(CatalogAddinsAPI, Protocol):
     item_identifiers: "ItemIdentifierRepositoryAPI"
     titles: "TitleRepositoryAPI"
     notes: "NoteRepositoryAPI"
-    tags: "ExactEntityRepositoryAPI"
+    tags: "WorkMembershipRepositoryAPI"
     labels: "ExactEntityRepositoryAPI"
     genres: "ExactEntityRepositoryAPI"
     subjects: "ExactEntityRepositoryAPI"
-    series: "ExactEntityRepositoryAPI"
+    series: "WorkMembershipRepositoryAPI"
     languages: "ExactEntityRepositoryAPI"
     ratings: "ExactEntityRepositoryAPI"
     comments: "CommentRepositoryAPI"

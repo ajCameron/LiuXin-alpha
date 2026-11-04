@@ -41,14 +41,15 @@ class ItemIdentifierMatcherAPI(Protocol):
         Find exact normalized identifier observations, optionally restricted to one Item.
 
         The concrete matcher checks only whether limit is negative before normalizing the incoming
-        candidate and reading all rows. A non-None item_id filters by direct equality before
+        candidate and selecting matching rows in SQL where supported. Other adapters
+        stream candidate pages. A non-None item_id filters by direct equality before
         stored-value normalization; it is not validated or checked against an existing Item. Skip
         stored normalization TypeError/ValueError and rows with non-integer observation IDs.
         Python's integer check still admits booleans and imposes no positivity.
 
         Matching scheme/value pairs produce confidence-one results with two decisive evidence items
         and their original row references. Sort by observation ID, using -1 for a false-valued ID,
-        then slice. Zero still normalizes and scans; bool limits act as zero/one, while an
+        then slice. Zero still normalizes and reads candidates; bool limits act as zero/one, while an
         unsuitable slice bound can fail after the work. Equal values on different Items remain
         separate observations.
 
@@ -78,8 +79,8 @@ class ItemIdentifierMatcherAPI(Protocol):
         """
         Select the first exact observed identifier within the optional Item scope.
 
-        The concrete implementation calls candidates with limit one, so all eligible observations
-        are still read, compared, and sorted. It reports no ambiguity for repeated observations or
+        The concrete implementation calls candidates with limit one, so matching observations
+        are still compared and sorted after SQL filtering where supported. It reports no ambiguity for repeated observations or
         equal values across Items. Supply item_id when ownership matters; otherwise the first global
         observation wins. No confidence policy or write is applied.
 

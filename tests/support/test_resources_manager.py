@@ -2090,7 +2090,10 @@ def _table_info(conn, table: str):
 
 def _register_sqlite_test_functions(conn) -> None:
     """
-    Register sqlite functions referenced by triggers/views.
+    Register SQLite functions referenced by fixture triggers, views and indexes.
+
+    Indexed comparison keys use the production versioned functions so fixture
+    writes and full integrity checks follow the same policy as driver connections.
 
     Example:
         Exercise  register sqlite test functions through a consuming regression::
@@ -2101,6 +2104,10 @@ def _register_sqlite_test_functions(conn) -> None:
     :param conn: SQLite connection used to create or inspect fixture state.
     :return: None; fixture state or the supplied destination is updated in place.
     """
+
+    from LiuXin_alpha.databases.search_functions import register_search_functions
+
+    register_search_functions(conn)
 
     # Used by `update_callback_on_titles` trigger.
     conn.create_function("DIRTY_RECORD", 2, lambda _table, _row_id: 0)

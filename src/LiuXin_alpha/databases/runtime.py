@@ -1,7 +1,10 @@
 """
 Attach database maintenance collaborators and bootstrap configured storage.
 
-These helpers mutate a concrete database’s runtime graph. Maintenance initialization starts background work; storage bootstrap can construct backends and alter metadata or registry state. Neither helper wraps its entire operation in a transaction or performs automatic rollback of partial setup.
+These helpers mutate a concrete database’s runtime graph. Maintenance initialization
+starts background work; storage bootstrap can construct backends and alter metadata or
+registry state. Neither helper wraps its entire operation in a transaction or performs
+automatic rollback of partial setup.
 """
 
 from __future__ import annotations
@@ -32,23 +35,34 @@ def initialise_database_runtime(
     """
     Start maintenance and wire runtime collaborators back to the database.
 
-    Construct Maintainer first, which starts its engine. Install maintenance/maintainer aliases, the callback proxy, driver callback and clean alias, then preferences and catalog/db back-references. This does not bootstrap storage. Repeated calls do not stop an earlier maintainer; a later wiring failure can leave the new engine running, so callers own cleanup.
+    Construct Maintainer first, which starts its engine. Install maintenance/maintainer
+    aliases, the callback proxy, driver callback and clean alias, then preferences and
+    catalog/db back-references. This does not bootstrap storage. Repeated calls do not
+    stop an earlier maintainer; a later wiring failure can leave the new engine running,
+    so callers own cleanup.
 
     Example:
-        During one-time database construction, initialise_database_runtime(db, callback_proxy_cls=CallbackProxy, preferences_obj=prefs) connects the pre-created collaborators; close the owning database at shutdown.
+        During one-time database construction, initialise_database_runtime(db,
+        callback_proxy_cls=CallbackProxy, preferences_obj=prefs) connects the
+        pre-created collaborators; close the owning database at shutdown.
 
 
-    :param db: Concrete database with driver, driver_wrapper, macros, metadata_sql and write_telemetry already available.
-    :param callback_proxy_cls: Constructor accepting the new Maintainer and db.write_telemetry to produce the driver callback proxy.
+    :param db: Concrete database with driver, driver_wrapper, macros, metadata_sql and
+        write_telemetry already available.
+    :param callback_proxy_cls: Constructor accepting the new Maintainer and
+        db.write_telemetry to produce the driver callback proxy.
     :param preferences_obj: Preference object retained directly as db.preferences.
     :return: None; runtime aliases and collaborator references are assigned on db.
-    :raises AttributeError: A required pre-created database collaborator or attribute is absent.
+    :raises AttributeError: A required pre-created database collaborator or attribute is
+        absent.
     """
 
     db.maintenance = Maintainer(db)
     db.maintainer = db.maintenance
+
     # Todo: The database API should have write_telemetry declared
     db._maintainer_callback_proxy = callback_proxy_cls(db.maintenance, db.write_telemetry)
+
     # Todo: Protected method access
     db.driver.maintainer_callback = db._maintainer_callback_proxy
     db.clean = db.maintenance.clean
@@ -74,25 +88,33 @@ def bootstrap_storage_manager(
     """
     Create or refresh the storage manager and retain its bootstrap report.
 
-    If storage is absent, construct StorageManager before the guarded load; construction errors
-    propagate even in non-strict mode. Otherwise atomically rebind the manager and its durable
-    repository views before applying the startup policy. Non-strict loading exceptions are logged
-    and converted to one discovered/failed configuration with the error text; partial load effects
-    remain. Strict loading exceptions propagate before a new report is stored. A returned failed
-    report is stored before strict mode raises StorageManagementError. Skips alone do not make
-    report.ok false.
+    If storage is absent, construct StorageManager before the guarded load; construction
+    errors propagate even in non-strict mode. Otherwise atomically rebind the manager
+    and its durable repository views before applying the startup policy. Non-strict
+    loading exceptions are logged and converted to one discovered/failed configuration
+    with the error text; partial load effects remain. Strict loading exceptions
+    propagate before a new report is stored. A returned failed report is stored before
+    strict mode raises StorageManagementError. Skips alone do not make report.ok false.
 
     Example:
-        Given an open db, report = bootstrap_storage_manager(db, startup_on_add=False) refreshes configured Stores without requesting candidate startup; inspect report.issues for reported skips or failures.
+        Given an open db, report = bootstrap_storage_manager(db, startup_on_add=False)
+        refreshes configured Stores without requesting candidate startup; inspect
+        report.issues for reported skips or failures.
 
 
     :param db: Concrete database hosting storage and storage_bootstrap_report.
-    :param startup_on_add: Default False; configure the manager and forward whether loading should start candidates.
-    :param include_offline: Forward inclusion of offline/retired or unavailable configurations.
-    :param clear_existing: Forward whether loading replaces live facades and removes absent configurations.
-    :param strict: Reraise loading exceptions and reject reports with counted failures when True.
-    :return: StorageBootstrapReport also assigned to db.storage_bootstrap_report on completed reporting paths.
-    :raises StorageManagementError: Strict mode receives a report with counted failures, or manager construction rejects its configuration.
+    :param startup_on_add: Default False; configure the manager and forward whether
+        loading should start candidates.
+    :param include_offline: Forward inclusion of offline/retired or unavailable
+        configurations.
+    :param clear_existing: Forward whether loading replaces live facades and removes
+        absent configurations.
+    :param strict: Reraise loading exceptions and reject reports with counted failures
+        when True.
+    :return: StorageBootstrapReport also assigned to db.storage_bootstrap_report on
+        completed reporting paths.
+    :raises StorageManagementError: Strict mode receives a report with counted failures,
+        or manager construction rejects its configuration.
     """
 
     if getattr(db, "storage", None) is None:

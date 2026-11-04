@@ -61,9 +61,9 @@ class DirtyRowEvent(MaintenanceEvent):
         """
         Initialize immutable event fields with fresh timing and identity metadata.
 
-        Integer fields are coerced with int(); table/name/reason text uses str(value or "").
-        Conversion errors propagate. Tick and shutdown kinds are fixed; DirtyRowEvent
-        accepts its supplied kind.
+        Integer fields are coerced with int(); table/name/reason text uses str(value or
+        ""). Conversion errors propagate. Tick and shutdown kinds are fixed;
+        DirtyRowEvent accepts its supplied kind.
 
         Example:
             >>> event = DirtyRowEvent("creators", "7")
@@ -73,8 +73,8 @@ class DirtyRowEvent(MaintenanceEvent):
 
         :param table: Table associated with the row or operation.
         :param row_id: Row identifier converted to int by event/callback construction.
-        :param kind: Event kind stored without runtime membership validation; defaults to
-            dirty_row.
+        :param kind: Event kind stored without runtime membership validation; defaults
+            to dirty_row.
         :return: None.
         """
         object.__setattr__(self, "kind", kind)
@@ -104,9 +104,9 @@ class DirtyInterlinkEvent(MaintenanceEvent):
         """
         Initialize immutable event fields with fresh timing and identity metadata.
 
-        Integer fields are coerced with int(); table/name/reason text uses str(value or "").
-        Conversion errors propagate. Tick and shutdown kinds are fixed; DirtyRowEvent
-        accepts its supplied kind.
+        Integer fields are coerced with int(); table/name/reason text uses str(value or
+        ""). Conversion errors propagate. Tick and shutdown kinds are fixed;
+        DirtyRowEvent accepts its supplied kind.
 
         Example:
             >>> event = DirtyInterlinkEvent("UPDATE", "creators", "titles", 1, 2)
@@ -148,9 +148,9 @@ class RenameRequestEvent(MaintenanceEvent):
         """
         Initialize immutable event fields with fresh timing and identity metadata.
 
-        Integer fields are coerced with int(); table/name/reason text uses str(value or "").
-        Conversion errors propagate. Tick and shutdown kinds are fixed; DirtyRowEvent
-        accepts its supplied kind.
+        Integer fields are coerced with int(); table/name/reason text uses str(value or
+        ""). Conversion errors propagate. Tick and shutdown kinds are fixed;
+        DirtyRowEvent accepts its supplied kind.
 
         Example:
             >>> RenameRequestEvent(1, "creators", None).value
@@ -159,8 +159,8 @@ class RenameRequestEvent(MaintenanceEvent):
 
         :param item_id: Identifier of the row to rename.
         :param table: Table associated with the row or operation.
-        :param value: Requested new name; event construction converts false values to empty
-            text.
+        :param value: Requested new name; event construction converts false values to
+            empty text.
         :return: None.
         """
         object.__setattr__(self, "kind", "rename_request")
@@ -185,9 +185,9 @@ class TickEvent(MaintenanceEvent):
         """
         Initialize immutable event fields with fresh timing and identity metadata.
 
-        Integer fields are coerced with int(); table/name/reason text uses str(value or "").
-        Conversion errors propagate. Tick and shutdown kinds are fixed; DirtyRowEvent
-        accepts its supplied kind.
+        Integer fields are coerced with int(); table/name/reason text uses str(value or
+        ""). Conversion errors propagate. Tick and shutdown kinds are fixed;
+        DirtyRowEvent accepts its supplied kind.
 
         Example:
             >>> TickEvent().kind
@@ -220,17 +220,17 @@ class ShutdownEvent(MaintenanceEvent):
         """
         Initialize immutable event fields with fresh timing and identity metadata.
 
-        Integer fields are coerced with int(); table/name/reason text uses str(value or "").
-        Conversion errors propagate. Tick and shutdown kinds are fixed; DirtyRowEvent
-        accepts its supplied kind.
+        Integer fields are coerced with int(); table/name/reason text uses str(value or
+        ""). Conversion errors propagate. Tick and shutdown kinds are fixed;
+        DirtyRowEvent accepts its supplied kind.
 
         Example:
             >>> ShutdownEvent("done").reason
             'done'
 
 
-        :param reason: Shutdown context, converted to text with false values becoming empty
-            text.
+        :param reason: Shutdown context, converted to text with false values becoming
+            empty text.
         :return: None.
         """
         object.__setattr__(self, "kind", "shutdown")

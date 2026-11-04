@@ -1,7 +1,10 @@
 """
 Define the dependency-light sentinel text used for the null Agent bootstrap row.
 
-AGENTS_NULL_CANONICAL_NAME is a conspicuous string for schemas where agent_canonical_name is NOT NULL. It represents the historical null-row identity without using SQL NULL and can be imported by bootstrap code and test utilities without loading Database.
+AGENTS_NULL_CANONICAL_NAME is a conspicuous string for schemas where
+agent_canonical_name is NOT NULL. It represents the historical null-row identity without
+using SQL NULL and can be imported by bootstrap code and test utilities without loading
+Database.
 """
 
 from __future__ import annotations

@@ -14,7 +14,8 @@ class DirtyRecordsMixin:
     Submit table/ID/reason tuples to a host-provided dirtied-record queue.
 
     Example:
-        The host supplies ``tables`` and ``dirtied_records_queue`` before using this mixin.
+        The host supplies ``tables`` and ``dirtied_records_queue`` before using this
+        mixin.
     """
 
     def direct_dirty_record(self, table: str, table_id: int, reason: str) -> None:
@@ -24,7 +25,8 @@ class DirtyRecordsMixin:
         An unknown table is still queued. This method performs no database write.
 
         Example:
-            ``driver.direct_dirty_record("books", 3, "metadata changed")`` queues a notification.
+            ``driver.direct_dirty_record("books", 3, "metadata changed")`` queues a
+            notification.
 
 
         :param table: Table name checked against the host's current table collection.

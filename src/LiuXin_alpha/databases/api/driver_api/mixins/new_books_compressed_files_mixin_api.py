@@ -36,8 +36,8 @@ class DriverNewBooksCompressedFilesMixinAPI(abc.ABC):
         Abstract backend hook. The behavior below describes the shared SQL/SQLite
         implementation; this declaration itself has no operational body.
 
-        Translate sqlite3 ProgrammingError into ValueError; the error path has no explicit
-        connection cleanup.
+        Translate sqlite3 ProgrammingError into ValueError; the error path has no
+        explicit connection cleanup.
 
         Example:
             >>> driver.direct_delete_book_group("1")  # doctest: +SKIP
@@ -77,7 +77,9 @@ class DriverNewBooksCompressedFilesMixinAPI(abc.ABC):
         Missing keys and incompatible value types propagate their normal exceptions.
 
         Example:
-            >>> driver.sum_book_group_sizes([{"new_book_size": 12}, {"new_book_size": 5}])  # doctest: +SKIP
+            >>> driver.sum_book_group_sizes(
+            ...     [{"new_book_size": 12}, {"new_book_size": 5}]
+            ... )  # doctest: +SKIP
 
 
         :param book_group: Iterable of row mappings containing numeric ``new_book_size``
@@ -85,4 +87,3 @@ class DriverNewBooksCompressedFilesMixinAPI(abc.ABC):
         :return: The sum of recorded sizes, conventionally bytes; zero for an empty
             iterable.
         """
-

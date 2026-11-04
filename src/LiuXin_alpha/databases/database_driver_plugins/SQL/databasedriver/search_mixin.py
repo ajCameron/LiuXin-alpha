@@ -2,7 +2,8 @@
 """
 Query SQL rows by ID, equality or compound conditions and expose sentinel-row helpers.
 
-Locational search remains unfinished. Methods differ in buffering and connection ownership; their individual contracts describe those differences.
+Locational search remains unfinished. Methods differ in buffering and connection
+ownership; their individual contracts describe those differences.
 """
 
 from __future__ import annotations
@@ -36,7 +37,8 @@ class SearchMixin:
         """
         Decode byte-like inputs as UTF-8 and coerce other values to Unicode.
 
-        Invalid UTF-8 raises InputIntegrityError with the decoding exception as its cause.
+        Invalid UTF-8 raises InputIntegrityError with the decoding exception as its
+        cause.
 
         Example:
             >>> SearchMixin._coerce_search_text(memoryview(b"book"))
@@ -62,10 +64,13 @@ class SearchMixin:
         """
         Pick a random row using SQLite RANDOM or rejection sampling over positive IDs.
 
-        The default repeatedly samples IDs from 1 to the maximum and reseeds Python's global RNG. Sparse IDs can be slow; tables without positive integer IDs are unsuitable. A non-convertible null maximum returns None.
+        The default repeatedly samples IDs from 1 to the maximum and reseeds Python's
+        global RNG. Sparse IDs can be slow; tables without positive integer IDs are
+        unsuitable. A non-convertible null maximum returns None.
 
         Example:
-            ``driver.direct_get_random_row_dict("books", direct=True)`` asks SQLite to select a row.
+            ``driver.direct_get_random_row_dict("books", direct=True)`` asks SQLite to
+            select a row.
 
 
         :param target_table: Existing table name to query.
@@ -125,15 +130,19 @@ class SearchMixin:
         """
         Load every row into memory, optionally ordering by a validated column.
 
-        Close the query connection after successful iteration. Use only when materializing the whole table is acceptable.
+        Close the query connection after successful iteration. Use only when
+        materializing the whole table is acceptable.
 
         Example:
-            ``driver.direct_get_all_rows("books", sort_column="book_id", reverse=True)`` orders by descending ID.
+            ``driver.direct_get_all_rows("books", sort_column="book_id", reverse=True)``
+            orders by descending ID.
 
 
         :param table: Table name resolved by the host driver.
-        :param sort_column: Optional column belonging to the table; ``None`` adds no ORDER BY.
-        :param reverse: Use descending order when a sort column is supplied; otherwise ignored.
+        :param sort_column: Optional column belonging to the table; ``None`` adds no
+            ORDER BY.
+        :param reverse: Use descending order when a sort column is supplied; otherwise
+            ignored.
         :return: A list of converted row dictionaries.
         """
         conn = self.get_connection()
@@ -179,14 +188,19 @@ class SearchMixin:
         """
         Yield positive-ID rows in ascending ID order using ten-row queries.
 
-        Each chunk is buffered and its connection closed before yielding. IDs at or below zero are excluded, and concurrent changes can affect later chunks. A supplied sort column is validated then raises NotImplementedError; reverse is unused.
+        Each chunk is buffered and its connection closed before yielding. IDs at or
+        below zero are excluded, and concurrent changes can affect later chunks. A
+        supplied sort column is validated then raises NotImplementedError; reverse is
+        unused.
 
         Example:
-            ``list(driver.direct_get_row_dict_iterator("books"))`` omits a sentinel row with ID zero.
+            ``list(driver.direct_get_row_dict_iterator("books"))`` omits a sentinel row
+            with ID zero.
 
 
         :param table: Table name resolved by the host driver.
-        :param sort_column: Accepted column name; non-null values currently select an unsupported ordering mode.
+        :param sort_column: Accepted column name; non-null values currently select an
+            unsupported ordering mode.
         :param reverse: Accepted but ignored; traversal always uses ascending IDs.
         :return: An iterator of converted row dictionaries.
         """
@@ -246,7 +260,8 @@ class SearchMixin:
         Collect distinct column values into a set and close the connection on success.
 
         Example:
-            ``driver.direct_get_unique_values_set("book_title")`` includes ``None`` if SQL NULL occurs.
+            ``driver.direct_get_unique_values_set("book_title")`` includes ``None`` if
+            SQL NULL occurs.
 
 
         :param target_column: Trusted column name whose table is inferred by the driver.
@@ -267,10 +282,12 @@ class SearchMixin:
         """
         Yield from a fully materialized set of distinct values.
 
-        This interface is an iterator but still loads all unique values before the first yield; ordering is unspecified.
+        This interface is an iterator but still loads all unique values before the first
+        yield; ordering is unspecified.
 
         Example:
-            ``iter(driver.direct_get_unique_values_iterator("book_title"))`` iterates deduplicated values.
+            ``iter(driver.direct_get_unique_values_iterator("book_title"))`` iterates
+            deduplicated values.
 
 
         :param target_column: Trusted column name whose table is inferred by the driver.
@@ -289,10 +306,12 @@ class SearchMixin:
         """
         Bind a text-coerced ID and require at most one matching row.
 
-        Multiple matches raise DatabaseIntegrityError; SQLite InterfaceError becomes DatabaseDriverError. Normal found/missing results close the connection.
+        Multiple matches raise DatabaseIntegrityError; SQLite InterfaceError becomes
+        DatabaseDriverError. Normal found/missing results close the connection.
 
         Example:
-            ``driver.direct_get_row_dict_from_id("books", 0)`` can retrieve a sentinel row explicitly.
+            ``driver.direct_get_row_dict_from_id("books", 0)`` can retrieve a sentinel
+            row explicitly.
 
 
         :param table: Table name resolved by the host driver.
@@ -346,10 +365,12 @@ class SearchMixin:
 
     def direct_has_null_row(self, table: str) -> bool:
         """
-        Check for an ID-zero sentinel in a validated table and always close the query connection.
+        Check for an ID-zero sentinel in a validated table and always close the query
+        connection.
 
         Example:
-            ``driver.direct_has_null_row("books")`` tests for the sentinel independently of other row values.
+            ``driver.direct_has_null_row("books")`` tests for the sentinel independently
+            of other row values.
 
 
         :param table: Table name resolved by the host driver.
@@ -396,10 +417,13 @@ class SearchMixin:
         """
         Merge updates and delegate a sentinel-row update to the row writer.
 
-        Missing sentinels raise InputIntegrityError. Keyword fields mutate an input dict in place and win over its values. Supplied ID-column updates also override the initial zero, so callers must omit that column to target the sentinel.
+        Missing sentinels raise InputIntegrityError. Keyword fields mutate an input dict
+        in place and win over its values. Supplied ID-column updates also override the
+        initial zero, so callers must omit that column to target the sentinel.
 
         Example:
-            ``driver.direct_update_null_row("books", {"book_title": "Unknown"})`` updates an existing sentinel.
+            ``driver.direct_update_null_row("books", {"book_title": "Unknown"})``
+            updates an existing sentinel.
 
 
         :param table: Table name resolved by the host driver.
@@ -427,10 +451,12 @@ class SearchMixin:
         """
         Union non-null values from recognized hash columns across supported tables.
 
-        Skip tables whose headings cannot be read; value-query failures propagate. Empty strings and other non-null values are retained.
+        Skip tables whose headings cannot be read; value-query failures propagate. Empty
+        strings and other non-null values are retained.
 
         Example:
-            ``driver.direct_get_all_hashes()`` collects file, compressed-file, new-book and legacy hash values.
+            ``driver.direct_get_all_hashes()`` collects file, compressed-file, new-book
+            and legacy hash values.
 
 
         :return: A set of discovered non-null hash values.
@@ -462,10 +488,12 @@ class SearchMixin:
         """
         Collect a column's raw values into a set, inferring the table when omitted.
 
-        Identifiers are interpolated and must be trusted. This helper does not explicitly close its acquired connection.
+        Identifiers are interpolated and must be trusted. This helper does not
+        explicitly close its acquired connection.
 
         Example:
-            ``driver.direct_get_all_values("books", "book_title")`` includes SQL NULL as ``None``.
+            ``driver.direct_get_all_values("books", "book_title")`` includes SQL NULL as
+            ``None``.
 
 
         :param table: Trusted table name, or ``None`` to infer it from the column.
@@ -496,10 +524,13 @@ class SearchMixin:
         """
         Execute supplied SQL lazily and yield converted row dictionaries.
 
-        A table enables declared-type conversion. The connection closes in finally when exhausted, explicitly closed or interrupted by an exception; abandoning a live generator can retain it.
+        A table enables declared-type conversion. The connection closes in finally when
+        exhausted, explicitly closed or interrupted by an exception; abandoning a live
+        generator can retain it.
 
         Example:
-            ``rows = driver.direct_iterator_return("SELECT book_id FROM books", ["book_id"], "books")`` creates a lazy query.
+            ``rows = driver.direct_iterator_return("SELECT book_id FROM books",
+            ["book_id"], "books")`` creates a lazy query.
 
 
         :param stmt: Trusted SQL statement to execute.
@@ -534,15 +565,20 @@ class SearchMixin:
         """
         Find exact matches for a bound text search term in a validated column.
 
-        The table must validate and the column must be a known simple identifier. Although table defaults to None, this implementation never infers it; callers should supply it. Malformed requests and SQLite operational errors raise InputIntegrityError.
+        The table must validate and the column must be a known simple identifier.
+        Although table defaults to None, this implementation never infers it; callers
+        should supply it. Malformed requests and SQLite operational errors raise
+        InputIntegrityError.
 
         Example:
-            ``driver.direct_search_table("books", "book_title", "Example")`` performs equality matching.
+            ``driver.direct_search_table("books", "book_title", "Example")`` performs
+            equality matching.
 
 
         :param table: Table name resolved by the host driver.
         :param column: Column name to read or match.
-        :param search_term: Non-null value coerced to text; byte-like inputs must be UTF-8.
+        :param search_term: Non-null value coerced to text; byte-like inputs must be
+            UTF-8.
         :return: Converted matching rows, or an empty list.
         """
         if (table is not None) and (column is not None) and (search_term is not None):
@@ -620,15 +656,24 @@ class SearchMixin:
         """
         AND together same-table comparison triples using bound values.
 
-        Normalize NULL equality/inequality and support iterable IN values; empty/None IN matches nothing. Columns and operators must be trusted because they become SQL syntax. Some SQL-looking scalar text values are rejected even though bound. Empty input returns None normally but raises in verbose-debug mode. The iterator branch leaves its preparatory connection unclosed and delegates query ownership to a generator.
+        Normalize NULL equality/inequality and support iterable IN values; empty/None IN
+        matches nothing. Columns and operators must be trusted because they become SQL
+        syntax. Some SQL-looking scalar text values are rejected even though bound.
+        Empty input returns None normally but raises in verbose-debug mode. The iterator
+        branch leaves its preparatory connection unclosed and delegates query ownership
+        to a generator.
 
         Example:
-            ``driver.direct_multi_column_search([("book_id", "IN", [1, 2])])`` matches either ID.
+            ``driver.direct_multi_column_search([("book_id", "IN", [1, 2])])`` matches
+            either ID.
 
 
-        :param search_index: Sized sequence of (column, operator, value) triples belonging to one inferred table.
-        :param iterator_return: Return a lazy query generator instead of materializing matching rows.
-        :return: A list or lazy row iterator, or ``None`` for empty input outside verbose-debug mode.
+        :param search_index: Sized sequence of (column, operator, value) triples
+            belonging to one inferred table.
+        :param iterator_return: Return a lazy query generator instead of materializing
+            matching rows.
+        :return: A list or lazy row iterator, or ``None`` for empty input outside
+            verbose-debug mode.
         """
         if len(search_index) == 0:
             if VERBOSE_DEBUG:
@@ -762,14 +807,19 @@ class SearchMixin:
         """
         Inspect a copied parsed-query tree through an unfinished transformation path.
 
-        No database search is executed. A string input is only logged; a transformable tree raises NotImplementedError at the disabled replacement step, and malformed trees may fail earlier.
+        No database search is executed. A string input is only logged; a transformable
+        tree raises NotImplementedError at the disabled replacement step, and malformed
+        trees may fail earlier.
 
         Example:
-            ``driver.direct_locational_search("already transformed")`` logs the string and returns.
+            ``driver.direct_locational_search("already transformed")`` logs the string
+            and returns.
 
 
-        :param parsed_query: Search-parser tree or pretransformed Unicode query, copied before inspection.
-        :return: ``None`` for an already-string query; tree processing does not complete.
+        :param parsed_query: Search-parser tree or pretransformed Unicode query, copied
+            before inspection.
+        :return: ``None`` for an already-string query; tree processing does not
+            complete.
         """
         parsed_query = deepcopy(parsed_query)
         locations = self.locations
@@ -819,7 +869,8 @@ class SearchMixin:
         """
         Check for an iterable triple with non-iterable second and third elements.
 
-        Wrong-length iterables raise InputIntegrityError. Strings count as iterable, so text operands do not satisfy this legacy predicate.
+        Wrong-length iterables raise InputIntegrityError. Strings count as iterable, so
+        text operands do not satisfy this legacy predicate.
 
         Example:
             >>> SearchMixin.can_index_be_transformed(["token", 1, 2])
@@ -849,7 +900,8 @@ class SearchMixin:
         """
         Render a token, OR or AND triple as intermediate query text.
 
-        Operands are concatenated without escaping or SQL execution; unknown operators raise LogicalError.
+        Operands are concatenated without escaping or SQL execution; unknown operators
+        raise LogicalError.
 
         Example:
             >>> SearchMixin.transform_index(["token", "books", "Example"])

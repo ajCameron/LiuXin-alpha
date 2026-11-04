@@ -5,7 +5,7 @@ Write scalar legacy fields in owner columns or linked value tables.
 
 from __future__ import division, absolute_import, print_function, unicode_literals
 
-from LiuXin_alpha.databases.adaptors import sqlite_datetime
+from LiuXin_alpha.utils.adaptors import string_to_datetime
 from LiuXin_alpha.caches.write.base_writer import BaseWriter
 from LiuXin_alpha.catalog.catalog import Catalog
 
@@ -46,6 +46,13 @@ class OneToOneWriter(BaseWriter):
         """
         Resolve the legacy destination column, persist values and then update a simple cache.
 
+        Title and last-modified use Catalog's Expression conversion policy
+        before legacy column inference or datetime coercion. They require
+        explicit Expression references or SQL rays and write atomically.
+        Their optional direct cache receives the supplied values; callers
+        must refresh other affected rays and derived sort values. The
+        remaining description applies to other, still-legacy fields.
+
         Choose the updater by writer name, then derive the column from liuxin_table_name when present, otherwise column. metadata.in_table overrides destination inference; otherwise book/title prefixes choose books/titles, defaulting to titles. Add the matching prefix when absent and rewrite title_pubdate to book_pubdate without changing the selected table. Nonempty updates pass sqlite_datetime-converted values to persistence, then merge original values into book_col_map; AttributeError during that merge is suppressed. Metadata is still required for empty updates, and other errors propagate without undoing persistence.
 
         Example:
@@ -61,6 +68,17 @@ class OneToOneWriter(BaseWriter):
         if args:
             info_str = "unexpected args passed to one_one_in_books"
             default_log.log_variables(info_str, "INFO", ("args", args))
+
+        # These fields have explicit WEMI owners. Avoid legacy column guessing
+        # and datetime coercion of title text before applying the shared policy.
+        if self.name in {"title", "last_modified"}:
+            if book_id_val_map:
+                Catalog(db).calibre.write_field(self.name, book_id_val_map)
+                try:
+                    field.table.book_col_map.update(book_id_val_map)
+                except AttributeError:
+                    pass
+            return set(book_id_val_map)
 
         db_updater = {
             "series_index": self.series_index_one_one_db_updater,
@@ -96,7 +114,7 @@ class OneToOneWriter(BaseWriter):
         if book_id_val_map:
 
             # Writing the changes out the database
-            book_val_map = {k: sqlite_datetime(v) for k, v in iteritems(book_id_val_map)}
+            book_val_map = {k: string_to_datetime(v) for k, v in iteritems(book_id_val_map)}
 
             db_updater(db=db, values_map=book_val_map, field=table_col, table=dst_table)
 
@@ -219,84 +237,57 @@ class OneToOneWriter(BaseWriter):
 
     @staticmethod
     def series_index_one_one_db_updater(db, values_map, field, table):
-        """
-        Attempt the legacy series-index helper call for each supplied owner.
-
-        This module currently neither defines nor imports library_set_series_index. A nonempty update therefore raises NameError at the first call unless an external caller has injected that global. Empty mappings return normally; no working series-index persistence is implied by this compatibility hook.
-
-        Example:
-            >>> OneToOneWriter.series_index_one_one_db_updater(None, {}, None, None) is None
-            True
-
-
-        :param db: Database adapter used by the row/link helpers; collaborator errors propagate.
-        :param values_map: Owner IDs mapped to new series-index values.
-        :param field: Compatibility argument not used by this helper.
-        :param table: Compatibility argument not used by this helper.
-        :return: None; described persistence side effects happen through the supplied adapter.
-        :raises NameError: A nonempty mapping reaches the unresolved library_set_series_index global.
-        """
-        for book_id in values_map:
-            series_index_val = values_map[book_id]
-            library_set_series_index(db=db, title_id=book_id, idx=series_index_val)
+        """Reject unsupported Series positions before processing any updates."""
+        raise NotImplementedError(
+            "Legacy Series indices are retired. Current Work-Series memberships have "
+            "no sequence-position field; a supported schema and policy are required."
+        )
 
     @staticmethod
     def last_modified_one_one_db_updater(db, values_map, field, table):
-        """
-        Forward each last-modified value to the legacy books projection adapter.
+        """Set Expression modification times through the Calibre policy.
 
-        Call metadata_sql.update_book_last_modified sequentially. No direct cache update or whole-batch rollback is supplied.
+        Keys are explicit Expression references or W:E:M SQL rays, not bare
+        integers. Integers in values mean epoch milliseconds; naive datetimes
+        mean UTC. The entire persistence batch joins one macro transaction.
 
         Example:
             >>> OneToOneWriter.last_modified_one_one_db_updater(None, {}, None, None) is None
             True
 
-
-        :param db: Database adapter used by the row/link helpers; collaborator errors propagate.
-        :param values_map: Book IDs mapped to new last-modified values.
-        :param field: Compatibility argument not used by this helper.
-        :param table: Compatibility argument not used by this helper.
-        :return: None; described persistence side effects happen through the supplied adapter.
+        :param db: Database borrowed by Catalog.
+        :param values_map: Compatibility references mapped to timestamps.
+        :param field: Retained compatibility argument.
+        :param table: Retained compatibility argument.
+        :return: None; cache reconciliation remains with the caller.
         """
-        for book_id in values_map:
-            # Last-modified is a legacy ``books`` projection field, so the
-            # Calibre compatibility adapter remains its storage owner.
-            db.metadata_sql.update_book_last_modified(
-                book_id=book_id,
-                last_modified=values_map[book_id],
-            )
+        if values_map:
+            Catalog(db).calibre.write_field("last_modified", values_map)
 
     @staticmethod
     def comments_one_one_in_other_updater(db, field, updated):
-        """
-        Replace each Work comment through Catalog and collect the resulting cache maps.
+        """Replace Expression comments atomically through the Calibre policy.
 
-        Create a Catalog wrapper per Work and call comments.replace_for_wemi with level="work" and data={"text": value}. This helper does not mutate the field cache; successful earlier replacements are not rolled back if a later one fails.
+        Explicit Expression references and validated ray IDs are accepted.
+        None clears attachments. Old Comment rows remain; Work and edition
+        comments are untouched. Results retain the caller's compatibility keys.
 
         Example:
             >>> OneToOneWriter.comments_one_one_in_other_updater(None, None, {})
             ({}, {})
 
-
-        :param db: Database adapter used by the row/link helpers; collaborator errors propagate.
-        :param field: Compatibility argument not used by this helper.
-        :param updated: Work IDs mapped to comment text.
-        :return: Pair (id_map, book_col_map), mapping returned comment IDs to text and Work IDs to comment IDs.
+        :param db: Database borrowed by Catalog.
+        :param field: Retained compatibility argument.
+        :param updated: Compatibility references mapped to text or None.
+        :return: Comment-ID/text and compatibility-key/comment-ID maps.
         """
-        id_map = dict()
-        book_col_map = dict()
-
-        for book_id in updated:
-            comment_val = updated[book_id]
-            book_comment_id = Catalog(db).comments.replace_for_wemi(
-                level="work",
-                entity_id=book_id,
-                data={"text": comment_val},
-            )
-
-            id_map[book_comment_id] = comment_val
-            book_col_map[book_id] = book_comment_id
-
+        if not updated:
+            return {}, {}
+        book_col_map = Catalog(db).calibre.write_field("comments", updated)
+        id_map = {
+            comment_id: updated[key]
+            for key, comment_id in book_col_map.items() if comment_id is not None
+        }
         return id_map, book_col_map
 
     @staticmethod

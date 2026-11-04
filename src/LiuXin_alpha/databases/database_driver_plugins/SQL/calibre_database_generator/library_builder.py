@@ -34,7 +34,8 @@ def _sanitize_component(value: str, *, fallback: str = "Unknown") -> str:
 
 
     :param value: Value converted to text, with None treated as empty.
-    :param fallback: Replacement for an empty sanitized component; truncated with other results.
+    :param fallback: Replacement for an empty sanitized component; truncated with other
+        results.
     :return: Simplified filename component.
     """
     if value is None:
@@ -63,7 +64,8 @@ def _register_min_calibre_sql_functions(conn: sqlite3.Connection) -> None:
         A builder connection can insert books whose schema triggers call title_sort.
 
 
-    :param conn: Open builder-configured SQLite connection; caller controls commit and close unless stated otherwise.
+    :param conn: Open builder-configured SQLite connection; caller controls commit and
+        close unless stated otherwise.
     :return: None; modifies the supplied connection UDF registrations.
     """
     # Keep this implementation self-contained (LiuXin's richer `title_sort` is
@@ -119,7 +121,8 @@ class AddedBook:
     """
     Record a created book ID, relative/absolute paths, title, authors and formats.
 
-    The dataclass is frozen, but contained sequence/dictionary values are not deeply frozen.
+    The dataclass is frozen, but contained sequence/dictionary values are not deeply
+    frozen.
 
     Example:
         Use added.formats["EPUB"].file_path to find the file returned by add_book.
@@ -151,7 +154,8 @@ class CalibreLibraryBuilder:
 
 
         :param library_root: Directory containing the Calibre library.
-        :param metadata_db: Optional database path; defaults to library_root/metadata.db.
+        :param metadata_db: Optional database path; defaults to
+            library_root/metadata.db.
         :return: None; stores the two paths.
         """
         self.library_root = Path(library_root)
@@ -167,7 +171,8 @@ class CalibreLibraryBuilder:
             Close the returned connection after using it to inspect custom values.
 
 
-        :return: New sqlite3 connection; this method does not manage its later transaction.
+        :return: New sqlite3 connection; this method does not manage its later
+            transaction.
         """
         conn = sqlite3.connect(str(self.metadata_db))
         conn.execute("PRAGMA foreign_keys = ON")
@@ -204,7 +209,8 @@ class CalibreLibraryBuilder:
 
 
         :param num: Custom-column identifier interpolated into the names.
-        :return: Value-table and book/value link-table names; no ID validation is performed.
+        :return: Value-table and book/value link-table names; no ID validation is
+            performed.
         """
         return f"custom_column_{num}", f"books_custom_column_{num}_link"
 
@@ -217,7 +223,8 @@ class CalibreLibraryBuilder:
             >>> CalibreLibraryBuilder._validate_custom_label("reading_status")
 
 
-        :param label: Label checked with Unicode-aware word, letter and lowercase predicates.
+        :param label: Label checked with Unicode-aware word, letter and lowercase
+            predicates.
         :return: None for a valid label; otherwise raises ValueError.
         """
         if not label:
@@ -243,10 +250,11 @@ class CalibreLibraryBuilder:
         """
         Register a custom column and create its physical tables, triggers and views.
 
-        Validate label/type before checking for an existing row. Only text/composite retain
-        is_multiple; normalized storage depends on datatype. Existing labels return their
-        ID only for if_exists=return, without checking specification equality. SQLite
-        executescript can commit the metadata insert before later DDL fails.
+        Validate label/type before checking for an existing row. Only text/composite
+        retain is_multiple; normalized storage depends on datatype. Existing labels
+        return their ID only for if_exists=return, without checking specification
+        equality. SQLite executescript can commit the metadata insert before later DDL
+        fails.
 
         Example:
             A text column creates a reusable value table and a book/value link table;
@@ -256,10 +264,12 @@ class CalibreLibraryBuilder:
         :param label: New lowercase lookup label.
         :param name: Display name stored in the metadata row.
         :param datatype: One of the supported CUSTOM_DATA_TYPES spellings.
-        :param is_multiple: Whether multiple values are requested; retained only for text/composite.
+        :param is_multiple: Whether multiple values are requested; retained only for
+            text/composite.
         :param editable: Truth value stored as the editable flag.
         :param display: Optional dictionary serialized as display JSON.
-        :param if_exists: return reuses an existing ID; any other value raises for an existing label.
+        :param if_exists: return reuses an existing ID; any other value raises for an
+            existing label.
         :return: New or reused custom_columns ID; owns and closes its connection.
         """
 
@@ -447,11 +457,11 @@ CREATE TRIGGER fkc_update_{table}
         """
         Replace a book custom value using its stored datatype/storage configuration.
 
-        Normalized columns replace links and reuse typed values; series supports a name/index
-        pair and defaults its index to 1.0. Own connections are normally committed and
-        closed, but the scalar None deletion branch returns before commit, so that deletion
-        is rolled back on close when this method opened the connection. Caller-supplied
-        connections retain transaction ownership in every branch.
+        Normalized columns replace links and reuse typed values; series supports a
+        name/index pair and defaults its index to 1.0. Own connections are normally
+        committed and closed, but the scalar None deletion branch returns before commit,
+        so that deletion is rolled back on close when this method opened the connection.
+        Caller-supplied connections retain transaction ownership in every branch.
 
         Example:
             For a precreated series column, value=("Saga", 2) stores the name and index;
@@ -461,7 +471,8 @@ CREATE TRIGGER fkc_update_{table}
         :param conn: Optional existing connection; None opens and owns one.
         :param book_id: Existing books.id value receiving the metadata.
         :param label: Existing custom-column lookup label.
-        :param value: Scalar, multi-value list/tuple/set, or a supported series representation.
+        :param value: Scalar, multi-value list/tuple/set, or a supported series
+            representation.
         :param extra: Fallback series index when the series value contains no index.
         :return: None; writes through the selected connection.
         """
@@ -498,13 +509,15 @@ CREATE TRIGGER fkc_update_{table}
 
                 def _parse_series_value(v: Any) -> tuple[str, float | None]:
                     """
-                    Resolve a custom-series name and optional float index using enclosing extra.
+                    Resolve a custom-series name and optional float index using
+                    enclosing extra.
 
-                    Accept a name, two-item sequence, or mapping with name/series/value and
-                    index/series_index/extra keys. Missing names raise ValueError.
+                    Accept a name, two-item sequence, or mapping with name/series/value
+                    and index/series_index/extra keys. Missing names raise ValueError.
 
                     Example:
-                        A mapping with name Saga and index 2 resolves to the pair (Saga, 2.0).
+                        A mapping with name Saga and index 2 resolves to the pair (Saga,
+                        2.0).
 
 
                     :param v: One series value from the enclosing normalized-value loop.
@@ -537,13 +550,16 @@ CREATE TRIGGER fkc_update_{table}
 
                 def _value_id(v: Any) -> int:
                     """
-                    Convert and reuse/insert a normalized value in the enclosing custom-value table.
+                    Convert and reuse/insert a normalized value in the enclosing
+                    custom-value table.
 
-                    Reject None, bind the converted value, and require its ID to be resolvable after
-                    INSERT OR IGNORE. No separate transaction boundary is introduced.
+                    Reject None, bind the converted value, and require its ID to be
+                    resolvable after INSERT OR IGNORE. No separate transaction boundary
+                    is introduced.
 
                     Example:
-                        Repeated text values reuse their existing custom-column value ID.
+                        Repeated text values reuse their existing custom-column value
+                        ID.
 
 
                     :param v: Non-None value cast according to the enclosing datatype.
@@ -613,16 +629,17 @@ CREATE TRIGGER fkc_update_{table}
         """
         Fetch a custom value on a caller connection using stored column metadata.
 
-        Multi-values are ordered by value. Series returns name/index pairs; absent scalar
-        values return None and absent multi-values return an empty list. Unknown labels
-        raise KeyError.
+        Multi-values are ordered by value. Series returns name/index pairs; absent
+        scalar values return None and absent multi-values return an empty list. Unknown
+        labels raise KeyError.
 
         Example:
             A scalar custom series yields ("Saga", 2.0); a multi-text column yields
             a sorted value list.
 
 
-        :param conn: Open builder-configured SQLite connection; caller controls commit and close unless stated otherwise.
+        :param conn: Open builder-configured SQLite connection; caller controls commit
+            and close unless stated otherwise.
         :param book_id: Existing books.id value receiving the metadata.
         :param label: Existing custom-column lookup label.
         :return: Raw scalar, series pair, multi-value list or None.
@@ -687,12 +704,13 @@ CREATE TRIGGER fkc_update_{table}
         custom_values: Mapping[str, Any] | None = None,
     ) -> AddedBook:
         """
-        Insert one book, attach metadata and write its format/cover files before committing.
+        Insert one book, attach metadata and write its format/cover files before
+        committing.
 
         Default empty authors to Unknown. Custom columns must already exist. Database
         errors close the owned connection without committing pending writes, but folders
-        and files already written remain. A series pair is unpacked only when no separate
-        series_index is supplied.
+        and files already written remain. A series pair is unpacked only when no
+        separate series_index is supplied.
 
         Example:
             Adding a title with authors=["A"] and formats={"EPUB": payload} creates
@@ -701,16 +719,19 @@ CREATE TRIGGER fkc_update_{table}
 
         :param title: Book title used for metadata and sanitized path components.
         :param authors: Author sequence; None or empty uses Unknown.
-        :param languages: Language codes; default eng, while None/empty adds no language links.
+        :param languages: Language codes; default eng, while None/empty adds no language
+            links.
         :param tags: Optional tag sequence to attach.
         :param series: Optional series name or name/index pair.
         :param series_index: Optional numeric index converted to float.
         :param publisher: Optional publisher label.
         :param identifiers: Optional mapping of identifier types to values.
-        :param comments_html: Optional comment text stored as supplied, without HTML validation.
+        :param comments_html: Optional comment text stored as supplied, without HTML
+            validation.
         :param formats: Mapping of format labels to bytes to write.
         :param cover_bytes: Optional bytes written directly to cover.jpg.
-        :param custom_values: Optional label/value mapping applied to existing custom columns.
+        :param custom_values: Optional label/value mapping applied to existing custom
+            columns.
         :return: AddedBook record after successful commit.
         """
 
@@ -799,9 +820,11 @@ CREATE TRIGGER fkc_update_{table}
             Authors A and B produce the initial author_sort text A & B.
 
 
-        :param conn: Open builder-configured SQLite connection; caller controls commit and close unless stated otherwise.
+        :param conn: Open builder-configured SQLite connection; caller controls commit
+            and close unless stated otherwise.
         :param title: Book title used for metadata and sanitized path components.
-        :param authors: Nonempty author sequence; its first value supplies folder/filename components.
+        :param authors: Nonempty author sequence; its first value supplies
+            folder/filename components.
         :return: Inserted integer books.id.
         """
         author_sort = " & ".join(authors)
@@ -828,10 +851,12 @@ CREATE TRIGGER fkc_update_{table}
             Book 7 titled Example by A uses A/Example (7) relative to the library root.
 
 
-        :param conn: Open builder-configured SQLite connection; caller controls commit and close unless stated otherwise.
+        :param conn: Open builder-configured SQLite connection; caller controls commit
+            and close unless stated otherwise.
         :param book_id: Existing books.id value receiving the metadata.
         :param title: Book title used for metadata and sanitized path components.
-        :param authors: Nonempty author sequence; its first value supplies folder/filename components.
+        :param authors: Nonempty author sequence; its first value supplies
+            folder/filename components.
         :return: POSIX-style relative path string and filesystem Path.
         """
         author_folder = _sanitize_component(authors[0], fallback="Unknown")
@@ -847,13 +872,15 @@ CREATE TRIGGER fkc_update_{table}
     @staticmethod
     def _get_or_create_id(conn: sqlite3.Connection, *, table: str, name: str, name_col: str = "name") -> int:
         """
-        Insert or reuse a named row using trusted table/column identifiers and bound data.
+        Insert or reuse a named row using trusted table/column identifiers and bound
+        data.
 
         Example:
             A publisher name already present in its unique column reuses that row ID.
 
 
-        :param conn: Open builder-configured SQLite connection; caller controls commit and close unless stated otherwise.
+        :param conn: Open builder-configured SQLite connection; caller controls commit
+            and close unless stated otherwise.
         :param table: Trusted table identifier interpolated into SQL.
         :param name: Name bound as data for insertion and lookup.
         :param name_col: Trusted lookup-column identifier, default name.
@@ -874,7 +901,8 @@ CREATE TRIGGER fkc_update_{table}
             Repeated author names do not create duplicate book/author pairs.
 
 
-        :param conn: Open builder-configured SQLite connection; caller controls commit and close unless stated otherwise.
+        :param conn: Open builder-configured SQLite connection; caller controls commit
+            and close unless stated otherwise.
         :param book_id: Existing books.id value receiving the metadata.
         :param authors: Author names added in input order.
         :return: None; leaves commit/close to the caller.
@@ -897,9 +925,11 @@ CREATE TRIGGER fkc_update_{table}
             Language codes eng and fra receive item_order values zero and one.
 
 
-        :param conn: Open builder-configured SQLite connection; caller controls commit and close unless stated otherwise.
+        :param conn: Open builder-configured SQLite connection; caller controls commit
+            and close unless stated otherwise.
         :param book_id: Existing books.id value receiving the metadata.
-        :param languages: Language codes; existing links are retained by INSERT OR IGNORE.
+        :param languages: Language codes; existing links are retained by INSERT OR
+            IGNORE.
         :return: None; leaves commit/close to the caller.
         """
         # Calibre stores language rows in `languages` and links via `books_languages_link`.
@@ -921,7 +951,8 @@ CREATE TRIGGER fkc_update_{table}
             An already linked tag is preserved without adding a duplicate pair.
 
 
-        :param conn: Open builder-configured SQLite connection; caller controls commit and close unless stated otherwise.
+        :param conn: Open builder-configured SQLite connection; caller controls commit
+            and close unless stated otherwise.
         :param book_id: Existing books.id value receiving the metadata.
         :param tags: Tag labels to stringify and attach.
         :return: None; leaves commit/close to the caller.
@@ -947,7 +978,8 @@ CREATE TRIGGER fkc_update_{table}
             A supplied index of 2 updates books.series_index to 2.0.
 
 
-        :param conn: Open builder-configured SQLite connection; caller controls commit and close unless stated otherwise.
+        :param conn: Open builder-configured SQLite connection; caller controls commit
+            and close unless stated otherwise.
         :param book_id: Existing books.id value receiving the metadata.
         :param series: Series name stringified before lookup.
         :param series_index: Optional numeric index converted to float.
@@ -969,7 +1001,8 @@ CREATE TRIGGER fkc_update_{table}
             An existing publisher row is reused for another book.
 
 
-        :param conn: Open builder-configured SQLite connection; caller controls commit and close unless stated otherwise.
+        :param conn: Open builder-configured SQLite connection; caller controls commit
+            and close unless stated otherwise.
         :param book_id: Existing books.id value receiving the metadata.
         :param publisher: Publisher name stringified before lookup.
         :return: None; leaves commit/close to the caller.
@@ -991,7 +1024,8 @@ CREATE TRIGGER fkc_update_{table}
             A supplied paragraph string is stored unchanged in comments.text.
 
 
-        :param conn: Open builder-configured SQLite connection; caller controls commit and close unless stated otherwise.
+        :param conn: Open builder-configured SQLite connection; caller controls commit
+            and close unless stated otherwise.
         :param book_id: Existing books.id value receiving the metadata.
         :param comments_html: Comment text bound to the database row.
         :return: None; leaves commit/close to the caller.
@@ -1010,7 +1044,8 @@ CREATE TRIGGER fkc_update_{table}
             Updating isbn does not remove an existing doi entry.
 
 
-        :param conn: Open builder-configured SQLite connection; caller controls commit and close unless stated otherwise.
+        :param conn: Open builder-configured SQLite connection; caller controls commit
+            and close unless stated otherwise.
         :param book_id: Existing books.id value receiving the metadata.
         :param identifiers: Type/value mapping; both components are stringified.
         :return: None; leaves commit/close to the caller.
@@ -1034,19 +1069,22 @@ CREATE TRIGGER fkc_update_{table}
         """
         Write format bytes and insert/replace matching data rows on a caller connection.
 
-        Sanitize title/first author for the stem, uppercase format keys and lowercase their
-        extensions. Format labels themselves are not path-sanitized. Existing files are
-        overwritten; filesystem writes survive database rollback.
+        Sanitize title/first author for the stem, uppercase format keys and lowercase
+        their extensions. Format labels themselves are not path-sanitized. Existing
+        files are overwritten; filesystem writes survive database rollback.
 
         Example:
-            An EPUB entry writes a .epub file and returns it under the uppercase EPUB key.
+            An EPUB entry writes a .epub file and returns it under the uppercase EPUB
+            key.
 
 
-        :param conn: Open builder-configured SQLite connection; caller controls commit and close unless stated otherwise.
+        :param conn: Open builder-configured SQLite connection; caller controls commit
+            and close unless stated otherwise.
         :param book_id: Existing books.id value receiving the metadata.
         :param folder: Existing destination book directory.
         :param title: Book title used for metadata and sanitized path components.
-        :param authors: Nonempty author sequence; its first value supplies folder/filename components.
+        :param authors: Nonempty author sequence; its first value supplies
+            folder/filename components.
         :param formats: Mapping of format labels to bytes to write.
         :return: Uppercase-format mapping to AddedFormat records.
         """

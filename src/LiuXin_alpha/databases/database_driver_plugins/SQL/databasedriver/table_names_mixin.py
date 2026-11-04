@@ -47,13 +47,17 @@ class TableNamesMixin:
         """
         Check a trimmed name against cached tables and selected symmetric wrappers.
 
-        Reject semicolon, colon and ampersand. Accept bare names or backtick, backslash, percent and underscore wrappers; this tests existing-name membership and does not guarantee accepted wrappers are valid SQL syntax.
+        Reject semicolon, colon and ampersand. Accept bare names or backtick, backslash,
+        percent and underscore wrappers; this tests existing-name membership and does
+        not guarantee accepted wrappers are valid SQL syntax.
 
         Example:
-            ``driver.direct_validate_existing_table_name("`books`")`` succeeds when books is known.
+            ``driver.direct_validate_existing_table_name("`books`")`` succeeds when
+            books is known.
 
 
-        :param test_name: Candidate coerced to Unicode; decoding failure raises InputIntegrityError.
+        :param test_name: Candidate coerced to Unicode; decoding failure raises
+            InputIntegrityError.
         :return: Whether the name matches an accepted existing-table spelling.
         """
         # If the name matches a pre-existing one it is automatically valid (this function is used to validate input)
@@ -101,14 +105,17 @@ class TableNamesMixin:
         """
         Choose literal id, otherwise the shortest heading ending in _id.
 
-        Length ties preserve schema order. Unknown tables or absent candidates raise InputIntegrityError; this does not inspect primary-key constraints.
+        Length ties preserve schema order. Unknown tables or absent candidates raise
+        InputIntegrityError; this does not inspect primary-key constraints.
 
         Example:
-            ``driver.direct_get_id_column("books")`` selects book_id when no literal id column exists.
+            ``driver.direct_get_id_column("books")`` selects book_id when no literal id
+            column exists.
 
 
         :param table: Existing table name used for schema lookup.
-        :param tables_and_columns: Accepted but ignored; the current schema mapping is always fetched.
+        :param tables_and_columns: Accepted but ignored; the current schema mapping is
+            always fetched.
         :return: The selected ID column name.
         """
 
@@ -152,14 +159,17 @@ class TableNamesMixin:
         """
         Choose literal datestamp, otherwise the shortest recognized timestamp heading.
 
-        Recognize _datestamp, _timestamp and their _ep_k variants. Unknown tables or absent candidates raise InputIntegrityError; ties preserve schema order.
+        Recognize _datestamp, _timestamp and their _ep_k variants. Unknown tables or
+        absent candidates raise InputIntegrityError; ties preserve schema order.
 
         Example:
-            ``driver.direct_get_datestamp_column("books")`` locates a conventional timestamp field.
+            ``driver.direct_get_datestamp_column("books")`` locates a conventional
+            timestamp field.
 
 
         :param table: Existing table name used for schema lookup.
-        :param tables_and_columns: Accepted but ignored; the current schema mapping is always fetched.
+        :param tables_and_columns: Accepted but ignored; the current schema mapping is
+            always fetched.
         :return: The selected timestamp column name.
         """
         table = force_unicode(table)
@@ -207,15 +217,19 @@ class TableNamesMixin:
         """
         Return the first table containing a column in the supplied or current mapping.
 
-        Ambiguity is resolved by mapping order; an unknown column raises InputIntegrityError.
+        Ambiguity is resolved by mapping order; an unknown column raises
+        InputIntegrityError.
 
         Example:
-            >>> TableNamesMixin().direct_identify_table_from_column("book_id", {"books": ["book_id"]})
+            >>> TableNamesMixin().direct_identify_table_from_column(
+            ...     "book_id", {"books": ["book_id"]}
+            ... )
             'books'
 
 
         :param column_heading: Exact column heading to locate.
-        :param headings_and_columns: Optional table-to-column-list mapping; ``None`` reads the driver schema.
+        :param headings_and_columns: Optional table-to-column-list mapping; ``None``
+            reads the driver schema.
         :return: The first matching table name.
         """
         if headings_and_columns is None:
@@ -238,10 +252,12 @@ class TableNamesMixin:
         """
         Choose the shortest non-ID column without mutating the schema cache.
 
-        Ties preserve heading order. A table with no remaining columns raises DatabaseIntegrityError; the choice is a naming heuristic, not semantic metadata.
+        Ties preserve heading order. A table with no remaining columns raises
+        DatabaseIntegrityError; the choice is a naming heuristic, not semantic metadata.
 
         Example:
-            ``driver.direct_get_display_column("books")`` identifies the shortest non-ID heading.
+            ``driver.direct_get_display_column("books")`` identifies the shortest non-ID
+            heading.
 
 
         :param table_name: Table name used by the naming convention or schema lookup.
@@ -268,7 +284,8 @@ class TableNamesMixin:
         Find the first heading ending in _full, ignoring suffix case.
 
         Example:
-            ``driver.direct_get_full_column_name("series")`` locates the stored path column if present.
+            ``driver.direct_get_full_column_name("series")`` locates the stored path
+            column if present.
 
 
         :param target_table: Existing table whose derived column is required.
@@ -290,7 +307,8 @@ class TableNamesMixin:
         Find the first heading ending in _tree_id, ignoring suffix case.
 
         Example:
-            ``driver.direct_get_tree_id_column("series")`` locates the grouping column if present.
+            ``driver.direct_get_tree_id_column("series")`` locates the grouping column
+            if present.
 
 
         :param target_table: Existing table whose derived column is required.
@@ -331,10 +349,12 @@ class TableNamesMixin:
         """
         Find a heading ending in _parent or _parent_id, ignoring case.
 
-        When several match, prefer a sole _parent_id candidate; otherwise raise DatabaseIntegrityError. An unknown table raises InputIntegrityError.
+        When several match, prefer a sole _parent_id candidate; otherwise raise
+        DatabaseIntegrityError. An unknown table raises InputIntegrityError.
 
         Example:
-            ``driver.direct_get_parent_column_name("series")`` accepts legacy and foreign-key-style parent headings.
+            ``driver.direct_get_parent_column_name("series")`` accepts legacy and
+            foreign-key-style parent headings.
 
 
         :param table_name: Table name used by the naming convention or schema lookup.
@@ -378,7 +398,8 @@ class TableNamesMixin:
         """
         Test a name against the ASCII letters-and-underscores regular expression.
 
-        Digits are rejected. The regex uses dollar anchoring, so it also accepts a trailing newline; this is not a complete SQL identifier validation rule.
+        Digits are rejected. The regex uses dollar anchoring, so it also accepts a
+        trailing newline; this is not a complete SQL identifier validation rule.
 
         Example:
             >>> TableNamesMixin.direct_validate_table_name("book_links")

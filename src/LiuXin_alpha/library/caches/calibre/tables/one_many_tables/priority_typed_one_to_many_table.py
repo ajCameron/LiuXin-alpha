@@ -20,7 +20,7 @@ from copy import deepcopy
 from typing import TypeVar, Optional, Union, Any, Iterable, Mapping
 
 from LiuXin_alpha.library.caches.calibre.tables.one_many_tables.one_to_many_table import CalibreOneToManyTable
-from LiuXin_alpha.databases.db_types import SrcTableID, DstTableID, MetadataDict, InterLinkTableName
+from LiuXin_alpha.databases.db_types.database_types import InterLinkTableName, SrcTableID, DstTableID, MetadataDict
 
 from LiuXin_alpha.errors import InvalidCacheUpdate
 

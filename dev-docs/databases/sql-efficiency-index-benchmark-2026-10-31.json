@@ -1,0 +1,64 @@
+{
+  "created_at": "2026-10-31T02:53:21.798612+00:00",
+  "python": "3.12.3",
+  "platform": "Linux-6.18.33.1-microsoft-standard-WSL2-x86_64-with-glibc2.39",
+  "backend": "SQLite_apsw driver (stdlib SQLite connections)",
+  "sqlite_version": "3.45.1",
+  "dataset": {
+    "works": 50000,
+    "expressions": 50000,
+    "manifestations": 25000,
+    "items": 50000,
+    "identifiers": 50000,
+    "shared_expression_links": 500,
+    "database_bytes": 37478400,
+    "setup_seconds": 12.134420788963325
+  },
+  "batch": 1000,
+  "iterations": 3,
+  "results": [
+    {
+      "scenario": "title_index",
+      "seconds": [
+        0.0020994360093027353,
+        0.0018723680404946208,
+        0.0019548849668353796
+      ],
+      "median_seconds": 0.0019548849668353796,
+      "process_peak_rss_kib": 64772,
+      "operation_python_peak_bytes": 55572,
+      "sql_statements": 15,
+      "result_count": 1,
+      "result_sha256": "5c3e6ad4119ed2d270e1ff567668ca6f69a56e7a10f036a3d37c7bceab3d119a"
+    },
+    {
+      "scenario": "title_fallback",
+      "seconds": [
+        1.2838746570050716,
+        1.3081896329531446,
+        1.2744447370059788
+      ],
+      "median_seconds": 1.2838746570050716,
+      "process_peak_rss_kib": 67492,
+      "operation_python_peak_bytes": 1476373,
+      "sql_statements": 808,
+      "result_count": 1,
+      "result_sha256": "5c3e6ad4119ed2d270e1ff567668ca6f69a56e7a10f036a3d37c7bceab3d119a"
+    },
+    {
+      "scenario": "shared_wemi",
+      "seconds": [
+        2.500617014011368,
+        2.254361951025203,
+        2.5492767500691116
+      ],
+      "median_seconds": 2.500617014011368,
+      "process_peak_rss_kib": 66296,
+      "operation_python_peak_bytes": 59863,
+      "sql_statements": 46,
+      "result_count": 2,
+      "result_sha256": "385c9a4aa719b62e9d6252a050deaa8f21a8c7a11857f850da9e7abee723e322"
+    }
+  ],
+  "methodology": "Warm operation timings; separate SQLite trace-event counts (including metadata and triggers, excluding connection setup) and tracemalloc samples; process RSS includes startup. References are current APIs, not historical releases. Writes roll back."
+}

@@ -2,7 +2,9 @@
 """
 Wrap backend search results in Rows and provide set, iterator and grouped retrieval.
 
-The facade passes query semantics to its wrapper/driver. List-returning methods eagerly wrap each result; iterator helpers keep the database live while consumed. Grouping is by distinct column value, not a bounded batch size.
+The facade passes query semantics to its wrapper/driver. List-returning methods eagerly
+wrap each result; iterator helpers keep the database live while consumed. Grouping is by
+distinct column value, not a bounded batch size.
 """
 
 from __future__ import annotations
@@ -27,7 +29,8 @@ class DatabaseSearchMixin:
     Compose Row-oriented retrieval on top of backend search and scan primitives.
 
     Example:
-        For an open db, matches = db.search("works", "work_title", title) wraps each backend match as a Row bound to db.
+        For an open db, matches = db.search("works", "work_title", title) wraps each
+        backend match as a Row bound to db.
     """
 
     # ----------------------------------------------------------------------------------------------------------------------
@@ -38,10 +41,13 @@ class DatabaseSearchMixin:
         """
         Wrap every result of a single-column wrapper search in a facade Row.
 
-        Backend validation and coercion determine comparison behavior; the facade itself does not convert the value. Current SQLite equality search does not make None match SQL NULL.
+        Backend validation and coercion determine comparison behavior; the facade itself
+        does not convert the value. Current SQLite equality search does not make None
+        match SQL NULL.
 
         Example:
-            For an open db, db.search("works", "work_title", "Example") performs the wrapper exact-match search and returns Rows.
+            For an open db, db.search("works", "work_title", "Example") performs the
+            wrapper exact-match search and returns Rows.
 
 
         :param table: Target table name.
@@ -56,14 +62,20 @@ class DatabaseSearchMixin:
         """
         Delegate a backend multi-column query and eagerly wrap every returned record.
 
-        No query rewriting or validation is added here. Available comparison operators and cross-table support depend on the driver; the legacy surface does not promise arbitrary joins.
+        No query rewriting or validation is added here. Available comparison operators
+        and cross-table support depend on the driver; the legacy surface does not
+        promise arbitrary joins.
 
         Example:
-            On a driver supporting multi-column predicates, db.multi_column_search(predicates, iterator_return=True) still consumes the backend result into a Row list.
+            On a driver supporting multi-column predicates,
+            db.multi_column_search(predicates, iterator_return=True) still consumes the
+            backend result into a Row list.
 
 
-        :param search_index: Backend search specification, conventionally column/operator/value triples.
-        :param iterator_return: Forward the backend iterator preference; this facade still returns a list.
+        :param search_index: Backend search specification, conventionally
+            column/operator/value triples.
+        :param iterator_return: Forward the backend iterator preference; this facade
+            still returns a list.
         :return: Materialized list of Rows regardless of iterator_return.
         """
         row_dicts = self.driver.direct_multi_column_search(search_index=search_index, iterator_return=iterator_return)
@@ -75,7 +87,8 @@ class DatabaseSearchMixin:
         Return the non-iterator unique-value set for a column.
 
         Example:
-            For an open db, db.get_unique("work_title") requests the same set as db.get_values_set("work_title").
+            For an open db, db.get_unique("work_title") requests the same set as
+            db.get_values_set("work_title").
 
 
         :param target_column: Column identifier understood by the backend.
@@ -90,12 +103,15 @@ class DatabaseSearchMixin:
         Values are returned directly without Row wrapping or facade conversion.
 
         Example:
-            For an open db, values = db.get_values_set("work_title", iterator_return=False) collects distinct title values.
+            For an open db, values = db.get_values_set("work_title",
+            iterator_return=False) collects distinct title values.
 
 
         :param target_column: Column identifier used to locate its table.
-        :param iterator_return: True selects the driver iterator; False selects its set result.
-        :return: Backend iterator or set of distinct values, according to iterator_return.
+        :param iterator_return: True selects the driver iterator; False selects its set
+            result.
+        :return: Backend iterator or set of distinct values, according to
+            iterator_return.
         """
         if iterator_return:
             return self.driver.direct_get_unique_values_iterator(target_column=target_column)
@@ -107,7 +123,8 @@ class DatabaseSearchMixin:
         Fetch one stored record and wrap it unless the wrapper returns a false value.
 
         Example:
-            For an open db, row = db.get_row_from_id("works", work_id) retrieves that identity or None.
+            For an open db, row = db.get_row_from_id("works", work_id) retrieves that
+            identity or None.
 
 
         :param table: Table to query.
@@ -124,14 +141,17 @@ class DatabaseSearchMixin:
         """
         Wrap the record selected by the backend random-row helper.
 
-        There is no missing-result guard. Under the current SQLite backend, an empty table produces a Row with table=None whose row_id access fails.
+        There is no missing-result guard. Under the current SQLite backend, an empty
+        table produces a Row with table=None whose row_id access fails.
 
         Example:
-            For a nonempty works table, db.get_random_row("works") returns one existing work Row.
+            For a nonempty works table, db.get_random_row("works") returns one existing
+            work Row.
 
 
         :param table: Table from which to choose a record.
-        :return: Row bound to this facade; an empty backend result can produce an untyped Row.
+        :return: Row bound to this facade; an empty backend result can produce an
+            untyped Row.
         """
         row_dict = self.driver_wrapper.get_random_row(table=table)
         return Row(row_dict=row_dict, database=self)
@@ -145,18 +165,22 @@ class DatabaseSearchMixin:
         """
         Return an unsorted Row iterator or an optionally sorted materialized list.
 
-        List mode delegates sorting to the wrapper. Iterator mode rejects reverse=True or any non-None sort column before returning the generator.
+        List mode delegates sorting to the wrapper. Iterator mode rejects reverse=True
+        or any non-None sort column before returning the generator.
 
         Example:
-            For an open db, db.get_all_rows("works", iterator_return=False, sort_column="work_id", reverse=True) requests a descending list.
+            For an open db, db.get_all_rows("works", iterator_return=False,
+            sort_column="work_id", reverse=True) requests a descending list.
 
 
         :param table: Table to scan.
-        :param iterator_return: True returns a lazy iterator; False materializes all records.
+        :param iterator_return: True returns a lazy iterator; False materializes all
+            records.
         :param sort_column: Optional sort column, supported only in list mode.
         :param reverse: Request descending order, supported only in list mode.
         :return: Row iterator or list according to iterator_return.
-        :raises NotImplementedError: Sorting or reverse order is requested in iterator mode.
+        :raises NotImplementedError: Sorting or reverse order is requested in iterator
+            mode.
         """
         if iterator_return:
             if reverse or sort_column is not None:
@@ -172,10 +196,12 @@ class DatabaseSearchMixin:
         """
         Lazily wrap each record yielded by the driver row-dictionary iterator.
 
-        Backend access occurs during iteration; keep the owning database open while consuming it.
+        Backend access occurs during iteration; keep the owning database open while
+        consuming it.
 
         Example:
-            The public db.get_all_rows("works") returns this lazy wrapping path without materializing the whole table.
+            The public db.get_all_rows("works") returns this lazy wrapping path without
+            materializing the whole table.
 
 
         :param table: Table to scan.
@@ -191,17 +217,24 @@ class DatabaseSearchMixin:
             column: str,
             target_table: Optional[str] = None) -> Iterable[list["RowAPI"]]:
         """
-        Yield one Row list per distinct grouping value, optionally following cross-table links.
+        Yield one Row list per distinct grouping value, optionally following cross-table
+        links.
 
-        For another target table, concatenate endpoints linked from each matching source Row without deduplication. Distinct-value order is backend-defined. Current SQLite equality search yields empty groups for NULL values.
+        For another target table, concatenate endpoints linked from each matching source
+        Row without deduplication. Distinct-value order is backend-defined. Current
+        SQLite equality search yields empty groups for NULL values.
 
         Example:
-            For an open db, list(db.chunk_iterator("work_title")) groups works by distinct title values, with no promise of a fixed number of Rows per group.
+            For an open db, list(db.chunk_iterator("work_title")) groups works by
+            distinct title values, with no promise of a fixed number of Rows per group.
 
 
-        :param column: Grouping column converted to text and resolved to its owning table.
-        :param target_table: Target table for returned Rows; None or the column table returns direct matches.
-        :return: Generator of Row lists; groups can be empty and have no fixed size bound.
+        :param column: Grouping column converted to text and resolved to its owning
+            table.
+        :param target_table: Target table for returned Rows; None or the column table
+            returns direct matches.
+        :return: Generator of Row lists; groups can be empty and have no fixed size
+            bound.
         """
         column = six_unicode(deepcopy(column))
         column_table = self.driver_wrapper.identify_table_from_column(column)

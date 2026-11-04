@@ -15,11 +15,7 @@ import dataclasses
 from typing import Optional, TypeVar, TYPE_CHECKING, Generic
 
 if TYPE_CHECKING:
-    from LiuXin_alpha.databases.db_types import (
-        MainTableName,
-        MainTableColumnName,
-        MainTableID,
-    )
+    from LiuXin_alpha.databases.db_types.database_types import MainTableID, MainTableName, MainTableColumnName
 
 T = TypeVar("T")
 

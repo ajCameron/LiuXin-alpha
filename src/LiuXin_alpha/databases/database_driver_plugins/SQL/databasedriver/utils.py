@@ -75,7 +75,8 @@ def py_set_converter(py_set_string):
         set()
 
 
-    :param py_set_string: Legacy serialized set, normally the bytes supplied by an SQLite converter.
+    :param py_set_string: Legacy serialized set, normally the bytes supplied by an
+        SQLite converter.
     :return: A set of nonempty decoded string fragments.
     """
     from LiuXin_alpha.errors import DatabaseDriverError
@@ -142,7 +143,8 @@ def py_set_adapter(py_set):
         True
 
 
-    :param py_set: Iterable of values, conventionally a set, copied before serialization.
+    :param py_set: Iterable of values, conventionally a set, copied before
+        serialization.
     :return: Legacy serialized text, without surrounding set braces.
     """
 
@@ -202,7 +204,8 @@ def py_dict_converter(py_dict_string: str) -> dict[str, str]:
         {'count': 2}
 
 
-    :param py_dict_string: JSON input accepted by json.loads; malformed input raises its decoding errors.
+    :param py_dict_string: JSON input accepted by json.loads; malformed input raises its
+        decoding errors.
     :return: The decoded JSON value, despite the narrower dictionary annotation.
     """
     import json
@@ -242,7 +245,9 @@ class PyListAggregate:
         >>> import sqlite3
         >>> conn = sqlite3.connect(":memory:")
         >>> conn.create_aggregate("pylist", 1, PyListAggregate)
-        >>> conn.execute("SELECT pylist(value) FROM (SELECT 2 AS value UNION ALL SELECT 1)").fetchone()[0]
+        >>> conn.execute(
+        ...     "SELECT pylist(value) FROM (SELECT 2 AS value UNION ALL SELECT 1)"
+        ... ).fetchone()[0]
         '[2, 1]'
         >>> conn.close()
     """
@@ -270,7 +275,8 @@ class PyListAggregate:
             '[null]'
 
 
-        :param value: Value to retain; it must be JSON-serializable by finalization time.
+        :param value: Value to retain; it must be JSON-serializable by finalization
+            time.
         :return: ``None``.
         """
         self.py_list.append(value)
@@ -327,7 +333,8 @@ class PySetAggregate:
             ``aggregate.step("a")`` retains one copy of the string.
 
 
-        :param value: Hashable value to accumulate; use strings for successful finalization.
+        :param value: Hashable value to accumulate; use strings for successful
+            finalization.
         :return: ``None``.
         """
         self.py_set.add(value)
@@ -452,7 +459,8 @@ class SqliteAumSortedConcatenate:
 
 
         :param ndx: Hashable ordering key; all retained keys must be mutually sortable.
-        :param author: Author name; ``None`` skips this entry without removing a prior value at the same index.
+        :param author: Author name; ``None`` skips this entry without removing a prior
+            value at the same index.
         :param sort: Author-sort text included in the serialized entry.
         :param link: Author-link text included in the serialized entry.
         :return: ``None``.
@@ -501,7 +509,8 @@ class SqliteSortedConcatenate:
         Store the separator and create an empty index/value mapping.
 
         Example:
-            ``aggregate = SqliteSortedConcatenate("|")`` uses vertical bars between values.
+            ``aggregate = SqliteSortedConcatenate("|")`` uses vertical bars between
+            values.
 
 
         :param sep: String separator inserted between accumulated values.
@@ -579,7 +588,8 @@ class SqliteIdentifiersConcat:
 
 
         :param key: Identifier type converted with percent-s formatting.
-        :param val: Identifier value converted with percent-s formatting, including None.
+        :param val: Identifier value converted with percent-s formatting, including
+            None.
         :return: ``None``.
         """
         self.ctxt.append("%s:%s" % (key, val))
@@ -698,7 +708,8 @@ def Concatenate(sep: str = ","):
 
 
     :param sep: String separator inserted between accumulated values.
-    :return: A fresh list, its two-argument step callback and its one-argument finalizer.
+    :return: A fresh list, its two-argument step callback and its one-argument
+        finalizer.
     """
 
     def step(ctxt, value):
@@ -777,7 +788,8 @@ def StupidConcatenate(sep=","):
         the assert is removed.
 
         Example:
-            ``finish(["diagnostic"])`` raises ``AssertionError: diagnostic`` in normal execution.
+            ``finish(["diagnostic"])`` raises ``AssertionError: diagnostic`` in normal
+            execution.
 
 
         :param ctxt: List of strings used to build the assertion message.
@@ -829,7 +841,8 @@ def SortedConcatenate(sep=","):
         Join values by sorted keys using the factory separator.
 
         Example:
-            The finalizer returned by ``SortedConcatenate()`` returns ``None`` for an empty mapping.
+            The finalizer returned by ``SortedConcatenate()`` returns ``None`` for an
+            empty mapping.
 
 
         :param ctxt: Index/string mapping; sorting and join errors propagate.
@@ -931,8 +944,10 @@ def AumSortedConcatenate() -> tuple[
 
         :param ctxt: Mutable index-to-formatted-entry mapping.
         :param ndx: Hashable ordering key; all retained keys must be mutually sortable.
-        :param author: Author name; ``None`` skips this entry without removing a prior value at the same index.
-        :param sort: String author-sort value; None raises TypeError for a retained author.
+        :param author: Author name; ``None`` skips this entry without removing a prior
+            value at the same index.
+        :param sort: String author-sort value; None raises TypeError for a retained
+            author.
         :param link: String link value; None raises TypeError for a retained author.
         :return: ``None``.
         """

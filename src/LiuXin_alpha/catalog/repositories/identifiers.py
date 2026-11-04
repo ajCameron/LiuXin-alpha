@@ -13,6 +13,9 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from typing import ClassVar
 
+from LiuXin_alpha.databases.db_types.query_types import IdentifierMatch
+from LiuXin_alpha.metadata.identifiers import normalise_identifier_scheme
+
 from ..api.common import (
     CatalogMutationError,
     EntityId,
@@ -161,7 +164,8 @@ class IdentifierRepository(BaseRepository):
         Return the first stored row matching normalized scheme and value, regardless of owner.
 
         Validate both arguments as strings and normalize the incoming candidate before
-        materializing all rows in requested ascending identifier-ID order. For each row,
+        lookup in ascending identifier-ID order. Supported drivers use indexed SQL
+        comparison; other adapters stream bounded pages. For stored comparisons,
         convert its raw scheme/value columns to strings (false-valued fields become empty)
         and normalize them, skipping TypeError/ValueError failures. Compare canonical
         scheme and normalised_value, ignoring provenance, primary flags, and ownership.
@@ -182,7 +186,18 @@ class IdentifierRepository(BaseRepository):
         if not isinstance(identifier_type, str) or not isinstance(value, str):
             raise TypeError("identifier_type and value must be strings")
         wanted = self.normalise(IdentifierCandidate(identifier_type, value))
-        for row in self._all_rows():
+        rows = self._matching_rows(
+            IdentifierMatch(
+                self._scheme_column,
+                self._value_column,
+                wanted.identifier_type,
+                wanted.normalised_value,
+            ),
+            limit=1,
+        )
+        if rows is not None:
+            return next(iter(rows), None)
+        for row in self._scan_rows():
             try:
                 existing = self.normalise(
                     IdentifierCandidate(
@@ -465,6 +480,105 @@ class IdentifierRepository(BaseRepository):
             result[scheme] = value
         return result
 
+    def list_for_level(self, level: WemiLevel) -> Sequence[RowMapping]:
+        """Read curated identifiers at one WEMI level in row-ID order.
+
+        Includes primary and alternative values. This inventory read does not
+        validate each owner or include raw Item observations.
+        """
+        if level not in WEMI_TABLES:
+            raise ValueError(f"unknown WEMI level: {level!r}")
+        return tuple(
+            dict(row)
+            for row in self._macros.get_rows(
+                self.table_name,
+                where={"entity_identifier_entity_type": level},
+                order_by=(self.id_column,),
+            )
+        )
+
+    def clear_for_wemi(
+        self, *, level: WemiLevel, entity_id: EntityId, scheme: str | None = None
+    ) -> None:
+        """Atomically remove an owner's identifiers, optionally by scheme.
+
+        Scheme aliases share the metadata normalizer. Generic ``isbn`` removes
+        both ISBN lengths. Other owners and raw Item observations are untouched.
+        Missing owners raise CatalogNotFoundError, even when nothing matches.
+        """
+        selected = None if scheme is None else normalise_identifier_scheme(scheme)
+        schemes = {"isbn", "isbn10", "isbn13"} if selected == "isbn" else {selected}
+        with self._macros.transaction():
+            for row in self.list_for_wemi(level=level, entity_id=entity_id):
+                if (
+                    selected is None
+                    or normalise_identifier_scheme(row["entity_identifier_scheme"])
+                    in schemes
+                ):
+                    self.delete(row[self.id_column])
+
+    def set_primary_for_wemi(
+        self,
+        *,
+        level: WemiLevel,
+        entity_id: EntityId,
+        scheme: str,
+        value: str | None,
+    ) -> EntityId | None:
+        """Select one primary value for a scheme, retaining alternative values.
+
+        Validate through the shared identifier policy before writes. Equivalent
+        values reuse the first owned row and preserve its spelling/provenance.
+        Other schemes and owners are untouched. None clears the scheme; empty
+        strings are invalid. Generic ISBN clearing removes both ISBN lengths.
+        All demotions and insertion/promotion share the caller's transaction.
+        """
+        if level not in WEMI_TABLES:
+            raise ValueError(f"unknown WEMI level: {level!r}")
+        if value is None:
+            normalise_identifier_scheme(scheme)
+            self.clear_for_wemi(level=level, entity_id=entity_id, scheme=scheme)
+            return None
+        candidate = self.normalise(IdentifierCandidate(scheme, value))
+        schemes = {candidate.identifier_type}
+        if candidate.identifier_type in {"isbn10", "isbn13"}:
+            schemes.add("isbn")
+        with self._macros.transaction():
+            selected_id = None
+            rows = self.list_for_wemi(level=level, entity_id=entity_id)
+            for row in rows:
+                stored_scheme = normalise_identifier_scheme(
+                    row["entity_identifier_scheme"]
+                )
+                if stored_scheme not in schemes:
+                    continue
+                existing = self.normalise(
+                    IdentifierCandidate(
+                        row["entity_identifier_scheme"], row["entity_identifier_value"]
+                    )
+                )
+                if existing.identifier_type != candidate.identifier_type:
+                    continue
+                if selected_id is None and (
+                    existing.normalised_value == candidate.normalised_value
+                ):
+                    selected_id = row[self.id_column]
+                self.update(row[self.id_column], {"is_primary": False})
+            if selected_id is None:
+                return self.create(
+                    {
+                        "level": level,
+                        "entity_id": entity_id,
+                        "scheme": candidate.identifier_type,
+                        "value": candidate.value,
+                        "is_primary": True,
+                    }
+                )
+            self.update(
+                selected_id, {"scheme": candidate.identifier_type, "is_primary": True}
+            )
+            return selected_id
+
     def replace_for_wemi(
         self,
         *,
@@ -574,11 +688,11 @@ class IdentifierRepository(BaseRepository):
         entity_id: EntityId,
     ) -> Sequence[RowMapping]:
         """
-        Require an owner and select exact direct-ownership matches from a full row scan.
+        Require an owner and select exact direct-ownership matches in SQL.
 
         The owner table is used only for existence validation; the discriminator is an
-        independent equality filter. Read all identifiers through _all_rows and retain
-        their order and shallow row mappings. Do not normalize values, inspect primary
+        independent equality filter. Filter the stored discriminator and owner ID in
+        SQL, retaining ID order and shallow row mappings. Do not normalize values, inspect primary
         flags, deduplicate logical identifiers, or open an enclosing read transaction.
 
         Example:
@@ -595,10 +709,10 @@ class IdentifierRepository(BaseRepository):
 
         self._require_table_row(entity_table, entity_id)
         return tuple(
-            row
-            for row in self._all_rows()
-            if row.get("entity_identifier_entity_type") == entity_type
-            and row.get("entity_identifier_entity_id") == entity_id
+            self._as_mapping(row)
+            for row in self.db.metadata_sql.get_entity_identifiers_for_owners(
+                [entity_id], entity_type=entity_type
+            )[entity_id]
         )
 
 

@@ -1,7 +1,8 @@
 # Transaction ownership
 
-Reviewed **2026-10-20** for architecture A04. This contract separates a database
-facade's lifetime, a connection's lifetime and a SQL transaction's lifetime.
+Reviewed **2026-10-28**, including the database review fixes, for architecture A04.
+This contract separates a database facade's lifetime, a connection's lifetime and
+a SQL transaction's lifetime.
 
 ## Resource contexts and compatibility
 
@@ -28,8 +29,9 @@ Former lock-as-connection callers must obtain a connection using
 [`SQLPortableMacrosMixin.transaction()`](../../src/LiuXin_alpha/databases/database_driver_plugins/SQL/macros/portable_macros_mixin.py)
 delegates transaction ownership to
 [`transaction_scope`](../../src/LiuXin_alpha/databases/transactions.py).
-Catalog aggregate writes, supported Row/Agent writes and storage's database
-unit of work use this macro boundary.
+Catalog aggregate writes, catalog-backed Row/Agent operations and storage's
+database unit of work use this macro boundary. Generic `Row.sync()` retains the
+direct update boundary listed below.
 
 | Entry | SQL ownership | Connection lifetime |
 | --- | --- | --- |
@@ -95,9 +97,10 @@ aggregate operation. The following inventory records the live exceptions.
 | [Storage database unit of work](../../src/LiuXin_alpha/storage/storage_manager/database_unit_of_work.py) | Delegates to the metadata repository transaction. Requires an explicit `unit.commit()` request; otherwise exit rolls back. It cannot restore external Store bytes. Use a fresh unit per operation. |
 | [DBPrefs](../../src/LiuXin_alpha/databases/dbprefs.py), [wrapper update helpers](../../src/LiuXin_alpha/databases/driver_wrapper/driver_wrapper_update_mixin.py) | The mutex serializes local callers; selected row writers own their writes. Memory/cache changes and a sequence of separate calls are not one database transaction. |
 | [Direct SQL execution](../../src/LiuXin_alpha/databases/database_driver_plugins/SQL/databasedriver/sql_execution_mixin.py) | `direct_execute`/`direct_executemany` enter the primary connection's backend context and can commit earlier primary work. `direct_execute_sql` uses and commits a separate connection. Script helpers retain backend script semantics, including SQLite's implicit commits. Do not compose these inside a macro unit. |
-| [Legacy updates](../../src/LiuXin_alpha/databases/database_driver_plugins/SQL/databasedriver/update_mixin.py), [value casting](../../src/LiuXin_alpha/databases/database_driver_plugins/SQL/databasedriver/value_casting_mixin.py), [trigger helpers](../../src/LiuXin_alpha/databases/database_driver_plugins/SQL/databasedriver/triggers_mixin.py) | Separate connections, explicit commits or per-operation contexts remain. Some legacy error paths commit in cleanup; these privileged maintenance helpers are not atomic Catalog writers. |
+| [Direct inserts](../../src/LiuXin_alpha/databases/database_driver_plugins/SQL/databasedriver/add_mixin.py), [updates](../../src/LiuXin_alpha/databases/database_driver_plugins/SQL/databasedriver/update_mixin.py), [row/value deletes](../../src/LiuXin_alpha/databases/database_driver_plugins/SQL/databasedriver/delete_mixin.py) | Each call owns a transaction on a fresh SQLite connection, commits only on success, rolls back the whole batch on failure and closes the connection. Separate calls do not form an aggregate transaction or join an enclosing macro unit. Whole-table clearing and link DDL retain their documented separate boundaries. |
+| [Value casting](../../src/LiuXin_alpha/databases/database_driver_plugins/SQL/databasedriver/value_casting_mixin.py), [trigger helpers](../../src/LiuXin_alpha/databases/database_driver_plugins/SQL/databasedriver/triggers_mixin.py) | Separate connections, explicit commits or per-operation contexts remain. These privileged maintenance helpers are not atomic Catalog writers. |
 | [Link DDL](../../src/LiuXin_alpha/databases/database_driver_plugins/SQL/utility_mixins.py), [custom-column macros](../../src/LiuXin_alpha/databases/database_driver_plugins/SQL/macros/cc_macros_mixin/__init__.py) and [management](../../src/LiuXin_alpha/databases/database_driver_plugins/SQL/macros/cc_macros_mixin/cc_management_macros.py) | DDL/script and metadata updates retain local commit points. Schema maintenance must not assume an enclosing resource or macro context groups these operations. |
-| [PostgreSQL direct driver](../../src/LiuXin_alpha/databases/database_driver_plugins/PostgreSQL/databasedriver/__init__.py) | Connection-local operation contexts remain for direct legacy helpers. Fresh connection setup commits its search path before lending the handle to the macro owner. |
+| [PostgreSQL direct driver](../../src/LiuXin_alpha/databases/database_driver_plugins/PostgreSQL/databasedriver/__init__.py) | Direct row and batch writes use one primary-connection transaction per call, rolling back the batch on failure. These contexts can include earlier pending primary work; they do not join a separate macro connection. Fresh connection setup commits its search path before lending the handle to the macro owner. |
 | [Creation/replacement](creation-and-replacement.md) and schema generators | Separate initialization/publication contract, with explicit schema-building commits. Database construction is not part of a later resource or macro transaction. |
 | Caller-owned raw connections | The caller explicitly owns `BEGIN`, commit/rollback and close. Backend connection contexts may commit; they are distinct from facade resource contexts. |
 
@@ -123,3 +126,17 @@ add real constraint-error recovery, borrowed state and resource cleanup.
 Existing Catalog, Row/Agent, driver, storage and connection-cleanup contracts
 remain the parity checks; a SQLite-backed PostgreSQL-shaped stub alone is not
 live-backend evidence.
+
+[Direct-write regressions](../../tests/databases/test_row_write_safety.py) cover
+mapping-order-independent inserts, complete batch rollback, prompt deletion
+connection cleanup, preserved integrity-error causes, literal `"None"` versus
+SQL NULL, and derived-key-only updates. They also check Row equality, draft
+hash rejection and Unicode string conversion. The
+[PostgreSQL direct-write cases](../../tests/databases/test_row_write_safety_postgres_live.py)
+exercise durability and normalization on the live backend in disposable schemas.
+
+These fixes deliberately remove partial-batch persistence and string-to-NULL
+coercion. Callers must pass Python `None` to clear a nullable value. Updating a
+derived identity key without its display column recomputes the key from stored
+text; PostgreSQL locks that row until the update completes. Draft Rows cannot be
+used as dictionary keys or set members until they have a table and row ID.

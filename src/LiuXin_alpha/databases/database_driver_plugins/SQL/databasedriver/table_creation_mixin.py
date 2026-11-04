@@ -12,10 +12,12 @@ from LiuXin_alpha.utils.language_tools import plural_singular_mapper
 
 class TableCreationMixin:
     """
-    Generate main-table DDL with an ID, requested data columns, datestamp and scratch fields.
+    Generate main-table DDL with an ID, requested data columns, datestamp and scratch
+    fields.
 
     Example:
-        ``driver.direct_create_main_table("examples")`` creates the conventional default layout.
+        ``driver.direct_create_main_table("examples")`` creates the conventional default
+        layout.
     """
     # Todo: Should be creation methods for all types of table
     # Todo: Central registyr on the database for table types
@@ -36,17 +38,28 @@ class TableCreationMixin:
         """
         Create a conventionally named main table and invalidate schema caches.
 
-        With no headings, create one default data column and its index; only index_on="all" is implemented in that branch. Explicit headings must be a mapping to datatype specification mappings; that branch creates no indexes. default_unique is unused. Trusted names/types become SQL syntax; repeated default creation may fail on the existing index even though the table uses IF NOT EXISTS.
+        With no headings, create one default data column and its index; only
+        index_on="all" is implemented in that branch. Explicit headings must be a
+        mapping to datatype specification mappings; that branch creates no indexes.
+        default_unique is unused. Trusted names/types become SQL syntax; repeated
+        default creation may fail on the existing index even though the table uses IF
+        NOT EXISTS.
 
         Example:
-            ``driver.direct_create_main_table("examples", {"name": {"datatype": "TEXT"}})`` creates an example_name column.
+            ``driver.direct_create_main_table("examples", {"name": {"datatype":
+            "TEXT"}})`` creates an example_name column.
 
 
-        :param table_name: Trusted plural table name; its singular form prefixes generated columns.
-        :param column_headings: Optional suffix-to-specification mapping; each spec may contain a ``datatype`` key.
-        :param index_on: Use ``all`` for the default layout; ignored for explicit column specifications.
-        :param default_datatype: Trusted SQL type used for the default column or a spec missing datatype.
-        :param default_unique: Accepted but currently unused; no uniqueness constraint is generated from it.
+        :param table_name: Trusted plural table name; its singular form prefixes
+            generated columns.
+        :param column_headings: Optional suffix-to-specification mapping; each spec may
+            contain a ``datatype`` key.
+        :param index_on: Use ``all`` for the default layout; ignored for explicit column
+            specifications.
+        :param default_datatype: Trusted SQL type used for the default column or a spec
+            missing datatype.
+        :param default_unique: Accepted but currently unused; no uniqueness constraint
+            is generated from it.
         :return: ``None``.
         """
         table_col = plural_singular_mapper(table_name)

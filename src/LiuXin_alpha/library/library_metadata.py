@@ -22,7 +22,7 @@ from collections import defaultdict
 from LiuXin_alpha.catalog.catalog import Catalog
 from LiuXin_alpha.catalog.api.common import IdentifierCandidate, MetadataCandidate
 from LiuXin_alpha.databases.row import Row
-from LiuXin_alpha.databases.macro_types import LinkValue
+from LiuXin_alpha.databases.db_types.macro_types import LinkValue
 from LiuXin_alpha.errors import DatabaseIntegrityError
 
 from LiuXin_alpha.metadata.constants import (

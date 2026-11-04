@@ -18,7 +18,6 @@ from types import SimpleNamespace
 import pytest
 
 from LiuXin_alpha.caches.write.identifiers_writer import IdentifiersWrite
-from LiuXin_alpha.catalog.catalog import Catalog
 from LiuXin_alpha.catalog.api import (
     CatalogAmbiguousMatchError,
     CatalogMutationError,
@@ -26,6 +25,7 @@ from LiuXin_alpha.catalog.api import (
     IdentifierCandidate,
     MetadataCandidate,
 )
+from LiuXin_alpha.catalog.catalog import Catalog
 
 
 def _token(prefix: str) -> str:
@@ -808,7 +808,7 @@ def test_dangling_catalog_link_raises_a_catalog_not_found_error(
     """
     Report a linked destination hidden by the read seam as a Catalog not-found error.
 
-    Create a real Work/Agent author link, then patch get_row to hide just the linked Agent while
+    Create a real Work/Agent author link, then hide the linked Agent in get_rows_by_ids while
     forwarding all other reads. Traversal must raise an error naming the source relationship instead
     of silently dropping the destination. The row is not physically deleted and the test does not
     manufacture persistent corruption.
@@ -832,36 +832,24 @@ def test_dangling_catalog_link_raises_a_catalog_not_found_error(
         role="aut",
     )
     macros = catalog.agents._macros
-    original_get_row = macros.get_row
+    original_get_rows_by_ids = macros.get_rows_by_ids
 
     def hide_linked_agent(
         table: str,
-        row_id: int,
-        *,
-        id_column: str | None = None,
+        row_ids,
     ):
         """
-        Hide the test's Agent row while preserving all unrelated macro reads.
+        Hide the linked Agent from batched endpoint reads without deleting it.
 
-        Match both the agents table and the captured Agent ID. Return None only for that pair;
-        otherwise delegate with the optional ID-column keyword unchanged. This simulates a dangling
-        read without deleting database state.
-
-        Example:
-            >>> hide_linked_agent("agents", agent_id) is None  # doctest: +SKIP
-            True
-
-
-        :param table: Storage table requested by Catalog traversal.
-        :param row_id: Requested row identifier compared with the captured Agent ID.
-        :param id_column: Optional explicit ID column forwarded on non-hidden reads.
-        :return: None for the hidden Agent, otherwise the original macro read result.
+        Preserve all unrelated rows and forward the requested IDs unchanged.
+        Traversal must still detect the missing endpoint after graph batching.
         """
-        if table == "agents" and row_id == agent_id:
-            return None
-        return original_get_row(table, row_id, id_column=id_column)
+        rows = original_get_rows_by_ids(table, row_ids)
+        if table == "agents":
+            return {key: row for key, row in rows.items() if key != agent_id}
+        return rows
 
-    monkeypatch.setattr(macros, "get_row", hide_linked_agent)
+    monkeypatch.setattr(macros, "get_rows_by_ids", hide_linked_agent)
 
     with pytest.raises(CatalogNotFoundError, match="linked from works"):
         catalog.agents.list_for_wemi(

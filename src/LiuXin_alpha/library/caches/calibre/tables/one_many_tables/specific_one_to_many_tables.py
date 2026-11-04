@@ -16,11 +16,12 @@ from collections import OrderedDict
 
 from typing import TypeVar, Optional, Union, Iterable
 
+from LiuXin_alpha.catalog.repositories.identifiers import IdentifierRepository
+
 from LiuXin_alpha.library.caches.calibre.tables.one_many_tables.priority_typed_one_to_many_table import (
     CalibrePriorityTypedOneToManyTable,
 )
-from LiuXin_alpha.databases.db_types import SrcTableID, DstTableID, IdentifiersStr
-
+from LiuXin_alpha.databases.db_types.database_types import SrcTableID, DstTableID, IdentifiersStr
 
 from LiuXin_alpha.errors import InvalidCacheUpdate
 
@@ -107,8 +108,12 @@ class CalibreIdentifiersTable(CalibrePriorityTypedOneToManyTable[T], BaseIdentif
         self.book_col_map = defaultdict(self._container_for_book)
         self.col_book_map = defaultdict(set)
 
-        for book, typ, val in db.metadata_sql.read_all_identifiers():
-            # Ignore malformed identifier entries
+        for row in IdentifierRepository(db).list_for_level("work"):
+            book = row["entity_identifier_entity_id"]
+            typ = row["entity_identifier_scheme"]
+            val = row["entity_identifier_value"]
+            if typ in {"isbn10", "isbn13"}:
+                typ = "isbn"
             if typ is not None and val is not None:
                 self.col_book_map[typ].add(book)
                 self.book_col_map[book][typ].add(val)
@@ -128,23 +133,7 @@ class CalibreIdentifiersTable(CalibrePriorityTypedOneToManyTable[T], BaseIdentif
         :return: None; the operation mutates state, writes output or performs cleanup in
             place.
         """
-        db.metadata_sql.delete_title_identifiers(book_id)
-        db.macros.delete_in_table("identifier_title_links", "identifier_title_link_title_id", book_id)
-
-        title_row = db.get_row_from_id("titles", row_id=book_id)
-
-        for id_type in self.book_col_map[book_id]:
-
-            for ids_val in self.book_col_map[book_id][id_type]:
-
-                # Construct the id row
-                id_row = db.get_blank_row("identifiers")
-                id_row["identifier"] = ids_val
-                id_row["identifier_type"] = id_type
-                id_row.sync()
-
-                # Link the id row to the title row
-                db.interlink_rows(primary_row=title_row, secondary_row=id_row, type=id_type)
+        self.update_db({book_id: self.book_col_map[book_id]}, db)
 
     def update_precheck(
         self, book_id_item_id_map: dict[SrcTableID, Iterable[IdentifiersStr]], id_map_update: dict[DstTableID, T]
@@ -215,56 +204,48 @@ class CalibreIdentifiersTable(CalibrePriorityTypedOneToManyTable[T], BaseIdentif
 
     def update_db(
         self,
-        book_id_to_val_map: dict[SrcTableID, Union[dict[str, Iterable[str]], Iterable[str], None, str]],
+        book_id_to_val_map: dict[
+            SrcTableID, Union[dict[str, Iterable[str]], Iterable[str], None, str]
+        ],
         db,
         allow_case_change: bool = False,
     ) -> set[SrcTableID]:
+        """Adapt legacy Work-ID identifier payloads to the Catalog owner.
+
+        Strings append/promote one value (bare text means ISBN); sequences
+        replace both ISBN lengths; mappings replace all curated identifiers.
+        Values within a scheme are retained as alternatives, with the last
+        value primary. Sets use sorted order for deterministic selection.
+        The complete batch rolls back on invalid input or persistence failure.
+        allow_case_change is retained for the cache interface and is unused.
         """
-        Preform updates on the database.
-
-        Example:
-            Exercise CalibreIdentifiersTable.update db through a consuming regression::
-
-                python -m pytest -q tests/library/test_unified_library.py
-
-
-        :param book_id_to_val_map: Value supplied for book id to val map under the utility
-            contract.
-        :param db: Value supplied for db under the utility contract.
-        :param allow_case_change: Value supplied for allow case change under the utility
-            contract.
-        :return: The normalized value, metadata record, path, stream result or collection
-            described above.
-        """
-        # Todo: This needs to be merged with the identifiers update method over in write
-        for book_id, book_val in iteritems(book_id_to_val_map):
-
-            # If the book_id is just valued by a str - try and parse it to see if it's an identifier string - then add
-            # it in
-            if isinstance(book_val, str):
-                # Assume we're dealing with an isbn and add it as such
-                if ":" not in book_val:
-                    db.metadata_sql.add_title_identifier(title_id=book_id, id_type="isbn", id_val=book_val)
+        identifiers = IdentifierRepository(db)
+        with db.macros.transaction():
+            for book_id, book_val in book_id_to_val_map.items():
+                if isinstance(book_val, str):
+                    scheme, separator, value = book_val.partition(":")
+                    values = {scheme: (value,)} if separator else {"isbn": (book_val,)}
+                elif isinstance(book_val, (tuple, list, set, frozenset)):
+                    identifiers.clear_for_wemi(
+                        level="work", entity_id=book_id, scheme="isbn"
+                    )
+                    values = {"isbn": book_val}
+                elif isinstance(book_val, dict):
+                    identifiers.clear_for_wemi(level="work", entity_id=book_id)
+                    values = book_val
                 else:
-                    # Todo: Add checking that the id_type is one of the allowable values
-                    id_type, id_val = book_val.split(":")
-                    db.metadata_sql.add_title_identifier(title_id=book_id, id_type=id_type, id_val=id_val)
-
-            # Assume we're doing a wholesale replace on available isbns
-            elif isinstance(book_val, (tuple, list, set, frozenset)):
-                db.metadata_sql.delete_title_identifiers(book_id, id_type="isbn")
-                for new_id in book_val:
-                    db.metadata_sql.add_title_identifier(title_id=book_id, id_type="isbn", id_val=new_id)
-
-            elif isinstance(book_val, (dict, OrderedDict)):
-                db.metadata_sql.delete_title_identifiers(book_id)
-                for id_type, id_vals in iteritems(book_val):
-                    for new_id in id_vals:
-                        db.metadata_sql.add_title_identifier(title_id=book_id, id_type=id_type, id_val=new_id)
-
-            else:
-                raise NotImplementedError("book_id_val_map value not recognized")
-
+                    raise TypeError(
+                        "identifier update must be text, a sequence, or a mapping"
+                    )
+                for scheme, entries in values.items():
+                    if isinstance(entries, str):
+                        entries = (entries,)
+                    elif isinstance(entries, (set, frozenset)):
+                        entries = sorted(entries)
+                    for value in entries:
+                        identifiers.set_primary_for_wemi(
+                            level="work", entity_id=book_id, scheme=scheme, value=value
+                        )
         return set(book_id_to_val_map)
 
     @staticmethod

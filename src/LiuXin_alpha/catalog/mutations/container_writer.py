@@ -24,14 +24,12 @@ from LiuXin_alpha.catalog.api.mutations_api.metadata_write import (
     MetadataWriteRecord,
     MetadataWriteReportMapping,
 )
-from LiuXin_alpha.databases.column_metadata import (
-    ColumnMetadata,
-    ColumnNormalizationProfile,
-)
+from LiuXin_alpha.databases.column_metadata import ColumnMetadata
 from LiuXin_alpha.databases.row import Row
 from LiuXin_alpha.metadata.text_identity import normalize_identity_text
 from LiuXin_alpha.metadata.identifiers import normalise_identifier_pair
 from LiuXin_alpha.metadata.standardize import standardize_id_name
+from LiuXin_alpha.metadata.value_policies import ColumnNormalizationProfile
 from LiuXin_alpha.catalog.relationships import CatalogRelationships
 
 

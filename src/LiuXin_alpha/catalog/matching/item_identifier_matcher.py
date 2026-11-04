@@ -14,6 +14,7 @@ from collections.abc import Sequence
 from typing import Any
 
 from ..api.common import IdentifierCandidate, MatchEvidence, MatchResult
+from .identifier_reads import matching_identifier_rows
 from .policy import normalise_identifier
 
 
@@ -21,7 +22,7 @@ class ItemIdentifierMatcher:
     """
     Find exact identifier observations, retaining their per-Item storage identity.
 
-    The repository supplies all observation rows. Optional item_id narrows reads by equality, while
+    The repository supplies matching observations through SQL where supported. Optional item_id narrows reads by equality, while
     best/exact otherwise choose the first global stored ID. Equal values are not deduplicated and do
     not cause an ambiguous result. No MatchingPolicy thresholds or owner validation are involved.
 
@@ -71,14 +72,15 @@ class ItemIdentifierMatcher:
         Find exact normalized identifier observations, optionally restricted to one Item.
 
         The concrete matcher checks only whether limit is negative before normalizing the incoming
-        candidate and reading all rows. A non-None item_id filters by direct equality before
+        candidate and selecting matching rows in SQL where supported. Other adapters
+        stream candidate pages. A non-None item_id filters by direct equality before
         stored-value normalization; it is not validated or checked against an existing Item. Skip
         stored normalization TypeError/ValueError and rows with non-integer observation IDs.
         Python's integer check still admits booleans and imposes no positivity.
 
         Matching scheme/value pairs produce confidence-one results with two decisive evidence items
         and their original row references. Sort by observation ID, using -1 for a false-valued ID,
-        then slice. Zero still normalizes and scans; bool limits act as zero/one, while an
+        then slice. Zero still normalizes and reads candidates; bool limits act as zero/one, while an
         unsuitable slice bound can fail after the work. Equal values on different Items remain
         separate observations.
 
@@ -101,7 +103,9 @@ class ItemIdentifierMatcher:
             raise ValueError("limit cannot be negative")
         normalised = normalise_identifier(candidate)
         results: list[MatchResult] = []
-        for row in self.repository._all_rows():
+        for row in matching_identifier_rows(
+            self.repository, "item_identifier", normalised
+        ):
             if item_id is not None and row.get("item_identifier_item_id") != item_id:
                 continue
             try:
@@ -165,8 +169,8 @@ class ItemIdentifierMatcher:
         """
         Select the first exact observed identifier within the optional Item scope.
 
-        The concrete implementation calls candidates with limit one, so all eligible observations
-        are still read, compared, and sorted. It reports no ambiguity for repeated observations or
+        The concrete implementation calls candidates with limit one, so matching observations
+        are still compared and sorted after SQL filtering where supported. It reports no ambiguity for repeated observations or
         equal values across Items. Supply item_id when ownership matters; otherwise the first global
         observation wins. No confidence policy or write is applied.
 

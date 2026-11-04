@@ -32,7 +32,7 @@ from typing import (
 )
 
 if TYPE_CHECKING:
-    from LiuXin_alpha.databases.api import PortableMacrosAPI
+    from LiuXin_alpha.databases.api import MetadataSQLAPI, PortableMacrosAPI
 
 EntityId: TypeAlias = int
 RowMapping: TypeAlias = Mapping[str, Any]
@@ -166,7 +166,7 @@ class CatalogMatchConflictError(CatalogMatchError):
 
 class DatabaseHandle(Protocol):
     """
-    Describe the minimal portable-macro attribute expected of a database handle.
+    Describe the macro and table-SQL attributes expected of a database handle.
 
     This typing protocol is a small dependency placeholder, not the complete database contract
     required by all Catalog operations. Concrete repositories and writers can require additional row
@@ -194,6 +194,16 @@ class DatabaseHandle(Protocol):
         :return: Portable macro surface supplied by the concrete database handle.
         """
 
+        ...
+
+    @property
+    def metadata_sql(self) -> MetadataSQLAPI:
+        """Expose physical-table helpers for Catalog's specialised relationship reads.
+
+        Example:
+            ``handle.metadata_sql.get_expressions_for_work(work_id)`` reads
+            physical destinations; Catalog validates and renders the results.
+        """
         ...
 
 

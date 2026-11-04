@@ -52,12 +52,14 @@ class DriverInterlinkMixinAPI(abc.ABC):
         Abstract backend hook. The behavior below describes the shared SQL/SQLite
         implementation; this declaration itself has no operational body.
 
-        The type column is unique and nullable. Inputs are interpolated into SQL, including
-        double-quoted seed values; use trusted labels and do not assume repeat seeding is
-        safe.
+        The type column is unique and nullable. Inputs are interpolated into SQL,
+        including double-quoted seed values; use trusted labels and do not assume repeat
+        seeding is safe.
 
         Example:
-            >>> driver._build_allowed_types_table_interlink("agent_work_links", ["related"])  # doctest: +SKIP
+            >>> driver._build_allowed_types_table_interlink(
+            ...     "agent_work_links", ["related"]
+            ... )  # doctest: +SKIP
 
 
         :param for_table: Table whose allowed-type lookup name is derived.
@@ -78,7 +80,9 @@ class DriverInterlinkMixinAPI(abc.ABC):
         implementation; this declaration itself has no operational body.
 
         Example:
-            >>> driver.build_allowed_types_table_interlink("agent_work_links")  # doctest: +SKIP
+            >>> driver.build_allowed_types_table_interlink(
+            ...     "agent_work_links"
+            ... )  # doctest: +SKIP
 
 
         :param for_table: Table whose allowed-type lookup name is derived.
@@ -106,14 +110,17 @@ class DriverInterlinkMixinAPI(abc.ABC):
         Abstract backend hook. The behavior below describes the shared SQL/SQLite
         implementation; this declaration itself has no operational body.
 
-        Sort singular bases and invert one/many orientation when needed. Strict many_many
-        uniqueness ignores type; nonexclusive uniqueness includes type when requested. FKs
-        remain nullable regardless of nullable_fks to allow blank-row construction. Raw
-        overrides replace automatic cardinality/type handling. This does not execute SQL;
-        identifiers and legacy type-seed literals require trusted inputs.
+        Sort singular bases and invert one/many orientation when needed. Strict
+        many_many uniqueness ignores type; nonexclusive uniqueness includes type when
+        requested. FKs remain nullable regardless of nullable_fks to allow blank-row
+        construction. Raw overrides replace automatic cardinality/type handling. This
+        does not execute SQL; identifiers and legacy type-seed literals require trusted
+        inputs.
 
         Example:
-            >>> driver.direct_get_direct_link_main_tables_sql("agents", "works")  # doctest: +SKIP
+            >>> driver.direct_get_direct_link_main_tables_sql(
+            ...     "agents", "works"
+            ... )  # doctest: +SKIP
 
 
         :param primary_table: First main table in the requested relationship.
@@ -122,12 +129,12 @@ class DriverInterlinkMixinAPI(abc.ABC):
         :param requested_cols: all, None, or iterable of optional metadata suffixes.
         :param index_both: Whether to index both endpoint foreign-key columns.
         :param allowed_types: Optional iterable of permitted type labels.
-        :param one_link_with_one_type: Accepted but unused; uniqueness follows link_type and
-            requested metadata.
+        :param one_link_with_one_type: Accepted but unused; uniqueness follows link_type
+            and requested metadata.
         :param override_restriction_sql: Trusted raw constraint SQL replacing generated
             cardinality and type constraints.
-        :param nullable_fks: Requested FK nullability; interlink generation currently always
-            emits nullable FKs.
+        :param nullable_fks: Requested FK nullability; interlink generation currently
+            always emits nullable FKs.
         :return: SQL statement list and generated link-table name.
         """
 
@@ -144,15 +151,16 @@ class DriverInterlinkMixinAPI(abc.ABC):
             allowed_types: Optional[Iterable[str]] = None,
             nullable_fks: bool = True) -> list[str]:
         """
-        Resolve a required legacy constraint entry and generate the matching link script.
+        Resolve a required legacy constraint entry and generate the matching link
+        script.
 
         Abstract backend hook. The behavior below describes the shared SQL/SQLite
         implementation; this declaration itself has no operational body.
 
-        A string supplies raw constraints; a mapping supplies primary/secondary/link_type.
-        When type is requested, optional allowed labels can fall back to the legacy mapping.
-        Missing constraints fail by assertion; unexpected constraint representations raise
-        NotImplementedError.
+        A string supplies raw constraints; a mapping supplies
+        primary/secondary/link_type. When type is requested, optional allowed labels can
+        fall back to the legacy mapping. Missing constraints fail by assertion;
+        unexpected constraint representations raise NotImplementedError.
 
         Example:
             >>> driver.build_interlink_table_sqlite("agents", "works")  # doctest: +SKIP
@@ -162,8 +170,8 @@ class DriverInterlinkMixinAPI(abc.ABC):
         :param table2: Second table whose singular prefix participates in the link name.
         :param requested_cols: all, None, or iterable of optional metadata suffixes.
         :param allowed_types: Optional iterable of permitted type labels.
-        :param nullable_fks: Requested FK nullability; interlink generation currently always
-            emits nullable FKs.
+        :param nullable_fks: Requested FK nullability; interlink generation currently
+            always emits nullable FKs.
         :return: Generated statement list without executing it.
         """
 
@@ -181,12 +189,14 @@ class DriverInterlinkMixinAPI(abc.ABC):
         Abstract backend hook. The behavior below describes the shared SQL/SQLite
         implementation; this declaration itself has no operational body.
 
-        Seed labels are bound and inserted if absent. Insert/update guards reject nonnull
-        values missing from the reference table; NULL remains allowed. Existing guards are
-        retained by IF NOT EXISTS.
+        Seed labels are bound and inserted if absent. Insert/update guards reject
+        nonnull values missing from the reference table; NULL remains allowed. Existing
+        guards are retained by IF NOT EXISTS.
 
         Example:
-            >>> driver.direct_create_interlink_types_reference_table("agent_work_links", "agent_work_link", ["related"], connection)  # doctest: +SKIP
+            >>> driver.direct_create_interlink_types_reference_table(
+            ...     "agent_work_links", "agent_work_link", ["related"], connection
+            ... )  # doctest: +SKIP
 
 
         :param interlink_table_name: Trusted existing link-table name.
@@ -214,8 +224,8 @@ class DriverInterlinkMixinAPI(abc.ABC):
         Abstract backend hook. The behavior below describes the shared SQL/SQLite
         implementation; this declaration itself has no operational body.
 
-        The legacy OperationalError diagnostic accesses e.message, which may itself raise
-        AttributeError on modern sqlite3 exceptions and mask the original failure.
+        The legacy OperationalError diagnostic accesses e.message, which may itself
+        raise AttributeError on modern sqlite3 exceptions and mask the original failure.
 
         Example:
             >>> driver.direct_link_main_tables("agents", "works")  # doctest: +SKIP
@@ -229,8 +239,8 @@ class DriverInterlinkMixinAPI(abc.ABC):
         :param allowed_types: Optional iterable of permitted type labels.
         :param override_restriction_sql: Trusted raw constraint SQL replacing generated
             cardinality and type constraints.
-        :param nullable_fks: Requested FK nullability; interlink generation currently always
-            emits nullable FKs.
+        :param nullable_fks: Requested FK nullability; interlink generation currently
+            always emits nullable FKs.
         :return: Generated link-table name on success.
         """
 

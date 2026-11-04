@@ -19,14 +19,8 @@ from typing import Any, Dict, List, Optional, Tuple, Union, TYPE_CHECKING
 
 if TYPE_CHECKING:
 
-    from LiuXin_alpha.databases.db_types import (
-        MainTableName,
-        SrcTableID,
-        DstTableID,
-        InterlinkTableID,
-        MainTableColumnName,
-        InterLinkTableName,
-        MainTableID)
+    from LiuXin_alpha.databases.db_types.database_types import MainTableID, MainTableName, MainTableColumnName, \
+        InterlinkTableID, InterLinkTableName, SrcTableID, DstTableID
 
 
 @dataclasses.dataclass

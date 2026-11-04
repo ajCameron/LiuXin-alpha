@@ -79,10 +79,10 @@ class DriverWrapper(
         """
         Bind the driver, create a reentrant mutex and initialize wrapper caches.
 
-        Copies the driver macro reference, clears table groups, and leaves the dirty queue
-        unset for the parent database to wire. lock serializes cooperating threads without
-        opening a SQL connection. Custom-column initialization records db and an empty custom-table set; db may
-        initially be None.
+        Copies the driver macro reference, clears table groups, and leaves the dirty
+        queue unset for the parent database to wire. lock serializes cooperating threads
+        without opening a SQL connection. Custom-column initialization records db and an
+        empty custom-table set; db may initially be None.
 
         Example:
             >>> wrapper = DriverWrapper(driver, db=database)  # doctest: +SKIP
@@ -148,16 +148,20 @@ class DriverWrapper(
         """
         Return sorted, unique names from one populated wrapper attribute.
 
-        An absent or false-valued attribute gives an empty tuple. Values must be hashable
-        and mutually sortable.
+        An absent or false-valued attribute gives an empty tuple. Values must be
+        hashable and mutually sortable.
 
         Example:
             >>> from types import SimpleNamespace
-            >>> DriverWrapper._group_names(SimpleNamespace(main_tables=["works", "agents", "works"]), "main_tables")
+            >>> DriverWrapper._group_names(
+            ...     SimpleNamespace(main_tables=["works", "agents", "works"]),
+            ...     "main_tables",
+            ... )
             ('agents', 'works')
 
 
-        :param attr_name: Name of the wrapper attribute containing a table-name collection.
+        :param attr_name: Name of the wrapper attribute containing a table-name
+            collection.
         :return: Tuple of unique group names, sorted in ascending order.
         """
         names = getattr(self, attr_name, None)
@@ -169,9 +173,9 @@ class DriverWrapper(
         """
         Return the populated main-table group or infer it from discovered tables.
 
-        When the group is empty, subtract interlinks, intralinks and populated helper names
-        from get_tables(). Results are deduplicated and sorted; no main-table naming
-        convention is otherwise enforced.
+        When the group is empty, subtract interlinks, intralinks and populated helper
+        names from get_tables(). Results are deduplicated and sorted; no main-table
+        naming convention is otherwise enforced.
 
         Example:
             >>> wrapper._main_table_names()  # doctest: +SKIP
@@ -245,9 +249,9 @@ class DriverWrapper(
         """
         Read and cache the backend capabilities for an ordered pair of tables.
 
-        Cache keys stringify both names and retain endpoint order. Missing links are cached
-        as None. force_refresh clears all derived wrapper caches and is also forwarded to
-        the driver.
+        Cache keys stringify both names and retain endpoint order. Missing links are
+        cached as None. force_refresh clears all derived wrapper caches and is also
+        forwarded to the driver.
 
         Example:
             >>> wrapper.get_link_capabilities("agents", "works")  # doctest: +SKIP
@@ -255,8 +259,8 @@ class DriverWrapper(
 
         :param table1: First endpoint table.
         :param table2: Second endpoint table.
-        :param force_refresh: Whether to clear derived wrapper caches before rebuilding this
-            result.
+        :param force_refresh: Whether to clear derived wrapper caches before rebuilding
+            this result.
         :return: Backend LinkCapabilities, or None when no supported link is found.
         """
 
@@ -284,8 +288,8 @@ class DriverWrapper(
         """
         Return whether the discovered link has a type column.
 
-        Uses get_link_capabilities() and its cache/refresh behavior. Missing capabilities
-        give False.
+        Uses get_link_capabilities() and its cache/refresh behavior. Missing
+        capabilities give False.
 
         Example:
             >>> from types import SimpleNamespace
@@ -296,8 +300,8 @@ class DriverWrapper(
 
         :param table1: First endpoint table.
         :param table2: Second endpoint table.
-        :param force_refresh: Whether to clear derived wrapper caches before rebuilding this
-            result.
+        :param force_refresh: Whether to clear derived wrapper caches before rebuilding
+            this result.
         :return: True when the capabilities expose that column; otherwise False.
         """
 
@@ -318,8 +322,8 @@ class DriverWrapper(
         """
         Return whether the discovered link has a priority column.
 
-        Uses get_link_capabilities() and its cache/refresh behavior. Missing capabilities
-        give False.
+        Uses get_link_capabilities() and its cache/refresh behavior. Missing
+        capabilities give False.
 
         Example:
             >>> from types import SimpleNamespace
@@ -330,8 +334,8 @@ class DriverWrapper(
 
         :param table1: First endpoint table.
         :param table2: Second endpoint table.
-        :param force_refresh: Whether to clear derived wrapper caches before rebuilding this
-            result.
+        :param force_refresh: Whether to clear derived wrapper caches before rebuilding
+            this result.
         :return: True when the capabilities expose that column; otherwise False.
         """
 
@@ -346,21 +350,21 @@ class DriverWrapper(
         """
         Build or reuse the schema specification for a table or view.
 
-        A missing relation raises ValueError. Headings preserve discovered order; optional
-        backend type and affinity failures leave those values unset. Every column is
-        currently marked nullable, so the result does not certify NOT NULL constraints.
-        Conventional ID, date and scratch columns are inferred locally for tables only.
-        Populated or inferred table groups set classification flags; related main tables are
-        sorted. force_refresh clears wrapper caches but does not explicitly refresh backend
-        table discovery.
+        A missing relation raises ValueError. Headings preserve discovered order;
+        optional backend type and affinity failures leave those values unset. Every
+        column is currently marked nullable, so the result does not certify NOT NULL
+        constraints. Conventional ID, date and scratch columns are inferred locally for
+        tables only. Populated or inferred table groups set classification flags;
+        related main tables are sorted. force_refresh clears wrapper caches but does not
+        explicitly refresh backend table discovery.
 
         Example:
             >>> wrapper.get_table_spec("works")  # doctest: +SKIP
 
 
         :param table: Table name in the current schema.
-        :param force_refresh: Whether to clear derived wrapper caches before rebuilding this
-            result.
+        :param force_refresh: Whether to clear derived wrapper caches before rebuilding
+            this result.
         :return: Cached StorageTableSpec describing the requested relation.
         """
         if force_refresh:
@@ -413,8 +417,9 @@ class DriverWrapper(
             """
             Infer an identifier from the enclosing table headings.
 
-            Views return None. Prefer an exact id heading, then the shortest name ending in _id;
-            ties retain heading order. This does not inspect primary-key constraints.
+            Views return None. Prefer an exact id heading, then the shortest name ending
+            in _id; ties retain heading order. This does not inspect primary-key
+            constraints.
 
             Example:
                 >>> wrapper.get_table_spec("works")  # doctest: +SKIP
@@ -433,9 +438,9 @@ class DriverWrapper(
             """
             Infer a timestamp heading from the enclosing table headings.
 
-            Views return None. Prefer exact datestamp, then the shortest heading ending in
-            _datestamp, _datestamp_ep_k, _timestamp or _timestamp_ep_k; ties retain heading
-            order.
+            Views return None. Prefer exact datestamp, then the shortest heading ending
+            in _datestamp, _datestamp_ep_k, _timestamp or _timestamp_ep_k; ties retain
+            heading order.
 
             Example:
                 >>> wrapper.get_table_spec("works")  # doctest: +SKIP
@@ -504,12 +509,12 @@ class DriverWrapper(
         Build or reuse an oriented relationship specification between two tables.
 
         Missing backend capabilities are cached as None. Endpoint ID columns come from
-        conventional name lookup; optional type and priority columns come from capabilities.
-        Remaining physical columns become extra_link_columns. Registry discovery prefers
-        <link_table>__types over allowed_types__<link_table>. Unique indexes determine
-        cardinality and typed identity; lookup errors for required columns propagate. For a
-        self-link, use get_intralink_spec() to resolve primary_id and secondary_id endpoint
-        columns.
+        conventional name lookup; optional type and priority columns come from
+        capabilities. Remaining physical columns become extra_link_columns. Registry
+        discovery prefers <link_table>__types over allowed_types__<link_table>. Unique
+        indexes determine cardinality and typed identity; lookup errors for required
+        columns propagate. For a self-link, use get_intralink_spec() to resolve
+        primary_id and secondary_id endpoint columns.
 
         Example:
             >>> wrapper.get_link_spec("agents", "works")  # doctest: +SKIP
@@ -517,8 +522,8 @@ class DriverWrapper(
 
         :param table1: First endpoint table.
         :param table2: Second endpoint table.
-        :param force_refresh: Whether to clear derived wrapper caches before rebuilding this
-            result.
+        :param force_refresh: Whether to clear derived wrapper caches before rebuilding
+            this result.
         :return: StorageLinkSpec for this endpoint order, or None when no link exists.
         """
         if force_refresh:
@@ -597,12 +602,12 @@ class DriverWrapper(
         """
         Read the live type values from a link specification's optional registry.
 
-        Requires StorageLinkSpec, otherwise TypeError. With no registry declaration return
-        None. A declared registry must exist and expose type, one non-ID _type column, or a
-        sole remaining non-ID column, in that order. Missing/ambiguous columns and
-        non-string or blank values raise DatabaseIntegrityError. NULL values are ignored,
-        duplicates are removed, and remaining strings retain the backend sort order without
-        trimming. Values are read on every call.
+        Requires StorageLinkSpec, otherwise TypeError. With no registry declaration
+        return None. A declared registry must exist and expose type, one non-ID _type
+        column, or a sole remaining non-ID column, in that order. Missing/ambiguous
+        columns and non-string or blank values raise DatabaseIntegrityError. NULL values
+        are ignored, duplicates are removed, and remaining strings retain the backend
+        sort order without trimming. Values are read on every call.
 
         Example:
             >>> wrapper.get_allowed_link_types(link_spec)  # doctest: +SKIP
@@ -611,8 +616,8 @@ class DriverWrapper(
         :param link_spec: Link specification whose allowed_types_table is to be read.
         :param force_refresh: Whether to refresh table discovery, also clearing derived
             wrapper caches.
-        :return: Tuple of distinct type strings; empty tuple for an empty registry, or None
-            without one.
+        :return: Tuple of distinct type strings; empty tuple for an empty registry, or
+            None without one.
         """
 
         if not isinstance(link_spec, StorageLinkSpec):
@@ -674,15 +679,23 @@ class DriverWrapper(
         Infer link cardinality and typed identity from unique column groups.
 
         Absent or failing backend index discovery gives UNKNOWN and False. Uniqueness of
-        both endpoint columns separately gives ONE_TO_ONE; primary only gives MANY_TO_ONE;
-        secondary only gives ONE_TO_MANY. A unique pair or typed pair gives MANY_TO_MANY.
-        Type participates in identity only when the typed pair is unique and the untyped
-        pair is not.
+        both endpoint columns separately gives ONE_TO_ONE; primary only gives
+        MANY_TO_ONE; secondary only gives ONE_TO_MANY. A unique pair or typed pair gives
+        MANY_TO_MANY. Type participates in identity only when the typed pair is unique
+        and the untyped pair is not.
 
         Example:
             >>> from types import SimpleNamespace
-            >>> host = SimpleNamespace(driver=SimpleNamespace(_get_unique_column_groups=lambda table: [("left_id", "right_id", "type")]))
-            >>> shape, typed = DriverWrapper._link_constraint_shape(host, "links", "left_id", "right_id", "type")
+            >>> host = SimpleNamespace(
+            ...     driver=SimpleNamespace(
+            ...         _get_unique_column_groups=lambda table: [
+            ...             ("left_id", "right_id", "type")
+            ...         ]
+            ...     )
+            ... )
+            >>> shape, typed = DriverWrapper._link_constraint_shape(
+            ...     host, "links", "left_id", "right_id", "type"
+            ... )
             >>> shape is LinkCardinality.MANY_TO_MANY, typed
             (True, True)
 
@@ -733,17 +746,18 @@ class DriverWrapper(
         """
         Yield specifications for discovered tables and optionally views.
 
-        Tables come first in backend discovery order. View names already seen as tables are
-        skipped. Refresh clears derived wrapper caches when iteration starts, but discovery
-        uses force_refresh=False.
+        Tables come first in backend discovery order. View names already seen as tables
+        are skipped. Refresh clears derived wrapper caches when iteration starts, but
+        discovery uses force_refresh=False.
 
         Example:
             >>> wrapper.iter_table_specs()  # doctest: +SKIP
 
 
-        :param force_refresh: Whether to clear derived wrapper caches before rebuilding this
-            result.
-        :param include_views: Whether to include separately discovered views after tables.
+        :param force_refresh: Whether to clear derived wrapper caches before rebuilding
+            this result.
+        :param include_views: Whether to include separately discovered views after
+            tables.
         :return: Iterator yielding StorageTableSpec objects.
         """
         if force_refresh:
@@ -769,18 +783,19 @@ class DriverWrapper(
         Build or reuse a self-relationship specification for one main table.
 
         Uses primary_id and secondary_id link-column suffixes for the two endpoints.
-        Type/priority capabilities, extra columns, optional type registries and unique-index
-        cardinality follow the same rules as interlinks. Missing capabilities are cached as
-        None; missing required columns raise lookup errors.
+        Type/priority capabilities, extra columns, optional type registries and
+        unique-index cardinality follow the same rules as interlinks. Missing
+        capabilities are cached as None; missing required columns raise lookup errors.
 
         Example:
             >>> wrapper.get_intralink_spec("works")  # doctest: +SKIP
 
 
         :param table: Table name in the current schema.
-        :param force_refresh: Whether to clear derived wrapper caches before rebuilding this
-            result.
-        :return: StorageLinkSpec with matching endpoint tables, or None when no link exists.
+        :param force_refresh: Whether to clear derived wrapper caches before rebuilding
+            this result.
+        :return: StorageLinkSpec with matching endpoint tables, or None when no link
+            exists.
         """
         if force_refresh:
             self._clear_derived_schema_caches()
@@ -864,8 +879,8 @@ class DriverWrapper(
             >>> wrapper.iter_link_specs()  # doctest: +SKIP
 
 
-        :param force_refresh: Whether to clear derived wrapper caches before rebuilding this
-            result.
+        :param force_refresh: Whether to clear derived wrapper caches before rebuilding
+            this result.
         :param include_intralinks: Whether to append self-links after cross-table links.
         :return: Iterator yielding StorageLinkSpec objects.
         """
@@ -895,16 +910,16 @@ class DriverWrapper(
         """
         Assemble and cache the discovered table, interlink and intralink schema.
 
-        Includes views among table specifications. Relationship discovery uses main-table
-        groups and conventional names. force_refresh clears derived wrapper caches; nested
-        discovery otherwise uses its ordinary cached backend paths.
+        Includes views among table specifications. Relationship discovery uses
+        main-table groups and conventional names. force_refresh clears derived wrapper
+        caches; nested discovery otherwise uses its ordinary cached backend paths.
 
         Example:
             >>> wrapper.get_schema_spec()  # doctest: +SKIP
 
 
-        :param force_refresh: Whether to clear derived wrapper caches before rebuilding this
-            result.
+        :param force_refresh: Whether to clear derived wrapper caches before rebuilding
+            this result.
         :return: Cached StorageSchemaSpec containing tables and relationship tuples.
         """
         if force_refresh:
@@ -948,8 +963,8 @@ class DriverWrapper(
 
 
         :param table: Table name in the current schema.
-        :param force_refresh: Whether to clear derived wrapper caches before rebuilding this
-            result.
+        :param force_refresh: Whether to clear derived wrapper caches before rebuilding
+            this result.
         :return: Generated dataclass type, not an instance.
         """
         if force_refresh:
@@ -981,8 +996,8 @@ class DriverWrapper(
 
         :param table1: First endpoint table.
         :param table2: Second endpoint table.
-        :param force_refresh: Whether to clear derived wrapper caches before rebuilding this
-            result.
+        :param force_refresh: Whether to clear derived wrapper caches before rebuilding
+            this result.
         :return: Generated link-row dataclass type, or None for an absent link.
         """
         cache_key = (table1, table2)
@@ -1009,13 +1024,15 @@ class DriverWrapper(
         Collect the populated table groups into an immutable name snapshot.
 
         Unions all_tables, main_tables, interlink_tables, intralink_tables and
-        helper_tables. Only if their union is empty does it fall back to get_tables() and
-        get_views(), suppressing discovery errors independently. This method does not
-        validate whether populated names still exist.
+        helper_tables. Only if their union is empty does it fall back to get_tables()
+        and get_views(), suppressing discovery errors independently. This method does
+        not validate whether populated names still exist.
 
         Example:
             >>> from types import SimpleNamespace
-            >>> DriverWrapper.get_allowed_tables_snapshot(SimpleNamespace(main_tables={"works"})) == frozenset({"works"})
+            >>> DriverWrapper.get_allowed_tables_snapshot(
+            ...     SimpleNamespace(main_tables={"works"})
+            ... ) == frozenset({"works"})
             True
 
 
@@ -1059,8 +1076,8 @@ class DriverWrapper(
         """
         Store a non-None macro provider on this wrapper.
 
-        Raises AssertionError for None while assertions are enabled. This only updates the
-        wrapper reference; it does not modify driver or database macro references.
+        Raises AssertionError for None while assertions are enabled. This only updates
+        the wrapper reference; it does not modify driver or database macro references.
 
         Example:
             >>> wrapper.set_macros(macros)  # doctest: +SKIP
@@ -1193,13 +1210,15 @@ class DriverWrapper(
         """
         Copy a row dictionary and allocate a database row if its ID is absent or None.
 
-        Infers the table from all keys. Existing non-None IDs pass through without checking
-        row existence. Otherwise get_blank_row() writes a new row and supplies its ID; the
-        remaining supplied values are not written by this method. The input mapping is
-        deep-copied.
+        Infers the table from all keys. Existing non-None IDs pass through without
+        checking row existence. Otherwise get_blank_row() writes a new row and supplies
+        its ID; the remaining supplied values are not written by this method. The input
+        mapping is deep-copied.
 
         Example:
-            >>> wrapper.ensure_row_has_id({"work_id": 1, "work_title": "Example"})  # doctest: +SKIP
+            >>> wrapper.ensure_row_has_id(
+            ...     {"work_id": 1, "work_title": "Example"}
+            ... )  # doctest: +SKIP
 
 
         :param row_dict: Plain mapping from column names to row values.
@@ -1261,14 +1280,19 @@ class DriverWrapper(
         """
         Find the unique table containing every key in a row dictionary.
 
-        An empty mapping returns False. A Row object raises NotImplementedError. Multiple
-        matches or no matching table raise DatabaseIntegrityError; values are not examined.
-        Uses discovered table headings, so naming collisions can make a partial row
-        ambiguous.
+        An empty mapping returns False. A Row object raises NotImplementedError.
+        Multiple matches or no matching table raise DatabaseIntegrityError; values are
+        not examined. Uses discovered table headings, so naming collisions can make a
+        partial row ambiguous.
 
         Example:
             >>> from types import SimpleNamespace
-            >>> host = SimpleNamespace(get_tables_and_columns=lambda: {"works": ["work_id", "work_title"], "agents": ["agent_id"]})
+            >>> host = SimpleNamespace(
+            ...     get_tables_and_columns=lambda: {
+            ...         "works": ["work_id", "work_title"],
+            ...         "agents": ["agent_id"],
+            ...     }
+            ... )
             >>> DriverWrapper.identify_table_from_row_dict(host, {"work_id": 1})
             'works'
             >>> DriverWrapper.identify_table_from_row_dict(host, {})
@@ -1327,7 +1351,9 @@ class DriverWrapper(
         Table-resolution errors propagate; the value is not coerced to int.
 
         Example:
-            >>> wrapper.get_id_from_row({"work_id": 1, "work_title": "Example"})  # doctest: +SKIP
+            >>> wrapper.get_id_from_row(
+            ...     {"work_id": 1, "work_title": "Example"}
+            ... )  # doctest: +SKIP
 
 
         :param row_dict: Plain mapping from column names to row values.
@@ -1346,13 +1372,15 @@ class DriverWrapper(
         """
         Return the first discovered table containing a column heading.
 
-        Copies and stringifies the heading before searching. Ambiguous columns resolve to
-        the first table in discovery order. If no table matches, logs the miss and either
-        raises InputIntegrityError or returns None.
+        Copies and stringifies the heading before searching. Ambiguous columns resolve
+        to the first table in discovery order. If no table matches, logs the miss and
+        either raises InputIntegrityError or returns None.
 
         Example:
             >>> from types import SimpleNamespace
-            >>> host = SimpleNamespace(get_tables_and_columns=lambda: {"works": ["work_id"]})
+            >>> host = SimpleNamespace(
+            ...     get_tables_and_columns=lambda: {"works": ["work_id"]}
+            ... )
             >>> DriverWrapper.identify_table_from_column(host, "work_id")
             'works'
 
@@ -1384,8 +1412,8 @@ class DriverWrapper(
         """
         Read trigger names from sqlite_master and close on success or OperationalError.
 
-        Delegates to the driver's direct_get_triggers hook. The following backend details
-        describe the shared SQL/SQLite implementation; backend errors propagate.
+        Delegates to the driver's direct_get_triggers hook. The following backend
+        details describe the shared SQL/SQLite implementation; backend errors propagate.
 
         TEMP triggers are not included and no ordering is specified.
 
@@ -1401,18 +1429,19 @@ class DriverWrapper(
         """
         Drop each named trigger and commit after each removal.
 
-        Delegates to the driver's direct_drop_triggers hook. The following backend details
-        describe the shared SQL/SQLite implementation; backend errors propagate.
+        Delegates to the driver's direct_drop_triggers hook. The following backend
+        details describe the shared SQL/SQLite implementation; backend errors propagate.
 
         Names become SQL syntax and must be trusted. A missing trigger raises
-        OperationalError; earlier removals stay committed. Close on success or that error.
+        OperationalError; earlier removals stay committed. Close on success or that
+        error.
 
         Example:
             >>> wrapper.drop_triggers(["sample_audit"])  # doctest: +SKIP
 
 
-        :param triggers: Iterable of trusted trigger identifiers inserted into DROP TRIGGER
-            statements.
+        :param triggers: Iterable of trusted trigger identifiers inserted into DROP
+            TRIGGER statements.
         :return: ``True`` after all removals, including an empty input.
         """
         return self.driver.direct_drop_triggers(triggers)
@@ -1422,14 +1451,15 @@ class DriverWrapper(
         Discover and drop all persistent triggers through the driver.
 
         Calls get_triggers() then drop_triggers(). Shared SQLite discovery excludes TEMP
-        triggers and removal commits each trigger separately, so a later failure can leave
-        earlier drops applied.
+        triggers and removal commits each trigger separately, so a later failure can
+        leave earlier drops applied.
 
         Example:
             >>> wrapper.drop_all_triggers()  # doctest: +SKIP
 
 
-        :return: Result of drop_triggers(); True in the shared SQL implementation, including an empty trigger list.
+        :return: Result of drop_triggers(); True in the shared SQL implementation,
+            including an empty trigger list.
         """
         all_triggers = self.get_triggers()
         return self.drop_triggers(all_triggers)
@@ -1445,7 +1475,8 @@ class DriverWrapper(
         Enter the interactive shell supplied by the active driver.
 
         Returns the backend result unchanged. The stdlib SQLite backend raises
-        NotImplementedError; shell availability and interactive I/O depend on the backend.
+        NotImplementedError; shell availability and interactive I/O depend on the
+        backend.
 
         Example:
             >>> wrapper.shell()  # doctest: +SKIP
@@ -1480,14 +1511,16 @@ class DriverWrapper(
     # Todo: The cursor probably returns something - pass it through?
     def execute(self, sql: str, values: Optional[tuple[str, ...]] = None) -> None:
         """
-        Execute one statement using a live primary connection and its transaction context.
+        Execute one statement using a live primary connection and its transaction
+        context.
 
         Delegates to the driver's direct_execute hook. The following backend details
         describe the shared SQL/SQLite implementation; backend errors propagate.
 
-        Replace a missing/broken primary handle; convert an integer binding to a one-element
-        text tuple. Execution failures become DatabaseDriverError. Finally attempt a cache
-        refresh while preserving a usable handle, so TEMP objects remain available.
+        Replace a missing/broken primary handle; convert an integer binding to a
+        one-element text tuple. Execution failures become DatabaseDriverError. Finally
+        attempt a cache refresh while preserving a usable handle, so TEMP objects remain
+        available.
 
         Example:
             >>> wrapper.execute("SELECT 1")  # doctest: +SKIP
@@ -1509,20 +1542,21 @@ class DriverWrapper(
         Execute repeated bindings or a legacy SQL script, depending on values.
 
         When values is None, forwards sql to direct_executescript(); otherwise calls
-        direct_executemany(sql, values). Shared SQLite expects SQL text despite the legacy
-        list annotation. Only ValueError is caught, logged with arguments and re-raised with
-        added context; other errors propagate. Transaction behavior comes from the selected
-        backend operation.
+        direct_executemany(sql, values). Shared SQLite expects SQL text despite the
+        legacy list annotation. Only ValueError is caught, logged with arguments and
+        re-raised with added context; other errors propagate. Transaction behavior comes
+        from the selected backend operation.
 
         Example:
             >>> wrapper.executemany("SELECT 1")  # doctest: +SKIP
 
 
-        :param sql: SQL statement text for repeated bindings, or script text when values is
-            None.
+        :param sql: SQL statement text for repeated bindings, or script text when values
+            is None.
         :param values: Iterable of binding sequences/mappings, or None to select script
             execution.
-        :return: Result of the selected driver helper; None for both script execution and repeated bindings in the shared SQL implementation.
+        :return: Result of the selected driver helper; None for both script execution
+            and repeated bindings in the shared SQL implementation.
         """
         try:
             if values is None:
@@ -1545,15 +1579,17 @@ class DriverWrapper(
         """
         Run trusted multi-statement SQL on the primary connection and refresh caches.
 
-        Delegates to the driver's direct_executescript hook. The following backend details
-        describe the shared SQL/SQLite implementation; backend errors propagate.
+        Delegates to the driver's direct_executescript hook. The following backend
+        details describe the shared SQL/SQLite implementation; backend errors propagate.
 
-        Create a primary handle if absent, wrap execution failures as DatabaseDriverError
-        and attempt refresh in finally. Backend executescript transaction behavior still
-        applies.
+        Create a primary handle if absent, wrap execution failures as
+        DatabaseDriverError and attempt refresh in finally. Backend executescript
+        transaction behavior still applies.
 
         Example:
-            >>> wrapper.executescript("CREATE TABLE sample (value TEXT);")  # doctest: +SKIP
+            >>> wrapper.executescript(
+            ...     "CREATE TABLE sample (value TEXT);"
+            ... )  # doctest: +SKIP
 
 
         :param sqlscript: SQL script text passed to the backend executescript method.
@@ -1565,9 +1601,9 @@ class DriverWrapper(
         """
         Execute positional SQL arguments and fetch all rows or the first row.
 
-        Only positional args are forwarded to execute(). The all keyword defaults to True;
-        other keywords are ignored. all=False returns the complete first row, not its first
-        cell, and catches StopIteration or IndexError as an empty result.
+        Only positional args are forwarded to execute(). The all keyword defaults to
+        True; other keywords are ignored. all=False returns the complete first row, not
+        its first cell, and catches StopIteration or IndexError as an empty result.
 
         Example:
             >>> import sqlite3
@@ -1581,7 +1617,8 @@ class DriverWrapper(
             >>> connection.close()
 
 
-        :param args: Positional arguments for execute(), normally SQL and optional bindings.
+        :param args: Positional arguments for execute(), normally SQL and optional
+            bindings.
         :param kw: Options read locally; all controls full versus first-row fetching.
         :return: List of rows by default; a single row or None when all=False.
         """
@@ -1620,13 +1657,15 @@ class DriverWrapper(
         Enqueue a change notification for a configured dirtiable table.
 
         If table is absent from dirtiable_tables, logs a warning and leaves the queue
-        untouched. Otherwise puts (table, row_id, reason) on the configured queue without
-        deduplication or persistence.
+        untouched. Otherwise puts (table, row_id, reason) on the configured queue
+        without deduplication or persistence.
 
         Example:
             >>> from queue import Queue
             >>> from types import SimpleNamespace
-            >>> host = SimpleNamespace(dirtiable_tables=["works"], dirty_records_queue=Queue())
+            >>> host = SimpleNamespace(
+            ...     dirtiable_tables=["works"], dirty_records_queue=Queue()
+            ... )
             >>> DriverWrapper.dirty_record(host, "works", 1, "title changed")
             >>> host.dirty_records_queue.get_nowait()
             ('works', 1, 'title changed')
@@ -1665,19 +1704,21 @@ class DriverWrapper(
         """
         Create a main table and optionally link it to an existing table.
 
-        A non-None link_type is asserted even when link_to is None. Creates the table first,
-        then optionally links link_to as primary and the new table as secondary. Separate
-        backend operations can commit independently; failure to create the link does not
-        imply removal of the new table. Wrapper derived caches are not explicitly cleared
-        here.
+        A non-None link_type is asserted even when link_to is None. Creates the table
+        first, then optionally links link_to as primary and the new table as secondary.
+        Separate backend operations can commit independently; failure to create the link
+        does not imply removal of the new table. Wrapper derived caches are not
+        explicitly cleared here.
 
         Example:
-            >>> wrapper.create_new_main_table("samples", {"sample_value": "TEXT"}, link_type="many_many")  # doctest: +SKIP
+            >>> wrapper.create_new_main_table(
+            ...     "samples", {"sample_value": "TEXT"}, link_type="many_many"
+            ... )  # doctest: +SKIP
 
 
         :param table_name: Name of the new main table.
-        :param column_headings: Backend column specification; shared SQL expects a mapping
-            of headings to SQL types.
+        :param column_headings: Backend column specification; shared SQL expects a
+            mapping of headings to SQL types.
         :param link_to: Existing primary table to link, or None to create only the new
             table.
         :param link_type: Required non-None cardinality: one_one, many_one, one_many or
@@ -1710,17 +1751,20 @@ class DriverWrapper(
         Create an interlink table joining two existing main tables.
 
         Forwards cardinality and requested link columns to the driver and discards its
-        result. Schema validation, SQL execution and commits belong to the backend; derived
-        wrapper caches are not explicitly invalidated here.
+        result. Schema validation, SQL execution and commits belong to the backend;
+        derived wrapper caches are not explicitly invalidated here.
 
         Example:
-            >>> wrapper.link_main_tables("agents", "works", "many_many")  # doctest: +SKIP
+            >>> wrapper.link_main_tables(
+            ...     "agents", "works", "many_many"
+            ... )  # doctest: +SKIP
 
 
         :param primary_table: Primary endpoint table.
         :param secondary_table: Secondary endpoint table.
         :param link_type: Cardinality: one_one, many_one, one_many or many_many.
-        :param link_properties: Optional link-column suffixes forwarded as requested_cols.
+        :param link_properties: Optional link-column suffixes forwarded as
+            requested_cols.
         :return: None.
         """
         self.driver.direct_link_main_tables(

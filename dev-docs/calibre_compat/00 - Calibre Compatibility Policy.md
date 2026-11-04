@@ -5,6 +5,12 @@ Source reviewed **2026-10-20** against the working tree based on `fc5de7af`.
 The proposal remains unimplemented; [next tasks](next_tasks.md) separates reader
 hardening from a future canonical-import design.
 
+**2026-10-29 follow-up:** [Expression conversion](expression-conversion-policy.md)
+is now implemented as `catalog.calibre` for existing canonical records. Its
+logical book anchor is an Expression. That projection is separate from this
+provisional Manifestation-based source-import proposal; neither source records
+nor a canonical import workflow have been added.
+
 This document retains the proposed default interpretation of an imported Calibre
 record: preserve its source identity in a separate compatibility record, initially
 anchored to a Manifestation. It specifies work still to do. Use the
@@ -20,7 +26,7 @@ anchored to a Manifestation. It specifies work still to do. Use the
 | Persistent source identity | Payloads/jobs carry source IDs and library context. | Durable source-library identity, source-record identity, anchor and policy provenance. |
 | Canonical projection | Generated SQLite `books_v` uses WEMI ray IDs. The web adapter resolves Work IDs. | A separate mapping from imported source records to canonical entities. |
 | Compatibility records | No `compatibility_sources` or `calibre_book_records` tables, and no `CalibreBookCompatibilityRecord` class. | Design and migrate the durable record model. Names in this draft are illustrative. |
-| Catalog adapter | No `catalog.compat.calibre` or `catalog.compatibility.calibre` package. | Place bibliographic persistence policy under Catalog and compose the workflow through the application owners. |
+| Catalog adapter | `catalog.compatibility.calibre`, exposed as `catalog.calibre`, projects and updates existing canonical records through `expression-v1`. | Add durable source mapping and compose an actual import workflow through the application owners. |
 
 The existing `CalibreImportPolicy` is a classification policy. It does not
 implement the proposed `manifestation_anchor` profile. A job labelled `full` is
@@ -108,10 +114,11 @@ The proposed workflow must use existing ownership boundaries:
 | Library/application workflows, composed by Core | Coordinate the operation, progress, failures and recovery across Catalog and storage. |
 | Databases | Provide schema, transactions, constraints and generic persistence mechanics. |
 
-A future Calibre-specific Catalog adapter should delegate to the
-[canonical writers](../catalog/catalog-write-validation-contract.md). It must not
+The implemented Expression projection and any future import adapter delegate to the
+[canonical writers](../catalog/catalog-write-validation-contract.md). Adapters must not
 establish another independent normalization or relationship policy. Package names
-such as `catalog.compat.calibre` remain placement proposals, not import paths.
+for additional import orchestration remain proposals; `catalog.compatibility.calibre`
+is now the implemented canonical projection owner.
 
 The importer must decide the semantic target of a field before writing it. Title
 and creator evidence may belong to a Work or Expression; publisher/date/ISBN

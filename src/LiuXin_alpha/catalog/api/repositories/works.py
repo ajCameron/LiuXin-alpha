@@ -34,6 +34,14 @@ class WorkRepositoryAPI(BaseRepositoryAPI, Protocol):
         >>> rows = repository.find_by_title("Frankenstein")  # doctest: +SKIP
     """
 
+    def set_original_language(
+        self, work_id: EntityId, language_id: EntityId | None
+    ) -> None:
+        """Atomically set/clear an existing Work's validated original Language.
+
+        Expression languages and additional relationships remain unchanged.
+        """
+
     def find_by_title(self, title: str, *, limit: int = 20) -> Sequence[RowMapping]:
         """
         Find Works by normalized preferred or canonical title in ID order.
@@ -41,8 +49,8 @@ class WorkRepositoryAPI(BaseRepositoryAPI, Protocol):
         Validate title and limit before returning early for blank normalized text or limit zero.
         Comparison uses NFKC, case-folding, and collapsed whitespace while preserving punctuation.
         It considers work_title and work_canonical_title, not work_sort_title; a stored non-None
-        value is converted to text for comparison. Nonempty lookup materializes all Work rows and
-        matching rows before slicing. This direct lookup does not apply fuzzy matching, confidence,
+        value is converted to text for comparison. Supported SQL drivers filter and limit using
+        indexed comparison functions; other adapters use bounded candidate pages. This direct lookup does not apply fuzzy matching, confidence,
         or ambiguity policy.
 
         Example:

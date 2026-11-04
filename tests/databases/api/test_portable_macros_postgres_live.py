@@ -26,7 +26,7 @@ from LiuXin_alpha.databases.database_driver_plugins.PostgreSQL.databasedriver im
     DatabaseDriver,
 )
 from LiuXin_alpha.databases.driver_wrapper import DriverWrapper
-from LiuXin_alpha.databases.macro_types import LinkValue
+from LiuXin_alpha.databases.db_types.macro_types import LinkValue
 from LiuXin_alpha.databases.schema_specs import StorageColumnSpec, StorageLinkSpec
 
 

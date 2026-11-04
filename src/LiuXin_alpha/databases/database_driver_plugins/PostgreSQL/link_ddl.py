@@ -94,7 +94,8 @@ def _normalise_requested_link_columns(
     Normalize all/None or a suffix sequence for optional link-column selection.
 
     Only the string all is accepted; other scalar strings raise InputIntegrityError.
-    Sequence entries are trimmed, lowercased and deduplicated without identifier validation.
+    Sequence entries are trimmed, lowercased and deduplicated without identifier
+    validation.
 
     Example:
         >>> _normalise_requested_link_columns([" TYPE ", "type"])
@@ -133,7 +134,8 @@ def _link_extra_columns(
 
 
     :param link_base: Validated singular link prefix used to form column names.
-    :param requested: all or a normalized suffix set from _normalise_requested_link_columns.
+    :param requested: all or a normalized suffix set from
+        _normalise_requested_link_columns.
     :return: Ordered suffix/DDL-fragment pairs.
     """
     all_columns: dict[str, str] = {
@@ -196,8 +198,10 @@ def _link_constraints(
         a rating link with type makes left-ID/type pairs unique.
 
 
-    :param link_type: Relationship cardinality: many_many, many_many_non_exclusive, one_many, many_one, one_one, one_one_normalized or rating.
-    :param link_base: Singular link prefix used to name constraints and optional columns.
+    :param link_type: Relationship cardinality: many_many, many_many_non_exclusive,
+        one_many, many_one, one_one, one_one_normalized or rating.
+    :param link_base: Singular link prefix used to name constraints and optional
+        columns.
     :param left_base: Singular left-table prefix used in one-to-one constraint names.
     :param right_base: Singular right-table prefix used in one-to-one constraint names.
     :param left_fk_col: Left-side foreign-key column name.

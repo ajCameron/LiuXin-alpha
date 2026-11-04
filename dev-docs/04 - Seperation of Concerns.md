@@ -112,6 +112,13 @@ retains parent scope. Repositories and low-level row adapters derive these value
 from the schema's `normalized_identities` declarations; a supplied `*_norm` value
 cannot replace the declared derivation.
 
+`metadata.value_policies` owns shared policy labels and defaults for display-value
+kinds, including taxonomy set union and appended prose. `databases.column_metadata`
+binds those kinds to physical columns, selects comparison-column profiles, and
+infers machine-column defaults. It persists declarations without owning the
+bibliographic rules. Catalog chooses and applies those rules during semantic writes;
+a declared merge or validation profile does not itself execute either operation.
+
 Matching evidence, approximate search and display sorting have different purposes.
 They must not write their own competing values into the stored identity columns.
 See [identity policy](catalog/catalog-write-validation-contract.md#current-identity-policy)
@@ -125,6 +132,14 @@ validators. Identifier schemes and per-entity allow-lists belong to
 `metadata.identifiers`; MARC roles and per-WEMI role sets belong to
 `metadata.relators`. Schema constraints may consume those rules without becoming
 their semantic owner.
+
+Legacy field conversion belongs to `metadata.field_adaptors`: field-specific
+fallbacks, series parsing, language/identifier wrappers and custom-field rules.
+Generic converters remain in `utils.adaptors`. The metadata-descriptor and explicit
+datatype factory entry points share one implementation. Custom-field converters
+retain their distinct whitespace, missing-value and error contracts; this ownership
+split does not make them interchangeable or extend Catalog's validation coverage.
+The former `databases.adaptors` module has been removed and its callers migrated.
 
 Containers do not open a database, hydrate themselves with `from_database`, or
 persist through `write_to_database`. Use `catalog.mutations.writer.write_container`

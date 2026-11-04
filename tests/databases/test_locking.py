@@ -13,11 +13,10 @@ Example:
 from __future__ import annotations
 
 import threading
-import time
 
 import pytest
 
-from LiuXin_alpha.databases.locking import (
+from LiuXin_alpha.utils.locking import (
     DowngradeLockError,
     LockingError,
     RWLockWrapper,

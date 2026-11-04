@@ -33,45 +33,37 @@ class DriverWrapperAddMixin:
 
     def add_row(self, row_dict: dict[str, Any]) -> None:
         """
-        Infer a table, derive configured identity values and insert one bound-value row.
+        Insert a copied row mapping, deriving configured normalized identity values.
 
-        Delegates to the driver's direct_add_simple_row_dict hook. The following backend
-        details describe the shared SQL/SQLite implementation; backend errors propagate.
-
-        Custom-column value tables also sanitize NUL text. The connection commits and closes
-        in finally, even on execution errors; this is not a rollback-on-error helper. SQLite
-        operational/integrity errors become driver/integrity errors.
+        The shared SQL/SQLite writer sanitizes NUL text in custom-column values, commits
+        only on success and always closes its connection. PostgreSQL retains its primary
+        connection. Backend exceptions propagate through this interface.
 
         Example:
-            >>> wrapper.add_row({"work_id": 1, "work_title": "Example"})  # doctest: +SKIP
+            A work_title value of "None" remains ordinary text after insertion.
 
-
-        :param row_dict: Column-to-value mapping; table inference removes any ``table`` key
-            in place.
-        :return: The cursor lastrowid for the inserted row.
+        :param row_dict: Column/value mapping, optionally including a table hint; not
+            mutated.
+        :return: The inserted row ID.
         """
         # Returns the SQLite rowid / INTEGER PRIMARY KEY value if available.
         return self.driver.direct_add_simple_row_dict(row_dict)
 
     def add_multiple_rows(self, row_dict_list: list[dict[str, Any]]) -> None:
         """
-        Insert rows sharing a table, the same keys and the same key order.
+        Insert a batch atomically, binding values by named column.
 
-        Delegates to the driver's direct_add_multiple_simple_row_dicts hook. The following
-        backend details describe the shared SQL/SQLite implementation; backend errors
-        propagate.
-
-        Mismatched tables/key sets or non-null explicit IDs raise InputIntegrityError.
-        Values follow each mapping's insertion order, so matching key sets alone are
-        insufficient. Identity derivation and NUL sanitization follow single-row insertion.
-        Commit/close run in finally, allowing partial batches to persist on errors.
+        The shared SQL/SQLite writer requires one table, matching column sets and no
+        non-null explicit IDs. Input dictionaries may have different key orders and are
+        not mutated. Normalization and custom-column NUL handling match single inserts.
+        A failure rolls back the whole batch and closes its owned connection. PostgreSQL
+        also rolls back the full batch while retaining its primary connection.
 
         Example:
-            >>> wrapper.add_multiple_rows([{"work_title": "Example"}])  # doctest: +SKIP
+            A uniqueness violation on the second row leaves neither row inserted.
 
-
-        :param row_dict_list: Sized, indexable sequence of homogeneous row mappings;
-            inference and sanitization may mutate them.
+        :param row_dict_list: Iterable of row mappings; shared SQL requires homogeneous
+            rows.
         :return: None; the driver result is discarded.
         """
         self.driver.direct_add_multiple_simple_row_dicts(row_dict_list)
@@ -82,10 +74,11 @@ class DriverWrapperAddMixin:
 
         Stringifies table and rejects views with InputIntegrityError. Requires a scratch
         column. For books, reserves a titles row first and reuses its ID; for
-        asset_replicas, seeds a nonempty blank/<token> storage key. Zero or multiple scratch
-        matches raise DatabaseIntegrityError after insertion. Clears the scratch value only
-        in the returned mapping: the stored token remains until a later update. Backend
-        defaults and constraints still apply, and earlier writes are not rolled back here.
+        asset_replicas, seeds a nonempty blank/<token> storage key. Zero or multiple
+        scratch matches raise DatabaseIntegrityError after insertion. Clears the scratch
+        value only in the returned mapping: the stored token remains until a later
+        update. Backend defaults and constraints still apply, and earlier writes are not
+        rolled back here.
 
         Example:
             >>> wrapper.get_blank_row("works")  # doctest: +SKIP

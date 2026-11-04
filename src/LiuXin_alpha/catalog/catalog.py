@@ -2,7 +2,7 @@
 Compose concrete Catalog owners and expose their shared repository shortcuts.
 
 Catalog retains a borrowed database, builds legacy metadata tools and nineteen
-entity repositories, and wires matching, retrieval, and mutation services around
+entity repositories, and wires matching, retrieval, search and mutation services around
 them. The facade delegates schema-driven writes to writer owners and normalized
 update objects. It adds no database lifecycle management; individual mutation
 owners establish their documented transaction scope.
@@ -20,6 +20,7 @@ from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, cast
 
 from LiuXin_alpha.catalog.api.common import DatabaseHandle
+from LiuXin_alpha.catalog.compatibility import CalibreCompatibility
 from LiuXin_alpha.catalog.matching import (
     DEFAULT_MATCHING_POLICY,
     CatalogMatching,
@@ -50,6 +51,7 @@ from LiuXin_alpha.catalog.repositories import (
 )
 from LiuXin_alpha.catalog.repositories.group import CatalogRepositories
 from LiuXin_alpha.catalog.retrieval import CatalogRetrieval
+from LiuXin_alpha.catalog.search.database_search import CatalogSearch
 from LiuXin_alpha.catalog.write import (
     CatalogColumnUpdate,
     CatalogOwnedRowUpdate,
@@ -60,8 +62,8 @@ from LiuXin_alpha.catalog.write import (
 from LiuXin_alpha.catalog.write.host_api import CatalogWriterHostAPI
 
 if TYPE_CHECKING:
-    from LiuXin_alpha.databases.db_types import SrcTableID
-    from LiuXin_alpha.databases.macro_types import LinkRow
+    from LiuXin_alpha.databases.db_types.database_types import SrcTableID
+    from LiuXin_alpha.databases.db_types.macro_types import LinkRow
 
 
 
@@ -90,6 +92,8 @@ class Catalog:
     :ivar repositories: Mutable group of concrete entity repository instances.
     :ivar matching: Matching services using the supplied identity policy.
     :ivar retrieval: WEMI traversal, bundle, graph, and projection services.
+    :ivar search: Read-only Boolean search across WEMI paths and attached metadata.
+    :ivar calibre: Versioned Expression-centred compatibility projections and writes.
     :ivar mutations: Coordinated writes and mutation-policy services.
     :ivar add: Legacy metadata creation helpers sharing this Catalog's ensure/apply tools.
     :ivar ensure: Legacy get-or-create helpers bound to the same add tool.
@@ -153,6 +157,8 @@ class Catalog:
             policy=matching_policy,
         )
         self.retrieval = CatalogRetrieval(db=db, repositories=self.repositories)
+        self.search = CatalogSearch(db, self.repositories, self.retrieval.hierarchy)
+        self.calibre = CalibreCompatibility(db, self.repositories)
         self.mutations = CatalogMutations(db=db, repositories=self.repositories)
 
     def create_writer(
@@ -374,7 +380,7 @@ class Catalog:
             return update.write(self.db.macros)
         if not update.values:
             return {}
-        from LiuXin_alpha.databases.macro_types import LinkValue
+        from LiuXin_alpha.databases.db_types.macro_types import LinkValue
         from LiuXin_alpha.catalog.api.common import CatalogMutationError
 
         macros = self.db.macros
@@ -568,7 +574,7 @@ class Catalog:
     @property
     def tags(self) -> TagRepository:
         """
-        Expose the repository for reusable Tag values.
+        Expose reusable Tag values and explicit Work membership operations.
 
         This shortcut returns the current repositories.tags member. Reading the property performs no
         lookup, copy, or repository construction; entity operations and their validation remain the
@@ -644,7 +650,7 @@ class Catalog:
     @property
     def series(self) -> SeriesRepository:
         """
-        Expose the repository for series values and their entity relationships.
+        Expose Series values, parent fields and explicit Work memberships.
 
         This shortcut returns the current repositories.series member. Reading the property performs
         no lookup, copy, or repository construction; entity operations and their validation remain

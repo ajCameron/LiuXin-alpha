@@ -15,16 +15,15 @@ encoding; this module does not render a UI or start a transport server.
 from __future__ import annotations
 
 import mimetypes
-
 from collections.abc import Iterable, Mapping, Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 from urllib.parse import urljoin
 
 from LiuXin_alpha.core.application_api import CoreApplicationAPI
-from LiuXin_alpha.core.queries import CoreQuery
 from LiuXin_alpha.core.description import CorePayloadFieldDescription
 from LiuXin_alpha.core.errors import CoreDispatchError
+from LiuXin_alpha.core.queries import CoreQuery
 from LiuXin_alpha.storage.api import Location
 from LiuXin_alpha.storage.utils.store_configuration import store_configuration_from_row
 
@@ -546,6 +545,9 @@ def _flatten(value: Any) -> str:
 def _work_summary(
     runtime: "CoreRuntime",
     row: Mapping[str, Any],
+    *,
+    related: Mapping[str, Sequence[Mapping[str, Any]]] | None = None,
+    tag_tables: Sequence[str] | None = None,
 ) -> dict[str, Any]:
     """
     Project a Work using the catalogue-wide tag source shared with browse counts.
@@ -564,9 +566,16 @@ def _work_summary(
     :return: work_id/title/authors/series/tags/record dictionary; relationship order follows source iteration.
     """
     work_id = row.get(_id_column(runtime, "works"))
+    related = related or {}
+
+    def relations(table: str) -> Sequence[Mapping[str, Any]]:
+        return (
+            related[table] if table in related else _related_rows(runtime, row, table)
+        )
+
     authors: list[dict[str, Any]] = []
     for table in _CATEGORY_TABLES["authors"]:
-        for author_row in _related_rows(runtime, row, table):
+        for author_row in relations(table):
             authors.append(
                 {
                     "id": author_row.get(_id_column(runtime, table)),
@@ -579,7 +588,7 @@ def _work_summary(
             "id": value.get(_id_column(runtime, "series")),
             "name": _primary_text("series", value),
         }
-        for value in _related_rows(runtime, row, "series")
+        for value in relations("series")
     ]
     tag_rows = [
         {
@@ -587,8 +596,14 @@ def _work_summary(
             "table": table,
             "name": _primary_text(table, value),
         }
-        for table in _category_tables(runtime, "tags")
-        for value in _category_related_rows(runtime, "works", int(work_id), table)
+        for table in (
+            tag_tables if tag_tables is not None else _category_tables(runtime, "tags")
+        )
+        for value in (
+            related[table]
+            if table in related
+            else _category_related_rows(runtime, "works", int(work_id), table)
+        )
     ]
     return {
         "work_id": work_id,
@@ -598,6 +613,49 @@ def _work_summary(
         "tags": tag_rows,
         "record": dict(row),
     }
+
+
+def _work_summaries(
+    runtime: "CoreRuntime", rows: Sequence[Mapping[str, Any]]
+) -> list[dict[str, Any]]:
+    """Enrich only the visible Work page using the selected source's batch reads.
+
+    Cache adapters without grouped traversal retain their own scalar reads.
+    Author/Series compatibility failures still use the existing fallback;
+    failures in the authoritative tag family propagate.
+    """
+    if not rows:
+        return []
+    tag_tables = _category_tables(runtime, "tags")
+    reader = getattr(runtime.services.read_source, "get_interlinked_rows_bulk", None)
+    groups = {}
+    if callable(reader):
+        available = _tables(runtime)
+        owners = [int(row[_id_column(runtime, "works")]) for row in rows]
+        for table in (*_CATEGORY_TABLES["authors"], "series", *tag_tables):
+            if table not in available:
+                groups[table] = dict.fromkeys(owners, ())
+                continue
+            try:
+                groups[table] = reader("works", owners, table)
+            except Exception:
+                if table in tag_tables:
+                    raise
+    return [
+        _work_summary(
+            runtime,
+            row,
+            related={
+                table: tuple(
+                    _row_mapping(value)
+                    for value in owners[int(row[_id_column(runtime, "works")])]
+                )
+                for table, owners in groups.items()
+            },
+            tag_tables=tag_tables,
+        )
+        for row in rows
+    ]
 
 
 def _work_item_ids(
@@ -1330,17 +1388,25 @@ class CoreBrowseAPI:
         sort = str(payload.get("sort") or "name").strip().lower()
         if category in {"all", "newest"}:
             works = _all_rows(runtime, "works")
-            records = [_work_summary(runtime, row) for row in works]
             if category == "newest" or sort == "recent":
-                records.sort(
+                works.sort(
                     key=lambda row: int(row.get("work_id") or 0),
                     reverse=ascending,
                 )
             else:
-                records.sort(
-                    key=lambda row: str(row["title"]).casefold(),
+                works.sort(
+                    key=lambda row: _primary_text("works", row).casefold(),
                     reverse=not ascending,
                 )
+            visible = _work_summaries(runtime, works[offset : offset + limit])
+            return {
+                "category": category,
+                "records": visible,
+                "total_count": len(works),
+                "limit": limit,
+                "offset": offset,
+                "complete": offset + len(visible) >= len(works),
+            }
         else:
             records = []
             for table in _category_tables(runtime, category):
@@ -1348,17 +1414,36 @@ class CoreBrowseAPI:
                     runtime, CoreQuery("rows.query", {"table": table})
                 )
                 _require_complete_category_read(result, table)
+                count_reader = getattr(
+                    runtime.services.read_source, "get_interlinked_counts_bulk", None
+                )
+                work_counts = None
+                if callable(count_reader) and "works" in _tables(runtime):
+                    work_counts = count_reader(
+                        table,
+                        [
+                            int(record["values"][_id_column(runtime, table)])
+                            for record in result["records"]
+                        ],
+                        "works",
+                    )
                 for record in result["records"]:
                     row = record["values"]
                     row_id = row.get(_id_column(runtime, table))
-                    works = _category_related_rows(runtime, table, int(row_id), "works")
+                    work_count = (
+                        work_counts[int(row_id)]
+                        if work_counts is not None
+                        else len(
+                            _category_related_rows(runtime, table, int(row_id), "works")
+                        )
+                    )
                     records.append(
                         {
                             "category": category,
                             "table": table,
                             "id": row_id,
                             "label": _primary_text(table, row),
-                            "work_count": len(works),
+                            "work_count": work_count,
                             "record": row,
                         }
                     )
@@ -1445,24 +1530,23 @@ class CoreBrowseAPI:
             raise CoreDispatchError("Unknown browse category `{}`.".format(category))
         if text:
             rows = [row for row in rows if text in _flatten(row)]
-        records = [_work_summary(runtime, row) for row in rows]
         if sort == "recent":
-            records.sort(
+            rows.sort(
                 key=lambda row: int(row.get("work_id") or 0),
                 reverse=not ascending,
             )
         else:
-            records.sort(
-                key=lambda row: str(row["title"]).casefold(),
+            rows.sort(
+                key=lambda row: _primary_text("works", row).casefold(),
                 reverse=not ascending,
             )
-        visible = records[offset : offset + limit]
+        visible = _work_summaries(runtime, rows[offset : offset + limit])
         return {
             "records": visible,
-            "total_count": len(records),
+            "total_count": len(rows),
             "limit": limit,
             "offset": offset,
-            "complete": offset + len(visible) >= len(records),
+            "complete": offset + len(visible) >= len(rows),
         }
 
     @staticmethod

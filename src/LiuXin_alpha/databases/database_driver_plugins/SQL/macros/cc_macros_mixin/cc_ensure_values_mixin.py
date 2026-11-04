@@ -67,8 +67,15 @@ class CustomColumnsEnsureValueMacrosMixin:
             >>> import sqlite3
             >>> from types import SimpleNamespace
             >>> conn = sqlite3.connect(":memory:")
-            >>> _ = conn.execute("CREATE TABLE entries (id INTEGER PRIMARY KEY, value TEXT)")
-            >>> wrapper = SimpleNamespace(get_display_column=lambda table: "value", get_id_column=lambda table: "id", execute=conn.execute, get=lambda sql, params: conn.execute(sql, params).fetchall())
+            >>> _ = conn.execute(
+            ...     "CREATE TABLE entries (id INTEGER PRIMARY KEY, value TEXT)"
+            ... )
+            >>> wrapper = SimpleNamespace(
+            ...     get_display_column=lambda table: "value",
+            ...     get_id_column=lambda table: "id",
+            ...     execute=conn.execute,
+            ...     get=lambda sql, params: conn.execute(sql, params).fetchall(),
+            ... )
             >>> macros = CustomColumnsEnsureValueMacrosMixin()
             >>> macros.db = SimpleNamespace(driver_wrapper=wrapper)
             >>> macros.ensure_custom_column_value("entries", "A")

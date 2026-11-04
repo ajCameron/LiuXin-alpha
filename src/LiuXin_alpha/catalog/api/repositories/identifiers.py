@@ -64,7 +64,8 @@ class IdentifierRepositoryAPI(BaseRepositoryAPI, Protocol):
         Return the first stored row matching normalized scheme and value, regardless of owner.
 
         Validate both arguments as strings and normalize the incoming candidate before
-        materializing all rows in requested ascending identifier-ID order. For each row,
+        lookup in ascending identifier-ID order. Supported drivers use indexed SQL
+        comparison; other adapters stream bounded pages. For stored comparisons,
         convert its raw scheme/value columns to strings (false-valued fields become empty)
         and normalize them, skipping TypeError/ValueError failures. Compare canonical
         scheme and normalised_value, ignoring provenance, primary flags, and ownership.
@@ -228,6 +229,31 @@ class IdentifierRepositoryAPI(BaseRepositoryAPI, Protocol):
         :return: New dict of stored scheme strings to stored value strings, possibly empty.
         :raises CatalogMutationError: If a primary row lacks string scheme/value or repeats an exact scheme key.
         :raises Exception: Owner validation and identifier-read failures propagate.
+        """
+
+    def list_for_level(self, level: WemiLevel) -> Sequence[RowMapping]:
+        """Read primary and alternative curated identifiers at one WEMI level."""
+
+    def clear_for_wemi(
+        self, *, level: WemiLevel, entity_id: EntityId, scheme: str | None = None
+    ) -> None:
+        """Atomically clear an owner's identifiers or one normalized scheme.
+
+        Generic isbn clears both lengths; missing owners raise CatalogNotFoundError.
+        """
+
+    def set_primary_for_wemi(
+        self,
+        *,
+        level: WemiLevel,
+        entity_id: EntityId,
+        scheme: str,
+        value: str | None,
+    ) -> EntityId | None:
+        """Validate and promote a value atomically, preserving alternatives.
+
+        Equivalent owned values reuse their ID. None clears the selected scheme;
+        blank strings are invalid. Return the selected ID, or None after clearing.
         """
 
     def replace_for_wemi(

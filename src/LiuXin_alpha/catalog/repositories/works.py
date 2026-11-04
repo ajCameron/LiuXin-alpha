@@ -10,7 +10,9 @@ from __future__ import annotations
 
 from typing import ClassVar, Mapping, Sequence
 
-from ..api.common import EntityId, MetadataCandidate, MatchResult, RowMapping
+from LiuXin_alpha.databases.db_types.query_types import TextMatch
+
+from ..api.common import EntityId, MatchResult, MetadataCandidate, RowMapping
 from .base import BaseRepository, normalise_text
 
 
@@ -51,6 +53,20 @@ class WorkRepository(BaseRepository):
         "discovery_note": "work_discovery_note",
     }
 
+    def set_original_language(
+        self, work_id: EntityId, language_id: EntityId | None
+    ) -> None:
+        """Set or clear the Work's original language inside one transaction.
+
+        Require both referenced rows before changing the Work. Expression
+        languages and any additional language relationships are preserved.
+        """
+        with self._macros.transaction():
+            self.require(work_id)
+            if language_id is not None:
+                self._require_table_row("languages", language_id)
+            self.update(work_id, {"original_language_id": language_id})
+
     def find_by_title(self, title: str, *, limit: int = 20) -> Sequence[RowMapping]:
         """
         Find Works by normalized preferred or canonical title in ID order.
@@ -58,8 +74,8 @@ class WorkRepository(BaseRepository):
         Validate title and limit before returning early for blank normalized text or limit zero.
         Comparison uses NFKC, case-folding, and collapsed whitespace while preserving punctuation.
         It considers work_title and work_canonical_title, not work_sort_title; a stored non-None
-        value is converted to text for comparison. Nonempty lookup materializes all Work rows and
-        matching rows before slicing. This direct lookup does not apply fuzzy matching, confidence,
+        value is converted to text for comparison. Supported SQL drivers filter and limit using
+        indexed comparison functions; other adapters use bounded candidate pages. This direct lookup does not apply fuzzy matching, confidence,
         or ambiguity policy.
 
         Example:
@@ -91,9 +107,15 @@ class WorkRepository(BaseRepository):
         wanted = normalise_text(title)
         if not wanted or limit == 0:
             return ()
+        rows = self._matching_rows(
+            TextMatch(("work_title", "work_canonical_title"), wanted, exact=True),
+            limit=limit,
+        )
+        if rows is not None:
+            return rows
         return tuple(
             row
-            for row in self._all_rows()
+            for row in self._scan_rows()
             if any(
                 value is not None and normalise_text(value) == wanted
                 for value in (

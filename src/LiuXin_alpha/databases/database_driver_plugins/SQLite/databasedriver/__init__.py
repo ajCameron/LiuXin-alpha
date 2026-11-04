@@ -20,6 +20,8 @@ import codecs
 import os
 import re
 import sqlite3
+
+from LiuXin_alpha.databases.search_functions import register_search_functions
 import uuid
 from functools import partial
 from typing import Iterator
@@ -278,7 +280,9 @@ class DatabaseDriver(
         Example:
             >>> metadata = {"database_path": ":memory:"}
             >>> queue = []
-            >>> driver = DatabaseDriver(metadata, set_conn=False, dirty_records_queue=queue)
+            >>> driver = DatabaseDriver(
+            ...     metadata, set_conn=False, dirty_records_queue=queue
+            ... )
             >>> driver.db_metadata is metadata and driver.dirty_records_queue is queue
             True
             >>> driver.event_count, driver.conn
@@ -384,6 +388,8 @@ class DatabaseDriver(
     # Todo: We need a registyr to make sure we have singleton connections to each db
     # Todo: We need a registyr to make sure we have singleton connections to each db
     # Internal, implementation dependant method. Should not be exposed to the outside
+    supports_normalized_search = True
+
     def get_connection(self) -> "sqlite3.Connection":
         """
         Open, configure and track a fresh SQLite connection.
@@ -416,7 +422,9 @@ class DatabaseDriver(
             0
             >>> conn.get("PRAGMA foreign_keys", all=False)
             1
-            >>> conn.get_row("SELECT 'abc' REGEXP 'b', books_list_filter(999)", all=False)
+            >>> conn.get_row(
+            ...     "SELECT 'abc' REGEXP 'b', books_list_filter(999)", all=False
+            ... )
             (1, 1)
             >>> driver.conn is None and conn in driver._open_connections
             True
@@ -501,6 +509,7 @@ class DatabaseDriver(
             reg = re.compile(expr)
             return reg.search(item) is not None
 
+        register_search_functions(conn)
         conn.create_function("REGEXP", 2, regexp)
 
         # Add the TREE_AGGREGATOR to the connection - allows for string representation of the position of a row in a
@@ -570,7 +579,9 @@ class DatabaseDriver(
         Example:
             >>> import tempfile
             >>> with tempfile.NamedTemporaryFile() as file:
-            ...     driver = DatabaseDriver({"database_path": file.name}, set_conn=False)
+            ...     driver = DatabaseDriver(
+            ...         {"database_path": file.name}, set_conn=False
+            ...     )
             ...     modified = driver.last_modified()
             >>> modified.utcoffset().total_seconds()
             0.0
@@ -707,7 +718,9 @@ class DatabaseDriver(
 
         Example:
             With a committed file-backed database and an available scratch directory:
-            >>> driver.dump_and_restore(callback=print, sql="CREATE TABLE restore_note (value TEXT);")  # doctest: +SKIP
+            >>> driver.dump_and_restore(
+            ...     callback=print, sql="CREATE TABLE restore_note (value TEXT);"
+            ... )  # doctest: +SKIP
 
 
         :param callback: Callable receiving two localized progress strings, before
@@ -789,6 +802,7 @@ class DatabaseDriver(
                 try:
                     # Ensure compat collations/functions exist during schema creation.
                     restore_conn.execute("PRAGMA foreign_keys=ON")
+                    register_search_functions(restore_conn)
                     restore_conn.create_function("title_sort", 1, title_to_title_sort)
                     restore_conn.create_function(
                         "author_to_author_sort", 1, _author_sort_sql_value

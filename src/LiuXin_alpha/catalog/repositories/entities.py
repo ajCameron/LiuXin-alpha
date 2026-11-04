@@ -6,6 +6,7 @@ Most methods are inherited; Comment/Synopsis attachment workflows and Item-scope
 Annotation listing add their own validation and transaction boundaries. Languages
 are immutable at this repository layer, and Comments/Annotations reject generic
 match-or-create. Constants and alias mappings are shared with their specifications.
+Tag and Series repositories share explicit Work membership reads and mutations.
 """
 
 from __future__ import annotations
@@ -14,7 +15,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import replace
 from typing import ClassVar
 
-from LiuXin_alpha.databases.macro_types import LinkValue
+from LiuXin_alpha.databases.db_types.macro_types import LinkValue
 from LiuXin_alpha.metadata.ratings import normalise_rating_pair
 
 from ..api.common import EntityId, MetadataCandidate, RowInput, RowMapping, WemiLevel
@@ -32,9 +33,10 @@ from ..matching.entity_specs import (
 )
 from .base import WEMI_TABLES
 from .exact import ExactEntityRepository
+from .work_memberships import WorkMembershipRepository
 
 
-class TagRepository(ExactEntityRepository):
+class TagRepository(WorkMembershipRepository):
     """
     Store reusable Tags with exact text/hash identity and optional approximate text fallback.
 
@@ -43,6 +45,9 @@ class TagRepository(ExactEntityRepository):
     uses NFKC/whitespace normalization and case-folding while preserving punctuation. CRUD remains
     separate from matching. Base CRUD derives persisted keys from the database identity
     declarations, so callers cannot override a key independently of its source text.
+
+    Work membership methods are inherited from WorkMembershipRepository. Other
+    WEMI levels and Agent/Series tagging have no supported direct Tag link here.
 
     Example:
         >>> repository = TagRepository(None)
@@ -136,7 +141,7 @@ class SubjectRepository(ExactEntityRepository):
     match_spec = SUBJECT_SPEC
 
 
-class SeriesRepository(ExactEntityRepository):
+class SeriesRepository(WorkMembershipRepository):
     """
     Store hierarchical Series with schema-derived normalized names for persistence.
 
@@ -146,6 +151,10 @@ class SeriesRepository(ExactEntityRepository):
     identity covers name, normalized name, hash, and full name; series_sort is not an identity
     field. Scalar lookup searches the three name forms with case-folded exact comparison. Parent
     scope is optional, and approximate fallback uses series only when enabled.
+
+    Work memberships use WorkMembershipRepository. Retained typed links and
+    provenance are preserved; sequence positions and primary selection are not
+    defined by these operations or their stored priorities.
 
     Example:
         >>> repository = SeriesRepository(None)
@@ -639,7 +648,7 @@ class AnnotationRepository(ExactEntityRepository):
         database without case-folding or matching-policy normalization. None means no constraint for
         either filter, not a request to find null-valued columns.
 
-        Ask macros for ascending annotation_id order and shallow-copy all returned rows. No
+        Use the table SQL reader's annotation_id order and shallow-copy all returned rows. No
         _catalog_link metadata, pagination, global reuse, or persistence is added. The owner read
         and annotation query are not enclosed in one snapshot.
 
@@ -658,19 +667,15 @@ class AnnotationRepository(ExactEntityRepository):
         """
 
         self._require_table_row("items", item_id)
-        where: dict[str, object] = {"annotation_item_id": item_id}
         if user_id is not None:
             self._validate_entity_id(user_id)
-            where["annotation_user_id"] = user_id
         if kind is not None:
             if not isinstance(kind, str) or not kind.strip():
                 raise ValueError("kind must be a non-empty string or None")
-            where["annotation_kind"] = kind.strip()
-        rows = self._macros.get_rows(
-            self.table_name,
-            where=where,
-            order_by=(self.id_column,),
-        )
+            kind = kind.strip()
+        rows = self.db.metadata_sql.get_annotations_for_items(
+            [item_id], user_id=user_id, kind=kind
+        )[item_id]
         return tuple(self._as_mapping(row) for row in rows)
 
 

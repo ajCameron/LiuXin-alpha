@@ -43,7 +43,9 @@ class DriverIntralinkMixinAPI(abc.ABC):
         produce no statements; interpolated seed labels are not escaped.
 
         Example:
-            >>> driver.direct_build_allowed_types_table_intralink("works", ["related"])  # doctest: +SKIP
+            >>> driver.direct_build_allowed_types_table_intralink(
+            ...     "works", ["related"]
+            ... )  # doctest: +SKIP
 
 
         :param for_table: Table whose allowed-type lookup name is derived.
@@ -70,24 +72,25 @@ class DriverIntralinkMixinAPI(abc.ABC):
         implementation; this declaration itself has no operational body.
 
         None selects type; allowed labels force a type column. Always include source and
-        reject nonnull self-edges. Symmetric guards reject reversed endpoints rather than
-        swapping them; symmetric_types restricts that guard even when symmetric is true.
-        Reference-type mode omits the FK and requires later guard installation. Explicit
-        sequence_number/is_required subsets currently emit those columns twice because the
-        bespoke-column filter also includes them; all avoids that duplication.
+        reject nonnull self-edges. Symmetric guards reject reversed endpoints rather
+        than swapping them; symmetric_types restricts that guard even when symmetric is
+        true. Reference-type mode omits the FK and requires later guard installation.
+        Explicit sequence_number/is_required subsets currently emit those columns twice
+        because the bespoke-column filter also includes them; all avoids that
+        duplication.
 
         Example:
             >>> driver.direct_build_intralink_table_sql("works")  # doctest: +SKIP
 
 
-        :param name: Main-table name, optionally resolved by the host match_to_table_name
-            hook.
+        :param name: Main-table name, optionally resolved by the host
+            match_to_table_name hook.
         :param allowed_types: Optional iterable of permitted type labels.
         :param requested_cols: all, None, or iterable of optional metadata suffixes.
         :param index_both: Whether to index both endpoint foreign-key columns.
         :param nullable_fks: Whether the two self-link foreign keys are nullable.
-        :param symmetric: Whether to guard canonical ordering for all types when no subset
-            is supplied.
+        :param symmetric: Whether to guard canonical ordering for all types when no
+            subset is supplied.
         :param symmetric_types: Optional reusable type-label collection limiting
             canonical-order guards.
         :param use_reference_types_table: Whether a separately installed __types guard

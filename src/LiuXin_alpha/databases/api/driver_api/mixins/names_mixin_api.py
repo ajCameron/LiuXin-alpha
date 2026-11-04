@@ -38,8 +38,8 @@ class DriverNamesMixinAPI(abc.ABC):
         Abstract backend hook. The behavior below describes the shared SQL/SQLite
         implementation; this declaration itself has no operational body.
 
-        Digits are rejected. The regex uses dollar anchoring, so it also accepts a trailing
-        newline; this is not a complete SQL identifier validation rule.
+        Digits are rejected. The regex uses dollar anchoring, so it also accepts a
+        trailing newline; this is not a complete SQL identifier validation rule.
 
         Example:
             >>> driver.direct_validate_table_name("works")  # doctest: +SKIP
@@ -58,8 +58,8 @@ class DriverNamesMixinAPI(abc.ABC):
         implementation; this declaration itself has no operational body.
 
         Reject semicolon, colon and ampersand. Accept bare names or backtick, backslash,
-        percent and underscore wrappers; this tests existing-name membership and does not
-        guarantee accepted wrappers are valid SQL syntax.
+        percent and underscore wrappers; this tests existing-name membership and does
+        not guarantee accepted wrappers are valid SQL syntax.
 
         Example:
             >>> driver.direct_validate_existing_table_name("works")  # doctest: +SKIP
@@ -133,8 +133,8 @@ class DriverNamesMixinAPI(abc.ABC):
         Abstract backend hook. The behavior below describes the shared SQL/SQLite
         implementation; this declaration itself has no operational body.
 
-        Recognize _datestamp, _timestamp and their _ep_k variants. Unknown tables or absent
-        candidates raise InputIntegrityError; ties preserve schema order.
+        Recognize _datestamp, _timestamp and their _ep_k variants. Unknown tables or
+        absent candidates raise InputIntegrityError; ties preserve schema order.
 
         Example:
             >>> driver.direct_get_datestamp_column("works")  # doctest: +SKIP
@@ -180,7 +180,9 @@ class DriverNamesMixinAPI(abc.ABC):
         implementation; this declaration itself has no operational body.
 
         Example:
-            >>> driver.get_allowed_types_table_name("agent_work_links")  # doctest: +SKIP
+            >>> driver.get_allowed_types_table_name(
+            ...     "agent_work_links"
+            ... )  # doctest: +SKIP
 
 
         :param for_table: Table whose allowed-type lookup name is derived.
@@ -196,7 +198,9 @@ class DriverNamesMixinAPI(abc.ABC):
         implementation; this declaration itself has no operational body.
 
         Example:
-            >>> driver.get_allowed_types_table_name_intralinks("works")  # doctest: +SKIP
+            >>> driver.get_allowed_types_table_name_intralinks(
+            ...     "works"
+            ... )  # doctest: +SKIP
 
 
         :param for_table: Table whose allowed-type lookup name is derived.
@@ -248,8 +252,8 @@ class DriverNamesMixinAPI(abc.ABC):
         Abstract backend hook. The behavior below describes the shared SQL/SQLite
         implementation; this declaration itself has no operational body.
 
-        Sorting occurs before singularization; no table existence or identifier validation
-        is performed.
+        Sorting occurs before singularization; no table existence or identifier
+        validation is performed.
 
         Example:
             >>> driver.get_interlink_table_name("agents", "works")  # doctest: +SKIP
@@ -304,11 +308,13 @@ class DriverNamesMixinAPI(abc.ABC):
         Abstract backend hook. The behavior below describes the shared SQL/SQLite
         implementation; this declaration itself has no operational body.
 
-        Sorting occurs before singularization; no table existence or identifier validation
-        is performed.
+        Sorting occurs before singularization; no table existence or identifier
+        validation is performed.
 
         Example:
-            >>> driver._get_link_table_name_col_name("agents", "works")  # doctest: +SKIP
+            >>> driver._get_link_table_name_col_name(
+            ...     "agents", "works"
+            ... )  # doctest: +SKIP
 
 
         :param primary_table: First table sorted before singularization.

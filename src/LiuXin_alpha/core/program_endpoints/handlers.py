@@ -894,7 +894,7 @@ class DatabaseSchemaHandlers(Protocol):
         self, runtime: CoreRuntime, command: CoreCommand
     ) -> Mapping[str, object]:
         """
-        Apply storage-schema migration, then identity migration, refresh field metadata, and reconcile in sequence.
+        Apply storage, identity and query-index migrations, then refresh metadata.
 
         See :func:`LiuXin_alpha.core.program_services.database.database_migrations_apply`
         for the maintained implementation's validation and failure boundaries.
@@ -904,8 +904,8 @@ class DatabaseSchemaHandlers(Protocol):
 
 
         :param runtime: Runtime supplying the database, identity migrator, field metadata refresh, and reconciliation.
-        :param command: Ignored command envelope; both migrations are always attempted in order.
-        :return: Reconciled migrated=True receipt with projected storage and identity reports after all preceding steps succeed.
+        :param command: Ignored command envelope; all migrations run in sequence.
+        :return: Reconciled receipt with storage, identity and query-index reports.
         """
         ...
 
@@ -924,7 +924,7 @@ class DatabaseSchemaHandlers(Protocol):
 
         :param runtime: Runtime used for the underlying migration-status inspection.
         :param query: Query forwarded to database_migrations_status without additional options.
-        :return: Status, ordered storage/identity action suggestions, collision count, and a message based only on action presence.
+        :return: Status, ordered storage/index/identity actions, collision count, and a message based on action presence.
         """
         ...
 
@@ -932,7 +932,7 @@ class DatabaseSchemaHandlers(Protocol):
         self, runtime: CoreRuntime, query: CoreQuery
     ) -> Mapping[str, object]:
         """
-        Compare the storage migration ledger with two required IDs and audit normalized identities.
+        Inspect storage migrations, normalized identities and physical query indexes.
 
         See :func:`LiuXin_alpha.core.program_services.database.database_migrations_status`
         for the maintained implementation's validation and failure boundaries.
@@ -943,7 +943,7 @@ class DatabaseSchemaHandlers(Protocol):
 
         :param runtime: Runtime providing the database ledger and database-first identity audit capability.
         :param query: Ignored query envelope; the required storage schema version is fixed at two.
-        :return: Pending storage IDs, identity report/clean/update state, and ok only when all three checks pass.
+        :return: Storage, identity and query-index reports; ok requires all to be current.
         """
         ...
 

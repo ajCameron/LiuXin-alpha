@@ -50,11 +50,12 @@ class MacrosBase:
                       typed: bool = False,
                       priority: bool = False):
         """
-        Collect linked IDs, optionally grouped by link type and preserving traversal order.
+        Collect linked IDs, optionally grouped by link type and preserving traversal
+        order.
 
         Unordered results use sets; priority results use lists in the order returned by
-        ``get_interlinked_rows`` without an additional sort. Typed results are defaultdicts
-        whose missing groups create an empty set or list.
+        ``get_interlinked_rows`` without an additional sort. Typed results are
+        defaultdicts whose missing groups create an empty set or list.
 
         Example:
             ``get_link_data("works", "agents", work_id, typed=True)`` groups agent IDs
@@ -66,7 +67,8 @@ class MacrosBase:
         :param table1_id: ID used to look up the source row.
         :param typed: Whether to look up each interlink row and group by its type.
         :param priority: Whether to retain traversal order and duplicates in lists.
-        :return: A set or list of IDs, or a defaultdict mapping link types to those containers.
+        :return: A set or list of IDs, or a defaultdict mapping link types to those
+            containers.
         """
         table2_id_col = self.db.driver_wrapper.get_id_column(table2)
 

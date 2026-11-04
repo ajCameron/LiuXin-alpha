@@ -21,15 +21,18 @@ def check_for_duplicate_column_names(
 
     Each table value is iterated directly (dictionary values therefore contribute keys).
     Additional iterables are deduplicated first; a string contributes characters, and
-    None seeds a None sentinel. Repeats solely within the additional input are not reported.
+    None seeds a None sentinel. Repeats solely within the additional input are not
+    reported.
 
     Example:
         >>> check_for_duplicate_column_names({"a": ["id"], "b": ["id"]})
         True
 
 
-    :param tables_and_columns: Table-to-iterable-of-column-names mapping, despite the narrower annotation.
-    :param additional_column_names: Optional reserved names or scalar seed; copied before use.
+    :param tables_and_columns: Table-to-iterable-of-column-names mapping, despite the
+        narrower annotation.
+    :param additional_column_names: Optional reserved names or scalar seed; copied
+        before use.
     :return: True on the first collision; False when all schema column names are new.
     """
     additional_column_names = deepcopy(additional_column_names)

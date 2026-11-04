@@ -23,7 +23,6 @@ from LiuXin_alpha.core.library_services import LibraryServices
 from LiuXin_alpha.databases.database import Database
 from tests.support import test_resources_manager as trm
 
-
 ALL_TEST_DB_NAMES = tuple(f"test_db_{i}" for i in range(26))
 ASSET_HEAVY_DB_NAMES = ("test_db_3", "test_db_5", "test_db_11")
 BENCHMARK_DB_NAMES = ("benchmark_db_smoke", "benchmark_db_medium", "benchmark_db_large")
@@ -41,6 +40,21 @@ SEMANTIC_DB_NAMES = (
     "pathological_relations_db_0",
     "weird_data_db_0",
 )
+
+
+def _connect_fixture(path: Path) -> sqlite3.Connection:
+    """Open a fixture for writes/integrity checks, including its index functions.
+
+    Callers retain connection ownership and close it in their existing finally
+    blocks. Ordinary raw reads remain covered by the separate driver contracts.
+    """
+    conn = sqlite3.connect(str(path))
+    try:
+        trm._register_sqlite_test_functions(conn)
+    except BaseException:
+        conn.close()
+        raise
+    return conn
 
 
 @contextmanager
@@ -205,7 +219,7 @@ def _count_titles(db_path: Path) -> int:
         connection.
     :return: Integer title count; asserts that the count query returned a row.
     """
-    conn = sqlite3.connect(str(db_path))
+    conn = _connect_fixture(db_path)
     try:
         row = conn.execute("SELECT COUNT(*) FROM titles;").fetchone()
         assert row is not None
@@ -333,7 +347,7 @@ def test_provisioned_database_opens(provision_test_database) -> None:
     provisioned = provision_test_database("test_db_0")
 
     # DB should be a valid sqlite file with expected schema.
-    conn = sqlite3.connect(str(provisioned.db_path))
+    conn = _connect_fixture(provisioned.db_path)
     try:
         row = conn.execute(
             "SELECT name FROM sqlite_master WHERE type IN ('table', 'view') AND name='titles' LIMIT 1;"
@@ -359,7 +373,7 @@ def test_test_db_2_generates_and_is_pruned(provision_test_database) -> None:
     """
     provisioned = provision_test_database("test_db_2")
 
-    conn = sqlite3.connect(str(provisioned.db_path))
+    conn = _connect_fixture(provisioned.db_path)
     try:
         # Should have the standard schema.
         row = conn.execute(
@@ -418,7 +432,7 @@ def test_test_db_3_generates_formats_fixture(provision_test_database) -> None:
     """
     provisioned = provision_test_database("test_db_3")
 
-    conn = sqlite3.connect(str(provisioned.db_path))
+    conn = _connect_fixture(provisioned.db_path)
     try:
         book_count = int(conn.execute("SELECT COUNT(*) FROM books;").fetchone()[0])
         folder_count = _count_relation(conn, "folders")
@@ -465,7 +479,7 @@ def test_benchmark_db_smoke_generates_expected_shape(provision_test_database) ->
     """
     provisioned = provision_test_database("benchmark_db_smoke")
 
-    conn = sqlite3.connect(str(provisioned.db_path))
+    conn = _connect_fixture(provisioned.db_path)
     try:
         book_count = int(conn.execute("SELECT COUNT(*) FROM books;").fetchone()[0])
         folder_count = _count_relation(conn, "folders")
@@ -505,7 +519,7 @@ def test_all_test_db_profiles_smoke_and_shape(provision_test_database, db_name: 
     :return: None; failed expectations raise AssertionError.
     """
     provisioned = provision_test_database(db_name)
-    conn = sqlite3.connect(str(provisioned.db_path))
+    conn = _connect_fixture(provisioned.db_path)
     try:
         assert conn.execute("PRAGMA integrity_check;").fetchone()[0] == "ok"
         assert conn.execute("PRAGMA foreign_key_check;").fetchall() == []
@@ -564,7 +578,7 @@ def test_semantic_asset_profile_partition(provision_test_database) -> None:
 
     for db_name in ALL_TEST_DB_NAMES:
         provisioned = provision_test_database(db_name)
-        conn = sqlite3.connect(str(provisioned.db_path))
+        conn = _connect_fixture(provisioned.db_path)
         try:
             all_folder_counts[db_name] = _count_relation(conn, "folders")
             all_file_counts[db_name] = _count_relation(conn, "files")
@@ -611,7 +625,7 @@ def test_provisioned_profiles_do_not_materialize_legacy_folder_stores(
     :return: None; failed expectations raise AssertionError.
     """
     provisioned = provision_test_database(db_name)
-    conn = sqlite3.connect(str(provisioned.db_path))
+    conn = _connect_fixture(provisioned.db_path)
     try:
         folder_store_table = conn.execute(
             "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'folder_stores' LIMIT 1;"
@@ -645,7 +659,7 @@ def test_semantic_book_count_bands(provision_test_database) -> None:
     counts: dict[str, int] = {}
     for db_name in ("test_db_2", "test_db_16", "test_db_7", "test_db_8", "test_db_14", "test_db_17", "test_db_4", "test_db_20"):
         provisioned = provision_test_database(db_name)
-        conn = sqlite3.connect(str(provisioned.db_path))
+        conn = _connect_fixture(provisioned.db_path)
         try:
             counts[db_name] = int(conn.execute("SELECT COUNT(*) FROM books;").fetchone()[0])
         finally:
@@ -680,9 +694,12 @@ def test_provisioned_copies_are_independent(tmp_path, test_resources_manager) ->
 
     assert _count_titles(db1.db_path) == _count_titles(db2.db_path)
 
-    from tests.support.test_resources_manager import _insert_minimal_row, _register_sqlite_test_functions
+    from tests.support.test_resources_manager import (
+        _insert_minimal_row,
+        _register_sqlite_test_functions,
+    )
 
-    conn = sqlite3.connect(str(db1.db_path))
+    conn = _connect_fixture(db1.db_path)
     try:
         _register_sqlite_test_functions(conn)
         _insert_minimal_row(conn, table="titles", preferred_text_value="Another Title")
@@ -709,7 +726,7 @@ def test_metadata_rich_db_0_provisions_distinct_optional_metadata(provision_test
     :return: None; failed expectations raise AssertionError.
     """
     provisioned = provision_test_database("metadata_rich_db_0")
-    conn = sqlite3.connect(str(provisioned.db_path))
+    conn = _connect_fixture(provisioned.db_path)
     try:
         assert conn.execute("PRAGMA integrity_check;").fetchone()[0] == "ok"
         assert conn.execute("PRAGMA foreign_key_check;").fetchall() == []
@@ -767,7 +784,7 @@ def test_metadata_rich_db_1_provisions_multilingual_dense_metadata(provision_tes
     :return: None; failed expectations raise AssertionError.
     """
     provisioned = provision_test_database("metadata_rich_db_1")
-    conn = sqlite3.connect(str(provisioned.db_path))
+    conn = _connect_fixture(provisioned.db_path)
     try:
         assert conn.execute("PRAGMA integrity_check;").fetchone()[0] == "ok"
         assert conn.execute("PRAGMA foreign_key_check;").fetchall() == []
@@ -830,7 +847,7 @@ def test_stores_assets_db_0_provisions_real_store_backed_assets(provision_test_d
     :return: None; failed expectations raise AssertionError.
     """
     provisioned = provision_test_database("stores_assets_db_0")
-    conn = sqlite3.connect(str(provisioned.db_path))
+    conn = _connect_fixture(provisioned.db_path)
     try:
         assert conn.execute("PRAGMA integrity_check;").fetchone()[0] == "ok"
         assert conn.execute("PRAGMA foreign_key_check;").fetchall() == []
@@ -901,7 +918,7 @@ def test_stores_assets_db_1_provisions_multi_store_assets(provision_test_databas
     :return: None; failed expectations raise AssertionError.
     """
     provisioned = provision_test_database("stores_assets_db_1")
-    conn = sqlite3.connect(str(provisioned.db_path))
+    conn = _connect_fixture(provisioned.db_path)
     try:
         assert conn.execute("PRAGMA integrity_check;").fetchone()[0] == "ok"
         assert conn.execute("PRAGMA foreign_key_check;").fetchall() == []
@@ -965,7 +982,7 @@ def test_images_covers_db_0_provisions_cover_heavy_store_assets(provision_test_d
     :return: None; failed expectations raise AssertionError.
     """
     provisioned = provision_test_database("images_covers_db_0")
-    conn = sqlite3.connect(str(provisioned.db_path))
+    conn = _connect_fixture(provisioned.db_path)
     try:
         assert conn.execute("PRAGMA integrity_check;").fetchone()[0] == "ok"
         assert conn.execute("PRAGMA foreign_key_check;").fetchall() == []
@@ -1031,7 +1048,7 @@ def test_images_covers_db_1_provisions_cover_variants_and_gaps(provision_test_da
     :return: None; failed expectations raise AssertionError.
     """
     provisioned = provision_test_database("images_covers_db_1")
-    conn = sqlite3.connect(str(provisioned.db_path))
+    conn = _connect_fixture(provisioned.db_path)
     try:
         assert conn.execute("PRAGMA integrity_check;").fetchone()[0] == "ok"
         assert conn.execute("PRAGMA foreign_key_check;").fetchall() == []
@@ -1085,7 +1102,7 @@ def test_custom_columns_populated_db_0_provisions_live_generated_tables(provisio
     :return: None; failed expectations raise AssertionError.
     """
     provisioned = provision_test_database("custom_columns_populated_db_0")
-    conn = sqlite3.connect(str(provisioned.db_path))
+    conn = _connect_fixture(provisioned.db_path)
     try:
         assert conn.execute("PRAGMA integrity_check;").fetchone()[0] == "ok"
         assert conn.execute("PRAGMA foreign_key_check;").fetchall() == []
@@ -1164,7 +1181,7 @@ def test_custom_columns_populated_db_1_provisions_series_and_scalar_variants(pro
     :return: None; failed expectations raise AssertionError.
     """
     provisioned = provision_test_database("custom_columns_populated_db_1")
-    conn = sqlite3.connect(str(provisioned.db_path))
+    conn = _connect_fixture(provisioned.db_path)
     try:
         assert conn.execute("PRAGMA integrity_check;").fetchone()[0] == "ok"
         assert conn.execute("PRAGMA foreign_key_check;").fetchall() == []
@@ -1213,7 +1230,7 @@ def test_identifiers_db_0_provisions_rich_identifier_views(provision_test_databa
     :return: None; failed expectations raise AssertionError.
     """
     provisioned = provision_test_database("identifiers_db_0")
-    conn = sqlite3.connect(str(provisioned.db_path))
+    conn = _connect_fixture(provisioned.db_path)
     try:
         assert conn.execute("PRAGMA integrity_check;").fetchone()[0] == "ok"
         assert conn.execute("PRAGMA foreign_key_check;").fetchall() == []
@@ -1271,7 +1288,7 @@ def test_identifiers_db_1_provisions_wider_identifier_matrix(provision_test_data
     :return: None; failed expectations raise AssertionError.
     """
     provisioned = provision_test_database("identifiers_db_1")
-    conn = sqlite3.connect(str(provisioned.db_path))
+    conn = _connect_fixture(provisioned.db_path)
     try:
         assert conn.execute("PRAGMA integrity_check;").fetchone()[0] == "ok"
         assert conn.execute("PRAGMA foreign_key_check;").fetchall() == []
@@ -1308,7 +1325,7 @@ def test_pathological_relations_db_0_provisions_dense_relation_graph(provision_t
     :return: None; failed expectations raise AssertionError.
     """
     provisioned = provision_test_database("pathological_relations_db_0")
-    conn = sqlite3.connect(str(provisioned.db_path))
+    conn = _connect_fixture(provisioned.db_path)
     try:
         assert conn.execute("PRAGMA integrity_check;").fetchone()[0] == "ok"
         assert conn.execute("PRAGMA foreign_key_check;").fetchall() == []
@@ -1364,7 +1381,7 @@ def test_weird_data_db_0_provisions_unicode_and_odd_paths(provision_test_databas
     :return: None; failed expectations raise AssertionError.
     """
     provisioned = provision_test_database("weird_data_db_0")
-    conn = sqlite3.connect(str(provisioned.db_path))
+    conn = _connect_fixture(provisioned.db_path)
     try:
         assert conn.execute("PRAGMA integrity_check;").fetchone()[0] == "ok"
         assert conn.execute("PRAGMA foreign_key_check;").fetchall() == []

@@ -25,7 +25,6 @@ LEGACY_MODULES = (
     "LiuXin_alpha.catalog.metadata_tools",
 )
 REFERENCE_PATHS = (
-    SOURCE_ROOT / "catalog" / "catalog_macros.py",
     SOURCE_ROOT / "catalog" / "metadata_tools" / "__init__.py",
 )
 ALLOWED_PRODUCTION_IMPORTS: set[tuple[str, str]] = {
@@ -79,9 +78,7 @@ def _production_dependencies() -> tuple[
     helper_names = {"add", "ensure", "apply", "intralink"}
     for path in SOURCE_ROOT.rglob("*.py"):
         relative = path.relative_to(SOURCE_ROOT).as_posix()
-        if relative == "catalog/catalog_macros.py" or relative.startswith(
-            "catalog/metadata_tools/"
-        ):
+        if relative.startswith("catalog/metadata_tools/"):
             continue
         with tokenize.open(path) as source:
             tree = ast.parse(source.read(), filename=str(path))
@@ -158,7 +155,7 @@ def _indirect_facade_references() -> set[tuple[str, int, str]]:
 
 def test_legacy_mutation_reference_sources_are_preserved() -> None:
     """
-    The migration must retain its direct-SQL reference implementations.
+    Retain live metadata adapters; the unused macros facade is retired.
 
     Example:
         Exercise test legacy mutation reference sources are preserved through its owning regression module::
@@ -170,6 +167,7 @@ def test_legacy_mutation_reference_sources_are_preserved() -> None:
     """
 
     assert all(path.is_file() for path in REFERENCE_PATHS)
+    assert not (SOURCE_ROOT / "catalog" / "catalog_macros.py").exists()
 
 
 def test_legacy_mutation_production_import_allowlist_only_changes_deliberately() -> None:

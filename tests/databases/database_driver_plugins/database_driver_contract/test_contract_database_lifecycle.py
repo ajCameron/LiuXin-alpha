@@ -18,6 +18,8 @@ from pathlib import Path
 
 import pytest
 
+from LiuXin_alpha.databases.search_functions import register_search_functions
+
 
 def _sqlite_relations(db_path: Path) -> set[str]:
     """
@@ -59,6 +61,7 @@ def _assert_sqlite_integrity(db_path: Path) -> None:
     """
     conn = sqlite3.connect(str(db_path))
     try:
+        register_search_functions(conn)
         row = conn.execute("PRAGMA integrity_check").fetchone()
         assert row is not None
         assert str(row[0]).lower() == "ok"

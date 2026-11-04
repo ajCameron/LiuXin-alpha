@@ -21,11 +21,7 @@ from LiuXin_alpha.caches.api.storage_cache_api.storage_tables_api.link_tables_ap
 )
 
 if TYPE_CHECKING:
-    from LiuXin_alpha.databases.db_types import (
-        SrcTableID,
-        DstTableID,
-        TableColumnName,
-    )
+    from LiuXin_alpha.databases.db_types.database_types import TableColumnName, SrcTableID, DstTableID
     from LiuXin_alpha.caches.updates.table_updates import (
         ManyManyInterlinkTableUpdate,
         ManyManyInterLinkTableUpdateResults,

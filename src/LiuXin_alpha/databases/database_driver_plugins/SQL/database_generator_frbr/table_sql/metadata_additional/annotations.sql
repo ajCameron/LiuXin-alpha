@@ -29,3 +29,18 @@ CREATE TABLE `annotations` (
     `annotation_scratch` TEXT NULL
 
 );
+
+-- BREAK
+-- BREAK
+
+CREATE INDEX IF NOT EXISTS `idx_annotations_item_id`
+ON `annotations` (`annotation_item_id`, `annotation_id`);
+
+-- BREAK
+-- BREAK
+
+CREATE INDEX IF NOT EXISTS `idx_annotations_item_user_kind`
+ON `annotations` (`annotation_item_id`, `annotation_user_id`, `annotation_kind`, `annotation_id`);
+
+-- BREAK
+-- BREAK

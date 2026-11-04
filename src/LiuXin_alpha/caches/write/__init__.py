@@ -13,7 +13,7 @@ from __future__ import unicode_literals, division, absolute_import, print_functi
 
 from typing import Union
 
-from LiuXin_alpha.databases.db_types import ONE_MANY, MANY_ONE, MANY_MANY
+from LiuXin_alpha.databases.db_types.database_types import MANY_ONE, MANY_MANY, ONE_MANY
 from LiuXin_alpha.caches.write.base_writer import BaseWriter
 from LiuXin_alpha.caches.write.generic_writers.many_to_many_writer import ManyToManyWriter
 from LiuXin_alpha.caches.write.generic_writers.many_to_one_writer import ManyToOneWriter

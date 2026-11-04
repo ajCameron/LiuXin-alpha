@@ -4,7 +4,10 @@
 """
 Provide legacy database naming, series and export helpers.
 
-Helpers operate on supplied values or legacy cache objects rather than a unified database transaction. Series numbering depends on preferences/localization. Entry is the exported path/size/timestamp/thumbnail_size namedtuple. Bibliographic title matching lives in ``catalog.matching``.
+Helpers operate on supplied values or legacy cache objects rather than a unified
+database transaction. Series numbering depends on preferences/localization. Entry is the
+exported path/size/timestamp/thumbnail_size namedtuple. Bibliographic title matching
+lives in ``catalog.matching``.
 """
 
 from __future__ import unicode_literals, division, absolute_import, print_function
@@ -35,7 +38,11 @@ def force_to_bool(val: Any) -> Optional[bool]:
     """
     Interpret common boolean labels or numeric text, preserving unknown as None.
 
-    Lower text with ICU and match localized yes/no/checked/unchecked plus fixed English labels. Other text is parsed with int, so nonzero integers are true. There is no explicit whitespace strip before label matching; integer parsing still accepts surrounding whitespace. Catch TypeError/ValueError from string conversion, while non-string truthiness errors propagate.
+    Lower text with ICU and match localized yes/no/checked/unchecked plus fixed English
+    labels. Other text is parsed with int, so nonzero integers are true. There is no
+    explicit whitespace strip before label matching; integer parsing still accepts
+    surrounding whitespace. Catch TypeError/ValueError from string conversion, while
+    non-string truthiness errors propagate.
 
     Example:
         >>> force_to_bool("yes"), force_to_bool("0"), force_to_bool("maybe")
@@ -67,7 +74,8 @@ def get_link_table_name(table1: str, table2: str) -> str:
     """
     Construct a conventional link-table name from two relation names.
 
-    This is a naming convention only: it does not validate identifiers, inspect a schema or return False for a missing table. Equality is checked before singularization.
+    This is a naming convention only: it does not validate identifiers, inspect a schema
+    or return False for a missing table. Equality is checked before singularization.
 
     Example:
         >>> get_link_table_name("books", "agents")
@@ -78,7 +86,8 @@ def get_link_table_name(table1: str, table2: str) -> str:
 
     :param table1: First table name stringified, lowercased and singularized.
     :param table2: Second table name treated in the same way.
-    :return: Alphabetically ordered singular endpoint names with _links, or repeated singular names with _intralinks when the lowercased inputs are equal.
+    :return: Alphabetically ordered singular endpoint names with _links, or repeated
+        singular names with _intralinks when the lowercased inputs are equal.
     """
     table1 = str(table1).lower()
     table2 = str(table2).lower()
@@ -106,7 +115,8 @@ class CacheError(Exception):
     """
     Signal a legacy cache-table error without adding custom exception behavior.
 
-    This exception inherits Exception initialization and stores whatever arguments its caller supplies.
+    This exception inherits Exception initialization and stores whatever arguments its
+    caller supplies.
 
     Example:
         >>> str(CacheError("cache unavailable"))
@@ -130,6 +140,7 @@ def cleanup_tags(tags: Iterable[Union[str, bytes]]) -> list[str]:
     return normalize_tags(tags)
 
 
+# Todo: This should be public and seems to be a dupe of elsewhere?
 def _get_next_series_num_for_list(
         series_indices: list[Union[float, int]],
         unwrap: bool = True
@@ -137,16 +148,28 @@ def _get_next_series_num_for_list(
     """
     Choose a series index according to the configured auto-increment mode.
 
-    Read series_index_auto_increment each call. next uses floor(last)+1; first_free scans integers 1 through 9999; next_free scans ceil(first) through 9999; last_free scans downward from ceil(last) to 1, then uses last+1 if none are free. Numeric configuration returns that constant; unknown modes return 1.0. Input is not sorted or deduplicated, and the flat-number annotation does not describe the default unwrap requirement.
+    Read series_index_auto_increment each call. next uses floor(last)+1; first_free
+    scans integers 1 through 9999; next_free scans ceil(first) through 9999; last_free
+    scans downward from ceil(last) to 1, then uses last+1 if none are free. Numeric
+    configuration returns that constant; unknown modes return 1.0. Input is not sorted
+    or deduplicated, and the flat-number annotation does not describe the default unwrap
+    requirement.
 
     Example:
-        With series_index_auto_increment="next", get_next_series_num_for_list([[1.0], [3.5]]) returns 4.0; use unwrap=False for [1.0, 3.5].
+        With series_index_auto_increment="next", get_next_series_num_for_list([[1.0],
+        [3.5]]) returns 4.0; use unwrap=False for [1.0, 3.5].
 
 
-    :param series_indices: Ordered index sequence; with unwrap=True, each element must be indexable and contain its number at position zero.
-    :param unwrap: Extract element[0] for nonempty input when True; False uses numbers directly.
-    :return: Chosen integer or float; empty input yields a configured numeric constant or 1.0.
-    :raises NotImplementedError: first_free or next_free exhausts its bounded candidate range.
+    :param series_indices: Ordered index sequence; with unwrap=True, each element must
+        be indexable and contain its number at position zero.
+    :param unwrap: Extract element[0] for nonempty input when True; False uses numbers
+        directly.
+
+    :return: Chosen integer or float; empty input yields a configured numeric constant
+        or 1.0.
+
+    :raises NotImplementedError: first_free or next_free exhausts its bounded candidate
+        range.
     :raises TypeError: unwrap=True receives non-indexable scalar entries.
     """
     series_index_auto_inc = preferences.parse("series_index_auto_increment", "str", "next")
@@ -197,11 +220,14 @@ def _get_next_series_num_for_list(
 get_next_series_num_for_list = _get_next_series_num_for_list
 
 
+# Todo: This should be a public method
 def _get_series_values(val: str) -> tuple[str, Optional[float]]:
     """
     Parse a trailing bracketed nonnegative decimal series index when present.
 
-    Recognize digits and dots inside a final bracket group preceded by whitespace. Signs and exponents are unsupported. If float parsing fails, retain the original input including whitespace. The public get_series_values name aliases this same function.
+    Recognize digits and dots inside a final bracket group preceded by whitespace. Signs
+    and exponents are unsupported. If float parsing fails, retain the original input
+    including whitespace. The public get_series_values name aliases this same function.
 
     Example:
         >>> get_series_values("  Dune [2.5]  ")
@@ -211,7 +237,8 @@ def _get_series_values(val: str) -> tuple[str, Optional[float]]:
 
 
     :param val: Series text, or a false value returned unchanged with no index.
-    :return: Pair of stripped series name and float on success; otherwise the original input and None.
+    :return: Pair of stripped series name and float on success; otherwise the original
+        input and None.
     """
     series_index_pat = re.compile(r"(.*)\s+\[([.0-9]+)\]$")
     if not val:
@@ -230,6 +257,7 @@ def _get_series_values(val: str) -> tuple[str, Optional[float]]:
 get_series_values = _get_series_values
 
 
+# Todo: This feels like legacy calibre code which is going to need a lot more effort to work. Also shouldn't be in utils.
 def get_data_as_dict(self,
                      prefix: Optional[str] = None,
                      authors_as_string: bool = False,
@@ -238,18 +266,31 @@ def get_data_as_dict(self,
     """
     Materialize legacy cached book metadata and derived cover/format paths.
 
-    Skip None records and unselected IDs. Copy standard and custom fields, adding custom series indexes; split stored comma/pipe author and tag strings. A missing author label becomes localized Unknown. Include cover only when the cache cover flag is true. Include paths for formats with a resolved absolute path, but available_formats lists every advertised format whenever that list is nonempty. This is an eager export, not a stream, JSON sanitizer or file-existence validation.
+    Skip None records and unselected IDs. Copy standard and custom fields, adding custom
+    series indexes; split stored comma/pipe author and tag strings. A missing author
+    label becomes localized Unknown. Include cover only when the cache cover flag is
+    true. Include paths for formats with a resolved absolute path, but available_formats
+    lists every advertised format whenever that list is nonempty. This is an eager
+    export, not a stream, JSON sanitizer or file-existence validation.
 
     Example:
-        Given a compatible legacy cache, get_data_as_dict(cache, ids={book_id}, authors_as_string=True) returns the selected metadata as a list with formatted authors and file paths.
+        Given a compatible legacy cache, get_data_as_dict(cache, ids={book_id},
+        authors_as_string=True) returns the selected metadata as a list with formatted
+        authors and file paths.
 
 
-    :param self: Legacy cache host exposing data, FIELD_MAP, path/ISBN/format methods and library_path; backend, when present, supplies configuration.
-    :param prefix: Path prefix, defaulting to backend.library_path; remaps paths without copying files.
-    :param authors_as_string: Join author names with the legacy ampersand formatter instead of returning a list.
-    :param ids: Optional set of record IDs matched as supplied; an empty set exports nothing.
-    :param convert_to_local_tz: Convert timestamp, pubdate and last_modified through as_local_time.
-    :return: List of dictionaries in cache iteration order, despite the singular function name.
+    :param self: Legacy cache host exposing data, FIELD_MAP, path/ISBN/format methods
+        and library_path; backend, when present, supplies configuration.
+    :param prefix: Path prefix, defaulting to backend.library_path; remaps paths without
+        copying files.
+    :param authors_as_string: Join author names with the legacy ampersand formatter
+        instead of returning a list.
+    :param ids: Optional set of record IDs matched as supplied; an empty set exports
+        nothing.
+    :param convert_to_local_tz: Convert timestamp, pubdate and last_modified through
+        as_local_time.
+    :return: List of dictionaries in cache iteration order, despite the singular
+        function name.
     :raises AttributeError: The supplied host lacks the required legacy cache interface.
     :raises KeyError: FIELD_MAP or custom-column metadata lacks a required field.
     """

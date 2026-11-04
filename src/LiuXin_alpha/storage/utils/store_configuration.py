@@ -34,7 +34,7 @@ from LiuXin_alpha.storage.api import (
 from LiuXin_alpha.storage.utils.backend_registry import DEFAULT_BACKEND_REGISTRY
 from LiuXin_alpha.utils.adaptors import (
     _boolish,
-    _optional_text,
+    optional_text,
     _optional_uuid,
     _parse_tags,
     _to_int,
@@ -91,13 +91,13 @@ def store_configuration_from_row(
     store_id = _to_int(_row_get(row, "store_id"))
     if store_id is None:
         store_id = fallback_store_id
-    root_uri = _optional_text(_row_get(row, "store_root_uri")) or _optional_text(
+    root_uri = optional_text(_row_get(row, "store_root_uri")) or optional_text(
         _row_get(row, "store_url")
     )
     if root_uri is None:
         raise ValueError("Store row must provide store_root_uri.")
-    name = _optional_text(_row_get(row, "store_name")) or f"store-{store_id or 'unknown'}"
-    kind = _optional_text(_row_get(row, "store_kind"))
+    name = optional_text(_row_get(row, "store_name")) or f"store-{store_id or 'unknown'}"
+    kind = optional_text(_row_get(row, "store_kind"))
     if kind is None:
         raise ValueError("Store row must provide store_kind.")
     store_uuid = _store_uuid(
@@ -135,14 +135,14 @@ def store_configuration_from_row(
         store_name=name,
         store_kind=kind,
         store_root_uri=root_uri,
-        store_url=_optional_text(_row_get(row, "store_url")),
-        store_access_protocol=_optional_text(
+        store_url=optional_text(_row_get(row, "store_url")),
+        store_access_protocol=optional_text(
             _row_get(row, "store_access_protocol")
         ),
-        store_failure_domain=_optional_text(
+        store_failure_domain=optional_text(
             _row_get(row, "store_failure_domain")
         ),
-        store_region=_optional_text(_row_get(row, "store_region")),
+        store_region=optional_text(_row_get(row, "store_region")),
         store_host_uuid=_optional_uuid(_row_get(row, "store_host_uuid")),
         store_device_uuid=_optional_uuid(_row_get(row, "store_device_uuid")),
         store_tags=_parse_tags(
@@ -158,7 +158,7 @@ def store_configuration_from_row(
             BackupPolicyID,
         ),
         supported_replica_modes=frozenset(supported_modes),
-        operational_role=_optional_text(
+        operational_role=optional_text(
             _row_get(row, "store_operational_role")
         ),
         read_only=_boolish(

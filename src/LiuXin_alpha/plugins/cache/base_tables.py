@@ -19,20 +19,9 @@ from LiuXin_alpha.errors import DatabaseIntegrityError, InputIntegrityError
 from LiuXin_alpha.preferences import preferences
 
 from LiuXin_alpha.utils.libraries.calibre_date import c_parse
-from LiuXin_alpha.databases.db_types import (
-    MetadataDict,
-    SrcTableID,
-    DstTableID,
-    DataTypes,
-    TableTypes,
-    MainTableName,
-    InterLinkTableName,
-    TableColumnName,
-    UUIDStr,
-    SpecificFormat,
-    GenericFormat,
-    MetadataDisplayDict,
-)
+from LiuXin_alpha.databases.db_types.database_types import MainTableName, InterLinkTableName, TableColumnName, \
+    SrcTableID, DstTableID, SpecificFormat, GenericFormat, MetadataDisplayDict, MetadataDict, DataTypes, TableTypes, \
+    UUIDStr
 from LiuXin_alpha.catalog.field_metadata import calibre_name_to_liuxin_name
 from LiuXin_alpha.utils.logging import default_log
 
