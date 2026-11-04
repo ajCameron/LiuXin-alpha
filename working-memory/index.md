@@ -1,5 +1,12 @@
 # Working Memory Index
 
+Delivery, **2026-11-04**: [combined maintenance and driver-wrapper PR](review-upgrade-pr-2026-11-04.md).
+The user explicitly requested both sets of work. The branch is
+`maintenance-driver-wrapper-upgrades`, based on PR #153, with separate wrapper
+and maintenance commits. This entry supersedes the uncommitted-delivery status
+in the historical entries below; local preferences and the data submodule stay
+outside the PR. The original checkout is preserved.
+
 Completed, **2026-11-04**: [driver-wrapper features](driver-wrapper-features-2026-11-04.md).
 Native schema facts, explicit read ownership, resumable bounded scans, backend
 capabilities and optional query observations are implemented, alongside view-row
@@ -46,6 +53,88 @@ untracked, ready to include with the eventual commit. PostgreSQL compatibility
 custom-column DDL remains unsupported; its failed creation now leaves no orphan
 definition. The monitored SquashFS import awaits physical server access Friday.
 
+Completed, **2026-11-03**: latest maintenance review fixes and signoff. Retry/pause
+controls, real lazy priority and bounded job-history retirement are implemented.
+The affected SQLite/APSW/live PostgreSQL matrix passed 637 checks (28 backend
+skips); final claim checks passed 29, documentation links 16, and all quality
+gates pass. The private PG cluster is removed; preference hashes are unchanged.
+Changes remain uncommitted. See
+[the current handoff](maintenance-signoff-2026-11-03.md).
+
+Completed, **2026-11-03**: maintenance malformed/failing-plugin validation.
+The full run finished with 9,757 passes, 403 skips, 21 xfails and three failures;
+all three were fixed and covered by the final 83-pass/four-skip SQLite/APSW/live PG
+regression run. Fixes cover strict synchronous callback declarations/results,
+safe failure diagnostics, continued polling, macro API signatures and immediate
+retry eligibility after backward wall-clock steps. Type checkers/contracts,
+264-file formatting, architecture and relevant lint checks pass. No OOM kills;
+the private PG cluster is stopped/removed and preference hashes are unchanged.
+See the [handoff](maintenance-adversarial-2026-11-03.md) and
+[validation evidence](../dev-docs/databases/maintenance-adversarial-validation-2026-11-03.md).
+The full invocation was not repeated after its focused fixes. Preserve all
+uncommitted work on `maintenance-plugin-modes`, data-submodule changes and TODOs.
+
+Completed, **2026-11-03**: all four maintenance follow-ups. Resumable Work rebuilds,
+explicit plugin upgrades, measured delivery improvements and Catalog-owned merge,
+inherited tags and selected cleanup are implemented and locally verified. The
+2,200-Work SQLite and 660-Work PostgreSQL soaks verified every projection and
+drained/pruned their journals. Broad maintenance checks passed 324 tests (28
+backend skips), publication passed 162 (28 skips), and final snapshot/docs checks
+passed nine and 43 respectively; selections overlap. All 258 formatting checks
+and architectural gates passed. The private PostgreSQL cluster is stopped and
+removed. See the [completion handoff](maintenance-completion-2026-11-02.md) and
+[evidence](../dev-docs/databases/maintenance-completion-plan-2026-11-02.md).
+Next: monitored real-file ingest, Catalog scalar-write profiling and explicit
+jobs/audit retention policies. Changes remain uncommitted on
+`maintenance-plugin-modes`; preserve the dirty data submodule, preferences and TODOs.
+
+Capability restored, **2026-11-02**: Agent rename and bounded sort-name repair
+now use Catalog's current WEMI rows, with Core/CLI previews and atomic apply.
+Manual sorts are preserved by default; explicit regeneration/override and person
+copy/comma/nocomma policies are supported. PostgreSQL row locks protect concurrent
+overrides, and required prompt failures roll the operation back. Validation:
+**88 passed, two backend-specific skips**, **23 documentation passes**, quality
+gates and a real installed-CLI persistence smoke. The private PG test instance
+is stopped/removed. See the [capability decision](../dev-docs/databases/legacy-maintenance-retirement-2026-11-02.md#2-creator-sorting-and-rename-maintenance)
+and [handoff](maintenance-implementation-2026-11-01.md). Changes remain uncommitted
+on `maintenance-plugin-modes`; preserve the existing dirty data submodule and TODOs.
+
+Maintenance review validated, **2026-11-02**: six reproduced failure groups fixed
+after the legacy retirement. Prompt drains now roll back caught failures;
+SQLite implicit-commit settings honor completion; PostgreSQL capture rejects
+TRUNCATE; same-runtime lock ordering is consistent; stale jobs cannot alter a
+successor's effects/retry state; old interlink UDF handles follow the active
+maintainer. The final matrix passed **277 tests with 28 backend-specific skips**,
+including live PostgreSQL, real process termination, SQLite/APSW production
+writers and Core/CLI/jobs. Another **28 documentation checks** and all selected
+quality gates passed. See the [review checkpoint](../dev-docs/databases/maintenance-modes.md#review-checkpoint--2026-11-02)
+and [handoff](maintenance-implementation-2026-11-01.md). Still uncommitted on
+`maintenance-plugin-modes`; preserve the dirty data submodule and user TODOs.
+
+Completed retirement, **2026-11-02**: removed `databases.maintenance.legacy`,
+obsolete creator plugins, title-aggregate driver/UDF hooks and their preference.
+Catalog now owns bounded, scoped, read-only duplicate inspection. The
+[capability inventory](../dev-docs/databases/legacy-maintenance-retirement-2026-11-02.md)
+records removed behavior and requirements for future replacements. Projection SQL
+now lives under databases; Catalog retains policy. Final checks: 39 functional
+passes (one PG skip), four real-writer passes (two PG skips), and 33 docs/CLI
+passes; selections overlap. Formatting, lint, import/layer boundaries and man
+rendering pass. See the [implementation handoff](maintenance-implementation-2026-11-01.md)
+for logs. Still uncommitted on `maintenance-plugin-modes`; preserve the pre-existing
+dirty data submodule and user maintenance TODO comments.
+
+Completed implementation, **2026-11-01**:
+[prompt/lazy maintenance](maintenance-implementation-2026-11-01.md) delivers
+transaction-bound prompt effects, durable lazy obligations and jobs recovery,
+Catalog Work revision/summary consumers, and explicit installation/drain/retry
+controls. It supersedes the [declaration-only sketch](maintenance-plugin-modes-2026-11-01.md).
+The broad regression matrix passed 219 tests (one backend-specific skip and two
+existing expected failures); final boundary checks passed 103 tests. Real Core
+polling and PostgreSQL delivery, documentation, formatting, lint and import/layer
+checks also pass. The isolated PG server is stopped and removed; logs remain in
+/tmp. Work remains uncommitted on `maintenance-plugin-modes`. Preserve the user's
+builtin/dummy maintenance comments and dirty data submodule. No PR was requested
+for this task.
 
 Active work, **2026-11-01**: [database batch overheads](database-batch-overheads-2026-11-01.md)
 retains opt-in SQLite progress hooks with no default handler and resolves

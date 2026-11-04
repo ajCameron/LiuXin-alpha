@@ -117,12 +117,8 @@ def create_core(
     supplied_library = library is not None
     if supplied_library and (database is not None or database_path is not None):
         raise ValueError("Provide `library`, or a database/database_path, not both.")
-    if durable_job_path is not None and (
-        database_path is None or not enable_storage_manager
-    ):
-        raise ValueError(
-            "durable_job_path requires a database_path and storage services"
-        )
+    if durable_job_path is not None and database_path is None:
+        raise ValueError("durable_job_path requires a database_path")
     library_services = None
     if library is None:
         from LiuXin_alpha.core.library_services import LibraryServices
@@ -154,7 +150,7 @@ def create_core(
         library = library_services.library
     try:
         durable_jobs = None
-        if database_path is not None and enable_storage_manager:
+        if database_path is not None:
             if durable_job_path is None and str(db_type).lower().startswith("sqlite"):
                 source_path = pathlib.Path(database_path).expanduser().resolve()
                 durable_job_path = source_path.with_name(
@@ -187,7 +183,7 @@ def create_core(
                             database_metadata=worker_metadata,
                             create=False,
                             backup=False,
-                            enable_storage_manager=True,
+                            enable_storage_manager=enable_storage_manager,
                             enable_maintenance=False,
                             storage_startup_on_add=True,
                             strict_storage_manager_bootstrap=True,

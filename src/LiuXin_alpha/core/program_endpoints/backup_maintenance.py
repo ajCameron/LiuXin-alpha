@@ -89,11 +89,13 @@ def install_queries(
     query(
         "maintenance.duplicates.find",
         api.maintenance_duplicates_find,
-        summary="Find duplicate values using database comparison semantics.",
+        summary="Inspect scoped duplicate candidates without merging rows.",
         payload_fields=(
             field("table", required=True, field_type="string"),
             field("column", required=True, field_type="string"),
             field("comparison", field_type="string"),
+            field("max_rows", field_type="integer"),
+            field("where", field_type="object"),
         ),
         tags=("maintenance", "duplicates", "read"),
         remote_capabilities=("admin",),
@@ -200,8 +202,17 @@ def install_commands(
     command(
         "maintenance.run",
         api.maintenance_run,
-        summary="Run one bounded maintenance-engine pass.",
-        payload_fields=(field("max_events", field_type="integer"),),
+        summary="Install, rebuild projections, inspect retries, or drain catalogue maintenance.",
+        payload_fields=(
+            field("max_events", field_type="integer"),
+            field("action", field_type="string"),
+            field("max_batches", field_type="integer"),
+            field("plugin_id", field_type="string"),
+            field("restart", field_type="boolean"),
+            field("expected_version", field_type="string"),
+            field("expected_definition", field_type="string"),
+            field("dry_run", field_type="boolean"),
+        ),
         tags=("maintenance", "write"),
         remote_capabilities=("admin",),
     )
@@ -209,7 +220,7 @@ def install_commands(
     command(
         "maintenance.clean",
         api.maintenance_clean,
-        summary="Clean selected entity rows through the maintenance service.",
+        summary="Request selected-row cleanup; unavailable in the built-in service.",
         payload_fields=(
             field("table", required=True, field_type="string"),
             field("row_ids", required=True, field_type="array"),

@@ -173,6 +173,10 @@ class CoreProgramAPI:
     catalog_fields_list = staticmethod(catalog.catalog_fields_list)
     catalog_fields_get = staticmethod(catalog.catalog_fields_get)
     catalog_hierarchy_list = staticmethod(catalog.catalog_hierarchy_list)
+    catalog_inherited_tags = staticmethod(catalog.catalog_inherited_tags)
+    catalog_repair_merge = staticmethod(catalog.catalog_repair_merge)
+    catalog_repair_cleanup = staticmethod(catalog.catalog_repair_cleanup)
+    catalog_repair_receipt = staticmethod(catalog.catalog_repair_receipt)
     catalog_identifiers_list = staticmethod(catalog.catalog_identifiers_list)
     catalog_identifiers_primary_values = staticmethod(
         catalog.catalog_identifiers_primary_values
@@ -181,6 +185,8 @@ class CoreProgramAPI:
     search_global = staticmethod(catalog.search_global)
     catalog_identifiers_replace = staticmethod(catalog.catalog_identifiers_replace)
     catalog_agent_link = staticmethod(catalog.catalog_agent_link)
+    catalog_agent_rename = staticmethod(catalog.catalog_agent_rename)
+    catalog_agent_sort_repair = staticmethod(catalog.catalog_agent_sort_repair)
 
     _store = staticmethod(store_resolution._store)
     _store_configuration = staticmethod(store_resolution._store_configuration)

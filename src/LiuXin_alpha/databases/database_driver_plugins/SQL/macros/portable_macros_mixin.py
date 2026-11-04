@@ -572,6 +572,26 @@ class SQLPortableMacrosMixin:
                 connection, previous = restore
                 connection.execute(f"PRAGMA query_only={int(previous)}").close()
 
+    def inspect_repair_references(self, table: str) -> list[dict]:
+        """Read physical inbound constraints and polymorphic reference declarations."""
+        from .repair_storage import references
+        return references(self, table)
+
+    def lock_repair_references(self, table: str) -> list[dict]:
+        """Reserve source/reference tables in an owned serialized repair transaction."""
+        from .repair_storage import lock_references
+        return lock_references(self, table)
+
+    def record_catalog_repair(self, receipt: Mapping[str, Any]) -> str:
+        """Append an immutable receipt atomically with an explicit Catalog repair."""
+        from .repair_storage import record
+        return record(self, receipt)
+
+    def get_catalog_repair_receipt(self, receipt_id: str) -> dict | None:
+        """Read a durable repair receipt, returning None without installing anything."""
+        from .repair_storage import read_receipt
+        return read_receipt(self, receipt_id)
+
     def _row_id_column(self, table: str, id_column: str | None) -> str:
         """
         Resolve an ID column override or wrapper default and verify that the column

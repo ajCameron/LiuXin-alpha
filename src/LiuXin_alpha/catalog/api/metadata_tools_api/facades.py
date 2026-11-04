@@ -1121,20 +1121,20 @@ class EnsureAPI(Protocol):
 
     def genre(self, genre_string: str, standardize: bool = True) -> RowAPI:
         """
-        Resolve a Genre, attempting duplicate maintenance before creating.
+        Resolve a Genre through its Catalog owner, or an unambiguous legacy lookup.
 
-        After maintenance, search again and fail if multiple rows remain. If no
-        match remains, create a Row with only the genre column populated.
+        A legacy host with multiple matches raises without merging or deleting
+        rows. If no match remains, create a Row with only the genre populated.
 
         Example:
-            Multiple matches invoke fix_duplicates even when the caller disabled standardization.
+            Ambiguous legacy matches require explicit resolution by the caller.
 
 
         :param genre_string: Genre input; None is rejected, other values are converted to text.
         :param standardize: Apply standardize_genre before lookup.
         :return: Unique matching Genre Row or newly inserted Genre Row.
         :raises InputIntegrityError: Genre input is None.
-        :raises DatabaseIntegrityError: Duplicate maintenance leaves multiple matches.
+        :raises DatabaseIntegrityError: A legacy lookup returns multiple matches.
         """
         ...
 

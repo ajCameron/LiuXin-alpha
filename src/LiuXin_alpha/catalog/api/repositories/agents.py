@@ -3,6 +3,7 @@ Describe the Agent repository's identity, aggregate, and WEMI-credit contract.
 
 AgentRepositoryAPI extends generic CRUD with person/organisation aggregates,
 canonical-name resolution, explained matching, and role-scoped credit operations.
+Explicit rename and bounded sort repair share the current Agent-name policy.
 The protocol contains declarations only; its documentation describes the concrete
 Catalog repository and delegated portable-macro behavior.
 """
@@ -10,17 +11,20 @@ Catalog repository and delegated portable-macro behavior.
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from typing import Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
 from LiuXin_alpha.catalog.api.common import (
     EntityId,
-    MetadataCandidate,
     MatchResult,
+    MetadataCandidate,
     RowInput,
     RowMapping,
     WemiLevel,
 )
 from LiuXin_alpha.catalog.api.repositories.base import BaseRepositoryAPI
+
+if TYPE_CHECKING:
+    from LiuXin_alpha.metadata.author_names import AuthorSortMethod
 
 
 @runtime_checkable
@@ -38,6 +42,47 @@ class AgentRepositoryAPI(BaseRepositoryAPI, Protocol):
         >>> AgentRepositoryAPI.__name__
         'AgentRepositoryAPI'
     """
+
+    def rename(
+        self,
+        agent_id: EntityId,
+        name: str,
+        *,
+        sort_mode: str = "preserve",
+        sort_name: str | None = None,
+        person_sort_method: AuthorSortMethod = "comma",
+        dry_run: bool = False,
+    ) -> Mapping[str, object]:
+        """Rename an Agent and choose its sort value atomically, or preview it.
+
+        Preserve nonblank historical sorts by default; derive missing sorts.
+        Explicit derive replaces existing values; sort_name supplies a nonblank
+        override and cannot accompany derive. Person methods are comma, nocomma
+        and copy; other types retain display order. Canonical input is trimmed.
+        Return before/after, sort_source, changed, dry_run and updated fields.
+        Preview is advisory; apply replans under writer/row locks. Nested calls
+        require an already serialized macro unit. Aliases, subtypes and credits
+        are unaffected, and failures roll back both fields.
+        """
+        ...
+
+    def repair_sort_names(
+        self,
+        agent_ids: Sequence[EntityId],
+        *,
+        sort_mode: str = "preserve",
+        person_sort_method: AuthorSortMethod = "comma",
+        dry_run: bool = False,
+    ) -> Mapping[str, object]:
+        """Repair sorts for 1–500 explicit IDs atomically, preserving names.
+
+        Deduplicate IDs in encounter order. Preserve nonblank sorts unless
+        derive is explicit. Validate every selected row before writing; missing
+        rows or blank canonical names refuse the complete batch. Preview returns
+        proposed changes without writer locks; apply reads current values again.
+        Return selected/changed/updated counts, policies, dry_run and changes.
+        """
+        ...
 
     def create_person(
         self,

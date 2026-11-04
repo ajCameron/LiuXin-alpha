@@ -11,13 +11,7 @@ from LiuXin_alpha.databases.database_driver_plugins.SQL.macros.portable_macros_m
 
 
 class HookConnection(sqlite3.Connection):
-    """Simulate a connection hook without depending on the maintenance overhaul."""
-
-    def commit(self):
-        callback = getattr(self, "_liuxin_before_completion", None)
-        if callback is not None:
-            callback(self)
-        super().commit()
+    """Allow the same completion-hook attribute used by production connections."""
 
 
 @pytest.mark.parametrize("owned", [False, True])

@@ -11,6 +11,11 @@ from contextlib import contextmanager
 from typing import Any
 from uuid import uuid4
 
+from LiuXin_alpha.databases.connection_hooks import (
+    execute_transaction_control,
+    flush_connection_work,
+)
+
 
 # Todo: This should be more strictly typeable
 def transaction_active(connection: Any) -> bool:
@@ -55,9 +60,12 @@ def transaction_scope(
     if immediate and not owns_transaction:
         raise ValueError("An immediate unit must own its transaction")
     if owns_transaction:
-        connection.execute("BEGIN IMMEDIATE" if immediate else "BEGIN")
+        execute_transaction_control(
+            connection, "BEGIN IMMEDIATE" if immediate else "BEGIN"
+        )
         try:
             yield connection
+            flush_connection_work(connection)
             connection.commit()
         except BaseException:
             connection.rollback()
@@ -67,11 +75,12 @@ def transaction_scope(
     if not transaction_active(connection):
         raise RuntimeError("A borrowed or nested unit requires an active transaction")
     name = f"liuxin_unit_{uuid4().hex}"
-    connection.execute(f"SAVEPOINT {name}")
+    execute_transaction_control(connection, f"SAVEPOINT {name}")
     try:
         yield connection
+        flush_connection_work(connection)
     except BaseException:
-        connection.execute(f"ROLLBACK TO SAVEPOINT {name}")
+        execute_transaction_control(connection, f"ROLLBACK TO SAVEPOINT {name}")
         raise
     finally:
-        connection.execute(f"RELEASE SAVEPOINT {name}")
+        execute_transaction_control(connection, f"RELEASE SAVEPOINT {name}")

@@ -1,7 +1,7 @@
 # Table-owned SQL helpers
 
-Implemented **2026-10-30**, extended **2026-10-31**. `db.metadata_sql` has
-**65 operations in 38 mixins**:
+Implemented **2026-10-30**, extended through **2026-11-02**. `db.metadata_sql` has
+**66 operations in 38 mixins**:
 one for each of the **36 physical main tables**, the existing helper-table
 `FeedsSQLMixin`, and shared `NormalizationSQLMixin`. Catalog, storage and backup
 callers use the table readers while retaining their interpretation and policy.
@@ -176,7 +176,7 @@ also include helpers and other categories, so its count has a different scope.
 
 | Physical table | Table mixin | Supported query/write |
 | --- | --- | --- |
-| `agents` | `AgentsSQLMixin` | Batched destination rows for credits/relationships |
+| `agents` | `AgentsSQLMixin` | Batched credit/relationship destinations; ordered row locks for a caller-owned mutation |
 | `annotations` | `AnnotationsSQLMixin` | Item groups with optional exact user/kind filters |
 | `asset_replicas` | `AssetReplicasSQLMixin` | Groups by Asset or Store; Core policy scan |
 | `backup_policies` | `BackupPoliciesSQLMixin` | Distinct explicit policy ID batches; Core policy scan |

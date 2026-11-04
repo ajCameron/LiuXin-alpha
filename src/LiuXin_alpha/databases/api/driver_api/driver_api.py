@@ -561,31 +561,6 @@ class DatabaseDriverAPI(
         :return: Whether a row with ID zero exists.
         """
 
-    # Todo: This is a macro
-    @abc.abstractmethod
-    def direct_run_ta_update(self, ta_row_id):
-        """
-        Launch the legacy aggregate-update thread when its preference enables it.
-
-        Abstract backend hook. The behavior below describes the shared SQL/SQLite
-        implementation; this declaration itself has no operational body.
-
-        Only the exact string "true" for run_ta_update_after_each_change dispatches
-        run_ta_updates with a one-element ID list and this driver. The helper starts a
-        daemon thread; this method does not wait for completion. "false" and other
-        values, including boolean True, cause no dispatch. Preference lookup and launch
-        errors propagate; background failures are not returned to the caller.
-
-        Example:
-            >>> driver.direct_run_ta_update(1)  # doctest: +SKIP
-
-
-        :param ta_row_id: Aggregate/title row ID passed unchanged in the worker input
-            list; not validated here.
-        :return: None, regardless of whether an update thread is launched.
-        """
-        ...
-
     @abc.abstractmethod
     def direct_self_delete(self) -> None:
         """

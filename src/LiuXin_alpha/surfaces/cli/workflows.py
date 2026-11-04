@@ -65,9 +65,10 @@ def _query(
     payload: dict[str, Any],
     *,
     maintenance: bool = False,
+    storage: bool = True,
 ) -> int:
     """
-    Query Core with storage and optional maintenance composition, then emit JSON.
+    Query Core with selected service composition, then emit JSON.
 
     Pass the payload unchanged and publish only after session exit. Receipt
     status is not interpreted; connection, query, cleanup, and output errors escape.
@@ -80,11 +81,12 @@ def _query(
     :param operation: Exact Core query name to dispatch.
     :param payload: Request mapping passed by identity without validation.
     :param maintenance: Whether local Core composition should enable maintenance.
+    :param storage: Whether local Core composition should enable storage services.
     :return: Zero after publication, regardless of receipt-level success flags.
     """
     with open_cli_core(
         args,
-        enable_storage_manager=True,
+        enable_storage_manager=storage,
         enable_maintenance=maintenance,
     ) as core:
         result = core.query(operation, payload)
@@ -801,7 +803,7 @@ def cmd_database_migrations(args: argparse.Namespace) -> int:
 
 def cmd_maintenance_status(args: argparse.Namespace) -> int:
     """
-    Query maintenance readiness with the local maintenance service enabled.
+    Inspect maintenance readiness without enabling a worker or creating a ledger.
 
     Example:
         >>> cmd_maintenance_status(parsed_maintenance_status_args)  # doctest: +SKIP
@@ -810,28 +812,34 @@ def cmd_maintenance_status(args: argparse.Namespace) -> int:
     :param args: Common Core connection and JSON output controls.
     :return: Zero after publishing maintenance.status' receipt.
     """
-    return _query(args, "maintenance.status", {}, maintenance=True)
+    return _query(args, "maintenance.status", {})
 
 
 def cmd_maintenance_duplicates(args: argparse.Namespace) -> int:
     """
     Ask maintenance to find duplicate column values without requesting a repair.
 
-    Table, column, and comparison tokens are forwarded unchanged for Core to
-    validate; this adapter does not inspect or compare rows locally.
+    Forward comparison, scan budget and optional JSON-file equality filters to
+    Core. This adapter neither compares rows nor starts maintenance workers.
 
     Example:
         >>> cmd_maintenance_duplicates(parsed_duplicate_args)  # doctest: +SKIP
 
 
-    :param args: Common controls plus table, column, and comparison policy.
+    :param args: Common controls, table, column, comparison, max_rows and where_file.
     :return: Zero after publishing maintenance.duplicates.find's receipt.
     """
     return _query(
         args,
         "maintenance.duplicates.find",
-        {"table": args.table, "column": args.column, "comparison": args.comparison},
-        maintenance=True,
+        {
+            "table": args.table,
+            "column": args.column,
+            "comparison": args.comparison,
+            "max_rows": args.max_rows,
+            "where": None if args.where_file is None else load_json_object(args.where_file),
+        },
+        storage=False,
     )
 
 
@@ -840,7 +848,8 @@ def cmd_maintenance_run(args: argparse.Namespace) -> int:
     Preview a maintenance run locally, or execute it after confirmation.
 
     Preview does not open Core or inspect its queue. max_events is integer-
-    converted but not range-checked; only execution enables maintenance services.
+    converted but not range-checked here. Explicit durable actions are forwarded
+    to Core, whose runtime validates budgets and owns installation or execution.
 
     Example:
         >>> cmd_maintenance_run(parsed_maintenance_run_args)  # doctest: +SKIP
@@ -849,12 +858,24 @@ def cmd_maintenance_run(args: argparse.Namespace) -> int:
     :param args: Common controls, max_events count, and yes execution flag.
     :return: Zero after preview or maintenance.run receipt publication.
     """
+    payload = {"max_events": int(args.max_events)}
+    if getattr(args, "maintenance_operation", None) is not None:
+        payload["action"] = args.maintenance_operation
+        payload["max_batches"] = args.max_batches
+        if getattr(args, "plugin_id", None) is not None:
+            payload["plugin_id"] = args.plugin_id
+        if getattr(args, "maintenance_operation", None) == "rebuild":
+            payload["restart"] = args.restart
+        if getattr(args, "maintenance_operation", None) == "prune-jobs":
+            payload["older_than_days"] = args.older_than_days
+            payload["before_run_id"] = args.before_run_id
     if not args.yes:
         emit_json(
             {
                 "preview": True,
                 "operation": "maintenance.run",
                 "max_events": int(args.max_events),
+                **payload,
                 "message": "No maintenance plugins were run; pass --yes to execute.",
             },
             args,
@@ -863,8 +884,19 @@ def cmd_maintenance_run(args: argparse.Namespace) -> int:
     return _command(
         args,
         "maintenance.run",
-        {"max_events": int(args.max_events)},
-        maintenance=True,
+        payload,
+    )
+
+
+def cmd_maintenance_upgrade(args: argparse.Namespace) -> int:
+    """Inspect the installed declaration or apply its implementation-owned upgrade."""
+    return _command(
+        args, "maintenance.run", {
+            "action": "upgrade", "plugin_id": args.plugin_id,
+            "expected_version": args.from_version,
+            "expected_definition": args.expected_definition,
+            "dry_run": not args.yes,
+        },
     )
 
 
@@ -1214,7 +1246,7 @@ def build_maintenance_parser(
     """
     Register maintenance status, duplicate discovery, and previewable repair leaves.
 
-    Run defaults to 128 events, duplicate comparison to nocase, and clean requires
+    Run defaults to 128 events, duplicate comparison to identity, and clean requires
     at least one integer row ID. Run/clean/merge receive yes flags but default to
     handler-produced previews. Construction does not enable services or inspect rows.
 
@@ -1240,14 +1272,37 @@ def build_maintenance_parser(
     _core_json(duplicates)
     duplicates.add_argument("table")
     duplicates.add_argument("column")
-    duplicates.add_argument("--comparison", default="nocase")
+    duplicates.add_argument("--comparison", choices=("identity", "nocase", "exact"), default="identity")
+    duplicates.add_argument("--max-rows", type=int, default=10000, help="Complete scan budget (maximum 100000).")
+    duplicates.add_argument("--where-file", help="JSON object of physical-column equality filters.")
     duplicates.set_defaults(handler=cmd_maintenance_duplicates)
     run = commands.add_parser("run", help="Preview or run queued maintenance plugins once.")
     _core_json(run)
     run.add_argument("--max-events", type=int, default=128)
     run.add_argument("--yes", action="store_true")
     run.set_defaults(handler=cmd_maintenance_run)
-    clean = commands.add_parser("clean", help="Preview or clean explicit row ids.")
+    upgrade = commands.add_parser("upgrade", help="Preview or apply an implementation-authored plugin upgrade.")
+    _core_json(upgrade)
+    upgrade.add_argument("plugin_id")
+    upgrade.add_argument("--from-version", required=True)
+    upgrade.add_argument("--expected-definition", help="Declaration fingerprint from a previous preview.")
+    upgrade.add_argument("--yes", action="store_true")
+    upgrade.set_defaults(handler=cmd_maintenance_upgrade)
+    for operation in ("install", "drain", "retry", "pause", "resume", "prune", "rebuild", "prune-jobs"):
+        action = commands.add_parser(operation, help=f"Explicitly {operation} durable catalogue maintenance.")
+        _core_json(action)
+        action.add_argument("--max-events", type=int, default=128)
+        action.add_argument("--max-batches", type=int, default=1 if operation == "rebuild" else 128)
+        action.add_argument("--yes", action="store_true")
+        if operation in {"retry", "pause", "resume"}:
+            action.add_argument("plugin_id")
+        if operation == "rebuild":
+            action.add_argument("--restart", action="store_true", help="Start a new Work projection scan instead of resuming.")
+        if operation == "prune-jobs":
+            action.add_argument("--older-than-days", type=int, default=7, help="Retain at least this many days of completed maintenance job history (default 7).")
+            action.add_argument("--before-run-id", type=int, help="Continue with next_before_run_id from the preceding history page.")
+        action.set_defaults(handler=cmd_maintenance_run, maintenance_operation=operation)
+    clean = commands.add_parser("clean", help="Request selected-row cleanup (unavailable in the built-in service).")
     _core_json(clean)
     clean.add_argument("table")
     clean.add_argument("row_id", type=int, nargs="+")

@@ -105,6 +105,22 @@ class PortableMacrosAPI(abc.ABC):
         """
 
     @abc.abstractmethod
+    def inspect_repair_references(self, table: str) -> list[dict]:
+        """Inventory inbound physical and polymorphic references without changing data."""
+
+    @abc.abstractmethod
+    def lock_repair_references(self, table: str) -> list[dict]:
+        """Reserve source/reference tables in an owned serialized repair transaction."""
+
+    @abc.abstractmethod
+    def record_catalog_repair(self, receipt: Mapping[str, Any]) -> str:
+        """Persist an immutable JSON receipt in the caller's serialized repair transaction."""
+
+    @abc.abstractmethod
+    def get_catalog_repair_receipt(self, receipt_id: str) -> dict | None:
+        """Read one receipt, returning None without installing optional audit storage."""
+
+    @abc.abstractmethod
     def get_row(
         self,
         table: str,
@@ -734,6 +750,7 @@ class PortableMacrosAPI(abc.ABC):
         :raises DatabaseIntegrityError: Lookup finds duplicate logical identities or
             cannot recover a required inserted row.
         """
+
 
     @abc.abstractmethod
     def derive_identity_value(
