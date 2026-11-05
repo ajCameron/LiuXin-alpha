@@ -2,13 +2,17 @@
 Delete legacy custom-column values and collect their affected owner IDs.
 
 These helpers require a host with custom metadata, naming/macros and, for cache-aware
-deletion, dirtying and cache-update hooks. Their SQL, cache and notification steps do
-not share a transaction established by this mixin.
+deletion, dirtying and cache-update hooks. Public writers own their transaction and
+restore touched cache rows on failure; caller-owned transactions are refused.
 """
 
 from __future__ import annotations
 
-from LiuXin_alpha.databases.database_driver_plugins._macro_state import require_legacy_macros
+from LiuXin_alpha.databases.custom_columns.value_writes import atomic_custom_write
+
+from LiuXin_alpha.databases.database_driver_plugins._macro_state import (
+    require_legacy_macros,
+)
 
 from typing import TYPE_CHECKING, Optional
 
@@ -28,6 +32,7 @@ class CCDeleteMethodsMixin:
         for a text/multiple column, subject to the legacy macro naming conventions.
     """
 
+    @atomic_custom_write
     def delete_custom_item_using_id(
         self: "CustomColumnsAPI",
         idx: Optional[int],
@@ -38,9 +43,9 @@ class CCDeleteMethodsMixin:
         Dirty referencing owners, delete a custom value and request cache replacement.
 
         Resolve table names, call custom_dirty_books_referencing with commit=False, then
-        delete_cc_item. Finally clear the affected cache slots using the returned
-        owner-reference rows. The SQL delete macro may commit independently; no
-        rollback or compensation is provided here.
+        delete_cc_item. Finally reload the affected cache slots using the returned
+        owner-reference rows. One transaction owns the delete and cache update;
+        failure rolls back SQL and restores touched cache rows.
 
         Example:
             Given a host with a results cache,
@@ -80,13 +85,18 @@ class CCDeleteMethodsMixin:
             )
 
             # Delete from the link table and the actual table
-            require_legacy_macros(self.db.macros).delete_cc_item(table, lt, idx)
-
-            self.rename_custom_item_in_data(
-                book_ids=book_ids, column_num=data["num"], new_value=None
+            require_legacy_macros(self.db.macros).delete_cc_item(
+                table, lt, idx, conn=self.conn
             )
 
+            for (owner,) in book_ids:
+                value = require_legacy_macros(self.db.macros).read_cc_value_from_meta_2(
+                    data["num"], owner, conn=self.conn
+                )
+                self.data.set(owner, self.FIELD_MAP[data["num"]], value, row_is_id=True)
+
     # Todo: We seem to be assuming items are strings a lot - this feels like custom tags
+    @atomic_custom_write
     def delete_item_from_multiple(
         self: "CustomColumnsAPI",
         item: str,
@@ -98,9 +108,9 @@ class CCDeleteMethodsMixin:
 
         Require datatype text and is_multiple. Search the facade’s unordered all_custom
         result and choose its first lowercase match. Query referencing owners, delete
-        link/value rows and commit self.conn when a truthy ID is found. This path does
-        not dirty owners or update the results cache. Legacy macros assume compatible
-        book/value column names, even for alternate attachment tables.
+        link/value rows, dirty owners and reload their cache values in one owned
+        transaction. Legacy macros still require compatible book/value column names,
+        even for alternate attachment tables.
 
         Example:
             For a configured text/multiple facade, affected =
@@ -144,13 +154,24 @@ class CCDeleteMethodsMixin:
                 table, existing_tags[idx], all=False, conn=self.conn
             )
             if id_:
-                books = require_legacy_macros(self.db.macros).get_cc_lt_books_from_lt_value(
-                    lt, value=id_, conn=self.conn
-                )
+                books = require_legacy_macros(
+                    self.db.macros
+                ).get_cc_lt_books_from_lt_value(lt, value=id_, conn=self.conn)
                 if books:
                     books_affected = [b[0] for b in books]
-                require_legacy_macros(self.db.macros).delete_from_cc_table_by_value(lt, id_)
-                require_legacy_macros(self.db.macros).delete_from_cc_table_by_id(table, id_)
-                self._custom_connection().commit()
+                require_legacy_macros(self.db.macros).delete_from_cc_table_by_value(
+                    lt, id_, conn=self.conn
+                )
+                require_legacy_macros(self.db.macros).delete_from_cc_table_by_id(
+                    table, id_, conn=self.conn
+                )
+                self.dirtied(books_affected, commit=False)
+                for owner in books_affected:
+                    value = require_legacy_macros(
+                        self.db.macros
+                    ).read_cc_value_from_meta_2(data["num"], owner, conn=self.conn)
+                    self.data.set(
+                        owner, self.FIELD_MAP[data["num"]], value, row_is_id=True
+                    )
 
         return books_affected

@@ -1,5 +1,11 @@
 # Working Memory Index
 
+Completed locally, **2026-11-05**: [typing findings and regression ratchet](database-regression-ratchet-2026-11-05.md).
+Runtime/cache transaction fixes, explicit Row state and required named regressions
+are implemented here. All 240 required cases and 87 final tooling checks pass;
+fresh-environment typing also passes. Delivery is on the existing typing PR branch.
+
+
 Completed, **2026-11-04**: full database typing on `databases-full-typing`
 in `/tmp/liuxin-databases-typing`, based on merged integration head `d8d52587`.
 All **225 modules / 2,482 function definitions** have complete signatures. Both

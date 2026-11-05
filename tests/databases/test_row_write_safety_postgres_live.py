@@ -186,3 +186,47 @@ def test_postgres_identity_only_update_keeps_derived_key_and_uniqueness(pg_db, r
     ]
     with pytest.raises(psycopg2.IntegrityError):
         db.macros.insert_row("tags", {"tag": "SPACE OPERA"})
+
+
+def test_postgres_failed_draft_sync_leaves_no_blank_row_and_can_retry(pg_db):
+    from LiuXin_alpha.databases.row import Row, RowState
+
+    db, _ = pg_db
+    db.driver_wrapper.add_row({"review_item_text": "duplicate"})
+    row = Row(db, {"review_item_text": "duplicate"})
+    with pytest.raises(DatabaseDriverError):
+        row.sync()
+    assert row.state is RowState.DRAFT
+    assert row.row_id is None
+    assert stored(pg_db, "review_items", "review_item_text", "review_item_id") == [
+        ("duplicate",)
+    ]
+    row["review_item_text"] = "retry"
+    row.sync()
+    assert row.state is RowState.IDENTIFIED
+    assert stored(pg_db, "review_items", "review_item_text", "review_item_id") == [
+        ("duplicate",),
+        ("retry",),
+    ]
+
+
+def test_postgres_missing_row_stays_missing_on_sync(pg_db):
+    from LiuXin_alpha.databases.row import Row, RowState
+
+    db, _ = pg_db
+    row = Row(db)
+    row.load_row_from_id(-99999, "review_items")
+    assert row.state is RowState.MISSING
+    row.sync()
+    assert row.state is RowState.MISSING
+    assert stored(pg_db, "review_items", "review_item_id", "review_item_id") == []
+
+
+def test_postgres_draft_sync_accepts_an_explicit_null_identity(pg_db):
+    from LiuXin_alpha.databases.row import Row, RowState
+    db, _ = pg_db
+    row = Row(db, {'review_item_id': None, 'review_item_text': 'null identity'})
+    row.sync()
+    assert row.state is RowState.IDENTIFIED
+    assert row.row_id is not None
+    assert row.row_dict['review_item_id'] == row.row_id

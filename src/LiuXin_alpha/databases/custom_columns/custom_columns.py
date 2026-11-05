@@ -9,7 +9,11 @@ precede the driver adapter so facade bookkeeping runs after successful writes.
 
 from __future__ import annotations
 
-from LiuXin_alpha.databases.database_driver_plugins._macro_state import require_legacy_macros
+from LiuXin_alpha.databases.custom_columns.value_writes import atomic_custom_write
+
+from LiuXin_alpha.databases.database_driver_plugins._macro_state import (
+    require_legacy_macros,
+)
 
 import json
 import textwrap
@@ -442,7 +446,9 @@ class CustomColumns(
                 )
             label_map[data["label"]] = num_map[data["num"]] = data
             triggers.append(
-                require_legacy_macros(self.db.macros).get_foreign_key_replacement_trigger(
+                require_legacy_macros(
+                    self.db.macros
+                ).get_foreign_key_replacement_trigger(
                     target_table=link_table if data["normalized"] else table,
                     search_column=plural_singular_mapper(in_table),
                     target_id=self.db.driver_wrapper.get_id_column(in_table),
@@ -454,6 +460,7 @@ class CustomColumns(
         }
         self.remove, self.triggers = [], triggers
 
+    @atomic_custom_write
     def rename_custom_item(
         self,
         old_id: int,
@@ -468,8 +475,9 @@ class CustomColumns(
         the old value, avoiding duplicate multiple links. Otherwise update the existing
         value. The adapted value is discarded; original new_name is used throughout.
         Dirty referencing owners, update cached values, and alter an enumeration’s
-        in-memory allowed list when applicable. Lookup, SQL and host-hook failures can
-        leave partial changes; no encompassing transaction is supplied.
+        in-memory allowed list when applicable. One owned transaction rolls back SQL
+        and restores cache/enumeration changes on failure. Caller-owned transactions
+        are rejected before mutation.
 
         Example:
             On a fully configured facade, rename_custom_item(value_id, "Revised",
@@ -502,9 +510,9 @@ class CustomColumns(
 
         # Check to see if the item for rename is known to the database
         try:
-            db_old_id, db_old_value = require_legacy_macros(self.db.macros).get_cc_id_value_from_cc_id(
-                table, old_id
-            )
+            db_old_id, db_old_value = require_legacy_macros(
+                self.db.macros
+            ).get_cc_id_value_from_cc_id(table, old_id, conn=self.conn)
         except IndexError:
             raise InvalidUpdate
         if not db_old_id:
@@ -516,10 +524,12 @@ class CustomColumns(
         self.custom_data_adapters[data["datatype"]](new_name, data)
 
         # check if item exists
-        new_id = require_legacy_macros(self.db.macros).get_cc_id_from_value(table, new_name)
+        new_id = require_legacy_macros(self.db.macros).get_cc_id_from_value(
+            table, new_name, conn=self.conn
+        )
         if new_id is None or old_id == new_id:
             require_legacy_macros(self.db.macros).update_cc_value(
-                cc_column=table, cc_id=old_id, cc_value=new_name
+                cc_column=table, cc_id=old_id, cc_value=new_name, conn=self.conn
             )
             new_id = old_id
 
@@ -527,10 +537,14 @@ class CustomColumns(
             # New id exists. If the column is_multiple, then process like tags, otherwise process like publishers
             # (see database2)
             if data["is_multiple"]:
-                books = require_legacy_macros(self.db.macros).get_cc_books_from_link_table(lt, old_id)
+                books = require_legacy_macros(
+                    self.db.macros
+                ).get_cc_books_from_link_table(lt, old_id, conn=self.conn)
                 for (book_id,) in books:
-                    require_legacy_macros(self.db.macros).break_cc_links_by_book_id_and_value(
-                        lt, book_id, new_id
+                    require_legacy_macros(
+                        self.db.macros
+                    ).break_cc_links_by_book_id_and_value(
+                        lt, book_id, new_id, conn=self.conn
                     )
 
             # Remove the links from the link table - have to use the same conn for most of these transactions, because
@@ -540,22 +554,25 @@ class CustomColumns(
             )
             # Remove the links from the actual table
             # Todo: A well chosen set of triggers should take care of this instead
-            require_legacy_macros(self.db.macros).delete_from_cc_table_by_id(table, old_id, conn=self.conn)
+            require_legacy_macros(self.db.macros).delete_from_cc_table_by_id(
+                table, old_id, conn=self.conn
+            )
 
         # Note the change in the relevant places on the database
         data_label = "#" + data["label"]
         book_ids = self.custom_dirty_books_referencing(data_label, new_id, commit=False)
-        self.rename_custom_item_in_data(
-            book_ids=book_ids, column_num=data["num"], new_value=new_name
-        )
+        for (owner,) in book_ids:
+            value = require_legacy_macros(self.db.macros).read_cc_value_from_meta_2(
+                data["num"], owner, conn=self.conn
+            )
+            self.data.set(owner, self.FIELD_MAP[data["num"]], value, row_is_id=True)
 
         # Change the permissible set values in the enumeration type - if that's appropriate
         if data["datatype"] == "enumeration":
             data["display"]["enum_values"].remove(db_old_value)
             data["display"]["enum_values"].append(new_name)
 
-        # Actually update the database
-        self._custom_connection().commit()
+        # The public write boundary commits SQL and cache changes together.
 
     # Todo: Test the right item is being set
     # Todo: This is also kinda cursed, ngl
@@ -899,7 +916,9 @@ class CustomColumns(
             raise DatabaseIntegrityError(
                 f"Custom field {field!r} lacks a storage table/link column"
             )
-        bks = require_legacy_macros(self.db.macros).get_cc_books_for_dirtying(table, link, id, conn=self.conn)
+        bks = require_legacy_macros(self.db.macros).get_cc_books_for_dirtying(
+            table, link, id, conn=self.conn
+        )
         books = []
         for (book_id,) in bks:
             books.append(book_id)

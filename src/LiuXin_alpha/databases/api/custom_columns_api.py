@@ -123,6 +123,9 @@ class CustomColumnsAPI(Protocol):
     @property
     def data(self) -> CustomColumnCache: ...
 
+    @data.setter
+    def data(self, value: CustomColumnCache) -> None: ...
+
     prefs: CustomColumnPreferences | None
     FIELD_MAP: MutableMapping[str | int, int]
     field_metadata: CustomColumnFieldMetadata
@@ -383,7 +386,7 @@ class CustomColumnsAPI(Protocol):
 
         The legacy implementation ignores false IDs, dirties referencing owners before
         deletion, then requests a cache update using the owner-reference rows.
-        Database writes and cache updates retain separate failure boundaries.
+        SQL and cache updates share an owned write boundary; failure restores both.
 
         Example:
             For a compatible host, ``host.delete_custom_item_using_id(value_id,
@@ -408,7 +411,7 @@ class CustomColumnsAPI(Protocol):
         Remove one case-insensitively matched choice from a multiple-text column.
 
         The current implementation rejects other datatypes, deletes both links and the
-        matched value row, and commits when a matching value ID exists.
+        matched value row, dirties/reloads affected owners, then commits its owned unit.
 
         Example:
             ``host.delete_item_from_multiple("finished", label="states")`` returns
@@ -626,22 +629,18 @@ class CustomColumnsAPI(Protocol):
         """
         ...
 
-    def notify(self, event: str, ids: Iterable[int]) -> None:
+    @property
+    def notify(self) -> CustomColumnNotify:
+        """Return the replaceable event/owner-ID notification callback.
+
+        Cached writers temporarily buffer this hook, then deliver events after
+        commit. Standalone hosts may install an inert callback.
         """
-        Deliver a metadata-change event through the host notification hook.
+        ...
 
-        The host supplies notification behavior; standalone compatibility hosts may
-        install a fallback callback.
-
-        Example:
-            ``host.notify("metadata", [7])`` signals the configured hook after owner 7
-            metadata changes.
-
-
-        :param event: Event name, commonly metadata.
-        :param ids: Persistent owner IDs associated with the event.
-        :return: None; the implementing host performs the described operation.
-        """
+    @notify.setter
+    def notify(self, value: CustomColumnNotify) -> None:
+        """Replace the host notification hook, including transaction buffering."""
         ...
 
     def rename_custom_item_in_data(
@@ -682,9 +681,9 @@ class CustomColumnsAPI(Protocol):
         Add and remove choices across owners in an editable multiple-text column.
 
         The current mixin names the first parameter cc_row_ids. It validates editable
-        multiple text, performs a bulk database operation, commits and then refreshes
-        row-data values. This protocol does not guarantee transaction rollback or
-        compensate for later cache/notification failures.
+        multiple text and completes SQL/cache changes in an owned transaction.
+        Failure restores touched cache rows. Notifications follow commit; their
+        failure reports a committed write. Caller-owned transactions are refused.
 
         Example:
             ``host.set_custom_bulk_multiple([7, 8], add=["finished"],
@@ -757,12 +756,14 @@ class CustomColumnsAPI(Protocol):
         Write one owner custom value, dirty affected records and optionally commit.
 
         The current outer method calls _set_custom, dirties the requested ID together
-        with the returned refresh IDs, and commits when requested. The returned set need
-        not include the owner being written.
+        with the returned refresh IDs, then commits before notifying. It refuses
+        caller-owned transactions and commit=False. The returned set need not include
+        the owner being written.
 
         Example:
-            ``additional = host.set_custom(7, "finished", label="state", commit=False)``
-            updates owner 7 while leaving the caller to commit.
+            ``additional = host.set_custom(7, "finished", label="state")``
+            commits owner 7 and reports additionally affected owner IDs.
+            commit=False is refused by the cached facade; use SQL macros instead.
 
 
         :param cc_row_id: Persistent owner ID.
@@ -771,9 +772,9 @@ class CustomColumnsAPI(Protocol):
             num.
         :param num: Custom-column definition ID, used when label is absent.
         :param append: Whether to append for supported multiple columns.
-        :param notify: Whether the inner write should request a metadata notification.
+        :param notify: Whether to notify all affected owners after commit.
         :param extra: Optional series extra value.
-        :param commit: Whether to commit after dirtying.
+        :param commit: Must be True for cached writes; False is refused before mutation.
         :param allow_case_change: Whether matching normalized values may change display
             case.
         :return: Set of additional owners needing refresh from the inner write; the

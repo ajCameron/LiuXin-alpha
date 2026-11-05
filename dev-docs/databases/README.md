@@ -7,6 +7,9 @@ meaning belongs to metadata/Catalog; physical storage policy belongs to storage.
 
 ## Working guides and operational contracts
 
+- [Database regression ratchet, 2026-11-05](regression-ratchet-2026-11-05.md):
+  typing findings, lifecycle/transaction mitigations and mandatory named regressions.
+
 - [Package-wide typing, 2026-11-04](package-typing-2026-11-04.md):
   completed contracts across all 225 modules, checker enforcement and runtime evidence.
 - [Maintenance and driver-wrapper delivery, 2026-11-04](review-upgrade-delivery-2026-11-04.md):

@@ -1,18 +1,23 @@
 """
 Mutate legacy custom-column SQL values and their results-cache projections.
 
-Hosts supply metadata, adapters, macros, cache access and notification hooks. SQL
-writes, cache updates, dirtying and commits have separate failure boundaries; these
-methods do not provide a rollback context spanning the whole operation.
+Hosts supply metadata, adapters, macros, cache access and notification hooks. Public
+writers own a complete SQL transaction, restore touched cache rows on failure and
+deliver notifications after commit. Caller-owned transactions are rejected before SQL.
 """
 
 from __future__ import annotations
 
-from LiuXin_alpha.databases.database_driver_plugins._macro_state import require_legacy_macros
+from LiuXin_alpha.databases.custom_columns.value_writes import atomic_custom_write
+
+from LiuXin_alpha.databases.database_driver_plugins._macro_state import (
+    require_legacy_macros,
+)
 
 from typing import Iterable, Optional, Any, Mapping, Sequence
 
 from functools import partial
+from uuid import uuid4
 
 from LiuXin_alpha.errors import DatabaseIntegrityError, InvalidUpdate
 
@@ -30,11 +35,11 @@ class CCSetMethodsMixin:
     propagate.
 
     Example:
-        On a compatible host, set_custom(owner_id, 4, num=column_id, commit=False)
-        stages a scalar update and dirtying while leaving the final explicit commit to
-        its caller.
+        On a compatible host, set_custom(owner_id, 4, num=column_id) commits a
+        scalar update, then notifies listeners. Use SQL macros for caller-owned work.
     """
 
+    @atomic_custom_write
     def set_custom_bulk_multiple(
         self: "CustomColumnsAPI",
         cc_row_ids: Iterable[int],
@@ -49,10 +54,10 @@ class CCSetMethodsMixin:
 
         Validate column editability/type, then clean both tag lists before checking
         empty owners or a no-op. Tag normalization accepts text and bytes. Exact
-        additions win over identical removals, new values are inserted, fixed-name TEMP
-        tables drive link changes, then owners are dirtied and committed before cache
-        refresh. Owner IDs are materialized once so every step sees the same IDs.
-        Temporary tables are not removed in a finally block.
+        additions win over identical removals. Unique TEMP tables drive link changes;
+        SQL, dirtying and cache refresh complete before committing. Failure rolls back
+        SQL/TEMP changes and restores touched cache rows. Owner IDs are materialized
+        once so every step sees the same IDs.
 
         Example:
             With a host supplying a reusable ID list, set_custom_bulk_multiple([1, 2],
@@ -115,16 +120,19 @@ class CCSetMethodsMixin:
 
         # Create the temporary temp_tables to store the ids for books and tags
         # to be operated on
+        suffix = uuid4().hex
         temp_tables = (
-            "temp_bulk_tag_edit_books",
-            "temp_bulk_tag_edit_add",
-            "temp_bulk_tag_edit_remove",
+            f"temp_bulk_tag_edit_books_{suffix}",
+            f"temp_bulk_tag_edit_add_{suffix}",
+            f"temp_bulk_tag_edit_remove_{suffix}",
         )
-        require_legacy_macros(self.db.macros).create_cc_temp_tables(temp_tables, conn=self.conn)
+        require_legacy_macros(self.db.macros).create_cc_temp_tables(
+            temp_tables, conn=self.conn
+        )
 
         # Populate the books temp custom_table
         require_legacy_macros(self.db.macros).insert_values_into_temp_table(
-            "temp_bulk_tag_edit_books", cc_row_ids, conn=self.conn
+            temp_tables[0], cc_row_ids, conn=self.conn
         )
 
         # Populate the add/remove tags temp temp_tables
@@ -133,9 +141,10 @@ class CCSetMethodsMixin:
         )
 
         # get rid of the temp tables
-        require_legacy_macros(self.db.macros).destroy_cc_temp_tables(temp_tables, conn=self.conn)
+        require_legacy_macros(self.db.macros).destroy_cc_temp_tables(
+            temp_tables, conn=self.conn
+        )
         self.dirtied(cc_row_ids, commit=False)
-        self._custom_connection().commit()
 
         # set the in-memory copies of the tags
         for x in cc_row_ids:
@@ -147,6 +156,7 @@ class CCSetMethodsMixin:
         if notify:
             self.notify("metadata", cc_row_ids)
 
+    @atomic_custom_write
     def set_custom_bulk(
         self: "CustomColumnsAPI",
         cc_row_ids: Sequence[int],
@@ -160,10 +170,9 @@ class CCSetMethodsMixin:
         """
         Call the single-owner worker in sequence, then dirty and commit the batch.
 
-        A failure can follow earlier SQL/cache changes; no batch rollback is supplied.
-        After a successful loop, dirty the requested IDs and commit even for an empty
-        sequence. The worker’s additional case-change refresh IDs are not merged into
-        that final dirtying call.
+        One transaction owns the batch. Failure restores earlier owner writes and
+        cache rows. Dirty all requested and additionally affected owners, then commit
+        before delivering the buffered notification.
 
         Example:
             On a compatible host, set_custom_bulk([1, 2], "Saga", num=series_column,
@@ -175,25 +184,29 @@ class CCSetMethodsMixin:
         :param label: Optional custom-column label; takes precedence over num.
         :param num: Numeric metadata key used when label is None.
         :param append: Forward append behavior to each worker.
-        :param notify: Forward notification policy to each worker, which can notify
-            before the final commit.
+        :param notify: Notify affected owners once after the batch commits.
         :param extras: Optional sequence of per-owner extras, required to match the ID
             count.
-        :return: None; additional owners returned by individual workers are discarded.
+        :return: None; additional affected owners are included in dirtying/notification.
         :raises ValueError: extras and cc_row_ids have different lengths.
         """
         if extras is not None and len(extras) != len(cc_row_ids):
             raise ValueError("Length of ids and extras is not the same")
         ev = None
+        affected = set(cc_row_ids)
         for idx, id in enumerate(cc_row_ids):
             if extras is not None:
                 ev = extras[idx]
-            self._set_custom(
-                id, val, label=label, num=num, append=append, notify=notify, extra=ev
+            affected.update(
+                self._set_custom(
+                    id, val, label=label, num=num, append=append, notify=False, extra=ev
+                )
             )
-        self.dirtied(cc_row_ids, commit=False)
-        self._custom_connection().commit()
+        self.dirtied(affected, commit=False)
+        if notify:
+            self.notify("metadata", sorted(affected))
 
+    @atomic_custom_write
     def set_custom(
         self: "CustomColumnsAPI",
         cc_row_id: int,
@@ -207,17 +220,16 @@ class CCSetMethodsMixin:
         allow_case_change: bool = False,
     ) -> set[int]:
         """
-        Write one owner’s custom value, dirty affected IDs and optionally commit.
+        Write one owner's custom value and dirty affected IDs in an owned transaction.
 
-        Dirty the union of the requested ID and worker result with commit=False, then
-        optionally commit. A composite worker returns an empty set without writing, but
-        this wrapper still dirties the requested ID and may commit. Errors can follow
-        partial writes or notification.
+        Dirty the union of the requested ID and worker result with commit=False.
+        SQL/cache failures roll back the write. Notify after commit; listener errors
+        carry a note that the write already committed. A composite worker still
+        dirties the requested ID. Borrowed transactions and commit=False are refused.
 
         Example:
             Given a compatible host, changed = set_custom(owner_id, "Draft",
-            num=column_id, commit=False) returns extra owners requiring refresh without
-            an explicit wrapper commit.
+            num=column_id) returns extra affected owners after committing the write.
 
 
         :param cc_row_id: Owner ID passed to the worker.
@@ -225,27 +237,48 @@ class CCSetMethodsMixin:
         :param label: Optional custom-column label; takes precedence over num.
         :param num: Numeric metadata key used when label is None.
         :param append: Append only where the selected storage supports multiple values.
-        :param notify: Let the worker notify before this method’s dirtying/commit step.
+        :param notify: Deliver metadata notification after the transaction commits.
         :param extra: Optional series position; None permits parsing/defaulting.
-        :param commit: Commit self.conn after dirtying when True.
+        :param commit: Must be True; False is rejected before mutation. Use SQL
+            macros for caller-owned transactions without a cached facade.
         :param allow_case_change: Allow the worker’s legacy case-change path for reused
             normalized values.
         :return: Worker set of additional affected owner IDs; the requested ID is not
             automatically added to this return value.
         """
+        if not commit:
+            raise ValueError(
+                "Cached custom-column writes do not support commit=False; use SQL macros for caller-owned transactions"
+            )
         rv = self._set_custom(
             cc_row_id,
             val,
             label=label,
             num=num,
             append=append,
-            notify=notify,
+            notify=False,
             extra=extra,
             allow_case_change=allow_case_change,
         )
+        if rv:
+            metadata = (
+                self.custom_column_label_map[label]
+                if label is not None
+                else self.custom_column_num_map[num]
+                if num is not None
+                else None
+            )
+            if metadata is not None:
+                for owner in rv:
+                    value = require_legacy_macros(
+                        self.db.macros
+                    ).read_cc_value_from_meta_2(metadata["num"], owner, conn=self.conn)
+                    self.data.set(
+                        owner, self.FIELD_MAP[metadata["num"]], value, row_is_id=True
+                    )
         self.dirtied({cc_row_id} | rv, commit=False)
-        if commit:
-            self._custom_connection().commit()
+        if notify:
+            self.notify("metadata", sorted({cc_row_id} | rv))
         return rv
 
     def _set_custom(
@@ -367,7 +400,9 @@ class CCSetMethodsMixin:
                 raise InvalidUpdate(err_str)
 
             if not append or not data["is_multiple"]:
-                require_legacy_macros(self.db.macros).break_cc_links_by_book_id(lt, id_, conn=self.conn)
+                require_legacy_macros(self.db.macros).break_cc_links_by_book_id(
+                    lt, id_, conn=self.conn
+                )
                 require_legacy_macros(self.db.macros).clear_cc_unused_table_entries(
                     table=table, lt=lt, conn=self.conn
                 )
@@ -412,15 +447,21 @@ class CCSetMethodsMixin:
                         )
                     if allow_case_change and ex != x:
                         case_change = True
-                        require_legacy_macros(self.db.macros).update_cc_value(table, cc_id=xid, cc_value=x)
+                        require_legacy_macros(self.db.macros).update_cc_value(
+                            table, cc_id=xid, cc_value=x, conn=self.conn
+                        )
                 else:
-                    xid = require_legacy_macros(self.db.macros).add_cc_table_value(table, x, conn=self.conn)
+                    xid = require_legacy_macros(self.db.macros).add_cc_table_value(
+                        table, x, conn=self.conn
+                    )
 
                 if xid is None:
                     raise DatabaseIntegrityError(
                         f"Custom value {x!r} has no ID in {table!r}"
                     )
-                if not require_legacy_macros(self.db.macros).check_for_cc_link(lt, id_, xid, self.conn):
+                if not require_legacy_macros(self.db.macros).check_for_cc_link(
+                    lt, id_, xid, self.conn
+                ):
                     if data["datatype"] == "series":
                         require_legacy_macros(self.db.macros).add_cc_link_with_extra(
                             lt, id_, xid, extra, conn=self.conn
@@ -434,9 +475,9 @@ class CCSetMethodsMixin:
                         )
 
                 if case_change:
-                    bks = require_legacy_macros(self.db.macros).get_cc_lt_books_from_lt_value(
-                        lt, xid, conn=self.conn
-                    )
+                    bks = require_legacy_macros(
+                        self.db.macros
+                    ).get_cc_lt_books_from_lt_value(lt, xid, conn=self.conn)
                     books_to_refresh |= set([bk[0] for bk in bks])
 
             nval = require_legacy_macros(self.db.macros).read_cc_value_from_meta_2(
@@ -446,7 +487,9 @@ class CCSetMethodsMixin:
 
         elif data["normalized"] and data["datatype"] == "series":
             if not append or not data["is_multiple"]:
-                require_legacy_macros(self.db.macros).break_cc_links_by_book_id(lt, id_, conn=self.conn)
+                require_legacy_macros(self.db.macros).break_cc_links_by_book_id(
+                    lt, id_, conn=self.conn
+                )
                 require_legacy_macros(self.db.macros).clear_cc_unused_table_entries(
                     table=table, lt=lt, conn=self.conn
                 )
@@ -491,15 +534,21 @@ class CCSetMethodsMixin:
                         )
                     if allow_case_change and ex != x:
                         case_change = True
-                        require_legacy_macros(self.db.macros).update_cc_value(table, cc_id=xid, cc_value=x)
+                        require_legacy_macros(self.db.macros).update_cc_value(
+                            table, cc_id=xid, cc_value=x, conn=self.conn
+                        )
                 else:
-                    xid = require_legacy_macros(self.db.macros).add_cc_table_value(table, x, conn=self.conn)
+                    xid = require_legacy_macros(self.db.macros).add_cc_table_value(
+                        table, x, conn=self.conn
+                    )
 
                 if xid is None:
                     raise DatabaseIntegrityError(
                         f"Custom value {x!r} has no ID in {table!r}"
                     )
-                if not require_legacy_macros(self.db.macros).check_for_cc_link(lt, id_, xid, self.conn):
+                if not require_legacy_macros(self.db.macros).check_for_cc_link(
+                    lt, id_, xid, self.conn
+                ):
                     if data["datatype"] == "series":
                         require_legacy_macros(self.db.macros).add_cc_link_with_extra(
                             lt, id_, xid, extra, conn=self.conn
@@ -513,9 +562,9 @@ class CCSetMethodsMixin:
                         )
 
                 if case_change:
-                    bks = require_legacy_macros(self.db.macros).get_cc_lt_books_from_lt_value(
-                        lt, xid, conn=self.conn
-                    )
+                    bks = require_legacy_macros(
+                        self.db.macros
+                    ).get_cc_lt_books_from_lt_value(lt, xid, conn=self.conn)
                     books_to_refresh |= set([bk[0] for bk in bks])
 
             nval = require_legacy_macros(self.db.macros).read_cc_value_from_meta_2(
@@ -524,7 +573,9 @@ class CCSetMethodsMixin:
             self.data.set(id_, self.FIELD_MAP[data["num"]], nval, row_is_id=True)
 
         else:
-            require_legacy_macros(self.db.macros).clear_cc_entries_from_table(table, id_, conn=self.conn)
+            require_legacy_macros(self.db.macros).clear_cc_entries_from_table(
+                table, id_, conn=self.conn
+            )
             if val is not None:
                 require_legacy_macros(self.db.macros).add_cc_link_with_extra(
                     lt=table, book_id=id_, value_id=val, conn=self.conn

@@ -1,5 +1,7 @@
 # Database package typing
 
+Follow-up: [runtime fixes and the required regression ratchet, 2026-11-05](regression-ratchet-2026-11-05.md).
+
 Completed **2026-11-04** on `databases-full-typing`.
 
 All **225 database modules** are covered by both configured type checkers, with

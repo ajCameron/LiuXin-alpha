@@ -279,3 +279,17 @@ def test_ci_uses_the_local_quality_runner_and_formatter_contract_tests() -> None
     assert "run: bash scripts/run_type_checks.sh" in quality_job
     assert "tests/scripts/test_run_format_checks.py" in quality_job
     assert "run_format_checks.py --write" not in quality_job
+
+
+def test_typing_extra_installs_native_database_modules_and_stubs() -> None:
+    """Checking every backend must work without an enriched developer environment."""
+    import tomllib
+
+    from packaging.requirements import Requirement
+
+    config = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text())
+    dependencies = {
+        Requirement(spec).name
+        for spec in config["project"]["optional-dependencies"]["typing"]
+    }
+    assert {"apsw", "psycopg2-binary", "types-psycopg2"} <= dependencies

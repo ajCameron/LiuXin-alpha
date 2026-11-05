@@ -26,6 +26,7 @@ from LiuXin_alpha.databases.db_types.driver_types import (
     QueryConnection,
 )
 
+
 class MacrosAPI(DatabaseMacrosAPI, abc.ABC):
     """
     Specify database-bound SQL shortcuts and custom-column compatibility operations.
@@ -40,8 +41,6 @@ class MacrosAPI(DatabaseMacrosAPI, abc.ABC):
         macros = require_legacy_macros(db.macros)
         linked = macros.get_link_data("works", "agents", work_id)
     """
-
-
 
     @staticmethod
     @abc.abstractmethod
@@ -481,10 +480,10 @@ class MacrosAPI(DatabaseMacrosAPI, abc.ABC):
         self, table: str, lt: str, target_id: int, conn: SQLConnection | None = None
     ) -> None:
         """
-        Delete links to one custom value, then delete the value row and commit.
+        Delete links and their value atomically.
 
-        Commit the chosen connection even when supplied by the caller. There is no
-        explicit rollback wrapper around the two statements.
+        Own an idle connection's transaction; preserve an active caller transaction
+        through a savepoint. Failure restores both deletions. Never close the handle.
 
         Example:
             macros.delete_cc_item(custom_table, link_table, value_id, conn=conn)
@@ -524,7 +523,9 @@ class MacrosAPI(DatabaseMacrosAPI, abc.ABC):
         ...
 
     @abc.abstractmethod
-    def delete_from_cc_table_by_value(self, table: str, target_id: Any) -> None:
+    def delete_from_cc_table_by_value(
+        self, table: str, target_id: Any, conn: SQLConnection | None = None
+    ) -> None:
         """
         Delete custom rows by stored value rather than row ID.
 
@@ -614,7 +615,6 @@ class MacrosAPI(DatabaseMacrosAPI, abc.ABC):
         """
 
         ...
-
 
     @abc.abstractmethod
     def do_cc_db_bulk_addition(
@@ -714,8 +714,6 @@ class MacrosAPI(DatabaseMacrosAPI, abc.ABC):
 
         ...
 
-
-
     @abc.abstractmethod
     def generic_clean_update(
         self,
@@ -742,7 +740,6 @@ class MacrosAPI(DatabaseMacrosAPI, abc.ABC):
         """
 
         ...
-
 
     @abc.abstractmethod
     def get_all_cc_custom_values(
@@ -862,12 +859,12 @@ class MacrosAPI(DatabaseMacrosAPI, abc.ABC):
 
     @abc.abstractmethod
     def get_cc_books_from_link_table(
-        self, lt: str, lt_value: Any
+        self, lt: str, lt_value: Any, conn: QueryConnection | None = None
     ) -> list[Sequence[Any]]:
         """
         Read owner rows whose conventional custom-link value matches an ID.
 
-        Use the default driver connection with no explicit ordering or deduplication.
+        Use the supplied or default driver connection without ordering or deduplication.
 
         Example:
             owner_rows = macros.get_cc_books_from_link_table(link_table, value_id)
@@ -963,7 +960,9 @@ class MacrosAPI(DatabaseMacrosAPI, abc.ABC):
         ...
 
     @abc.abstractmethod
-    def get_cc_id_value_from_cc_id(self, table: str, old_id: int) -> tuple[int, Any]:
+    def get_cc_id_value_from_cc_id(
+        self, table: str, old_id: int, conn: QueryConnection | None = None
+    ) -> tuple[int, Any]:
         """
         Read an existing custom ID/value row through the default connection.
 
@@ -1080,7 +1079,6 @@ class MacrosAPI(DatabaseMacrosAPI, abc.ABC):
         """
 
         ...
-
 
     @abc.abstractmethod
     def get_linked_ids(

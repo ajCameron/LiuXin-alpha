@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from types import SimpleNamespace
+import sqlite3
 from unittest.mock import Mock
 
 import pytest
@@ -28,6 +29,8 @@ class Cache:
 def facade_with_cache():
     facade = object.__new__(CustomColumns)
     facade.data = Cache()
+    facade.notify = lambda *args: None
+    facade.dirtied = lambda *args, **kwargs: None
     facade.FIELD_MAP = {"id": 0, 3: 1}
     facade.custom_column_num_map = {
         3: {
@@ -45,25 +48,40 @@ def facade_with_cache():
     return facade
 
 
-def test_delete_custom_value_updates_its_owners_cache():
+def test_delete_custom_value_updates_its_owners_cache(request):
     facade = facade_with_cache()
     deleted = []
+    connection = sqlite3.connect(":memory:")
+    request.addfinalizer(connection.close)
     facade.custom_dirty_books_referencing = lambda *args, **kwargs: [(7,), (8,)]
     facade.db = SimpleNamespace(
-        macros=Mock(spec=MacrosAPI, delete_cc_item=lambda *args: deleted.append(args))
+        driver=SimpleNamespace(conn=connection),
+        macros=Mock(
+            spec=MacrosAPI,
+            delete_cc_item=lambda *args, **kwargs: deleted.append(args),
+            read_cc_value_from_meta_2=lambda *args, **kwargs: None,
+        ),
     )
     facade.delete_custom_item_using_id(9, num=3)
     assert deleted == [("custom_column_3", "books_custom_column_3_link", 9)]
     assert facade.data.writes == [(7, 1, None, True), (8, 1, None, True)]
 
 
-def test_bulk_multiple_reuses_single_pass_owner_ids():
+def test_bulk_multiple_reuses_single_pass_owner_ids(request):
     facade = facade_with_cache()
     inserted, dirtied, notified, commits = [], [], [], []
-    connection = SimpleNamespace(commit=lambda: commits.append(True))
+
+    class CountCommits(sqlite3.Connection):
+        def commit(self):
+            commits.append(True)
+            return super().commit()
+
+    connection = sqlite3.connect(":memory:", factory=CountCommits)
+    request.addfinalizer(connection.close)
     facade.db = SimpleNamespace(
         driver=SimpleNamespace(conn=connection),
-        macros=Mock(spec=MacrosAPI,
+        macros=Mock(
+            spec=MacrosAPI,
             get_all_cc_custom_values=lambda *args, **kwargs: [("new",)],
             create_cc_temp_tables=lambda *args, **kwargs: None,
             insert_values_into_temp_table=lambda table, ids, **kwargs: inserted.extend(
@@ -137,10 +155,11 @@ def test_case_change_uses_value_id_and_rejects_a_missing_lookup(datatype, value_
     updates, linked = [], []
     facade.custom_data_adapters = {datatype: lambda value, data: value}
     facade.db = SimpleNamespace(
-        macros=Mock(spec=MacrosAPI,
+        macros=Mock(
+            spec=MacrosAPI,
             get_all_cc_custom_values=lambda *args, **kwargs: [("old",)],
             get_cc_id_from_value=lambda *args, **kwargs: value_id,
-            update_cc_value=lambda table, cc_id, cc_value: updates.append(
+            update_cc_value=lambda table, cc_id, cc_value, **kwargs: updates.append(
                 (table, cc_id, cc_value)
             ),
             check_for_cc_link=lambda *args, **kwargs: linked.append(args) or True,

@@ -161,3 +161,47 @@ def test_raw_bulk_return_contracts_and_required_field(db):
         db.driver_wrapper.search("review_items", "review_item_text", "bulk contract")
         == []
     )
+
+
+def test_explicit_state_tracks_draft_identity_and_missing_load(db):
+    from LiuXin_alpha.databases.row import RowState
+
+    row = Row(db)
+    assert row.state is RowState.DRAFT
+    row["review_item_text"] = "draft state"
+    assert row.state is RowState.DRAFT
+    row.sync()
+    assert row.state is RowState.IDENTIFIED
+    identity = row.row_id
+    row.load_row_from_id(-99999, "review_items")
+    assert row.state is RowState.MISSING
+    row.sync()
+    assert row.state is RowState.MISSING
+    row.load_row_from_id(identity, "review_items")
+    assert row.state is RowState.IDENTIFIED
+
+
+def test_failed_draft_sync_does_not_allocate_a_blank_row_or_identity(db):
+    from LiuXin_alpha.errors import DatabaseIntegrityError
+
+    db.driver_wrapper.add_row({"review_item_text": "duplicate"})
+    row = Row(db, {"review_item_text": "duplicate"})
+    with pytest.raises(DatabaseIntegrityError):
+        row.sync()
+    assert row.row_id is None
+    assert row.row_dict == {"review_item_text": "duplicate"}
+    assert db.driver_wrapper.fetch_scalar("SELECT COUNT(*) FROM review_items") == 1
+    row["review_item_text"] = "retry"
+    row.sync()
+    assert row.row_id is not None
+    assert db.driver_wrapper.fetch_scalar("SELECT COUNT(*) FROM review_items") == 2
+
+
+def test_draft_sync_accepts_an_explicit_null_identity(db):
+    from LiuXin_alpha.databases.row import Row, RowState
+
+    row = Row(db, {"review_item_id": None, "review_item_text": "null identity"})
+    row.sync()
+    assert row.state is RowState.IDENTIFIED
+    assert row.row_id is not None
+    assert row.row_dict["review_item_id"] == row.row_id

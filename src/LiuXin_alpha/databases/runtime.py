@@ -3,8 +3,8 @@ Attach database maintenance collaborators and bootstrap configured storage.
 
 These helpers mutate a concrete database’s runtime graph. Maintenance initialization
 starts background work; storage bootstrap can construct backends and alter metadata or
-registry state. Neither helper wraps its entire operation in a transaction or performs
-automatic rollback of partial setup.
+registry state. Maintenance wiring restores its graph on failure and reuses an
+existing worker. Storage bootstrap retains its documented partial-setup behavior.
 """
 
 from __future__ import annotations
@@ -22,7 +22,6 @@ from LiuXin_alpha.databases.maintenance.service import Maintainer
 from LiuXin_alpha.utils.logging import default_log
 
 if TYPE_CHECKING:
-
     from LiuXin_alpha.databases.database import Database
     from LiuXin_alpha.databases.database.dirtied_mixin import DatabaseWriteTelemetry
     from LiuXin_alpha.databases.api.maintenance_api import MaintenanceCallbackSinkAPI
@@ -43,9 +42,9 @@ def initialise_database_runtime(
     Retain supplied preferences, then use the constructor's runtime wiring path.
     Resolve required collaborators before starting Maintainer and its engine.
     Install maintenance aliases, callback and clean hooks, and db back-references.
-    This does not bootstrap storage. Repeated calls do not stop an earlier
-    maintainer; a later wiring failure can leave the new engine running, so
-    callers own cleanup.
+    This does not bootstrap storage. Repeated calls reuse an existing worker;
+    failed preparation restores the previous graph and preferences and closes
+    a newly prepared worker. Callers must serialize initialization with use.
 
     Example:
         During one-time database construction, initialise_database_runtime(db,
@@ -63,11 +62,16 @@ def initialise_database_runtime(
     :raises RuntimeError: The table SQL collaborator is absent.
     """
 
+    previous_preferences = db.preferences
     db.preferences = preferences_obj
-    # Todo: Protected method access
-    db._initialise_runtime_collaborators(
-        enable_maintenance=True, callback_proxy_cls=callback_proxy_cls
-    )
+    try:
+        # Todo: Protected method access
+        db._initialise_runtime_collaborators(
+            enable_maintenance=True, callback_proxy_cls=callback_proxy_cls
+        )
+    except BaseException:
+        db.preferences = previous_preferences
+        raise
 
 
 # Todo: As it mixes db and storage, should be in library - perhaps with a dummy for when we just want a db up

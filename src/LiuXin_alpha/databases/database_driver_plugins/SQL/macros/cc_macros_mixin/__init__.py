@@ -11,6 +11,8 @@ boundary. Inherited mixins supply column management and insert-then-search value
 
 from __future__ import annotations
 
+from LiuXin_alpha.databases.transactions import transaction_active, transaction_scope
+
 import types
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from typing import Any, Literal, overload
@@ -255,14 +257,15 @@ class SQLiteDatabaseCustomColumnMacros(
             return row[0], row[1]
 
     # Todo: Basically the same as the above method - merge
-    def get_cc_id_value_from_cc_id(self, table: str, old_id: int) -> tuple[int, Any]:
+    def get_cc_id_value_from_cc_id(
+        self, table: str, old_id: int, conn: QueryConnection | None = None
+    ) -> tuple[int, Any]:
         """
         Read the first ID/value row for an ID through the stored default connection.
 
         Derive both column names and index the default get result at zero. Missing rows
         raise IndexError with the project SQLite adapter; duplicate matches are not
-        checked. This is a legacy counterpart to get_cc_id_and_value_from_id without a
-        connection override.
+        checked. An explicit connection keeps the lookup in its caller's transaction.
 
         Example:
             ``macros.get_cc_id_value_from_cc_id("custom_column_1", 7)``
@@ -276,7 +279,7 @@ class SQLiteDatabaseCustomColumnMacros(
         """
         cc_id_col, cc_val_col = self._get_cc_id_val(table)
         row = read_rows(
-            self._cc_read_connection(None),
+            self._cc_read_connection(conn),
             "SELECT {id_col}, {val_col} FROM {table} WHERE {id_col}=?".format(
                 id_col=cc_id_col, val_col=cc_val_col, table=table
             ),
@@ -667,14 +670,14 @@ class SQLiteDatabaseCustomColumnMacros(
         ]
 
     def get_cc_books_from_link_table(
-        self, lt: str, lt_value: Any
+        self, lt: str, lt_value: Any, conn: QueryConnection | None = None
     ) -> list[Sequence[Any]]:
         """
         Read owners linked to a custom-value ID on the stored default connection.
 
         Bind the value ID and return the unmodified default get result, normally one-
-        cell rows on project SQLite. No explicit ordering, duplicate removal or
-        connection override is provided.
+        cell rows on project SQLite. No explicit ordering or duplicate removal is
+        provided; an explicit connection preserves the caller's transaction view.
 
         Example:
             ``macros.get_cc_books_from_link_table("books_custom_column_1_link", 7)``
@@ -689,7 +692,7 @@ class SQLiteDatabaseCustomColumnMacros(
         lt_col = plural_singular_mapper(lt)
 
         books = read_rows(
-            self._cc_read_connection(None),
+            self._cc_read_connection(conn),
             "SELECT {lt_col}_book from {lt} WHERE {lt_col}_value=?;".format(
                 lt=lt, lt_col=lt_col
             ),
@@ -1254,38 +1257,11 @@ class SQLiteDatabaseCustomColumnMacros(
     def delete_cc_item(
         self, table: str, lt: str, target_id: int, conn: SQLConnection | None = None
     ) -> None:
-        """
-        Delete all links to a custom value, delete its row, then commit the chosen
-        connection.
+        """Delete links and their value in an owned transaction or borrowed savepoint.
 
-        Both table and lt are required and have inflected ID/value columns. Delete links
-        first and the value second; even an explicit connection is committed, including
-        its other pending work. No savepoint or rollback is established, so an
-        intermediate failure can leave earlier writes pending. Missing rows are silently
-        tolerated.
-
-        Example:
-            >>> from types import SimpleNamespace
-            >>> calls = []
-            >>> conn = SimpleNamespace(
-            ...     execute=lambda sql, params: calls.append(params),
-            ...     commit=lambda: calls.append("commit"),
-            ... )
-            >>> SQLiteDatabaseCustomColumnMacros().delete_cc_item(
-            ...     "custom_column_1", "links", 7, conn=conn
-            ... )
-            >>> calls
-            [(7,), (7,), 'commit']
-
-
-        :param table: Trusted custom-table name, interpolated into SQL; column prefixes
-            come from plural_singular_mapper.
-        :param lt: Trusted legacy link-table name with inflected _book and _value column
-            names.
-        :param target_id: ID bound to the selected row or link predicate.
-        :param conn: Optional compatible connection; None uses the default path
-            described above. Connections are not closed here.
-        :return: None; commit is attempted after both DELETE statements succeed.
+        Preserve caller-owned pending work, including on a second-statement failure.
+        No cache updates occur here; the cached facade supplies its own boundary.
+        An explicit connection is borrowed, never closed.
         """
         lt_col = self._cc_table_col_mapper(lt)
         table_col = self._cc_table_col_mapper(table)
@@ -1295,14 +1271,10 @@ class SQLiteDatabaseCustomColumnMacros(
             table=table, table_col=table_col
         )
 
-        if conn is None:
-            self._cc_write_connection(None).execute(lt_stmt, (target_id,))
-            self._cc_write_connection(None).execute(table_stmt, (target_id,))
-            self._cc_write_connection(None).commit()
-        else:
-            conn.execute(lt_stmt, (target_id,))
-            conn.execute(table_stmt, (target_id,))
-            conn.commit()
+        active = self._cc_write_connection(conn)
+        with transaction_scope(active, owns_transaction=not transaction_active(active)):
+            active.execute(lt_stmt, (target_id,)).close()
+            active.execute(table_stmt, (target_id,)).close()
 
     # Todo: Make this consistent with the use of conn - might want to make new versions of all these functions, semi-prviate
     #       which actually include conn
@@ -1381,13 +1353,16 @@ class SQLiteDatabaseCustomColumnMacros(
         else:
             conn.execute(del_stmt, (target_id,))
 
-    def delete_from_cc_table_by_value(self, table: str, target_id: Any) -> None:
+    def delete_from_cc_table_by_value(
+        self, table: str, target_id: Any, conn: SQLConnection | None = None
+    ) -> None:
         """
         Delete every custom-table row whose _value equals the supplied value.
 
         Despite the parameter name, target_id is matched against _value, not _id. None
-        is bound to equality and does not select SQL nulls. Delegate to self.execute
-        without explicit link cleanup or transaction handling.
+        is bound to equality and does not select SQL nulls. An explicit connection
+        is borrowed without committing; the default path retains host-execute
+        transaction behavior. No additional link cleanup is performed.
 
         Example:
             ``macros.delete_from_cc_table_by_value("custom_column_1", "A")``
@@ -1405,7 +1380,10 @@ class SQLiteDatabaseCustomColumnMacros(
             table=table, table_col=table_col
         )
 
-        macro_operations(self).execute(del_stmt, (target_id,))
+        if conn is None:
+            macro_operations(self).execute(del_stmt, (target_id,))
+        else:
+            conn.execute(del_stmt, (target_id,)).close()
 
     def break_cc_links_by_book_id(
         self,
@@ -1482,29 +1460,9 @@ class SQLiteDatabaseCustomColumnMacros(
     def break_cc_links_by_book_id_and_value(
         self, lt: str, book_id: int, value_id: int, conn: SQLConnection | None = None
     ) -> None:
-        """
-        Delete a specific owner/value pair using only the stored default connection.
+        """Delete an owner/value pair using the supplied or primary connection.
 
-        Build a legacy _book/_value predicate and bind both IDs. Any non-None conn
-        argument raises NotImplementedError before execution. No commit, duplicate check
-        or value-row deletion occurs.
-
-        Example:
-            >>> try:
-            ...     (
-            ...         SQLiteDatabaseCustomColumnMacros()
-            ...     ).break_cc_links_by_book_id_and_value("links", 7, 3, conn=object())
-            ... except NotImplementedError:
-            ...     print("override unsupported")
-            override unsupported
-
-
-        :param lt: Trusted legacy link-table name with inflected _book and _value column
-            names.
-        :param book_id: Book or legacy owner ID bound as a query value.
-        :param value_id: Custom-value ID bound to the link value column.
-        :param conn: Must be None; every explicit connection is unsupported.
-        :return: None after default-connection execution.
+        The caller owns commit/rollback and the connection's lifetime.
         """
         lt_col = self._cc_table_col_mapper(lt)
         break_stmt = (
@@ -1513,12 +1471,8 @@ class SQLiteDatabaseCustomColumnMacros(
             )
         )
 
-        if conn is None:
-            self._cc_write_connection(None).execute(break_stmt, (book_id, value_id))
-        else:
-            raise NotImplementedError
+        self._cc_write_connection(conn).execute(break_stmt, (book_id, value_id)).close()
 
-    # Todo: Rename as "clear cc by book"
     def clear_cc_entries_from_table(
         self, table: str, book_id: int, conn: SQLConnection | None = None
     ) -> None:

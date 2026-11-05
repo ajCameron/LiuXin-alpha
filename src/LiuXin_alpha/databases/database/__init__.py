@@ -19,7 +19,10 @@ from copy import deepcopy
 from collections.abc import Callable, Iterable, Mapping, Set
 from types import TracebackType
 from LiuXin_alpha.databases.db_types.driver_types import (
-    QueryConnection, SQLConnection, SQLExecuteOperation, SQLExecuteManyOperation,
+    QueryConnection,
+    SQLConnection,
+    SQLExecuteOperation,
+    SQLExecuteManyOperation,
     SQLGetOperation,
 )
 from typing import TYPE_CHECKING, Optional, Any, Literal
@@ -67,7 +70,10 @@ from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 from LiuXin_alpha.utils.logging import default_log
 
 if TYPE_CHECKING:
-    from LiuXin_alpha.storage.durable_manager import StorageBootstrapReport, StorageManager
+    from LiuXin_alpha.storage.durable_manager import (
+        StorageBootstrapReport,
+        StorageManager,
+    )
     from LiuXin_alpha.databases.api.row_api import RowAPI
     from LiuXin_alpha.databases.api.maintenance_api import MaintenanceCallbackSinkAPI
     from _thread import RLock
@@ -273,6 +279,7 @@ class Database(
     _maintainer_callback_proxy: MaintenanceCallbackSinkAPI | None
     maintenance: Maintainer | None
     maintainer: Maintainer | None
+    _failed_runtime_maintainers: list[Maintainer]
     _link_has_priority: dict[str, bool] | None
 
     def __init__(
@@ -341,6 +348,9 @@ class Database(
             telemetry=self.write_telemetry
         )
         self._maintainer_callback_proxy = None
+        self.maintenance = self.maintainer = None
+        self._failed_runtime_maintainers = []
+        self.clean = lambda *args, **kwargs: None
 
         # Fundamental constants for this database
         if existing_driver is None:
@@ -656,7 +666,9 @@ class Database(
         self._initialise_runtime_collaborators(enable_maintenance=enable_maintenance)
 
     def _initialise_runtime_collaborators(
-        self, *, enable_maintenance: bool = False,
+        self,
+        *,
+        enable_maintenance: bool = False,
         callback_proxy_cls: Callable[
             [Maintainer, DatabaseWriteTelemetry | None], MaintenanceCallbackSinkAPI
         ] = TelemetryMaintainerProxy,
@@ -665,8 +677,10 @@ class Database(
         Bind maintenance callbacks, preferences and collaborator back-references.
 
         Retain the application preferences selected at construction. Wire db on the
-        driver, wrapper, macros and metadata helper. Repeated initialization does not
-        stop a previous maintainer and is not an atomic replacement.
+        driver, wrapper, macros and metadata helper. Repeated enabled initialization
+        reuses its worker. New workers start only after wiring succeeds; failures
+        restore the previous graph. Disabling stops and joins the existing worker
+        before releasing it. Callers must serialize initialization with database use.
 
         Example:
             Database(enable_maintenance=False, metadata=metadata) uses the no-op
@@ -684,33 +698,56 @@ class Database(
         metadata_sql = self.metadata_sql
         if metadata_sql is None:
             raise RuntimeError("Table SQL helpers are not initialized")
-        if enable_maintenance:
-            from LiuXin_alpha.databases.maintenance.service import Maintainer
+        previous = self.maintenance
+        candidate = previous if enable_maintenance else None
+        created = False
+        old_proxy = self._maintainer_callback_proxy
+        old_callback = driver.maintainer_callback
+        old_clean = self.clean
+        old_owners = (wrapper.db, driver.db, macros.db, metadata_sql.db)
+        try:
+            if enable_maintenance:
+                from LiuXin_alpha.databases.maintenance.service import Maintainer
 
-            self.maintenance = Maintainer(self)
-            self.maintainer = self.maintenance
-            self._maintainer_callback_proxy = callback_proxy_cls(
-                self.maintenance, self.write_telemetry
+                if candidate is None:
+                    candidate = Maintainer(self, autostart=False)
+                    created = True
+                proxy = callback_proxy_cls(candidate, self.write_telemetry)
+            else:
+                proxy = None
+
+            # Bind required owners before a new thread can observe the graph.
+            wrapper.db = self
+            driver.db = self
+            macros.db = self
+            metadata_sql.db = self
+            driver.maintainer_callback = proxy or _NoopMaintainerCallback()
+            self._maintainer_callback_proxy = proxy
+            self.maintenance = self.maintainer = candidate
+            self.clean = (
+                candidate.clean
+                if candidate is not None
+                else lambda *args, **kwargs: None
             )
-            self.driver.maintainer_callback = self._maintainer_callback_proxy
-            self.clean = self.maintenance.clean
-        else:
-            self.maintenance = None
-            self.maintainer = None
-            self._maintainer_callback_proxy = None
-            self.driver.maintainer_callback = _NoopMaintainerCallback()
-            self.clean = lambda *args, **kwargs: None
-
-        # Preferences are bound before driver/storage construction and survive
-        # maintenance reinitialization. Resolve the lazy default only at construction.
-
-        # As this probably hasn't been done for the existing driver - load a reference to this database into the macros
-        # and the driver - the two places that it should be needed
-        # Todo: This should be handled by properties
-        wrapper.db = self
-        driver.db = self
-        macros.db = self
-        metadata_sql.db = self
+            if created and candidate is not None:
+                candidate.start()
+            if not enable_maintenance and previous is not None:
+                previous.close()
+        except BaseException as error:
+            if created and candidate is not None:
+                try:
+                    candidate.close()
+                except Exception as cleanup_error:
+                    self._failed_runtime_maintainers.append(candidate)
+                    error.add_note(
+                        f"Maintenance cleanup failed; retained for close(): {cleanup_error}"
+                    )
+            self.maintenance = self.maintainer = previous
+            self._maintainer_callback_proxy = old_proxy
+            self.clean = old_clean
+            driver.maintainer_callback = old_callback
+            wrapper.db, driver.db, macros.db, metadata_sql.db = old_owners
+            raise
 
     def bootstrap_storage_manager(
         self,
@@ -907,18 +944,16 @@ class Database(
         wrapper = getattr(self, "_driver_wrapper", None)
         maintenance = getattr(self, "maintenance", None)
 
-        # Stop the background maintenance thread (if it exists)
-        try:
-            maint_thread = getattr(maintenance, "maintainer", None)
-            if maint_thread is not None and hasattr(maint_thread, "stop"):
-                maint_thread.stop()
-                # The thread is daemon=True, but joining briefly helps tests release resources promptly.
-                try:
-                    maint_thread.join(timeout=1)
-                except Exception:
-                    pass
-        except Exception:
-            pass
+        # Retain ownership of candidates whose failed startup cleanup timed out.
+        pending = list(getattr(self, "_failed_runtime_maintainers", ()))
+        if maintenance is not None:
+            pending.append(maintenance)
+        self._failed_runtime_maintainers = []
+        for worker in pending:
+            try:
+                worker.close()
+            except Exception:
+                self._failed_runtime_maintainers.append(worker)
 
         # Release the wrapper. The current lock is a mutex, not a connection.
         try:

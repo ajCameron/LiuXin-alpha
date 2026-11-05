@@ -10,6 +10,7 @@ These classes delegate database operations to the driver wrapper.
 from __future__ import annotations
 
 import pprint
+from enum import Enum
 from copy import deepcopy
 from collections.abc import Collection, KeysView
 
@@ -45,6 +46,14 @@ def _require_database(
         )
         raise DatabaseDriverError(message)
     return database
+
+
+class RowState(Enum):
+    """Describe local payload/identity state without querying database existence."""
+
+    DRAFT = "draft"
+    IDENTIFIED = "identified"
+    MISSING = "missing"
 
 
 class Row(RowAPI):
@@ -124,6 +133,20 @@ class Row(RowAPI):
             # Keep the existing per-instance binding: changing read_only later
             # must not silently restore the class's writable sync method.
             vars(self)["sync"] = self.no_sync
+
+    @property
+    def state(self) -> RowState:
+        """Distinguish drafts and missing loads without testing payload truthiness.
+
+        IDENTIFIED means a local payload has an ID; it does not prove that the
+        database still contains that row. False/None missing-load sentinels are
+        retained for compatibility and always report MISSING, even with an ID.
+        """
+        if self.int_row_dict is False or self.int_row_dict is None:
+            return RowState.MISSING
+        if self.table is None or self.row_id is None:
+            return RowState.DRAFT
+        return RowState.IDENTIFIED
 
     @property
     def table(self) -> str | None:
@@ -907,10 +930,9 @@ class Row(RowAPI):
         """
         Ensure an ID and write the local payload through the driver wrapper.
 
-        When ID allocation is needed, blank-row insertion and payload update are
-        separate wrapper calls without a transaction composed by Row. A failed update
-        can therefore leave an allocated blank row. The method does not reload defaults
-        or trigger changes afterward. Read-only instances normally replace this method
+        Drafts insert their complete payload in one wrapper operation and receive
+        an ID only after success. Missing loads remain missing and perform no writes.
+        The method does not reload defaults or trigger changes afterward. Read-only instances normally replace this method
         with no_sync.
 
         Example:
@@ -921,12 +943,26 @@ class Row(RowAPI):
         :return: None; the driver’s update status is discarded.
         :raises RowReadOnlyError: An instance in read-only mode routes sync to no_sync.
         """
+        if self.state is RowState.MISSING:
+            return
         if self.row_id is None:
-            self.ensure_row_has_id()
-
-        row_dict = self.int_row_dict
-        if row_dict:
-            self.db.driver_wrapper.update_row(row_dict)
+            # One insertion writes the complete payload. Allocating a blank row
+            # before update could persist an orphan if the update then failed.
+            payload = self._require_row_dict()
+            table = self.table
+            if table is None:
+                raise InputIntegrityError(
+                    "Cannot sync a draft without an identified table"
+                )
+            id_column = self.db.driver_wrapper.get_id_column(table)
+            insertion = dict(payload)
+            if insertion.get(id_column) is None:
+                insertion.pop(id_column, None)
+            new_id = self.db.driver_wrapper.add_row(insertion)
+            payload[id_column] = new_id
+            self.row_id = new_id
+        elif self.int_row_dict:
+            self.db.driver_wrapper.update_row(self.int_row_dict)
 
     def no_sync(self) -> None:
         """

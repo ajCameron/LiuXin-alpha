@@ -54,6 +54,8 @@ conversion = [
   "regex>=2024.5",
 ]
 typing = [
+  "apsw>=3.45,<4",
+  "psycopg2-binary>=2.9",
   "basedpyright>=1.39,<2",
   "libcst>=1.8,<2",
   "mypy>=1.20,<3",
