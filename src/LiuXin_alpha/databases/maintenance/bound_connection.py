@@ -3,8 +3,15 @@
 from __future__ import annotations
 
 import re
-from typing import Any
+from collections.abc import Iterable, Iterator, Sequence
+from typing import Any, Never, Self
 
+from LiuXin_alpha.databases.db_types.driver_types import (
+    SQLConnection,
+    SQLCursor,
+    SQLDescription,
+    SQLParameters,
+)
 from LiuXin_alpha.databases.transactions import transaction_active
 
 
@@ -104,7 +111,7 @@ class BoundConnection:
     the handler invocation is rejected.
     """
 
-    def __init__(self, connection: Any):
+    def __init__(self, connection: SQLConnection) -> None:
         """Borrow an existing connection without opening or owning a transaction."""
         self._connection = connection
         self._active = True
@@ -132,30 +139,30 @@ class BoundConnection:
             require_single_statement(sql)
             reject_sqlite_replace(sql)
 
-    def execute(self, sql: str, values=()):
+    def execute(self, sql: str, values: SQLParameters = ()) -> BoundCursor:
         """Execute row SQL on the borrowed connection and retain its result cursor."""
         self._check(sql)
         return BoundCursor(self, self._connection.execute(sql, values))
 
-    def executemany(self, sql: str, values):
+    def executemany(self, sql: str, values: Iterable[SQLParameters]) -> BoundCursor:
         """Execute one bounded caller-supplied batch on the same connection."""
         self._check(sql)
         return BoundCursor(self, self._connection.executemany(sql, values))
 
-    def cursor(self):
+    def cursor(self) -> BoundCursor:
         """Create a cursor with the same lifetime and transaction restrictions."""
         self._check()
         return BoundCursor(self, self._connection.cursor())
 
-    def commit(self):
+    def commit(self) -> Never:
         """Refuse committing a transaction owned by the write operation."""
         raise MaintenanceTransactionError("Maintenance handlers cannot commit")
 
-    def rollback(self):
+    def rollback(self) -> Never:
         """Refuse discarding work owned by the write operation."""
         raise MaintenanceTransactionError("Maintenance handlers cannot roll back")
 
-    def close(self):
+    def close(self) -> Never:
         """Refuse closing a connection owned by the write operation."""
         raise MaintenanceTransactionError(
             "Maintenance handlers cannot close the connection"
@@ -165,58 +172,58 @@ class BoundConnection:
 class BoundCursor:
     """Keep cursor execution and fetching inside the handler's borrowed scope."""
 
-    def __init__(self, connection: BoundConnection, cursor: Any):
+    def __init__(self, connection: BoundConnection, cursor: SQLCursor) -> None:
         """Retain the borrowed owner and its cursor for this invocation only."""
         self._owner = connection
         self._cursor = cursor
 
     @property
-    def description(self):
+    def description(self) -> SQLDescription | None:
         """Return the current result's DB-API column metadata."""
         return self._cursor.description
 
     @property
-    def lastrowid(self):
+    def lastrowid(self) -> int | None:
         """Return the backend's last inserted identity when available."""
         return self._cursor.lastrowid
 
     @property
-    def rowcount(self):
+    def rowcount(self) -> int:
         """Return the backend's affected-row count."""
         return self._cursor.rowcount
 
-    def execute(self, sql, values=()):
+    def execute(self, sql: str, values: SQLParameters = ()) -> Self:
         """Execute one row statement while the borrowed scope remains valid."""
         self._owner._check(sql)
         self._cursor.execute(sql, values)
         return self
 
-    def executemany(self, sql, values):
+    def executemany(self, sql: str, values: Iterable[SQLParameters]) -> Self:
         """Execute a row batch without changing transaction ownership."""
         self._owner._check(sql)
         self._cursor.executemany(sql, values)
         return self
 
-    def fetchone(self):
+    def fetchone(self) -> Sequence[Any] | None:
         """Fetch one row inside the originating handler invocation."""
         self._owner._check()
         return self._cursor.fetchone()
 
-    def fetchmany(self, size=1):
+    def fetchmany(self, size: int = 1) -> list[Sequence[Any]]:
         """Fetch at most size rows inside the originating invocation."""
         self._owner._check()
         return self._cursor.fetchmany(size)
 
-    def fetchall(self):
+    def fetchall(self) -> list[Sequence[Any]]:
         """Fetch remaining rows while the borrowed scope is active."""
         self._owner._check()
         return self._cursor.fetchall()
 
-    def close(self):
+    def close(self) -> None:
         """Close this cursor only, preserving the originating connection."""
         self._cursor.close()
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[Sequence[Any]]:
         """Yield rows without permitting iteration after the handler returns."""
         while (row := self.fetchone()) is not None:
             yield row

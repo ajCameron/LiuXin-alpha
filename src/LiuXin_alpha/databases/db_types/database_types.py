@@ -13,7 +13,19 @@ from __future__ import annotations
 import sqlite3
 from enum import Enum
 from types import TracebackType
-from typing import Optional, Any, NotRequired, Literal, Union, Sequence, Iterable, Callable, Protocol, Self, Iterator
+from typing import (
+    Optional,
+    Any,
+    NotRequired,
+    Literal,
+    Union,
+    Sequence,
+    Iterable,
+    Callable,
+    Protocol,
+    Self,
+    Iterator,
+)
 from typing import TypedDict
 
 TriStateBool = Optional[bool]
@@ -35,11 +47,6 @@ SrcTableID = MainTableID
 DstTableID = MainTableID
 CoverID = MainTableID
 AgentID = int
-
-
-
-
-
 
 
 # Keyed with the book_id and valued with a list of the languages for that book - or None
@@ -96,7 +103,6 @@ AgentID = int
 # ---------------------------------------------------------------------------
 
 
-
 class CreatorDataDict(TypedDict):
     """
     Describe a legacy creator mapping with required name, sort and link strings.
@@ -141,7 +147,7 @@ class MetadataDict(TypedDict):
     is_multiple: NotRequired[dict[Any, Any]]  # Not needed for virtual tables
     kind: NotRequired[str]
     name: NotRequired[str]
-    search_terms: NotRequired[list[str, ...]]
+    search_terms: NotRequired[list[str]]
     is_custom: NotRequired[bool]
     is_category: NotRequired[bool]
     is_csp: NotRequired[bool]
@@ -170,8 +176,8 @@ class DataTypesEnum(Enum):
         'json'
     """
 
-    JSON: str = "json"
-    TEXT: str = "text"
+    JSON = "json"
+    TEXT = "text"
 
 
 TableTypes = Literal[0, 1, 2, 3]
@@ -190,10 +196,10 @@ class TableTypesEnum(Enum):
         (2, 2)
     """
 
-    ONE_ONE: int = 0
-    MANY_ONE: int = 1
-    MANY_MANY: int = 2
-    ONE_MANY: int = 3
+    ONE_ONE = 0
+    MANY_ONE = 1
+    MANY_MANY = 2
+    ONE_MANY = 3
 
 
 ONE_ONE = TableTypesEnum.ONE_ONE.value
@@ -213,7 +219,8 @@ InterlinkExtraTypes = Union[
     Literal["data"],
     Literal["index"],
     Literal["sequence_number"],
-    Literal["is_required"]]
+    Literal["is_required"],
+]
 SQLiteParams = Sequence[Any] | dict[str, Any]
 SQLiteManyParams = Iterable[SQLiteParams]
 RowFactory = Callable[[sqlite3.Cursor, tuple[Any, ...]], Any]

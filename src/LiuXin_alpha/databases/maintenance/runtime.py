@@ -10,8 +10,23 @@ from __future__ import annotations
 import json
 import sqlite3
 import threading
+from collections.abc import Callable, Hashable, Iterable, Iterator
 from contextlib import contextmanager
-from typing import Any
+from typing import TYPE_CHECKING, Any, cast
+
+from LiuXin_alpha.databases.db_types.driver_types import (
+    SQLConnection,
+    SQLiteFunctionConnection,
+)
+from LiuXin_alpha.databases.db_types.maintenance_types import (
+    InstalledPlugin,
+    MaintenanceObligation,
+    MaintenanceObligationStatus,
+)
+
+if TYPE_CHECKING:
+    from LiuXin_alpha.databases.api import DatabaseAPI, MaintenancePluginAPI
+    from LiuXin_alpha.databases.maintenance.events import RowChangeEvent
 
 from LiuXin_alpha.databases.connection_hooks import execute_transaction_control
 from LiuXin_alpha.databases.maintenance.bound_connection import (
@@ -57,15 +72,17 @@ class MaintenanceRuntime:
     batch. Changes arriving later retain independent obligation identities.
     """
 
-    def __init__(self, db: Any, plugins=()):
+    def __init__(
+        self, db: DatabaseAPI, plugins: Iterable[MaintenancePluginAPI] = ()
+    ) -> None:
         """Attach validated implementations without migrating or starting workers."""
         self.db = db
         self.driver = db.driver
         self.schema = getattr(self.driver, "schema", None)
         self._local = threading.local()
-        self._plugins = {}
-        self._declarations = {}
-        self._installed = {}
+        self._plugins: dict[str, MaintenancePluginAPI] = {}
+        self._declarations: dict[str, PluginDeclaration] = {}
+        self._installed: dict[str, InstalledPlugin] = {}
         self._lock = threading.RLock()
         for plugin in plugins:
             declaration = PluginDeclaration.from_plugin(plugin)
@@ -77,7 +94,7 @@ class MaintenanceRuntime:
         existing = vars(self.driver).get("_maintenance_runtime")
         if existing is not None and existing is not self:
             raise ValueError("This driver already has a maintenance runtime")
-        self.driver._maintenance_runtime = self
+        vars(self.driver)["_maintenance_runtime"] = self
         for connection in tuple(getattr(self.driver, "_open_connections", ())):
             try:
                 self.bind(connection)
@@ -94,13 +111,18 @@ class MaintenanceRuntime:
         """Quote a physical name in the catalogue's backend schema."""
         return table_sql(name, self.schema)
 
-    def bind(self, connection: Any) -> None:
+    def bind(self, connection: SQLConnection) -> None:
         """Attach completion/read hooks and capture provenance to a driver handle."""
-        connection._liuxin_maintenance_installed = None
-        connection._liuxin_before_completion = self.flush
-        connection._liuxin_before_statement = self.before_statement
+        # These optional extension entries are read through vars() by the
+        # connection hooks; they are not required SQL connection capabilities.
+        attributes = vars(connection)
+        attributes["_liuxin_maintenance_installed"] = None
+        attributes["_liuxin_before_completion"] = self.flush
+        attributes["_liuxin_before_statement"] = self.before_statement
         if not self.schema:
-            connection.create_function(
+            # The schema discriminator selects SQLite; PostgreSQL uses settings.
+            create_function = cast(SQLiteFunctionConnection, connection).create_function
+            create_function(
                 "LIUXIN_MAINTENANCE_READY",
                 2,
                 lambda name, version: (
@@ -108,12 +130,12 @@ class MaintenanceRuntime:
                     and self.ready(name, version)
                 ),
             )
-            connection.create_function(
+            create_function(
                 "LIUXIN_MAINTENANCE_ORIGIN",
                 0,
                 lambda: getattr(self._local, "origin", ""),
             )
-            connection.create_function(
+            create_function(
                 "LIUXIN_MAINTENANCE_ANCESTRY",
                 0,
                 lambda: json.dumps(getattr(self._local, "ancestry", [])),
@@ -135,9 +157,9 @@ class MaintenanceRuntime:
             for dep in declaration.dependencies
         )
 
-    def _refresh(self, connection: Any) -> bool:
+    def _refresh(self, connection: SQLConnection) -> bool:
         state = migration_status(connection, self.schema)
-        connection._liuxin_maintenance_installed = bool(state["installed"])
+        vars(connection)["_liuxin_maintenance_installed"] = bool(state["installed"])
         if not state["installed"]:
             self._installed = {}
             return False
@@ -146,14 +168,14 @@ class MaintenanceRuntime:
                 "Maintenance schema requires an explicit version migration"
             )
         self._installed = {
-            row["plugin_id"]: row
+            row["plugin_id"]: cast(InstalledPlugin, row)
             for row in rows(
                 connection, f"SELECT * FROM {self.table('maintenance_plugins')}"
             )
         }
         return True
 
-    def before_statement(self, connection: Any, sql: str) -> None:
+    def before_statement(self, connection: SQLConnection, sql: str) -> None:
         """Flush dependent reads and prepare guarded source writes outside SQL callbacks."""
         from LiuXin_alpha.databases.maintenance.bound_connection import (
             reject_sqlite_replace,
@@ -211,8 +233,11 @@ class MaintenanceRuntime:
                     (f"maintenance:{self.schema}",),
                 ).close()
             if not self.schema and not transaction_active(connection):
+                isolation_level = cast(
+                    SQLiteFunctionConnection, connection
+                ).isolation_level
                 if (
-                    connection.isolation_level is None
+                    isolation_level is None
                     or getattr(connection, "autocommit", None) is True
                 ):
                     raise MaintenanceTransactionError(
@@ -221,13 +246,11 @@ class MaintenanceRuntime:
                 # sqlite3 only opens implicit transactions for leading DML,
                 # missing WITH ... INSERT/UPDATE/DELETE. Own the same implicit
                 # unit here before any source statement can publish its changes.
-                execute_transaction_control(
-                    connection, "BEGIN " + connection.isolation_level
-                )
+                execute_transaction_control(connection, "BEGIN " + isolation_level)
             self._set_provenance(connection)
 
     @contextmanager
-    def _internal(self):
+    def _internal(self) -> Iterator[None]:
         previous = getattr(self._local, "internal", False)
         self._local.internal = True
         try:
@@ -235,7 +258,7 @@ class MaintenanceRuntime:
         finally:
             self._local.internal = previous
 
-    def _set_provenance(self, connection: Any) -> None:
+    def _set_provenance(self, connection: SQLConnection) -> None:
         if self.schema:
             ready = {
                 name: dec.version
@@ -254,7 +277,7 @@ class MaintenanceRuntime:
             ).close()
 
     @contextmanager
-    def unit(self):
+    def unit(self) -> Iterator[SQLConnection]:
         """Own a serialized write unit for installation or one durable delivery."""
         if self.in_handler:
             raise MaintenanceTransactionError(
@@ -341,8 +364,13 @@ class MaintenanceRuntime:
             return result
 
     def upgrade(
-        self, plugin_id, *, expected_version, expected_definition=None, dry_run=True
-    ):
+        self,
+        plugin_id: str,
+        *,
+        expected_version: str,
+        expected_definition: str | None = None,
+        dry_run: bool = True,
+    ) -> dict[str, Any]:
         """Preview or explicitly apply an implementation-authored version migration."""
         from LiuXin_alpha.databases.maintenance.upgrades import upgrade_plugin
 
@@ -354,7 +382,7 @@ class MaintenanceRuntime:
             dry_run=dry_run,
         )
 
-    def flush(self, connection: Any) -> None:
+    def flush(self, connection: SQLConnection) -> None:
         """Finish required prompt effects before a dependent read or unit completion."""
         if (
             getattr(self._local, "internal", False)
@@ -403,7 +431,10 @@ class MaintenanceRuntime:
                     return
 
     def _handle(
-        self, connection: Any, declaration: PluginDeclaration, records: list[dict]
+        self,
+        connection: SQLConnection,
+        declaration: PluginDeclaration,
+        records: list[MaintenanceObligation],
     ) -> MaintenancePluginResult:
         if not self.ready(declaration.name, declaration.version):
             raise MaintenanceFailure(
@@ -444,8 +475,8 @@ class MaintenanceRuntime:
         )
         try:
             self._set_provenance(connection)
-            events = []
-            positions = {}
+            events: list[RowChangeEvent] = []
+            positions: dict[Hashable, int] = {}
             for record in records:
                 event = event_from_record(record)
                 selected = plugin.wants_event(event)
@@ -490,9 +521,9 @@ class MaintenanceRuntime:
     def deliver(
         self,
         plugin_id: str,
-        ids,
+        ids: Iterable[int],
         *,
-        check_claim=lambda: None,
+        check_claim: Callable[[], None] = lambda: None,
         expected_version: str | None = None,
         job_run_id: int | None = None,
         job_ledger_uuid: str | None = None,
@@ -587,7 +618,9 @@ class MaintenanceRuntime:
             raise
 
     @staticmethod
-    def _delivery_is_current(row, job_run_id, job_ledger_uuid):
+    def _delivery_is_current(
+        row: MaintenanceObligation, job_run_id: int | None, job_ledger_uuid: str | None
+    ) -> bool:
         """Fence published jobs by ledger and run; direct deliveries have no job."""
         return job_run_id is None or (
             row["job_run_id"] == job_run_id
@@ -595,7 +628,7 @@ class MaintenanceRuntime:
         )
 
     @contextmanager
-    def _temporarily_external(self):
+    def _temporarily_external(self) -> Iterator[None]:
         previous = getattr(self._local, "internal", False)
         self._local.internal = False
         try:
@@ -606,11 +639,11 @@ class MaintenanceRuntime:
     def _record_failure(
         self,
         name: str,
-        identities: tuple,
+        identities: tuple[int, ...],
         error: Exception,
         *,
-        job_run_id=None,
-        job_ledger_uuid=None,
+        job_run_id: int | None = None,
+        job_ledger_uuid: str | None = None,
     ) -> None:
         with self.unit() as connection, self._internal():
             self._refresh(connection)
@@ -704,14 +737,18 @@ class MaintenanceRuntime:
                         "upgrades": [],
                     }
                 self._refresh(connection)
-                records = pending(
-                    connection, schema=self.schema, mode="lazy", limit=limit
-                )
-                for row in records:
-                    row["age_ms"] = max(0, now_ms() - row["created_ms"])
-                    row["implementation_available"] = self.ready(
-                        row["plugin_id"], row["plugin_version"]
+                records: list[MaintenanceObligationStatus] = [
+                    {
+                        **row,
+                        "age_ms": max(0, now_ms() - row["created_ms"]),
+                        "implementation_available": self.ready(
+                            row["plugin_id"], row["plugin_version"]
+                        ),
+                    }
+                    for row in pending(
+                        connection, schema=self.schema, mode="lazy", limit=limit
                     )
+                ]
                 totals = rows(
                     connection,
                     f"SELECT plugin_id, COUNT(*) AS pending, MIN(c.created_ms) AS oldest_ms "

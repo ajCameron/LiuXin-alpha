@@ -5,7 +5,7 @@ Every method ignores its arguments and returns None; no thread, queue or databas
 created.
 """
 
-from __future__ import print_function, annotations
+from __future__ import annotations
 
 
 # Todo: There's two ways to do this - query live or direct
@@ -19,7 +19,7 @@ class DummyMaintenanceBot:
         True
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """
         Ignore this compatibility call without creating or changing state.
 
@@ -33,23 +33,7 @@ class DummyMaintenanceBot:
         """
         pass
 
-    def dirty_record(self, table, row_id):
-        """
-        Ignore this compatibility call without creating or changing state.
-
-        Example:
-            >>> bot = DummyMaintenanceBot()
-            >>> bot.new_dirty_record("works", 1) is None
-            True
-
-
-        :param table: Table associated with the row or operation.
-        :param row_id: Row identifier converted to int by event/callback construction.
-        :return: None.
-        """
-        pass
-
-    def new_dirty_record(self, table, row_id):
+    def dirty_record(self, table: str, row_id: int) -> None:
         """
         Ignore this compatibility call without creating or changing state.
 
@@ -65,7 +49,30 @@ class DummyMaintenanceBot:
         """
         pass
 
-    def dirty_interlink_record(self, update_type, table1, table2, table1_id, table2_id):
+    def new_dirty_record(self, table: str, row_id: int) -> None:
+        """
+        Ignore this compatibility call without creating or changing state.
+
+        Example:
+            >>> bot = DummyMaintenanceBot()
+            >>> bot.new_dirty_record("works", 1) is None
+            True
+
+
+        :param table: Table associated with the row or operation.
+        :param row_id: Row identifier converted to int by event/callback construction.
+        :return: None.
+        """
+        pass
+
+    def dirty_interlink_record(
+        self,
+        update_type: str,
+        table1: str,
+        table2: str,
+        table1_id: int,
+        table2_id: int,
+    ) -> None:
         """
         Ignore this compatibility call without creating or changing state.
 

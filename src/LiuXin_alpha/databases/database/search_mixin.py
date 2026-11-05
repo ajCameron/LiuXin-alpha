@@ -1,4 +1,3 @@
-
 """
 Wrap backend search results in Rows and provide set, iterator and grouped retrieval.
 
@@ -9,22 +8,24 @@ distinct column value, not a bounded batch size.
 
 from __future__ import annotations
 
+from LiuXin_alpha.databases.database._state import DatabaseMixinState
+
 from copy import deepcopy
 
-from typing import TYPE_CHECKING, Optional, Any, Union, Iterable
+from typing import TYPE_CHECKING, Optional, Any, Union, Iterator, Literal, overload
 
 from LiuXin_alpha.databases.row import Row
+from LiuXin_alpha.errors import InputIntegrityError
 
 # Py2/Py3 compatibility layer
 from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 
 if TYPE_CHECKING:
-
-    from LiuXin_alpha.databases.api.database_api import DatabaseAPI
     from LiuXin_alpha.databases.api.row_api import RowAPI
+    from LiuXin_alpha.databases.db_types.query_types import SearchIndex
 
 
-class DatabaseSearchMixin:
+class DatabaseSearchMixin(DatabaseMixinState):
     """
     Compose Row-oriented retrieval on top of backend search and scan primitives.
 
@@ -37,7 +38,7 @@ class DatabaseSearchMixin:
     #
     # - METHODS TO SEARCH THE DATABASE START HERE
 
-    def search(self: "DatabaseAPI", table: str, column: str, search_term: Optional[str]) -> list["RowAPI"]:
+    def search(self, table: str, column: str, search_term: Any) -> list["RowAPI"]:
         """
         Wrap every result of a single-column wrapper search in a facade Row.
 
@@ -55,10 +56,15 @@ class DatabaseSearchMixin:
         :param search_term: Search value passed unchanged to the wrapper.
         :return: List of Rows, or [] when the backend finds no matches.
         """
-        return [Row(row_dict=r, database=self) for r in self.driver_wrapper.search(table, column, search_term)]
+        return [
+            Row(row_dict=r, database=self._database)
+            for r in self._database.driver_wrapper.search(table, column, search_term)
+        ]
 
     # Todo: This does not work
-    def multi_column_search(self: "DatabaseAPI", search_index: Any, iterator_return: bool = False) -> list["RowAPI"]:
+    def multi_column_search(
+        self, search_index: SearchIndex, iterator_return: bool = False
+    ) -> list["RowAPI"]:
         """
         Delegate a backend multi-column query and eagerly wrap every returned record.
 
@@ -78,8 +84,12 @@ class DatabaseSearchMixin:
             still returns a list.
         :return: Materialized list of Rows regardless of iterator_return.
         """
-        row_dicts = self.driver.direct_multi_column_search(search_index=search_index, iterator_return=iterator_return)
-        return [Row(row_dict=r, database=self) for r in row_dicts]
+        row_dicts = self._database.driver.direct_multi_column_search(
+            search_index=search_index, iterator_return=iterator_return
+        )
+        if row_dicts is None:
+            return []
+        return [Row(row_dict=r, database=self._database) for r in row_dicts]
 
     # Todo: We can probably do better with some abuse of typing
     def get_unique(self, target_column: str) -> set[Any]:
@@ -96,7 +106,24 @@ class DatabaseSearchMixin:
         """
         return self.get_values_set(target_column=target_column)
 
-    def get_values_set(self: "DatabaseAPI", target_column, iterator_return=False):
+    @overload
+    def get_values_set(
+        self, target_column: str, iterator_return: Literal[False] = False
+    ) -> set[Any]: ...
+
+    @overload
+    def get_values_set(
+        self, target_column: str, iterator_return: Literal[True]
+    ) -> Iterator[Any]: ...
+
+    @overload
+    def get_values_set(
+        self, target_column: str, iterator_return: bool
+    ) -> set[Any] | Iterator[Any]: ...
+
+    def get_values_set(
+        self, target_column: str, iterator_return: bool = False
+    ) -> set[Any] | Iterator[Any]:
         """
         Choose the driver unique-value set or iterator for a column.
 
@@ -114,11 +141,15 @@ class DatabaseSearchMixin:
             iterator_return.
         """
         if iterator_return:
-            return self.driver.direct_get_unique_values_iterator(target_column=target_column)
+            return self._database.driver.direct_get_unique_values_iterator(
+                target_column=target_column
+            )
         else:
-            return self.driver.direct_get_unique_values_set(target_column=target_column)
+            return self._database.driver.direct_get_unique_values_set(
+                target_column=target_column
+            )
 
-    def get_row_from_id(self: "DatabaseAPI", table: str, row_id: int) -> Optional["RowAPI"]:
+    def get_row_from_id(self, table: str, row_id: int) -> Optional["RowAPI"]:
         """
         Fetch one stored record and wrap it unless the wrapper returns a false value.
 
@@ -131,13 +162,13 @@ class DatabaseSearchMixin:
         :param row_id: Row identity passed unchanged to the wrapper.
         :return: Row bound to this facade, or None when no record is returned.
         """
-        row_dict = self.driver_wrapper.get_row_from_id(table, row_id)
+        row_dict = self._database.driver_wrapper.get_row_from_id(table, row_id)
         if not row_dict:
             return None
         else:
-            return Row(row_dict=row_dict, database=self)
+            return Row(row_dict=row_dict, database=self._database)
 
-    def get_random_row(self: "DatabaseAPI", table: str) -> "RowAPI":
+    def get_random_row(self, table: str) -> "RowAPI":
         """
         Wrap the record selected by the backend random-row helper.
 
@@ -153,15 +184,16 @@ class DatabaseSearchMixin:
         :return: Row bound to this facade; an empty backend result can produce an
             untyped Row.
         """
-        row_dict = self.driver_wrapper.get_random_row(table=table)
-        return Row(row_dict=row_dict, database=self)
+        row_dict = self._database.driver_wrapper.get_random_row(table=table)
+        return Row(row_dict=row_dict, database=self._database)
 
     def get_all_rows(
-            self: "DatabaseAPI",
-            table: str,
-            iterator_return: bool = True,
-            sort_column: Optional[str] = None,
-            reverse: bool = False) -> Iterable["RowAPI"]:
+        self,
+        table: str,
+        iterator_return: bool = True,
+        sort_column: Optional[str] = None,
+        reverse: bool = False,
+    ) -> Union[list["RowAPI"], Iterator["RowAPI"]]:
         """
         Return an unsorted Row iterator or an optionally sorted materialized list.
 
@@ -188,11 +220,13 @@ class DatabaseSearchMixin:
             else:
                 return self.__get_all_rows_iterator_return(table)
         else:
-            row_dicts = self.driver_wrapper.get_all_rows(table, sort_column, reverse)
-            return [Row(row_dict=r, database=self) for r in row_dicts]
+            row_dicts = self._database.driver_wrapper.get_all_rows(
+                table, sort_column, reverse
+            )
+            return [Row(row_dict=r, database=self._database) for r in row_dicts]
 
     # Todo: Merge with the above - if we can
-    def __get_all_rows_iterator_return(self: "DatabaseAPI", table: str) -> Iterable["RowAPI"]:
+    def __get_all_rows_iterator_return(self, table: str) -> Iterator["RowAPI"]:
         """
         Lazily wrap each record yielded by the driver row-dictionary iterator.
 
@@ -207,15 +241,14 @@ class DatabaseSearchMixin:
         :param table: Table to scan.
         :return: Generator of Rows bound to this facade.
         """
-        row_dict_iterator = self.driver.direct_get_row_dict_iterator(table)
+        row_dict_iterator = self._database.driver.direct_get_row_dict_iterator(table)
         for row_dict in row_dict_iterator:
-            yield Row(row_dict=row_dict, database=self)
+            yield Row(row_dict=row_dict, database=self._database)
 
     # Todo: Test
     def chunk_iterator(
-            self: "DatabaseAPI",
-            column: str,
-            target_table: Optional[str] = None) -> Iterable[list["RowAPI"]]:
+        self, column: str, target_table: Optional[str] = None
+    ) -> Iterator[list["RowAPI | None"]]:
         """
         Yield one Row list per distinct grouping value, optionally following cross-table
         links.
@@ -237,22 +270,38 @@ class DatabaseSearchMixin:
             bound.
         """
         column = six_unicode(deepcopy(column))
-        column_table = self.driver_wrapper.identify_table_from_column(column)
+        column_table = self._database.driver_wrapper.identify_table_from_column(column)
+        if column_table is None:
+            raise InputIntegrityError(
+                f"Cannot identify a table for grouping column {column!r}"
+            )
 
         # Iterate over the table - yield rows from the table in chunks
         if target_table is None or (target_table == column_table):
-
-            for unique_val in self.get_values_set(target_column=column, iterator_return=True):
-                yield self.search(table=column_table, column=column, search_term=unique_val)
+            for unique_val in self.get_values_set(
+                target_column=column, iterator_return=True
+            ):
+                chunk: list[RowAPI | None] = list(
+                    self.search(
+                        table=column_table, column=column, search_term=unique_val
+                    )
+                )
+                yield chunk
 
         elif target_table != column_table:
-
             # Iterate over the column. For each unique value in that column get the rows that correspond to it. Then
             # get all the rows in the other table linked to it - return them as a chunk
-            for unique_val in self.get_values_set(target_column=column, iterator_return=True):
+            for unique_val in self.get_values_set(
+                target_column=column, iterator_return=True
+            ):
                 return_rows = []
-                for ct_row in self.search(table=column_table, column=column, search_term=unique_val):
+                for ct_row in self.search(
+                    table=column_table, column=column, search_term=unique_val
+                ):
                     return_rows += [
-                        r for r in self.get_interlinked_rows(target_row=ct_row, secondary_table=target_table)
+                        r
+                        for r in self._database.get_interlinked_rows(
+                            target_row=ct_row, secondary_table=target_table
+                        )
                     ]
                 yield return_rows

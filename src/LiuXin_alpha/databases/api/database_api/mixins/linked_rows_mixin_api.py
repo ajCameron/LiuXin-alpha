@@ -37,7 +37,7 @@ class DatabaseLinkedRowsMixinAPI(abc.ABC):
         target_table: str,
         *,
         type_filter: Optional[str] = None,
-    ) -> list["RowAPI"]:
+    ) -> list["RowAPI | None"]:
         """
         Return the seed for its own table or follow cross-table interlinks.
 
@@ -57,7 +57,7 @@ class DatabaseLinkedRowsMixinAPI(abc.ABC):
         :param type_filter: Optional exact relationship-type filter for cross-table
             queries.
         :return: Single-element seed list for the same table, otherwise the interlink
-            reader endpoint list.
+            reader endpoint list, retaining None for missing endpoints.
         """
 
     @abc.abstractmethod
@@ -82,7 +82,7 @@ class DatabaseLinkedRowsMixinAPI(abc.ABC):
         :param seed_row: Concrete seed Row or row dictionary.
         :param target_table: Main/helper target table.
         :param type_filter: Optional cross-table relationship-type filter.
-        :return: First Row, or None for an empty result.
+        :return: First Row, or None when empty or the first endpoint is missing.
         """
 
     @abc.abstractmethod

@@ -13,7 +13,6 @@ import time
 import uuid
 from collections.abc import Mapping
 from types import MappingProxyType
-
 from typing import Literal
 
 MaintenanceEventKind = Literal[
@@ -39,6 +38,7 @@ class MaintenanceEvent:
         >>> event.kind, bool(event.event_id)
         ('tick', True)
     """
+
     kind: MaintenanceEventKind
     created_at: float = dataclasses.field(default_factory=time.monotonic)
     event_id: str = dataclasses.field(default_factory=lambda: str(uuid.uuid4()))
@@ -56,10 +56,13 @@ class DirtyRowEvent(MaintenanceEvent):
         >>> event.kind, event.row_id
         ('dirty_row', 7)
     """
+
     table: str = ""
     row_id: int = 0
 
-    def __init__(self, table: str, row_id: int, *, kind: MaintenanceEventKind = "dirty_row") -> None:
+    def __init__(
+        self, table: str, row_id: int, *, kind: MaintenanceEventKind = "dirty_row"
+    ) -> None:
         """
         Initialize immutable event fields with fresh timing and identity metadata.
 
@@ -100,16 +103,31 @@ class RowChangeEvent(DirtyRowEvent):
     before: Mapping[str, object] | None = None
     after: Mapping[str, object] | None = None
 
-    def __init__(self, table, row_id, *, change_id, operation, before=None, after=None):
+    def __init__(
+        self,
+        table: str,
+        row_id: int,
+        *,
+        change_id: int,
+        operation: str,
+        before: Mapping[str, object] | None = None,
+        after: Mapping[str, object] | None = None,
+    ) -> None:
         DirtyRowEvent.__init__(
-            self, table, row_id,
+            self,
+            table,
+            row_id,
             kind="new_dirty_row" if operation == "insert" else "dirty_row",
         )
         object.__setattr__(self, "change_id", int(change_id))
         object.__setattr__(self, "event_id", f"change:{int(change_id)}")
         object.__setattr__(self, "operation", operation)
-        object.__setattr__(self, "before", None if before is None else MappingProxyType(dict(before)))
-        object.__setattr__(self, "after", None if after is None else MappingProxyType(dict(after)))
+        object.__setattr__(
+            self, "before", None if before is None else MappingProxyType(dict(before))
+        )
+        object.__setattr__(
+            self, "after", None if after is None else MappingProxyType(dict(after))
+        )
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -122,13 +140,16 @@ class DirtyInterlinkEvent(MaintenanceEvent):
         >>> event.kind, event.table2_id
         ('dirty_interlink', 2)
     """
+
     update_type: str = ""
     table1: str = ""
     table2: str = ""
     table1_id: int = 0
     table2_id: int = 0
 
-    def __init__(self, update_type: str, table1: str, table2: str, table1_id: int, table2_id: int) -> None:
+    def __init__(
+        self, update_type: str, table1: str, table2: str, table1_id: int, table2_id: int
+    ) -> None:
         """
         Initialize immutable event fields with fresh timing and identity metadata.
 
@@ -168,6 +189,7 @@ class RenameRequestEvent(MaintenanceEvent):
         >>> RenameRequestEvent(1, "creators", None).value
         ''
     """
+
     item_id: int = 0
     table: str = ""
     value: str = ""

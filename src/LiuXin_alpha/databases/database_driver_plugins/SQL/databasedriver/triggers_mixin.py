@@ -1,4 +1,3 @@
-
 """
 List persistent SQLite triggers and drop explicitly named triggers.
 """
@@ -10,7 +9,13 @@ from typing import Iterable
 import sqlite3
 
 
-class TriggersMixin:
+from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver._state import (
+    SQLDriverMixinState,
+    driver_operations,
+)
+
+
+class TriggersMixin(SQLDriverMixinState):
     """
     Inspect sqlite_master trigger names and remove trusted trigger identifiers.
 
@@ -31,7 +36,7 @@ class TriggersMixin:
 
         :return: A list of trigger names.
         """
-        conn = self.get_connection()
+        conn = driver_operations(self).get_connection()
         stmt = "SELECT name FROM sqlite_master WHERE type = 'trigger';"
         triggers = []
         try:
@@ -59,7 +64,7 @@ class TriggersMixin:
             TRIGGER statements.
         :return: ``True`` after all removals, including an empty input.
         """
-        conn = self.get_connection()
+        conn = driver_operations(self).get_connection()
         stmt = "DROP TRIGGER {};"
         try:
             for trigger in triggers:

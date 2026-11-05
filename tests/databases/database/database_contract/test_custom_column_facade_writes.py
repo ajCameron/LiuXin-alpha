@@ -12,6 +12,8 @@ from LiuXin_alpha.databases.custom_columns import CustomColumns
 
 def test_create_edit_rename_and_delete_refresh_facade_state(db):
     facade = CustomColumns(db, table="works")
+    facade.dirtied([7])
+    facade.notify("metadata", [7])
     preferences = []
     notifications = []
     facade.prefs = SimpleNamespace(set=lambda *args: preferences.append(args))
@@ -22,6 +24,8 @@ def test_create_edit_rename_and_delete_refresh_facade_state(db):
     assert record["in_table"] == "works"
     assert record["editable"] is True
     assert facade.custom_field_metadata(label="work_shelf") is record
+    assert facade.custom_field_name(num=column) == "#work_shelf"
+    assert facade.get_custom_items_with_ids(num=column) == []
 
     facade.set_custom_column_metadata(
         column,
@@ -37,6 +41,7 @@ def test_create_edit_rename_and_delete_refresh_facade_state(db):
     assert record["display"] == {"description": "Visible to readers"}
     assert "work_shelf" not in facade.custom_column_label_map
     assert facade.custom_field_metadata(label="reading_shelf") is record
+    assert facade.custom_field_name(num=column) == "#reading_shelf"
     assert notifications == []
     stored = db.get_row_from_id("custom_columns", column)
     assert stored["custom_column_label"] == "reading_shelf"

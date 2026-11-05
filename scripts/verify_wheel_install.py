@@ -44,6 +44,7 @@ CALIBRE_RESOURCE_SOURCE = REPO_ROOT / "src" / "LiuXin_alpha" / "resources" / "ca
 INSTALLED_CONVERSION_SMOKE = REPO_ROOT / "scripts" / "run_installed_conversion_smoke.py"
 REQUIRED_MODULE_ASSETS = (
     PACKAGE_ROOT / "catalog" / "py.typed",
+    PACKAGE_ROOT / "databases" / "py.typed",
     PACKAGE_ROOT / "startup_scripts" / "LX_folders",
     PACKAGE_ROOT / "startup_scripts" / "lx_folders.json",
     PACKAGE_ROOT / "utils" / "libraries" / "iso639" / "ISO-639-2_utf-8.txt",

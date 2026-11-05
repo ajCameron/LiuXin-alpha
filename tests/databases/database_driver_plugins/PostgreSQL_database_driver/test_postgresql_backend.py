@@ -1187,6 +1187,11 @@ class _ResultCursor:
         """
         self.rows = list(rows)
         self.lastrowid = None
+        self.closed = False
+
+    def close(self) -> None:
+        """Record release of the result cursor, independently of its connection."""
+        self.closed = True
 
     def fetchone(self):
         """
@@ -1281,6 +1286,16 @@ class _RecordingDriverConnection:
         """
         self.calls.append((sql, values))
         lowered = sql.lower()
+        if "from pg_catalog.pg_class c" in lowered:
+            return _ResultCursor([(42, "v", "liuxin_test")])
+        if "from pg_catalog.pg_attribute a" in lowered:
+            return _ResultCursor([
+                ("id", "bigint", False, 1, None, "", ""),
+                ("label", "text", False, 2, None, "", ""),
+                ("rating", "bigint", False, 3, None, "", ""),
+            ])
+        if "from pg_catalog.pg_index" in lowered or "from pg_catalog.pg_constraint" in lowered:
+            return _ResultCursor([])
         if (
             lowered.lstrip().startswith("select")
             and "column_metadata_case_sensitive" in lowered
@@ -2012,6 +2027,15 @@ def test_postgresql_driver_view_helpers_are_native_and_schema_qualified(monkeypa
     )
     conn = _RecordingDriverConnection()
     drv.conn = conn
+    cursors = []
+    original_execute = conn.execute
+
+    def observe(sql, values=None):
+        cursor = original_execute(sql, values)
+        cursors.append(cursor)
+        return cursor
+
+    monkeypatch.setattr(conn, "execute", observe)
     monkeypatch.setattr(drv, "_short_connection", lambda: conn)
     monkeypatch.setattr(drv, "direct_get_relation_type", lambda name: "view")
     monkeypatch.setattr(
@@ -2021,6 +2045,9 @@ def test_postgresql_driver_view_helpers_are_native_and_schema_qualified(monkeypa
     )
 
     headings = drv.direct_get_view_column_headings("rating_view")
+    # Heading discovery owns a separate connection. The row reader below owns
+    # each result cursor on the primary connection supplied to its helpers.
+    cursors.clear()
     row = drv.direct_get_view_row_dict_from_id("rating_view", 3)
 
     assert headings == ["id", "label", "rating"]
@@ -2031,9 +2058,10 @@ def test_postgresql_driver_view_helpers_are_native_and_schema_qualified(monkeypa
         for sql, values in conn.calls
     )
     assert (
-        'select * from "liuxin_test"."rating_view" where "id" = %s',
+        'SELECT * FROM "liuxin_test"."rating_view" WHERE "id"=? LIMIT 2',
         (3,),
     ) in conn.calls
+    assert cursors and all(cursor.closed for cursor in cursors)
 
 
 def test_postgresql_driver_trigger_helpers_are_native_and_schema_qualified(monkeypatch) -> None:

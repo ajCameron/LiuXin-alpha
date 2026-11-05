@@ -1,4 +1,3 @@
-
 """
 Query column extrema and coerce successful aggregate results to integers.
 """
@@ -8,7 +7,13 @@ from __future__ import annotations
 from typing import Optional
 
 
-class MathFunctionsMixin:
+from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver._state import (
+    SQLDriverMixinState,
+    driver_operations,
+)
+
+
+class MathFunctionsMixin(SQLDriverMixinState):
     """
     Provide integer-valued SQL MIN/MAX queries using host table inference.
 
@@ -32,11 +37,11 @@ class MathFunctionsMixin:
         :return: The integer maximum, or ``None`` on TypeError/ValueError during
             conversion.
         """
-        col_table = self.direct_identify_table_from_column(column)
+        col_table = driver_operations(self).direct_identify_table_from_column(column)
         stmt = "SELECT MAX({}) FROM {};".format(column, col_table)
 
-        conn = self.get_connection()
-        max_val = next(conn.execute(stmt))[0]
+        conn = driver_operations(self).get_connection()
+        max_val = next(iter(conn.execute(stmt)))[0]
         try:
             return int(max_val)
         except (TypeError, ValueError):
@@ -58,11 +63,11 @@ class MathFunctionsMixin:
         :return: The integer minimum, or ``None`` on TypeError/ValueError during
             conversion.
         """
-        col_table = self.direct_identify_table_from_column(column)
+        col_table = driver_operations(self).direct_identify_table_from_column(column)
         stmt = "SELECT MIN({}) FROM {};".format(column, col_table)
 
-        conn = self.get_connection()
-        min_val = next(conn.execute(stmt))[0]
+        conn = driver_operations(self).get_connection()
+        min_val = next(iter(conn.execute(stmt)))[0]
         try:
             return int(min_val)
         except (TypeError, ValueError):

@@ -152,3 +152,14 @@ coercion. Callers must pass Python `None` to clear a nullable value. Updating a
 derived identity key without its display column recomputes the key from stored
 text; PostgreSQL locks that row until the update completes. Draft Rows cannot be
 used as dictionary keys or set members until they have a table and row ID.
+
+
+## Legacy cached custom values (2026-11-05)
+
+The cached custom-column facade now owns its complete write transaction. It
+rejects an already active transaction and `set_custom(..., commit=False)` before
+mutation; callers composing their own transactions should use SQL macros.
+Touched cache rows are restored on write failure, and notifications follow
+commit. TEMP-table macros no longer use implicitly committing `executescript`.
+See the [regression ratchet](regression-ratchet-2026-11-05.md) for exact guarantees,
+compatibility changes and failure coverage.

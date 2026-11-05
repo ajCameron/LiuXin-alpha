@@ -8,21 +8,41 @@ from __future__ import annotations
 
 import math
 import uuid
+from collections.abc import Iterable, Iterator, Mapping, Sequence
+from typing import TYPE_CHECKING, Any
+
+from LiuXin_alpha.databases.db_types.driver_types import SQLConnection
+from LiuXin_alpha.databases.schema_specs import StorageLinkSpec
+
+if TYPE_CHECKING:
+    from .portable_macros_mixin import SQLPortableMacrosMixin
 from contextlib import contextmanager
 from dataclasses import replace
 from itertools import groupby
 
-from LiuXin_alpha.databases.db_types.macro_types import LINK_TYPE_UNSET
+from LiuXin_alpha.databases.db_types.macro_types import (
+    LINK_TYPE_UNSET,
+    LinkValue,
+    LinkRow,
+)
 from LiuXin_alpha.databases.transactions import transaction_active, transaction_scope
 from LiuXin_alpha.errors import DatabaseIntegrityError, InputIntegrityError
 
 
-def _q(identifier):
+def _q(identifier: str) -> str:
     return '"' + identifier.replace('"', '""') + '"'
 
 
 @contextmanager
-def _stage(macros, conn, table, columns, rows, *, key_columns=None):
+def _stage(
+    macros: SQLPortableMacrosMixin,
+    conn: SQLConnection,
+    table: str,
+    columns: Sequence[str],
+    rows: Sequence[Mapping[str, Any]],
+    *,
+    key_columns: Sequence[str] | None = None,
+) -> Iterator[str]:
     """Borrow a savepoint for a temporary table with the stored column types."""
     name = "liuxin_links_" + uuid.uuid4().hex
     target = _q(name)
@@ -49,7 +69,7 @@ def _stage(macros, conn, table, columns, rows, *, key_columns=None):
         conn.execute(f"DROP TABLE {target}")
 
 
-def _match(columns, left, right):
+def _match(columns: Iterable[str], left: str, right: str) -> str:
     # Type-as-identity includes NULL. Endpoints on this path are integer IDs.
     return " AND ".join(
         f"({left}.{_q(column)} = {right}.{_q(column)} OR "
@@ -58,7 +78,13 @@ def _match(columns, left, right):
     )
 
 
-def upsert_links_batch(macros, conn, spec, owner, prepared):
+def upsert_links_batch(
+    macros: SQLPortableMacrosMixin,
+    conn: SQLConnection,
+    spec: StorageLinkSpec,
+    owner: int,
+    prepared: Sequence[LinkValue],
+) -> tuple[LinkRow, ...]:
     """Upsert one owner's prepared links with two reads and staged insert sets.
 
     Existing updates execute in input order, retaining immediate priority
@@ -68,7 +94,7 @@ def upsert_links_batch(macros, conn, spec, owner, prepared):
     if not prepared:
         return ()
     requested = {macros._link_identity(spec, link) for link in prepared}
-    existing = {}
+    existing: dict[tuple[Any, ...], LinkRow] = {}
     for row in macros.get_link_rows(spec, owner):
         identity = macros._link_identity(spec, row)
         if identity in requested and identity in existing:
@@ -77,13 +103,17 @@ def upsert_links_batch(macros, conn, spec, owner, prepared):
             )
         existing[identity] = row
     target = macros._macro_table_sql(spec.link_table)
-    identity_columns = (spec.primary_link_col, spec.secondary_link_col)
+    identity_columns: tuple[str, ...] = (spec.primary_link_col, spec.secondary_link_col)
     if spec.type_part_of_identity:
+        if spec.type_link_col is None:
+            raise InputIntegrityError(
+                "Typed link identity requires its physical type column"
+            )
         identity_columns += (spec.type_link_col,)
-    operations = []
+    operations: list[tuple[bool, tuple[str, ...], LinkValue, dict[str, Any]]] = []
     for link in prepared:
         found = macros._link_identity(spec, link) in existing
-        values = {}
+        values: dict[str, Any] = {}
         if not found:
             values.update(
                 {
@@ -127,6 +157,10 @@ def upsert_links_batch(macros, conn, spec, owner, prepared):
                 f"{_q(spec.secondary_link_col)} = ?",
             ]
             if spec.type_part_of_identity:
+                if spec.type_link_col is None:
+                    raise InputIntegrityError(
+                        "Typed link identity requires its physical type column"
+                    )
                 conditions.append(
                     f"{_q(spec.type_link_col)} IS NULL"
                     if null_type
@@ -150,7 +184,7 @@ def upsert_links_batch(macros, conn, spec, owner, prepared):
             ]
             for start in range(0, len(bindings), 500):
                 conn.executemany(sql, bindings[start : start + 500])
-    actual = {}
+    actual: dict[tuple[Any, ...], LinkRow] = {}
     for row in macros.get_link_rows(spec, owner):
         identity = macros._link_identity(spec, row)
         if identity in requested and identity in actual:
@@ -165,7 +199,14 @@ def upsert_links_batch(macros, conn, spec, owner, prepared):
     return tuple(actual[macros._link_identity(spec, link)] for link in prepared)
 
 
-def replace_links_batch(macros, conn, spec, replacements, link_type, allowed_types):
+def replace_links_batch(
+    macros: SQLPortableMacrosMixin,
+    conn: SQLConnection,
+    spec: StorageLinkSpec,
+    replacements: Mapping[int, Iterable[LinkValue]],
+    link_type: object,
+    allowed_types: tuple[str, ...] | None,
+) -> dict[int, tuple[LinkRow, ...]]:
     """Replace many integer owners with bounded reads and staged set operations."""
     if link_type is not LINK_TYPE_UNSET:
         if not spec.type_part_of_identity:
@@ -175,7 +216,7 @@ def replace_links_batch(macros, conn, spec, replacements, link_type, allowed_typ
         macros._validate_link_type_value(
             spec, link_type, live_allowed_types=allowed_types
         )
-    desired = {}
+    desired: dict[int, tuple[LinkValue, ...]] = {}
     for owner, links in replacements.items():
         prepared = tuple(
             macros._prepare_link_value(
@@ -214,25 +255,31 @@ def replace_links_batch(macros, conn, spec, replacements, link_type, allowed_typ
         for owner, links in desired.items()
         for link in links
     }
-    surviving = []
+    surviving: list[LinkRow] = []
     seen = set()
-    for owner, links in existing.items():
-        for link in links:
-            identity = (owner, *macros._link_identity(spec, link))
+    for owner, stored_links in existing.items():
+        for stored_link in stored_links:
+            identity = (owner, *macros._link_identity(spec, stored_link))
             if identity in seen:
                 raise DatabaseIntegrityError(
                     f"Link identity matched multiple rows in {spec.link_table!r}."
                 )
             seen.add(identity)
             if identity in desired_keys:
-                surviving.append(link)
+                surviving.append(stored_link)
 
-    key_columns = (spec.primary_link_col, spec.secondary_link_col)
+    key_columns: tuple[str, ...] = (spec.primary_link_col, spec.secondary_link_col)
     if spec.type_part_of_identity:
+        if spec.type_link_col is None:
+            raise InputIntegrityError(
+                "Typed link identity requires its physical type column"
+            )
         key_columns += (spec.type_link_col,)
 
-    def payload(owner, link, *, keys_only=False):
-        values = {
+    def payload(
+        owner: int, link: LinkValue | LinkRow, *, keys_only: bool = False
+    ) -> dict[str, Any]:
+        values: dict[str, Any] = {
             spec.primary_link_col: owner,
             spec.secondary_link_col: link.secondary_id,
         }
@@ -258,8 +305,12 @@ def replace_links_batch(macros, conn, spec, replacements, link_type, allowed_typ
             macros, conn, spec.link_table, (spec.primary_link_col,), owners
         ) as scope:
             condition = f"EXISTS (SELECT 1 FROM {scope} AS owners WHERE owners.{_q(spec.primary_link_col)} = {target}.{_q(spec.primary_link_col)})"
-            bindings = ()
+            bindings: tuple[object, ...] = ()
             if link_type is not LINK_TYPE_UNSET:
+                if spec.type_link_col is None:
+                    raise InputIntegrityError(
+                        "A link type filter requires its physical type column"
+                    )
                 column = _q(spec.type_link_col)
                 condition += (
                     f" AND {column} IS NULL"
@@ -274,11 +325,13 @@ def replace_links_batch(macros, conn, spec, replacements, link_type, allowed_typ
             )
 
     if spec.priority_link_col is not None and surviving:
-        priorities = [row.priority for links in existing.values() for row in links]
-        priorities.extend(link.priority for links in desired.values() for link in links)
+        priority_values = [row.priority for links in existing.values() for row in links]
+        priority_values.extend(
+            link.priority for links in desired.values() for link in links
+        )
         numeric = [
             value
-            for value in priorities
+            for value in priority_values
             if isinstance(value, (int, float)) and not isinstance(value, bool)
         ]
         high = math.ceil(max([0, *numeric])) + len(surviving) + 1

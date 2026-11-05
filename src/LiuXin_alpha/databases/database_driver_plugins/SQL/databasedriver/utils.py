@@ -1,4 +1,3 @@
-
 """
 Adapt SQL values and provide aggregate, collation and Calibre sorting callbacks.
 
@@ -13,17 +12,38 @@ factory functions return explicit state/step/finalize triples.
 from __future__ import print_function, annotations
 
 import json
-import re
 
 from copy import deepcopy
 
-from typing import Any, Optional, Literal, Union, Callable
+from typing import Any, Optional, Callable, TypeVar, cast, Protocol
+from collections.abc import Hashable, Iterable
+import sqlite3
 
-from LiuXin_alpha.utils.text import isbytestring
 
-from LiuXin_alpha.utils.libraries.liuxin_six import iterkeys, force_unicode, six_unicode, force_cmp
+from LiuXin_alpha.utils.libraries.liuxin_six import (
+    iterkeys,
+    force_unicode,
+    six_unicode,
+    force_cmp,
+)
 
 from LiuXin_alpha.utils.language_tools.icu import sort_key
+
+
+ValueT = TypeVar("ValueT")
+type JSONValue = (
+    str | int | float | bool | None | list[JSONValue] | dict[str, JSONValue]
+)
+type ConcatenateCallbacks = tuple[
+    list[str],
+    Callable[[list[str], str | None], None],
+    Callable[[list[str]], str | None],
+]
+type IndexedConcatenateCallbacks = tuple[
+    dict[int, str],
+    Callable[[dict[int, str], int, str | None], None],
+    Callable[[dict[int, str]], str | None],
+]
 
 
 #
@@ -34,8 +54,9 @@ from LiuXin_alpha.utils.language_tools.icu import sort_key
 
 # Helper functions which allow direct use of sets a column of a table
 
+
 # Todo: Actually, perhaps, write this
-def py_date_converter(date_string):
+def py_date_converter(date_string: ValueT) -> ValueT:
     """
     Return the supplied date payload unchanged.
 
@@ -57,14 +78,13 @@ def py_date_converter(date_string):
 
 # Todo: wwwhhhyyyyyyyy
 # Todo: Replace with enhanced json?
-def py_set_converter(py_set_string):
+def py_set_converter(py_set_string: bytes) -> set[str]:
     """
     Parse the legacy comma-separated, single-quoted set format from bytes.
 
     Decode bytes as UTF-8 with replacement, collapse doubled apostrophes and scan quoted
-    fragments. Empty elements disappear and duplicates collapse. The shared byte-string
-    predicate also matches str, whose bytes conversion here raises TypeError; pass
-    encoded bytes. Unexpected unquoted characters or escaped apostrophes outside an
+    fragments. Empty elements disappear and duplicates collapse. The
+    input must be encoded bytes. Unexpected unquoted characters or escaped apostrophes outside an
     element raise DatabaseDriverError, but unmatched trailing quotes are not fully
     validated. Apostrophes in values do not reliably round-trip.
 
@@ -81,17 +101,15 @@ def py_set_converter(py_set_string):
     """
     from LiuXin_alpha.errors import DatabaseDriverError
 
-    py_set_string = deepcopy(py_set_string)
-    if isbytestring(py_set_string):
-        py_set_string = bytes(py_set_string).decode("utf-8", errors="replace")
+    text = bytes(py_set_string).decode("utf-8", errors="replace")
     # Accounting for the way SQL escapes quotes
-    py_set_string = py_set_string.replace("''", "'")
+    text = text.replace("''", "'")
 
     py_set = set()
     last_char = " "
     current_string = ""
     accumulation_mode = False
-    for char in py_set_string:
+    for char in text:
         if char == "'" and last_char != "\\":
             accumulation_mode = not accumulation_mode
             if current_string:
@@ -129,7 +147,7 @@ def py_set_converter(py_set_string):
     return py_set
 
 
-def py_set_adapter(py_set):
+def py_set_adapter(py_set: Iterable[object]) -> str:
     """
     Serialize copied set elements as quoted, comma-separated text.
 
@@ -160,7 +178,7 @@ def py_set_adapter(py_set):
 
 
 # Todo: Make safe - can currently be used to execute arbitrary code
-def py_list_converter(py_list_string):
+def py_list_converter(py_list_string: str | bytes | bytearray) -> JSONValue:
     """
     Decode JSON without enforcing a list result or converting elements to text.
 
@@ -174,10 +192,10 @@ def py_list_converter(py_list_string):
     :param py_list_string: JSON text, bytes or bytearray accepted by json.loads.
     :return: The decoded JSON value, which need not be a list.
     """
-    return json.loads(py_list_string)
+    return cast("JSONValue", json.loads(py_list_string))
 
 
-def py_list_adapter(py_list):
+def py_list_adapter(py_list: object) -> str:
     """
     Encode a value using the default JSON serializer.
 
@@ -195,7 +213,7 @@ def py_list_adapter(py_list):
     return json.dumps(py_list)
 
 
-def py_dict_converter(py_dict_string: str) -> dict[str, str]:
+def py_dict_converter(py_dict_string: str | bytes | bytearray) -> JSONValue:
     """
     Decode JSON without enforcing dictionary or string-value types.
 
@@ -206,14 +224,14 @@ def py_dict_converter(py_dict_string: str) -> dict[str, str]:
 
     :param py_dict_string: JSON input accepted by json.loads; malformed input raises its
         decoding errors.
-    :return: The decoded JSON value, despite the narrower dictionary annotation.
+    :return: The decoded JSON value; no dictionary shape is imposed.
     """
     import json
 
-    return json.loads(py_dict_string)
+    return cast("JSONValue", json.loads(py_dict_string))
 
 
-def py_dict_adapter(py_dict: dict[str, str]) -> str:
+def py_dict_adapter(py_dict: object) -> str:
     """
     Encode a mapping with the default JSON serializer.
 
@@ -231,7 +249,6 @@ def py_dict_adapter(py_dict: dict[str, str]) -> str:
     import json
 
     return json.dumps(py_dict)
-
 
 
 class PyListAggregate:
@@ -262,7 +279,7 @@ class PyListAggregate:
 
         :return: ``None``.
         """
-        self.py_list = []
+        self.py_list: list[Any] = []
 
     def step(self, value: Any) -> None:
         """
@@ -320,7 +337,7 @@ class PySetAggregate:
 
         :return: ``None``.
         """
-        self.py_set = set()
+        self.py_set: set[Any] = set()
 
     def step(self, value: Any) -> None:
         """
@@ -379,9 +396,9 @@ class SortAggregate:
 
         :return: ``None``.
         """
-        self.py_list = []
+        self.py_list: list[str] = []
 
-    def step(self, value: Any) -> None:
+    def step(self, value: str) -> None:
         """
         Remove at most one leading and one trailing apostrophe, then append.
 
@@ -442,9 +459,11 @@ class SqliteAumSortedConcatenate:
 
         :return: ``None``.
         """
-        self.ctxt = dict()
+        self.ctxt: dict[int, str] = dict()
 
-    def step(self, ndx: int, author: Optional[str], sort: Optional[str], link: Optional[str]) -> None:
+    def step(
+        self, ndx: int, author: Optional[str], sort: Optional[str], link: Optional[str]
+    ) -> None:
         """
         Replace the entry at an index when author is not None.
 
@@ -466,7 +485,9 @@ class SqliteAumSortedConcatenate:
         :return: ``None``.
         """
         if author is not None:
-            self.ctxt[ndx] = ":::".join((six_unicode(author), six_unicode(sort), six_unicode(link)))
+            self.ctxt[ndx] = ":::".join(
+                (six_unicode(author), six_unicode(sort), six_unicode(link))
+            )
 
     def finalize(self) -> Optional[str]:
         """
@@ -504,6 +525,7 @@ class SqliteSortedConcatenate:
         >>> aggregate.finalize()
         'A|C'
     """
+
     def __init__(self, sep: str = ",") -> None:
         """
         Store the separator and create an empty index/value mapping.
@@ -517,9 +539,9 @@ class SqliteSortedConcatenate:
         :return: ``None``.
         """
         self.sep = sep
-        self.ctxt = dict()
+        self.ctxt: dict[int, str] = dict()
 
-    def step(self, ndx: int, value: Any) -> None:
+    def step(self, ndx: int, value: str | None) -> None:
         """
         Store a non-null value at its index, replacing an earlier value.
 
@@ -553,7 +575,7 @@ class SqliteSortedConcatenate:
         ctxt = self.ctxt
         if len(ctxt) == 0:
             return None
-        return self.sep.join(map(ctxt.get, sorted(iterkeys(ctxt))))
+        return self.sep.join(ctxt[key] for key in sorted(ctxt))
 
 
 class SqliteIdentifiersConcat:
@@ -567,6 +589,7 @@ class SqliteIdentifiersConcat:
         >>> aggregate.finalize()
         'isbn:123,other:None'
     """
+
     def __init__(self) -> None:
         """
         Create an empty list of formatted identifier pairs.
@@ -577,9 +600,9 @@ class SqliteIdentifiersConcat:
 
         :return: ``None``.
         """
-        self.ctxt = []
+        self.ctxt: list[str] = []
 
-    def step(self, key, val):
+    def step(self, key: object, val: object) -> None:
         """
         Append a colon-separated pair using string formatting for both values.
 
@@ -594,7 +617,7 @@ class SqliteIdentifiersConcat:
         """
         self.ctxt.append("%s:%s" % (key, val))
 
-    def finalize(self):
+    def finalize(self) -> str:
         """
         Join formatted identifier pairs with commas without clearing the list.
 
@@ -609,7 +632,7 @@ class SqliteIdentifiersConcat:
 
 
 # Extra collators {{{
-def pynocase(one: Any, two: Any, encoding: str = "utf-8") -> bool:
+def pynocase(one: str | bytes, two: str | bytes, encoding: str = "utf-8") -> int:
     """
     Compare lowercased operands using three-way ordering.
 
@@ -627,16 +650,16 @@ def pynocase(one: Any, two: Any, encoding: str = "utf-8") -> bool:
     :param one: Left string or byte-string operand.
     :param two: Right string or byte-string operand.
     :param encoding: Codec used for attempted byte decoding.
-    :return: Integer -1, 0 or 1, despite the bool annotation.
+    :return: Integer -1, 0 or 1.
     """
 
-    if isbytestring(one):
+    if isinstance(one, bytes):
         try:
             one = one.decode(encoding, "replace")
         except:
             pass
 
-    if isbytestring(two):
+    if isinstance(two, bytes):
         try:
             two = two.decode(encoding, "replace")
         except:
@@ -667,31 +690,23 @@ def _author_sort_sql_value(x: str) -> str:
     return author_to_author_sort(x.replace("|", ","), method=None)
 
 
-def icu_collator(s1: Any, s2: Aby) -> bool:
+def icu_collator(s1: str | bytes, s2: str | bytes) -> int:
+    """Compare lowercased Unicode keys for SQLite text or UTF-8 byte operands.
+
+    SQLite passes text to registered collations. Legacy direct callers may pass
+    bytes, which are decoded as UTF-8. This helper does not implement locale
+    collation; its shared sort_key currently lowercases text.
     """
-    Compare Unicode sort keys from the shared ICU-facing helper.
-
-    The current helper returns lowercased text. Operands are passed to str with an
-    explicit UTF-8 encoding, so byte inputs are supported but Python str inputs raise
-    TypeError. This wrapper does not itself implement locale-specific collation.
-
-    Example:
-        >>> icu_collator(b"Book", b"book")
-        0
-
-
-    :param s1: Left byte-like value decoded as UTF-8; Python str is rejected.
-    :param s2: Right byte-like value decoded as UTF-8; Python str is rejected.
-    :return: Integer -1, 0 or 1 from comparing sort keys, despite the bool annotation.
-    """
-    return force_cmp(sort_key(force_unicode(s1, "utf-8")), sort_key(force_unicode(s2, "utf-8")))
+    left = s1.decode("utf-8") if isinstance(s1, bytes) else s1
+    right = s2.decode("utf-8") if isinstance(s2, bytes) else s2
+    return force_cmp(sort_key(left), sort_key(right))
 
 
 # }}}
 
 
 # Unused aggregators {{{
-def Concatenate(sep: str = ","):
+def Concatenate(sep: str = ",") -> ConcatenateCallbacks:
     """
     Create a legacy state/step/finalize triple for arrival-ordered concatenation.
 
@@ -712,7 +727,7 @@ def Concatenate(sep: str = ","):
         finalizer.
     """
 
-    def step(ctxt, value):
+    def step(ctxt: list[str], value: str | None) -> None:
         """
         Append a non-null value to the supplied state without coercion.
 
@@ -727,7 +742,7 @@ def Concatenate(sep: str = ","):
         if value is not None:
             ctxt.append(value)
 
-    def finalize(ctxt):
+    def finalize(ctxt: list[str]) -> str | None:
         """
         Join nonempty state using the factory separator without clearing it.
 
@@ -745,7 +760,7 @@ def Concatenate(sep: str = ","):
     return [], step, finalize
 
 
-def StupidConcatenate(sep=","):
+def StupidConcatenate(sep: str = ",") -> ConcatenateCallbacks:
     """
     Create a diagnostic concatenation triple whose finalizer deliberately asserts.
 
@@ -765,7 +780,7 @@ def StupidConcatenate(sep=","):
     :return: A fresh list, an append callback and a deliberately failing finalizer.
     """
 
-    def step(ctxt, value):
+    def step(ctxt: list[str], value: str | None) -> None:
         """
         Append non-null values for the finalizer's diagnostic message.
 
@@ -780,7 +795,7 @@ def StupidConcatenate(sep=","):
         if value is not None:
             ctxt.append(value)
 
-    def finalize(ctxt):
+    def finalize(ctxt: list[str]) -> str | None:
         """
         Raise AssertionError with joined state when assertions are enabled.
 
@@ -796,11 +811,12 @@ def StupidConcatenate(sep=","):
         :return: No normal result with assertions enabled; ``None`` when optimized away.
         """
         assert True is False, sep.join(ctxt)
+        return None
 
     return [], step, finalize
 
 
-def SortedConcatenate(sep=","):
+def SortedConcatenate(sep: str = ",") -> IndexedConcatenateCallbacks:
     """
     Create an indexed concatenation triple with the last non-null value per key.
 
@@ -818,7 +834,7 @@ def SortedConcatenate(sep=","):
     :return: A fresh dictionary, its three-argument step callback and its finalizer.
     """
 
-    def step(ctxt, ndx, value):
+    def step(ctxt: dict[int, str], ndx: int, value: str | None) -> None:
         """
         Store a non-null value at a key, replacing its prior value.
 
@@ -836,7 +852,7 @@ def SortedConcatenate(sep=","):
         if value is not None:
             ctxt[ndx] = value
 
-    def finalize(ctxt):
+    def finalize(ctxt: dict[int, str]) -> str | None:
         """
         Join values by sorted keys using the factory separator.
 
@@ -850,12 +866,21 @@ def SortedConcatenate(sep=","):
         """
         if len(ctxt) == 0:
             return None
-        return sep.join(map(ctxt.get, sorted(iterkeys(ctxt))))
+        return sep.join(ctxt[key] for key in sorted(ctxt))
 
     return {}, step, finalize
 
 
-def IdentifiersConcat() -> tuple[list[str], Callable[[list[str], Any, Any], None], Callable[[list[str], ], str]]:
+def IdentifiersConcat() -> tuple[
+    list[str],
+    Callable[[list[str], object, object], None],
+    Callable[
+        [
+            list[str],
+        ],
+        str,
+    ],
+]:
     """
     Create a callback triple that serializes identifier pairs in arrival order.
 
@@ -872,7 +897,7 @@ def IdentifiersConcat() -> tuple[list[str], Callable[[list[str], Any, Any], None
     :return: A fresh list, a key/value append callback and a comma-joining finalizer.
     """
 
-    def step(ctxt: list[str], key: Any, val: Any) -> None:
+    def step(ctxt: list[str], key: object, val: object) -> None:
         """
         Append a colon-separated, string-formatted identifier pair.
 
@@ -908,7 +933,7 @@ def IdentifiersConcat() -> tuple[list[str], Callable[[list[str], Any, Any], None
 def AumSortedConcatenate() -> tuple[
     dict[int, str],
     Callable[[dict[int, str], int, Optional[str], Optional[str], Optional[str]], None],
-    Callable[[dict[int, str]], Optional[str]]
+    Callable[[dict[int, str]], Optional[str]],
 ]:
     """
     Create callbacks for an indexed author/sort/link map.
@@ -928,11 +953,12 @@ def AumSortedConcatenate() -> tuple[
     """
 
     def step(
-            ctxt: dict[int, str],
-            ndx: int,
-            author: Optional[str],
-            sort: Optional[str],
-            link: Optional[str]) -> None:
+        ctxt: dict[int, str],
+        ndx: int,
+        author: Optional[str],
+        sort: Optional[str],
+        link: Optional[str],
+    ) -> None:
         """
         Join non-null-author fields with ::: and store the result at its index.
 
@@ -952,6 +978,10 @@ def AumSortedConcatenate() -> tuple[
         :return: ``None``.
         """
         if author is not None:
+            if sort is None or link is None:
+                raise TypeError(
+                    "Author sort and link must be text for a retained entry"
+                )
             ctxt[ndx] = ":::".join((author, sort, link))
 
     def finalize(ctxt: dict[int, str]) -> Optional[str]:
@@ -1009,7 +1039,7 @@ class DynamicFilter:
         :return: ``None``.
         """
         self.name = name
-        self.ids = frozenset([])
+        self.ids: frozenset[Hashable] = frozenset()
 
     def __call__(self, id_: Any) -> int:
         """
@@ -1025,7 +1055,7 @@ class DynamicFilter:
         """
         return int(id_ in self.ids)
 
-    def change(self, ids):
+    def change(self, ids: Iterable[Hashable]) -> None:
         """
         Replace all allowed IDs with a frozenset built from the iterable.
 
@@ -1044,3 +1074,51 @@ class DynamicFilter:
         :return: ``None``.
         """
         self.ids = frozenset(ids)
+
+
+class SQLiteAggregate(Protocol):
+    """A SQLite aggregate with SQL-selected arity and a scalar final result."""
+
+    @property
+    def step(self) -> Callable[..., None]: ...
+
+    def finalize(self) -> str | bytes | int | float | None: ...
+
+
+def register_sqlite_aggregate(
+    connection: sqlite3.Connection,
+    name: str,
+    arity: int,
+    factory: Callable[[], SQLiteAggregate],
+) -> None:
+    """Register a typed aggregate at SQLite's dynamic arity boundary.
+
+    The installed stdlib stubs only describe a one-integer SUM aggregate. SQLite
+    actually accepts the registered arity and any scalar final result. Keep that
+    stub adaptation here while checking each factory's step/finalize interface.
+    """
+    register = cast(
+        Callable[[str, int, Callable[[], SQLiteAggregate]], None],
+        connection.create_aggregate,
+    )
+    register(name, arity, factory)
+
+
+class SqliteConcatenate:
+    """Adapt the legacy concatenation callbacks to stdlib SQLite methods."""
+
+    def __init__(self, sep: str = ",") -> None:
+        self._state, self._step, self._finish = Concatenate(sep)
+
+    def step(self, value: str | None) -> None:
+        self._step(self._state, value)
+
+    def finalize(self) -> str | None:
+        return self._finish(self._state)
+
+
+class SqliteStupidConcatenate(SqliteConcatenate):
+    """Keep the deliberately failing diagnostic aggregate available to SQLite."""
+
+    def __init__(self, sep: str = ",") -> None:
+        self._state, self._step, self._finish = StupidConcatenate(sep)

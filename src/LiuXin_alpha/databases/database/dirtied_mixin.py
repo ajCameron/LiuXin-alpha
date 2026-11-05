@@ -1,4 +1,3 @@
-
 """
 Track dirty-record notifications in memory, telemetry and an optional persistence table.
 
@@ -9,20 +8,31 @@ belongs on the thread that owns the database connection.
 
 from __future__ import annotations
 
+from LiuXin_alpha.databases.database._state import DatabaseMixinState
+
 import queue
 import threading
 import time
 import uuid
-from numbers import Number
 
 from collections import Counter, deque
-from typing import Any, Optional, TYPE_CHECKING
+from typing import Any, Optional, TYPE_CHECKING, TypedDict
+from collections.abc import Set
 
 from LiuXin_alpha.utils.logging import default_log
 
 if TYPE_CHECKING:
+    from LiuXin_alpha.databases.api.maintenance_api import MaintenanceCallbackSinkAPI
 
-    from LiuXin_alpha.databases.api.database_api import DatabaseAPI
+
+class WriteTelemetryEvent(TypedDict):
+    """An observed notification, independent of SQL commit or delivery success."""
+
+    timestamp: float
+    source: str
+    table: str
+    row_id: object
+    reason: str
 
 
 class DatabaseWriteTelemetry:
@@ -57,7 +67,9 @@ class DatabaseWriteTelemetry:
         :raises ValueError: The capacity cannot be converted to int.
         """
         self._lock = threading.Lock()
-        self._recent_events: deque[dict[str, Any]] = deque(maxlen=max(20, int(max_recent_events)))
+        self._recent_events: deque[WriteTelemetryEvent] = deque(
+            maxlen=max(20, int(max_recent_events))
+        )
         self._source_counts: Counter[str] = Counter()
         self._table_counts: Counter[str] = Counter()
         self._observed_total = 0
@@ -91,7 +103,7 @@ class DatabaseWriteTelemetry:
         :param reason: Optional reason label, stripped after string conversion.
         :return: None.
         """
-        event = {
+        event: WriteTelemetryEvent = {
             "timestamp": float(time.time()),
             "source": str(source or "").strip() or "unknown",
             "table": str(table or "").strip(),
@@ -145,7 +157,7 @@ class DatabaseWriteTelemetry:
             }
 
 
-class ObservedDirtyRecordsQueue(queue.Queue):
+class ObservedDirtyRecordsQueue[ItemT](queue.Queue[ItemT]):
     """
     Observe successful Queue insertion without changing the queued item.
 
@@ -161,7 +173,9 @@ class ObservedDirtyRecordsQueue(queue.Queue):
         ('works', 4, 'edit')
     """
 
-    def __init__(self, *args, telemetry: Optional[DatabaseWriteTelemetry] = None, **kwargs) -> None:
+    def __init__(
+        self, maxsize: int = 0, *, telemetry: Optional[DatabaseWriteTelemetry] = None
+    ) -> None:
         """
         Initialize the standard queue and retain an optional event recorder.
 
@@ -171,19 +185,16 @@ class ObservedDirtyRecordsQueue(queue.Queue):
             1
 
 
-        :param args: Positional arguments forwarded to queue.Queue.
+        :param maxsize: Queue capacity; zero keeps the standard unbounded behavior.
         :param telemetry: Recorder used after each successful insertion, or None.
-        :param kwargs: Keyword arguments forwarded to queue.Queue.
         :return: None.
         """
-        super().__init__(*args, **kwargs)
+        super().__init__(maxsize=maxsize)
         self._telemetry = telemetry
 
     def put(
-            self,
-            item: Any,
-            block: bool = True,
-            timeout: Optional["Number"] = None) -> None:  # noqa: ANN001 - queue API compatibility
+        self, item: ItemT, block: bool = True, timeout: float | None = None
+    ) -> None:
         """
         Insert an item using Queue blocking rules, then record dirty_queue telemetry.
 
@@ -210,7 +221,7 @@ class ObservedDirtyRecordsQueue(queue.Queue):
         if telemetry is None:
             return
         table = ""
-        row_id = None
+        row_id: object = None
         reason = ""
         if isinstance(item, tuple):
             if len(item) >= 1:
@@ -242,7 +253,11 @@ class TelemetryMaintainerProxy:
         owning a worker thread.
     """
 
-    def __init__(self, target, telemetry: Optional[DatabaseWriteTelemetry]) -> None:
+    def __init__(
+        self,
+        target: MaintenanceCallbackSinkAPI,
+        telemetry: Optional[DatabaseWriteTelemetry],
+    ) -> None:
         """
         Retain the maintenance target and optional recorder by reference.
 
@@ -305,12 +320,8 @@ class TelemetryMaintainerProxy:
         return self._target.new_dirty_record(table, row_id)
 
     def dirty_interlink_record(
-            self,
-            update_type: str,
-            table1: str,
-            table2: str,
-            table1_id: int,
-            table2_id: int) -> None:  # noqa: ANN001
+        self, update_type: str, table1: str, table2: str, table1_id: int, table2_id: int
+    ) -> None:  # noqa: ANN001
         """
         Observe a relationship callback and forward its five original arguments.
 
@@ -340,9 +351,11 @@ class TelemetryMaintainerProxy:
                     table2_id,
                 ),
             )
-        return self._target.dirty_interlink_record(update_type, table1, table2, table1_id, table2_id)
+        return self._target.dirty_interlink_record(
+            update_type, table1, table2, table1_id, table2_id
+        )
 
-    def __getattr__(self, name: str):
+    def __getattr__(self, name: str) -> Any:
         """
         Resolve an attribute absent on the proxy from its maintenance target.
 
@@ -361,7 +374,7 @@ class TelemetryMaintainerProxy:
         return getattr(self._target, name)
 
 
-class DatabaseDirtiedRecordsMixin:
+class DatabaseDirtiedRecordsMixin(DatabaseMixinState):
     """
     Expose dirty-event queue counts, observations and best-effort persistence.
 
@@ -373,6 +386,10 @@ class DatabaseDirtiedRecordsMixin:
         For an open db, db.dirty_record("works", row_id, reason="edit") queues an event
         for later db.persist_dirtied_records().
     """
+
+    dirty_records_queue: queue.Queue[tuple[str, int, str]] | None
+    dirtiable_tables: Set[str] | None
+
     # ------------------------------------------------------------------------------------------------------------------
     # Dirtied-record tracking (queue + optional persistence)
     # ------------------------------------------------------------------------------------------------------------------
@@ -394,7 +411,7 @@ class DatabaseDirtiedRecordsMixin:
         """
         return getattr(self, "_metadata_dirtied_table", "metadata_dirtied_books")
 
-    def get_dirtied_count(self: "DatabaseAPI", *, include_persisted: bool = False) -> int:
+    def get_dirtied_count(self, *, include_persisted: bool = False) -> int:
         """
         Count current memory events and optionally add the persisted row count.
 
@@ -409,7 +426,11 @@ class DatabaseDirtiedRecordsMixin:
         :param include_persisted: Include the persistence helper count when True.
         :return: Approximate event count, without deduplication.
         """
-        q = self.dirty_records_queue.qsize() if self.dirty_records_queue is not None else 0
+        q = (
+            self.dirty_records_queue.qsize()
+            if self.dirty_records_queue is not None
+            else 0
+        )
         if include_persisted:
             q += self.get_persisted_dirtied_count()
         return q
@@ -446,7 +467,7 @@ class DatabaseDirtiedRecordsMixin:
             recent_limit=recent_limit,
         )
 
-    def dirty_record(self: "DatabaseAPI", table: str, row_id: int, reason: str = "") -> None:
+    def dirty_record(self, table: str, row_id: int, reason: str = "") -> None:
         """
         Queue a table/row/reason event only for a recognized dirtiable table.
 
@@ -467,7 +488,7 @@ class DatabaseDirtiedRecordsMixin:
         if self.dirtiable_tables is None:
             # Defensive: refresh metadata if this is called very early in init.
             try:
-                self.refresh_db_metadata()
+                self._database.refresh_db_metadata()
             except Exception:
                 pass
 
@@ -482,9 +503,12 @@ class DatabaseDirtiedRecordsMixin:
             )
             return
 
-        self.dirty_records_queue.put((table, row_id, reason))
+        target = self.dirty_records_queue
+        if target is None:
+            raise RuntimeError("Dirty-record queue is not available")
+        target.put((table, row_id, reason))
 
-    def get_persisted_dirtied_count(self: "DatabaseAPI") -> int:
+    def get_persisted_dirtied_count(self) -> int:
         """
         Best-effort count of rows in the configured persistence helper table.
 
@@ -499,16 +523,18 @@ class DatabaseDirtiedRecordsMixin:
             fails.
         """
         table = self.metadata_dirtied_table
-        if getattr(self, "all_tables", None) is None or table not in self.all_tables:
+        tables: set[str] | None = getattr(self, "all_tables", None)
+        if tables is None or table not in tables:
             return 0
         try:
-            cur = self.driver_wrapper.execute(f"SELECT COUNT(*) FROM `{table}`")
-            row = cur.fetchone()
-            return int(row[0]) if row else 0
+            value = self._database.driver_wrapper.fetch_scalar(
+                f"SELECT COUNT(*) FROM `{table}`"
+            )
+            return int(value) if value is not None else 0
         except Exception:
             return 0
 
-    def persist_dirtied_records(self: "DatabaseAPI", *, limit: Optional[int] = None) -> int:
+    def persist_dirtied_records(self, *, limit: Optional[int] = None) -> int:
         """
         Drain queued triples into the available legacy persistence columns.
 
@@ -532,17 +558,23 @@ class DatabaseDirtiedRecordsMixin:
             no events or insertion failure.
         """
         table = self.metadata_dirtied_table
-        if getattr(self, "all_tables", None) is None or table not in self.all_tables:
+        tables: set[str] | None = getattr(self, "all_tables", None)
+        pending = self.dirty_records_queue
+        if tables is None or table not in tables or pending is None:
             return 0
 
         # Discover which columns exist (legacy schemas vary).
         try:
-            headings = set(self.driver_wrapper.get_column_headings(table))
+            headings = set(self._database.driver_wrapper.get_column_headings(table))
         except Exception:
             return 0
 
         id_col = None
-        for cand in ("metadata_dirtied_id", "metadata_dirtied_book_id", "metadata_dirtied_record_id"):
+        for cand in (
+            "metadata_dirtied_id",
+            "metadata_dirtied_book_id",
+            "metadata_dirtied_record_id",
+        ):
             if cand in headings:
                 id_col = cand
                 break
@@ -557,7 +589,11 @@ class DatabaseDirtiedRecordsMixin:
                 break
 
         row_id_col = None
-        for cand in ("metadata_dirtied_table_id", "metadata_dirtied_book", "metadata_dirtied_row_id"):
+        for cand in (
+            "metadata_dirtied_table_id",
+            "metadata_dirtied_book",
+            "metadata_dirtied_row_id",
+        ):
             if cand in headings:
                 row_id_col = cand
                 break
@@ -568,7 +604,7 @@ class DatabaseDirtiedRecordsMixin:
                 reason_col = cand
                 break
 
-        cols = [id_col]
+        cols: list[str] = [id_col]
         if table_col:
             cols.append(table_col)
         if row_id_col:
@@ -580,17 +616,17 @@ class DatabaseDirtiedRecordsMixin:
         ph_sql = ", ".join(["?"] * len(cols))
         stmt = f"INSERT INTO `{table}` ({col_sql}) VALUES ({ph_sql})"
 
-        values = []
+        values: list[tuple[Any, ...]] = []
         persisted = 0
         while True:
             if limit is not None and persisted >= int(limit):
                 break
             try:
-                tname, rid, rsn = self.dirty_records_queue.get_nowait()
+                tname, rid, rsn = pending.get_nowait()
             except Exception:
                 break
 
-            row = [uuid.uuid4().hex]
+            row: list[Any] = [uuid.uuid4().hex]
             if table_col:
                 row.append(tname)
             if row_id_col:
@@ -604,22 +640,24 @@ class DatabaseDirtiedRecordsMixin:
             return 0
 
         try:
-            self.driver_wrapper.executemany(stmt, values)
+            self._database.driver_wrapper.executemany(stmt, values)
         except Exception:
             # Best-effort: if persistence fails, re-queue the drained items to avoid silent loss.
             try:
                 for v in values:
                     # v layout: (id, table?, row_id?, reason?)
                     vi = 1
-                    tname = v[vi] if table_col else None
+                    restored_table = v[vi] if table_col else None
                     if table_col:
                         vi += 1
-                    rid = v[vi] if row_id_col else None
+                    restored_id = v[vi] if row_id_col else None
                     if row_id_col:
                         vi += 1
-                    rsn = v[vi] if reason_col else ""
-                    if tname is not None and rid is not None:
-                        self.dirty_records_queue.put((tname, int(rid), str(rsn)))
+                    restored_reason = v[vi] if reason_col else ""
+                    if restored_table is not None and restored_id is not None:
+                        pending.put(
+                            (restored_table, int(restored_id), str(restored_reason))
+                        )
             except Exception:
                 pass
             return 0

@@ -17,10 +17,10 @@ from pathlib import Path
 import re
 import sqlite3
 import uuid
-from typing import Any, Dict, Iterable, Mapping, Optional, Sequence
+from typing import Any, Dict, Mapping, Sequence
 
 
-def _sanitize_component(value: str, *, fallback: str = "Unknown") -> str:
+def _sanitize_component(value: object, *, fallback: str = "Unknown") -> str:
     """
     Remove NULs, replace forbidden/control characters and trim a path component.
 
@@ -54,6 +54,21 @@ def _sanitize_component(value: str, *, fallback: str = "Unknown") -> str:
     return value[:120]
 
 
+def _custom_sql_value(value: Any, datatype: str) -> int | float | str:
+    """Coerce a dynamic metadata cell using its stored Calibre datatype.
+
+    Container inputs remain valid for text conversion; numeric conversions retain
+    Python's TypeError/ValueError for values that cannot represent a number.
+    """
+    if datatype in ("int", "rating"):
+        return int(value)
+    if datatype == "float":
+        return float(value)
+    if datatype == "bool":
+        return 1 if bool(value) else 0
+    return str(value)
+
+
 def _register_min_calibre_sql_functions(conn: sqlite3.Connection) -> None:
     """
     Install fixture-oriented title_sort, uuid4 and books_list_filter UDFs.
@@ -71,9 +86,11 @@ def _register_min_calibre_sql_functions(conn: sqlite3.Connection) -> None:
     # Keep this implementation self-contained (LiuXin's richer `title_sort` is
     # tweak-driven and can raise during early bootstrap in some test contexts).
     _articles = re.compile(r"^(a|an|the)\s+", flags=re.IGNORECASE)
-    _ignore = "'\"" + "".join([chr(x) for x in range(0x2018, 0x201E)] + [chr(0x2032), chr(0x2033)])
+    _ignore = "'\"" + "".join(
+        [chr(x) for x in range(0x2018, 0x201E)] + [chr(0x2032), chr(0x2033)]
+    )
 
-    def _title_sort(x: str) -> str:
+    def _title_sort(x: object) -> str:
         """
         Trim a title, ignore one leading quote and move an English article to the end.
 
@@ -111,6 +128,7 @@ class AddedFormat:
     Example:
         Adding EPUB bytes records their output path and stat-derived size.
     """
+
     format: str
     file_path: Path
     size: int
@@ -127,6 +145,7 @@ class AddedBook:
     Example:
         Use added.formats["EPUB"].file_path to find the file returned by add_book.
     """
+
     book_id: int
     relative_path: str
     folder_path: Path
@@ -143,7 +162,12 @@ class CalibreLibraryBuilder:
         Create a skeleton first, then instantiate CalibreLibraryBuilder at its root.
     """
 
-    def __init__(self, library_root: str | os.PathLike, *, metadata_db: str | os.PathLike | None = None) -> None:
+    def __init__(
+        self,
+        library_root: str | os.PathLike[str],
+        *,
+        metadata_db: str | os.PathLike[str] | None = None,
+    ) -> None:
         """
         Resolve library/database paths and require the metadata path to exist.
 
@@ -159,7 +183,9 @@ class CalibreLibraryBuilder:
         :return: None; stores the two paths.
         """
         self.library_root = Path(library_root)
-        self.metadata_db = Path(metadata_db) if metadata_db else (self.library_root / "metadata.db")
+        self.metadata_db = (
+            Path(metadata_db) if metadata_db else (self.library_root / "metadata.db")
+        )
         if not self.metadata_db.exists():
             raise FileNotFoundError(f"metadata.db not found: {self.metadata_db}")
 
@@ -230,7 +256,9 @@ class CalibreLibraryBuilder:
         if not label:
             raise ValueError("Custom column label cannot be empty")
         if re.match(r"^\w*$", label) is None:
-            raise ValueError("Custom column label must contain only letters, digits and underscores")
+            raise ValueError(
+                "Custom column label must contain only letters, digits and underscores"
+            )
         if not label[0].isalpha():
             raise ValueError("Custom column label must start with a letter")
         if label.lower() != label:
@@ -244,7 +272,7 @@ class CalibreLibraryBuilder:
         datatype: str,
         is_multiple: bool = False,
         editable: bool = True,
-        display: Optional[dict] = None,
+        display: Mapping[str, object] | None = None,
         if_exists: str = "return",
     ) -> int:
         """
@@ -283,7 +311,14 @@ class CalibreLibraryBuilder:
             raise ValueError(f"Unsupported custom column datatype: {datatype!r}")
 
         # Calibre rules
-        normalized = datatype not in ("datetime", "comments", "int", "bool", "float", "composite")
+        normalized = datatype not in (
+            "datetime",
+            "comments",
+            "int",
+            "bool",
+            "float",
+            "composite",
+        )
         is_multiple = bool(is_multiple) and datatype in ("text", "composite")
 
         conn = self.connect()
@@ -297,21 +332,21 @@ class CalibreLibraryBuilder:
                     return int(row[0])
                 raise ValueError(f"Custom column label already exists: {label!r}")
 
-            num = int(
-                conn.execute(
-                    "INSERT INTO custom_columns(label,name,datatype,is_multiple,editable,display,normalized) "
-                    "VALUES (?,?,?,?,?,?,?)",
-                    (
-                        label,
-                        name,
-                        datatype,
-                        int(is_multiple),
-                        int(bool(editable)),
-                        json.dumps(display),
-                        int(bool(normalized)),
-                    ),
-                ).lastrowid
-            )
+            num = conn.execute(
+                "INSERT INTO custom_columns(label,name,datatype,is_multiple,editable,display,normalized) "
+                "VALUES (?,?,?,?,?,?,?)",
+                (
+                    label,
+                    name,
+                    datatype,
+                    int(is_multiple),
+                    int(bool(editable)),
+                    json.dumps(display),
+                    int(bool(normalized)),
+                ),
+            ).lastrowid
+            if num is None:
+                raise RuntimeError("Custom-column insert did not return a row ID")
 
             # SQLite type affinity
             if datatype in ("rating", "int"):
@@ -489,7 +524,12 @@ CREATE TRIGGER fkc_update_{table}
             if not meta:
                 raise KeyError(f"Custom column not found: {label!r}")
 
-            num, datatype, is_multiple, normalized = int(meta[0]), str(meta[1]), bool(meta[2]), bool(meta[3])
+            num, datatype, is_multiple, normalized = (
+                int(meta[0]),
+                str(meta[1]),
+                bool(meta[2]),
+                bool(meta[3]),
+            )
             table, lt = self.custom_table_names(num)
 
             # Normalize the incoming value into a list for multi-valued columns.
@@ -524,7 +564,9 @@ CREATE TRIGGER fkc_update_{table}
                     :return: String name and optional float index.
                     """
                     if v is None:
-                        raise ValueError(f"NULL is not a valid value for custom column {label!r}")
+                        raise ValueError(
+                            f"NULL is not a valid value for custom column {label!r}"
+                        )
 
                     idx: float | None = None
                     name: Any = v
@@ -537,7 +579,9 @@ CREATE TRIGGER fkc_update_{table}
                         idx = v.get("index", v.get("series_index", v.get("extra")))
 
                     if name is None:
-                        raise ValueError(f"Missing series name for custom column {label!r}")
+                        raise ValueError(
+                            f"Missing series name for custom column {label!r}"
+                        )
 
                     if idx is None:
                         # Prefer explicit `extra=` parameter if provided.
@@ -566,19 +610,20 @@ CREATE TRIGGER fkc_update_{table}
                     :return: Integer value-row ID; unresolved values raise RuntimeError.
                     """
                     if v is None:
-                        raise ValueError(f"NULL is not a valid value for custom column {label!r}")
-                    if datatype in ("int", "rating"):
-                        vv = int(v)
-                    elif datatype == "float":
-                        vv = float(v)
-                    elif datatype == "bool":
-                        vv = 1 if bool(v) else 0
-                    else:
-                        vv = str(v)
-                    conn.execute(f"INSERT OR IGNORE INTO {table} (value) VALUES (?)", (vv,))
-                    r = conn.execute(f"SELECT id FROM {table} WHERE value=?", (vv,)).fetchone()
+                        raise ValueError(
+                            f"NULL is not a valid value for custom column {label!r}"
+                        )
+                    vv = _custom_sql_value(v, datatype)
+                    conn.execute(
+                        f"INSERT OR IGNORE INTO {table} (value) VALUES (?)", (vv,)
+                    )
+                    r = conn.execute(
+                        f"SELECT id FROM {table} WHERE value=?", (vv,)
+                    ).fetchone()
                     if not r:
-                        raise RuntimeError(f"Failed to resolve value id for {vv!r} in {table}")
+                        raise RuntimeError(
+                            f"Failed to resolve value id for {vv!r} in {table}"
+                        )
                     return int(r[0])
 
                 for v in values:
@@ -599,20 +644,15 @@ CREATE TRIGGER fkc_update_{table}
                         )
             else:
                 if is_multiple:
-                    raise ValueError(f"Custom column {label!r} does not support multiple values")
+                    raise ValueError(
+                        f"Custom column {label!r} does not support multiple values"
+                    )
 
                 if value is None:
                     conn.execute(f"DELETE FROM {table} WHERE book=?", (book_id,))
                     return
 
-                if datatype in ("int", "rating"):
-                    vv = int(value)
-                elif datatype == "float":
-                    vv = float(value)
-                elif datatype == "bool":
-                    vv = 1 if bool(value) else 0
-                else:
-                    vv = str(value)
+                vv = _custom_sql_value(value, datatype)
 
                 conn.execute(
                     f"INSERT OR REPLACE INTO {table} (book, value) VALUES (?, ?)",
@@ -625,7 +665,9 @@ CREATE TRIGGER fkc_update_{table}
             if owns_conn:
                 conn.close()
 
-    def get_custom_value(self, conn: sqlite3.Connection, *, book_id: int, label: str) -> Any:
+    def get_custom_value(
+        self, conn: sqlite3.Connection, *, book_id: int, label: str
+    ) -> Any:
         """
         Fetch a custom value on a caller connection using stored column metadata.
 
@@ -652,7 +694,12 @@ CREATE TRIGGER fkc_update_{table}
         if not meta:
             raise KeyError(f"Custom column not found: {label!r}")
 
-        num, datatype, is_multiple, normalized = int(meta[0]), str(meta[1]), bool(meta[2]), bool(meta[3])
+        num, datatype, is_multiple, normalized = (
+            int(meta[0]),
+            str(meta[1]),
+            bool(meta[2]),
+            bool(meta[3]),
+        )
         table, lt = self.custom_table_names(num)
 
         if normalized:
@@ -744,7 +791,11 @@ CREATE TRIGGER fkc_update_{table}
         custom_values = dict(custom_values or {})
 
         # Convenience: accept series=(name, index) to mirror common caller usage.
-        if isinstance(series, (tuple, list)) and len(series) == 2 and series_index is None:
+        if (
+            isinstance(series, (tuple, list))
+            and len(series) == 2
+            and series_index is None
+        ):
             series, series_index = str(series[0]), float(series[1])
 
         conn = self.connect()
@@ -752,7 +803,9 @@ CREATE TRIGGER fkc_update_{table}
             book_id = self._insert_book_row(conn, title=title, authors=authors)
 
             # Determine canonical folder/path and persist it.
-            rel_path, folder = self._ensure_book_folder(conn, book_id=book_id, title=title, authors=authors)
+            rel_path, folder = self._ensure_book_folder(
+                conn, book_id=book_id, title=title, authors=authors
+            )
 
             # Common metadata
             self._set_authors(conn, book_id=book_id, authors=authors)
@@ -763,7 +816,11 @@ CREATE TRIGGER fkc_update_{table}
             # Convenience: allow series=(name, index) as a single argument.
             series_name: str | None = None
             if series:
-                if isinstance(series, (tuple, list)) and len(series) == 2 and series_index is None:
+                if (
+                    isinstance(series, (tuple, list))
+                    and len(series) == 2
+                    and series_index is None
+                ):
                     series_name = str(series[0])
                     try:
                         series_index = float(series[1])
@@ -772,7 +829,9 @@ CREATE TRIGGER fkc_update_{table}
                 else:
                     series_name = str(series)
             if series_name:
-                self._set_series(conn, book_id=book_id, series=series_name, series_index=series_index)
+                self._set_series(
+                    conn, book_id=book_id, series=series_name, series_index=series_index
+                )
             if publisher:
                 self._set_publisher(conn, book_id=book_id, publisher=publisher)
             if comments_html is not None:
@@ -783,12 +842,21 @@ CREATE TRIGGER fkc_update_{table}
             # Custom columns (must already exist; use create_custom_column() first)
             if custom_values:
                 for label, val in custom_values.items():
-                    self.set_custom_value(conn, book_id=book_id, label=str(label), value=val)
+                    self.set_custom_value(
+                        conn, book_id=book_id, label=str(label), value=val
+                    )
 
             # Files + format rows
             added_formats: Dict[str, AddedFormat] = {}
             if formats:
-                added_formats = self._add_formats(conn, book_id=book_id, folder=folder, title=title, authors=authors, formats=formats)
+                added_formats = self._add_formats(
+                    conn,
+                    book_id=book_id,
+                    folder=folder,
+                    title=title,
+                    authors=authors,
+                    formats=formats,
+                )
 
             # Cover
             if cover_bytes is not None:
@@ -812,7 +880,9 @@ CREATE TRIGGER fkc_update_{table}
     # --- internals ---
 
     @staticmethod
-    def _insert_book_row(conn: sqlite3.Connection, *, title: str, authors: Sequence[str]) -> int:
+    def _insert_book_row(
+        conn: sqlite3.Connection, *, title: str, authors: Sequence[str]
+    ) -> int:
         """
         Insert title, joined author_sort and an empty path on the caller connection.
 
@@ -832,7 +902,9 @@ CREATE TRIGGER fkc_update_{table}
             "INSERT INTO books (title, author_sort, path) VALUES (?, ?, ?)",
             (title, author_sort, ""),
         )
-        return int(cur.lastrowid)
+        if cur.lastrowid is None:
+            raise RuntimeError("Book insert did not return a row ID")
+        return cur.lastrowid
 
     def _ensure_book_folder(
         self,
@@ -870,7 +942,9 @@ CREATE TRIGGER fkc_update_{table}
         return rel_path, folder
 
     @staticmethod
-    def _get_or_create_id(conn: sqlite3.Connection, *, table: str, name: str, name_col: str = "name") -> int:
+    def _get_or_create_id(
+        conn: sqlite3.Connection, *, table: str, name: str, name_col: str = "name"
+    ) -> int:
         """
         Insert or reuse a named row using trusted table/column identifiers and bound
         data.
@@ -887,13 +961,17 @@ CREATE TRIGGER fkc_update_{table}
         :return: Integer ID; raises RuntimeError if lookup fails.
         """
         conn.execute(f"INSERT OR IGNORE INTO {table} ({name_col}) VALUES (?)", (name,))
-        row = conn.execute(f"SELECT id FROM {table} WHERE {name_col}=?", (name,)).fetchone()
+        row = conn.execute(
+            f"SELECT id FROM {table} WHERE {name_col}=?", (name,)
+        ).fetchone()
         if not row:
             raise RuntimeError(f"Failed to create row in {table} for {name!r}")
         return int(row[0])
 
     @staticmethod
-    def _set_authors(conn: sqlite3.Connection, *, book_id: int, authors: Sequence[str]) -> None:
+    def _set_authors(
+        conn: sqlite3.Connection, *, book_id: int, authors: Sequence[str]
+    ) -> None:
         """
         Add/reuse author rows and book links without clearing existing authors.
 
@@ -910,14 +988,18 @@ CREATE TRIGGER fkc_update_{table}
         for a in authors:
             a = str(a)
             conn.execute("INSERT OR IGNORE INTO authors (name) VALUES (?)", (a,))
-            aid = int(conn.execute("SELECT id FROM authors WHERE name=?", (a,)).fetchone()[0])
+            aid = int(
+                conn.execute("SELECT id FROM authors WHERE name=?", (a,)).fetchone()[0]
+            )
             conn.execute(
                 "INSERT OR IGNORE INTO books_authors_link (book, author) VALUES (?, ?)",
                 (book_id, aid),
             )
 
     @staticmethod
-    def _set_languages(conn: sqlite3.Connection, *, book_id: int, languages: Sequence[str]) -> None:
+    def _set_languages(
+        conn: sqlite3.Connection, *, book_id: int, languages: Sequence[str]
+    ) -> None:
         """
         Add/reuse language codes and links carrying their input positions.
 
@@ -935,15 +1017,23 @@ CREATE TRIGGER fkc_update_{table}
         # Calibre stores language rows in `languages` and links via `books_languages_link`.
         for idx, code in enumerate(languages):
             code = str(code)
-            conn.execute("INSERT OR IGNORE INTO languages (lang_code) VALUES (?)", (code,))
-            lid = int(conn.execute("SELECT id FROM languages WHERE lang_code=?", (code,)).fetchone()[0])
+            conn.execute(
+                "INSERT OR IGNORE INTO languages (lang_code) VALUES (?)", (code,)
+            )
+            lid = int(
+                conn.execute(
+                    "SELECT id FROM languages WHERE lang_code=?", (code,)
+                ).fetchone()[0]
+            )
             conn.execute(
                 "INSERT OR IGNORE INTO books_languages_link (book, lang_code, item_order) VALUES (?, ?, ?)",
                 (book_id, lid, idx),
             )
 
     @staticmethod
-    def _set_tags(conn: sqlite3.Connection, *, book_id: int, tags: Sequence[str]) -> None:
+    def _set_tags(
+        conn: sqlite3.Connection, *, book_id: int, tags: Sequence[str]
+    ) -> None:
         """
         Add/reuse tags and book links without clearing existing tags.
 
@@ -960,15 +1050,22 @@ CREATE TRIGGER fkc_update_{table}
         for t in tags:
             t = str(t)
             conn.execute("INSERT OR IGNORE INTO tags (name) VALUES (?)", (t,))
-            tid = int(conn.execute("SELECT id FROM tags WHERE name=?", (t,)).fetchone()[0])
+            tid = int(
+                conn.execute("SELECT id FROM tags WHERE name=?", (t,)).fetchone()[0]
+            )
             conn.execute(
                 "INSERT OR IGNORE INTO books_tags_link (book, tag) VALUES (?, ?)",
                 (book_id, tid),
             )
 
-
     @staticmethod
-    def _set_series(conn: sqlite3.Connection, *, book_id: int, series: str, series_index: float | None) -> None:
+    def _set_series(
+        conn: sqlite3.Connection,
+        *,
+        book_id: int,
+        series: str,
+        series_index: float | None,
+    ) -> None:
         """
         Add/reuse a series link and optionally update the book numeric series index.
 
@@ -987,13 +1084,23 @@ CREATE TRIGGER fkc_update_{table}
         """
         series = str(series)
         conn.execute("INSERT OR IGNORE INTO series (name) VALUES (?)", (series,))
-        sid = int(conn.execute("SELECT id FROM series WHERE name=?", (series,)).fetchone()[0])
-        conn.execute("INSERT OR IGNORE INTO books_series_link (book, series) VALUES (?, ?)", (book_id, sid))
+        sid = int(
+            conn.execute("SELECT id FROM series WHERE name=?", (series,)).fetchone()[0]
+        )
+        conn.execute(
+            "INSERT OR IGNORE INTO books_series_link (book, series) VALUES (?, ?)",
+            (book_id, sid),
+        )
         if series_index is not None:
-            conn.execute("UPDATE books SET series_index=? WHERE id=?", (float(series_index), book_id))
+            conn.execute(
+                "UPDATE books SET series_index=? WHERE id=?",
+                (float(series_index), book_id),
+            )
 
     @staticmethod
-    def _set_publisher(conn: sqlite3.Connection, *, book_id: int, publisher: str) -> None:
+    def _set_publisher(
+        conn: sqlite3.Connection, *, book_id: int, publisher: str
+    ) -> None:
         """
         Add/reuse a publisher and insert or replace its book link.
 
@@ -1009,14 +1116,20 @@ CREATE TRIGGER fkc_update_{table}
         """
         publisher = str(publisher)
         conn.execute("INSERT OR IGNORE INTO publishers (name) VALUES (?)", (publisher,))
-        pid = int(conn.execute("SELECT id FROM publishers WHERE name=?", (publisher,)).fetchone()[0])
+        pid = int(
+            conn.execute(
+                "SELECT id FROM publishers WHERE name=?", (publisher,)
+            ).fetchone()[0]
+        )
         conn.execute(
             "INSERT OR REPLACE INTO books_publishers_link (book, publisher) VALUES (?, ?)",
             (book_id, pid),
         )
 
     @staticmethod
-    def _set_comments(conn: sqlite3.Connection, *, book_id: int, comments_html: str) -> None:
+    def _set_comments(
+        conn: sqlite3.Connection, *, book_id: int, comments_html: str
+    ) -> None:
         """
         Insert or replace the book comment text without sanitizing its HTML.
 
@@ -1036,7 +1149,9 @@ CREATE TRIGGER fkc_update_{table}
         )
 
     @staticmethod
-    def _set_identifiers(conn: sqlite3.Connection, *, book_id: int, identifiers: Mapping[str, str]) -> None:
+    def _set_identifiers(
+        conn: sqlite3.Connection, *, book_id: int, identifiers: Mapping[str, str]
+    ) -> None:
         """
         Insert or replace supplied book/type identifiers, retaining unspecified types.
 
@@ -1100,5 +1215,7 @@ CREATE TRIGGER fkc_update_{table}
                 "INSERT OR REPLACE INTO data (book, format, uncompressed_size, name) VALUES (?, ?, ?, ?)",
                 (book_id, fmt_norm, int(size), base),
             )
-            added[fmt_norm] = AddedFormat(format=fmt_norm, file_path=file_path, size=int(size))
+            added[fmt_norm] = AddedFormat(
+                format=fmt_norm, file_path=file_path, size=int(size)
+            )
         return added

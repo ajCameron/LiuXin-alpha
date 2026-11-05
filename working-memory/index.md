@@ -1,5 +1,23 @@
 # Working Memory Index
 
+Completed locally, **2026-11-05**: [typing findings and regression ratchet](database-regression-ratchet-2026-11-05.md).
+Runtime/cache transaction fixes, explicit Row state and required named regressions
+are implemented here. All 240 required cases and 87 final tooling checks pass;
+fresh-environment typing also passes. Delivery is on the existing typing PR branch.
+
+
+Completed, **2026-11-04**: full database typing on `databases-full-typing`
+in `/tmp/liuxin-databases-typing`, based on merged integration head `d8d52587`.
+All **225 modules / 2,482 function definitions** have complete signatures. Both
+configured checkers and all quality gates pass. The broad database run had 2,577
+passes; all three reported issues were resolved and rerun in the final **191-pass**
+consumer/tooling lane (two PG skips covered by the **46-pass** live lane).
+All **119** native backend doctest examples pass; the wheel contains the typing
+marker and exact database sources. See the [completion handoff](databases-typing-2026-11-04.md)
+for failures, reruns, historical limits and logs. Original source/preferences/data
+remain preserved. The follow-up request authorizes committing and publishing the
+complete pass as a PR against `database-review`; no merge is requested.
+
 Delivery, **2026-11-04**: [combined maintenance and driver-wrapper PR](review-upgrade-pr-2026-11-04.md).
 The user explicitly requested both sets of work. The branch is
 `maintenance-driver-wrapper-upgrades`, based on PR #153, with separate wrapper

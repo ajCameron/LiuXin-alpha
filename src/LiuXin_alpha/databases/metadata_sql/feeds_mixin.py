@@ -6,6 +6,8 @@ never executed here. All writes use the shared portable macro transaction.
 
 from __future__ import annotations
 
+from LiuXin_alpha.databases.database_driver_plugins._macro_state import require_legacy_macros
+
 from collections.abc import Iterable
 from typing import TYPE_CHECKING
 
@@ -40,7 +42,7 @@ class FeedsSQLMixin:
             bindings = [
                 (value,) if isinstance(value, int) else value for value in feed_id
             ]
-            self.db.macros.bulk_delete_in_table("feeds", "feed_id", bindings)
+            require_legacy_macros(self.db.macros).bulk_delete_in_table("feeds", "feed_id", bindings)
 
     def update_feed(self, feed_id: int, script: str, title: str) -> None:
         """Update a feed's recipe text and display title together by row ID."""
@@ -57,7 +59,7 @@ class FeedsSQLMixin:
         pairs = [(title, script) for title, script in feeds]
         with self.db.macros.transaction():
             ids = [(row["feed_id"],) for row in self.db.macros.get_rows("feeds")]
-            self.db.macros.bulk_delete_in_table("feeds", "feed_id", ids)
+            require_legacy_macros(self.db.macros).bulk_delete_in_table("feeds", "feed_id", ids)
             for title, script in pairs:
                 self.db.macros.insert_row(
                     "feeds", {"feed_title": title, "feed_script": script}

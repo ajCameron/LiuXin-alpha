@@ -10,6 +10,8 @@ Example:
         python -m pytest -q tests/library/test_unified_library.py
 """
 
+from LiuXin_alpha.databases.database_driver_plugins._macro_state import require_legacy_macros
+
 from collections import defaultdict
 from copy import deepcopy
 
@@ -872,7 +874,7 @@ class CalibreManyToManyTable(CalibreManyToOneTable, BaseManyToManyTable[T]):
                         iid for iid in self.book_col_map.pop(book_id, ()) if iid not in extra_item_ids
                     )
 
-            db.macros.bulk_delete_in_table(link_table, link_table_item_col, tuple((x,) for x in extra_item_ids))
+            require_legacy_macros(db.macros).bulk_delete_in_table(link_table, link_table_item_col, tuple((x,) for x in extra_item_ids))
 
     def remove_books(self, book_ids: Iterable[SrcTableID], db) -> set[DstTableID]:
         """
@@ -967,7 +969,7 @@ class CalibreManyToManyTable(CalibreManyToOneTable, BaseManyToManyTable[T]):
             item_ids = tuple((x,) for x in item_ids)
 
             # Remove the links from the book to the item
-            db.macros.bulk_delete_in_table(table=link_table, column=item_link_col, column_values=item_ids)
+            require_legacy_macros(db.macros).bulk_delete_in_table(table=link_table, column=item_link_col, column_values=item_ids)
 
             # Mark the items that where just removed for potential cleaning
             db.maintainer.clean(table=self.metadata["table"], item_ids=item_ids)
@@ -1005,7 +1007,7 @@ class CalibreManyToManyTable(CalibreManyToOneTable, BaseManyToManyTable[T]):
             book_link_col = db.driver_wrapper.get_link_column(
                 table1="titles", table2=self.metadata["table"], column_type="title_id"
             )
-            db.macros.bulk_delete_items_in_table_two_matching_cols(
+            require_legacy_macros(db.macros).bulk_delete_items_in_table_two_matching_cols(
                 link_table,
                 book_link_col,
                 item_link_col,
@@ -1070,7 +1072,7 @@ class CalibreManyToManyTable(CalibreManyToOneTable, BaseManyToManyTable[T]):
         if existing_item_id is None or existing_item_id == item_id:
 
             self.id_map[item_id] = new_name
-            db.macros.update_column_in_table(
+            require_legacy_macros(db.macros).update_column_in_table(
                 table=table,
                 column=column,
                 table_id_col=id_col,
@@ -1103,7 +1105,7 @@ class CalibreManyToManyTable(CalibreManyToOneTable, BaseManyToManyTable[T]):
                 )
             self.col_book_map[item_id].update(old_item_book_ids)
 
-            db.macros.bulk_delete_items_in_table_two_matching_cols(
+            require_legacy_macros(db.macros).bulk_delete_items_in_table_two_matching_cols(
                 table=link_table_name,
                 col_1=link_table_book_col,
                 col_2=link_table_item_col,
@@ -1189,7 +1191,7 @@ class CalibreManyToManyTable(CalibreManyToOneTable, BaseManyToManyTable[T]):
                         self.book_col_map[book_id] = vals
 
                         if len(orig) == len(vals):
-                            db.macros.bulk_update_link_table(
+                            require_legacy_macros(db.macros).bulk_update_link_table(
                                 link_table=link_table,
                                 update_column=link_table_item_col,
                                 other_column=link_table_book_col,
@@ -1200,13 +1202,13 @@ class CalibreManyToManyTable(CalibreManyToOneTable, BaseManyToManyTable[T]):
                             # duplicates - if there are duplicate links fix that by removing then re-adding the link
                             # Remove first to not conflict with the UNIQ condition that should be (and will be) on
                             # these tables
-                            db.macros.delete_in_table(
+                            require_legacy_macros(db.macros).delete_in_table(
                                 table=link_table,
                                 column=link_table_book_col,
                                 value=book_id,
                             )
 
-                            db.macros.bulk_add_links(
+                            require_legacy_macros(db.macros).bulk_add_links(
                                 link_table,
                                 link_table_book_col,
                                 link_table_item_col,

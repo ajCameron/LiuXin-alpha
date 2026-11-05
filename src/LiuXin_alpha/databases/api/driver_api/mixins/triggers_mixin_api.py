@@ -8,7 +8,7 @@ triggers with individual commits. A later failure need not undo earlier removals
 
 import abc
 
-from typing import Iterable, Any
+from typing import Iterable
 
 
 class DriverTriggersMixinAPI(abc.ABC):

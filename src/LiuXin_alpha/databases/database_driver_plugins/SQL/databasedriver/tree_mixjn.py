@@ -1,26 +1,30 @@
-
 """
 Traverse legacy parent-pointer trees and write derived full-path and tree-ID fields.
 
-Traversal assumes acyclic, valid parent links. Some legacy entry points require host
-helpers that this mixin does not define.
+Ancestor traversal rejects missing parents and cycles. Discovery uses physical
+column names; derived-field writes retain their per-row commit boundaries.
 """
 
 import sqlite3
+from contextlib import closing
 from copy import deepcopy
 from typing import Any
 
-from LiuXin_alpha.constants import VERBOSE_DEBUG
 from LiuXin_alpha.errors import (
     DatabaseDriverError,
     DatabaseIntegrityError,
     InputIntegrityError,
 )
 from LiuXin_alpha.utils.libraries.liuxin_six import force_unicode, six_unicode
-from LiuXin_alpha.utils.logging import default_log
 
 
-class TreeMethodsMixin:
+from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver._state import (
+    SQLDriverMixinState,
+    driver_operations,
+)
+
+
+class TreeMethodsMixin(SQLDriverMixinState):
     """
     Provide parent-chain and derived-field operations using host row access helpers.
 
@@ -29,56 +33,32 @@ class TreeMethodsMixin:
     """
 
     def direct_set_full_column(self, target_table: str) -> bool:
+        """Write root-to-row display paths, committing each positive-ID row.
+
+        Resolve physical full/display columns before opening the write connection.
+        Missing full columns raise InputIntegrityError. Close the owned handle on
+        every exit; earlier row commits remain if a later path fails.
         """
-        Write ancestor display paths for positive-ID rows, committing each row
-        separately.
-
-        Require the host's ``get_full_column_name`` helper and the aggregation helper's
-        dependencies. A missing full column raises InputIntegrityError; SQLite
-        operational failures become DatabaseDriverError. Sentinel rows are skipped and
-        the acquired write connection is not explicitly closed.
-
-        Example:
-            On a host providing the required helpers,
-            ``driver.direct_set_full_column("series")`` refreshes stored paths.
-
-
-        :param target_table: Existing table whose derived column is required.
-        :return: ``True`` after all selected rows have been processed.
-        """
-        target_table = deepcopy(target_table)
-        conn = self.get_connection()
-        target_table_id_column = self.direct_get_id_column(target_table)
-        target_table_full_column = self.get_full_column_name(target_table)
-        if target_table_full_column is None:
-            err_str = "Cannot set full column - table: {} - does not have one".format(target_table)
-            raise InputIntegrityError(err_str)
-
-        target_table_display_column = self.direct_get_display_column(target_table)
-
-        for row in self.direct_get_row_dict_iterator(target_table):
-
-            row_id = row[target_table_id_column]
-            agg_value = self.direct_get_tree_aggregation_str(
-                table=target_table,
-                table_display_column=target_table_display_column,
-                table_row_id=row_id,
-            )
-
-            final_stmt = "UPDATE `{}` SET {} = ? WHERE {} = ?;".format(
-                target_table, target_table_full_column, target_table_id_column
-            )
-
-            try:
-                conn.execute(final_stmt, (agg_value, row_id))
-                conn.commit()
-            except sqlite3.OperationalError as e:
-                err_str = "Unable to complete operation.\n"
-                err_str = default_log.log_exception(err_str, e, "ERROR", ("final_stmt", final_stmt), ("row", row))
-                raise DatabaseDriverError(err_str)
-        else:
-            # If the code every reaches this point everything should have worked already
-            return True
+        driver = driver_operations(self)
+        id_column = driver.direct_get_id_column(target_table)
+        full_column = driver.direct_get_full_column_name(target_table)
+        if full_column is None:
+            raise InputIntegrityError(f"Table {target_table!r} has no full-path column")
+        display_column = driver.direct_get_display_column(target_table)
+        stmt = f"UPDATE `{target_table}` SET {full_column} = ? WHERE {id_column} = ?"
+        with closing(driver.get_connection()) as connection:
+            for row in driver.direct_get_row_dict_iterator(target_table):
+                path = self.direct_get_tree_aggregation_str(
+                    target_table, display_column, row[id_column]
+                )
+                try:
+                    connection.execute(stmt, (path, row[id_column]))
+                    connection.commit()
+                except sqlite3.OperationalError as error:
+                    raise DatabaseDriverError(
+                        f"Unable to update paths in {target_table!r}: {error}"
+                    ) from error
+        return True
 
     # Todo: This is absolutely, hideously, heinously inefficient
     def direct_set_tree_ids(self, table: str) -> bool:
@@ -98,33 +78,41 @@ class TreeMethodsMixin:
         :return: ``True`` after the updates complete.
         """
         table = deepcopy(table)
-        table_id_column = self.direct_get_id_column(table)
-        table_tree_id_column = self.direct_get_tree_id_column(table)
+        table_id_column = driver_operations(self).direct_get_id_column(table)
+        table_tree_id_column = driver_operations(self).direct_get_tree_id_column(table)
         if table_tree_id_column is None:
-            err_str = "Cannot set_tree_ids - there doesn't seem to be a tree id for this table - {}".format(table)
+            err_str = "Cannot set_tree_ids - there doesn't seem to be a tree id for this table - {}".format(
+                table
+            )
             raise InputIntegrityError(err_str)
-        table_display_column = self.direct_get_display_column(table)
-        conn = self.get_connection()
+        table_display_column = driver_operations(self).direct_get_display_column(table)
+        conn = driver_operations(self).get_connection()
 
-        stmt = "UPDATE {} SET {} = ? WHERE {} = ?".format(table, table_tree_id_column, table_id_column)
+        stmt = "UPDATE {} SET {} = ? WHERE {} = ?".format(
+            table, table_tree_id_column, table_id_column
+        )
         final_stmt = stmt
 
         # Walk "real" rows only. The row-dict iterator intentionally skips any sentinel/null row at id=0.
-        for row in self.direct_get_row_dict_iterator(table):
-
+        for row in driver_operations(self).direct_get_row_dict_iterator(table):
             row_id = row[table_id_column]
 
             root_series = self.direct_get_root_series(row)
-            root_phash = "{}_{}".format(root_series[table_id_column], root_series[table_display_column])
+            root_phash = "{}_{}".format(
+                root_series[table_id_column], root_series[table_display_column]
+            )
             conn.execute(final_stmt, (root_phash, row_id))
             conn.commit()
         else:
-
             # Handle the sentinel/null row (id=0) explicitly, if present.
             # This keeps iterators clean (real rows only) while still giving id=0 deterministic derived fields.
-            null_row = self.direct_get_row_dict_from_id(table, 0)
+            null_row = driver_operations(self).direct_get_row_dict_from_id(table, 0)
             if null_row not in (False, None):
-                null_display = null_row.get(table_display_column) if isinstance(null_row, dict) else None
+                null_display = (
+                    null_row.get(table_display_column)
+                    if isinstance(null_row, dict)
+                    else None
+                )
                 null_tree_id = f"0_{null_display}"
                 conn.execute(final_stmt, (null_tree_id, 0))
                 conn.commit()
@@ -146,49 +134,40 @@ class TreeMethodsMixin:
         """
         return self.get_linear_row_index(start_row)[0]
 
-    def direct_get_all_tree_rows(self, start_row: dict[str, Any]) -> dict[str, Any]:
+    def direct_get_all_tree_rows(
+        self, start_row: dict[str, Any]
+    ) -> list[dict[str, Any]]:
+        """Collect the root and descendants using the table's physical ID column.
+
+        Tables without a parent column contain just the starting row. Each identity
+        is visited once; broken/cyclic ancestor chains raise DatabaseIntegrityError.
+        Sibling order follows the backend's search results and stack traversal.
         """
-        Walk from the root down its descendants using a stack of pending rows.
-
-        This legacy path hardcodes ``series_id`` and therefore requires series-shaped
-        rows. It does not exclude previously processed rows from requeueing, so cycles
-        can prevent termination.
-
-        Example:
-            ``driver.direct_get_all_tree_rows(series_row)`` collects an acyclic series
-            tree.
-
-
-        :param start_row: Starting row dictionary; table inference may remove its
-            ``table`` key.
-        :return: A list of distinct collected row dictionaries, despite the dict
-            annotation.
-        """
-        row_table = self.direct_identify_table_from_row(start_row)
-        row_parent_column = self.direct_get_parent_column_name(row_table)
-        root_series = self.direct_get_root_series(start_row)
-
-        row_pool = [root_series]
-
-        found_series = []
-
-        # the series pool contains the series which we're currently working with as with walk down the series tree
-        # series in the series pool haven't had all their children series found yet
-        # once a series has had all it's children series found it's transferred to found series
-        while len(row_pool) != 0:
-
-            current_series = row_pool.pop()
-            current_id = current_series["series_id"]
-            # finds all the series which refer to the current_series in the series_parent column
-            child_rows = self.direct_search_table(table=row_table, column=row_parent_column, search_term=current_id)
-            for row in child_rows:
-                if row not in row_pool:
-                    row_pool.append(row)
-            if current_series not in found_series:
-                found_series.append(current_series)
-
-        return found_series
-
+        driver = driver_operations(self)
+        table = driver.direct_identify_table_from_row(start_row)
+        if table is False:
+            raise InputIntegrityError("Cannot walk a tree without an identified table")
+        parent_column = driver.direct_get_parent_column_name(table)
+        root = self.direct_get_root_series(start_row)
+        if parent_column is False:
+            return [root]
+        id_column = driver.direct_get_id_column(table)
+        pending = [root]
+        found: list[dict[str, Any]] = []
+        visited: set[int] = set()
+        while pending:
+            current = pending.pop()
+            row_id = int(current[id_column])
+            if row_id in visited:
+                continue
+            visited.add(row_id)
+            found.append(current)
+            pending.extend(
+                driver.direct_search_table(
+                    table=table, column=parent_column, search_term=row_id
+                )
+            )
+        return found
 
     # ----------------------------------------------------------------------------------------------------------------------
     #
@@ -198,39 +177,27 @@ class TreeMethodsMixin:
 
     # HELPER FUNCTIONS TO RUN THE TREE AGGREGATOR START HERE
     def direct_get_tree_aggregation_str(
-            self,
-            table: str,
-            table_display_column: str,
-            table_row_id: int) -> str:
+        self, table: str, table_display_column: str, table_row_id: int
+    ) -> str:
+        """Join raw ancestor display values as root-to-row text with colon-space.
+
+        Missing starting rows raise InputIntegrityError; broken ancestor chains
+        raise DatabaseIntegrityError. The physical chain helper supplies values.
         """
-        Join ancestor display values from root to the selected row with colon-space.
-
-        This legacy entry point calls the name-mangled ``__get_linear_index_of_columns``
-        helper, which this mixin does not define. Hosts without that helper raise
-        AttributeError.
-
-        Example:
-            With the required helper supplied, a three-level path renders as ``Root:
-            Parent: Child``.
-
-
-        :param table: Existing table name used for schema lookup.
-        :param table_display_column: Column whose values form the path components.
-        :param table_row_id: Starting row ID fetched from the table.
-        :return: The Unicode path string when the required host helper succeeds.
-        """
-        start_row = self.direct_get_row_dict_from_id(table, table_row_id)
-        row_column_index = self.__get_linear_index_of_columns(start_row, table_display_column)
-
-        row_column_index = [six_unicode(force_unicode(_)) for _ in row_column_index]
-        return_str = ": ".join(row_column_index)
-        return return_str
+        start_row = driver_operations(self).direct_get_row_dict_from_id(
+            table, table_row_id
+        )
+        if start_row is False:
+            raise InputIntegrityError(f"Row {table!r}/{table_row_id} was not found")
+        values = self.direct_get_linear_index_of_columns(
+            start_row, table_display_column
+        )
+        return ": ".join(six_unicode(force_unicode(value)) for value in values)
 
     # Todo - Promote this to an actual method with tests
     def direct_get_linear_index_of_columns(
-            self,
-            start_row: dict[str, Any],
-            display_column: str) -> list[str]:
+        self, start_row: dict[str, Any], display_column: str
+    ) -> list[Any]:
         """
         Extract display values from a root-to-start ancestor chain.
 
@@ -255,7 +222,7 @@ class TreeMethodsMixin:
             err_str += "display_column: " + repr(display_column) + "\n"
             raise InputIntegrityError(err_str)
         row_index = self.get_linear_row_index(start_row)
-        row_column_index = []
+        row_column_index: list[Any] = []
 
         for row in row_index:
             if display_column not in row:
@@ -271,66 +238,41 @@ class TreeMethodsMixin:
         return row_column_index
 
     def get_linear_row_index(self, start_row: dict[str, Any]) -> list[dict[str, Any]]:
+        """Read a root-first ancestor chain, rejecting missing parents and cycles.
+
+        A missing parent column/key, SQL NULL or case-insensitive None text ends
+        the chain. Table inference may remove a table hint from the starting
+        mapping. No rows are written and fetched values retain backend types.
         """
-        Follow parent IDs and prepend each visited row to produce a root-first chain.
-
-        Treat absent parent keys, nulls and supported None text sentinels as roots. No
-        visited set or missing-parent recovery is provided: callers must supply an
-        acyclic chain of existing rows. Table inference can mutate the original starting
-        mapping.
-
-        Example:
-            ``driver.get_linear_row_index(row)`` returns ``[root, ..., row]`` for a
-            valid chain.
-
-
-        :param start_row: Starting row dictionary; table inference may remove its
-            ``table`` key.
-        :return: The ancestor row dictionaries from root through the starting row.
-        """
-        start_row_dict = start_row
-        row_table = self.direct_identify_table_from_row(start_row_dict)
-        row_parent_column = self.direct_get_parent_column_name(row_table)
-        linear_index = []
-        current_row = start_row_dict
-        try:
-            current_parent = start_row_dict[row_parent_column]
-            if current_parent is None:
-                linear_index.append(start_row)
-                return linear_index
-
-            elif isinstance(current_parent, int):
-                pass
-
-            elif force_unicode(current_parent).upper() == "NONE":
-                linear_index.append(start_row)
-                return linear_index
-
-        except KeyError:
-            linear_index.append(start_row)
-            return linear_index
-
-        while force_unicode(six_unicode(current_parent)).upper() != "NONE":
-            # extracting the current parent id
+        driver = driver_operations(self)
+        table = driver.direct_identify_table_from_row(start_row)
+        if table is False:
+            raise InputIntegrityError(
+                "Cannot walk ancestors without an identified table"
+            )
+        parent_column = driver.direct_get_parent_column_name(table)
+        if parent_column is False:
+            return [start_row]
+        current = start_row
+        chain: list[dict[str, Any]] = []
+        parents_seen: set[int] = set()
+        while True:
+            chain.append(current)
+            parent = current.get(parent_column)
+            if parent is None or str(parent).upper() == "NONE":
+                return list(reversed(chain))
             try:
-                current_parent = current_row[row_parent_column]
-                if current_parent == "NONE":
-                    linear_index = [current_row] + linear_index
-                    return linear_index
-            except KeyError:
-                linear_index = [current_row] + linear_index
-                return linear_index
-
-            linear_index = [current_row] + linear_index
-            if current_parent != "None" and current_parent is not None:
-                current_row = self.direct_get_row_dict_from_id(table=row_table, row_id=current_parent)
-            else:
-                return linear_index
-
-        # If the program ever reaches this point something has gone badly wrong
-        if VERBOSE_DEBUG:
-            err_str = "get_linear_row_string has failed.\n"
-            err_str += "start_row: " + repr(start_row_dict) + "\n"
-            raise DatabaseIntegrityError(err_str)
-        else:
-            raise DatabaseIntegrityError
+                parent_id = int(parent)
+            except (TypeError, ValueError) as error:
+                raise DatabaseIntegrityError(
+                    f"Invalid parent identity {parent!r} in {table!r}"
+                ) from error
+            if parent_id in parents_seen:
+                raise DatabaseIntegrityError(
+                    f"Parent cycle in {table!r} at {parent_id}"
+                )
+            parents_seen.add(parent_id)
+            ancestor = driver.direct_get_row_dict_from_id(table, parent_id)
+            if ancestor is False:
+                raise DatabaseIntegrityError(f"Missing parent {parent_id} in {table!r}")
+            current = ancestor

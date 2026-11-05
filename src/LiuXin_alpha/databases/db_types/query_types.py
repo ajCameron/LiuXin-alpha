@@ -7,17 +7,21 @@ validates every table/column and binds all values. They carry no WEMI policy.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from collections.abc import Sequence
 from typing import Any, Literal
 
 from LiuXin_alpha.databases.db_types.macro_types import LINK_TYPE_UNSET
 from LiuXin_alpha.databases.schema_specs import StorageLinkSpec
 from LiuXin_alpha.errors import DatabaseIntegrityError
 
+# Legacy comparison triples carry SQL cell values, not raw SQL statements.
+type SearchIndex = Sequence[tuple[str, str, Any]]
+
 
 class MissingSearchReference(DatabaseIntegrityError):
     """A traversed physical relationship refers to a missing endpoint."""
 
-    def __init__(self, table):
+    def __init__(self, table: str) -> None:
         self.table = table
         super().__init__(f"Missing linked {table} row during predicate search")
 

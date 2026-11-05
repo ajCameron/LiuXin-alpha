@@ -173,7 +173,7 @@ def dict_itervalues(target_dict: Mapping[Any, V]) -> Iterator[V]:
 # cmp() helper
 # --------------------------------------------------------------------------------------
 
-def force_cmp(x: Any, y: Any) -> bool:
+def force_cmp(x: Any, y: Any) -> int:
     """
     Python 3 replacement for the Python 2 built-in cmp(x, y). Returns: -1 if x<y, 0 if x==y, +1 if x>y
 

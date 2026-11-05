@@ -845,7 +845,7 @@ def test_sqlite_cte_reads_remain_readonly_and_autocommit_writes_refuse(runtime_f
     assert connection.execute("SELECT row_id FROM effects").fetchall() == [(1,)]
 
 
-@pytest.mark.parametrize("custom", [False, True])
+@pytest.mark.parametrize("custom", [None, False, True])
 def test_sqlite_custom_cursor_created_before_install_keeps_completion_hooks(
     runtime_factory, custom
 ):
@@ -861,7 +861,8 @@ def test_sqlite_custom_cursor_created_before_install_keeps_completion_hooks(
             return super().execute(sql, parameters)
 
     connection = runtime.driver.get_connection()
-    cursor = connection.cursor(factory=CustomCursor if custom else sqlite3.Cursor)
+    factory = None if custom is None else CustomCursor if custom else sqlite3.Cursor
+    cursor = connection.cursor(factory=factory)
     with pytest.raises(TypeError, match="Cursor factories"):
         connection.cursor(factory=lambda active: sqlite3.Cursor(active))
     runtime.install()

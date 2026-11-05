@@ -3,14 +3,23 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Protocol, cast
 
 from LiuXin_alpha.databases.connection_hooks import before_statement
 from LiuXin_alpha.databases.db_types.macro_types import LINK_TYPE_UNSET, LinkedTableRow
 from LiuXin_alpha.databases.transactions import transaction_active
 
+from ._relationships import require_link_spec
+
 if TYPE_CHECKING:
     from LiuXin_alpha.databases.api.database_api import DatabaseAPI
+    from LiuXin_alpha.databases.db_types.driver_types import RowSQLConnection
+
+
+class _QualifiedTableDriver(Protocol):
+    """Native backend capability used after the PostgreSQL schema check."""
+
+    def _table_sql(self, table_name: str) -> str: ...
 
 
 class AgentsSQLMixin:
@@ -22,7 +31,9 @@ class AgentsSQLMixin:
 
     db: DatabaseAPI
 
-    def lock_agent_rows(self, connection: Any, agent_ids: Sequence[int]) -> None:
+    def lock_agent_rows(
+        self, connection: RowSQLConnection, agent_ids: Sequence[int]
+    ) -> None:
         """Lock selected physical rows before a caller's read/modify/write unit.
 
         Require an active transaction and at most 500 positive IDs. PostgreSQL
@@ -43,7 +54,7 @@ class AgentsSQLMixin:
         # Prepare the normal DML boundary without executing an Agent UPDATE.
         before_statement(connection, "UPDATE agents")
         if getattr(self.db.driver, "schema", None):
-            table = self.db.driver._table_sql("agents")
+            table = cast(_QualifiedTableDriver, self.db.driver)._table_sql("agents")
             placeholders = ",".join("?" for _ in agent_ids)
             cursor = connection.execute(
                 f"SELECT agent_id FROM {table} WHERE agent_id IN ({placeholders}) ORDER BY agent_id FOR UPDATE",
@@ -68,5 +79,5 @@ class AgentsSQLMixin:
         remain None. Callers validate source existence and choose relationships.
         Supplied type filters require a typed relation. No new transaction opens.
         """
-        spec = self.db.driver_wrapper.get_link_spec(source_table, "agents")
+        spec = require_link_spec(self.db, source_table, "agents")
         return self.db.macros.get_linked_rows(spec, source_id, link_type=link_type)

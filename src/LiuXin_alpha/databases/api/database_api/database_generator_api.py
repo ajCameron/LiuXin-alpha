@@ -11,8 +11,9 @@ annotations alone do not make either safe or atomic.
 from __future__ import annotations
 
 import abc
-import sqlite3
-from typing import Any, Iterable, LiteralString, Optional, Union
+
+from LiuXin_alpha.databases.db_types.driver_types import SQLConnection
+from typing import Iterable, Optional, Sequence, Union
 
 
 class DatabaseGeneratorAPI(abc.ABC):
@@ -31,7 +32,7 @@ class DatabaseGeneratorAPI(abc.ABC):
     """
 
     @abc.abstractmethod
-    def __init__(self, conn: Any) -> None:
+    def __init__(self, conn: SQLConnection) -> None:
         """
         Require initialization against a caller-supplied database connection.
 
@@ -62,7 +63,9 @@ class DatabaseGeneratorAPI(abc.ABC):
         """
 
     @abc.abstractmethod
-    def _build_allowed_types_table_interlink(self, for_table: str, allowed_types: Iterable[str]) -> str:
+    def _build_allowed_types_table_interlink(
+        self, for_table: str, allowed_types: Iterable[str]
+    ) -> list[str]:
         """
         Require SQL to create and populate a legacy interlink allowed-values table.
 
@@ -77,14 +80,12 @@ class DatabaseGeneratorAPI(abc.ABC):
 
         :param for_table: Interlink table whose type values are being enumerated.
         :param allowed_types: Values to seed in the generated table.
-        :return: Creation/insertion SQL; the shared SQLite implementation returns a list
-            despite this abstract str annotation.
+        :return: Ordered creation and insertion SQL statements.
         """
-
 
     @staticmethod
     @abc.abstractmethod
-    def _canonicalize_link_type(link_type: str) -> str:
+    def _canonicalize_link_type(link_type: str | None) -> str:
         """
         Require normalization of accepted relationship-type spellings.
 
@@ -102,17 +103,18 @@ class DatabaseGeneratorAPI(abc.ABC):
         """
 
     @abc.abstractmethod
-    def direct_get_direct_link_main_tables_sql(self,
-                                            primary_table: str,
-                                            secondary_table: str,
-                                            link_type: str='many_many',
-                                            requested_cols: str='all',
-                                            index_both: bool=True,
-                                            allowed_types: Optional[Iterable[str]]=None,
-                                            one_link_with_one_type: bool = True,
-                                            override_restriction_sql: Optional[str]=None,
-                                            nullable_fks: bool=True
-                                            ) -> tuple[list[str], Union[str, LiteralString]]:
+    def direct_get_direct_link_main_tables_sql(
+        self,
+        primary_table: str,
+        secondary_table: str,
+        link_type: str = "many_many",
+        requested_cols: str | Iterable[str] | None = "all",
+        index_both: bool = True,
+        allowed_types: Optional[Iterable[str]] = None,
+        one_link_with_one_type: bool = True,
+        override_restriction_sql: Optional[str] = None,
+        nullable_fks: bool = True,
+    ) -> tuple[list[str], str]:
         """
         Require relationship DDL and its generated table name without executing it.
 
@@ -143,7 +145,9 @@ class DatabaseGeneratorAPI(abc.ABC):
 
     @staticmethod
     @abc.abstractmethod
-    def _get_link_table_name_col_name(primary_table: str, secondary_table: str) -> tuple[str, str]:
+    def _get_link_table_name_col_name(
+        primary_table: str, secondary_table: str
+    ) -> tuple[str, str]:
         """
         Require deterministic relationship table and column-prefix names.
 
@@ -195,10 +199,9 @@ class DatabaseGeneratorAPI(abc.ABC):
         """
 
     @abc.abstractmethod
-    def build_allowed_types_table_interlink(self,
-                                            for_table: str,
-                                            allowed_types: Optional[Iterable[str]]=None
-                                            ) -> list[str]:
+    def build_allowed_types_table_interlink(
+        self, for_table: str, allowed_types: Optional[Iterable[str]] = None
+    ) -> list[str]:
         """
         Require optional SQL for a legacy interlink type-enumeration table.
 
@@ -219,9 +222,9 @@ class DatabaseGeneratorAPI(abc.ABC):
     # one-to-many: writing team operating under a single name (e.g. The Expanse)
     # Todo: We need links between org agents and human agents - "employed by" e.t.c
     @abc.abstractmethod
-    def direct_build_allowed_types_table_intralink(self,
-                                            for_table: str,
-                                            allowed_types: Optional[Iterable[str]] = None) -> list[str]:
+    def direct_build_allowed_types_table_intralink(
+        self, for_table: str, allowed_types: Optional[Iterable[str]] = None
+    ) -> list[str]:
         """
         Require optional SQL for the type enumeration of a self-link table.
 
@@ -241,12 +244,14 @@ class DatabaseGeneratorAPI(abc.ABC):
         """
 
     @abc.abstractmethod
-    def build_interlink_table_sqlite(self,
-                                     table1: str,
-                                     table2: str,
-                                     requested_cols: Optional[Union[str, Iterable[str]]] = None,
-                                     allowed_types: Optional[Iterable[str]]=None,
-                                     nullable_fks: bool=True) -> list[str]:
+    def build_interlink_table_sqlite(
+        self,
+        table1: str,
+        table2: str,
+        requested_cols: Optional[Union[str, Iterable[str]]] = None,
+        allowed_types: Optional[Iterable[str]] = None,
+        nullable_fks: bool = True,
+    ) -> list[str]:
         """
         Require interlink DDL using the builder constraint and type configuration.
 
@@ -268,8 +273,19 @@ class DatabaseGeneratorAPI(abc.ABC):
         """
 
     # Todo: Not clear why this signature is like this? Firm it up.
+    # Resolved: explicit parameters now mirror the shared SQL builder.
     @abc.abstractmethod
-    def direct_build_intralink_table_sql(self, name: str, **kwargs: Any) -> list[str]:
+    def direct_build_intralink_table_sql(
+        self,
+        name: str,
+        allowed_types: Iterable[str] | None = None,
+        requested_cols: str | Iterable[str] | None = None,
+        index_both: bool = True,
+        nullable_fks: bool = True,
+        symmetric: bool = False,
+        symmetric_types: Iterable[str] | None = None,
+        use_reference_types_table: bool = False,
+    ) -> list[str]:
         """
         Require SQL for relationships between rows of a single main table.
 
@@ -280,8 +296,13 @@ class DatabaseGeneratorAPI(abc.ABC):
 
 
         :param name: Main table to link back to itself.
-        :param kwargs: Backend options such as requested_cols, allowed_types,
-            nullable_fks and symmetry controls.
+        :param allowed_types: Optional allowed type labels.
+        :param requested_cols: Optional column selection, or all.
+        :param index_both: Index both endpoint columns.
+        :param nullable_fks: Permit incomplete endpoint pairs.
+        :param symmetric: Require canonical endpoint ordering.
+        :param symmetric_types: Type labels subject to canonical ordering.
+        :param use_reference_types_table: Install reference-type guards separately.
         :return: List of SQL statements without executing them.
         """
 
@@ -303,10 +324,9 @@ class DatabaseGeneratorAPI(abc.ABC):
         """
 
     @abc.abstractmethod
-    def create_interlink_table(self,
-                               table1: str,
-                               table2: str,
-                               connection: sqlite3.Connection) -> None:
+    def create_interlink_table(
+        self, table1: str, table2: str, connection: SQLConnection
+    ) -> None:
         """
         Require creation of one configured relationship between distinct tables.
 
@@ -326,11 +346,11 @@ class DatabaseGeneratorAPI(abc.ABC):
 
     @abc.abstractmethod
     def direct_create_interlink_types_reference_table(
-            self,
-            interlink_table_name: str,
-            interlink_column_base: str,
-            allowed_types: list[str],
-            connection: sqlite3.Connection
+        self,
+        interlink_table_name: str,
+        interlink_column_base: str,
+        allowed_types: list[str],
+        connection: SQLConnection,
     ) -> None:
         """
         Require an extensible type-reference table and guards on relationship values.
@@ -354,9 +374,7 @@ class DatabaseGeneratorAPI(abc.ABC):
 
     @abc.abstractmethod
     def create_intralink_table(
-            self,
-            table_name: str,
-            connection: sqlite3.Connection
+        self, table_name: str, connection: SQLConnection
     ) -> None:
         """
         Require creation of the configured self-link schema for a main table.
@@ -433,15 +451,16 @@ class DatabaseGeneratorAPI(abc.ABC):
 
     @abc.abstractmethod
     def direct_link_main_tables(
-            self,
-            primary_table: str,
-            secondary_table: str,
-            link_type: str = 'many_many',
-            requested_cols: Union[LiteralString["all"], Iterable[str]]='all',
-            index_both: bool = True,
-            allowed_types: Optional[Iterable[str]] = None,
-            override_restriction_sql: str = None,
-            nullable_fks: bool=True):
+        self,
+        primary_table: str,
+        secondary_table: str,
+        link_type: str = "many_many",
+        requested_cols: str | Iterable[str] | None = "all",
+        index_both: bool = True,
+        allowed_types: Optional[Iterable[str]] = None,
+        override_restriction_sql: str | None = None,
+        nullable_fks: bool = True,
+    ) -> str:
         """
         Require execution of DDL linking two main tables.
 
@@ -472,7 +491,7 @@ class DatabaseGeneratorAPI(abc.ABC):
         Require parsing of the legacy textual relationship request format.
 
         The FRBR helper uses a restricted legacy regex and name matching. It is separate
-        from TOML parsing; unresolved names can fail during sorting.
+        from TOML parsing; unresolved names raise TypeError before sorting.
 
         Example:
             A concrete builder may use builder.extract_main_tables("agents-works_link")
@@ -518,7 +537,7 @@ class DatabaseGeneratorAPI(abc.ABC):
         """
 
     @abc.abstractmethod
-    def get_interlink_constraint(self, link_pair: list[str]) -> dict[str, str]:
+    def get_interlink_constraint(self, link_pair: Sequence[str]) -> dict[str, str]:
         """
         Require the configured restriction for an endpoint pair.
 
@@ -537,7 +556,7 @@ class DatabaseGeneratorAPI(abc.ABC):
 
     @staticmethod
     @abc.abstractmethod
-    def get_interlink_name(link_pair: list[str]) -> str:
+    def get_interlink_name(link_pair: Sequence[str]) -> str:
         """
         Require a canonical relationship table name from an endpoint pair.
 

@@ -2,11 +2,26 @@
 
 from __future__ import annotations
 
+from LiuXin_alpha.databases.database_driver_plugins._macro_state import require_legacy_macros
+
 from collections.abc import Mapping
-from typing import Any
+from typing import Any, TYPE_CHECKING, cast
+
+from LiuXin_alpha.databases.driver_wrapper.driver_wrapper_custom_columns_mixin import (
+    CustomColumnStorageMixin,
+)
+from LiuXin_alpha.databases.db_types.driver_types import SQLConnection
+
+if TYPE_CHECKING:
+    from LiuXin_alpha.databases.api.custom_columns_api import CustomColumnsAPI
 
 
-class CCCRUDColumnsMixin:
+def _facade(host: object) -> CustomColumnsAPI:
+    """Resolve the shared service contract when composed into CustomColumns."""
+    return cast("CustomColumnsAPI", host)
+
+
+class CCCRUDColumnsMixin(CustomColumnStorageMixin[SQLConnection]):
     """Run before the driver adapter in the CustomColumns method resolution order."""
 
     def create_custom_column(
@@ -40,11 +55,11 @@ class CCCRUDColumnsMixin:
             label=label,
             editable=editable,
             display=display,
-            in_table=self.table if in_table is None else in_table,
+            in_table=_facade(self).table if in_table is None else in_table,
             make_category=make_category,
         )
-        self.refresh_db_custom_columns_metadata()
-        prefs = getattr(self, "prefs", None)
+        _facade(self).refresh_db_custom_columns_metadata()
+        prefs = _facade(self).prefs
         if prefs is not None:
             prefs.set("update_all_last_mod_dates_on_start", True)
         return num
@@ -59,14 +74,14 @@ class CCCRUDColumnsMixin:
         in_table: str | None = None,
         notify: bool = True,
         update_last_modified: bool = False,
-    ) -> Any:
+    ) -> bool:
         """Update storage, refresh both definition maps, then notify if requested.
 
         Resolve the current definition before mutating. Reloading uses the stored
         editable field and also keeps renamed labels and display values current.
         The optional date-refresh request uses the host's preference store.
         """
-        self.custom_field_metadata(num=num)
+        _facade(self).custom_field_metadata(num=num)
         changed = super().set_custom_column_metadata(
             num=num,
             name=name,
@@ -75,12 +90,12 @@ class CCCRUDColumnsMixin:
             display=display,
             in_table=in_table,
         )
-        self.refresh_db_custom_columns_metadata()
-        prefs = getattr(self, "prefs", None)
+        _facade(self).refresh_db_custom_columns_metadata()
+        prefs = _facade(self).prefs
         if update_last_modified and prefs is not None:
             prefs.set("update_all_last_mod_dates_on_start", True)
         if notify:
-            self.notify("metadata", [])
+            _facade(self).notify("metadata", [])
         return changed
 
     def delete_custom_column(
@@ -92,5 +107,5 @@ class CCCRUDColumnsMixin:
         table deletion remains a loader operation, so current maps stay available
         until that reload.
         """
-        data = self.custom_field_metadata(label=label, num=num)
-        self.db.macros.mark_custom_column_for_delete(num=data["num"])
+        data = _facade(self).custom_field_metadata(label=label, num=num)
+        require_legacy_macros(_facade(self).db.macros).mark_custom_column_for_delete(num=data["num"])

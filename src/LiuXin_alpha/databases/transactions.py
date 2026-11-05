@@ -8,17 +8,17 @@ from __future__ import annotations
 
 from collections.abc import Generator
 from contextlib import contextmanager
-from typing import Any
 from uuid import uuid4
 
 from LiuXin_alpha.databases.connection_hooks import (
     execute_transaction_control,
     flush_connection_work,
 )
+from LiuXin_alpha.databases.db_types.driver_types import QueryConnection
 
 
 # Todo: This should be more strictly typeable
-def transaction_active(connection: Any) -> bool:
+def transaction_active(connection: object) -> bool:
     """
     Inspect supported connection state without starting or ending a transaction.
 
@@ -41,9 +41,9 @@ def transaction_active(connection: Any) -> bool:
 
 
 @contextmanager
-def transaction_scope(
-    connection: Any, *, owns_transaction: bool, immediate: bool = False
-) -> Generator[Any, None, None]:
+def transaction_scope[ConnectionT: QueryConnection](
+    connection: ConnectionT, *, owns_transaction: bool, immediate: bool = False
+) -> Generator[ConnectionT, None, None]:
     """
     Commit an owned unit, or isolate a nested/borrowed unit with a savepoint.
 

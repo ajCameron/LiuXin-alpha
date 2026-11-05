@@ -3,12 +3,13 @@ Attach database maintenance collaborators and bootstrap configured storage.
 
 These helpers mutate a concrete database’s runtime graph. Maintenance initialization
 starts background work; storage bootstrap can construct backends and alter metadata or
-registry state. Neither helper wraps its entire operation in a transaction or performs
-automatic rollback of partial setup.
+registry state. Maintenance wiring restores its graph on failure and reuses an
+existing worker. Storage bootstrap retains its documented partial-setup behavior.
 """
 
 from __future__ import annotations
 
+from collections.abc import Callable, Mapping
 from typing import Any, TYPE_CHECKING
 
 from LiuXin_alpha.storage.durable_manager import (
@@ -21,25 +22,29 @@ from LiuXin_alpha.databases.maintenance.service import Maintainer
 from LiuXin_alpha.utils.logging import default_log
 
 if TYPE_CHECKING:
-
-    from LiuXin_alpha.databases.api.database_api import DatabaseAPI
+    from LiuXin_alpha.databases.database import Database
+    from LiuXin_alpha.databases.database.dirtied_mixin import DatabaseWriteTelemetry
+    from LiuXin_alpha.databases.api.maintenance_api import MaintenanceCallbackSinkAPI
 
 
 def initialise_database_runtime(
-    db: "DatabaseAPI",
+    db: Database,
     *,
-    callback_proxy_cls: type,
-        # Todo: preferences should have an API
-    preferences_obj: Any,
+    callback_proxy_cls: Callable[
+        [Maintainer, DatabaseWriteTelemetry | None], MaintenanceCallbackSinkAPI
+    ],
+    # Todo: preferences should have an API
+    preferences_obj: Mapping[str, Any],
 ) -> None:
     """
     Start maintenance and wire runtime collaborators back to the database.
 
-    Construct Maintainer first, which starts its engine. Install maintenance/maintainer
-    aliases, the callback proxy, driver callback and clean alias, then preferences and
-    catalog/db back-references. This does not bootstrap storage. Repeated calls do not
-    stop an earlier maintainer; a later wiring failure can leave the new engine running,
-    so callers own cleanup.
+    Retain supplied preferences, then use the constructor's runtime wiring path.
+    Resolve required collaborators before starting Maintainer and its engine.
+    Install maintenance aliases, callback and clean hooks, and db back-references.
+    This does not bootstrap storage. Repeated calls reuse an existing worker;
+    failed preparation restores the previous graph and preferences and closes
+    a newly prepared worker. Callers must serialize initialization with use.
 
     Example:
         During one-time database construction, initialise_database_runtime(db,
@@ -53,32 +58,25 @@ def initialise_database_runtime(
         db.write_telemetry to produce the driver callback proxy.
     :param preferences_obj: Preference object retained directly as db.preferences.
     :return: None; runtime aliases and collaborator references are assigned on db.
-    :raises AttributeError: A required pre-created database collaborator or attribute is
-        absent.
+    :raises DatabaseIntegrityError: A required live facade collaborator is unbound.
+    :raises RuntimeError: The table SQL collaborator is absent.
     """
 
-    db.maintenance = Maintainer(db)
-    db.maintainer = db.maintenance
-
-    # Todo: The database API should have write_telemetry declared
-    db._maintainer_callback_proxy = callback_proxy_cls(db.maintenance, db.write_telemetry)
-
-    # Todo: Protected method access
-    db.driver.maintainer_callback = db._maintainer_callback_proxy
-    db.clean = db.maintenance.clean
-
+    previous_preferences = db.preferences
     db.preferences = preferences_obj
-
-    # Ensure all major collaborators can refer back to the live database object.
-    db.driver_wrapper.catalog = db
-    db.driver.catalog = db
-    db.macros.db = db
-    db.metadata_sql.db = db
+    try:
+        # Todo: Protected method access
+        db._initialise_runtime_collaborators(
+            enable_maintenance=True, callback_proxy_cls=callback_proxy_cls
+        )
+    except BaseException:
+        db.preferences = previous_preferences
+        raise
 
 
 # Todo: As it mixes db and storage, should be in library - perhaps with a dummy for when we just want a db up
 def bootstrap_storage_manager(
-    db: "DatabaseAPI",
+    db: Database,
     *,
     startup_on_add: bool = False,
     include_offline: bool = False,
@@ -117,19 +115,21 @@ def bootstrap_storage_manager(
         or manager construction rejects its configuration.
     """
 
-    if getattr(db, "storage", None) is None:
-        db.storage = StorageManager(db=db, startup_on_add=startup_on_add)
+    storage = db.storage
+    if storage is None:
+        storage = StorageManager(db=db, startup_on_add=startup_on_add)
+        db.storage = storage
     else:
-        bind_database = getattr(db.storage, "bind_database", None)
+        bind_database = getattr(storage, "bind_database", None)
         if bind_database is None:
             # Small test doubles may model only the legacy mutable surface.
-            db.storage.db = db
+            storage.db = db
         else:
             bind_database(db)
-        db.storage.startup_on_add = bool(startup_on_add)
+        storage.startup_on_add = bool(startup_on_add)
 
     try:
-        report = db.storage.load_from_database(
+        report = storage.load_from_database(
             db,
             include_offline=include_offline,
             clear_existing=clear_existing,
@@ -138,11 +138,12 @@ def bootstrap_storage_manager(
     except Exception as exc:
         if strict:
             raise
+        metadata = db.metadata
         default_log.log_exception(
             "Storage manager bootstrap failed.",
             exc,
             "WARNING",
-            ("database_path", db.metadata.get("database_path") if getattr(db, "metadata", None) else None),
+            ("database_path", metadata.get("database_path") if metadata else None),
         )
         report = StorageBootstrapReport(
             discovered_configurations=1,

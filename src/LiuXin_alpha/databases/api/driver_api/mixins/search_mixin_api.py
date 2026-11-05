@@ -9,7 +9,12 @@ incomplete. Abstract declarations do not execute a query.
 from __future__ import annotations
 
 import abc
-from typing import Any, Iterator, Literal, Optional, Union
+from collections.abc import Sequence
+from typing import Any, Iterator, Literal, Optional, Union, TYPE_CHECKING
+
+
+if TYPE_CHECKING:
+    from LiuXin_alpha.databases.db_types.query_types import SearchIndex
 
 
 class DriverSearchMixinAPI(abc.ABC):
@@ -29,7 +34,7 @@ class DriverSearchMixinAPI(abc.ABC):
 
     @staticmethod
     @abc.abstractmethod
-    def can_index_be_transformed(target_index) -> bool:
+    def can_index_be_transformed(target_index: object) -> bool:
         """
         Check for an iterable triple with non-iterable second and third elements.
 
@@ -45,7 +50,7 @@ class DriverSearchMixinAPI(abc.ABC):
             ... )  # doctest: +SKIP
 
 
-        :param target_index: Sized, indexable candidate triple, or a non-iterable value.
+        :param target_index: Sequence candidate triple, or another value which returns False.
         :return: Whether the triple passes this structural test.
         """
 
@@ -70,10 +75,8 @@ class DriverSearchMixinAPI(abc.ABC):
 
     @abc.abstractmethod
     def direct_get_all_rows(
-            self,
-            table: str,
-            sort_column: Optional[str] = None,
-            reverse: bool = False) -> list[dict[str, Any]]:
+        self, table: str, sort_column: Optional[str] = None, reverse: bool = False
+    ) -> list[dict[str, Any]]:
         """
         Load every row into memory, optionally ordering by a validated column.
 
@@ -96,7 +99,7 @@ class DriverSearchMixinAPI(abc.ABC):
         """
 
     @abc.abstractmethod
-    def direct_get_all_values(self, table: str, column: str) -> set[Any]:
+    def direct_get_all_values(self, table: str | None, column: str) -> set[Any]:
         """
         Collect a column's raw values into a set, inferring the table when omitted.
 
@@ -174,7 +177,9 @@ class DriverSearchMixinAPI(abc.ABC):
         """
 
     @abc.abstractmethod
-    def direct_get_random_row_dict(self, target_table: str, direct: bool = False) -> Optional[dict[str, Any]]:
+    def direct_get_random_row_dict(
+        self, target_table: str, direct: bool = False
+    ) -> Optional[dict[str, Any]]:
         """
         Pick a random row using SQLite RANDOM or rejection sampling over positive IDs.
 
@@ -195,7 +200,9 @@ class DriverSearchMixinAPI(abc.ABC):
         """
 
     @abc.abstractmethod
-    def direct_get_row_dict_from_id(self, table: str, row_id: int) -> dict[str, Any] | Literal[False]:
+    def direct_get_row_dict_from_id(
+        self, table: str, row_id: int
+    ) -> dict[str, Any] | Literal[False]:
         """
         Bind a text-coerced ID and require at most one matching row.
 
@@ -216,10 +223,8 @@ class DriverSearchMixinAPI(abc.ABC):
 
     @abc.abstractmethod
     def direct_get_row_dict_iterator(
-            self,
-            table: str,
-            sort_column: Optional[str] = None,
-            reverse: bool = False) -> Iterator[dict[str, Any]]:
+        self, table: str, sort_column: Optional[str] = None, reverse: bool = False
+    ) -> Iterator[dict[str, Any]]:
         """
         Yield positive-ID rows in ascending ID order using ten-row queries.
 
@@ -243,7 +248,7 @@ class DriverSearchMixinAPI(abc.ABC):
         """
 
     @abc.abstractmethod
-    def direct_get_unique_values_iterator(self, target_column: str) -> Iterator[str]:
+    def direct_get_unique_values_iterator(self, target_column: str) -> Iterator[Any]:
         """
         Yield from a fully materialized set of distinct values.
 
@@ -262,7 +267,7 @@ class DriverSearchMixinAPI(abc.ABC):
         """
 
     @abc.abstractmethod
-    def direct_get_unique_values_set(self, target_column: str) -> set[str]:
+    def direct_get_unique_values_set(self, target_column: str) -> set[Any]:
         """
         Collect distinct column values into a set and close the connection on success.
 
@@ -280,9 +285,8 @@ class DriverSearchMixinAPI(abc.ABC):
     # Todo: We need to pass the search in as values - this is not secure.
     @abc.abstractmethod
     def direct_multi_column_search(
-            self,
-            search_index: str,
-            iterator_return: bool = False) -> Optional[Union[Iterator[dict[str, Any]], list[dict[str, Any]]]]:
+        self, search_index: SearchIndex, iterator_return: bool = False
+    ) -> Optional[Union[Iterator[dict[str, Any]], list[dict[str, Any]]]]:
         """
         AND together same-table comparison triples using bound values.
 
@@ -310,13 +314,13 @@ class DriverSearchMixinAPI(abc.ABC):
             verbose-debug mode.
         """
 
-
     @abc.abstractmethod
     def direct_search_table(
-            self,
-            table: Optional[str] = None,
-            column: Optional[str] = None,
-            search_term: Optional[Any] = None) -> list[dict[str, Any]]:
+        self,
+        table: Optional[str] = None,
+        column: Optional[str] = None,
+        search_term: Optional[Any] = None,
+    ) -> list[dict[str, Any]]:
         """
         Find exact matches for a bound text search term in a validated column.
 
@@ -344,7 +348,7 @@ class DriverSearchMixinAPI(abc.ABC):
     # Todo: Kill this along with locational_search
     @staticmethod
     @abc.abstractmethod
-    def transform_index(target_index):
+    def transform_index(target_index: Sequence[str]) -> str:
         """
         Render a token, OR or AND triple as intermediate query text.
 
@@ -364,7 +368,7 @@ class DriverSearchMixinAPI(abc.ABC):
 
     # Todo: Just remove this entirely
     @abc.abstractmethod
-    def direct_locational_search(self, parsed_query):
+    def direct_locational_search(self, parsed_query: str | Sequence[object]) -> None:
         """
         Inspect a copied parsed-query tree through an unfinished transformation path.
 

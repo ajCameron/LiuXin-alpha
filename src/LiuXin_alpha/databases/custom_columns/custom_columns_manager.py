@@ -10,17 +10,29 @@ transactions or concurrency control.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, Iterator, Mapping, Optional, Set, Tuple, TYPE_CHECKING, Union
+from typing import (
+    Any,
+    Dict,
+    Iterator,
+    Mapping,
+    Optional,
+    Set,
+    Tuple,
+    TYPE_CHECKING,
+    Union,
+)
 
 from LiuXin_alpha.databases.custom_columns.custom_columns import CustomColumns
 
 if TYPE_CHECKING:
-
+    from LiuXin_alpha.databases.api.custom_columns_api import CustomColumnFieldMetadata
     from LiuXin_alpha.databases.api.row_api import RowAPI
     from LiuXin_alpha.databases.api.database_api import DatabaseAPI
 
 
-def _row_get(row: Union[dict, "RowAPI"], key: str, default: Any = None) -> Any:
+def _row_get(
+    row: Union[Mapping[str, Any], "RowAPI"], key: str, default: Any = None
+) -> Any:
     """
     Read a row using get when available, falling back to item access on error.
 
@@ -41,8 +53,9 @@ def _row_get(row: Union[dict, "RowAPI"], key: str, default: Any = None) -> Any:
     :return: Result of get/item access, including an explicit None, or default.
     """
     try:
-        if hasattr(row, "get"):
-            return row.get(key, default)
+        getter = getattr(row, "get", None)
+        if callable(getter):
+            return getter(key, default)
     except Exception:
         pass
     try:
@@ -96,9 +109,13 @@ class CustomColumnsManager:
 
     db: "DatabaseAPI"
     default_table: str = "books"
-    field_metadata_by_table: Mapping[str, Any] = field(default_factory=dict)
+    field_metadata_by_table: Mapping[str, CustomColumnFieldMetadata] = field(
+        default_factory=dict
+    )
 
-    _cache: Dict[str, CustomColumns] = field(default_factory=dict, init=False, repr=False)
+    _cache: Dict[str, CustomColumns] = field(
+        default_factory=dict, init=False, repr=False
+    )
 
     # ---- public API -----------------------------------------------------
 
@@ -160,7 +177,9 @@ class CustomColumnsManager:
 
         if resolved not in self._cache:
             fm = self._field_metadata_for(resolved)
-            self._cache[resolved] = CustomColumns(db=self.db, table=resolved, field_metadata=fm)
+            self._cache[resolved] = CustomColumns(
+                db=self.db, table=resolved, field_metadata=fm
+            )
 
         return self._cache[resolved]
 
@@ -214,7 +233,7 @@ class CustomColumnsManager:
         self._cache.pop(resolved, None)
 
     # Todo: We should have a type for all the main tables
-    def __contains__(self, table: str) -> bool:  # pragma: no cover
+    def __contains__(self, table: object) -> bool:  # pragma: no cover
         """
         Check live attachment discovery for a canonical string table name.
 
@@ -273,7 +292,7 @@ class CustomColumnsManager:
 
     # ---- internals ------------------------------------------------------
 
-    def _field_metadata_for(self, table: str) -> Optional[Any]:
+    def _field_metadata_for(self, table: str) -> CustomColumnFieldMetadata | None:
         """
         Resolve explicit per-table FieldMetadata or the legacy database fallback.
 
@@ -343,11 +362,15 @@ class CustomColumnsManager:
 
         # Fallback: mimic the logic used in CustomColumns itself.
         try:
-            main_tables = getattr(self.db, "main_tables", set())
+            main_tables = getattr(self.db, "main_tables", set[str]())
         except Exception:
-            main_tables = set()
+            main_tables = set[str]()
 
-        if in_table == "books" and "books" not in main_tables and "manifestations" in main_tables:
+        if (
+            in_table == "books"
+            and "books" not in main_tables
+            and "manifestations" in main_tables
+        ):
             return "manifestations"
 
         return in_table

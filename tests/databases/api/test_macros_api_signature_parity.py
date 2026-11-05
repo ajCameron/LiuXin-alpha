@@ -10,6 +10,7 @@ Example:
 
         python -m pytest -q tests/databases/api/test_macros_api_signature_parity.py
 """
+
 from __future__ import annotations
 
 import ast
@@ -32,6 +33,7 @@ class MethodSpec:
 
             python -m pytest -q tests/databases/api/test_macros_api_signature_parity.py
     """
+
     kind: str
     args: str
     returns: str | None
@@ -62,7 +64,9 @@ def path_from_module(module: str) -> Path | None:
     return None
 
 
-def resolve_relative_module(current_module: str, level: int, imported_module: str | None) -> str:
+def resolve_relative_module(
+    current_module: str, level: int, imported_module: str | None
+) -> str:
     """
     Resolve an import name by slicing the current module or package components.
 
@@ -105,6 +109,7 @@ class ModuleInfo:
 
             python -m pytest -q tests/databases/api/test_macros_api_signature_parity.py
     """
+
     module: str
     classes: dict[str, ast.ClassDef]
     imports: dict[str, str]
@@ -152,7 +157,9 @@ def load_module(module: str) -> ModuleInfo | None:
                     continue
                 from_imports[alias.asname or alias.name] = (imported_from, alias.name)
 
-    return ModuleInfo(module=module, classes=classes, imports=imports, from_imports=from_imports)
+    return ModuleInfo(
+        module=module, classes=classes, imports=imports, from_imports=from_imports
+    )
 
 
 def decorator_name(dec: ast.AST) -> str | None:
@@ -195,13 +202,59 @@ def classify_method(node: ast.FunctionDef | ast.AsyncFunctionDef) -> str:
     if "property" in names:
         return "property"
     for dec in node.decorator_list:
-        if isinstance(dec, ast.Attribute) and dec.attr in {"setter", "deleter", "getter"}:
+        if isinstance(dec, ast.Attribute) and dec.attr in {
+            "setter",
+            "deleter",
+            "getter",
+        }:
             return "property"
     if "classmethod" in names:
         return "classmethod"
     if "staticmethod" in names:
         return "staticmethod"
     return "method"
+
+
+def public_return_annotation(
+    node: ast.FunctionDef | ast.AsyncFunctionDef,
+) -> str | None:
+    """Compare the decorated public result, preserving the yielded value type."""
+    result = node.returns
+    if result is None:
+        return None
+    decorators = {decorator_name(decorator) for decorator in node.decorator_list}
+    if "contextmanager" in decorators and isinstance(result, ast.Subscript):
+        if decorator_name(result.value) == "Iterator":
+            return f"AbstractContextManager[{ast.unparse(result.slice)}]"
+        if decorator_name(result.value) == "Generator" and isinstance(
+            result.slice, ast.Tuple
+        ):
+            yielded, sent, returned = result.slice.elts
+            if ast.unparse(sent) == "None" and ast.unparse(returned) == "None":
+                return f"AbstractContextManager[{ast.unparse(yielded)}]"
+    return ast.unparse(result)
+
+
+def test_public_contextmanager_return_keeps_yielded_contract() -> None:
+    def result(source: str) -> str | None:
+        node = ast.parse(source).body[0]
+        assert isinstance(node, ast.FunctionDef)
+        return public_return_annotation(node)
+
+    assert (
+        result("@contextmanager\ndef f() -> Iterator[str]: yield 'x'")
+        == "AbstractContextManager[str]"
+    )
+    assert (
+        result("@contextmanager\ndef f() -> Iterator[int]: yield 1")
+        == "AbstractContextManager[int]"
+    )
+    assert (
+        result("@contextmanager\ndef f() -> Generator[str, None, None]: yield 'x'")
+        == "AbstractContextManager[str]"
+    )
+    assert result("def f() -> Iterator[str]: yield 'x'") == "Iterator[str]"
+    assert result("@other\ndef f() -> Iterator[str]: yield 'x'") == "Iterator[str]"
 
 
 def resolve_base(base: ast.expr, module: ModuleInfo) -> tuple[str, str] | None:
@@ -283,7 +336,9 @@ def collect_methods(
     cls = module.classes.get(class_name)
     if cls is None:
         if strict:
-            raise AssertionError(f"Class {class_name!r} not found in module {module_name!r}")
+            raise AssertionError(
+                f"Class {class_name!r} not found in module {module_name!r}"
+            )
         return {}
 
     methods: dict[str, MethodSpec] = {}
@@ -303,7 +358,7 @@ def collect_methods(
         methods[node.name] = MethodSpec(
             kind=classify_method(node),
             args=ast.unparse(node.args),
-            returns=ast.unparse(node.returns) if node.returns is not None else None,
+            returns=public_return_annotation(node),
         )
 
     return methods
@@ -323,7 +378,9 @@ def test_macros_api_matches_sqlite_macros_full_signature_surface() -> None:
 
     :return: None; failed expectations raise AssertionError.
     """
-    api_methods = collect_methods("LiuXin_alpha.databases.api.macros_api", "MacrosAPI", strict=True)
+    api_methods = collect_methods(
+        "LiuXin_alpha.databases.api.macros_api", "MacrosAPI", strict=True
+    )
     concrete_methods = collect_methods(
         "LiuXin_alpha.databases.database_driver_plugins.SQL.macros",
         "SQLiteDatabaseMacros",
@@ -345,7 +402,11 @@ def test_macros_api_matches_sqlite_macros_full_signature_surface() -> None:
     assert not kind_mismatches, (
         "MacrosAPI has method-kind mismatches (method/property/classmethod/staticmethod): "
         + ", ".join(kind_mismatches[:20])
-        + (f" ... (+{len(kind_mismatches) - 20} more)" if len(kind_mismatches) > 20 else "")
+        + (
+            f" ... (+{len(kind_mismatches) - 20} more)"
+            if len(kind_mismatches) > 20
+            else ""
+        )
     )
 
     signature_mismatches = sorted(
@@ -360,7 +421,11 @@ def test_macros_api_matches_sqlite_macros_full_signature_surface() -> None:
     assert not signature_mismatches, (
         "MacrosAPI has signature mismatches versus SQLiteDatabaseMacros: "
         + ", ".join(signature_mismatches[:20])
-        + (f" ... (+{len(signature_mismatches) - 20} more)" if len(signature_mismatches) > 20 else "")
+        + (
+            f" ... (+{len(signature_mismatches) - 20} more)"
+            if len(signature_mismatches) > 20
+            else ""
+        )
     )
 
 
@@ -395,9 +460,14 @@ def test_portable_macros_api_is_concrete_on_every_sql_backend() -> None:
         strict=True,
     )
 
-    for backend, methods in (("SQLite", sqlite_methods), ("PostgreSQL", postgres_methods)):
+    for backend, methods in (
+        ("SQLite", sqlite_methods),
+        ("PostgreSQL", postgres_methods),
+    ):
         missing = sorted(set(portable_methods) - set(methods))
-        assert not missing, f"{backend} is missing portable macros: {', '.join(missing)}"
+        assert not missing, (
+            f"{backend} is missing portable macros: {', '.join(missing)}"
+        )
         mismatched = sorted(
             name
             for name, spec in portable_methods.items()

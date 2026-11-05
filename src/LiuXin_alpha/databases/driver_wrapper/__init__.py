@@ -9,7 +9,7 @@ queue.
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Iterator, Mapping
+from collections.abc import Iterable, Iterator, Mapping, Set
 from copy import deepcopy
 from dataclasses import replace as dataclass_replace
 from queue import Queue
@@ -76,7 +76,11 @@ from LiuXin_alpha.utils.logging import default_log
 from LiuXin_alpha.utils.python_tools import smart_dictionary_merge
 
 if TYPE_CHECKING:
-    from LiuXin_alpha.databases.api import DatabaseAPI, DatabaseDriverAPI, MacrosAPI
+    from LiuXin_alpha.databases.api import (
+        DatabaseAPI,
+        DatabaseDriverAPI,
+        DatabaseMacrosAPI,
+    )
 
 
 class DriverWrapper(
@@ -106,7 +110,7 @@ class DriverWrapper(
         'works'
     """
 
-    _macros: MacrosAPI
+    _macros: DatabaseMacrosAPI
 
     def __init__(
         self, driver: DatabaseDriverAPI, db: DatabaseAPI | None = None
@@ -131,13 +135,13 @@ class DriverWrapper(
         self.set_macros(driver.macros)
 
         # Will be loaded by the parent DatabasePing process with the allowed table names
-        self.all_tables: set[str] | None = None
-        self.main_tables: set[str] | None = None
-        self.interlink_tables: set[str] | None = None
-        self.intralink_tables: set[str] | None = None
-        self.helper_tables: set[str] | None = None
+        self.all_tables: Set[str] | None = None
+        self.main_tables: Set[str] | None = None
+        self.interlink_tables: Set[str] | None = None
+        self.intralink_tables: Set[str] | None = None
+        self.helper_tables: Set[str] | None = None
 
-        self.dirtiable_tables: set[str] | None = set()
+        self.dirtiable_tables: Set[str] | None = set()
         self.dirty_records_queue: Queue[tuple[str, int, str]] | None = None
 
         # Serialize users of this facade without opening or committing SQL.
@@ -1129,7 +1133,7 @@ class DriverWrapper(
         except Exception:
             pass
 
-    def set_macros(self, new_macros: MacrosAPI) -> None:
+    def set_macros(self, new_macros: DatabaseMacrosAPI) -> None:
         """
         Store a non-None macro provider on this wrapper.
 
@@ -1147,7 +1151,7 @@ class DriverWrapper(
         self._macros = new_macros
 
     @property
-    def macros(self) -> MacrosAPI:
+    def macros(self) -> DatabaseMacrosAPI:
         """
         Return the macro provider currently stored on the wrapper.
 
@@ -1346,7 +1350,9 @@ class DriverWrapper(
         :return: Unique table name, or False for an empty mapping.
         """
         # if this method is called with a null row it will complain. If warn is true
-        if isinstance(row_dict, Row):
+        # Retain this runtime diagnostic for unchecked callers outside the dict contract.
+        candidate: object = row_dict
+        if isinstance(candidate, Row):
             err_str = "LiuXin.databases.database:identify_table_from_row_dict passed a Row not a row.\n"
             err_str = default_log.log_variables(
                 err_str, "ERROR", ("row_dict", row_dict)
@@ -1681,7 +1687,8 @@ class DriverWrapper(
         ans = self.execute(sql) if values is None else self.execute(sql, values)
         try:
             if all:
-                return ans.fetchall()
+                rows = ans.fetchall()
+                return rows if isinstance(rows, list) else list(rows)
             return ans.fetchone()
         finally:
             ans.close()

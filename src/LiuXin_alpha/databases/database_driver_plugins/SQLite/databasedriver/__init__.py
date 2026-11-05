@@ -14,27 +14,34 @@ replacement and interactive SQL methods can change persistent data.
 # Also should allow live switching of the DatabaseDriver in and out (i.e. if you want to switch from SQLite to SQL -
 # separating the DatabasePing logic and the Driver logic would seem to make sense).
 
-from __future__ import print_function
+from __future__ import print_function, annotations
 
 import codecs
+import datetime
 import os
 import re
 import sqlite3
 
 from LiuXin_alpha.databases.search_functions import register_search_functions
+from LiuXin_alpha.databases.db_types.driver_types import SQLConnection, SQLParameters
+from LiuXin_alpha.databases.api.maintenance_api import MaintenanceCallbackSinkAPI
 from LiuXin_alpha.databases.connection_hooks import SQLiteCompletionConnection
 from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.sqlite_progress import (
     SQLiteProgressMixin,
 )
 import uuid
 from functools import partial
-from typing import Iterator
+from typing import Any, Callable, Iterator, TYPE_CHECKING, Literal, overload
+from contextlib import closing
+from queue import Queue
 
 from LiuXin_alpha.utils.date import utcfromtimestamp
 
 from LiuXin_alpha.utils.logging import LiuXin_print, LiuXin_warning_print
 
-from LiuXin_alpha.databases.database_driver_plugins.SQL.macros import SQLiteDatabaseMacros
+from LiuXin_alpha.databases.database_driver_plugins.SQL.macros import (
+    SQLiteDatabaseMacros,
+)
 from LiuXin_alpha.databases.database_driver_plugins.SQL.custom_columns import (
     SQLiteCustomColumnsDriverMixin,
 )
@@ -43,7 +50,6 @@ from LiuXin_alpha.errors import DatabaseDriverError
 
 from LiuXin_alpha.utils.language_tools.lx_name_manip import authors_str_to_sort_str
 
-from LiuXin_alpha.preferences import preferences
 
 from LiuXin_alpha.utils.logging import default_log
 
@@ -53,39 +59,97 @@ from LiuXin_alpha.utils.localization import _
 from LiuXin_alpha.utils.libraries.liuxin_six import user_input
 from LiuXin_alpha.utils.storage.local.filenames import atomic_rename
 
-from LiuXin_alpha.databases.database_driver_plugins.SQL.utility_mixins import SQLiteTableLinkingMixin
+from LiuXin_alpha.databases.database_driver_plugins.SQL.utility_mixins import (
+    SQLiteTableLinkingMixin,
+)
 
 # Py2/Py3 compatibility layer
 
-from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver import SQLBaseDriver
+from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver import (
+    SQLBaseDriver,
+)
 
-from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.utils import *
+from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.utils import (
+    PyListAggregate,
+    PySetAggregate,
+    SortAggregate,
+    SqliteAumSortedConcatenate,
+    SqliteSortedConcatenate,
+    SqliteIdentifiersConcat,
+    SqliteConcatenate,
+    SqliteStupidConcatenate,
+    register_sqlite_aggregate,
+    icu_collator,
+    py_date_converter,
+    py_dict_adapter,
+    py_dict_converter,
+    py_list_adapter,
+    py_list_converter,
+    py_set_adapter,
+    py_set_converter,
+    pynocase,
+)
 from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.utils import (
     _author_sort_sql_value,
 )
 
-from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.calibre_emulation_mixin import CalibreEmulationMixin
-from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.sql_execution_mixin import SQLExecutionMixin
-from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.math_mixin import MathFunctionsMixin
-from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.dirty_records_mixin import DirtyRecordsMixin
-from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.table_names_mixin import TableNamesMixin
-from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.tree_mixjn import TreeMethodsMixin
-from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.metadata_mixin import MetadataMethodMixin
-from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.triggers_mixin import TriggersMixin
-from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.search_mixin import SearchMixin
-from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.value_casting_mixin import ValueCastingMixin
-from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.new_book_mixin import BookGroupMixin
-from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.delete_mixin import DeleteMixin
-from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.add_mixin import AddingMixin
-from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.update_mixin import UpdateMixin
-from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.view_mixin import ViewMixin
-from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.table_creation_mixin import TableCreationMixin
+from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.calibre_emulation_mixin import (
+    CalibreEmulationMixin,
+)
+from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.sql_execution_mixin import (
+    SQLExecutionMixin,
+)
+from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.math_mixin import (
+    MathFunctionsMixin,
+)
+from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.dirty_records_mixin import (
+    DirtyRecordsMixin,
+)
+from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.table_names_mixin import (
+    TableNamesMixin,
+)
+from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.tree_mixjn import (
+    TreeMethodsMixin,
+)
+from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.metadata_mixin import (
+    MetadataMethodMixin,
+)
+from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.triggers_mixin import (
+    TriggersMixin,
+)
+from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.search_mixin import (
+    SearchMixin,
+)
+from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.value_casting_mixin import (
+    ValueCastingMixin,
+)
+from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.new_book_mixin import (
+    BookGroupMixin,
+)
+from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.delete_mixin import (
+    DeleteMixin,
+)
+from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.add_mixin import (
+    AddingMixin,
+)
+from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.update_mixin import (
+    UpdateMixin,
+)
+from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.view_mixin import (
+    ViewMixin,
+)
+from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.table_creation_mixin import (
+    TableCreationMixin,
+)
 
 from LiuXin_alpha.metadata.title_names import title_to_title_sort
 from LiuXin_alpha.databases.maintenance.dummy_maintenance_bot import DummyMaintenanceBot
 
+if TYPE_CHECKING:
+    from LiuXin_alpha.databases.api.database_api import DatabaseAPI
 
-def _create_new_database(conn):
+
+def _create_new_database(conn: SQLConnection) -> None:
     """
     Build the FRBR schema on a caller-owned SQLite connection.
 
@@ -116,7 +180,9 @@ class SQLite_Connection(SQLiteCompletionConnection):
 
     The get and get_row helpers forward positional arguments to execute and interpret
     only the all keyword. They do not commit or close the connection. Direct
-    construction uses sqlite3 defaults; driver-specific converters, callbacks and
+    construction uses sqlite3 defaults. Custom row factories may return arbitrary
+    objects, so all-row results are list[Any]; scalar/single-row modes retain the
+    native dynamic result. Driver-specific converters, callbacks and
     pragmas are installed by DatabaseDriver.get_connection instead.
 
     Example:
@@ -125,7 +191,34 @@ class SQLite_Connection(SQLiteCompletionConnection):
         (3, 4)
         >>> conn.close()
     """
-    def get(self, *args, **kw):
+
+    @overload
+    def get(
+        self, sql: str, parameters: SQLParameters = (), /, *,
+        all: Literal[True] = True, **options: object,
+    ) -> list[Any]: ...
+
+    @overload
+    def get(
+        self, sql: str, parameters: SQLParameters = (), /, *,
+        all: Literal[False], **options: object,
+    ) -> Any: ...
+
+    @overload
+    def get(
+        self, sql: str, parameters: SQLParameters = (), /, *,
+        all: bool, **options: object,
+    ) -> Any: ...
+
+    def get(
+        self,
+        sql: str,
+        parameters: SQLParameters = (),
+        /,
+        *,
+        all: bool = True,
+        **options: object,
+    ) -> Any:
         """
         Execute one statement and fetch all rows or the first scalar.
 
@@ -134,10 +227,8 @@ class SQLite_Connection(SQLiteCompletionConnection):
         None in scalar mode. Positional bindings pass directly to sqlite3; other keyword
         options are ignored and no transaction is committed.
 
-        The OperationalError handler accesses the obsolete exception.message attribute.
-        With standard Python 3 sqlite3 exceptions this raises AttributeError, masking
-        the original error instead of producing the intended diagnostic. Other execution
-        and fetch errors propagate.
+        Operational errors retain their SQLite exception type and original cause.
+        The cursor closes after fetching, including on failure.
 
         Example:
             >>> conn = SQLite_Connection(":memory:")
@@ -152,29 +243,52 @@ class SQLite_Connection(SQLiteCompletionConnection):
             >>> conn.close()
 
 
-        :param args: SQL statement followed, when needed, by its sequence or mapping of
-            bound values.
-        :param kw: Only all is consulted: defaults to True; any false value selects
-            scalar mode.
+        :param sql: SQL statement.
+        :param parameters: Positional or named SQL bindings.
+        :param all: True selects all rows; False selects the first scalar.
+        :param options: Other legacy keyword options are ignored.
         :return: A list of rows by default, or the first column of the first row in
             scalar mode; None for an absent scalar row.
         """
         try:
-            ans = self.execute(*args)
-        except sqlite3.OperationalError as e:
-            err_str = "Couldn't execute - operational error\n"
-            err_str += "args: {}\n".format(args)
-            err_str += "error message: {}\n".format(e.message)
-            err_str += "errors args: {}\n".format(e.args)
-            raise sqlite3.OperationalError(err_str)
-        if not kw.get("all", True):
-            ans = ans.fetchone()
-            if not ans:
-                ans = [None]
-            return ans[0]
-        return ans.fetchall()
+            cursor = self.execute(sql, parameters)
+        except sqlite3.OperationalError as exc:
+            raise sqlite3.OperationalError(
+                f"Couldn't execute - operational error: {exc}"
+            ) from exc
+        with closing(cursor):
+            if all:
+                return cursor.fetchall()
+            row = cursor.fetchone()
+            return row[0] if row else None
 
-    def get_row(self, *args, **kw):
+    @overload
+    def get_row(
+        self, sql: str, parameters: SQLParameters = (), /, *,
+        all: Literal[True] = True, **options: object,
+    ) -> list[Any]: ...
+
+    @overload
+    def get_row(
+        self, sql: str, parameters: SQLParameters = (), /, *,
+        all: Literal[False], **options: object,
+    ) -> Any: ...
+
+    @overload
+    def get_row(
+        self, sql: str, parameters: SQLParameters = (), /, *,
+        all: bool, **options: object,
+    ) -> Any: ...
+
+    def get_row(
+        self,
+        sql: str,
+        parameters: SQLParameters = (),
+        /,
+        *,
+        all: bool = True,
+        **options: object,
+    ) -> Any:
         """
         Execute one statement and fetch all rows or one complete row.
 
@@ -183,9 +297,8 @@ class SQLite_Connection(SQLiteCompletionConnection):
         options are ignored, while positional bindings go directly to execute. The
         helper neither commits nor closes the connection.
 
-        As in get, the OperationalError handler reads exception.message, which masks
-        standard Python 3 SQLite operational errors with AttributeError. Other execution
-        and fetch errors propagate.
+        Operational errors retain their SQLite exception type and original cause.
+        The cursor closes after fetching, including on failure.
 
         Example:
             >>> conn = SQLite_Connection(":memory:")
@@ -198,27 +311,24 @@ class SQLite_Connection(SQLiteCompletionConnection):
             >>> conn.close()
 
 
-        :param args: SQL statement followed by optional positional bindings accepted by
-            execute.
-        :param kw: Only all is consulted: defaults to True; any false value selects one-
-            row mode.
+        :param sql: SQL statement.
+        :param parameters: Positional or named SQL bindings.
+        :param all: True selects all rows; False selects one row.
+        :param options: Other legacy keyword options are ignored.
         :return: A list of rows by default, or one row when all is false; None if that
             single row is absent. Row shape follows the connection row factory.
         """
         try:
-            ans = self.execute(*args)
-        except sqlite3.OperationalError as e:
-            err_str = "Couldn't execute - operational error\n"
-            err_str += "args: {}\n".format(args)
-            err_str += "error message: {}\n".format(e.message)
-            err_str += "errors args: {}\n".format(e.args)
-            raise sqlite3.OperationalError(err_str)
-        if not kw.get("all", True):
-            ans = ans.fetchone()
-            if not ans:
-                return None
-            return ans
-        return ans.fetchall()
+            cursor = self.execute(sql, parameters)
+        except sqlite3.OperationalError as exc:
+            raise sqlite3.OperationalError(
+                f"Couldn't execute - operational error: {exc}"
+            ) from exc
+        with closing(cursor):
+            if all:
+                return cursor.fetchall()
+            row = cursor.fetchone()
+            return row if row else None
 
 
 # Any method starting with the word direct is intended to be directly exposed to the outside world.
@@ -246,7 +356,7 @@ class DatabaseDriver(
     AddingMixin,
     UpdateMixin,
     ViewMixin,
-    TableCreationMixin
+    TableCreationMixin,
 ):
     """
     Compose the stdlib SQLite backend and shared SQL driver operations.
@@ -268,8 +378,15 @@ class DatabaseDriver(
         True
         >>> driver.close()
     """
+
     # Todo: This can get merged into the base class?
-    def __init__(self, db_metadata, db=None, set_conn=True, dirty_records_queue=None):
+    def __init__(
+        self,
+        db_metadata: dict[str, Any],
+        db: DatabaseAPI | None = None,
+        set_conn: bool = True,
+        dirty_records_queue: Queue[tuple[str, int, str]] | None = None,
+    ) -> None:
         """
         Initialize driver state and optionally open the primary connection.
 
@@ -337,7 +454,7 @@ class DatabaseDriver(
         ]
 
         # The maintenance bot allows the behavior of the database to be customized with python code.
-        self.maintainer_callback = DummyMaintenanceBot()
+        self.maintainer_callback: MaintenanceCallbackSinkAPI = DummyMaintenanceBot()
 
         # Parse some of the preference values which affect the behavior of the database
 
@@ -361,7 +478,7 @@ class DatabaseDriver(
     # Internal, implementation dependant method. Should not be exposed to the outside
     supports_normalized_search = True
 
-    def get_connection(self) -> "sqlite3.Connection":
+    def get_connection(self) -> sqlite3.Connection:
         """
         Open, configure and track a fresh SQLite connection.
 
@@ -383,9 +500,8 @@ class DatabaseDriver(
         Best-effort LANGUAGE_ID registration may seed and lock an existing FRBR
         languages table, committing changes; exceptions from that registration are
         suppressed. Other setup failures propagate without guaranteed cleanup. The
-        opening OperationalError handler reads obsolete exception.message, so standard
-        Python 3 errors become AttributeError before its intended DatabaseDriverError
-        can be raised.
+        opening OperationalError handler reports DatabaseDriverError with the original
+        SQLite diagnostic.
 
         Example:
             >>> driver = DatabaseDriver({"database_path": ":memory:"}, set_conn=False)
@@ -431,12 +547,12 @@ class DatabaseDriver(
             )
 
             # Aggregator allows sets of unicode to be stored directly as the result of queries
-            conn.create_aggregate("pyset", 1, PySetAggregate)
-            conn.create_aggregate("sortag", 1, SortAggregate)
-            conn.create_aggregate("pylist", 1, PyListAggregate)
+            register_sqlite_aggregate(conn, "pyset", 1, PySetAggregate)
+            register_sqlite_aggregate(conn, "sortag", 1, SortAggregate)
+            register_sqlite_aggregate(conn, "pylist", 1, PyListAggregate)
 
         except sqlite3.OperationalError as e:
-            error_message = e.message
+            error_message = str(e)
             err_str = "Unable to open database connection.\n"
             err_str += "error_message: {}\n".format(error_message)
             err_str += "database_path: {}\n".format(self.database_path)
@@ -453,7 +569,7 @@ class DatabaseDriver(
             default_log.warn("Warning - foreign key support not enabled.")
 
         # Adds regex search support to the connection
-        def regexp(expr, item):
+        def regexp(expr: str, item: str) -> bool:
             """
             Search a value using a freshly compiled Python regular expression.
 
@@ -490,13 +606,27 @@ class DatabaseDriver(
 
         # More generally, add a function which will callback to the maintenance bot to tell it that particular row in
         # a table has changed and might need attention
-        conn.create_function("DIRTY_RECORD", 2, lambda table, row_id: self.maintainer_callback.dirty_record(table, row_id))
         conn.create_function(
-            "DIRTY_INTERLINK_RECORD", 5,
-            lambda update_type, table1, table2, table1_id, table2_id:
-                self.maintainer_callback.dirty_interlink_record(update_type, table1, table2, table1_id, table2_id),
+            "DIRTY_RECORD",
+            2,
+            lambda table, row_id: self.maintainer_callback.dirty_record(table, row_id),
         )
-        conn.create_function("NEW_DIRTY_RECORD", 2, lambda table, row_id: self.maintainer_callback.new_dirty_record(table, row_id))
+        conn.create_function(
+            "DIRTY_INTERLINK_RECORD",
+            5,
+            lambda update_type, table1, table2, table1_id, table2_id: (
+                self.maintainer_callback.dirty_interlink_record(
+                    update_type, table1, table2, table1_id, table2_id
+                )
+            ),
+        )
+        conn.create_function(
+            "NEW_DIRTY_RECORD",
+            2,
+            lambda table, row_id: self.maintainer_callback.new_dirty_record(
+                table, row_id
+            ),
+        )
 
         # calibre - functions included here for compatibility
         conn.create_function("title_sort", 1, title_to_title_sort)
@@ -509,16 +639,22 @@ class DatabaseDriver(
         conn.create_collation("icucollate", icu_collator)
 
         # calibre aggregate functions, included here for compatibility
-        conn.create_aggregate("aum_sortconcat", 4, SqliteAumSortedConcatenate)
+        register_sqlite_aggregate(conn, "aum_sortconcat", 4, SqliteAumSortedConcatenate)
 
-        conn.create_aggregate("concat", 1, Concatenate)
-        conn.create_aggregate("concat_error", 1, StupidConcatenate)
+        register_sqlite_aggregate(conn, "concat", 1, SqliteConcatenate)
+        register_sqlite_aggregate(conn, "concat_error", 1, SqliteStupidConcatenate)
 
-        conn.create_aggregate("identifiers_concat", 2, IdentifiersConcat)
+        register_sqlite_aggregate(
+            conn, "identifiers_concat", 2, SqliteIdentifiersConcat
+        )
 
-        conn.create_aggregate("sortconcat", 2, SqliteSortedConcatenate)
-        conn.create_aggregate("sortconcat_bar", 2, partial(SqliteSortedConcatenate, sep="|"))
-        conn.create_aggregate("sortconcat_amper", 2, partial(SqliteSortedConcatenate, sep="&"))
+        register_sqlite_aggregate(conn, "sortconcat", 2, SqliteSortedConcatenate)
+        register_sqlite_aggregate(
+            conn, "sortconcat_bar", 2, partial(SqliteSortedConcatenate, sep="|")
+        )
+        register_sqlite_aggregate(
+            conn, "sortconcat_amper", 2, partial(SqliteSortedConcatenate, sep="&")
+        )
 
         # Register the custom collators (ported from calibre, for compatibility)
         encoding = next(conn.execute("PRAGMA encoding"))[0]
@@ -527,24 +663,27 @@ class DatabaseDriver(
         # FRBR constants convenience: resolve language tokens to `languages.language_id`.
         # Safe no-op on non-FRBR databases.
         try:
-            from LiuXin_alpha.utils.language_tools import register_language_id_sql_function
+            from LiuXin_alpha.utils.language_tools import (
+                register_language_id_sql_function,
+            )
 
-            register_language_id_sql_function(conn, function_name="LANGUAGE_ID", ensure_seeded=True)
+            register_language_id_sql_function(
+                conn, function_name="LANGUAGE_ID", ensure_seeded=True
+            )
         except Exception:
             pass
 
         self._configure_progress_handler(conn)
         return self._register_open_connection(conn)
 
-    def last_modified(self) -> "datetime.date":
+    def last_modified(self) -> "datetime.datetime":
         """
         Read the configured database file modification time in UTC.
 
         Stat database_path on each call and convert st_mtime with utcfromtimestamp. This
         is the main file timestamp, so it may not reflect changes still held in a WAL or
-        an uncommitted transaction. The result is a timezone-aware datetime despite the
-        legacy date annotation. Missing-file and other stat errors propagate; no
-        connection is opened.
+        an uncommitted transaction. The result is a timezone-aware datetime.
+        Missing-file and other stat errors propagate; no connection is opened.
 
         Example:
             >>> import tempfile
@@ -634,7 +773,6 @@ class DatabaseDriver(
 
         Example:
             >>> driver = DatabaseDriver({"database_path": ":memory:"})
-            0
             >>> _ = driver.conn.execute("CREATE TABLE sample (value TEXT)")
             >>> _ = driver.conn.execute("INSERT INTO sample VALUES (?)", ("saved",))
             >>> lines = list(driver.sql_dump())
@@ -655,11 +793,19 @@ class DatabaseDriver(
         :return: Iterator of SQL text lines; SQL execution and transaction effects occur
             during iteration.
         """
-        with self.conn:
-            for line in self.conn.iterdump():
-                yield line
+        connection = self.conn
+        if not isinstance(connection, sqlite3.Connection):
+            raise DatabaseDriverError(
+                "A live SQLite primary connection is required to dump SQL"
+            )
+        with connection:
+            yield from connection.iterdump()
 
-    def dump_and_restore(self, callback=lambda x: x, sql=None) -> None:
+    def dump_and_restore(
+        self,
+        callback: Callable[[str], object] | None = lambda x: x,
+        sql: str | bytes | None = None,
+    ) -> None:
         """
         Rebuild the file from its SQL dump, replace it and reopen the driver.
 
@@ -704,7 +850,7 @@ class DatabaseDriver(
         """
         if callback is None:
 
-            def callback(x):
+            def silent_callback(x: str) -> str:
                 """
                 Return a progress value unchanged when no callback was supplied.
 
@@ -723,10 +869,16 @@ class DatabaseDriver(
                 """
                 return x
 
-        uv = int(self.user_version)
+            callback = silent_callback
+
+        version = self.user_version
+        if version is None:
+            raise DatabaseDriverError(
+                "A readable user_version is required to rebuild the database"
+            )
+        uv = int(version)
 
         with TemporaryFile(suffix=".sql") as fname:
-
             # --------------------
             # Write dump (optionally prefixed with extra SQL)
             # --------------------
@@ -762,10 +914,14 @@ class DatabaseDriver(
             # --------------------
             # Restore into temp db
             # --------------------
-            with TemporaryFile(suffix="_tmpdb.db", dir=os.path.dirname(self.database_path)) as tmpdb:
+            with TemporaryFile(
+                suffix="_tmpdb.db", dir=os.path.dirname(self.database_path)
+            ) as tmpdb:
                 callback(_("Restoring database from SQL") + "...")
 
-                restore_conn = SQLite_Connection(tmpdb, detect_types=sqlite3.PARSE_DECLTYPES)
+                restore_conn = SQLite_Connection(
+                    tmpdb, detect_types=sqlite3.PARSE_DECLTYPES
+                )
                 # Allow iterdump()'s explicit BEGIN/COMMIT statements to run without
                 # sqlite3 implicitly starting its own transaction (fixes 'cannot start a transaction within a transaction').
                 restore_conn.isolation_level = None
@@ -783,7 +939,9 @@ class DatabaseDriver(
 
                     # Register the custom collator (ported from calibre)
                     encoding = next(restore_conn.execute("PRAGMA encoding"))[0]
-                    restore_conn.create_collation("PYNOCASE", partial(pynocase, encoding=encoding))
+                    restore_conn.create_collation(
+                        "PYNOCASE", partial(pynocase, encoding=encoding)
+                    )
 
                     # Stream the SQL file to avoid loading huge dumps into memory
                     statement = ""

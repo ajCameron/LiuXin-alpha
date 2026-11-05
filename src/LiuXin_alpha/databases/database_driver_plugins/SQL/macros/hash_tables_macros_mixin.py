@@ -1,4 +1,3 @@
-
 """
 Retain the legacy table-hash entry point as an MD5 fingerprint alias.
 
@@ -9,15 +8,14 @@ supplied by SQLPortableMacrosMixin; no hashing or query logic is duplicated here
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Iterable
+from LiuXin_alpha.databases.database_driver_plugins._macro_state import (
+    MacroHostState,
+    macro_operations,
+)
+from typing import Iterable
 
-if TYPE_CHECKING:
 
-    from LiuXin_alpha.databases.api.database_api import DatabaseAPI
-
-
-
-class HashTablesMacrosMixin:
+class HashTablesMacrosMixin(MacroHostState):
     """
     Adapt legacy hash_table calls to the host's table fingerprint service.
 
@@ -28,8 +26,6 @@ class HashTablesMacrosMixin:
         ``SQLiteDatabaseMacros(db).hash_table("works", ("work_id", "work_title"))``
         uses the composed portable fingerprint implementation with MD5.
     """
-
-    db: "DatabaseAPI"
 
     def hash_table(self, target_table: str, columns: Iterable[str]) -> str:
         """
@@ -54,7 +50,7 @@ class HashTablesMacrosMixin:
             consumed into a tuple.
         :return: The delegated fingerprint string, normally the hexadecimal MD5 digest.
         """
-        return self.fingerprint_table(
+        return macro_operations(self).fingerprint_table(
             target_table,
             columns=tuple(columns),
             algorithm="md5",

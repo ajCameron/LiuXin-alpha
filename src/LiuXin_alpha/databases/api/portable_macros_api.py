@@ -4,6 +4,8 @@ Define portable relational operations for rows, links and normalized identities.
 PortableMacrosAPI is an abstract contract. The SQLPortableMacrosMixin supplies the
 shared SQLite/PostgreSQL implementation described here. Callers obtain concrete macros
 from their database driver; these abstract method bodies do not execute SQL.
+DatabaseMacrosAPI additionally declares the facade binding and SQL shortcuts shared
+by both backends. MacrosAPI adds the optional legacy SQLite compatibility surface.
 """
 
 from __future__ import annotations
@@ -13,9 +15,12 @@ from collections.abc import Iterable, Mapping
 from contextlib import AbstractContextManager
 from typing import TYPE_CHECKING, Any
 
-from LiuXin_alpha.databases.db_types.driver_types import QueryConnection
+from LiuXin_alpha.databases.db_types.driver_types import (
+    QueryConnection, SQLConnection, SQLExecuteOperation, SQLExecuteManyOperation, SQLGetOperation,
+)
 from LiuXin_alpha.databases.db_types.macro_types import (
     LINK_TYPE_UNSET,
+    LegacyLinkData,
     CanonicalIdentity,
     LinkedTableRow,
     LinkRow,
@@ -26,6 +31,9 @@ from LiuXin_alpha.databases.db_types.macro_types import (
 from LiuXin_alpha.databases.schema_specs import StorageLinkSpec
 
 if TYPE_CHECKING:
+    from LiuXin_alpha.databases.api.database_api.database_api import DatabaseAPI
+    from LiuXin_alpha.databases.db_types.repair_types import PhysicalReference
+    from LiuXin_alpha.databases.db_types.query_types import RowPredicate
     from LiuXin_alpha.databases.query_indexes import QueryIndexReport
 
 
@@ -54,7 +62,14 @@ class PortableMacrosAPI(abc.ABC):
         """Report support for the shared text and identifier comparison policies."""
 
     @abc.abstractmethod
-    def find_rows_matching(self, table, predicate, *, limit=100, offset=0):
+    def find_rows_matching(
+        self,
+        table: str,
+        predicate: RowPredicate,
+        *,
+        limit: int | None = 100,
+        offset: int = 0,
+    ) -> tuple[Mapping[str, Any], ...]:
         """Read physical predicate matches in ID order with bound SQL pagination.
 
         The driver must support normalized search. Invalid identifiers/paging
@@ -63,7 +78,9 @@ class PortableMacrosAPI(abc.ABC):
         """
 
     @abc.abstractmethod
-    def transaction(self, *, serialized: bool = False, require_outermost: bool = False) -> AbstractContextManager[Any]:
+    def transaction(
+        self, *, serialized: bool = False, require_outermost: bool = False
+    ) -> AbstractContextManager[SQLConnection]:
         """
         Open or join the transaction shared by nested portable macro calls.
 
@@ -96,7 +113,7 @@ class PortableMacrosAPI(abc.ABC):
         """
 
     @abc.abstractmethod
-    def read_transaction(self) -> AbstractContextManager[Any]:
+    def read_transaction(self) -> AbstractContextManager[SQLConnection]:
         """Own a read-only snapshot for composed portable reads.
 
         Refuse nesting or borrowing an active transaction. PostgreSQL uses
@@ -105,11 +122,11 @@ class PortableMacrosAPI(abc.ABC):
         """
 
     @abc.abstractmethod
-    def inspect_repair_references(self, table: str) -> list[dict]:
+    def inspect_repair_references(self, table: str) -> list[PhysicalReference]:
         """Inventory inbound physical and polymorphic references without changing data."""
 
     @abc.abstractmethod
-    def lock_repair_references(self, table: str) -> list[dict]:
+    def lock_repair_references(self, table: str) -> list[PhysicalReference]:
         """Reserve source/reference tables in an owned serialized repair transaction."""
 
     @abc.abstractmethod
@@ -117,7 +134,7 @@ class PortableMacrosAPI(abc.ABC):
         """Persist an immutable JSON receipt in the caller's serialized repair transaction."""
 
     @abc.abstractmethod
-    def get_catalog_repair_receipt(self, receipt_id: str) -> dict | None:
+    def get_catalog_repair_receipt(self, receipt_id: str) -> dict[str, Any] | None:
         """Read one receipt, returning None without installing optional audit storage."""
 
     @abc.abstractmethod
@@ -751,7 +768,6 @@ class PortableMacrosAPI(abc.ABC):
             cannot recover a required inserted row.
         """
 
-
     @abc.abstractmethod
     def derive_identity_value(
         self,
@@ -1331,4 +1347,136 @@ class PortableMacrosAPI(abc.ABC):
         """
 
 
-__all__ = ["PortableMacrosAPI"]
+class DatabaseMacrosAPI(PortableMacrosAPI, abc.ABC):
+    """Own shared operations without promising backend-specific legacy SQL."""
+
+    db: DatabaseAPI | None
+
+    @abc.abstractmethod
+    def __init__(self, db: "DatabaseAPI | None") -> None:
+        """
+        Bind a concrete macro provider to its database host.
+
+        SQLiteDatabaseMacros delegates to MacrosBase, which stores db without opening an
+        additional connection here.
+
+        Example:
+            macros = SQLiteDatabaseMacros(db)
+
+
+        :param db: Database providing driver_wrapper, driver connections, row helpers
+            and portable macro services; None represents a detached provider.
+        :return: None; the abstract method supplies no implementation.
+        """
+
+    @abc.abstractmethod
+    def direct_update_column_in_table(
+        self, table: str, column: str, table_id_col: str, item_id: int, new_value: Any
+    ) -> None:
+        """
+        Update one physical column and its known normalized identity when available.
+
+        If a default identity declaration exists and its identity column is present,
+        derive and write both values in one statement. Otherwise update only the
+        requested column. This bypasses Row.sync and does not explicitly refresh caches.
+
+        Example:
+            macros.direct_update_column_in_table("tags", "tag", "tag_id", 7, "History")
+
+
+        :param table: Trusted physical table name.
+        :param column: Column receiving new_value.
+        :param table_id_col: Column used to select the target row.
+        :param item_id: ID or key value matched in table_id_col.
+        :param new_value: Replacement stored value; None also clears an available
+            identity column.
+        :return: None; the abstract method supplies no implementation.
+        """
+
+        ...
+
+    @property
+    @abc.abstractmethod
+    def execute(self) -> SQLExecuteOperation:
+        """
+        Expose the host driver-wrapper single-statement executor.
+
+        This is a property returning a bound callable, not an execution performed while
+        reading the property.
+
+        Example:
+            macros.execute("SELECT 1")
+
+
+        :return: Callable db.driver_wrapper.execute on the current SQLite provider.
+        """
+
+        ...
+
+    @property
+    @abc.abstractmethod
+    def executemany(self) -> SQLExecuteManyOperation:
+        """
+        Expose the host driver-wrapper batch executor.
+
+        Example:
+            macros.executemany("UPDATE tags SET tag=? WHERE tag_id=?", [("History", 7)])
+
+
+        :return: Callable db.driver_wrapper.executemany on the current SQLite provider.
+        """
+
+        ...
+
+    @property
+    @abc.abstractmethod
+    def get(self) -> SQLGetOperation:
+        """
+        Expose the bound wrapper result-fetching compatibility helper.
+
+        Result shape and keyword handling belong to that host helper rather than this
+        abstract property.
+
+        Example:
+            rows = macros.get("SELECT tag_id FROM tags")
+
+
+        :return: Callable db.get supplied by the database host.
+        """
+
+        ...
+
+    @abc.abstractmethod
+    def get_link_data(
+        self,
+        table1: str,
+        table2: str,
+        table1_id: int,
+        typed: bool = False,
+        priority: bool = False,
+    ) -> LegacyLinkData:
+        """
+        Return one primary row’s linked IDs in a legacy cache container.
+
+        The SQLite implementation delegates to portable link-row retrieval. With no link
+        spec, return an empty list or set based only on priority, even when typed=True.
+        List order follows link-row retrieval, and numeric priority values are not
+        included.
+
+        Example:
+            agents_by_role = macros.get_link_data("works", "agents", work_id,
+            typed=True, priority=True)
+
+
+        :param table1: Primary table.
+        :param table2: Secondary table resolved through the oriented link specification.
+        :param table1_id: Primary row ID.
+        :param typed: Group results by link_type when true.
+        :param priority: Use ordered lists instead of sets when true.
+        :return: Set/list of secondary IDs, or a defaultdict of per-type sets/lists.
+        """
+
+        ...
+
+
+__all__ = ["PortableMacrosAPI", "DatabaseMacrosAPI"]

@@ -22,6 +22,8 @@ from LiuXin_alpha.utils.localization import _
 
 from LiuXin_alpha.databases.constants import VALID_DATA_TYPES
 
+from collections.abc import MutableMapping
+
 
 def calibre_name_to_liuxin_name(table_name: str) -> str:
     """
@@ -721,7 +723,7 @@ class FieldMetadata(dict):
         self._tb_cats = OrderedDict()
         self._tb_custom_fields = {}
         self._search_term_map = {}
-        self.custom_label_to_key_map = {}
+        self.custom_label_to_key_map: MutableMapping[str, str] = {}
 
         for k, v in self._field_metadata:
             if v["kind"] == "field" and v["datatype"] not in self.VALID_DATA_TYPES:
@@ -2131,7 +2133,7 @@ class CalibreFieldMetadata(dict):
         self._tb_cats = OrderedDict()
         self._tb_custom_fields = {}
         self._search_term_map = {}
-        self.custom_label_to_key_map = {}
+        self.custom_label_to_key_map: MutableMapping[str, str] = {}
         for k, v in self._field_metadata:
             if v["kind"] == "field" and v["datatype"] not in self.VALID_DATA_TYPES:
                 raise ValueError("Unknown datatype %s for field %s" % (v["datatype"], k))

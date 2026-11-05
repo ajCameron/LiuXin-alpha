@@ -11,8 +11,11 @@ implementations where relevant.
 from __future__ import annotations
 
 import abc
-from collections.abc import Iterable
-from typing import Any, Optional, Sequence, Union
+from collections.abc import Callable, Iterable, Iterator, Mapping
+from os import PathLike
+import pathlib
+from queue import Queue
+from typing import TYPE_CHECKING, Any, Literal, Optional, Sequence, Union, TypeVar
 
 from LiuXin_alpha.databases.api.driver_api.mixins.add_mixin_api import DriverAddMixinAPI
 from LiuXin_alpha.databases.api.driver_api.mixins.custom_columns_mixin_api import (
@@ -57,14 +60,23 @@ from LiuXin_alpha.databases.api.driver_api.mixins.update_mixin_api import (
 from LiuXin_alpha.databases.api.driver_api.mixins.view_mixin_api import (
     DriverViewMixinAPI,
 )
-from LiuXin_alpha.databases.api.macros_api import MacrosAPI
+from LiuXin_alpha.databases.api.portable_macros_api import DatabaseMacrosAPI
 from LiuXin_alpha.databases.db_types.backend_capabilities import BackendCapabilities
 from LiuXin_alpha.databases.db_types.driver_types import (
     QueryConnection,
+    SQLConnection,
+    RowSQLConnection,
     QueryCursor,
     SQLParameters,
 )
 from LiuXin_alpha.databases.schema_specs import PhysicalTableSpec
+
+if TYPE_CHECKING:
+    from LiuXin_alpha.databases.api.database_api.database_api import DatabaseAPI
+    from LiuXin_alpha.databases.api.maintenance_api import MaintenanceCallbackSinkAPI
+
+
+ConnectionT = TypeVar("ConnectionT", bound=SQLConnection)
 
 
 class DatabaseDriverAPI(
@@ -100,10 +112,19 @@ class DatabaseDriverAPI(
         True
     """
 
-    conn: QueryConnection | None
+    conn: SQLConnection | None
+    db: DatabaseAPI | None
+    dirty_records_queue: Queue[tuple[str, int, str]] | None
+    maintainer_callback: MaintenanceCallbackSinkAPI
 
     @abc.abstractmethod
-    def __init__(self, db_metadata, db=None, set_conn=True, dirty_records_queue=None) -> None:
+    def __init__(
+        self,
+        db_metadata: dict[str, Any],
+        db: DatabaseAPI | None = None,
+        set_conn: bool = True,
+        dirty_records_queue: Queue[tuple[str, int, str]] | None = None,
+    ) -> None:
         """
         Initialize driver state and optionally open the primary connection.
 
@@ -132,6 +153,23 @@ class DatabaseDriverAPI(
         :param dirty_records_queue: Queue or other object retained for later
             dirty-record handling; not consumed here.
         :return: None; initializes this driver and possibly its primary connection.
+        """
+
+    @abc.abstractmethod
+    def _read_row_for_update(
+        self,
+        connection: RowSQLConnection,
+        table: str,
+        id_column: str,
+        row_id: Any,
+        *,
+        lock_row: bool = False,
+    ) -> dict[str, Any] | None:
+        """Read stored values on the caller's connection without completing it.
+
+        Use the physical table's headings and backend qualification; request a
+        row lock only where supported. Missing records return None. Database
+        cell values, including the bound identity, remain backend-defined.
         """
 
     @staticmethod
@@ -174,7 +212,9 @@ class DatabaseDriverAPI(
         """
 
     @abc.abstractmethod
-    def _coerce_db_value(self, value: Any, declared_type: Any) -> Optional[Union[bool, int, float, str, bytes]]:
+    def _coerce_db_value(
+        self, value: Any, declared_type: Any
+    ) -> Optional[Union[bool, int, float, str, bytes]]:
         """
         Convert a database cell according to the declared type's conversion bucket.
 
@@ -208,7 +248,9 @@ class DatabaseDriverAPI(
 
     @staticmethod
     @abc.abstractmethod
-    def _coerce_untyped_value(value: Any) -> Optional[Union[bool, int, float, str, bytes]]:
+    def _coerce_untyped_value(
+        value: Any,
+    ) -> Optional[Union[bool, int, float, str, bytes]]:
         """
         Preserve scalar numeric kinds and stringify values without a declared type.
 
@@ -255,7 +297,7 @@ class DatabaseDriverAPI(
         """
 
     @abc.abstractmethod
-    def _register_open_connection(self, conn: Any) -> None:
+    def _register_open_connection(self, conn: ConnectionT) -> ConnectionT:
         """
         Track a connection for later bulk closing and return it unchanged.
 
@@ -274,11 +316,12 @@ class DatabaseDriverAPI(
 
     @abc.abstractmethod
     def _row_to_dict(
-            self,
-            *,
-            table: Optional[str] = None,
-            headings: Sequence[Any],
-            row: Sequence[Any]) -> dict[Any, Any]:
+        self,
+        *,
+        table: Optional[str] = None,
+        headings: Sequence[Any],
+        row: Sequence[Any],
+    ) -> dict[Any, Any]:
         """
         Pair headings with converted row cells, retaining set-valued cells by identity.
 
@@ -312,7 +355,9 @@ class DatabaseDriverAPI(
 
     @staticmethod
     @abc.abstractmethod
-    def _sanitize_embedded_nul_text(*, target_table: str, row_dict: dict) -> None:
+    def _sanitize_embedded_nul_text(
+        *, target_table: str, row_dict: dict[str, Any]
+    ) -> None:
         """
         Replace embedded NUL characters in string values with visible ``<NUL>`` text.
 
@@ -408,7 +453,9 @@ class DatabaseDriverAPI(
         """
 
     @abc.abstractmethod
-    def direct_backup(self, path=None):
+    def direct_backup(
+        self, path: str | PathLike[str] | None = None
+    ) -> str | PathLike[str]:
         """
         Copy the database file using the local backup helper inside a connection
         context.
@@ -436,7 +483,9 @@ class DatabaseDriverAPI(
         owns and releases its connections, and publication must detect collisions.
         """
 
-    def direct_replace_database(self, *, backup_path):
+    def direct_replace_database(
+        self, *, backup_path: str | PathLike[str]
+    ) -> pathlib.Path:
         """
         Replace offline storage with a required backup, if the backend supports it.
         """
@@ -459,7 +508,9 @@ class DatabaseDriverAPI(
         """Return non-partial unique index columns for relationship introspection."""
 
     @abc.abstractmethod
-    def direct_execute(self, sql: str, values: SQLParameters | int | None = None) -> QueryCursor:
+    def direct_execute(
+        self, sql: str, values: SQLParameters | int | None = None
+    ) -> QueryCursor:
         """
         Execute one statement using a live primary connection and its transaction
         context.
@@ -484,7 +535,9 @@ class DatabaseDriverAPI(
         """
 
     @abc.abstractmethod
-    def direct_executemany(self, sql: str, values: Iterable[SQLParameters] | None = None) -> None:
+    def direct_executemany(
+        self, sql: str, values: Iterable[SQLParameters] | None = None
+    ) -> None:
         """
         Execute a batch on the primary connection, or delegate an unbound script.
 
@@ -506,7 +559,6 @@ class DatabaseDriverAPI(
         :return: ``None``.
         """
 
-
     @abc.abstractmethod
     def direct_get_db_unique_id(self) -> Optional[str]:
         """
@@ -527,7 +579,7 @@ class DatabaseDriverAPI(
         """
 
     @abc.abstractmethod
-    def direct_get_null_row(self, table: str) -> Optional[dict[str, Any]] | bool:
+    def direct_get_null_row(self, table: str) -> dict[str, Any] | Literal[False]:
         """
         Check for and fetch the ID-zero row using separate queries.
 
@@ -581,10 +633,11 @@ class DatabaseDriverAPI(
 
     @abc.abstractmethod
     def direct_update_null_row(
-            self,
-            table: str,
-            updates: Optional[dict[str, Any]] = None,
-            **fields: Any) -> bool:
+        self,
+        table: str,
+        updates: Mapping[str, Any] | Iterable[tuple[str, Any]] | None = None,
+        **fields: Any,
+    ) -> bool:
         """
         Merge updates and delegate a sentinel-row update to the row writer.
 
@@ -630,7 +683,11 @@ class DatabaseDriverAPI(
         """
 
     @abc.abstractmethod
-    def dump_and_restore(self, callback=lambda x: x, sql: Optional[str] = None) -> None:
+    def dump_and_restore(
+        self,
+        callback: Callable[[str], object] | None = lambda x: x,
+        sql: str | bytes | None = None,
+    ) -> None:
         """
         Rebuild the file from its SQL dump, replace it and reopen the driver.
 
@@ -675,7 +732,9 @@ class DatabaseDriverAPI(
         """
 
     @abc.abstractmethod
-    def direct_execute_sql(self, sql: str, parameters=None) -> Optional[int]:
+    def direct_execute_sql(
+        self, sql: str, parameters: SQLParameters | None = None
+    ) -> Optional[int]:
         """
         Execute one statement on a fresh connection and commit.
 
@@ -695,7 +754,7 @@ class DatabaseDriverAPI(
         """
 
     @abc.abstractmethod
-    def direct_executescript(self, sqlscript):
+    def direct_executescript(self, sqlscript: str) -> None:
         """
         Run trusted multi-statement SQL on the primary connection and refresh caches.
 
@@ -731,11 +790,10 @@ class DatabaseDriverAPI(
         :return: Whether ``os.path.exists(database_path)`` succeeds.
         """
 
-
     # Todo: Need a protocol for this
     # Todo: direct_*
     @abc.abstractmethod
-    def get_connection(self) -> QueryConnection:
+    def get_connection(self) -> SQLConnection:
         """
         Open, configure and track a fresh SQLite connection.
 
@@ -773,7 +831,7 @@ class DatabaseDriverAPI(
         """
 
     @abc.abstractmethod
-    def get_id_from_row_dict(self, row_dict: dict[str, Any]) -> int:
+    def get_id_from_row_dict(self, row_dict: dict[str, Any]) -> Any:
         """
         Infer the row table and extract its ID column when present.
 
@@ -794,9 +852,10 @@ class DatabaseDriverAPI(
 
     @abc.abstractmethod
     def direct_identify_table_from_column(
-            self,
-            column_heading: str,
-            headings_and_columns: Optional[dict[str, set[str]]] = None) -> str:
+        self,
+        column_heading: str,
+        headings_and_columns: Optional[dict[str, set[str]]] = None,
+    ) -> str:
         """
         Return the first table containing a column in the supplied or current mapping.
 
@@ -817,7 +876,9 @@ class DatabaseDriverAPI(
         """
 
     @abc.abstractmethod
-    def direct_identify_table_from_row(self, row_dict: dict[str, Any]) -> Optional[str]:
+    def direct_identify_table_from_row(
+        self, row_dict: dict[str, Any]
+    ) -> str | Literal[False]:
         """
         Find the first table whose columns contain every supplied row key.
 
@@ -839,11 +900,12 @@ class DatabaseDriverAPI(
 
     @abc.abstractmethod
     def direct_iterator_return(
-            self,
-            stmt: str,
-            headings: Iterable[str],
-            table: Optional[str] = None,
-            bindings: Optional[tuple[str, ...]] = None) -> None:
+        self,
+        stmt: str,
+        headings: Iterable[str],
+        table: Optional[str] = None,
+        bindings: SQLParameters | None = None,
+    ) -> Iterator[dict[str, Any]]:
         """
         Execute supplied SQL lazily and yield converted row dictionaries.
 
@@ -869,10 +931,9 @@ class DatabaseDriverAPI(
         :return: A generator of row dictionaries despite the None annotation.
         """
 
-
     @property
     @abc.abstractmethod
-    def macros(self) -> "MacrosAPI":
+    def macros(self) -> "DatabaseMacrosAPI":
         """
         Expose the macro helper already installed on this driver.
 
@@ -983,7 +1044,7 @@ class DatabaseDriverAPI(
         """
 
     @abc.abstractmethod
-    def sql_dump(self):
+    def sql_dump(self) -> Iterator[str]:
         """
         Yield SQL dump lines from the existing primary connection.
 

@@ -68,16 +68,14 @@ def get_SQLite_driver_master_version() -> str:
 
     md_constants_version = md_constants.__md_version__
 
-    import LiuXin_alpha.constants as lx_constants
-
-    lx_constants_version = lx_constants.__lx_constants_version__
+    # Preserve the persisted legacy spelling: the constants version was never
+    # interpolated into this string, despite the trailing constants label.
 
     version_str = "driver_version_SQLite-inbuilt-{}_database_version_{}_md_tools_version_{}_md_constants_{})_lx_constants".format(
         database_version,
         __driver_version__,
         LEGACY_METADATA_TOOLS_VERSION,
         md_constants_version,
-        lx_constants_version,
     )
     version_str = version_str.replace(",", "_")
     version_str = version_str.replace(" ", "_")

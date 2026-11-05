@@ -1,4 +1,3 @@
-
 """
 Specify creation of conventionally named main tables.
 
@@ -9,7 +8,8 @@ backend responsibilities, not behavior provided by these stubs.
 
 import abc
 
-from typing import Iterable, Any, Optional, Union
+from collections.abc import Mapping
+from typing import Iterable, Optional, Union
 
 
 class DriverTablesMixinAPI(abc.ABC):
@@ -27,14 +27,16 @@ class DriverTablesMixinAPI(abc.ABC):
         >>> inspect.isabstract(DriverTablesMixinAPI)
         True
     """
+
     @abc.abstractmethod
     def direct_create_main_table(
-            self,
-            table_name: str,
-            column_headings: Optional[Iterable[str]] = None,
-            index_on: Optional[Union[str, Iterable[str]]] = 'all',
-            default_datatype: str = 'TEXT',
-            default_unique: bool = False) -> None:
+        self,
+        table_name: str,
+        column_headings: Mapping[str, Mapping[str, str]] | None = None,
+        index_on: Optional[Union[str, Iterable[str]]] = "all",
+        default_datatype: str = "TEXT",
+        default_unique: bool = False,
+    ) -> None:
         """
         Create a conventionally named main table and invalidate schema caches.
 

@@ -7,12 +7,16 @@ are independent of ingest progress events and test resource telemetry.
 from __future__ import annotations
 
 import sqlite3
+from LiuXin_alpha.databases.db_types.driver_types import SQLConnection
+from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver._state import (
+    SQLDriverMixinState,
+)
 from collections.abc import Callable, Iterable
 
 ProgressCallback = Callable[[], bool | int | None]
 
 
-class SQLiteProgressMixin:
+class SQLiteProgressMixin(SQLDriverMixinState):
     """Configure optional callbacks on existing and future driver connections.
 
     Settings belong to one driver instance. Callers must serialize changes with
@@ -22,8 +26,7 @@ class SQLiteProgressMixin:
 
     _progress_callbacks: tuple[ProgressCallback, ...] = ()
     _progress_instruction_interval: int = 1000
-    _open_connections: list[sqlite3.Connection]
-    conn: sqlite3.Connection | None
+    _open_connections: list[SQLConnection]
 
     def set_progress_callbacks(
         self,
@@ -62,6 +65,10 @@ class SQLiteProgressMixin:
         for connection in (*self._open_connections, self.conn):
             if connection is None or id(connection) in seen:
                 continue
+            if not isinstance(connection, sqlite3.Connection):
+                raise TypeError(
+                    "SQLite progress callbacks require a native SQLite connection"
+                )
             seen.add(id(connection))
             try:
                 # The driver tracks handles which a borrower may already have closed.

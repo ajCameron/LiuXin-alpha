@@ -29,6 +29,7 @@ MERGE_JOBS = {
     "file-formats-fast",
     "file-formats-heavy",
     "full",
+    "database-regressions",
 }
 ALL_EVENTS = "github.event_name == 'push' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'"
 MERGE_EVENTS = (
@@ -97,7 +98,12 @@ def test_workflow_preserves_event_selection_and_dependency_extras() -> None:
     assert set(workflow["on"]) == {"push", "pull_request", "workflow_dispatch"}
     jobs = workflow["jobs"]
     assert set(jobs) == MERGE_JOBS | {"smoke", "tests-passed"}
-    for name in ("packaging", "quality-modern", "file-formats-fast"):
+    for name in (
+        "packaging",
+        "quality-modern",
+        "file-formats-fast",
+        "database-regressions",
+    ):
         assert jobs[name]["if"] == ALL_EVENTS
     for name in ("full", "file-formats-heavy"):
         assert jobs[name]["if"] == MERGE_EVENTS
@@ -335,3 +341,33 @@ def test_workflow_shell_bodies_are_valid_bash() -> None:
                     check=False,
                 )
                 assert result.returncode == 0, (job_id, step["name"], result.stderr)
+
+
+def test_database_ratchet_requires_all_backends_and_preserves_evidence():
+    job = _workflow()["jobs"]["database-regressions"]
+    assert job["services"]["postgres"]["image"] == "postgres:16"
+    install = next(
+        step
+        for step in job["steps"]
+        if step.get("name") == "Install database regression dependencies"
+    )
+    assert '".[test,postgres]" apsw' in install["run"]
+    run = next(
+        step
+        for step in job["steps"]
+        if step.get("name") == "Enforce database regression ratchet"
+    )
+    assert run["env"]["LIUXIN_TEST_POSTGRES_URL"]
+    assert (
+        run["env"]["BASELINE_REF"]
+        == "${{ github.event.pull_request.base.sha || github.event.before }}"
+    )
+    assert "--baseline-ref" in run["run"]
+    assert "run_database_regression_ratchet.py" in run["run"]
+    upload = next(
+        step
+        for step in job["steps"]
+        if step.get("uses") == "actions/upload-artifact@v4"
+    )
+    assert upload["if"] == "always()"
+    assert job["steps"][0]["with"]["fetch-depth"] == "0"

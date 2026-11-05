@@ -4,8 +4,11 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Callable
 from contextlib import closing
+from typing import TYPE_CHECKING, Any
 
+from LiuXin_alpha.databases.db_types.driver_types import SQLConnection
 from LiuXin_alpha.databases.maintenance.bound_connection import BoundConnection
 from LiuXin_alpha.databases.maintenance.capture import install_capture, remove_capture
 from LiuXin_alpha.databases.maintenance.declarations import (
@@ -20,8 +23,21 @@ from LiuXin_alpha.databases.maintenance.plugins import (
     MaintenancePluginUpgrade,
 )
 
+if TYPE_CHECKING:
+    from LiuXin_alpha.databases.maintenance.runtime import MaintenanceRuntime
 
-def _plan(runtime, connection, plugin_id, expected_version):
+
+def _plan(
+    runtime: MaintenanceRuntime,
+    connection: SQLConnection,
+    plugin_id: str,
+    expected_version: str,
+) -> tuple[
+    dict[str, Any],
+    MaintenancePluginUpgrade | None,
+    PluginDeclaration,
+    PluginDeclaration,
+]:
     if not runtime._refresh(connection):
         raise MaintenanceFailure("Install maintenance before upgrading plugins")
     installed = runtime._installed.get(plugin_id)
@@ -87,21 +103,27 @@ def _plan(runtime, connection, plugin_id, expected_version):
         if expanded == affected:
             break
         affected = expanded
-    blockers, pending, projections = [], {}, {}
+    blockers: list[str] = []
+    pending: dict[str, int] = {}
+    projections: dict[str, int] = {}
     for name in sorted(affected):
         declaration = combined[name]
         available = runtime._declarations.get(name)
         if available != declaration:
             blockers.append(f"Attach the compatible dependent implementation: {name}")
-        pending[name] = connection.execute(
+        pending_row = connection.execute(
             f"SELECT COUNT(*) FROM {runtime.table('maintenance_obligations')} "
             "WHERE plugin_id=? AND completed_ms IS NULL",
             (name,),
-        ).fetchone()[0]
-        projections[name] = connection.execute(
+        ).fetchone()
+        assert pending_row is not None, "COUNT must produce one row"
+        pending[name] = pending_row[0]
+        projection_row = connection.execute(
             f"SELECT COUNT(*) FROM {runtime.table('maintenance_projections')} WHERE plugin_id=?",
             (name,),
-        ).fetchone()[0]
+        ).fetchone()
+        assert projection_row is not None, "COUNT must produce one row"
+        projections[name] = projection_row[0]
         if pending[name] and (
             name != plugin_id
             or not policy.replay_pending
@@ -138,8 +160,13 @@ def _plan(runtime, connection, plugin_id, expected_version):
 
 
 def upgrade_plugin(
-    runtime, plugin_id, *, expected_version, expected_definition=None, dry_run=True
-):
+    runtime: MaintenanceRuntime,
+    plugin_id: str,
+    *,
+    expected_version: str,
+    expected_definition: str | None = None,
+    dry_run: bool = True,
+) -> dict[str, Any]:
     """Preview by default; recheck and migrate atomically under the writer lock.
 
     The attached implementation supplies its supported old version and migration
@@ -222,6 +249,7 @@ def upgrade_plugin(
                 (name,),
             ).close()
         runtime._refresh(connection)
+        assert policy is not None, "Changed upgrade plans require a migration policy"
         if policy.migrate is not None:
             _migrate(runtime, connection, target, previous, policy.migrate)
         with runtime._temporarily_external():
@@ -239,7 +267,13 @@ def upgrade_plugin(
         return receipt
 
 
-def _migrate(runtime, connection, target, previous, callback):
+def _migrate(
+    runtime: MaintenanceRuntime,
+    connection: SQLConnection,
+    target: PluginDeclaration,
+    previous: PluginDeclaration,
+    callback: Callable[[MaintenancePluginContext, PluginDeclaration], object],
+) -> None:
     bound = BoundConnection(connection)
     old = (
         getattr(runtime._local, "origin", ""),

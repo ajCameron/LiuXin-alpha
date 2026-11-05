@@ -1,4 +1,3 @@
-
 """
 Expose filesystem modification time using Calibre-compatible UTC datetime conversion.
 """
@@ -15,6 +14,8 @@ class CalibreEmulationMixin:
     Example:
         A file-backed driver supplies ``database_path`` for this mixin.
     """
+
+    database_path: str
 
     # ----------------------------------------------------------------------------------------------------------------------
     #
@@ -36,4 +37,3 @@ class CalibreEmulationMixin:
         import os
 
         return utcfromtimestamp(os.stat(self.database_path).st_mtime)
-

@@ -1,4 +1,3 @@
-
 """
 Provide the legacy insert-then-search helper for custom-column values.
 
@@ -10,24 +9,17 @@ transaction ownership determine whether this acts as deduplication.
 
 from __future__ import annotations
 
-import json
 
-from typing import Any, TYPE_CHECKING
+from LiuXin_alpha.databases.database_driver_plugins._macro_state import MacroHostState
+from typing import Any
+from collections.abc import Mapping
+from LiuXin_alpha.errors import DatabaseIntegrityError
 
-from LiuXin_alpha.utils.libraries.liuxin_six import iteritems
-
-from LiuXin_alpha.utils.language_tools import plural_singular_mapper
 
 from LiuXin_alpha.errors import DatabaseDriverError
 
-if TYPE_CHECKING:
 
-    from LiuXin_alpha.databases.api.database_api import DatabaseAPI
-
-
-
-
-class CustomColumnsEnsureValueMacrosMixin:
+class CustomColumnsEnsureValueMacrosMixin(MacroHostState):
     """
     Supply custom-value insertion and ID lookup to a host with a driver wrapper.
 
@@ -41,8 +33,6 @@ class CustomColumnsEnsureValueMacrosMixin:
         ``host.ensure_custom_column_value("custom_column_1", "A")``
         to attempt insertion and return the first matching ID.
     """
-
-    db: "DatabaseAPI"
 
     # ------------------------------------------------------------------------------------------------------------------
     #
@@ -94,15 +84,25 @@ class CustomColumnsEnsureValueMacrosMixin:
             identify a newly inserted row.
         """
         # Todo: Hopefully? Making a value column method would be good here.
-        cc_val_column = self.db.driver_wrapper.get_display_column(cc_table)
-        cc_id_column = self.db.driver_wrapper.get_id_column(cc_table)
+        cc_val_column = self._macro_database.driver_wrapper.get_display_column(cc_table)
+        cc_id_column = self._macro_database.driver_wrapper.get_id_column(cc_table)
 
         # Todo: The custom columns table have a different structure - account for it
         try:
-            insert_stmt = "INSERT INTO {0} ({1}) VALUES (?);".format(cc_table, cc_val_column)
-            self.db.driver_wrapper.execute(insert_stmt, (value,))
+            insert_stmt = "INSERT INTO {0} ({1}) VALUES (?);".format(
+                cc_table, cc_val_column
+            )
+            self._macro_database.driver_wrapper.execute(insert_stmt, (value,))
         except DatabaseDriverError:
             pass
 
-        search_stmt = "SELECT {0} FROM {1} WHERE {2} = ? ORDER BY {0};".format(cc_id_column, cc_table, cc_val_column)
-        return self.db.driver_wrapper.get(search_stmt, (value,))[0][0]
+        search_stmt = "SELECT {0} FROM {1} WHERE {2} = ? ORDER BY {0};".format(
+            cc_id_column, cc_table, cc_val_column
+        )
+        result = self._macro_database.driver_wrapper.get(search_stmt, (value,))
+        if result is None or not isinstance(result, list):
+            raise DatabaseIntegrityError(
+                "Custom-value lookup did not return a row list"
+            )
+        row = result[0]
+        return row[cc_id_column] if isinstance(row, Mapping) else row[0]

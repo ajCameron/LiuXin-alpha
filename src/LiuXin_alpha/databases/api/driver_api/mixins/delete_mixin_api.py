@@ -1,5 +1,3 @@
-
-
 """
 Specify row, value-batch and whole-table deletion operations.
 
@@ -10,7 +8,7 @@ abstract declarations add no rollback or cascade guarantees.
 
 import abc
 from collections.abc import Iterable
-from typing import Any, Iterable
+from typing import Any
 
 
 class DriverDeleteMixinAPI(abc.ABC):
@@ -50,11 +48,8 @@ class DriverDeleteMixinAPI(abc.ABC):
 
     @abc.abstractmethod
     def direct_delete(
-            self,
-            target_table: str,
-            column: str,
-            value: Any,
-            many: bool = False) -> bool:
+        self, target_table: str, column: str, value: Any, many: bool = False
+    ) -> bool:
         """
         Delete matching rows in an owned transaction and always close the connection.
 
@@ -71,10 +66,11 @@ class DriverDeleteMixinAPI(abc.ABC):
         :return: True after successful completion, including absent matches.
         """
 
-
     # Todo: Switch over to returning the affected ids?
     @abc.abstractmethod
-    def direct_delete_many(self, target_table: str, column: str, values: Iterable[Any]) -> bool:
+    def direct_delete_many(
+        self, target_table: str, column: str, values: Iterable[Any]
+    ) -> bool | None:
         """
         Delegate repeated column-value deletion to ``direct_delete``.
 
@@ -96,7 +92,9 @@ class DriverDeleteMixinAPI(abc.ABC):
         """
 
     @abc.abstractmethod
-    def direct_delete_many_by_ids(self, target_table: str, row_ids: Iterable[int]) -> bool:
+    def direct_delete_many_by_ids(
+        self, target_table: str, row_ids: Iterable[int]
+    ) -> bool:
         """
         Delete IDs atomically, rolling back every deletion if any row is protected.
 

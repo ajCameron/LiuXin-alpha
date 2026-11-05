@@ -11,7 +11,10 @@ import importlib.util
 import re
 import shlex
 from collections.abc import Iterable, Mapping
-from typing import Any
+from typing import Any, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from psycopg2.extras import RealDictCursor
 from urllib.parse import unquote, urlsplit
 
 from LiuXin_alpha.databases.database.constants import (
@@ -273,7 +276,7 @@ def format_postgres_self_test(result: Mapping[str, Any]) -> str:
 
 def _check_table_group(
     result: dict[str, Any],
-    cur: Any,
+    cur: RealDictCursor,
     *,
     label: str,
     schema: str,
@@ -395,7 +398,7 @@ def _add_check(result: dict[str, Any], name: str, ok: bool, message: str) -> Non
     result["ok"] = all(bool(check.get("ok")) for check in result["checks"])
 
 
-def _table_columns(cur: Any, table_name: str, *, schema: str = DEFAULT_POSTGRES_SCHEMA) -> set[str]:
+def _table_columns(cur: RealDictCursor, table_name: str, *, schema: str = DEFAULT_POSTGRES_SCHEMA) -> set[str]:
     """
     Read column names from information_schema for an exact schema/table pair.
 
@@ -420,7 +423,7 @@ def _table_columns(cur: Any, table_name: str, *, schema: str = DEFAULT_POSTGRES_
     return {str(_row_value(row, "column_name")) for row in cur.fetchall()}
 
 
-def _table_column_types(cur: Any, table_name: str, *, schema: str = DEFAULT_POSTGRES_SCHEMA) -> dict[str, str]:
+def _table_column_types(cur: RealDictCursor, table_name: str, *, schema: str = DEFAULT_POSTGRES_SCHEMA) -> dict[str, str]:
     """
     Read information_schema data_type labels for the requested table.
 
@@ -448,7 +451,7 @@ def _table_column_types(cur: Any, table_name: str, *, schema: str = DEFAULT_POST
     }
 
 
-def _table_count(cur: Any, table_name: str, *, schema: str = DEFAULT_POSTGRES_SCHEMA) -> int:
+def _table_count(cur: RealDictCursor, table_name: str, *, schema: str = DEFAULT_POSTGRES_SCHEMA) -> int:
     """
     Count every row using separately quoted schema and table identifiers.
 
@@ -467,7 +470,7 @@ def _table_count(cur: Any, table_name: str, *, schema: str = DEFAULT_POSTGRES_SC
 
 
 def _missing_table_privileges(
-    cur: Any,
+    cur: RealDictCursor,
     table_names: Iterable[str],
     privileges: Iterable[str],
     *,
@@ -499,7 +502,7 @@ def _missing_table_privileges(
     return missing
 
 
-def _has_table_privilege(cur: Any, table_name: str, privilege: str, *, schema: str = DEFAULT_POSTGRES_SCHEMA) -> bool:
+def _has_table_privilege(cur: RealDictCursor, table_name: str, privilege: str, *, schema: str = DEFAULT_POSTGRES_SCHEMA) -> bool:
     """
     Ask PostgreSQL whether current_user has a named table privilege.
 
@@ -521,7 +524,7 @@ def _has_table_privilege(cur: Any, table_name: str, privilege: str, *, schema: s
     return bool(_row_value(cur.fetchone(), "ok"))
 
 
-def _scalar_text(cur: Any, sql: str) -> str:
+def _scalar_text(cur: RealDictCursor, sql: str) -> str:
     """
     Execute a scalar query and stringify the first mapping value.
 
