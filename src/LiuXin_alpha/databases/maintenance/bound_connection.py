@@ -13,6 +13,7 @@ from LiuXin_alpha.databases.db_types.driver_types import (
     SQLParameters,
 )
 from LiuXin_alpha.databases.transactions import transaction_active
+from LiuXin_alpha.databases.sql_statements import sqlite_row_operation as sqlite_row_operation
 
 
 class MaintenanceTransactionError(RuntimeError):
@@ -40,42 +41,6 @@ def statement_keyword(sql: str) -> str:
             match = re.match(r"[A-Za-z]+", text)
             return "" if match is None else match[0].upper()
 
-
-def sqlite_row_operation(sql: str) -> tuple[str, bool]:
-    """Identify a SQLite row operation, including CTEs and replacement conflicts.
-
-    Ignore quoted values/identifiers and comments. CTE bodies are parenthesized;
-    their SELECTs do not identify the outer operation. This only classifies row
-    SQL for transaction ownership, rather than validating arbitrary SQL syntax.
-    """
-    tokens = re.finditer(
-        r"--[^\n]*|/\*.*?\*/|'(?:''|[^'])*'|\"(?:\"\"|[^\"])*\""
-        r"|`(?:``|[^`])*`|\[[^\]]*\]|[A-Za-z_][A-Za-z_0-9]*|[()]",
-        str(sql),
-        flags=re.S,
-    )
-    depth, words = 0, []
-    for match in tokens:
-        token = match[0]
-        if token == "(":
-            depth += 1
-        elif token == ")":
-            depth -= 1
-        elif depth == 0 and token[0].isalpha():
-            words.append(token.upper())
-    if not words:
-        return "", False
-    operation = words[0]
-    if operation == "WITH":
-        for index, word in enumerate(words[1:], 1):
-            if word in {"SELECT", "INSERT", "UPDATE", "DELETE", "REPLACE"}:
-                words = words[index:]
-                operation = word
-                break
-    replacing = operation == "REPLACE" or (
-        operation in {"INSERT", "UPDATE"} and words[1:3] == ["OR", "REPLACE"]
-    )
-    return operation, replacing
 
 
 def reject_sqlite_replace(sql: str) -> None:

@@ -7,6 +7,18 @@ meaning belongs to metadata/Catalog; physical storage policy belongs to storage.
 
 ## Working guides and operational contracts
 
+- [Third driver-plugin review, 2026-11-06](database-driver-plugins-third-review-2026-11-06.md):
+  six reproduced findings, including CTE batch atomicity and PostgreSQL binary
+  round-trip corruption; implemented repairs and 148 added mandatory cases.
+
+- [Driver plugins follow-up review, 2026-11-05](database-driver-plugins-follow-up-review-2026-11-05.md):
+  partial batch success, remaining SQL-adaptation ambiguity, INCLUDE-key discovery
+  and the obsolete scratch surface; all four repaired/retired with 50 added
+  mandatory regression cases and an independent-working-copy migration guide.
+
+- [Database driver plugins review, 2026-11-05](database-driver-plugins-review-2026-11-05.md):
+  reproduced backup, connection-lifetime, PostgreSQL recovery/adaptation and
+  dump/restore findings, their implemented repairs and remaining structural work.
 - [Database regression ratchet, 2026-11-05](regression-ratchet-2026-11-05.md):
   typing findings, lifecycle/transaction mitigations and mandatory named regressions.
 

@@ -1271,24 +1271,6 @@ class Database(
         """
         self.driver.direct_backup()
 
-    # Todo: This is not, actually, write locking. This just makes a throwaway copy of the database
-    def lock_writing(self) -> None:
-        """
-        Request a scratch copy through the driver make_scratch hook.
-
-        This method does not acquire a write lock. The SQL base implementation copies
-        the database file and changes its path attribute without reopening existing
-        connections.
-
-        Example:
-            Call db.lock_writing() only when the selected backend scratch-copy behavior
-            is suitable; it is not a transaction lock.
-
-
-        :return: None; any scratch path returned by the driver is discarded.
-        """
-        self.driver.make_scratch()
-
     def create_new_database(self, blank: bool = True, backup: bool = True) -> None:
         """Request create-only initialization; never delete an existing database.
 

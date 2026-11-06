@@ -26,6 +26,13 @@ class _IndexedParameters(Protocol):
 type SQLiteParameters = _IndexedParameters | Mapping[str, Any]
 
 
+def connection_closed(connection: object) -> None:
+    """Release driver tracking only after the native handle closes successfully."""
+    callback = vars(connection).pop("_liuxin_on_close", None)
+    if callback is not None:
+        callback(connection)
+
+
 def flush_connection_work(connection: object) -> None:
     """Flush an explicitly installed hook without probing dynamic mock attributes."""
     try:
@@ -208,6 +215,11 @@ class SQLiteCompletionConnection(sqlite3.Connection):
             super().rollback()
             raise
         super().commit()
+
+    def close(self) -> None:
+        """Close without committing and promptly leave the driver's live registry."""
+        super().close()
+        connection_closed(self)
 
     def __exit__(
         self,

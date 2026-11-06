@@ -4,6 +4,34 @@ Date: **2026-10-20**. DB01–DB03 are implemented for PR review; the remaining e
 proposed work grounded in the driver/schema review. Cross-project order belongs
 to the [architecture tasks](../architectural_reviews/next_tasks.md).
 
+**2026-11-06 third driver review:** [DDP11–DDP16](database-driver-plugins-third-review-2026-11-06.md)
+have local repairs and 148 additional mandatory cases, increasing the gate from
+400 to 548. Explicit CTE-batch transactions, native PostgreSQL value preservation,
+completed RETURNING results, exception-safe group cleanup, shared SQLite schema
+facts and contextual SQL keyword handling address all six findings. The review
+records validation and the write-result buffering tradeoff. Structural consolidation
+and measured PostgreSQL inspection performance remain the next driver tasks.
+
+**2026-11-05 driver follow-up:** all six findings in the
+[database driver plugins review](database-driver-plugins-review-2026-11-05.md)
+now have local repairs and 110 added mandatory regression cases: WAL-safe
+backup, explicit recovery, bounded handle ownership, lexical SQL adaptation,
+transaction-preserving dump and validated populated restore. Remaining structural
+work is to consolidate duplicated stdlib connection setup and split the largest
+macro/driver implementation modules without changing their public contracts.
+Also profile the full-schema PostgreSQL inspection walk: its existing integration
+test passed but took 140.2 seconds; the review records the measurement and limits.
+
+**2026-11-05 second review:** [DDP07–DDP10](database-driver-plugins-follow-up-review-2026-11-05.md)
+now have local repairs and 50 additional mandatory cases. Direct batches execute
+once and roll back failures, qualified SQL identifiers retain their operand role,
+and uniqueness shares the physical reader's index facts. The obsolete scratch
+redirection API is retired; use a verified backup with a separate owner as
+documented in [working copies](creation-and-replacement.md#independent-sqlite-working-copies).
+The gate now requires 400 cases. Structural consolidation and measured PostgreSQL
+inspection performance remain the next driver tasks; these fixes do not replace
+the planned production import trial.
+
 ## DB01. Make creation safe for an existing destination
 
 **Implemented for PR review, 2026-10-20; architecture A03.** Ordinary SQLite/APSW

@@ -5,20 +5,20 @@ Share SQL driver lifecycle, schema-cache invalidation and row identification hel
 from __future__ import print_function, annotations
 
 import pathlib
-import shutil
 import os
 from os import PathLike
 import time
 import gc
 import pprint
 from collections.abc import Callable, Mapping
+from contextlib import closing
+from threading import RLock
 
 from typing import TYPE_CHECKING, Any, Literal, TypeVar, cast
 
 from LiuXin_alpha.databases.db_types.driver_types import RowSQLConnection, SQLConnection
 
-from LiuXin_alpha.utils.ptempfiles import get_scratch_folder
-from LiuXin_alpha.utils.storage.local.file_backup import backup_local_file
+from LiuXin_alpha.utils.storage.local.file_backup import make_backup_path
 
 from LiuXin_alpha.utils.logging import default_log
 from LiuXin_alpha.errors import (
@@ -95,26 +95,6 @@ class SQLBaseDriver(SQLDriverMixinState):
         """
         return os.path.exists(self.database_path)
 
-    def make_scratch(self) -> str:
-        """
-        Copy the database file into a scratch directory and switch its configured path.
-
-        Existing connection handles are not replaced; callers must manage their
-        lifecycle. Copy errors propagate.
-
-        Example:
-            ``driver.make_scratch()`` sets the path to a new ``scratch.db`` copy.
-
-
-        :return: The new database path.
-        """
-        scratch_folder = get_scratch_folder()
-        scratch_db_path = os.path.join(scratch_folder, "scratch.db")
-        shutil.copyfile(src=self.database_path, dst=scratch_db_path)
-        self.database_path = scratch_db_path
-
-        return self.database_path
-
     def zero_prop_cache(self) -> None:
         """
         Invoke the internal cache invalidation and metadata refresh routine.
@@ -190,7 +170,8 @@ class SQLBaseDriver(SQLDriverMixinState):
         """
         Track a connection for later bulk closing and return it unchanged.
 
-        Tracking failures are logged without preventing connection use.
+        Built-in connections deregister when closed. Foreign raw connections
+        without callback attributes retain close-at-driver-shutdown ownership.
 
         Example:
             ``conn = driver._register_open_connection(conn)`` records an opened handle.
@@ -216,13 +197,25 @@ class SQLBaseDriver(SQLDriverMixinState):
             register_function("LIUXIN_MAINTENANCE_READY", 2, lambda *_: 0)
             register_function("LIUXIN_MAINTENANCE_ORIGIN", 0, lambda: "")
             register_function("LIUXIN_MAINTENANCE_ANCESTRY", 0, lambda: "[]")
+        registry = self._open_connections
+        lock: RLock = vars(self).setdefault("_connection_tracking_lock", RLock())
+        with lock:
+            if not any(existing is conn for existing in registry):
+                registry.append(conn)
         try:
-            self._open_connections.append(conn)
-        except Exception as e:
-            # If tracking fails for any reason, do not break core DB functionality.
-            default_log.log_exception(
-                "Couldn't store connection to log.", exc=e, level="ERROR"
-            )
+            attributes = vars(conn)
+        except TypeError:
+            return conn
+
+        def forget(closed: SQLConnection) -> None:
+            """Remove by identity without retaining the closed connection itself."""
+            with lock:
+                for index, existing in enumerate(registry):
+                    if existing is closed:
+                        del registry[index]
+                        break
+
+        attributes["_liuxin_on_close"] = forget
         return conn
 
     def _read_row_for_update(
@@ -264,39 +257,23 @@ class SQLBaseDriver(SQLDriverMixinState):
         return dict(zip(columns, row))
 
     def _close_all_open_connections(self) -> None:
+        """Close owned handles, retaining failed closes for a subsequent attempt.
+
+        Closing never commits. Built-in handles remove themselves from tracking;
+        foreign raw handles are removed after successful close. A failed close
+        remains owned even though the primary reference is detached.
         """
-        Best-effort close tracked handles and the primary connection.
-
-        Individual close errors are suppressed; tracking is cleared and ``conn`` becomes
-        ``None``.
-
-        Example:
-            ``driver._close_all_open_connections()`` releases handles before deleting a
-            database file.
-
-
-        :return: ``None``.
-        """
-        conns = []
-        try:
-            conns.extend(list(getattr(self, "_open_connections", []) or []))
-        except Exception:
-            pass
-
-        primary = getattr(self, "conn", None)
-        if primary is not None:
-            conns.append(primary)
-
-        for c in conns:
+        connections = list(self._open_connections)
+        primary = self.conn
+        if primary is not None and not any(conn is primary for conn in connections):
+            connections.append(primary)
+        failed = []
+        for connection in connections:
             try:
-                c.close()
+                connection.close()
             except Exception:
-                pass
-
-        try:
-            self._open_connections = []
-        except Exception:
-            pass
+                failed.append(connection)
+        self._open_connections[:] = failed
         self.conn = None
 
     def close(self) -> None:
@@ -315,8 +292,8 @@ class SQLBaseDriver(SQLDriverMixinState):
         """
         Invalidate cached state while preserving a usable primary connection.
 
-        Probe failures or an explicit reconnect replace the primary handle; retaining it
-        preserves connection-local TEMP objects.
+        Probe failures propagate without replacing or completing the primary handle.
+        Only an explicit reconnect discards it and its connection-local TEMP objects.
 
         Example:
             ``driver.refresh(reconnect=True)`` closes the old primary handle before
@@ -329,14 +306,10 @@ class SQLBaseDriver(SQLDriverMixinState):
         """
         conn = getattr(self, "conn", None)
 
-        # Ensure we have a usable connection.
         needs_reconnect = reconnect or conn is None
         if not needs_reconnect and conn is not None:
-            try:
-                # Fast liveness probe; sqlite3 raises ProgrammingError on closed connections.
-                conn.execute("SELECT 1")
-            except Exception:
-                needs_reconnect = True
+            with closing(conn.execute("SELECT 1")):
+                pass
 
         if needs_reconnect:
             old = getattr(self, "conn", None)
@@ -372,45 +345,19 @@ class SQLBaseDriver(SQLDriverMixinState):
     def direct_backup(
         self, path: str | PathLike[str] | None = None
     ) -> str | PathLike[str]:
+        """Publish a verified, create-only SQLite backup of committed database state.
+
+        Include WAL data through SQLite's backup API. A separate reader owns the
+        snapshot; the primary connection and its pending writes are untouched.
+        Existing destinations and source/sidecar destinations are refused.
         """
-        Copy the database file using the local backup helper inside a connection
-        context.
+        from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.sqlite_files import (
+            backup_sqlite_file,
+        )
 
-        A falsy helper result raises DatabaseDriverError. This is a file-copy backup,
-        and this method does not explicitly close the acquired connection.
-
-        Example:
-            ``driver.direct_backup(path=backup_path)`` selects a destination for the
-            copy.
-
-
-        :param path: Optional backup destination; ``None`` lets the file helper choose
-            one.
-        :return: The truthy backup result, normally the destination path.
-        """
-        # Acquire a conn object - use it to lock the DatabasePing
-        conn = driver_operations(self).get_connection()
-        with conn:
-            # Preform the backup
-            backup_status = backup_local_file(self.database_path, override_path=path)
-            if backup_status:
-                info_str = "DatabasePing backup successfully complete.\n"
-                default_log.log_variables(
-                    info_str,
-                    "INFO",
-                    ("database_path", self.database_path),
-                    ("database_backup_path", backup_status),
-                )
-                return backup_status
-            else:
-                wrn_str = "DatabasePing backup failed.\n"
-                default_log.log_variables(
-                    wrn_str,
-                    "WARN",
-                    ("database_path", self.database_path),
-                    ("database_backup_path", backup_status),
-                )
-                raise DatabaseDriverError(wrn_str)
+        destination = make_backup_path(self.database_path) if path is None else path
+        backup_sqlite_file(self.database_path, destination)
+        return destination
 
     def direct_self_delete(self) -> None:
         """

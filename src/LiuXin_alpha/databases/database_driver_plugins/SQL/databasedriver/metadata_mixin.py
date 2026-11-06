@@ -329,60 +329,24 @@ class MetadataMethodMixin(SQLDriverMixinState):
         return self.tables_and_columns
 
     def _get_unique_column_groups(self, table: str) -> tuple[tuple[str, ...], ...]:
+        """Read global unique column groups from the common physical schema facts.
+
+        Include rowid and composite primary keys. Exclude partial/expression
+        indexes, quote native names, and preserve the caller's transaction.
+        Primary keys precede remaining indexes; duplicate groups are omitted.
         """
-        Collect column tuples from non-partial unique SQLite indexes.
-
-        Skip expression indexes and empty groups. Validate table/index identifiers,
-        raising integrity errors for unsafe names. Reuse the primary handle or close a
-        temporary one in finally.
-
-        Example:
-            ``driver._get_unique_column_groups("books")`` lists uniqueness constraints
-            backed by ordinary indexes.
-
-
-        :param table: Table or view name used for schema introspection.
-        :return: A tuple of column tuples in PRAGMA index-list order.
-        """
-
         table = self._canonicalise_table_name_for_cache(table)
-        if (
-            not table
-            or table[0].isdigit()
-            or not all(char.isalnum() or char == "_" for char in table)
-        ):
-            raise InputIntegrityError(
-                f"Unsafe table name for index introspection: {table!r}"
-            )
-        conn = self.conn
-        owns_connection = conn is None
-        if conn is None:
-            conn = driver_operations(self).get_connection()
-        try:
-            groups: list[tuple[str, ...]] = []
-            for index_row in conn.execute(f'PRAGMA index_list("{table}")'):
-                is_unique = bool(index_row[2])
-                is_partial = len(index_row) > 4 and bool(index_row[4])
-                if not is_unique or is_partial:
-                    continue
-                index_name = str(index_row[1])
-                if not all(char.isalnum() or char == "_" for char in index_name):
-                    raise DatabaseIntegrityError(
-                        f"SQLite returned an unsafe index name: {index_name!r}"
-                    )
-                index_columns = tuple(
-                    column_row[2]
-                    for column_row in conn.execute(f'PRAGMA index_info("{index_name}")')
-                )
-                if not index_columns or any(column is None for column in index_columns):
-                    continue
-                columns = tuple(str(column) for column in index_columns)
-                if columns:
+        spec = self.direct_get_physical_table_spec(table)
+        groups = [spec.primary_key] if spec.primary_key else []
+        for index in spec.indexes:
+            if (
+                index.unique and index.valid and not index.partial
+                and index.columns and all(column is not None for column in index.columns)
+            ):
+                columns = tuple(column for column in index.columns if column is not None)
+                if columns not in groups:
                     groups.append(columns)
-            return tuple(groups)
-        finally:
-            if owns_connection:
-                conn.close()
+        return tuple(groups)
 
     def direct_get_highest_id(self, target_table: str) -> int | None:
         """

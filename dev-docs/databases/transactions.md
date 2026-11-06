@@ -1,6 +1,6 @@
 # Transaction ownership
 
-Reviewed **2026-11-04**, including the driver-wrapper fixes, for architecture A04.
+Reviewed **2026-11-06**, including the driver-plugin fixes, for architecture A04.
 This contract separates a database facade's lifetime, a connection's lifetime and
 a SQL transaction's lifetime.
 
@@ -99,6 +99,17 @@ rollback/savepoint recovery even though the helper itself never rolls back.
 
 The common write boundary does not turn every historical SQL helper into an
 aggregate operation. The following inventory records the live exceptions.
+
+For SQLite `direct_execute` and `direct_executemany`, row writes explicitly start
+a transaction if the primary is idle, including leading `WITH` statements. Their
+existing whole-primary-context policy remains: success commits earlier pending
+work; a failure rolls it back. Use the macro boundary for nested/savepoint ownership.
+`direct_execute` buffers result-producing write rows and closes the native statement
+before committing, then returns a readable query cursor. Early result closure
+discards unread rows without affecting the completed write. SELECT cursors remain
+streamed. Large RETURNING results therefore cost memory proportional to their rows;
+use a configured connection with explicit transaction/cursor lifetime when that
+cost is inappropriate. `executemany` retains SQLite's no-returned-rows contract.
 
 | Owner / callers | Boundary and remaining limitation |
 | --- | --- |
