@@ -4,6 +4,10 @@ This is a lexical adapter, not a SQLite-to-PostgreSQL grammar translator. Qmark
 bindings are recognized at expression positions; PostgreSQL's binary ?, ?|, ?&
 and @? operators remain operators. Native %s/%(name)s bindings are also accepted,
 but mixing the two parameter styles in one statement is rejected.
+
+Temporal values and same-named JSON operands can have identical token shapes.
+Execution resolves these with parameter arity where possible; otherwise callers
+must use native parameters or CAST. Syntax-only translation has no such arity.
 """
 
 from __future__ import annotations
@@ -17,6 +21,9 @@ _DOLLAR = re.compile(r"\$(?:[^\W\d]\w*)?\$", re.UNICODE)
 _WORD = re.compile(r"[^\W\d][\w$]*", re.UNICODE)
 _NUMBER = re.compile(r"(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?")
 _PARAMETER = re.compile(r"%(?:s|\([^)]+\)s)")
+_TEMPORAL_TYPES = frozenset(
+    {"TIME", "TIMETZ", "TIMESTAMP", "TIMESTAMPTZ", "DATE", "INTERVAL"}
+)
 _EXPRESSION_PREFIXES = frozenset(
     "SELECT WHERE AND OR NOT WHEN THEN ELSE CASE VALUES SET RETURNING LIMIT OFFSET "
     "HAVING BY DISTINCT ALL ON IN IS BETWEEN AS LIKE ILIKE SIMILAR TO ESCAPE "
@@ -122,65 +129,140 @@ def sql_tokens(sql: str) -> Iterator[SQLToken]:
         yield SQLToken(kind, sql[start:position])
 
 
-def _typed_literal_binding(tokens: list[SQLToken], position: int) -> bool:
-    """Disambiguate TIME/INTERVAL ? from an attribute's binary JSON operator.
-
-    A typed literal consumes one binding. A binary question mark instead needs
-    a right operand; the next significant token distinguishes these supported
-    forms without treating every occurrence of the type name as a keyword.
-    """
+def _temporal_qmark(tokens: list[SQLToken], position: int) -> tuple[int, str] | None:
+    """Locate a temporal value after optional precision and time-zone modifiers."""
     following = list(
         islice(
             (
-                token
-                for token in islice(tokens, position + 1, None)
-                if token.kind not in {"space", "comment"}
+                index
+                for index in range(position + 1, len(tokens))
+                if tokens[index].kind not in {"space", "comment"}
             ),
-            2,
+            8,
         )
     )
-    if not following or following[0].kind != "qmark":
-        return False
-    if len(following) == 1:
-        return True
-    right = following[1]
-    return (
-        right.kind not in {"literal", "backtick", "parameter", "qmark"}
-        and (
-            right.kind != "word"
-            or right.text.upper() in {"FROM", "AS", "AT", "ORDER", "LIMIT"}
-        )
-        and right.text != "("
+    words = [tokens[index].text.upper() for index in following]
+    offset = (
+        3
+        if len(words) >= 3
+        and words[0] == "("
+        and words[1].isdigit()
+        and words[2] == ")"
+        else 0
     )
+    if words[offset : offset + 3] in (
+        ["WITH", "TIME", "ZONE"],
+        ["WITHOUT", "TIME", "ZONE"],
+    ):
+        offset += 3
+    if offset >= len(following) or tokens[following[offset]].kind != "qmark":
+        return None
+    right = tokens[following[offset + 1]] if offset + 1 < len(following) else None
+    return following[offset], _temporal_suffix_role(right)
 
 
-def _classified_tokens(sql: str) -> list[SQLToken]:
-    """Separate binary question-mark operators from qmark expression bindings."""
+def _temporal_suffix_role(right: SQLToken | None) -> str:
+    """Keep genuine operand/alias ambiguity distinct from definite SQL boundaries."""
+    if right is None:
+        return "binding"
+    if right.kind in {"parameter", "qmark"} or right.text == "(":
+        return "operator"
+    if right.kind == "literal" and not right.text.startswith('"'):
+        return "operator"
+    if right.kind == "word" and right.text.upper() in {
+        "FROM",
+        "AS",
+        "WHERE",
+        "GROUP",
+        "HAVING",
+        "WINDOW",
+        "UNION",
+        "INTERSECT",
+        "EXCEPT",
+        "ORDER",
+        "LIMIT",
+        "OFFSET",
+        "FETCH",
+        "FOR",
+        "AND",
+        "OR",
+        "IS",
+        "IN",
+        "BETWEEN",
+        "LIKE",
+        "ILIKE",
+        "THEN",
+        "ELSE",
+        "END",
+    }:
+        return "binding"
+    if right.kind in {"word", "literal", "backtick"}:
+        return "ambiguous"
+    return "binding"
+
+
+def _resolve_temporal_bindings(
+    tokens: list[SQLToken], positions: set[int], count: int | None
+) -> None:
+    """Resolve all-or-none assignments; refuse to guess between multiple meanings."""
+    if (
+        not positions
+        or count is None
+        or any(token.kind == "parameter" for token in tokens)
+    ):
+        return
+    fixed = sum(
+        token.kind == "binding"
+        for index, token in enumerate(tokens)
+        if index not in positions
+    )
+    needed = count - fixed
+    if needed not in {0, len(positions)}:
+        raise ValueError(
+            "Ambiguous temporal qmark bindings: use native %s parameters "
+            "or CAST(? AS type) to distinguish typed values from JSON operators"
+        )
+    for index in positions:
+        tokens[index] = SQLToken(
+            "binding" if needed else "operator", tokens[index].text
+        )
+
+
+def _classified_tokens(sql: str, parameter_count: int | None = None) -> list[SQLToken]:
+    """Separate operators from bindings, resolving temporal ambiguity by arity.
+
+    ``interval ? day`` can name two JSON operands or contain a typed binding.
+    Suffix keywords alone cannot settle that distinction. Execution supplies the
+    parameter count; an unresolved assignment requires native parameters or CAST.
+    Syntax-only translation leaves ambiguous qmarks as operators.
+    """
     result = []
     expression = True
     qualified = False
     previous: tuple[str, ...] = ()
     tokens = list(sql_tokens(sql))
+    temporal: set[int] = set()
+    roles: dict[int, str] = {}
     for position, token in enumerate(tokens):
         kind, text = token.kind, token.text
         if kind in {"space", "comment"}:
             result.append(token)
             continue
         if kind == "qmark":
-            kind = "binding" if expression else "operator"
+            kind = roles.get(position, "binding" if expression else "operator")
+            if kind == "ambiguous":
+                temporal.add(position)
+                kind = "operator"
             expression = kind == "operator"
         elif kind == "word":
             # A word after a qualification dot names an attribute, even when
             # its spelling is also a keyword (t.first, t.next, t.time).
             word = text.upper()
+            if word in _TEMPORAL_TYPES and expression and not qualified:
+                if temporal_qmark := _temporal_qmark(tokens, position):
+                    roles[temporal_qmark[0]] = temporal_qmark[1]
             if qualified:
                 expression = False
-            elif (
-                word in {"TIME", "INTERVAL"}
-                and expression
-                and _typed_literal_binding(tokens, position)
-            ):
-                expression = True
             elif word in _CONTEXTUAL_PREFIXES:
                 expression = any(
                     previous[-len(phrase) :] == phrase
@@ -199,6 +281,7 @@ def _classified_tokens(sql: str) -> list[SQLToken]:
         qualified = text == "."
         previous = (*previous[-1:], text.upper())
         result.append(SQLToken(kind, text))
+    _resolve_temporal_bindings(result, temporal, parameter_count)
     return result
 
 
@@ -208,6 +291,7 @@ def adapt_sql(
     identifiers: bool = True,
     placeholders: bool = True,
     bound: bool = False,
+    parameter_count: int | None = None,
 ) -> str:
     """Translate syntax tokens and escape literal percent signs for bound execution.
 
@@ -215,8 +299,10 @@ def adapt_sql(
     syntax translation can set placeholders=True without bound execution. Native
     pyformat accepts existing %% escapes; qmark SQL treats every original percent
     as literal. Quoted text and comments never become parameter locations.
+    Bound execution supplies parameter_count to disambiguate temporal values and
+    JSON operands. Multiple possible assignments raise before SQL is executed.
     """
-    tokens = _classified_tokens(str(sql))
+    tokens = _classified_tokens(str(sql), parameter_count if placeholders else None)
     native = any(token.kind == "parameter" for token in tokens)
     qmarks = any(token.kind == "binding" for token in tokens)
     if placeholders and native and qmarks:

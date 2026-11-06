@@ -1,5 +1,20 @@
 # Working Memory Index
 
+Repaired and locally verified, **2026-11-06**:
+[fourth driver review fixes](database-driver-plugins-fourth-fixes-2026-11-06.md).
+DDP17–DDP19 plus the missing optional-APSW guard are fixed. Mandatory gate:
+652/652 required, 683 selected tests passed; confidence: 313 passed, three
+environment/fixture skips. Both type checkers, full quality, 121 doctests and
+43 documentation/runner checks pass. Private PG16 is removed. Continue in the
+isolated review checkout and inspect PR #156 before publication; no merge requested.
+
+Reviewed again, **2026-11-06**: [fourth driver review](database-driver-plugins-fourth-review-2026-11-06.md).
+PR #156 head `11b6f320` has three open findings: Unicode CTE transaction handling,
+PostgreSQL typed-literal bindings and a stale index fixture failing confidence CI.
+The mandatory ratchet and typing checks pass; full CI is still running. This turn
+adds review/navigation/handoff docs only. Private PG16 is stopped and removed.
+Continue in `/tmp/liuxin-databases-typing`; prioritize DDP17 before merging.
+
 Ready for PR, **2026-11-06**: [third driver review repairs](database-driver-plugins-third-fixes-2026-11-06.md).
 All six findings repaired; 148 added mandatory cases. Final gate: 548 passed with no
 skips/xfails; integration: 495 passed (13 skips, 2 xfail), 121 doctests and full quality pass.

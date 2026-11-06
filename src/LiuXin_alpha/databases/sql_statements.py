@@ -6,17 +6,31 @@ import re
 def sqlite_row_operation(sql: str) -> tuple[str, bool]:
     """Identify a SQLite row operation, including CTEs and replacement conflicts.
 
-    Ignore quoted values/identifiers and comments. CTE bodies are parenthesized;
-    their SELECTs do not identify the outer operation. This only classifies row
-    SQL for transaction ownership, rather than validating arbitrary SQL syntax.
+    Keep quoted values/identifiers opaque and ignore comments. CTE bodies are
+    parenthesized; their SELECTs do not identify the outer operation. This only
+    classifies row SQL for transaction ownership, rather than validating SQL.
     """
     tokens = re.finditer(
         r"--[^\n]*|/\*.*?\*/|'(?:''|[^'])*'|\"(?:\"\"|[^\"])*\""
-        r"|`(?:``|[^`])*`|\[[^\]]*\]|[A-Za-z_][A-Za-z_0-9]*|[(),]",
+        r"|`(?:``|[^`])*`|\[[^\]]*\]|[ \t\r\n\f\ufeff]+"
+        r"|[A-Za-z_\x80-\U0010ffff][A-Za-z_0-9$\x80-\U0010ffff]*|.",
         str(sql),
         flags=re.S,
     )
-    words = [match[0] for match in tokens if not match[0].startswith(("--", "/*"))]
+    # SQLite accepts every non-ASCII character in an identifier, including
+    # combining marks and emoji, and '$' after its first character. Python's
+    # Unicode \w is narrower. Retain other tokens instead of silently dropping
+    # a name or punctuation and shifting the CTE grammar. A leading BOM is space.
+    words = [
+        match[0]
+        for match in tokens
+        if not match[0].startswith(("--", "/*")) and match[0].strip(" \t\r\n\f\ufeff")
+    ]
+    # SQLite also accepts empty statements before the statement being prepared.
+    start = 0
+    while start < len(words) and words[start] == ";":
+        start += 1
+    words = words[start:]
     if not words:
         return "", False
     position = 0

@@ -4,6 +4,15 @@ Date: **2026-10-20**. DB01–DB03 are implemented for PR review; the remaining e
 proposed work grounded in the driver/schema review. Cross-project order belongs
 to the [architecture tasks](../architectural_reviews/next_tasks.md).
 
+**2026-11-06 fourth driver review:** [DDP17–DDP19](database-driver-plugins-fourth-review-2026-11-06.md)
+have local repairs with 104 new mandatory cases, taking the gate to 652.
+SQLite recognizes legal non-ASCII CTE names and leading empty statements;
+PostgreSQL resolves temporal bindings by parameter count and rejects remaining
+ambiguity explicitly. The physical-index fixture and optional-APSW test guard
+address both failures from the old head's full CI run. Final validation is
+recorded in the review. Require fresh CI before merging; structural consolidation
+and measured inspection performance remain subsequent work.
+
 **2026-11-06 third driver review:** [DDP11–DDP16](database-driver-plugins-third-review-2026-11-06.md)
 have local repairs and 148 additional mandatory cases, increasing the gate from
 400 to 548. Explicit CTE-batch transactions, native PostgreSQL value preservation,

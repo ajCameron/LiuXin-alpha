@@ -12,6 +12,7 @@ import importlib.util
 import time
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
+from itertools import chain, islice
 from typing import Any, TYPE_CHECKING, Literal, Protocol, TypeVar, Generic, Self, cast, overload
 from contextlib import closing
 from types import TracebackType
@@ -1054,7 +1055,10 @@ class PostgresCursorAdapter(Generic[_CursorRow]):
         :param values: Bound values passed to the underlying cursor.
         :return: This cursor adapter for chained operations.
         """
-        translated = adapt_sql(sql, placeholders=values is not None, bound=values is not None)
+        translated = adapt_sql(
+            sql, placeholders=values is not None, bound=values is not None,
+            parameter_count=len(values) if values is not None else None,
+        )
         if self._connection is not None:
             from LiuXin_alpha.databases.connection_hooks import before_statement
 
@@ -1067,7 +1071,7 @@ class PostgresCursorAdapter(Generic[_CursorRow]):
 
     def executemany(self, sql: str, values: Iterable[SQLParameters]) -> Self:
         """
-        Translate one SQL template and pass all parameter sequences to the raw cursor.
+        Translate one SQL template using the first row's arity, then stream the batch.
 
         Example:
             ``cur.executemany("insert into t(v) values (?)", [(1,), (2,)])``
@@ -1079,12 +1083,14 @@ class PostgresCursorAdapter(Generic[_CursorRow]):
             materialization.
         :return: This cursor adapter.
         """
-        translated = adapt_sql(sql, bound=True)
+        iterator = iter(values)
+        first = tuple(islice(iterator, 1))
+        translated = adapt_sql(sql, bound=True, parameter_count=len(first[0]) if first else 0)
         if self._connection is not None:
             from LiuXin_alpha.databases.connection_hooks import before_statement
 
             before_statement(self._connection, sql)
-        self.raw_cursor.executemany(translated, values)
+        self.raw_cursor.executemany(translated, chain(first, iterator))
         return self
 
     def fetchone(self) -> _CursorRow | None:

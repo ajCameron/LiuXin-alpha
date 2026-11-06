@@ -18,6 +18,116 @@ from LiuXin_alpha.errors import DatabaseDriverError
 
 
 @pytest.mark.parametrize(
+    "sql,values",
+    [
+        ("SELECT INTERVAL ? DAY", ("2",)),
+        ("SELECT INTERVAL ? DAY TO SECOND", ("2 days 03:00:00",)),
+        ("SELECT INTERVAL ? YEAR TO MONTH", ("1 year 2 months",)),
+        ("SELECT TIME ? WHERE TRUE", ("12:34:00",)),
+        ("SELECT INTERVAL ? OFFSET 0", ("2 days",)),
+        ("SELECT INTERVAL ? FETCH FIRST 1 ROW ONLY", ("2 days",)),
+        ("SELECT TIME ? UNION ALL SELECT TIME ?", ("12:00:00", "13:00:00")),
+        ('SELECT INTERVAL ? "label"', ("2 days",)),
+        ("SELECT TIME(3) ?", ("12:34:00.12345",)),
+        ("SELECT INTERVAL(2) ?", ("2.12345 seconds",)),
+        ("SELECT TIME(3) WITH TIME ZONE ?", ("12:34:00.12345+02",)),
+        ("SELECT TIMESTAMP WITHOUT TIME ZONE ?", ("2026-11-06 12:34:00",)),
+        ("SELECT DATE ?, TIMESTAMPTZ ?", ("2026-11-06", "2026-11-06 12:34:00+00")),
+        ("SELECT TIME /* gap */ ? AT TIME ZONE ?", ("12:00:00+00", "UTC")),
+    ],
+    ids=[
+        "day",
+        "day_second",
+        "year_month",
+        "where",
+        "offset",
+        "fetch",
+        "union",
+        "quoted_alias",
+        "time_precision",
+        "interval_precision",
+        "time_zone",
+        "timestamp",
+        "date_timestamptz",
+        "at_zone",
+    ],
+)
+def test_temporal_qmarks_match_native_parameters(driver, sql, values):
+    """Compare engine results for temporal grammar, without assuming a suffix list."""
+    with driver.conn.raw_connection.cursor() as native:
+        native.execute(sql.replace("?", "%s"), values)
+        expected = native.fetchall()
+    with closing(driver.conn.execute(sql, values)) as cursor:
+        assert cursor.fetchall() == expected
+
+
+@pytest.mark.parametrize("column", ["time", "interval", "date", "timestamp"])
+@pytest.mark.parametrize("operand", ["day", '"key"', "?", "(day)"])
+def test_temporal_names_remain_json_operands_with_other_bindings(
+    driver, column, operand
+):
+    sql = (
+        f"SELECT {column} ? {operand}, TIME ? FROM "
+        f"(SELECT '{{\"key\":1}}'::jsonb AS {column}, 'key'::text AS day, 'key'::text AS key) t"
+    )
+    values = ("key", "12:00:00") if operand == "?" else ("12:00:00",)
+    with closing(driver.conn.execute(sql, values)) as cursor:
+        result = cursor.fetchone()
+        assert result[0] is True
+        assert str(result[1]) == "12:00:00"
+
+
+def test_ambiguous_temporal_assignments_require_native_or_explicit_cast(driver):
+    from datetime import timedelta
+
+    from LiuXin_alpha.databases.transactions import transaction_active
+
+    suffix = " FROM (SELECT '{\"key\":1}'::jsonb AS time, 'key'::text AS day) t"
+    ambiguous = "SELECT INTERVAL ? DAY, time ? day" + suffix
+    with pytest.raises(ValueError, match="Ambiguous temporal qmark"):
+        driver.conn.execute(ambiguous, ("2",))
+    assert not transaction_active(driver.conn)
+    for sql in (
+        "SELECT INTERVAL %s DAY, time ? day" + suffix,
+        "SELECT CAST(? AS INTERVAL), time ? day" + suffix,
+    ):
+        with closing(driver.conn.execute(sql, ("2 days",))) as cursor:
+            assert cursor.fetchone() == (timedelta(days=2), True)
+
+
+@pytest.mark.parametrize("failure", [False, True], ids=["success", "late_failure"])
+def test_temporal_batch_uses_first_arity_without_replaying_or_losing_rows(
+    driver, failure
+):
+    from datetime import timedelta
+
+    driver.conn.execute("CREATE TABLE intervals(value INTERVAL)").close()
+    driver.conn.commit()
+    visits = []
+
+    def values():
+        for value in ("1", "2", "3"):
+            visits.append(value)
+            yield (value,)
+        if failure:
+            raise RuntimeError("late input failure")
+
+    sql = "INSERT INTO intervals VALUES (INTERVAL ? DAY)"
+    if failure:
+        with pytest.raises(DatabaseDriverError, match="late input failure"):
+            driver.direct_executemany(sql, values())
+    else:
+        driver.direct_executemany(sql, values())
+    assert visits == ["1", "2", "3"]
+    with closing(driver.get_connection()) as reader:
+        assert reader.execute(
+            "SELECT value FROM intervals ORDER BY value"
+        ).fetchall() == (
+            [] if failure else [(timedelta(days=value),) for value in (1, 2, 3)]
+        )
+
+
+@pytest.mark.parametrize(
     "column", ["first", "next", "time", "zone", "by", "at", "interval"]
 )
 @pytest.mark.parametrize("binding", ["?", "%s"], ids=["qmark", "native"])

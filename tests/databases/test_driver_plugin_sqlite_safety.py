@@ -9,6 +9,117 @@ import pytest
 from LiuXin_alpha.databases.database_driver_plugins.registry import load_database_driver
 from LiuXin_alpha.errors import DatabaseDriverError
 
+CTE_NAMES = ["source", "名", '"名"', "e\u0301", "x$y", "📚", "\u00a0"]
+CTE_IDS = ["ascii", "unicode", "quoted", "combining", "dollar", "emoji", "nbsp"]
+
+
+@pytest.mark.parametrize("name", CTE_NAMES, ids=CTE_IDS)
+@pytest.mark.parametrize("operation", ["insert", "update", "delete"])
+def test_cte_identifiers_preserve_failed_statement_rollback(driver, name, operation):
+    """Legal names cannot bypass the transaction around SQLite FAIL conflicts."""
+    driver.conn.executemany(
+        "INSERT INTO review_items VALUES (?, ?)", [(1, "one"), (2, "two")]
+    ).close()
+    driver.conn.execute(
+        f"CREATE TRIGGER refuse_second BEFORE {operation} ON review_items "
+        f"WHEN {'NEW' if operation == 'insert' else 'OLD'}.review_item_id = "
+        f"{4 if operation == 'insert' else 2} "
+        "BEGIN SELECT RAISE(FAIL, 'second row refused'); END"
+    ).close()
+    driver.conn.commit()
+    statement = {
+        "insert": f"INSERT INTO review_items SELECT value+2, 'changed' FROM {name}",
+        "update": f"UPDATE review_items SET review_item_value='changed' WHERE review_item_id IN {name}",
+        "delete": f"DELETE FROM review_items WHERE review_item_id IN {name}",
+    }[operation]
+    with pytest.raises(DatabaseDriverError, match="second row refused"):
+        driver.direct_execute(
+            f"\ufeff ; /* prefix */ ; WITH {name}(value) AS (VALUES (1), (2)) {statement}"
+        )
+    assert not driver.conn.in_transaction
+    with closing(sqlite3.connect(driver.database_path)) as reader:
+        assert reader.execute("SELECT * FROM review_items ORDER BY 1").fetchall() == [
+            (1, "one"),
+            (2, "two"),
+        ]
+
+
+@pytest.mark.parametrize("name", CTE_NAMES, ids=CTE_IDS)
+def test_cte_identifiers_finish_returning_but_stream_selects(driver, name):
+    with closing(
+        driver.direct_execute(
+            f"WITH RECURSIVE {name}(id) AS NOT MATERIALIZED (VALUES (1), (2)), "
+            f"source2 AS (SELECT * FROM {name}) "
+            "INSERT INTO review_items SELECT id, 'value' FROM source2 RETURNING review_item_id"
+        )
+    ) as cursor:
+        with closing(sqlite3.connect(driver.database_path)) as reader:
+            assert reader.execute("SELECT COUNT(*) FROM review_items").fetchone() == (
+                2,
+            )
+        assert cursor.fetchall() == [(1,), (2,)]
+    visits = []
+    driver.conn.create_function(
+        "visited", 1, lambda value: visits.append(value) or value
+    )
+    with closing(
+        driver.direct_execute(
+            f"WITH {name}(id) AS (VALUES (1), (2), (3)) SELECT visited(id) FROM {name}"
+        )
+    ) as cursor:
+        assert visits == [1]
+        assert cursor.fetchall() == [(1,), (2,), (3,)]
+        assert visits == [1, 2, 3]
+    assert not driver.conn.in_transaction
+
+
+@pytest.mark.parametrize("name", CTE_NAMES, ids=CTE_IDS)
+def test_cte_identifiers_reach_prompt_maintenance_and_reject_replace(driver, name):
+    from types import SimpleNamespace
+
+    from LiuXin_alpha.databases.db_types.maintenance_types import MaintenanceMode
+    from LiuXin_alpha.databases.maintenance.bound_connection import (
+        MaintenanceTransactionError,
+    )
+    from LiuXin_alpha.databases.maintenance.plugins import (
+        MaintenancePluginBase,
+        MaintenancePluginResult,
+    )
+    from LiuXin_alpha.databases.maintenance.runtime import MaintenanceRuntime
+
+    class Prompt(MaintenancePluginBase):
+        name = "cte_prompt"
+        tables = ("review_items",)
+        mode = MaintenanceMode.PROMPT
+        fail = False
+
+        def handle_events(self, context, events):
+            if self.fail:
+                raise RuntimeError("prompt failed")
+            return MaintenancePluginResult(handled=len(events))
+
+    plugin = Prompt()
+    runtime = MaintenanceRuntime(
+        SimpleNamespace(driver=driver, uuid="cte-test"), [plugin]
+    )
+    runtime.install()
+    sql = f"; /* prefix */ WITH {name}(id) AS (VALUES (?)) INSERT INTO review_items SELECT id, 'value' FROM {name}"
+    with closing(driver.get_connection()) as connection:
+        with connection:
+            connection.execute(sql, (1,)).close()
+        plugin.fail = True
+        with pytest.raises(RuntimeError, match="prompt failed"):
+            with connection:
+                connection.execute(sql, (2,)).close()
+        plugin.fail = False
+        with pytest.raises(MaintenanceTransactionError, match="REPLACE"):
+            with connection:
+                connection.execute(
+                    f"WITH {name}(id) AS (VALUES (1)) INSERT OR REPLACE INTO review_items SELECT id, 'lost' FROM {name}"
+                ).close()
+    with closing(sqlite3.connect(driver.database_path)) as reader:
+        assert reader.execute("SELECT * FROM review_items").fetchall() == [(1, "value")]
+
 
 @pytest.mark.parametrize("operation", ["insert", "update", "delete"])
 @pytest.mark.parametrize("pending", [False, True], ids=["idle", "pending"])
@@ -165,6 +276,8 @@ def test_returning_consumption_failure_does_not_publish_writes(driver, cte):
 @pytest.mark.parametrize("db_type", ["SQLite", "SQLite_apsw"])
 def test_catalogue_wrapper_owns_cte_batches_and_returning(tmp_path, db_type):
     """The public WEMI facade works without optional maintenance protection."""
+    if db_type == "SQLite_apsw":
+        pytest.importorskip("apsw")
     from LiuXin_alpha.databases.database import Database
 
     path = tmp_path / "catalogue.sqlite"

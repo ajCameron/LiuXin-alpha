@@ -23,6 +23,34 @@ python -m pip install -e '.[postgres,test,search]'
 The PostgreSQL extra installs `psycopg2-binary`. System `psycopg2` is also fine
 when available in the active Python environment.
 
+## SQL parameters and native operators
+
+Configured PostgreSQL connections accept portable qmark parameters (`?`) and
+native psycopg2 parameters (`%s` or `%(name)s`). Use one parameter style per
+statement. SQL comments, quoted text and PostgreSQL JSON operators retain their
+meaning. Prefer native parameters for PostgreSQL-specific SQL or use an explicit
+cast when writing a portable parameter inside a native expression:
+
+```python
+connection.execute("SELECT INTERVAL %s DAY", ("2",))
+connection.execute("SELECT CAST(? AS INTERVAL)", ("2 days",))
+connection.execute("SELECT ?::jsonb ? ?", ('{"key": 1}', "key"))
+```
+
+Temporal typed literals also support qmarks, including field qualifiers,
+precision and time-zone modifiers. `SELECT INTERVAL ? DAY` binds its value;
+`SELECT time ? day` can instead read JSON columns named `time` and `day`.
+The adapter uses the supplied parameter count to distinguish these forms.
+If several ambiguous positions permit more than one assignment, it raises
+`ValueError` before execution and asks for native parameters or `CAST`, rather
+than assigning values to an arbitrary interpretation. Syntax-only translation
+helpers have no parameter count and leave these ambiguous qmarks as operators.
+
+`executemany` inspects the first row's arity once, then streams that row and the
+remaining iterator through the same translated template. Rows must share the
+same parameter shape. It does not retry or replay a partially consumed iterable;
+the driver's batch method rolls back an input or execution failure.
+
 ## Guided Initialization
 
 When the target database and login role already exist, the top-level wizard
