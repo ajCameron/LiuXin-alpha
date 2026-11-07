@@ -82,6 +82,91 @@ routine “accept lower baseline” switch. This is a ratchet for demonstrated
 behavior, not a claim of complete line/branch coverage. Review must still check
 that assertions meaningfully test the invariant.
 
+## Fifth driver review extension — 2026-11-06
+
+The [fifth review mitigations](database-driver-plugins-fifth-review-2026-11-06.md)
+add **156 cases**, increasing the mandatory set from 652 to **808**:
+
+| Invariant | Added cases | Observable contract |
+| --- | ---: | --- |
+| `driver-maintenance-completion` | 96 | Engine-valid prefixes cannot bypass script preflight or required prompt completion; native quoted data remains data and chained statements stay refused. |
+| `driver-sqlite-restore-validation` | 18 | Retained readers cannot contaminate the published candidate; failed closes and external WAL readers preserve the original and permit retry. |
+| `driver-resource-lifetime` | 2 | Cursor bookkeeping does not retain abandoned readers; closing still rolls back pending writes and releases WAL use. |
+| `driver-postgres-sql-adaptation` | 40 | Explicit JSON operator names survive native/qmark binding, schema qualification, comments and identifier quoting. |
+
+These cases use the same mandatory PostgreSQL service and both SQLite driver
+names. Prior cases retain their identities and invariant membership.
+
+## Driver-plugin extension — 2026-11-05
+
+The [driver review](database-driver-plugins-review-2026-11-05.md) adds 110 cases,
+bringing the required manifest from 240 to **350**, without dropping or moving
+existing cases. The six new invariant groups are:
+
+| Invariant | Cases | Observable contract |
+| --- | ---: | --- |
+| `driver-sqlite-backup` | 16 | A verified committed snapshot includes WAL, survives concurrent writers, preserves existing destinations and leaves no partial published copy. |
+| `driver-connection-recovery` | 8 | Probe failure preserves the existing handle and recoverable transaction; replacement is explicit. |
+| `driver-resource-lifetime` | 36 | Owned handles close on success/failure; closed entries leave tracking; borrowed handles and failed-close ownership are retained. |
+| `driver-postgres-sql-adaptation` | 26 | Bound/unbound data and native operators survive translation; scripts preserve transaction and installed-hook boundaries. |
+| `driver-sql-dump-ownership` | 6 | Exhaustion, early close and sink failure leave caller transactions intact. |
+| `driver-sqlite-restore-validation` | 18 | Populated WEMI, cycles and extensions restore with required callbacks; invalid/failed candidates and pending writes never replace the original. |
+
+The PostgreSQL cases require the existing live service. Restore cases exercise
+both the stdlib replay path and native APSW shell path. The same mandatory CI
+job, baseline comparison and skip/xfail rejection apply to every new case.
+
+Final driver-fix validation passed **all 350 required cases**, with zero skips or
+xfails and the baseline comparison against `07fc3326`. Affected integration
+passed **1,275 cases** with 37 explicitly platform/fixture/backend-specific skips;
+all 121 driver/adapter doctest examples and the complete quality runner passed.
+See the review’s repair-validation section for scope and telemetry limits.
+
+## Second driver review extension — 2026-11-05
+
+The [follow-up repair](database-driver-plugins-follow-up-review-2026-11-05.md)
+adds **50 cases**, taking the mandatory manifest to **400** without removing or
+moving any previously required case:
+
+| Invariant | Added cases | Contract |
+| --- | ---: | --- |
+| `driver-sqlite-batch-atomicity` | 14 | Input/adaptation/constraint errors roll back without retries, retain their cause and leave no durable prefix; supported binding shapes succeed. |
+| `driver-postgres-sql-adaptation` | 24 | Qualified keyword-shaped identifiers remain operands for JSON operators under native and qmark bindings. This group now has 50 cases. |
+| `driver-postgres-index-keys` | 7 | INCLUDE payload never determines uniqueness, cardinality or typed identity; partial/expression/invalid/nonunique indexes do not prove global keys. |
+| `driver-independent-working-copies` | 5 | Removed scratch-switching APIs stay absent; verified backups open independently and preserve source ownership and committed WAL data. |
+
+These cases use real SQLite/APSW-backed drivers and PostgreSQL 16. The invalid
+index case deliberately fails `CREATE UNIQUE INDEX CONCURRENTLY` against
+duplicate values; it does not edit PostgreSQL's system catalogs. The same live
+CI service, baseline comparison and skip/xfail rejection apply to every case.
+
+Final follow-up validation passed **all 400 required cases**, with zero skips or
+xfails, after strengthening the adapter failure to permit duplicate-prefix
+inserts if retried. Both stronger cases failed against the original method before
+passing with the fix. Full typing/quality, 121 doctest examples and the affected
+integration checks also passed; the follow-up review records the existing skips,
+expected failures and two resolved cache-artifact teardown errors.
+
+## Third driver review extension — 2026-11-06
+
+The [third review repairs](database-driver-plugins-third-review-2026-11-06.md)
+add **148 cases**, bringing the required manifest to **548**. Earlier cases keep
+both their identities and invariant membership.
+
+| Invariant | Added cases | Observable contract |
+| --- | ---: | --- |
+| `driver-sqlite-batch-atomicity` | 36 | CTE INSERT/UPDATE/DELETE succeed atomically or roll back iterator/SQL errors, from idle and pending primary transactions. |
+| `driver-sqlite-query-results` | 26 | RETURNING commits before results are consumed, failures leave no durable write, public WEMI wrappers work without maintenance, and ordinary/keyword-named CTE SELECTs stream. |
+| `driver-resource-lifetime` | 4 | Failed book-group deletion/read releases owned handles; a refused delete leaves independent writers usable. |
+| `driver-sqlite-index-keys` | 12 | Rowid/composite primary keys and quoted index names agree with physical schema/cardinality; partial/expression/nonunique indexes remain excluded. |
+| `driver-postgres-sql-adaptation` | 60 | Unqualified contextual words work as JSON operands under both parameter styles; FETCH, AT TIME ZONE and typed literals retain their binding roles. |
+| `driver-postgres-value-roundtrips` | 10 | Actual conversion-options binary payloads survive dictionary/Row/view read-modify-write cycles, including empty/non-UTF-8/numeric-looking bytes; native numeric/date/boolean reads retain their types. |
+
+Tests use both SQLite driver names and the same mandatory real PostgreSQL service.
+Failures are checked against independent readers/writers. The original 400 cases
+remain required, including genuine mixed-binding rejection and ordinary batch
+adaptation failures. Final validation is recorded in the third review.
+
 ## Compatibility and remaining limits
 
 The legacy cached custom-column facade now rejects an active transaction before
@@ -105,7 +190,7 @@ cleanup contract. `RowState.IDENTIFIED` means the local payload has an identity,
 not that a concurrent database deletion is impossible. Existing missing-load
 sentinels and writable `deepcopy(Row)` behavior are preserved and tested.
 
-## Validation
+## Initial typing checkpoint validation
 
 - Required manifest: **240 passed, zero skips/xfails**, including native APSW
   callbacks and live PostgreSQL cursor/Row writes.

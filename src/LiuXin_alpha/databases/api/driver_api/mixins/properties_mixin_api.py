@@ -1004,7 +1004,8 @@ class DriverDatabasePropertiesMixinAPI(abc.ABC):
         implementation; this declaration itself has no operational body.
 
         Bind the name as a value. Missing tables, including view-only matches, raise
-        InputIntegrityError; neither supplied nor acquired connections are closed here.
+        InputIntegrityError. Acquired connections are closed; supplied connections
+        and their transactions remain caller-owned.
 
         Example:
             >>> driver.direct_get_table_sqlite("works")  # doctest: +SKIP

@@ -106,8 +106,8 @@ class DriverSearchMixinAPI(abc.ABC):
         Abstract backend hook. The behavior below describes the shared SQL/SQLite
         implementation; this declaration itself has no operational body.
 
-        Identifiers are interpolated and must be trusted. This helper does not
-        explicitly close its acquired connection.
+        Identifiers are interpolated and must be trusted. Close the owned connection
+        and cursor on success and failure.
 
         Example:
             >>> driver.direct_get_all_values("works", "work_title")  # doctest: +SKIP
@@ -144,7 +144,7 @@ class DriverSearchMixinAPI(abc.ABC):
         implementation; this declaration itself has no operational body.
 
         Float conversion truncates. SQL/inference errors propagate; the acquired
-        connection is not explicitly closed here.
+        connection and cursor close on every path.
 
         Example:
             >>> driver.direct_get_max("work_title")  # doctest: +SKIP
@@ -165,7 +165,7 @@ class DriverSearchMixinAPI(abc.ABC):
         implementation; this declaration itself has no operational body.
 
         Float conversion truncates. SQL/inference errors propagate; the acquired
-        connection is not explicitly closed here.
+        connection and cursor close on every path.
 
         Example:
             >>> driver.direct_get_min("work_title")  # doctest: +SKIP

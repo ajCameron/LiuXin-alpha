@@ -68,6 +68,62 @@ The terminal wizard records replacement intent and a required backup path
 separately. Its historical `backup_existing=True` field alone cannot authorize
 replacement. Core and database APIs expose the same explicit operation.
 
+## Driver dump and rebuild
+
+`driver.dump_and_restore()` prepares and validates a complete replacement before
+publishing it. Pending writes on tracked connections are refused. At publication,
+the driver finalizes its owned cursors and closes its connections; retained
+SELECT cursors therefore cannot leave the old SQLite WAL attached to the new file.
+Cursor bookkeeping uses weak references and does not keep abandoned readers alive.
+
+Failed closes or surviving WAL, shared-memory or journal files prevent replacement
+on both driver routes. The original remains in place and the driver attempts to
+reopen it. Close other database users and checkpoint/recover normally before
+retrying; the rebuild never removes a live WAL to force publication. The caller
+must still coordinate exclusive access throughout the operation: the final
+sidecar check is not a lease against another process reopening the file.
+
+The method does not make an automatic recovery backup or offer rollback after
+successful replacement. Create a verified backup first when one is required.
+[Completion/rebuild regressions](../../tests/databases/test_driver_completion_boundaries.py)
+check retained and custom readers, failed closes, external WAL refusal, retry,
+and the reopened candidate's actual schema/data.
+
+## Independent SQLite working copies
+
+**2026-11-05:** `Database.lock_writing()` and driver `make_scratch()` have been
+removed from the implementations and abstract APIs. No in-tree database callers
+remain. Despite its name, the old facade never acquired a write lock: it attempted
+a raw file copy and changed a path attribute without reopening existing handles.
+That could omit WAL data and split subsequent operations between two files. Its
+temporary-folder dependency also failed before the copy could run.
+
+For an already open SQLite or SQLite_apsw `source_driver`, create a verified
+committed snapshot at an absent destination and open a separate owner:
+
+```python
+from contextlib import closing
+from pathlib import Path
+
+copy_path = source_driver.direct_backup(Path("working-copy.sqlite"))
+with closing(type(source_driver)({"database_path": str(copy_path)})) as working:
+    with closing(working.direct_execute("SELECT COUNT(*) FROM works")) as cursor:
+        print(cursor.fetchone()[0])
+    # Apply experimental changes through working, then close it normally.
+```
+
+Backup includes committed WAL content and excludes uncommitted source work.
+It refuses an existing destination. The source path, connection and transaction
+remain with their original owner; writes to the copy do not affect the source.
+The source remains writable. This workflow provides neither source write locking
+nor a read-only guarantee, and does not switch an existing Database/Core graph.
+For a complete library graph, open a new graph configured with the backup path.
+
+[Regression coverage](../../tests/databases/test_driver_plugin_sqlite_safety.py)
+checks the removed surface, WAL visibility, pending source work and independent
+writes after opening the backup. The separate filesystem scratch helpers in
+`utils.ptempfiles` are outside this database API retirement.
+
 ## PostgreSQL
 
 Creation initializes an absent or empty schema in an existing server database.

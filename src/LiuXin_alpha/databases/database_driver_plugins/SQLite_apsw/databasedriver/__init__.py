@@ -721,7 +721,7 @@ class DatabaseDriver(
 
         Best-effort LANGUAGE_ID registration may seed and lock an existing FRBR
         languages table, committing changes; exceptions from that registration are
-        suppressed. Other setup failures propagate without guaranteed cleanup. The
+        suppressed. Other setup failures close the new handle before propagating. The
         opening OperationalError handler reports DatabaseDriverError with the original
         SQLite diagnostic.
 
@@ -742,6 +742,15 @@ class DatabaseDriver(
         :return: An open SQLite_Connection tracked for inherited driver.close; callers
             may close it earlier and must manage their transactions.
         """
+        return self._open_connection(seed_languages=True)
+
+    def _open_connection(self, *, seed_languages: bool) -> sqlite3.Connection:
+        """Configure an owned handle, optionally disabling legacy language repair.
+
+        Snapshot validation must register callbacks without modifying the database
+        it is supposed to validate. Ordinary connection setup retains its existing
+        language bootstrap behavior.
+        """
         # Todo: Should only have to do all this once? Surely?
         # Registering converter and adaptor to deal with columns containing sets
         sqlite3.register_adapter(set, py_set_adapter)
@@ -761,142 +770,148 @@ class DatabaseDriver(
         # Enable callbacks in case of error within added functions
         sqlite3.enable_callback_tracebacks(True)
 
+        conn: SQLite_Connection | None = None
         try:
-            conn = SQLite_Connection(
-                self.database_path,
-                detect_types=sqlite3.PARSE_DECLTYPES,
-                check_same_thread=False,
-            )
-
-            # Aggregator allows sets of Unicode to be stored directly as the result of queries
-            register_sqlite_aggregate(conn, "pyset", 1, PySetAggregate)
-            register_sqlite_aggregate(conn, "sortag", 1, SortAggregate)
-            register_sqlite_aggregate(conn, "pylist", 1, PyListAggregate)
-
-        except sqlite3.OperationalError as e:
-            error_message = str(e)
-            err_str = "Unable to open database connection.\n"
-            err_str += "error_message: {}\n".format(error_message)
-            err_str += "database_path: {}\n".format(self.database_path)
-            raise DatabaseDriverError(err_str)
-
-        # http://ubuntuforums.org/showthread.php?t=1895895
-        # Tests the connection for foreign key support - issues a warning if it isn't present
-        conn.execute("PRAGMA foreign_keys=ON")
-        rows = conn.execute("PRAGMA foreign_keys")
-        test = None
-        for row in rows:
-            test = row
-        if test != (1,):
-            default_log.warn("Warning - foreign key support not enabled.")
-
-        # Adds regex search support to the connection
-        def regexp(expr: str, item: str) -> bool:
-            """
-            Search a value using a freshly compiled Python regular expression.
-
-            Installed as the two-argument SQLite REGEXP function on the enclosing
-            connection. Matching is a search, not a full-string match. There is no
-            pattern cache or NULL coercion: invalid patterns or incompatible values
-            raise in Python and become SQLite callback errors when invoked through SQL.
-
-            Example:
-                On a connection configured by get_connection:
-                >>> conn.get("SELECT 'abc' REGEXP 'b'", all=False)  # doctest: +SKIP
-                1
-
-
-            :param expr: Pattern supplied to re.compile without extra flags or
-                normalization.
-            :param item: Search target passed unchanged to the compiled pattern.
-            :return: True when search finds a match, otherwise False; SQLite exposes the
-                boolean as 1 or 0.
-            """
-            reg = re.compile(expr)
-            return reg.search(item) is not None
-
-        register_search_functions(conn)
-        conn.create_function("REGEXP", 2, regexp)
-
-        # Add the TREE_AGGREGATOR to the connection - allows for string representation of the position of a row in a
-        # tree
-        conn.create_function("TREE_AG", 3, self.direct_get_tree_aggregation_str)
-
-        # Adds a function which creates sort strings from strings of authors
-        # Adds again under a different name for close calibre compatibility
-        conn.create_function("AUTHORS_SORT", 1, authors_str_to_sort_str)
-
-        # More generally, add a function which will callback to the maintenance bot to tell it that particular row in
-        # a table has changed and might need attention
-        conn.create_function(
-            "DIRTY_RECORD",
-            2,
-            lambda table, row_id: self.maintainer_callback.dirty_record(table, row_id),
-        )
-        conn.create_function(
-            "DIRTY_INTERLINK_RECORD",
-            5,
-            lambda update_type, table1, table2, table1_id, table2_id: (
-                self.maintainer_callback.dirty_interlink_record(
-                    update_type, table1, table2, table1_id, table2_id
+            try:
+                conn = SQLite_Connection(
+                    self.database_path,
+                    detect_types=sqlite3.PARSE_DECLTYPES,
+                    check_same_thread=False,
                 )
-            ),
-        )
-        conn.create_function(
-            "NEW_DIRTY_RECORD",
-            2,
-            lambda table, row_id: self.maintainer_callback.new_dirty_record(
-                table, row_id
-            ),
-        )
 
-        # calibre - functions included here for compatibility
-        conn.create_function("title_sort", 1, title_to_title_sort)
-        conn.create_function("author_to_author_sort", 1, _author_sort_sql_value)
-        conn.create_function("uuid4", 0, lambda: str(uuid.uuid4()))
+                # Aggregator allows sets of Unicode to be stored directly as the result of queries
+                register_sqlite_aggregate(conn, "pyset", 1, PySetAggregate)
+                register_sqlite_aggregate(conn, "sortag", 1, SortAggregate)
+                register_sqlite_aggregate(conn, "pylist", 1, PyListAggregate)
 
-        # calibre - Dummy functions for dynamically created filters
-        conn.create_function("books_list_filter", 1, lambda x: 1)
+            except sqlite3.OperationalError as e:
+                error_message = str(e)
+                err_str = "Unable to open database connection.\n"
+                err_str += "error_message: {}\n".format(error_message)
+                err_str += "database_path: {}\n".format(self.database_path)
+                raise DatabaseDriverError(err_str)
 
-        conn.create_collation("icucollate", icu_collator)
+            # http://ubuntuforums.org/showthread.php?t=1895895
+            # Tests the connection for foreign key support - issues a warning if it isn't present
+            conn.execute("PRAGMA foreign_keys=ON")
+            rows = conn.execute("PRAGMA foreign_keys")
+            test = None
+            for row in rows:
+                test = row
+            if test != (1,):
+                default_log.warn("Warning - foreign key support not enabled.")
 
-        # calibre aggregate functions, included here for compatibility
-        register_sqlite_aggregate(conn, "aum_sortconcat", 4, SqliteAumSortedConcatenate)
+            # Adds regex search support to the connection
+            def regexp(expr: str, item: str) -> bool:
+                """
+                Search a value using a freshly compiled Python regular expression.
 
-        register_sqlite_aggregate(conn, "concat", 1, SqliteConcatenate)
-        register_sqlite_aggregate(conn, "concat_error", 1, SqliteStupidConcatenate)
+                Installed as the two-argument SQLite REGEXP function on the enclosing
+                connection. Matching is a search, not a full-string match. There is no
+                pattern cache or NULL coercion: invalid patterns or incompatible values
+                raise in Python and become SQLite callback errors when invoked through SQL.
 
-        register_sqlite_aggregate(
-            conn, "identifiers_concat", 2, SqliteIdentifiersConcat
-        )
+                Example:
+                    On a connection configured by get_connection:
+                    >>> conn.get("SELECT 'abc' REGEXP 'b'", all=False)  # doctest: +SKIP
+                    1
 
-        register_sqlite_aggregate(conn, "sortconcat", 2, SqliteSortedConcatenate)
-        register_sqlite_aggregate(
-            conn, "sortconcat_bar", 2, partial(SqliteSortedConcatenate, sep="|")
-        )
-        register_sqlite_aggregate(
-            conn, "sortconcat_amper", 2, partial(SqliteSortedConcatenate, sep="&")
-        )
 
-        # Register the custom collators (ported from calibre, for compatibility)
-        encoding = next(conn.execute("PRAGMA encoding"))[0]
-        conn.create_collation("PYNOCASE", partial(pynocase, encoding=encoding))
+                :param expr: Pattern supplied to re.compile without extra flags or
+                    normalization.
+                :param item: Search target passed unchanged to the compiled pattern.
+                :return: True when search finds a match, otherwise False; SQLite exposes the
+                    boolean as 1 or 0.
+                """
+                reg = re.compile(expr)
+                return reg.search(item) is not None
 
-        # FRBR constants convenience: resolve language tokens to `languages.language_id`.
-        # Safe no-op on non-FRBR databases.
-        try:
-            from LiuXin_alpha.utils.language_tools import (
-                register_language_id_sql_function,
+            register_search_functions(conn)
+            conn.create_function("REGEXP", 2, regexp)
+
+            # Add the TREE_AGGREGATOR to the connection - allows for string representation of the position of a row in a
+            # tree
+            conn.create_function("TREE_AG", 3, self.direct_get_tree_aggregation_str)
+
+            # Adds a function which creates sort strings from strings of authors
+            # Adds again under a different name for close calibre compatibility
+            conn.create_function("AUTHORS_SORT", 1, authors_str_to_sort_str)
+
+            # More generally, add a function which will callback to the maintenance bot to tell it that particular row in
+            # a table has changed and might need attention
+            conn.create_function(
+                "DIRTY_RECORD",
+                2,
+                lambda table, row_id: self.maintainer_callback.dirty_record(table, row_id),
+            )
+            conn.create_function(
+                "DIRTY_INTERLINK_RECORD",
+                5,
+                lambda update_type, table1, table2, table1_id, table2_id: (
+                    self.maintainer_callback.dirty_interlink_record(
+                        update_type, table1, table2, table1_id, table2_id
+                    )
+                ),
+            )
+            conn.create_function(
+                "NEW_DIRTY_RECORD",
+                2,
+                lambda table, row_id: self.maintainer_callback.new_dirty_record(
+                    table, row_id
+                ),
             )
 
-            register_language_id_sql_function(
-                conn, function_name="LANGUAGE_ID", ensure_seeded=True
-            )
-        except Exception:
-            pass
+            # calibre - functions included here for compatibility
+            conn.create_function("title_sort", 1, title_to_title_sort)
+            conn.create_function("author_to_author_sort", 1, _author_sort_sql_value)
+            conn.create_function("uuid4", 0, lambda: str(uuid.uuid4()))
 
-        self._configure_progress_handler(conn)
-        return self._register_open_connection(conn)
+            # calibre - Dummy functions for dynamically created filters
+            conn.create_function("books_list_filter", 1, lambda x: 1)
+
+            conn.create_collation("icucollate", icu_collator)
+
+            # calibre aggregate functions, included here for compatibility
+            register_sqlite_aggregate(conn, "aum_sortconcat", 4, SqliteAumSortedConcatenate)
+
+            register_sqlite_aggregate(conn, "concat", 1, SqliteConcatenate)
+            register_sqlite_aggregate(conn, "concat_error", 1, SqliteStupidConcatenate)
+
+            register_sqlite_aggregate(
+                conn, "identifiers_concat", 2, SqliteIdentifiersConcat
+            )
+
+            register_sqlite_aggregate(conn, "sortconcat", 2, SqliteSortedConcatenate)
+            register_sqlite_aggregate(
+                conn, "sortconcat_bar", 2, partial(SqliteSortedConcatenate, sep="|")
+            )
+            register_sqlite_aggregate(
+                conn, "sortconcat_amper", 2, partial(SqliteSortedConcatenate, sep="&")
+            )
+
+            # Register the custom collators (ported from calibre, for compatibility)
+            encoding = next(conn.execute("PRAGMA encoding"))[0]
+            conn.create_collation("PYNOCASE", partial(pynocase, encoding=encoding))
+
+            # FRBR constants convenience: resolve language tokens to `languages.language_id`.
+            # Safe no-op on non-FRBR databases.
+            try:
+                from LiuXin_alpha.utils.language_tools import (
+                    register_language_id_sql_function,
+                )
+
+                register_language_id_sql_function(
+                    conn, function_name="LANGUAGE_ID", ensure_seeded=seed_languages
+                )
+            except Exception:
+                pass
+
+            self._configure_progress_handler(conn)
+            return self._register_open_connection(conn)
+        except BaseException:
+            if conn is not None:
+                conn.close()
+            raise
 
     def last_modified(self) -> "datetime.datetime":
         """
@@ -999,87 +1014,73 @@ class DatabaseDriver(
         conn.close()
 
     def sql_dump(self) -> Iterator[str]:
-        """
-        Yield SQL dump lines from the existing primary connection.
+        """Yield SQL from the borrowed primary connection without completing it.
 
-        The generator enters the connection transaction context when iteration begins
-        and delegates to iterdump. Exhausting it successfully commits any pending
-        transaction; exceptional exit, including closing a suspended generator, rolls it
-        back. It does not close the connection. It requires a usable primary conn and
-        does not open one when initialization was deferred. SQLite dump scope applies:
-        this is not a copy of connection-local callbacks or every pragma.
+        Pending writes on that connection are included. Exhaustion, cancellation
+        and consumer failure never commit or roll back caller work. Callers must
+        serialize connection use for the entire iteration; use an explicit caller
+        read transaction when a stable multi-statement snapshot is needed.
+        Closing the generator releases its dump cursor, not the connection.
 
-        Example:
-            >>> driver = DatabaseDriver({"database_path": ":memory:"})
-            >>> _ = driver.conn.execute("CREATE TABLE sample (value TEXT)")
-            >>> _ = driver.conn.execute("INSERT INTO sample VALUES (?)", ("saved",))
-            >>> lines = list(driver.sql_dump())
-            >>> any("saved" in line for line in lines)
-            True
-            >>> driver.conn.in_transaction
-            False
-            >>> _ = driver.conn.execute("INSERT INTO sample VALUES ('discarded')")
-            >>> dump = driver.sql_dump()
-            >>> next(dump)
-            'BEGIN TRANSACTION;'
-            >>> dump.close()
-            >>> driver.conn.get("SELECT COUNT(*) FROM sample", all=False)
-            1
-            >>> driver.close()
-
-
-        :return: Iterator of SQL text lines; SQL execution and transaction effects occur
-            during iteration.
+        >>> driver = DatabaseDriver({"database_path": ":memory:"})
+        >>> _ = driver.conn.execute("CREATE TABLE sample (value TEXT)")
+        >>> _ = driver.conn.execute("INSERT INTO sample VALUES ('pending')")
+        >>> lines = list(driver.sql_dump())
+        >>> any("pending" in line for line in lines)
+        True
+        >>> driver.conn.in_transaction
+        True
+        >>> dump = driver.sql_dump()
+        >>> next(dump)
+        'BEGIN TRANSACTION;'
+        >>> dump.close()
+        >>> driver.conn.get("SELECT COUNT(*) FROM sample", all=False)
+        1
+        >>> driver.conn.rollback()
+        >>> driver.conn.get("SELECT COUNT(*) FROM sample", all=False)
+        0
+        >>> driver.close()
         """
         connection = self.conn
         if not isinstance(connection, sqlite3.Connection):
             raise DatabaseDriverError(
                 "A live SQLite primary connection is required to dump SQL"
             )
-        with connection:
-            yield from connection.iterdump()
+        yield from connection.iterdump()
 
     def dump_and_restore(
         self,
         callback: Callable[[str], object] | None = lambda x: x,
         sql: str | bytes | None = None,
     ) -> None:
+        """Rebuild privately, validate the completed graph, then replace and reopen.
+
+        The APSW shell reads and restores the SQL dump.
+        Foreign keys are checked after loading so forward references and cycles are
+        supported. Integrity and foreign-key failures prevent publication. The
+        original user_version is retained, and restored connections use the normal
+        driver callbacks and collations. Prefix SQL executes before the dump.
+
+        All tracked connections must have no pending writes, both at entry and
+        before publication. Closing finalizes owned cursors before their native
+        connections. Failed closes or surviving WAL/journal files refuse
+        publication; the method never deletes a live journal to force replacement.
+        The caller must coordinate exclusive access by other
+        database users. There is no automatic backup or rollback after replacement;
+        preparation and validation failures leave the original file in place.
+        Temporary resources are cleaned up and rename failures attempt reopen.
+
+        :param callback: Optional receiver of dumping/restoring progress messages.
+        :param sql: Optional SQL prefix; bytes are decoded as UTF-8.
+        :return: None after publishing a validated rebuilt file.
         """
-        Rebuild the database file through the bundled APSW shell.
+        from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.sqlite_files import (
+            require_idle_sqlite_connections,
+            require_sqlite_replacement_ready,
+            validate_sqlite_file,
+        )
 
-        Read user_version from the primary stdlib connection, then write a complete APSW
-        .dump to a temporary UTF-8 SQL file, optionally preceded by extra SQL. Restore
-        with .read into a temporary file beside database_path and restore user_version
-        afterward. Connection contexts close both APSW handles. The shell accepts SQL
-        and dot commands, so the prefix must be trusted. The .read filename is appended
-        without quoting; scratch paths containing spaces or shell-token quoting
-        characters can fail to parse.
-
-        After restoration, close all tracked driver handles, atomically replace the
-        original file and attempt reopen even if renaming fails. A reopen failure can
-        mask the rename error. Reopen uses stdlib SQLite again and does not refresh
-        schema caches. There is no backup or exclusive-use lock. Commit pending writes
-        and coordinate other connections first: the separate dump connection cannot see
-        uncommitted work and closing handles can discard it.
-
-        Callback, decoding, shell and filesystem errors propagate. Temporary-file
-        contexts remove their files; failures before replacement leave the original file
-        in place, while replacement cannot be rolled back by this method.
-
-        Example:
-            With committed data and a shell-compatible scratch path:
-            >>> driver.dump_and_restore(
-            ...     callback=print, sql="CREATE TABLE restore_note (value TEXT);"
-            ... )  # doctest: +SKIP
-
-
-        :param callback: Callable receiving localized dumping and restoring messages;
-            return values are ignored. None selects an identity callback.
-        :param sql: Optional trusted prefix: bytes are decoded as UTF-8, other non-None
-            values converted with str; this augments the full dump.
-        :return: None; replaces the file and reopens the primary stdlib connection on
-            success.
-        """
+        require_idle_sqlite_connections(self._open_connections)
         if callback is None:
 
             def silent_callback(x: str) -> str:
@@ -1141,8 +1142,13 @@ class DatabaseDriver(
                     shell.process_command(".read " + fname.replace(os.sep, "/"))
                     conn.execute("PRAGMA user_version=%d;" % uv)
 
+                validate_sqlite_file(tmpdb)
+                require_idle_sqlite_connections(self._open_connections)
                 self.close()
                 try:
+                    require_sqlite_replacement_ready(
+                        self.database_path, self._open_connections
+                    )
                     atomic_rename(tmpdb, self.database_path)
                 finally:
                     self.reopen()

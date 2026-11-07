@@ -35,7 +35,7 @@ def _require_absent(path: Path) -> None:
         raise FileExistsError(f"Database destination already exists: {path}")
 
 
-def _require_no_sidecars(path: Path) -> None:
+def require_no_sqlite_sidecars(path: Path) -> None:
     """Refuse offline replacement while journals or WAL coordination files remain."""
     for suffix in ("-wal", "-shm", "-journal"):
         if os.path.lexists(str(path) + suffix):
@@ -76,14 +76,14 @@ def create_sqlite_file(
     """
     target = _path(path)
     _require_absent(target)
-    _require_no_sidecars(target)
+    require_no_sqlite_sidecars(target)
     target.parent.mkdir(parents=True, exist_ok=True)
     with TemporaryDirectory(prefix=".liuxin-create-", dir=target.parent) as scratch:
         candidate = Path(scratch) / "database.sqlite"
         build(candidate)
-        _require_no_sidecars(candidate)
+        require_no_sqlite_sidecars(candidate)
         _sync(candidate)
-        _require_no_sidecars(target)
+        require_no_sqlite_sidecars(target)
         os.link(candidate, target)
 
 
@@ -112,13 +112,13 @@ def replace_sqlite_file(
             "The backup must be separate from the database and its SQLite sidecars."
         )
     original = _identity(target)
-    _require_no_sidecars(target)
+    require_no_sqlite_sidecars(target)
     _require_absent(backup)
     backup.parent.mkdir(parents=True, exist_ok=True)
     with TemporaryDirectory(prefix=".liuxin-replace-", dir=target.parent) as scratch:
         candidate = Path(scratch) / "database.sqlite"
         build(candidate)
-        _require_no_sidecars(candidate)
+        require_no_sqlite_sidecars(candidate)
         shutil.copymode(target, candidate)
         _sync(candidate)
 
@@ -141,11 +141,11 @@ def replace_sqlite_file(
                         )
             shutil.copymode(target, destination)
 
-        _require_no_sidecars(target)
+        require_no_sqlite_sidecars(target)
         if _identity(target) != original:
             raise RuntimeError("Database changed while preparing replacement.")
         create_sqlite_file(backup, snapshot)
-        _require_no_sidecars(target)
+        require_no_sqlite_sidecars(target)
         if _identity(target) != original:
             raise RuntimeError(
                 f"Database changed; replacement refused. Backup retained at {backup}"

@@ -311,24 +311,6 @@ class DatabaseAPI(
         """
 
     @abc.abstractmethod
-    def lock_writing(self) -> None:
-        """
-        Request a scratch copy through the driver make_scratch hook.
-
-        Abstract declaration; subclasses supply the operation. In the concrete Database
-        implementation: This method does not acquire a write lock. The SQL base
-        implementation copies the database file and changes its path attribute without
-        reopening existing connections.
-
-        Example:
-            Call db.lock_writing() only when the selected backend scratch-copy behavior
-            is suitable; it is not a transaction lock.
-
-
-        :return: None; any scratch path returned by the driver is discarded.
-        """
-
-    @abc.abstractmethod
     def create_new_database(self, blank: bool = True, backup: bool = True) -> None:
         """Create a new database without replacing existing data.
 

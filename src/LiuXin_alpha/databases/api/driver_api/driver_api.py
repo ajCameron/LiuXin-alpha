@@ -195,20 +195,10 @@ class DatabaseDriverAPI(
 
     @abc.abstractmethod
     def _close_all_open_connections(self) -> None:
-        """
-        Best-effort close tracked handles and the primary connection.
+        """Close owned handles without committing, retaining failed closes for retry.
 
-        Abstract backend hook. The behavior below describes the shared SQL/SQLite
-        implementation; this declaration itself has no operational body.
-
-        Individual close errors are suppressed; tracking is cleared and ``conn`` becomes
-        ``None``.
-
-        Example:
-            >>> driver._close_all_open_connections()  # doctest: +SKIP
-
-
-        :return: ``None``.
+        Built-in handles deregister on close. Detach the primary reference while
+        retaining any handle whose close raised in the driver's ownership registry.
         """
 
     @abc.abstractmethod
@@ -298,20 +288,11 @@ class DatabaseDriverAPI(
 
     @abc.abstractmethod
     def _register_open_connection(self, conn: ConnectionT) -> ConnectionT:
-        """
-        Track a connection for later bulk closing and return it unchanged.
+        """Track a live connection and return it unchanged.
 
-        Abstract backend hook. The behavior below describes the shared SQL/SQLite
-        implementation; this declaration itself has no operational body.
-
-        Tracking failures are logged without preventing connection use.
-
-        Example:
-            >>> driver._register_open_connection(connection)  # doctest: +SKIP
-
-
-        :param conn: Open connection supplied by the caller.
-        :return: The supplied connection.
+        Built-in connection implementations deregister immediately on close.
+        Foreign raw connections without callback attributes remain owned until
+        driver shutdown. Maintenance binding failures propagate.
         """
 
     @abc.abstractmethod
@@ -456,23 +437,11 @@ class DatabaseDriverAPI(
     def direct_backup(
         self, path: str | PathLike[str] | None = None
     ) -> str | PathLike[str]:
-        """
-        Copy the database file using the local backup helper inside a connection
-        context.
+        """Publish a verified, create-only SQLite backup of committed state.
 
-        Abstract backend hook. The behavior below describes the shared SQL/SQLite
-        implementation; this declaration itself has no operational body.
-
-        A falsy helper result raises DatabaseDriverError. This is a file-copy backup,
-        and this method does not explicitly close the acquired connection.
-
-        Example:
-            >>> driver.direct_backup()  # doctest: +SKIP
-
-
-        :param path: Optional backup destination; ``None`` lets the file helper choose
-            one.
-        :return: The truthy backup result, normally the destination path.
+        Include WAL data using a separate reader; preserve primary pending writes.
+        Reject existing destinations and source/sidecar paths. PostgreSQL backup
+        remains an explicit external operation rather than a file copy.
         """
 
     @abc.abstractmethod
@@ -518,10 +487,11 @@ class DatabaseDriverAPI(
         Abstract backend hook. The behavior below describes the shared SQL/SQLite
         implementation; this declaration itself has no operational body.
 
-        Replace a missing/broken primary handle; convert an integer binding to a
-        one-element text tuple. Execution failures become DatabaseDriverError. Finally
-        attempt a cache refresh while preserving a usable handle, so TEMP objects remain
-        available.
+        Open a missing primary handle; propagate a failed liveness probe without
+        replacing an existing handle or completing its transaction. Convert an integer
+        binding to a one-element text tuple. Statement execution still uses the
+        connection context and its commit/rollback semantics. Execution failures
+        become DatabaseDriverError; finally attempt a cache refresh.
 
         Example:
             >>> driver.direct_execute("SELECT 1")  # doctest: +SKIP
@@ -530,8 +500,7 @@ class DatabaseDriverAPI(
         :param sql: SQL text to execute, with placeholders when bindings are supplied.
         :param values: Optional bindings; a bare integer is converted to a one-element
             string tuple.
-        :return: The backend execution result, normally a cursor, despite the None
-            annotation.
+        :return: The backend result cursor; the caller owns its cursor lifetime.
         """
 
     @abc.abstractmethod
@@ -544,9 +513,11 @@ class DatabaseDriverAPI(
         Abstract backend hook. The behavior below describes the shared SQL/SQLite
         implementation; this declaration itself has no operational body.
 
-        Only outer tuples receive scalar-to-one-tuple normalization. ValueError retries
-        try alternate binding shapes; execution failures become DatabaseDriverError.
-        Refresh caches after success. With values=None, delegate to
+        Normalize scalar entries in an outer tuple before SQL execution. Consume
+        other binding iterables once, without retrying failures. The connection
+        context rolls back on input, adaptation or SQL errors; DatabaseDriverError
+        retains the original cause. This context also completes earlier primary
+        work. Refresh caches after success. With values=None, delegate to
         direct_executescript.
 
         Example:
@@ -688,47 +659,13 @@ class DatabaseDriverAPI(
         callback: Callable[[str], object] | None = lambda x: x,
         sql: str | bytes | None = None,
     ) -> None:
-        """
-        Rebuild the file from its SQL dump, replace it and reopen the driver.
+        """Rebuild a file-backed SQLite database from its SQL dump.
 
-        Abstract backend hook. The behavior below describes the shared SQL/SQLite
-        implementation; this declaration itself has no operational body.
-
-        Read user_version from the primary connection, dump through a separate
-        configured connection to a UTF-8 temporary SQL file, and restore into a
-        temporary database beside database_path. Prefix SQL runs before the dump rather
-        than replacing it. Restore execution accumulates lines until a complete
-        statement is available and calls execute once per accumulated statement, so
-        multiple complete statements on one line are not supported.
-
-        The restore connection enables foreign keys and a subset of compatibility
-        functions/collations, not every driver callback. Dumps needing other callbacks
-        may fail. Restore the saved user_version after SQL execution, then close all
-        driver-tracked handles and atomically rename the rebuilt file over
-        database_path. Always attempt reopen after that rename attempt, even if renaming
-        failed; a reopen error can mask an earlier error. No schema-cache refresh is
-        performed.
-
-        Use a file-backed target and commit pending writes before calling: the separate
-        dump connection cannot include uncommitted changes on another connection, and
-        closing tracked handles can discard them. Coordinate exclusive access yourself;
-        there is no backup, locking protocol or rollback of a completed replacement.
-        Temporary dump/restore connections are closed best-effort and temporary files
-        are cleaned up by their contexts. Callback, decoding, SQL and filesystem errors
-        propagate; failures before replacement leave the original file in place.
-
-        Example:
-            >>> driver.dump_and_restore()  # doctest: +SKIP
-
-
-        :param callback: Callable receiving two localized progress strings, before
-            dumping and restoring. Its return value is ignored; None installs a local
-            identity callback.
-        :param sql: Optional prefix: bytes decoded as UTF-8, or any other non-None value
-            converted with str. None adds no prefix; supplied SQL must be compatible
-            with the subsequent dump.
-        :return: None; replaces the database file and installs a fresh primary
-            connection on success.
+        Require idle tracked connections and caller-coordinated exclusive access.
+        Load into a private candidate, then validate integrity and foreign keys
+        before replacing the original. Prefix SQL and progress callbacks remain
+        supported. Failures before publication preserve the source; a completed
+        replacement has no automatic rollback. PostgreSQL does not implement this.
         """
 
     @abc.abstractmethod
@@ -741,7 +678,7 @@ class DatabaseDriverAPI(
         Abstract backend hook. The behavior below describes the shared SQL/SQLite
         implementation; this declaration itself has no operational body.
 
-        Return lastrowid without explicitly closing the connection or refreshing caches;
+        Return lastrowid and close the owned cursor/connection on every path;
         backend execution errors propagate.
 
         Example:
@@ -817,7 +754,7 @@ class DatabaseDriverAPI(
 
         Best-effort LANGUAGE_ID registration may seed and lock an existing FRBR
         languages table, committing changes; exceptions from that registration are
-        suppressed. Other setup failures propagate without guaranteed cleanup. The
+        suppressed. Other setup failures close the new handle before propagating. The
         opening OperationalError handler reads obsolete exception.message, so standard
         Python 3 errors become AttributeError before its intended DatabaseDriverError
         can be raised.
@@ -948,24 +885,6 @@ class DatabaseDriverAPI(
         """
 
     @abc.abstractmethod
-    def make_scratch(self) -> str:
-        """
-        Copy the database file into a scratch directory and switch its configured path.
-
-        Abstract backend hook. The behavior below describes the shared SQL/SQLite
-        implementation; this declaration itself has no operational body.
-
-        Existing connection handles are not replaced; callers must manage their
-        lifecycle. Copy errors propagate.
-
-        Example:
-            >>> driver.make_scratch()  # doctest: +SKIP
-
-
-        :return: The new database path.
-        """
-
-    @abc.abstractmethod
     def refresh(self, reconnect: bool = False) -> None:
         """
         Invalidate cached state while preserving a usable primary connection.
@@ -973,8 +892,8 @@ class DatabaseDriverAPI(
         Abstract backend hook. The behavior below describes the shared SQL/SQLite
         implementation; this declaration itself has no operational body.
 
-        Probe failures or an explicit reconnect replace the primary handle; retaining it
-        preserves connection-local TEMP objects.
+        Probe failures propagate and retain the primary transaction and TEMP objects.
+        Only an explicit reconnect replaces the handle.
 
         Example:
             >>> driver.refresh()  # doctest: +SKIP
@@ -1045,25 +964,12 @@ class DatabaseDriverAPI(
 
     @abc.abstractmethod
     def sql_dump(self) -> Iterator[str]:
-        """
-        Yield SQL dump lines from the existing primary connection.
+        """Yield SQL using the borrowed primary connection without completing it.
 
-        Abstract backend hook. The behavior below describes the shared SQL/SQLite
-        implementation; this declaration itself has no operational body.
-
-        The generator enters the connection transaction context when iteration begins
-        and delegates to iterdump. Exhausting it successfully commits any pending
-        transaction; exceptional exit, including closing a suspended generator, rolls it
-        back. It does not close the connection. It requires a usable primary conn and
-        does not open one when initialization was deferred. SQLite dump scope applies:
-        this is not a copy of connection-local callbacks or every pragma.
-
-        Example:
-            >>> driver.sql_dump()  # doctest: +SKIP
-
-
-        :return: Iterator of SQL text lines; SQL execution and transaction effects occur
-            during iteration.
+        Pending primary writes are included. Exhaustion and early close never
+        commit, roll back or close that connection. Serialize connection use for
+        the whole iteration; use a caller-owned read transaction for a stable
+        multi-statement snapshot.
         """
 
     @abc.abstractmethod

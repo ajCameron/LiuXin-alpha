@@ -66,8 +66,9 @@ class TreeMethodsMixin(SQLDriverMixinState):
         Write each positive-ID row's root ID and display value as a tree identifier.
 
         Use ``<root_id>_<root_display>``; an existing ID-zero sentinel receives
-        ``0_<display>`` separately. Commit each update, with no atomic batch or explicit
-        connection close. Missing tree-ID columns raise InputIntegrityError.
+        ``0_<display>`` separately. Commit each update, with no atomic batch; close
+        the owned connection on success and failure. Missing tree-ID columns raise
+        InputIntegrityError.
 
         Example:
             ``driver.direct_set_tree_ids("series")`` groups descendants under their
@@ -86,38 +87,38 @@ class TreeMethodsMixin(SQLDriverMixinState):
             )
             raise InputIntegrityError(err_str)
         table_display_column = driver_operations(self).direct_get_display_column(table)
-        conn = driver_operations(self).get_connection()
+        with closing(driver_operations(self).get_connection()) as conn:
 
-        stmt = "UPDATE {} SET {} = ? WHERE {} = ?".format(
-            table, table_tree_id_column, table_id_column
-        )
-        final_stmt = stmt
-
-        # Walk "real" rows only. The row-dict iterator intentionally skips any sentinel/null row at id=0.
-        for row in driver_operations(self).direct_get_row_dict_iterator(table):
-            row_id = row[table_id_column]
-
-            root_series = self.direct_get_root_series(row)
-            root_phash = "{}_{}".format(
-                root_series[table_id_column], root_series[table_display_column]
+            stmt = "UPDATE {} SET {} = ? WHERE {} = ?".format(
+                table, table_tree_id_column, table_id_column
             )
-            conn.execute(final_stmt, (root_phash, row_id))
-            conn.commit()
-        else:
-            # Handle the sentinel/null row (id=0) explicitly, if present.
-            # This keeps iterators clean (real rows only) while still giving id=0 deterministic derived fields.
-            null_row = driver_operations(self).direct_get_row_dict_from_id(table, 0)
-            if null_row not in (False, None):
-                null_display = (
-                    null_row.get(table_display_column)
-                    if isinstance(null_row, dict)
-                    else None
-                )
-                null_tree_id = f"0_{null_display}"
-                conn.execute(final_stmt, (null_tree_id, 0))
-                conn.commit()
+            final_stmt = stmt
 
-            return True
+            # Walk "real" rows only. The row-dict iterator intentionally skips any sentinel/null row at id=0.
+            for row in driver_operations(self).direct_get_row_dict_iterator(table):
+                row_id = row[table_id_column]
+
+                root_series = self.direct_get_root_series(row)
+                root_phash = "{}_{}".format(
+                    root_series[table_id_column], root_series[table_display_column]
+                )
+                conn.execute(final_stmt, (root_phash, row_id))
+                conn.commit()
+            else:
+                # Handle the sentinel/null row (id=0) explicitly, if present.
+                # This keeps iterators clean (real rows only) while still giving id=0 deterministic derived fields.
+                null_row = driver_operations(self).direct_get_row_dict_from_id(table, 0)
+                if null_row not in (False, None):
+                    null_display = (
+                        null_row.get(table_display_column)
+                        if isinstance(null_row, dict)
+                        else None
+                    )
+                    null_tree_id = f"0_{null_display}"
+                    conn.execute(final_stmt, (null_tree_id, 0))
+                    conn.commit()
+
+                return True
 
     def direct_get_root_series(self, start_row: dict[str, Any]) -> dict[str, Any]:
         """

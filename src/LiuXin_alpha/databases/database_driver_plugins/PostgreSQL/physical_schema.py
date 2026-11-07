@@ -87,37 +87,7 @@ def inspect_relation(
     """,
         (oid,),
     )
-    index_rows = rows(
-        connection,
-        """
-        SELECT c.relname, i.indisunique, i.indisprimary, i.indpred IS NOT NULL,
-               pg_get_expr(i.indpred, i.indrelid), pg_get_indexdef(i.indexrelid),
-               i.indisvalid,
-               ARRAY(SELECT a.attname FROM unnest(i.indkey) WITH ORDINALITY k(num,pos)
-                     LEFT JOIN pg_catalog.pg_attribute a ON a.attrelid=i.indrelid AND a.attnum=k.num
-                     WHERE k.pos<=i.indnkeyatts ORDER BY k.pos),
-               ARRAY(SELECT a.attname FROM unnest(i.indkey) WITH ORDINALITY k(num,pos)
-                     JOIN pg_catalog.pg_attribute a ON a.attrelid=i.indrelid AND a.attnum=k.num
-                     WHERE k.pos>i.indnkeyatts ORDER BY k.pos)
-        FROM pg_catalog.pg_index i JOIN pg_catalog.pg_class c ON c.oid=i.indexrelid
-        WHERE i.indrelid=%s ORDER BY c.relname
-    """,
-        (oid,),
-    )
-    indexes = tuple(
-        StorageIndexSpec(
-            name=row[0],
-            columns=tuple(row[7]),
-            unique=bool(row[1]),
-            primary=bool(row[2]),
-            partial=bool(row[3]),
-            predicate=row[4],
-            definition=row[5],
-            valid=bool(row[6]),
-            included_columns=tuple(row[8]),
-        )
-        for row in index_rows
-    )
+    indexes = inspect_indexes(connection, actual_schema, name)
     primary = tuple(
         column
         for index in indexes
@@ -202,4 +172,48 @@ def inspect_relation(
             )
     return PhysicalTableSpec(
         name, kind, tuple(columns), primary, indexes, foreign_keys, actual_schema
+    )
+
+
+def inspect_indexes(
+    connection: QueryConnection, schema: str, name: str
+) -> tuple[StorageIndexSpec, ...]:
+    """Read ordered keys separately from INCLUDE columns, without commits.
+
+    Shared by physical specifications and global uniqueness discovery. Preserve
+    partial, expression and invalid indexes so each consumer can interpret them.
+    Return indexes in name order, or an empty tuple for a missing relation.
+    """
+    index_rows = rows(
+        connection,
+        """
+        SELECT c.relname, i.indisunique, i.indisprimary, i.indpred IS NOT NULL,
+               pg_get_expr(i.indpred, i.indrelid), pg_get_indexdef(i.indexrelid),
+               i.indisvalid,
+               ARRAY(SELECT a.attname FROM unnest(i.indkey) WITH ORDINALITY k(num,pos)
+                     LEFT JOIN pg_catalog.pg_attribute a ON a.attrelid=i.indrelid AND a.attnum=k.num
+                     WHERE k.pos<=i.indnkeyatts ORDER BY k.pos),
+               ARRAY(SELECT a.attname FROM unnest(i.indkey) WITH ORDINALITY k(num,pos)
+                     JOIN pg_catalog.pg_attribute a ON a.attrelid=i.indrelid AND a.attnum=k.num
+                     WHERE k.pos>i.indnkeyatts ORDER BY k.pos)
+        FROM pg_catalog.pg_index i JOIN pg_catalog.pg_class c ON c.oid=i.indexrelid
+        JOIN pg_catalog.pg_class relation ON relation.oid=i.indrelid
+        JOIN pg_catalog.pg_namespace namespace ON namespace.oid=relation.relnamespace
+        WHERE namespace.nspname=%s AND relation.relname=%s ORDER BY c.relname
+    """,
+        (schema, name),
+    )
+    return tuple(
+        StorageIndexSpec(
+            name=row[0],
+            columns=tuple(row[7]),
+            unique=bool(row[1]),
+            primary=bool(row[2]),
+            partial=bool(row[3]),
+            predicate=row[4],
+            definition=row[5],
+            valid=bool(row[6]),
+            included_columns=tuple(row[8]),
+        )
+        for row in index_rows
     )

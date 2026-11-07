@@ -990,7 +990,20 @@ class _FakeDriverCursor:
         """
         lowered = self.sql.lower()
         if "from pg_catalog.pg_index" in lowered:
-            return [(["digital_asset_id", "digital_asset_size_bytes"],)]
+            # Physical index facts: name, unique, primary, partial, predicate,
+            # definition, valid, ordered key columns, ordered INCLUDE columns.
+            return [
+                ("asset_key", True, False, False, None, "unique key", True,
+                 ["digital_asset_id", "digital_asset_size_bytes"], ["included_value"]),
+                ("partial", True, False, True, "id > 0", "partial key", True,
+                 ["digital_asset_id"], []),
+                ("expression", True, False, False, None, "expression key", True,
+                 [None], []),
+                ("invalid", True, False, False, None, "invalid key", False,
+                 ["digital_asset_id"], []),
+                ("ordinary", False, False, False, None, "ordinary index", True,
+                 ["digital_asset_id"], []),
+            ]
         if "from information_schema.tables" in lowered:
             return [("database_metadata",), ("stores",), ("digital_assets",)]
         if "from information_schema.columns" in lowered and "table_name, column_name" in lowered:
@@ -1409,8 +1422,8 @@ def test_postgresql_driver_connects_and_introspects(monkeypatch) -> None:
     """
     Use fake connections to check redaction, existence, table/column/type/index introspection, invalid-name errors, schema setup, and first-connection closure.
 
-    Also require index-query filters excluding partial and expression indexes; no real
-    server is contacted.
+    Require unique-key interpretation to exclude partial, expression, invalid and
+    nonunique indexes, and to omit INCLUDE columns; no real server is contacted.
 
     Example:
         Run the owning tests with pytest::
@@ -1465,12 +1478,12 @@ def test_postgresql_driver_connects_and_introspects(monkeypatch) -> None:
     assert raw_connections
     assert raw_connections[0].closed is True
     assert any('set search_path to "public"' in cursor.sql for cursor in raw_connections[0].cursors)
-    assert any(
-        "index_info.indpred is null" in cursor.sql
-        and "index_info.indexprs is null" in cursor.sql
-        for connection in raw_connections
-        for cursor in connection.cursors
-    )
+    index_cursors = [
+        cursor for connection in raw_connections for cursor in connection.cursors
+        if "from pg_catalog.pg_index" in cursor.sql.lower()
+    ]
+    assert index_cursors
+    assert all(cursor.values == ("public", "digital_assets") for cursor in index_cursors)
 
 
 def test_postgresql_driver_inherits_link_capability_introspection(monkeypatch) -> None:
