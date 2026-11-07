@@ -1,17 +1,13 @@
-"""Classify SQLite row statements for shared transaction and maintenance policy."""
+"""Share backend lexical rules across transaction and maintenance boundaries."""
 
 import re
+from collections.abc import Iterator
 
 
-def sqlite_row_operation(sql: str) -> tuple[str, bool]:
-    """Identify a SQLite row operation, including CTEs and replacement conflicts.
-
-    Keep quoted values/identifiers opaque and ignore comments. CTE bodies are
-    parenthesized; their SELECTs do not identify the outer operation. This only
-    classifies row SQL for transaction ownership, rather than validating SQL.
-    """
+def _sqlite_tokens(sql: str) -> Iterator[str]:
+    """Yield significant SQLite tokens, preserving quoted text and identifiers."""
     tokens = re.finditer(
-        r"--[^\n]*|/\*.*?\*/|'(?:''|[^'])*'|\"(?:\"\"|[^\"])*\""
+        r"--[^\n]*|/\*.*?(?:\*/|\Z)|'(?:''|[^'])*'|\"(?:\"\"|[^\"])*\""
         r"|`(?:``|[^`])*`|\[[^\]]*\]|[ \t\r\n\f\ufeff]+"
         r"|[A-Za-z_\x80-\U0010ffff][A-Za-z_0-9$\x80-\U0010ffff]*|.",
         str(sql),
@@ -21,11 +17,62 @@ def sqlite_row_operation(sql: str) -> tuple[str, bool]:
     # combining marks and emoji, and '$' after its first character. Python's
     # Unicode \w is narrower. Retain other tokens instead of silently dropping
     # a name or punctuation and shifting the CTE grammar. A leading BOM is space.
-    words = [
+    yield from (
         match[0]
         for match in tokens
         if not match[0].startswith(("--", "/*")) and match[0].strip(" \t\r\n\f\ufeff")
-    ]
+    )
+
+
+def _statement_tokens(sql: str, *, postgres: bool) -> Iterator[str]:
+    """Use the same backend tokens as row classification and SQL adaptation."""
+    if postgres:
+        from LiuXin_alpha.databases.database_driver_plugins.PostgreSQL.sql_tokens import (
+            sql_tokens,
+        )
+
+        yield from (
+            token.text
+            for token in sql_tokens(str(sql))
+            if token.kind not in {"space", "comment"}
+        )
+    else:
+        yield from _sqlite_tokens(sql)
+
+
+def statement_keyword(sql: str, *, postgres: bool = False) -> str:
+    """Find the leading operation after backend comments and empty statements."""
+    return next(
+        (
+            token.upper()
+            for token in _statement_tokens(sql, postgres=postgres)
+            if token != ";"
+        ),
+        "",
+    )
+
+
+def has_multiple_statements(sql: str, *, postgres: bool = False) -> bool:
+    """Detect a second nonempty statement without inspecting quoted content."""
+    started = ended = False
+    for token in _statement_tokens(sql, postgres=postgres):
+        if token == ";":
+            ended = started
+        elif ended:
+            return True
+        else:
+            started = True
+    return False
+
+
+def sqlite_row_operation(sql: str) -> tuple[str, bool]:
+    """Identify a SQLite row operation, including CTEs and replacement conflicts.
+
+    Keep quoted values/identifiers opaque and ignore comments. CTE bodies are
+    parenthesized; their SELECTs do not identify the outer operation. This only
+    classifies row SQL for transaction ownership, rather than validating SQL.
+    """
+    words = list(_sqlite_tokens(sql))
     # SQLite also accepts empty statements before the statement being prepared.
     start = 0
     while start < len(words) and words[start] == ";":

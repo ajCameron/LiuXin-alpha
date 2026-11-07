@@ -8,7 +8,10 @@ from collections.abc import Iterable, Iterator
 from contextlib import closing, contextmanager
 from pathlib import Path
 
-from LiuXin_alpha.databases.creation import create_sqlite_file
+from LiuXin_alpha.databases.creation import (
+    create_sqlite_file,
+    require_no_sqlite_sidecars,
+)
 from LiuXin_alpha.databases.db_types.driver_types import SQLConnection
 
 
@@ -24,6 +27,19 @@ def require_idle_sqlite_connections(connections: Iterable[SQLConnection]) -> Non
                 raise RuntimeError(
                     "Commit or roll back pending writes before rebuilding the database"
                 )
+
+
+def require_sqlite_replacement_ready(
+    path: str, connections: Iterable[SQLConnection]
+) -> None:
+    """Refuse publication after a failed close or while old journals remain.
+
+    The caller still coordinates exclusive access. Never unlink a WAL that may
+    belong to a retained native reader or an external connection.
+    """
+    if any(True for _ in connections):
+        raise RuntimeError("Close all owned connections before rebuilding the database")
+    require_no_sqlite_sidecars(Path(path))
 
 
 def replay_sqlite_dump(connection: sqlite3.Connection, lines: Iterable[str]) -> None:

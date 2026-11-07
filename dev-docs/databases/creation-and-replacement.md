@@ -68,6 +68,27 @@ The terminal wizard records replacement intent and a required backup path
 separately. Its historical `backup_existing=True` field alone cannot authorize
 replacement. Core and database APIs expose the same explicit operation.
 
+## Driver dump and rebuild
+
+`driver.dump_and_restore()` prepares and validates a complete replacement before
+publishing it. Pending writes on tracked connections are refused. At publication,
+the driver finalizes its owned cursors and closes its connections; retained
+SELECT cursors therefore cannot leave the old SQLite WAL attached to the new file.
+Cursor bookkeeping uses weak references and does not keep abandoned readers alive.
+
+Failed closes or surviving WAL, shared-memory or journal files prevent replacement
+on both driver routes. The original remains in place and the driver attempts to
+reopen it. Close other database users and checkpoint/recover normally before
+retrying; the rebuild never removes a live WAL to force publication. The caller
+must still coordinate exclusive access throughout the operation: the final
+sidecar check is not a lease against another process reopening the file.
+
+The method does not make an automatic recovery backup or offer rollback after
+successful replacement. Create a verified backup first when one is required.
+[Completion/rebuild regressions](../../tests/databases/test_driver_completion_boundaries.py)
+check retained and custom readers, failed closes, external WAL refusal, retry,
+and the reopened candidate's actual schema/data.
+
 ## Independent SQLite working copies
 
 **2026-11-05:** `Database.lock_writing()` and driver `make_scratch()` have been

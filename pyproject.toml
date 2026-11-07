@@ -143,6 +143,7 @@ paths = [
   "tests/databases/test_driver_plugin_sqlite_safety.py",
   "tests/databases/test_driver_plugin_sqlite_restore.py",
   "tests/databases/test_driver_plugin_postgres_safety.py",
+  "tests/databases/test_driver_completion_boundaries.py",
   "src/LiuXin_alpha/databases/driver_wrapper",
   "src/LiuXin_alpha/databases/api/driver_wrapper_api",
   "src/LiuXin_alpha/databases/db_types/driver_types.py",

@@ -188,11 +188,11 @@ class MaintenanceRuntime:
             return
         if vars(connection).get("_liuxin_maintenance_installed") is False:
             return
-        keyword = statement_keyword(sql)
+        keyword = statement_keyword(sql, postgres=bool(self.schema))
         if not self.schema:
             keyword = sqlite_row_operation(sql)[0]
         if self.schema and self._installed:
-            require_single_statement(sql)
+            require_single_statement(sql, postgres=True)
         if self.in_handler and keyword not in {
             "SELECT",
             "INSERT",
@@ -217,14 +217,14 @@ class MaintenanceRuntime:
             self.flush(connection)
         if keyword == "SELECT":
             if self.schema and self._installed:
-                require_single_statement(sql)
+                require_single_statement(sql, postgres=True)
             return
         with self._internal():
             self._refresh(connection)
             if not self._installed:
                 return
             if self.schema:
-                require_single_statement(sql)
+                require_single_statement(sql, postgres=True)
             else:
                 reject_sqlite_replace(sql)
             if self.schema and self._installed:
@@ -458,7 +458,7 @@ class MaintenanceRuntime:
             raise MaintenanceFailure(
                 "An attached plugin declaration changed after registration"
             )
-        bound = BoundConnection(connection)
+        bound = BoundConnection(connection, postgres=bool(self.schema))
         # A handler receives no general Database facade that could open another connection.
         context = MaintenancePluginContext(
             db=None, connection=bound, plugin_id=declaration.name, mode=declaration.mode

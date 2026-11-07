@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import re
 from collections.abc import Iterable, Iterator, Sequence
 from typing import Any, Never, Self
 
@@ -14,33 +13,14 @@ from LiuXin_alpha.databases.db_types.driver_types import (
 )
 from LiuXin_alpha.databases.transactions import transaction_active
 from LiuXin_alpha.databases.sql_statements import sqlite_row_operation as sqlite_row_operation
+from LiuXin_alpha.databases.sql_statements import (
+    has_multiple_statements,
+    statement_keyword as statement_keyword,
+)
 
 
 class MaintenanceTransactionError(RuntimeError):
     """A maintenance handler attempted to escape its supplied write unit."""
-
-
-# Todo: Move this over to utils?
-def statement_keyword(sql: str) -> str:
-    """
-    Find the first keyword after whitespace and ordinary SQL comments.
-
-    :param sql:
-    :return:
-    """
-    text = str(sql)
-    while True:
-        text = text.lstrip(" \t\r\n;")
-        if text.startswith("--"):
-            _, _, text = text.partition("\n")
-        elif text.startswith("/*"):
-            _, found, text = text.partition("*/")
-            if not found:
-                return ""
-        else:
-            match = re.match(r"[A-Za-z]+", text)
-            return "" if match is None else match[0].upper()
-
 
 
 def reject_sqlite_replace(sql: str) -> None:
@@ -52,17 +32,9 @@ def reject_sqlite_replace(sql: str) -> None:
         )
 
 
-def require_single_statement(sql: str) -> None:
-    """Reject statement chaining, ignoring ordinary quoted values and comments."""
-    # PostgreSQL accepts multiple commands in one execute; SQLite already refuses
-    # them. Reject dollar quotes in this deliberately small trusted-handler API.
-    text = re.sub(
-        r"--[^\n]*|/\*.*?\*/|'(?:''|[^'])*'|\"(?:\"\"|[^\"])*\"",
-        " ",
-        str(sql),
-        flags=re.S,
-    )
-    if "$" in text or ";" in text.rstrip().rstrip(";"):
+def require_single_statement(sql: str, *, postgres: bool = False) -> None:
+    """Reject statement chaining using the engine's comment and quote rules."""
+    if has_multiple_statements(sql, postgres=postgres):
         raise MaintenanceTransactionError(
             "Maintenance handlers require one row statement per execute"
         )
@@ -76,9 +48,10 @@ class BoundConnection:
     the handler invocation is rejected.
     """
 
-    def __init__(self, connection: SQLConnection) -> None:
+    def __init__(self, connection: SQLConnection, *, postgres: bool = False) -> None:
         """Borrow an existing connection without opening or owning a transaction."""
         self._connection = connection
+        self._postgres = postgres
         self._active = True
 
     def invalidate(self) -> None:
@@ -90,7 +63,7 @@ class BoundConnection:
             raise MaintenanceTransactionError(
                 "Maintenance transaction is no longer active"
             )
-        if sql is not None and statement_keyword(sql) not in {
+        if sql is not None and statement_keyword(sql, postgres=self._postgres) not in {
             "SELECT",
             "INSERT",
             "UPDATE",
@@ -101,7 +74,9 @@ class BoundConnection:
                 "Maintenance handlers may execute row SQL only"
             )
         if sql is not None:
-            require_single_statement(sql)
+            require_single_statement(sql, postgres=self._postgres)
+            # This portable-SQL prohibition also rejects unsupported SQLite
+            # conflict syntax before it can reach a PostgreSQL handler cursor.
             reject_sqlite_replace(sql)
 
     def execute(self, sql: str, values: SQLParameters = ()) -> BoundCursor:

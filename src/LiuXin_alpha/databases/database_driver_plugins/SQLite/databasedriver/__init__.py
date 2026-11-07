@@ -825,7 +825,10 @@ class DatabaseDriver(
         driver callbacks and collations. Prefix SQL executes before the dump.
 
         All tracked connections must have no pending writes, both at entry and
-        before publication. The caller must coordinate exclusive access by other
+        before publication. Closing finalizes owned cursors before their native
+        connections. Failed closes or surviving WAL/journal files refuse
+        publication; the method never deletes a live journal to force replacement.
+        The caller must coordinate exclusive access by other
         database users. There is no automatic backup or rollback after replacement;
         preparation and validation failures leave the original file in place.
         Temporary resources are cleaned up and rename failures attempt reopen.
@@ -838,6 +841,7 @@ class DatabaseDriver(
             configured_sqlite_connection,
             replay_sqlite_dump,
             require_idle_sqlite_connections,
+            require_sqlite_replacement_ready,
             validate_sqlite_connection,
         )
 
@@ -927,6 +931,9 @@ class DatabaseDriver(
                 require_idle_sqlite_connections(self._open_connections)
                 self.close()
                 try:
+                    require_sqlite_replacement_ready(
+                        self.database_path, self._open_connections
+                    )
                     atomic_rename(tmpdb, self.database_path)
                 finally:
                     self.reopen()

@@ -228,6 +228,68 @@ def _resolve_temporal_bindings(
         )
 
 
+def _operator_end(tokens: list[SQLToken], position: int) -> int | None:
+    """Recognize OPERATOR([schema.]symbol) without treating its name as a value."""
+    significant = (
+        index
+        for index in range(position + 1, len(tokens))
+        if tokens[index].kind not in {"space", "comment"}
+    )
+    opening = next(significant, None)
+    if opening is None or tokens[opening].text != "(":
+        return None
+    body: list[SQLToken] = []
+    for index in significant:
+        token = tokens[index]
+        if token.text == ")":
+            if (
+                len(body) > 2
+                and body[1].text == "."
+                and (
+                    body[0].kind in {"word", "backtick"} or body[0].text.startswith('"')
+                )
+            ):
+                body = body[2:]
+            symbols = "+-*/<>=~!@#%^&|`?"
+            if body and all(
+                part.kind in {"operator", "qmark", "punctuation"}
+                and all(character in symbols for character in part.text)
+                for part in body
+            ):
+                return index
+            return None
+        if token.text in {"(", ";"}:
+            return None
+        body.append(token)
+    return None
+
+
+def _expression_tokens(sql: str) -> list[SQLToken]:
+    """Keep explicit operator names opaque while retaining their operand role."""
+    tokens = list(sql_tokens(sql))
+    result: list[SQLToken] = []
+    position, previous = 0, ""
+    while position < len(tokens):
+        token = tokens[position]
+        if (
+            token.kind == "word"
+            and token.text.upper() == "OPERATOR"
+            and previous != "."
+        ):
+            end = _operator_end(tokens, position)
+            if end is not None:
+                token = SQLToken(
+                    "qualified_operator",
+                    "".join(part.text for part in tokens[position : end + 1]),
+                )
+                position = end
+        result.append(token)
+        if token.kind not in {"space", "comment"}:
+            previous = token.text
+        position += 1
+    return result
+
+
 def _classified_tokens(sql: str, parameter_count: int | None = None) -> list[SQLToken]:
     """Separate operators from bindings, resolving temporal ambiguity by arity.
 
@@ -240,7 +302,7 @@ def _classified_tokens(sql: str, parameter_count: int | None = None) -> list[SQL
     expression = True
     qualified = False
     previous: tuple[str, ...] = ()
-    tokens = list(sql_tokens(sql))
+    tokens = _expression_tokens(sql)
     temporal: set[int] = set()
     roles: dict[int, str] = {}
     for position, token in enumerate(tokens):
@@ -310,8 +372,8 @@ def adapt_sql(
     output = []
     for token in tokens:
         text = token.text
-        if identifiers and token.kind == "backtick":
-            text = '"' + text[1:-1].replace("``", "`").replace('"', '""') + '"'
+        if identifiers:
+            text = _identifier_text(token)
         if placeholders and token.kind == "binding":
             output.append("%s")
             continue
@@ -321,6 +383,15 @@ def adapt_sql(
             text = text.replace("%", "%%")
         output.append(text)
     return "".join(output)
+
+
+def _identifier_text(token: SQLToken) -> str:
+    """Translate identifiers inside an opaque operator name as well as outside."""
+    if token.kind == "backtick":
+        return '"' + token.text[1:-1].replace("``", "`").replace('"', '""') + '"'
+    if token.kind == "qualified_operator":
+        return "".join(_identifier_text(part) for part in sql_tokens(token.text))
+    return token.text
 
 
 def split_sql_statements(sql: str) -> Iterator[str]:

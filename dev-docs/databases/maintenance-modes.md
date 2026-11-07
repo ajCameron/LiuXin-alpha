@@ -74,6 +74,11 @@ SQLite replacement conflict handling (`REPLACE`, `INSERT OR REPLACE`,
 Use an explicit UPSERT or DELETE/INSERT unit so capture retains both endpoints.
 PostgreSQL execute calls require one statement once maintenance is installed;
 embedded transaction controls cannot bypass the completion boundary.
+Leading operations and statement boundaries use the backend's existing tokenizer:
+SQLite accepts its BOM/form-feed prefixes and ordinary block comments, while
+PostgreSQL recognizes nested comments and native quoted strings. Installed script
+preflight and completion dispatch share those rules. A semicolon in a PostgreSQL
+dollar-quoted or escaped string stays data; a second statement is still refused.
 Subscribed PostgreSQL tables reject `TRUNCATE`, including cascades and external
 SQL connections, through a persistent statement trigger. Use `DELETE` so every
 removed identity is captured. Trigger/schema administration remains an explicit

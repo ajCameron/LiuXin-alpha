@@ -35,6 +35,7 @@ cast when writing a portable parameter inside a native expression:
 connection.execute("SELECT INTERVAL %s DAY", ("2",))
 connection.execute("SELECT CAST(? AS INTERVAL)", ("2 days",))
 connection.execute("SELECT ?::jsonb ? ?", ('{"key": 1}', "key"))
+connection.execute("SELECT ?::jsonb OPERATOR(pg_catalog.?) ?", ('{"key": 1}', "key"))
 ```
 
 Temporal typed literals also support qmarks, including field qualifiers,
@@ -45,6 +46,11 @@ If several ambiguous positions permit more than one assignment, it raises
 `ValueError` before execution and asks for native parameters or `CAST`, rather
 than assigning values to an arbitrary interpretation. Syntax-only translation
 helpers have no parameter count and leave these ambiguous qmarks as operators.
+
+Explicit `OPERATOR([schema.]symbol)` names stay operators, including `?`, `?|`,
+`?&` and `@?`. Native and qmark operands both work. Quoted schema names, comments
+and the adapter's backtick identifier conversion retain their meaning inside
+the operator notation.
 
 `executemany` inspects the first row's arity once, then streams that row and the
 remaining iterator through the same translated template. Rows must share the

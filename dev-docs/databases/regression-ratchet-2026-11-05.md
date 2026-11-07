@@ -82,6 +82,21 @@ routine “accept lower baseline” switch. This is a ratchet for demonstrated
 behavior, not a claim of complete line/branch coverage. Review must still check
 that assertions meaningfully test the invariant.
 
+## Fifth driver review extension — 2026-11-06
+
+The [fifth review mitigations](database-driver-plugins-fifth-review-2026-11-06.md)
+add **156 cases**, increasing the mandatory set from 652 to **808**:
+
+| Invariant | Added cases | Observable contract |
+| --- | ---: | --- |
+| `driver-maintenance-completion` | 96 | Engine-valid prefixes cannot bypass script preflight or required prompt completion; native quoted data remains data and chained statements stay refused. |
+| `driver-sqlite-restore-validation` | 18 | Retained readers cannot contaminate the published candidate; failed closes and external WAL readers preserve the original and permit retry. |
+| `driver-resource-lifetime` | 2 | Cursor bookkeeping does not retain abandoned readers; closing still rolls back pending writes and releases WAL use. |
+| `driver-postgres-sql-adaptation` | 40 | Explicit JSON operator names survive native/qmark binding, schema qualification, comments and identifier quoting. |
+
+These cases use the same mandatory PostgreSQL service and both SQLite driver
+names. Prior cases retain their identities and invariant membership.
+
 ## Driver-plugin extension — 2026-11-05
 
 The [driver review](database-driver-plugins-review-2026-11-05.md) adds 110 cases,

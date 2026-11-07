@@ -17,6 +17,34 @@ from LiuXin_alpha.databases.driver_wrapper import DriverWrapper
 from LiuXin_alpha.errors import DatabaseDriverError
 
 
+@pytest.mark.parametrize("binding", ["?", "%s"], ids=["qmark", "native"])
+@pytest.mark.parametrize("operator", ["?", "?|", "?&", "@?"])
+@pytest.mark.parametrize(
+    "qualification",
+    [
+        "OPERATOR(pg_catalog.{})",
+        'OPERATOR("pg_catalog".{})',
+        "OPERATOR(/* outer /* inner */ tail */ pg_catalog. /* gap */ {})",
+        "OPERATOR({})",
+        "OPERATOR(`pg_catalog`.{})",
+    ],
+    ids=["schema", "quoted_schema", "comments", "unqualified", "backticks"],
+)
+def test_explicit_json_operator_names_remain_operators(
+    driver, binding, operator, qualification
+):
+    operand = f"ARRAY[{binding}]" if operator in {"?|", "?&"} else binding
+    sql = f"SELECT {binding}::jsonb {qualification.format(operator)} {operand}"
+    values = ('{"key":1}', "$.key" if operator == "@?" else "key")
+    native_operand = "ARRAY[%s]" if operator in {"?|", "?&"} else "%s"
+    with driver.conn.raw_connection.cursor() as raw:
+        native_operator = qualification.format(operator).replace("`", '"')
+        raw.execute(f"SELECT %s::jsonb {native_operator} {native_operand}", values)
+        expected = raw.fetchone()
+    with closing(driver.conn.execute(sql, values)) as cursor:
+        assert cursor.fetchone() == expected == (True,)
+
+
 @pytest.mark.parametrize(
     "sql,values",
     [

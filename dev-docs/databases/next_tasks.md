@@ -4,6 +4,15 @@ Date: **2026-10-20**. DB01–DB03 are implemented for PR review; the remaining e
 proposed work grounded in the driver/schema review. Cross-project order belongs
 to the [architecture tasks](../architectural_reviews/next_tasks.md).
 
+**2026-11-06 fifth driver review:** [DDP20–DDP22](database-driver-plugins-fifth-review-2026-11-06.md)
+have local mitigations and 156 new required regressions, taking the manifest to
+808. Completion guards share backend tokenization; SQLite closes owned readers
+and checks old journals before publication; explicit PostgreSQL operators retain
+their role. The review records validation. Published head 47e089d4's green CI
+predates these changes: require fresh checks after publication. Exclusive offline
+access remains required for rebuilds; broader connection setup consolidation and
+measured inspection performance remain follow-ups.
+
 **2026-11-06 fourth driver review:** [DDP17–DDP19](database-driver-plugins-fourth-review-2026-11-06.md)
 have local repairs with 104 new mandatory cases, taking the gate to 652.
 SQLite recognizes legal non-ASCII CTE names and leading empty statements;

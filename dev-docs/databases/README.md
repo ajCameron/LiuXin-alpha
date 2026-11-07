@@ -7,6 +7,11 @@ meaning belongs to metadata/Catalog; physical storage policy belongs to storage.
 
 ## Working guides and operational contracts
 
+- [Fifth driver-plugin review, 2026-11-06](database-driver-plugins-fifth-review-2026-11-06.md):
+  completion keyword parsing, WAL surviving SQLite rebuild publication and
+  qualified PostgreSQL JSON operators; implemented mitigations and 156 added
+  mandatory cases.
+
 - [Fourth driver-plugin review, 2026-11-06](database-driver-plugins-fourth-review-2026-11-06.md):
   Unicode CTE transactions, temporal parameter classification and the stale
   PostgreSQL fixture; implemented repairs and 104 added mandatory cases.

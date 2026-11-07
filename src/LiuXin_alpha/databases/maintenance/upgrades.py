@@ -274,7 +274,7 @@ def _migrate(
     previous: PluginDeclaration,
     callback: Callable[[MaintenancePluginContext, PluginDeclaration], object],
 ) -> None:
-    bound = BoundConnection(connection)
+    bound = BoundConnection(connection, postgres=bool(runtime.schema))
     old = (
         getattr(runtime._local, "origin", ""),
         getattr(runtime._local, "ancestry", []),

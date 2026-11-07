@@ -1,5 +1,28 @@
 # Working Memory Index
 
+Delivery follow-up, **2026-11-07**: the user authorized committing and pushing
+the [fifth driver review mitigations](database-driver-plugins-fifth-fixes-2026-11-06.md)
+on the existing PR #156 branch. Validation below applies to the delivered source
+and test tree; inspect the PR for the published commit and new CI results.
+No merge requested. Continue in the isolated review checkout.
+
+Implemented and verified, **2026-11-06**:
+[fifth driver review mitigations](database-driver-plugins-fifth-fixes-2026-11-06.md).
+DDP20–DDP22 are fixed with 156 new mandatory cases. Final gate: 808/808 required,
+839 selected passes; confidence: 313 passed/3 existing skips; integration:
+460 passed/29 backend skips. Both type checkers, full quality, 121 doctests and
+58 documentation/runner checks pass. Private PG16 is stopped/removed.
+Changes are staged, uncommitted, in `/tmp/liuxin-databases-typing` on the existing
+PR #156 branch. Published head remains 47e089d4; require fresh CI after publishing.
+
+Reviewed again, **2026-11-06**: [fifth driver review](database-driver-plugins-fifth-review-2026-11-06.md).
+PR #156 head 47e089d4 has all applicable CI checks green (full suite: 8,799 passed),
+but three new real-engine findings: completion parsing, SQLite WAL surviving
+rebuild replacement, and qualified PostgreSQL JSON operators. DDP20/DDP21 are
+high priority; DDP22 is medium. Review/navigation/handoff documentation only;
+no production fixes or publication. Private PG16 is stopped and removed.
+Continue in `/tmp/liuxin-databases-typing` and read the handoff before proceeding.
+
 Repaired and locally verified, **2026-11-06**:
 [fourth driver review fixes](database-driver-plugins-fourth-fixes-2026-11-06.md).
 DDP17–DDP19 plus the missing optional-APSW guard are fixed. Mandatory gate:
