@@ -183,16 +183,22 @@ class MaintenanceRuntime:
             sqlite_row_operation,
             statement_keyword,
         )
+        from LiuXin_alpha.databases.sql_statements import postgres_standard_strings
 
         if getattr(self._local, "internal", False):
             return
         if vars(connection).get("_liuxin_maintenance_installed") is False:
             return
-        keyword = statement_keyword(sql)
+        standard = postgres_standard_strings(connection) if self.schema else True
+        keyword = statement_keyword(
+            sql, postgres=bool(self.schema), standard_conforming_strings=standard
+        )
         if not self.schema:
             keyword = sqlite_row_operation(sql)[0]
         if self.schema and self._installed:
-            require_single_statement(sql)
+            require_single_statement(
+                sql, postgres=True, standard_conforming_strings=standard
+            )
         if self.in_handler and keyword not in {
             "SELECT",
             "INSERT",
@@ -217,14 +223,18 @@ class MaintenanceRuntime:
             self.flush(connection)
         if keyword == "SELECT":
             if self.schema and self._installed:
-                require_single_statement(sql)
+                require_single_statement(
+                    sql, postgres=True, standard_conforming_strings=standard
+                )
             return
         with self._internal():
             self._refresh(connection)
             if not self._installed:
                 return
             if self.schema:
-                require_single_statement(sql)
+                require_single_statement(
+                    sql, postgres=True, standard_conforming_strings=standard
+                )
             else:
                 reject_sqlite_replace(sql)
             if self.schema and self._installed:
@@ -458,7 +468,7 @@ class MaintenanceRuntime:
             raise MaintenanceFailure(
                 "An attached plugin declaration changed after registration"
             )
-        bound = BoundConnection(connection)
+        bound = BoundConnection(connection, postgres=bool(self.schema))
         # A handler receives no general Database facade that could open another connection.
         context = MaintenancePluginContext(
             db=None, connection=bound, plugin_id=declaration.name, mode=declaration.mode

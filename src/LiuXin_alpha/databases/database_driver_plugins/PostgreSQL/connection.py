@@ -12,6 +12,7 @@ import importlib.util
 import time
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
+from itertools import chain, islice
 from typing import Any, TYPE_CHECKING, Literal, Protocol, TypeVar, Generic, Self, cast, overload
 from contextlib import closing
 from types import TracebackType
@@ -49,6 +50,10 @@ from LiuXin_alpha.databases.database_driver_plugins.PostgreSQL.config import (
 )
 from LiuXin_alpha.databases.db_types.driver_types import SQLParameters, SQLDescription, SQLRow
 from LiuXin_alpha.utils.logging import default_log
+from LiuXin_alpha.databases.sql_statements import postgres_standard_strings
+from LiuXin_alpha.databases.database_driver_plugins.PostgreSQL.sql_tokens import (
+    adapt_sql, split_sql_statements,
+)
 
 
 DEFAULT_POSTGRES_APPLICATION_NAME = "liuxin-alpha"
@@ -653,106 +658,30 @@ def redact_postgres_error(exc: BaseException | None, *urls: object) -> str:
 
 
 def translate_sqlite_placeholders(sql: str) -> str:
+    """Translate qmark expression bindings, preserving literals and native operators.
+
+    >>> translate_sqlite_placeholders("select ? as value")
+    'select %s as value'
     """
-    Replace question marks outside single/double-quoted text with %s.
-
-    This character scanner handles backslash escapes inside quotes. It does not parse
-    SQL comments, dollar-quoted strings or PostgreSQL question-mark operators.
-
-    Example:
-        >>> translate_sqlite_placeholders("select ? as value")
-        'select %s as value'
-
-
-    :param sql: SQL text subjected to the small placeholder/identifier translations.
-    :return: SQL text with unquoted question marks replaced.
-    """
-
-    out: list[str] = []
-    quote: str | None = None
-    escape = False
-    for char in str(sql):
-        if quote:
-            out.append(char)
-            if escape:
-                escape = False
-            elif char == "\\":
-                escape = True
-            elif char == quote:
-                quote = None
-            continue
-        if char in {"'", '"'}:
-            quote = char
-            out.append(char)
-            continue
-        if char == "?":
-            out.append("%s")
-        else:
-            out.append(char)
-    return "".join(out)
+    return adapt_sql(sql, identifiers=False)
 
 
 def translate_identifier_quotes(sql: str) -> str:
+    """Translate backtick identifiers outside literals and comments.
+
+    >>> translate_identifier_quotes("select `work_id` from `works`")
+    'select "work_id" from "works"'
     """
-    Replace backtick identifier delimiters with double quotes outside quoted text.
-
-    This is a small character scanner, not a SQL parser; comments and dollar quoting
-    are not recognized.
-
-    Example:
-        >>> translate_identifier_quotes("select `work_id` from `works`")
-        'select "work_id" from "works"'
-
-
-    :param sql: SQL text subjected to the small placeholder/identifier translations.
-    :return: SQL text with recognized backtick delimiters replaced.
-    """
-
-    out: list[str] = []
-    quote: str | None = None
-    escape = False
-    for char in str(sql):
-        if quote:
-            if quote == "`" and char == "`":
-                out.append('"')
-                quote = None
-                continue
-            out.append(char)
-            if escape:
-                escape = False
-            elif char == "\\":
-                escape = True
-            elif char == quote:
-                quote = None
-            continue
-        if char == "`":
-            quote = "`"
-            out.append('"')
-            continue
-        if char in {"'", '"'}:
-            quote = char
-            out.append(char)
-            continue
-        out.append(char)
-    return "".join(out)
+    return adapt_sql(sql, placeholders=False)
 
 
 def translate_sql_for_postgres(sql: str) -> str:
+    """Translate identifier quotes and qmark expression bindings lexically.
+
+    >>> translate_sql_for_postgres("select `work_id` from `works` where work_id = ?")
+    'select "work_id" from "works" where work_id = %s'
     """
-    Translate identifier quotes first, then unquoted SQLite placeholders.
-
-    Example:
-        >>> translate_sql_for_postgres(
-        ...     "select `work_id` from `works` where work_id = ?"
-        ... )
-        'select "work_id" from "works" where work_id = %s'
-
-
-    :param sql: SQL text subjected to the small placeholder/identifier translations.
-    :return: SQL text after both limited translations.
-    """
-
-    return translate_sqlite_placeholders(translate_identifier_quotes(sql))
+    return adapt_sql(sql)
 
 
 _CursorRow = TypeVar("_CursorRow", bound=SQLRow)
@@ -902,24 +831,20 @@ class PostgresConnectionAdapter:
         return cur
 
     def executescript(self, sqlscript: str) -> None:
+        """Execute native scripts without splitting quoted or procedural bodies.
+
+        No commit is performed here. Installed statement hooks retain a boundary
+        before each statement and may reject SQL beyond their supported surface.
+        The cursor closes on success and failure; the connection remains borrowed.
         """
-        Split text on semicolons and execute nonblank fragments on one cursor.
-
-        Semicolons inside strings, comments or procedural bodies are also split. No
-        commit is performed here. The owned cursor closes on success or failure;
-        use only suitable simple scripts.
-
-        Example:
-            ``adapter.executescript("select 1; select 2;")`` executes two fragments.
-
-
-        :param sqlscript: Simple semicolon-separated SQL script.
-        :return: None; leaves transaction ownership with the caller.
-        """
-        statements = [stmt.strip() for stmt in str(sqlscript).split(";") if stmt.strip()]
         with closing(self.cursor()) as cur:
-            for statement in statements:
-                cur.execute(statement)
+            if vars(self).get("_liuxin_before_statement") is not None:
+                for statement in split_sql_statements(
+                    sqlscript, standard_conforming_strings=lambda: postgres_standard_strings(self)
+                ):
+                    cur.execute(statement)
+            else:
+                cur.execute(sqlscript)
 
     @overload
     def get(self, sql: str, values: SQLParameters | None = None, *, all: Literal[True] = True) -> list[Sequence[Any]]: ...
@@ -1028,6 +953,9 @@ class PostgresConnectionAdapter:
         :return: None; forwards the operation to the raw connection.
         """
         self.raw_connection.close()
+        from LiuXin_alpha.databases.connection_hooks import connection_closed
+
+        connection_closed(self)
 
     def __enter__(self) -> "PostgresConnectionAdapter":
         """
@@ -1130,11 +1058,17 @@ class PostgresCursorAdapter(Generic[_CursorRow]):
         :param values: Bound values passed to the underlying cursor.
         :return: This cursor adapter for chained operations.
         """
+        translated = adapt_sql(
+            sql, placeholders=values is not None, bound=values is not None,
+            parameter_count=len(values) if values is not None else None,
+            standard_conforming_strings=postgres_standard_strings(
+                self._connection if self._connection is not None else getattr(self.raw_cursor, "connection", None)
+            ),
+        )
         if self._connection is not None:
             from LiuXin_alpha.databases.connection_hooks import before_statement
 
             before_statement(self._connection, sql)
-        translated = translate_sql_for_postgres(sql)
         if values is None:
             self.raw_cursor.execute(translated)
         else:
@@ -1143,7 +1077,7 @@ class PostgresCursorAdapter(Generic[_CursorRow]):
 
     def executemany(self, sql: str, values: Iterable[SQLParameters]) -> Self:
         """
-        Translate one SQL template and pass all parameter sequences to the raw cursor.
+        Translate one SQL template using the first row's arity, then stream the batch.
 
         Example:
             ``cur.executemany("insert into t(v) values (?)", [(1,), (2,)])``
@@ -1155,11 +1089,19 @@ class PostgresCursorAdapter(Generic[_CursorRow]):
             materialization.
         :return: This cursor adapter.
         """
+        iterator = iter(values)
+        first = tuple(islice(iterator, 1))
+        translated = adapt_sql(
+            sql, bound=True, parameter_count=len(first[0]) if first else 0,
+            standard_conforming_strings=postgres_standard_strings(
+                self._connection if self._connection is not None else getattr(self.raw_cursor, "connection", None)
+            ),
+        )
         if self._connection is not None:
             from LiuXin_alpha.databases.connection_hooks import before_statement
 
             before_statement(self._connection, sql)
-        self.raw_cursor.executemany(translate_sql_for_postgres(sql), values)
+        self.raw_cursor.executemany(translated, chain(first, iterator))
         return self
 
     def fetchone(self) -> _CursorRow | None:

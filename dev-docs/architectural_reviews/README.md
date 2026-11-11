@@ -27,6 +27,18 @@ for the unified `plugins` package, passive imports and loading policy. Both
 `customize` and `plugin_system` are retired; their names in older evidence are
 historical, not compatibility APIs.
 
+## Proposals and design guidance
+
+These notes are design inputs, not implementation claims. The provider proposal
+refines the earlier storage sketch by separating external knowledge from byte
+access; existing subsystem contracts continue to describe shipped behaviour.
+
+| Document | Status and purpose |
+| --- | --- |
+| [Stores, objects and claims](../liuxin_architecture_note.md) | Candidate archive architecture covering content identity, locations, immutable packs and distributed availability. |
+| [Providers and external assets](../towards_adding_providers.md) | Proposed separation of provider discovery, explicit catalogue promotion and Store byte access. |
+| [Typing host-dependent mixins](../typing_mixins.md) | Design guidance and illustrative capability protocols; examples must be aligned with concrete driver contracts. |
+
 ## Dated findings
 
 | Document | Latest interpretation |

@@ -82,8 +82,8 @@ class DriverTreeMixinAPI(abc.ABC):
 
 
         Use ``<root_id>_<root_display>``; an existing ID-zero sentinel receives
-        ``0_<display>`` separately. Commit each update, with no atomic batch or explicit
-        connection close. Missing tree-ID columns raise InputIntegrityError.
+        ``0_<display>`` separately. Commit each update, with no atomic batch; close
+        the owned connection on every exit. Missing tree-ID columns raise InputIntegrityError.
 
         Example:
             ``driver.direct_set_tree_ids("series")`` groups descendants under their

@@ -293,9 +293,14 @@ class DatabaseDriver(
         """
         raw = connect_postgres(self.db_metadata)
         conn = PostgresConnectionAdapter(raw)
-        conn.execute(f"set search_path to {_q(self.schema)}")
-        conn.commit()
-        return self._register_open_connection(conn)
+        try:
+            with closing(conn.execute(f"set search_path to {_q(self.schema)}")):
+                pass
+            conn.commit()
+            return self._register_open_connection(conn)
+        except BaseException:
+            conn.close()
+            raise
 
     def direct_get_backend_capabilities(
         self, *, connection: QueryConnection | None = None
@@ -377,18 +382,6 @@ class DatabaseDriver(
         """
         raise DatabaseDriverError("PostgreSQL databases are not deleted by the LiuXin driver.")
 
-    def make_scratch(self) -> str:
-        """
-        Reject unsupported PostgreSQL scratch-database switching.
-
-        Example:
-            ``driver.make_scratch()`` raises DatabaseDriverError.
-
-
-        :return: Never returns; always raises DatabaseDriverError.
-        """
-        raise DatabaseDriverError("PostgreSQL scratch database switching is not implemented.")
-
     def direct_create_new_database(self) -> None:
         """
         Create a new managed schema in the already configured server database.
@@ -430,8 +423,9 @@ class DatabaseDriver(
         """
         Join list fragments with newlines and run the direct script executor.
 
-        The executor splits on semicolons without parsing SQL literals or procedural
-        blocks.
+        The adapter preserves quoted literals and procedural bodies. With statement
+        hooks installed, it uses lexical statement boundaries; otherwise the server
+        receives the entire script.
 
         Example:
             ``driver.direct_execute_sql_script(["select 1;", "select 2;"])``
@@ -531,17 +525,19 @@ class DatabaseDriver(
 
     def direct_executescript(self, sqlscript: str) -> None:
         """
-        Execute a simple semicolon-separated script in one primary transaction.
+        Execute a trusted script in one primary transaction.
 
-        The adapter does not parse embedded semicolons. Refresh shared caches on
-        success; wrap execution failures as DatabaseDriverError.
+        Preserve embedded semicolons in literals and procedural bodies. Installed
+        hooks receive lexical statement boundaries; otherwise the server parses the
+        whole script. Refresh shared caches on success; wrap execution failures as
+        DatabaseDriverError.
 
         Example:
             ``driver.direct_executescript("select 1; select 2;")`` executes two
             statements.
 
 
-        :param sqlscript: Script suitable for the adapter semicolon splitter.
+        :param sqlscript: Trusted PostgreSQL script text.
         :return: None; transaction and cache handling are performed here.
         """
         conn = self._primary_connection()
@@ -1080,8 +1076,9 @@ class DatabaseDriver(
         """
         Read column groups from valid nonpartial, nonexpression unique indexes.
 
-        Preserve index key order within each group and order groups by index OID.
-        Partial/expression indexes are excluded; the connection is closed after reading.
+        Preserve index key order within each group and order groups by index name.
+        INCLUDE columns never form part of a key. Partial/expression indexes are
+        excluded; the owned connection is closed after reading shared index facts.
 
         Example:
             A unique index on two plain columns contributes one two-name tuple.
@@ -1095,38 +1092,19 @@ class DatabaseDriver(
             self._canonicalise_table_name_for_cache(table),
             kind="table",
         )
-        sql = """
-            select array_agg(attribute.attname order by key_column.ordinality) as columns
-            from pg_catalog.pg_index as index_info
-            join pg_catalog.pg_class as relation
-              on relation.oid = index_info.indrelid
-            join pg_catalog.pg_namespace as namespace
-              on namespace.oid = relation.relnamespace
-            cross join lateral unnest(index_info.indkey)
-              with ordinality as key_column(attribute_number, ordinality)
-            join pg_catalog.pg_attribute as attribute
-              on attribute.attrelid = relation.oid
-             and attribute.attnum = key_column.attribute_number
-            where namespace.nspname = %s
-              and relation.relname = %s
-              and index_info.indisunique
-              and index_info.indisvalid
-              and index_info.indpred is null
-              and index_info.indexprs is null
-            group by index_info.indexrelid
-            order by index_info.indexrelid
-        """
-        conn = self._short_connection()
-        try:
-            rows = conn.execute(sql, (self.schema, table))
-            groups: list[tuple[str, ...]] = []
-            for row in rows:
-                columns = _row_value(row, 0, "columns")
-                if columns:
-                    groups.append(tuple(str(column) for column in columns))
-            return tuple(groups)
-        finally:
-            conn.close()
+        from ..physical_schema import inspect_indexes
+
+        with closing(self._short_connection()) as conn:
+            indexes = inspect_indexes(conn, self.schema, table)
+        return tuple(
+            tuple(column for column in index.columns if column is not None)
+            for index in indexes
+            if index.unique
+            and index.valid
+            and not index.partial
+            and index.columns
+            and all(column is not None for column in index.columns)
+        )
 
     def direct_get_column_headings(self, table: str, normalize: bool = False) -> list[str]:
         """
@@ -2612,15 +2590,30 @@ class DatabaseDriver(
         if column not in self.direct_get_column_headings(table):
             raise InputIntegrityError(f"column {column!r} not found in table {table!r}")
 
+    def _coerce_db_value(self, value: Any, declared_type: Any) -> Any:
+        """Preserve PostgreSQL adapter values instead of applying SQLite affinity.
+
+        psycopg2 already decodes declared types, including Decimal, dates, booleans
+        and arrays. Normalize binary buffers to immutable bytes; converting them
+        with str would persist a memory address during a row dictionary update.
+        This policy also governs the shared table, view and Row read paths.
+        """
+        return self._coerce_untyped_value(value)
+
+    @staticmethod
+    def _coerce_untyped_value(value: Any) -> Any:
+        """Preserve decoded native values, copying byte-like values to bytes."""
+        return bytes(value) if isinstance(value, (bytes, bytearray, memoryview)) else value
+
     def _row_to_dict_from_db_row(self, *, table: str, headings: Sequence[str], row: SQLRow) -> dict[str, Any]:
         """
-        Align raw row values to headings and apply inherited declared-type conversion.
+        Align raw row values to headings and preserve PostgreSQL native values.
 
         Mappings supply missing headings as None; positional rows must contain enough
         cells.
 
         Example:
-            A mapping row is reordered to headings before shared value casting runs.
+            A mapping row is reordered to headings before backend value casting runs.
 
 
         :param table: Table name resolved within the configured driver schema.
@@ -2757,16 +2750,11 @@ class DatabaseDriver(
 
     def _primary_connection(self) -> SQLConnection:
         """
-        Return the retained connection, reopening it when absent or its probe fails.
+        Return the primary connection without silently recovering failed transactions.
 
-        Probe an existing connection with SELECT 1. Any probe exception triggers
-        best-effort close and replacement; the original failure is not propagated. The
-        probe itself may begin a transaction, and this method does not commit it.
-
-        Example:
-            After a dead connection fails the probe, driver.conn is replaced by a new
-            adapter.
-
+        Probe failures retain the connection and its savepoints. Recover through the
+        existing connection, or explicitly reopen when discarding it is intended.
+        A probe may begin a transaction; this method never commits or rolls it back.
 
         :return: Tracked reusable connection stored in self.conn.
         """
@@ -2778,13 +2766,12 @@ class DatabaseDriver(
             try:
                 with closing(conn.execute("select 1")):
                     pass
-            except Exception:
-                try:
-                    conn.close()
-                except Exception:
-                    pass
-                conn = self.get_connection()
-                self.conn = conn
+            except Exception as exc:
+                raise DatabaseDriverError(
+                    "The primary connection is not ready. Recover its transaction "
+                    "through the existing connection, or explicitly reopen() to "
+                    "discard it."
+                ) from exc
         return conn
 
     def _short_connection(self) -> PostgresConnectionAdapter:

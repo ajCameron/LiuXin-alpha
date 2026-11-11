@@ -12,6 +12,7 @@ import re
 import sqlite3
 from collections.abc import Iterable, Mapping, Sequence
 from copy import deepcopy
+from contextlib import closing
 from typing import cast, Any, Iterator, Literal, Optional, Union, TYPE_CHECKING
 
 from LiuXin_alpha.databases.db_types.driver_types import SQLParameters
@@ -253,9 +254,6 @@ class SearchMixin(SQLDriverMixinState):
             # reads data from the database in 10 row chunks - then closing the connection. Should leave the database
             # unlocked for most of the time
             while True:
-                conn = driver_operations(self).get_connection()
-                c = conn.cursor()
-
                 # Parameterize the moving boundary value to avoid accidental SQL injection
                 # and to keep statement parsing consistent across drivers.
                 this_stmt = (
@@ -263,12 +261,11 @@ class SearchMixin(SQLDriverMixinState):
                         table, table_id_column, table_id_column
                     )
                 )
-                c.execute(this_stmt, (start_id_value,))
-                current_rows = deepcopy(c.fetchall())
-                conn.close()
+                with closing(driver_operations(self).get_connection()) as conn:
+                    with closing(conn.execute(this_stmt, (start_id_value,))) as cursor:
+                        current_rows = deepcopy(cursor.fetchall())
 
                 if not current_rows:
-                    conn.close()
                     break
                 for row in current_rows:
                     this_row = driver_operations(self)._row_to_dict(
@@ -535,8 +532,8 @@ class SearchMixin(SQLDriverMixinState):
         """
         Collect a column's raw values into a set, inferring the table when omitted.
 
-        Identifiers are interpolated and must be trusted. This helper does not
-        explicitly close its acquired connection.
+        Identifiers are interpolated and must be trusted. The owned connection
+        and cursor close on success and failure.
 
         Example:
             ``driver.direct_get_all_values("books", "book_title")`` includes SQL NULL as
@@ -553,14 +550,10 @@ class SearchMixin(SQLDriverMixinState):
             table = driver_operations(self).direct_identify_table_from_column(column)
         column = deepcopy(force_unicode(column))
 
-        current_values = set()
-        conn = driver_operations(self).get_connection()
-        c = conn.cursor()
-
         stmt = "SELECT {} FROM {}".format(column, table)
-        for row in c.execute(stmt):
-            current_values.add(row[0])
-        return current_values
+        with closing(driver_operations(self).get_connection()) as conn:
+            with closing(conn.execute(stmt)) as cursor:
+                return {row[0] for row in cursor}
 
     def direct_iterator_return(
         self,

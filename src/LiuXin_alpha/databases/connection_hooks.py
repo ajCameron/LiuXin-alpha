@@ -11,6 +11,7 @@ from collections.abc import Callable, Iterable, Mapping
 from functools import lru_cache
 from types import TracebackType
 from typing import Any, Literal, Protocol, Self, overload
+from weakref import WeakSet
 
 from LiuXin_alpha.databases.db_types.driver_types import QueryConnection
 
@@ -24,6 +25,13 @@ class _IndexedParameters(Protocol):
 
 
 type SQLiteParameters = _IndexedParameters | Mapping[str, Any]
+
+
+def connection_closed(connection: object) -> None:
+    """Release driver tracking only after the native handle closes successfully."""
+    callback = vars(connection).pop("_liuxin_on_close", None)
+    if callback is not None:
+        callback(connection)
 
 
 def flush_connection_work(connection: object) -> None:
@@ -67,6 +75,18 @@ def execute_transaction_control(connection: QueryConnection, sql: str) -> None:
 class SQLiteCompletionCursor(sqlite3.Cursor):
     """Keep cursor SQL on the same maintenance boundaries as connection SQL."""
 
+    def __init__(self, connection: sqlite3.Connection) -> None:
+        """Track owned statements weakly so closing a connection finalizes them."""
+        super().__init__(connection)
+        if isinstance(connection, SQLiteCompletionConnection):
+            connection._owned_cursors.add(self)
+
+    def close(self) -> None:
+        """Finalize the native statement before releasing its owner registration."""
+        super().close()
+        if isinstance(self.connection, SQLiteCompletionConnection):
+            self.connection._owned_cursors.discard(self)
+
     def execute(self, sql: str, parameters: SQLiteParameters = ()) -> Self:
         """Prepare the connection before one statement."""
         before_statement(self.connection, sql)
@@ -86,7 +106,7 @@ class SQLiteCompletionCursor(sqlite3.Cursor):
                 "SELECT 1 FROM sqlite_master WHERE type='table' AND name='maintenance_metadata'",
             ).fetchone()
             if installed:
-                from LiuXin_alpha.databases.maintenance.bound_connection import (
+                from LiuXin_alpha.databases.sql_statements import (
                     statement_keyword,
                 )
                 from LiuXin_alpha.databases.transactions import (
@@ -140,6 +160,13 @@ def _completion_cursor_factory(factory: object) -> type[SQLiteCompletionCursor]:
 
 class SQLiteCompletionConnection(sqlite3.Connection):
     """Include required connection work in native SQLite commit/context handling."""
+
+    @property
+    def _owned_cursors(self) -> WeakSet[sqlite3.Cursor]:
+        """Retain no cursor solely for bookkeeping, including custom factories."""
+        if "_liuxin_cursors" not in vars(self):
+            self._liuxin_cursors: WeakSet[sqlite3.Cursor] = WeakSet()
+        return self._liuxin_cursors
 
     def __setattr__(self, name: str, value: object) -> None:
         """Keep settings that implicitly commit inside the completion boundary."""
@@ -208,6 +235,13 @@ class SQLiteCompletionConnection(sqlite3.Connection):
             super().rollback()
             raise
         super().commit()
+
+    def close(self) -> None:
+        """Finalize owned cursors, then close without committing pending writes."""
+        for cursor in tuple(self._owned_cursors):
+            cursor.close()
+        super().close()
+        connection_closed(self)
 
     def __exit__(
         self,
