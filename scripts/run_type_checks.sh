@@ -128,6 +128,13 @@ MYPY_CMD=("${VENV_DIR}/bin/mypy")
 RUFF_CMD=(
     "${VENV_DIR}/bin/ruff"
     "check"
+    "src/LiuXin_alpha/databases/database_driver_plugins/SQL/database_generator_frbr/database_generator.py"
+    "src/LiuXin_alpha/databases/database_driver_plugins/SQL/database_generator_frbr/vocabulary.py"
+    "src/LiuXin_alpha/databases/database_driver_plugins/SQL/database_generator_frbr/sql_resources.py"
+    "src/LiuXin_alpha/databases/database_driver_plugins/SQL/database_generator_frbr/link_plan.py"
+    "src/LiuXin_alpha/databases/database_driver_plugins/SQL/link_columns.py"
+    "tests/databases/test_frbr_build_plan.py"
+    "tests/databases/test_frbr_generator_integrity.py"
     "src/LiuXin_alpha/databases/sql_statements.py"
     "src/LiuXin_alpha/databases/database_driver_plugins/SQL/databasedriver/write_result.py"
     "src/LiuXin_alpha/databases/database_driver_plugins/PostgreSQL/sql_tokens.py"

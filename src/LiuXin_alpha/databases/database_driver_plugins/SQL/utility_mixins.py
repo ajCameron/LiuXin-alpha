@@ -10,6 +10,8 @@ concrete host connection, script executor and schema/cache hooks.
 
 from __future__ import absolute_import, annotations
 
+from LiuXin_alpha.databases.database_driver_plugins.SQL.link_columns import requested_link_columns
+
 import re
 import sqlite3
 from copy import deepcopy
@@ -286,8 +288,7 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
         :param allowed_types: Optional iterable of permitted type labels.
         :param override_restriction_sql: Trusted raw constraint SQL replacing generated
             cardinality and type constraints.
-        :param nullable_fks: Requested FK nullability; interlink generation currently
-            always emits nullable FKs.
+        :param nullable_fks: Whether both endpoint foreign keys permit NULL.
         :return: Generated link-table name on success.
         """
 
@@ -344,7 +345,7 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
 
         Sort singular bases and invert one/many orientation when needed. Strict
         many_many uniqueness ignores type; nonexclusive uniqueness includes type when
-        requested. FKs remain nullable regardless of nullable_fks to allow blank-row
+        requested. The caller chooses nullable_fks to allow or reject blank-row
         construction. Raw overrides replace automatic cardinality/type handling. This
         does not execute SQL; identifiers and legacy type-seed literals require trusted
         inputs.
@@ -364,8 +365,7 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
             and requested metadata.
         :param override_restriction_sql: Trusted raw constraint SQL replacing generated
             cardinality and type constraints.
-        :param nullable_fks: Requested FK nullability; interlink generation currently
-            always emits nullable FKs.
+        :param nullable_fks: Whether both endpoint foreign keys permit NULL.
         :return: SQL statement list and generated link-table name.
         """
         # Todo: Checking that primary and secondary are in main tables
@@ -471,113 +471,24 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
                 isinstance(requested_cols_norm, set) and name in requested_cols_norm
             )
 
-        decrement_requested_cols = deepcopy(requested_cols_norm)
-
-        if decrement_requested_cols == "all":
-            # "all" includes the full standard metadata surface for link tables.
-            link_rows = """
+        link_rows = """
                 CREATE TABLE IF NOT EXISTS `{0}s`(
-                  `{0}_id` INTEGER PRIMARY KEY ,
-                  `{0}_{1}_id` INTEGER {3},
-                  `{0}_{2}_id` INTEGER {3},
-                  `{0}_priority` INTEGER DEFAULT 0,
-                  `{0}_primary` INTEGER NULL DEFAULT 0,
-                  `{0}_type` TEXT NULL,
-                  `{0}_origin` TEXT NULL,
-                  `{0}_source` TEXT NULL,
-                  `{0}_policy` TEXT NULL,
-                  `{0}_data` TEXT NULL,
-                  `{0}_index` TEXT NULL,
-                  `{0}_sequence_number` INTEGER NULL,
-                  `{0}_is_required` INTEGER DEFAULT 1,
-                  `{0}_datestamp` DATETIME DEFAULT (STRFTIME('%s', 'now')),
-                  `{0}_scratch` TEXT NULL 
-                  """
-
-            # NOTE: Link tables are constructed via a "blank row then fill" workflow in DriverWrapper.get_blank_row.
-            # Any NOT NULL constraints on optional metadata columns (like `type`) break that workflow.
-            # We therefore keep `{0}_type` nullable even for role-style many_many_non_exclusive tables, and rely on
-            # UNIQUE(..., type) semantics (SQLite treats NULL as distinct) to preserve non-exclusive behaviour.
-
-        else:
-            assert isinstance(decrement_requested_cols, set)
-
-            # Support "nullable" sentinel (documented in TOML) but it does not create a physical column.
-            if "nullable" in decrement_requested_cols:
-                decrement_requested_cols.remove("nullable")
-
-            link_rows_header = """
-                CREATE TABLE IF NOT EXISTS `{0}s`(
-                  `{0}_id` INTEGER PRIMARY KEY ,
+                  `{0}_id` INTEGER PRIMARY KEY,
                   `{0}_{1}_id` INTEGER {3},
                   `{0}_{2}_id` INTEGER {3},"""
-
-            if "priority" in decrement_requested_cols:
-                link_rows_header += "\n      `{0}_priority` INTEGER DEFAULT 0,"
-                decrement_requested_cols.remove("priority")
-
-            if "primary" in decrement_requested_cols:
-                link_rows_header += "\n      `{0}_primary` INTEGER NULL DEFAULT 0,"
-                decrement_requested_cols.remove("primary")
-
-            if "type" in decrement_requested_cols:
-                # Keep `type` nullable (see NOTE above).
-                link_rows_header += "\n      `{0}_type` TEXT NULL,"
-                decrement_requested_cols.remove("type")
-
-            if "origin" in decrement_requested_cols:
-                link_rows_header += "\n      `{0}_origin` TEXT NULL,"
-                decrement_requested_cols.remove("origin")
-
-            # `source` is a standard relation-link provenance column on every generated link table.
-            if "source" in decrement_requested_cols:
-                decrement_requested_cols.remove("source")
-
-            if "policy" in decrement_requested_cols:
-                link_rows_header += "\n      `{0}_policy` TEXT NULL,"
-                decrement_requested_cols.remove("policy")
-
-            if "data" in decrement_requested_cols:
-                link_rows_header += "\n      `{0}_data` TEXT NULL,"
-                decrement_requested_cols.remove("data")
-
-            if "index" in decrement_requested_cols:
-                link_rows_header += "\n      `{0}_index` TEXT NULL,"
-                decrement_requested_cols.remove("index")
-
-            if "sequence_number" in decrement_requested_cols:
-                link_rows_header += "\n      `{0}_sequence_number` INTEGER NULL,"
-                decrement_requested_cols.remove("sequence_number")
-
-            if "is_required" in decrement_requested_cols:
-                link_rows_header += "\n      `{0}_is_required` INTEGER DEFAULT 1,"
-                decrement_requested_cols.remove("is_required")
-
-            # Any remaining requested columns are treated as bespoke TEXT columns, provided they are safe SQL identifiers.
-            for extra_col in sorted(decrement_requested_cols):
-                assert re.match(
-                    r"^[a-z][a-z0-9_]*$",
-                    extra_col,
-                ), (
-                    f"Unsafe requested column name {extra_col!r} for link table {table_name!r}"
-                )
-                link_rows_header += f"\n      `{{0}}_{extra_col}` TEXT NULL,"
-
-            decrement_requested_cols.clear()
-
-            link_table_footer = """
-                  `{0}_source` TEXT NULL,
+        for suffix, sql_type, declaration in requested_link_columns(
+            requested_cols_norm,
+            reserved_names={f"{table1_l_s}_id", f"{table2_l_s}_id"},
+        ):
+            link_rows += f"\n      `{{0}}_{suffix}` {sql_type} {declaration},"
+        link_rows += """
                   `{0}_datestamp` DATETIME DEFAULT (STRFTIME('%s', 'now')),
                   `{0}_scratch` TEXT NULL"""
 
-            link_rows = link_rows_header + link_table_footer
-
         # The full statement will be constructed with a join later - do not want a comma between the comment and the
         # start of the actual table
-        # NOTE: Interlink rows are often created as "blank" placeholders and then populated.
-        # Enforcing NOT NULL on FK columns prevents this workflow, so we keep FKs nullable for now.
-        # (We can revisit strict FK NOT NULL constraints once row construction is not placeholder-based.)
-        fk_null_sql = "NULL"
+        # The caller resolves blank-row compatibility before requesting physical DDL.
+        fk_null_sql = "NULL" if nullable_fks else "NOT NULL"
 
         link_rows = comment_row + link_rows.format(
             column_name, table1_l_s, table2_l_s, fk_null_sql
@@ -886,8 +797,7 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
         :param table2: Second table whose singular prefix participates in the link name.
         :param requested_cols: all, None, or iterable of optional metadata suffixes.
         :param allowed_types: Optional iterable of permitted type labels.
-        :param nullable_fks: Requested FK nullability; interlink generation currently
-            always emits nullable FKs.
+        :param nullable_fks: Whether both endpoint foreign keys permit NULL.
         :return: Generated statement list without executing it.
         """
 
@@ -1200,9 +1110,6 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
         reject nonnull self-edges. Symmetric guards reject reversed endpoints rather
         than swapping them; symmetric_types restricts that guard even when symmetric is
         true. Reference-type mode omits the FK and requires later guard installation.
-        Explicit sequence_number/is_required subsets currently emit those columns twice
-        because the bespoke-column filter also includes them; all avoids that
-        duplication.
 
         Example:
             A symmetric work self-link accepts primary_id below secondary_id and rejects
@@ -1296,59 +1203,8 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
             f"  `{row_name}_secondary_id` INTEGER {fk_null_sql},",
         ]
 
-        # Interlink-style optional columns
-        def _add_optional(col: str, ddl: str) -> None:
-            """
-            Append one comma-terminated optional column to the enclosing DDL list.
-
-            Example:
-                The priority suffix appends a prefixed INTEGER DEFAULT 0 column.
-
-
-            :param col: Trusted column suffix appended to the enclosing row_name.
-            :param ddl: Trusted SQL type/default fragment for the column.
-            :return: None; mutates the enclosing col_lines list.
-            """
-            col_lines.append(f"  `{row_name}_{col}` {ddl},")
-
-        if req == "all" or "priority" in req:
-            _add_optional("priority", "INTEGER DEFAULT 0")
-        if req == "all" or "primary" in req:
-            _add_optional("primary", "INTEGER NULL DEFAULT 0")
-        if req == "all" or "type" in req:
-            _add_optional("type", "TEXT NULL")
-        if req == "all" or "index" in req:
-            _add_optional("index", "TEXT NULL")
-        if req == "all" or "sequence_number" in req:
-            _add_optional("sequence_number", "INTEGER NULL")
-        if req == "all" or "is_required" in req:
-            _add_optional("is_required", "INTEGER DEFAULT 1")
-        if req == "all" or "origin" in req:
-            _add_optional("origin", "TEXT NULL")
-        if req == "all" or "policy" in req:
-            _add_optional("policy", "TEXT NULL")
-        if req == "all" or "data" in req:
-            _add_optional("data", "TEXT NULL")
-        _add_optional("source", "TEXT NULL")
-
-        # Bespoke safe columns (TEXT NULL)
-        if req != "all":
-            reserved = {
-                "priority",
-                "primary",
-                "type",
-                "index",
-                "origin",
-                "source",
-                "policy",
-                "data",
-            }
-            for extra in sorted(req - reserved):
-                if not re.fullmatch(r"[a-z][a-z0-9_]*", extra):
-                    raise TypeError(
-                        f"Unsafe intralink requested column name: {extra!r}"
-                    )
-                _add_optional(extra, "TEXT NULL")
+        for suffix, sql_type, declaration in requested_link_columns(req):
+            col_lines.append(f"  `{row_name}_{suffix}` {sql_type} {declaration},")
 
         # Standard tail columns
         col_lines.append(

@@ -1,5 +1,17 @@
 # Working Memory Index
 
+Signed off locally, **2026-11-11**: read
+[the FRBR generator repair handoff](database-generator-frbr-review-2026-11-11.md).
+All seven findings have repairs, including the second-pass primary-flag domain
+and stale API documentation. Final focused run: 174 passed, including all 117 FRBR
+mandatory cases; identifier integration: 10 passed. Manifest: 1,444. Required full
+quality gates pass. Earlier broad validation and remaining migration/PostgreSQL
+limits are recorded in the handoff.
+All checks finished; source/preferences/recovery are preserved. Commit and PR
+publication are authorized on `database-generator-frbr-review-2026-11-11`, based
+on `5304f34f`, targeting `database-review`. Driver PR #156 has merged. Read the
+handoff for publication evidence; no generator merge or migration requested.
+
 Completed locally, **2026-11-11**:
 [eighth driver fixes](database-driver-plugins-eighth-fixes-2026-11-11.md).
 DDP28/DDP29 have repairs and 147 new required cases, taking the manifest to 1,327.
