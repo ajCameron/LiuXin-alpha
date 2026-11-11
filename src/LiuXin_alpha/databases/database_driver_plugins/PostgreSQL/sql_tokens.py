@@ -13,13 +13,26 @@ must use native parameters or CAST. Syntax-only translation has no such arity.
 from __future__ import annotations
 
 import re
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from itertools import islice
 
-_DOLLAR = re.compile(r"\$(?:[^\W\d]\w*)?\$", re.UNICODE)
-_WORD = re.compile(r"[^\W\d][\w$]*", re.UNICODE)
-_NUMBER = re.compile(r"(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?")
+# Match PostgreSQL scan.l's ASCII classes plus high-bit identifier bytes.
+# In decoded Unicode SQL every non-ASCII code point belongs to that latter
+# class, including combining marks, emoji and non-breaking spaces. Dollar
+# tags share identifier rules except that '$' cannot occur inside a tag.
+_IDENT_START = r"[A-Za-z_\x80-\U0010ffff]"
+_DOLLAR = re.compile(r"\$(?:" + _IDENT_START + r"[A-Za-z_0-9\x80-\U0010ffff]*)?\$")
+_WORD = re.compile(_IDENT_START + r"[A-Za-z_0-9$\x80-\U0010ffff]*")
+_SPACE = " \t\n\r\f"
+# PostgreSQL quote continuation permits whitespace containing a newline and
+# SQL line comments, but not block comments or a new E prefix (scan.l).
+# At most one comment precedes the first newline; a repeated greedy comment
+# group would backtrack exponentially on an ordinary trailing comment at EOF.
+_CONTINUED_QUOTE = re.compile(
+    r"[ \t\f]*(?:--[^\r\n]*)?[\r\n](?:[ \t\r\n\f]|--[^\r\n]*[\r\n])*'"
+)
+_NUMBER = re.compile(r"(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?")
 _PARAMETER = re.compile(r"%(?:s|\([^)]+\)s)")
 _TEMPORAL_TYPES = frozenset(
     {"TIME", "TIMETZ", "TIMESTAMP", "TIMESTAMPTZ", "DATE", "INTERVAL"}
@@ -27,7 +40,8 @@ _TEMPORAL_TYPES = frozenset(
 _EXPRESSION_PREFIXES = frozenset(
     "SELECT WHERE AND OR NOT WHEN THEN ELSE CASE VALUES SET RETURNING LIMIT OFFSET "
     "HAVING BY DISTINCT ALL ON IN IS BETWEEN AS LIKE ILIKE SIMILAR TO ESCAPE "
-    "FROM USING AT TIME ZONE INTERVAL FIRST NEXT FETCH".split()
+    "FROM USING AT TIME ZONE INTERVAL FIRST NEXT FETCH "
+    "FOR LEADING TRAILING BOTH PLACING VARIADIC".split()
 )
 # These unreserved words introduce an expression only inside a SQL phrase.
 # Outside that context they can name an attribute, including JSON operands.
@@ -38,6 +52,8 @@ _CONTEXTUAL_PREFIXES: dict[str, set[tuple[str, ...]]] = {
     "TIME": {("AT",)},
     "ZONE": {("AT", "TIME")},
     "INTERVAL": set(),
+    "SYMMETRIC": {("BETWEEN",)},
+    "ASYMMETRIC": {("BETWEEN",)},
 }
 
 
@@ -49,8 +65,13 @@ class SQLToken:
     text: str
 
 
+def _keyword(text: str) -> str:
+    """Fold ASCII syntax only; Unicode identifiers must never become keywords."""
+    return text.upper() if text.isascii() else text
+
+
 def _quoted_end(sql: str, start: int, quote: str, *, escapes: bool = False) -> int:
-    """Consume SQL doubled delimiters and explicit E-string backslash escapes."""
+    """Consume doubled delimiters and backslash escapes when that mode is active."""
     position = start + 1
     while position < len(sql):
         if escapes and sql[position] == "\\":
@@ -63,6 +84,14 @@ def _quoted_end(sql: str, start: int, quote: str, *, escapes: bool = False) -> i
         else:
             position += 1
     raise ValueError("Unterminated SQL quoted text")
+
+
+def _string_end(sql: str, start: int, *, escapes: bool = False) -> int:
+    """Keep newline-separated continuations in the original literal's mode."""
+    position = _quoted_end(sql, start, "'", escapes=escapes)
+    while continuation := _CONTINUED_QUOTE.match(sql, position):
+        position = _quoted_end(sql, continuation.end() - 1, "'", escapes=escapes)
+    return position
 
 
 def _comment_end(sql: str, start: int) -> int:
@@ -83,13 +112,20 @@ def _comment_end(sql: str, start: int) -> int:
     raise ValueError("Unterminated SQL block comment")
 
 
-def sql_tokens(sql: str) -> Iterator[SQLToken]:
-    """Scan standard-conforming PostgreSQL SQL plus SQLite backtick identifiers."""
+def sql_tokens(
+    sql: str, *, standard_conforming_strings: bool | Callable[[], bool] = True
+) -> Iterator[SQLToken]:
+    """Scan PostgreSQL SQL using the connection's ordinary-string escape mode.
+
+    A callable lets a lazy script consumer refresh the mode after executing each
+    yielded statement. Standalone syntax translation defaults to standard strings.
+    Explicit E-strings always retain their own escape mode across continuations.
+    """
     position = 0
     while position < len(sql):
         start, character = position, sql[position]
-        if character.isspace():
-            while position < len(sql) and sql[position].isspace():
+        if character in _SPACE:
+            while position < len(sql) and sql[position] in _SPACE:
                 position += 1
             kind = "space"
         elif sql.startswith("--", position):
@@ -104,9 +140,17 @@ def sql_tokens(sql: str) -> Iterator[SQLToken]:
             position = _comment_end(sql, position)
             kind = "comment"
         elif character in "eE" and sql[position + 1 : position + 2] == "'":
-            position = _quoted_end(sql, position + 1, "'", escapes=True)
+            position = _string_end(sql, position + 1, escapes=True)
             kind = "literal"
-        elif character in "'\"`":
+        elif character == "'":
+            standard = (
+                standard_conforming_strings()
+                if callable(standard_conforming_strings)
+                else standard_conforming_strings
+            )
+            position = _string_end(sql, position, escapes=not standard)
+            kind = "literal"
+        elif character in '"`':
             position = _quoted_end(sql, position, character)
             kind = "backtick" if character == "`" else "literal"
         elif dollar := _DOLLAR.match(sql, position):
@@ -141,7 +185,7 @@ def _temporal_qmark(tokens: list[SQLToken], position: int) -> tuple[int, str] | 
             8,
         )
     )
-    words = [tokens[index].text.upper() for index in following]
+    words = [_keyword(tokens[index].text) for index in following]
     offset = (
         3
         if len(words) >= 3
@@ -169,7 +213,7 @@ def _temporal_suffix_role(right: SQLToken | None) -> str:
         return "operator"
     if right.kind == "literal" and not right.text.startswith('"'):
         return "operator"
-    if right.kind == "word" and right.text.upper() in {
+    if right.kind == "word" and _keyword(right.text) in {
         "FROM",
         "AS",
         "WHERE",
@@ -264,16 +308,20 @@ def _operator_end(tokens: list[SQLToken], position: int) -> int | None:
     return None
 
 
-def _expression_tokens(sql: str) -> list[SQLToken]:
+def _expression_tokens(
+    sql: str, *, standard_conforming_strings: bool
+) -> list[SQLToken]:
     """Keep explicit operator names opaque while retaining their operand role."""
-    tokens = list(sql_tokens(sql))
+    tokens = list(
+        sql_tokens(sql, standard_conforming_strings=standard_conforming_strings)
+    )
     result: list[SQLToken] = []
     position, previous = 0, ""
     while position < len(tokens):
         token = tokens[position]
         if (
             token.kind == "word"
-            and token.text.upper() == "OPERATOR"
+            and _keyword(token.text) == "OPERATOR"
             and previous != "."
         ):
             end = _operator_end(tokens, position)
@@ -290,7 +338,12 @@ def _expression_tokens(sql: str) -> list[SQLToken]:
     return result
 
 
-def _classified_tokens(sql: str, parameter_count: int | None = None) -> list[SQLToken]:
+def _classified_tokens(
+    sql: str,
+    parameter_count: int | None = None,
+    *,
+    standard_conforming_strings: bool = True,
+) -> list[SQLToken]:
     """Separate operators from bindings, resolving temporal ambiguity by arity.
 
     ``interval ? day`` can name two JSON operands or contain a typed binding.
@@ -302,7 +355,10 @@ def _classified_tokens(sql: str, parameter_count: int | None = None) -> list[SQL
     expression = True
     qualified = False
     previous: tuple[str, ...] = ()
-    tokens = _expression_tokens(sql)
+    tokens = _expression_tokens(
+        sql, standard_conforming_strings=standard_conforming_strings
+    )
+    groups: list[str] = []
     temporal: set[int] = set()
     roles: dict[int, str] = {}
     for position, token in enumerate(tokens):
@@ -319,7 +375,7 @@ def _classified_tokens(sql: str, parameter_count: int | None = None) -> list[SQL
         elif kind == "word":
             # A word after a qualification dot names an attribute, even when
             # its spelling is also a keyword (t.first, t.next, t.time).
-            word = text.upper()
+            word = _keyword(text)
             if word in _TEMPORAL_TYPES and expression and not qualified:
                 if temporal_qmark := _temporal_qmark(tokens, position):
                     roles[temporal_qmark[0]] = temporal_qmark[1]
@@ -330,21 +386,74 @@ def _classified_tokens(sql: str, parameter_count: int | None = None) -> list[SQL
                     previous[-len(phrase) :] == phrase
                     for phrase in _CONTEXTUAL_PREFIXES[word]
                 )
-            elif word == "AT":
-                # AT TIME ZONE follows an operand. At an expression's start,
-                # the same unreserved word is an attribute name.
+            elif word in {"AT", "BETWEEN", "ESCAPE"}:
+                # These infix phrases follow an operand. At an expression's
+                # start, the same spelling is an attribute name instead.
                 expression = not expression
+            elif word == "NOT":
+                # Unary NOT still expects an operand; infix NOT BETWEEN/LIKE
+                # retains the left operand until the following operator word.
+                pass
+            elif word == "SET":
+                expression = not expression or not previous or previous[-1] == ";"
+            elif word == "VALUES":
+                expression = _values_prefix(tokens, position, expression, previous)
+            elif word in {"ROWS", "RANGE", "GROUPS"}:
+                # Frame clauses follow an ordering/partition operand, or start
+                # an OVER/WINDOW-AS group. At an expression start these same
+                # unreserved words still name JSON columns (ORDER BY rows ? ...).
+                expression = not expression or (
+                    previous[-1:] == ("(",)
+                    and bool(groups)
+                    and groups[-1] in {"OVER", "AS"}
+                )
             else:
                 expression = word in _EXPRESSION_PREFIXES
-        elif kind in {"literal", "backtick", "parameter"} or text in {")", "]"}:
+        elif text == "(":
+            groups.append(
+                "DISTINCT ON"
+                if previous == ("DISTINCT", "ON")
+                else (previous[-1] if previous else "")
+            )
+            expression = True
+        elif text == ")":
+            expression = (groups.pop() if groups else "") == "DISTINCT ON"
+        elif kind in {"literal", "backtick", "parameter"} or text == "]":
             expression = False
         else:
             expression = True
         qualified = text == "."
-        previous = (*previous[-1:], text.upper())
+        previous = (*previous[-1:], _keyword(text))
         result.append(SQLToken(kind, text))
     _resolve_temporal_bindings(result, temporal, parameter_count)
     return result
+
+
+def _values_prefix(
+    tokens: list[SQLToken], position: int, expression: bool, previous: tuple[str, ...]
+) -> bool:
+    """Distinguish a VALUES row clause from a JSON column named values.
+
+    Parenthesized rows reset the expression state themselves. A qmark may
+    instead bind an entire row tuple, including in a nested VALUES query.
+    Such a row ends at a clause boundary; a JSON operator needs a right operand.
+    """
+    if not expression or not previous or previous[-1] == ";":
+        return True
+    following = list(
+        islice(
+            (
+                tokens[index]
+                for index in range(position + 1, len(tokens))
+                if tokens[index].kind not in {"space", "comment"}
+            ),
+            2,
+        )
+    )
+    if not following or following[0].kind != "qmark":
+        return False
+    right = following[1] if len(following) == 2 else None
+    return _temporal_suffix_role(right) == "binding"
 
 
 def adapt_sql(
@@ -354,6 +463,7 @@ def adapt_sql(
     placeholders: bool = True,
     bound: bool = False,
     parameter_count: int | None = None,
+    standard_conforming_strings: bool = True,
 ) -> str:
     """Translate syntax tokens and escape literal percent signs for bound execution.
 
@@ -363,8 +473,14 @@ def adapt_sql(
     as literal. Quoted text and comments never become parameter locations.
     Bound execution supplies parameter_count to disambiguate temporal values and
     JSON operands. Multiple possible assignments raise before SQL is executed.
+    Connections supply their current standard_conforming_strings setting; pure
+    syntax translation without a connection keeps the standard-string default.
     """
-    tokens = _classified_tokens(str(sql), parameter_count if placeholders else None)
+    tokens = _classified_tokens(
+        str(sql),
+        parameter_count if placeholders else None,
+        standard_conforming_strings=standard_conforming_strings,
+    )
     native = any(token.kind == "parameter" for token in tokens)
     qmarks = any(token.kind == "binding" for token in tokens)
     if placeholders and native and qmarks:
@@ -394,18 +510,23 @@ def _identifier_text(token: SQLToken) -> str:
     return token.text
 
 
-def split_sql_statements(sql: str) -> Iterator[str]:
+def split_sql_statements(
+    sql: str, *, standard_conforming_strings: bool | Callable[[], bool] = True
+) -> Iterator[str]:
     """Split at top-level semicolons while retaining quoted procedural bodies.
 
     Used when maintenance hooks require a boundary before every statement.
     Unhooked native scripts are passed whole to PostgreSQL instead.
+    A mode callback follows settings changed by earlier executed statements.
     """
     pending = []
-    for token in sql_tokens(str(sql)):
+    for token in sql_tokens(
+        str(sql), standard_conforming_strings=standard_conforming_strings
+    ):
         pending.append(token.text)
         if token.kind == "punctuation" and token.text == ";":
             yield "".join(pending)
             pending = []
     remaining = "".join(pending)
-    if remaining.strip():
+    if remaining.strip(_SPACE):
         yield remaining

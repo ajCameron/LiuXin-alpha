@@ -1,5 +1,5 @@
 """
-Combine stdlib driver connections with APSW-backed dump and restore.
+Combine stdlib driver connections and shared SQL export with APSW-backed restore.
 
 Importing this module requires apsw and the bundled APSW shell.
 DatabaseDriver.get_connection returns the local sqlite3 subclass; the separate APSW
@@ -1021,6 +1021,8 @@ class DatabaseDriver(
         serialize connection use for the entire iteration; use an explicit caller
         read transaction when a stable multi-statement snapshot is needed.
         Closing the generator releases its dump cursor, not the connection.
+        Shared storage-value serialization preserves embedded-NUL TEXT and BLOB
+        values separately. Invalid encoded TEXT raises instead of being shortened.
 
         >>> driver = DatabaseDriver({"database_path": ":memory:"})
         >>> _ = driver.conn.execute("CREATE TABLE sample (value TEXT)")
@@ -1046,7 +1048,11 @@ class DatabaseDriver(
             raise DatabaseDriverError(
                 "A live SQLite primary connection is required to dump SQL"
             )
-        yield from connection.iterdump()
+        from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.sqlite_dump import (
+            iter_sqlite_dump,
+        )
+
+        yield from iter_sqlite_dump(connection)
 
     def dump_and_restore(
         self,
@@ -1055,11 +1061,13 @@ class DatabaseDriver(
     ) -> None:
         """Rebuild privately, validate the completed graph, then replace and reopen.
 
-        The APSW shell reads and restores the SQL dump.
+        The shared SQLite serializer writes the SQL dump; the APSW shell restores it.
         Foreign keys are checked after loading so forward references and cycles are
         supported. Integrity and foreign-key failures prevent publication. The
         original user_version is retained, and restored connections use the normal
         driver callbacks and collations. Prefix SQL executes before the dump.
+        The shared SQL serializer preserves embedded-NUL TEXT; serialization
+        failures leave the original database in place.
 
         All tracked connections must have no pending writes, both at entry and
         before publication. Closing finalizes owned cursors before their native
@@ -1078,6 +1086,9 @@ class DatabaseDriver(
             require_idle_sqlite_connections,
             require_sqlite_replacement_ready,
             validate_sqlite_file,
+        )
+        from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.sqlite_dump import (
+            iter_sqlite_dump,
         )
 
         require_idle_sqlite_connections(self._open_connections)
@@ -1129,9 +1140,9 @@ class DatabaseDriver(
                     if not prefix_sql.endswith("\n"):
                         buf.write("\n")
 
-                with closing(Connection(path=self.database_path)) as aspw_conn:
-                    shell = Shell(db=aspw_conn, stdout=buf)
-                    shell.process_command(".dump")
+                with closing(self.get_connection()) as dump_conn:
+                    for line in iter_sqlite_dump(dump_conn):
+                        buf.write(line + "\n")
 
             with TemporaryFile(
                 suffix="_tmpdb.db", dir=os.path.dirname(self.database_path)

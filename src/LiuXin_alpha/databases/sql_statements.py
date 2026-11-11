@@ -4,6 +4,19 @@ import re
 from collections.abc import Iterator
 
 
+def postgres_standard_strings(connection: object) -> bool:
+    """Read libpq's current string mode without SQL or transaction side effects.
+
+    ParameterStatus follows startup options, SET, SET LOCAL and rollback. Native
+    and adapted connections share this reader; non-native test doubles and syntax
+    utilities without a connection retain the standard-conforming default.
+    """
+    raw = getattr(connection, "raw_connection", connection)
+    getter = getattr(raw, "get_parameter_status", None)
+    value = getter("standard_conforming_strings") if callable(getter) else None
+    return not isinstance(value, str) or value != "off"
+
+
 def _sqlite_tokens(sql: str) -> Iterator[str]:
     """Yield significant SQLite tokens, preserving quoted text and identifiers."""
     tokens = re.finditer(
@@ -24,7 +37,9 @@ def _sqlite_tokens(sql: str) -> Iterator[str]:
     )
 
 
-def _statement_tokens(sql: str, *, postgres: bool) -> Iterator[str]:
+def _statement_tokens(
+    sql: str, *, postgres: bool, standard_conforming_strings: bool
+) -> Iterator[str]:
     """Use the same backend tokens as row classification and SQL adaptation."""
     if postgres:
         from LiuXin_alpha.databases.database_driver_plugins.PostgreSQL.sql_tokens import (
@@ -33,29 +48,41 @@ def _statement_tokens(sql: str, *, postgres: bool) -> Iterator[str]:
 
         yield from (
             token.text
-            for token in sql_tokens(str(sql))
+            for token in sql_tokens(
+                str(sql), standard_conforming_strings=standard_conforming_strings
+            )
             if token.kind not in {"space", "comment"}
         )
     else:
         yield from _sqlite_tokens(sql)
 
 
-def statement_keyword(sql: str, *, postgres: bool = False) -> str:
+def statement_keyword(
+    sql: str, *, postgres: bool = False, standard_conforming_strings: bool = True
+) -> str:
     """Find the leading operation after backend comments and empty statements."""
     return next(
         (
             token.upper()
-            for token in _statement_tokens(sql, postgres=postgres)
+            for token in _statement_tokens(
+                sql,
+                postgres=postgres,
+                standard_conforming_strings=standard_conforming_strings,
+            )
             if token != ";"
         ),
         "",
     )
 
 
-def has_multiple_statements(sql: str, *, postgres: bool = False) -> bool:
+def has_multiple_statements(
+    sql: str, *, postgres: bool = False, standard_conforming_strings: bool = True
+) -> bool:
     """Detect a second nonempty statement without inspecting quoted content."""
     started = ended = False
-    for token in _statement_tokens(sql, postgres=postgres):
+    for token in _statement_tokens(
+        sql, postgres=postgres, standard_conforming_strings=standard_conforming_strings
+    ):
         if token == ";":
             ended = started
         elif ended:

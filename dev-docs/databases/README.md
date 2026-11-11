@@ -7,6 +7,19 @@ meaning belongs to metadata/Catalog; physical storage policy belongs to storage.
 
 ## Working guides and operational contracts
 
+- [Eighth driver-plugin review, 2026-11-11](database-driver-plugins-eighth-review-2026-11-11.md):
+  PostgreSQL connection string-literal mode and qmark expression boundaries
+  repaired; 147 new mandatory cases, with native and committed-value comparisons.
+
+- [Seventh driver-plugin review, 2026-11-10](database-driver-plugins-seventh-review-2026-11-10.md):
+  FTS row-ID preservation, PostgreSQL continued-string rewriting and
+  keyword-identifier binding repaired; 221 new mandatory cases, including
+  portable value/rollback parity across all three driver names.
+
+- [Sixth driver-plugin review, 2026-11-10](database-driver-plugins-sixth-review-2026-11-10.md):
+  lossy embedded-NUL SQL export/rebuild and PostgreSQL Unicode lexical gaps;
+  implemented repairs and 151 added mandatory value-preservation regressions.
+
 - [Fifth driver-plugin review, 2026-11-06](database-driver-plugins-fifth-review-2026-11-06.md):
   completion keyword parsing, WAL surviving SQLite rebuild publication and
   qualified PostgreSQL JSON operators; implemented mitigations and 156 added

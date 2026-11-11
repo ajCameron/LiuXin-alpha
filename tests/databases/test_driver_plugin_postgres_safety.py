@@ -1,12 +1,16 @@
 """Exercise driver recovery and SQL adaptation on a real PostgreSQL server."""
 
+import json
 import os
+import subprocess
+import sys
 from contextlib import closing
 from types import SimpleNamespace
 from uuid import uuid4
 
 import pytest
 
+from LiuXin_alpha.databases.database_driver_plugins.PostgreSQL import sql_tokens
 from LiuXin_alpha.databases.database_driver_plugins.PostgreSQL.connection import (
     connect_postgres,
 )
@@ -15,6 +19,71 @@ from LiuXin_alpha.databases.database_driver_plugins.PostgreSQL.databasedriver im
 )
 from LiuXin_alpha.databases.driver_wrapper import DriverWrapper
 from LiuXin_alpha.errors import DatabaseDriverError
+
+UNICODE_NAMES = [
+    "plain",
+    "名",
+    "e\u0301",
+    "📚",
+    "\u00a0",
+    "\u0085",
+    "\u2003",
+    "\ufeff",
+    "x\u00a0time",
+    "ſelect",
+    "ıN",
+]
+UNICODE_IDS = [
+    "ascii",
+    "cjk",
+    "combining",
+    "emoji",
+    "nbsp",
+    "nel",
+    "em_space",
+    "bom",
+    "keyword_suffix",
+    "long_s_keyword",
+    "dotless_i_keyword",
+]
+
+
+@pytest.mark.parametrize("name", UNICODE_NAMES, ids=UNICODE_IDS)
+@pytest.mark.parametrize("binding", ["?", "%s"], ids=["qmark", "native"])
+@pytest.mark.parametrize("quoted", [False, True], ids=["unquoted", "quoted"])
+def test_unicode_json_identifiers_match_native_engine(driver, name, binding, quoted):
+    identifier = '"' + name + '"' if quoted else name
+    suffix = f" FROM (SELECT '{{\"key\":1}}'::jsonb AS {identifier}) t"
+    with driver.conn.raw_connection.cursor() as raw:
+        raw.execute(f"SELECT {identifier} ? %s" + suffix, ("key",))
+        expected = raw.fetchone()
+    with closing(
+        driver.conn.execute(f"SELECT {identifier} ? {binding}" + suffix, ("key",))
+    ) as cursor:
+        assert cursor.fetchone() == expected == (True,)
+
+
+@pytest.mark.parametrize("tag", ["", *UNICODE_NAMES], ids=["empty", *UNICODE_IDS])
+@pytest.mark.parametrize(
+    "binding", [None, "?", "%s"], ids=["unbound", "qmark", "native"]
+)
+def test_unicode_dollar_literals_preserve_committed_values(driver, tag, binding):
+    payload = "before `quoted`; COMMIT; ?; 100% after"
+    driver.conn.execute(
+        "CREATE TABLE literal_values(id INTEGER,body TEXT,extra INTEGER)"
+    ).close()
+    with driver.conn.raw_connection.cursor() as raw:
+        raw.execute("INSERT INTO literal_values VALUES(1,%s,7)", (payload,))
+    sql = (
+        f"INSERT INTO literal_values VALUES(2,${tag}${payload}${tag}$,{binding or '7'})"
+    )
+    with closing(driver.conn.execute(sql, (7,) if binding else None)):
+        pass
+    driver.conn.commit()
+    with closing(driver.get_connection()) as reader:
+        with reader.raw_connection.cursor() as raw:
+            raw.execute("SELECT body,extra FROM literal_values ORDER BY id")
+            assert raw.fetchall() == [(payload, 7), (payload, 7)]
 
 
 @pytest.mark.parametrize("binding", ["?", "%s"], ids=["qmark", "native"])
@@ -156,7 +225,20 @@ def test_temporal_batch_uses_first_arity_without_replaying_or_losing_rows(
 
 
 @pytest.mark.parametrize(
-    "column", ["first", "next", "time", "zone", "by", "at", "interval"]
+    "column",
+    [
+        "first",
+        "next",
+        "time",
+        "zone",
+        "by",
+        "at",
+        "interval",
+        "between",
+        "escape",
+        "set",
+        "values",
+    ],
 )
 @pytest.mark.parametrize("binding", ["?", "%s"], ids=["qmark", "native"])
 @pytest.mark.parametrize("operator", ["?", "?|", "?&", "@?"])
@@ -171,6 +253,150 @@ def test_unqualified_keywords_remain_json_operands(driver, column, binding, oper
         assert raw.fetchone() == (True,)
     with closing(driver.conn.execute(sql, (value,))) as cursor:
         assert cursor.fetchone() == (True,)
+
+
+@pytest.mark.parametrize(
+    "gap",
+    ["\n", "\r", "\r\n", " -- quote '; `name`\n", "\n-- gap\r\t"],
+    ids=["lf", "cr", "crlf", "comment", "two_lines"],
+)
+@pytest.mark.parametrize("batch", [False, True], ids=["execute", "executemany"])
+@pytest.mark.parametrize(
+    "binding", [None, "?", "%s"], ids=["unbound", "qmark", "native"]
+)
+@pytest.mark.parametrize(
+    "ending",
+    [r"'\'`literal`\' ? ; COMMIT; 100% %s'", r"'with\'quote'"],
+    ids=["opaque_syntax", "escaped_quote"],
+)
+def test_continued_escape_strings_preserve_committed_values(
+    driver, gap, binding, ending, batch
+):
+    literal = "E'prefix'" + gap + ending + "\n' tail'"
+    with driver.conn.raw_connection.cursor() as raw:
+        raw.execute("SELECT " + literal)
+        expected = raw.fetchone()[0]
+    driver.conn.execute(
+        "CREATE TABLE continued_values(body TEXT,extra INTEGER)"
+    ).close()
+    # Native pyformat callers escape literal percent signs; qmark callers do not.
+    supplied_literal = literal.replace("%", "%%") if binding == "%s" else literal
+    sql = f"INSERT INTO continued_values VALUES({supplied_literal},{binding or '7'})"
+    if batch:
+        driver.conn.executemany(sql, [(7,) if binding else ()] * 2).close()
+    else:
+        driver.conn.execute(sql, (7,) if binding else None).close()
+    driver.conn.commit()
+    with closing(driver.get_connection()) as reader:
+        with reader.raw_connection.cursor() as raw:
+            raw.execute("SELECT body,extra FROM continued_values")
+            assert raw.fetchall() == [(expected, 7)] * (2 if batch else 1)
+
+
+@pytest.mark.parametrize("binding", ["?", "%s"], ids=["qmark", "native"])
+@pytest.mark.parametrize(
+    "sql,values",
+    [
+        ("SELECT 2 BETWEEN {bind} AND {bind}", (1, 3)),
+        ("SELECT 2 NOT BETWEEN {bind} AND {bind}", (1, 3)),
+        ("SELECT 'a_b' LIKE {bind} ESCAPE {bind}", ("a!_b", "!")),
+        ("SELECT 'a_b' NOT LIKE {bind} ESCAPE {bind}", ("a!_b", "!")),
+        ("VALUES ({bind})", (7,)),
+        ("SELECT * FROM (VALUES ({bind})) t(value)", (7,)),
+        (
+            "SELECT NOT between ? {bind} FROM (SELECT '{\"key\":1}'::jsonb AS between) t",
+            ("key",),
+        ),
+        (
+            "SELECT (values ? {bind}), 2 BETWEEN {bind} AND {bind} FROM (SELECT '{\"key\":1}'::jsonb AS values) t",
+            ("key", 1, 3),
+        ),
+        ("VALUES {bind}", ((7,),)),
+        ("SELECT * FROM (VALUES {bind}) t(value)", ((7,),)),
+        ("VALUES {bind} UNION ALL VALUES {bind}", ((7,), (8,))),
+        ("SELECT 2 BETWEEN SYMMETRIC {bind} AND {bind}", (3, 1)),
+        ("SELECT 2 NOT BETWEEN ASYMMETRIC {bind} AND {bind}", (3, 1)),
+    ],
+    ids=[
+        "between",
+        "not_between",
+        "escape",
+        "not_escape",
+        "values",
+        "nested_values",
+        "unary_not",
+        "combined",
+        "row_tuple",
+        "nested_row_tuple",
+        "union_row_tuples",
+        "symmetric",
+        "not_asymmetric",
+    ],
+)
+def test_keyword_contexts_keep_real_sql_grammar(driver, binding, sql, values):
+    with driver.conn.raw_connection.cursor() as raw:
+        raw.execute(sql.replace("{bind}", "%s"), values)
+        expected = raw.fetchall()
+    with closing(driver.conn.execute(sql.replace("{bind}", binding), values)) as cursor:
+        assert cursor.fetchall() == expected
+
+
+@pytest.mark.parametrize("escape", [False, True], ids=["ordinary", "escape"])
+@pytest.mark.parametrize("continuation", [False, True], ids=["eof", "continued"])
+def test_line_comment_after_string_does_not_stall_translation(
+    driver, escape, continuation
+):
+    sql = f"SELECT {'E' if escape else ''}'prefix' " + "--" * 2048
+    if continuation:
+        sql += "\n' tail'"
+    # A subprocess bounds failures: an exponential regex can otherwise hang
+    # the entire gate. Load only this module so the deadline excludes app setup.
+    program = """
+import importlib.util, json, sys
+spec = importlib.util.spec_from_file_location('tokens_probe', sys.argv[1])
+module = importlib.util.module_from_spec(spec)
+sys.modules[spec.name] = module
+spec.loader.exec_module(module)
+sql = json.load(sys.stdin)
+print(json.dumps([module.adapt_sql(sql, bound=False), list(module.split_sql_statements(sql))]))
+"""
+    result = subprocess.run(
+        [sys.executable, "-c", program, sql_tokens.__file__],
+        input=json.dumps(sql),
+        capture_output=True,
+        text=True,
+        timeout=10,
+        check=True,
+    )
+    adapted, statements = json.loads(result.stdout)
+    assert adapted == sql and statements == [sql]
+    with driver.conn.raw_connection.cursor() as raw:
+        raw.execute(sql)
+        expected = raw.fetchone()
+    with closing(driver.conn.execute(adapted)) as cursor:
+        assert (
+            cursor.fetchone()
+            == expected
+            == ("prefix tail" if continuation else "prefix",)
+        )
+
+
+@pytest.mark.parametrize("binding", ["?", "%s"], ids=["qmark", "native"])
+def test_keyword_columns_survive_update_set_and_insert_values(driver, binding):
+    driver.conn.execute('CREATE TABLE keywords("values" JSONB,"set" TEXT)').close()
+    driver.conn.execute(
+        f"INSERT INTO keywords VALUES ({binding}::jsonb,{binding})",
+        ('{"key":1}', "first"),
+    ).close()
+    driver.conn.execute(
+        f"UPDATE keywords SET set={binding} WHERE values ? {binding}",
+        ("updated", "key"),
+    ).close()
+    driver.conn.commit()
+    with closing(driver.get_connection()) as reader:
+        with reader.raw_connection.cursor() as raw:
+            raw.execute('SELECT "set" FROM keywords')
+            assert raw.fetchall() == [("updated",)]
 
 
 def test_native_row_types_survive_dictionary_and_view_reads(driver):
@@ -246,6 +472,217 @@ def driver():
             with cleanup:
                 with cleanup.cursor() as cursor:
                     cursor.execute(f'DROP SCHEMA "{metadata["schema"]}" CASCADE')
+
+
+@pytest.mark.parametrize("binding", ["?", "%s"], ids=["qmark", "native"])
+@pytest.mark.parametrize("batch", [False, True], ids=["execute", "executemany"])
+@pytest.mark.parametrize(
+    "sql,values",
+    [
+        ("SELECT SUBSTRING({b} FROM {b} FOR {b})", ("abcdef", 2, 3)),
+        ("SELECT TRIM(LEADING {b} FROM {b})", ("x", "xxvalue")),
+        ("SELECT TRIM(TRAILING {b} FROM {b})", ("x", "valuexx")),
+        ("SELECT TRIM(BOTH {b} FROM {b})", ("x", "xxvaluexx")),
+        ("SELECT OVERLAY({b} PLACING {b} FROM {b} FOR {b})", ("abcdef", "X", 2, 3)),
+        ("SELECT DISTINCT ON ({b}) {b}", (1, "result")),
+        ("SELECT DISTINCT ON (({b} + ({b}))) {b}", (1, 2, "nested")),
+        ("SELECT CONCAT(VARIADIC {b}::text[])", (["a", "b"],)),
+        (
+            "SELECT SUM(n) OVER (ORDER BY n ROWS {b} PRECEDING) FROM generate_series(1,3) n",
+            (1,),
+        ),
+        (
+            "SELECT SUM(n) OVER (ORDER BY n RANGE {b} PRECEDING) FROM generate_series(1,3) n",
+            (1,),
+        ),
+        (
+            "SELECT SUM(n) OVER (ORDER BY n GROUPS {b} PRECEDING) FROM generate_series(1,3) n",
+            (1,),
+        ),
+        ("SELECT SUM(n) OVER (ROWS {b} PRECEDING) FROM generate_series(1,3) n", (1,)),
+        (
+            "SELECT SUM(n) OVER w FROM generate_series(1,3) n WINDOW w AS (ROWS {b} PRECEDING)",
+            (1,),
+        ),
+        (
+            "SELECT DISTINCT /* gap */ ON (({b})) json ? {b} FROM (SELECT '{\"key\":1}'::jsonb AS json) t",
+            (1, "key"),
+        ),
+        (
+            "SELECT SUM(n) OVER (ORDER BY (rows ? {b}) ROWS {b} PRECEDING) FROM (SELECT 1 n, '{\"key\":1}'::jsonb AS rows) t",
+            ("key", 1),
+        ),
+    ],
+    ids=[
+        "substring",
+        "leading",
+        "trailing",
+        "both",
+        "overlay",
+        "distinct",
+        "nested_distinct",
+        "variadic",
+        "rows",
+        "range",
+        "groups",
+        "unordered_window",
+        "named_window",
+        "distinct_json",
+        "window_json",
+    ],
+)
+def test_expression_boundaries_preserve_single_and_batch_writes(
+    driver, binding, batch, sql, values
+):
+    """Commit the same native and portable expressions through the public driver."""
+    select = "SELECT result::text FROM (" + sql + ") AS t(result)"
+    with driver.conn.raw_connection.cursor() as raw:
+        raw.execute(select.replace("{b}", "%s"), values)
+        expected = raw.fetchall()
+    driver.conn.execute("CREATE TABLE grammar_values(body TEXT)").close()
+    driver.conn.commit()
+    insert = "INSERT INTO grammar_values " + select.replace("{b}", binding)
+    if batch:
+        driver.direct_executemany(insert, (values for _ in range(2)))
+    else:
+        driver.direct_execute(insert, values).close()
+    with closing(driver.get_connection()) as reader:
+        with reader.raw_connection.cursor() as raw:
+            raw.execute("SELECT body FROM grammar_values")
+            assert raw.fetchall() == expected * (2 if batch else 1)
+
+
+@pytest.mark.parametrize("column", ["rows", "range", "groups"])
+@pytest.mark.parametrize("binding", ["?", "%s"], ids=["qmark", "native"])
+def test_window_frame_words_still_name_json_operands(driver, column, binding):
+    sql = f"SELECT ({column} ? {binding}), length(({column} ? {binding})::text) FROM (SELECT '{{\"key\":1}}'::jsonb AS {column}) t"
+    with closing(driver.conn.execute(sql, ("key", "key"))) as cursor:
+        assert cursor.fetchone() == (True, 4)
+
+
+@pytest.fixture(params=["startup", "session", "local"])
+def nonstandard_driver(request, monkeypatch):
+    """Select escape-string mode through startup options or a live transaction."""
+    if request.param == "startup":
+        from urllib.parse import parse_qsl, quote, urlencode, urlsplit, urlunsplit
+
+        url = os.environ.get("LIUXIN_TEST_POSTGRES_URL", "")
+        if not url:
+            pytest.skip("LIUXIN_TEST_POSTGRES_URL is not configured")
+        parts = urlsplit(url)
+        query = dict(parse_qsl(parts.query))
+        query["options"] = (
+            query.get("options", "") + " -c standard_conforming_strings=off"
+        )
+        monkeypatch.setenv(
+            "LIUXIN_TEST_POSTGRES_URL",
+            urlunsplit(parts._replace(query=urlencode(query, quote_via=quote))),
+        )
+    instance = request.getfixturevalue("driver")
+    instance.conn.execute("CREATE TABLE mode_values(body TEXT, extra INTEGER)").close()
+    instance.conn.commit()
+    if request.param != "startup":
+        instance.conn.execute(
+            f"SET {request.param.upper()} standard_conforming_strings=off"
+        ).close()
+    assert (
+        instance.conn.raw_connection.get_parameter_status("standard_conforming_strings")
+        == "off"
+    )
+    return instance
+
+
+@pytest.mark.parametrize("batch", [False, True], ids=["execute", "executemany"])
+@pytest.mark.parametrize(
+    "binding", [None, "?", "%s"], ids=["unbound", "qmark", "native"]
+)
+@pytest.mark.parametrize(
+    "prefix,gap",
+    [("", ""), ("E", ""), ("", "\n"), ("E", " -- gap\r\n")],
+    ids=["ordinary", "explicit", "continued", "continued_explicit"],
+)
+def test_current_string_mode_preserves_committed_literals(
+    nonstandard_driver, batch, binding, prefix, gap
+):
+    driver = nonstandard_driver
+    literal = (
+        prefix
+        + ("'prefix'" + gap if gap else "")
+        + r"'\'`literal`\' ?; COMMIT; 100% %s'"
+    )
+    with driver.conn.raw_connection.cursor() as raw:
+        raw.execute("SELECT " + literal)
+        expected = raw.fetchone()[0]
+    supplied = literal.replace("%", "%%") if binding == "%s" else literal
+    sql = f"INSERT INTO mode_values VALUES({supplied},{binding or '7'})"
+    if batch:
+        driver.conn.executemany(sql, [(7,) if binding else ()] * 2).close()
+    else:
+        driver.conn.execute(sql, (7,) if binding else None).close()
+    driver.conn.commit()
+    with closing(driver.get_connection()) as reader:
+        with reader.raw_connection.cursor() as raw:
+            raw.execute("SELECT body,extra FROM mode_values")
+            assert raw.fetchall() == [(expected, 7)] * (2 if batch else 1)
+
+
+@pytest.mark.parametrize(
+    "standalone", [False, True], ids=["connection_cursor", "standalone_cursor"]
+)
+def test_existing_cursor_tracks_set_local_savepoint_and_rollback(driver, standalone):
+    from LiuXin_alpha.databases.database_driver_plugins.PostgreSQL.connection import (
+        PostgresCursorAdapter,
+    )
+
+    driver.conn.execute("SET standard_conforming_strings=on").close()
+    driver.conn.commit()
+    cursor = (
+        PostgresCursorAdapter(driver.conn.raw_connection.cursor())
+        if standalone
+        else driver.conn.cursor()
+    )
+    with closing(cursor):
+        for control, expected in [
+            ("SAVEPOINT mode_before", r"a\nb"),
+            ("SET LOCAL standard_conforming_strings=off", "a\nb"),
+            ("ROLLBACK TO mode_before", r"a\nb"),
+            ("SET standard_conforming_strings=off", "a\nb"),
+            ("ROLLBACK", r"a\nb"),
+            ("BEGIN", r"a\nb"),
+            ("SET LOCAL standard_conforming_strings=off", "a\nb"),
+            ("COMMIT", r"a\nb"),
+        ]:
+            driver.conn.execute(control).close()
+            # Escaped quotes expose backticks only when the server's mode is off.
+            literal = r"'a\nb'" if expected == r"a\nb" else r"'a\nb\'`literal`\''"
+            with driver.conn.raw_connection.cursor() as raw:
+                raw.execute("SELECT " + literal)
+                native = raw.fetchone()
+            cursor.execute("SELECT " + literal)
+            assert (
+                cursor.fetchone()
+                == native
+                == ((expected if expected == r"a\nb" else expected + "'`literal`'"),)
+            )
+
+
+def test_hooked_script_reads_mode_changes_between_statements(driver):
+    driver.conn.execute("CREATE TABLE script_modes(body TEXT)").close()
+    driver.conn.commit()
+    calls = []
+    driver.conn._liuxin_before_statement = lambda connection, sql: calls.append(sql)
+    with driver.conn:
+        driver.conn.executescript(
+            "SET standard_conforming_strings=off;"
+            r"INSERT INTO script_modes VALUES('prefix\'`literal`\' ; COMMIT;');"
+            "SET standard_conforming_strings=on;"
+            r"INSERT INTO script_modes VALUES('a\nb');"
+        )
+    assert len(calls) == 4
+    with closing(driver.get_connection()) as reader:
+        with reader.raw_connection.cursor() as raw:
+            raw.execute("SELECT body FROM script_modes")
+            assert raw.fetchall() == [("prefix'`literal`' ; COMMIT;",), (r"a\nb",)]
 
 
 @pytest.mark.parametrize("operation", ["execute", "executemany", "refresh"])

@@ -1,5 +1,62 @@
 # Working Memory Index
 
+Completed locally, **2026-11-11**:
+[eighth driver fixes](database-driver-plugins-eighth-fixes-2026-11-11.md).
+DDP28/DDP29 have repairs and 147 new required cases, taking the manifest to 1,327.
+Final gate: 1,327/1,327 required, 1,358 selected passes, zero skips. Full quality
+and both type checkers pass; integration: 285 passed/29 backend skips; 121 doctest
+examples and 85 documentation/runner checks pass. Private PG16 stopped/removed.
+All checks finished; changes staged, uncommitted. Read the handoff for evidence.
+Continue in `/mnt/c/dev/LiuXin-alpha/.tmp/database-driver-review-2026-11-10`;
+preserve all previous changes and the original checkout. No commit/push/merge.
+
+Reviewed again, **2026-11-11**:
+[eighth driver review](database-driver-plugins-eighth-review-2026-11-11.md).
+Two new medium findings remain open: DDP28 PostgreSQL qmark expression contexts
+and DDP29 nonstandard connection string mode rewriting literal contents.
+Existing focused tests: 945 passed, zero skips; SQLite probes found no new defect.
+Private PG16 stopped/removed. Previous fixes/staging are unchanged; review docs
+only. Continue in `/mnt/c/dev/LiuXin-alpha/.tmp/database-driver-review-2026-11-10`.
+Read the handoff for final checks. No commit/push/merge; origin is local.
+
+Completed locally, **2026-11-10**:
+[seventh driver fixes](database-driver-plugins-seventh-fixes-2026-11-10.md).
+DDP25–DDP27 are repaired with 221 new mandatory cases across applicable drivers.
+Final gate: 1,180/1,180 required, 1,211 selected passes, zero skips. Both type
+checkers/full quality, 121 doctests and 58 documentation/runner checks pass.
+Affected integration: 177 test calls passed; its one shared-lock cleanup error
+passed an isolated retry. Private PG16 is stopped/removed; all checks are finished.
+Continue in `/mnt/c/dev/LiuXin-alpha/.tmp/database-driver-review-2026-11-10` on
+`database-driver-plugins-review-2026-11-05`. Changes are staged, uncommitted.
+No push/merge. Original checkout source/preferences/data and recovery are preserved.
+The clone's origin is local, not GitHub. Read the handoff before publication.
+
+Reviewed after WSL recovery, **2026-11-10**:
+[seventh driver review](database-driver-plugins-seventh-review-2026-11-10.md).
+Continue in persistent `/mnt/c/dev/LiuXin-alpha/.tmp/database-driver-review-2026-11-10`
+on `database-driver-plugins-review-2026-11-05`. Three findings remain open:
+DDP25 SQLite hidden row IDs/FTS, DDP26 PG continued escape-string rewriting,
+DDP27 PG keyword-identifier binding. Existing checks: 724 passes, zero skips.
+Private PG16 is stopped/removed. Recovered production changes remain staged;
+this review adds docs only, with no commit/push/merge. Old `/tmp` process handles
+below are historical; the interrupted final 959-case gate is not verified.
+
+Implemented **2026-11-10**: [sixth driver fixes](database-driver-plugins-sixth-fixes-2026-11-10.md).
+DDP23/DDP24 now have shared lossless SQLite export/rebuild serialization and
+PostgreSQL Unicode token/ASCII keyword handling. The final 959-case regression
+gate and final quality checks are running; see the handoff for process handles
+and private PG cleanup. Earlier full 943/945-case gates and expanded integration
+passed. Work remains in the isolated review worktree, with no commit/push/merge.
+
+Reviewed **2026-11-10**: [sixth driver-plugin review](database-driver-plugins-sixth-review-2026-11-10.md).
+PR #156 remains open at `bab2b682` with all applicable CI green. Two new findings:
+DDP23, lossy embedded-NUL SQLite SQL export/rebuild (high); DDP24, PostgreSQL
+Unicode identifier/dollar-tag recognition and literal rewriting (medium).
+The focused existing regressions pass 82 cases. New real-engine probes and
+controls are recorded in the review; both findings remain unimplemented.
+Private PG16 is stopped/removed. Review/navigation/handoff documentation only,
+in `/tmp/liuxin-databases-typing`; no new commit, push or merge.
+
 Delivery follow-up, **2026-11-07**: the user authorized committing and pushing
 the [fifth driver review mitigations](database-driver-plugins-fifth-fixes-2026-11-06.md)
 on the existing PR #156 branch. Validation below applies to the delivered source

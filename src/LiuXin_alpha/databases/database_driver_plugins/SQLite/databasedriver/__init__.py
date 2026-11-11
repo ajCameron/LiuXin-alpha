@@ -783,6 +783,8 @@ class DatabaseDriver(
         serialize connection use for the entire iteration; use an explicit caller
         read transaction when a stable multi-statement snapshot is needed.
         Closing the generator releases its dump cursor, not the connection.
+        Shared storage-value serialization preserves embedded-NUL TEXT and BLOB
+        values separately. Invalid encoded TEXT raises instead of being shortened.
 
         >>> driver = DatabaseDriver({"database_path": ":memory:"})
         >>> _ = driver.conn.execute("CREATE TABLE sample (value TEXT)")
@@ -808,7 +810,11 @@ class DatabaseDriver(
             raise DatabaseDriverError(
                 "A live SQLite primary connection is required to dump SQL"
             )
-        yield from connection.iterdump()
+        from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.sqlite_dump import (
+            iter_sqlite_dump,
+        )
+
+        yield from iter_sqlite_dump(connection)
 
     def dump_and_restore(
         self,
@@ -823,6 +829,8 @@ class DatabaseDriver(
         supported. Integrity and foreign-key failures prevent publication. The
         original user_version is retained, and restored connections use the normal
         driver callbacks and collations. Prefix SQL executes before the dump.
+        The shared SQL serializer preserves embedded-NUL TEXT; serialization
+        failures leave the original database in place.
 
         All tracked connections must have no pending writes, both at entry and
         before publication. Closing finalizes owned cursors before their native
@@ -843,6 +851,9 @@ class DatabaseDriver(
             require_idle_sqlite_connections,
             require_sqlite_replacement_ready,
             validate_sqlite_connection,
+        )
+        from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.sqlite_dump import (
+            iter_sqlite_dump,
         )
 
         require_idle_sqlite_connections(self._open_connections)
@@ -899,7 +910,7 @@ class DatabaseDriver(
                         if not prefix_sql.endswith("\n"):
                             buf.write("\n")
 
-                    for line in dump_conn.iterdump():
+                    for line in iter_sqlite_dump(dump_conn):
                         buf.write(line)
                         if not line.endswith("\n"):
                             buf.write("\n")

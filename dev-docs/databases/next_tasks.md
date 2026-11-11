@@ -4,6 +4,35 @@ Date: **2026-10-20**. DB01–DB03 are implemented for PR review; the remaining e
 proposed work grounded in the driver/schema review. Cross-project order belongs
 to the [architecture tasks](../architectural_reviews/next_tasks.md).
 
+**2026-11-11 eighth driver review:** [DDP28–DDP29](database-driver-plugins-eighth-review-2026-11-11.md)
+have implemented repairs with 147 new mandatory cases, taking the gate to 1,327.
+PostgreSQL binding classification recognizes the missing expression boundaries;
+execution and maintenance use the current native string-literal mode. The initial
+145 focused cases pass, as do 742 native keyword comparisons. Final validation
+passes all 1,327 required cases, both type checkers/full quality, 285 integration
+tests (29 backend skips), 121 doctest examples and 85 documentation/runner checks.
+The private server is removed; changes are staged and uncommitted in the
+persistent clone. See the review for evidence and the resolved test-fixture error.
+
+**2026-11-10 seventh driver review:** [DDP25–DDP27](database-driver-plugins-seventh-review-2026-11-10.md)
+have implemented repairs and 221 new mandatory cases, taking the gate to 1,180.
+SQLite exports/rebuilds preserve hidden document IDs; PostgreSQL preserves
+continued escape strings and distinguishes bare keyword JSON operands from
+syntax. Portable value/rollback cases run on all three driver names. Focused
+regressions and the final 1,180-case mandatory gate pass, as do full quality
+checks. The test server is removed; changes are staged in the persistent recovery
+clone. No commit/push/merge requested.
+
+**2026-11-10 sixth driver review:** [DDP23–DDP24](database-driver-plugins-sixth-review-2026-11-10.md)
+have implemented repairs and 151 new mandatory cases, bringing the gate to 959.
+Shared SQL export/rebuild serialization preserves embedded-NUL TEXT and refuses
+undecodable text before replacement. PostgreSQL identifier, dollar-tag and
+whitespace tokenization preserves native expressions and literal contents.
+The review records round-trip, independent-reader and maintenance-boundary
+coverage. PR #156 head `bab2b682` has green CI before these new changes;
+require fresh checks after publication. Broader connection-setup consolidation
+and measured inspection performance remain subsequent work.
+
 **2026-11-06 fifth driver review:** [DDP20–DDP22](database-driver-plugins-fifth-review-2026-11-06.md)
 have local mitigations and 156 new required regressions, taking the manifest to
 808. Completion guards share backend tokenization; SQLite closes owned readers

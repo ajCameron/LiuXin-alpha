@@ -70,6 +70,29 @@ replacement. Core and database APIs expose the same explicit operation.
 
 ## Driver dump and rebuild
 
+Both SQLite driver names share storage-value serialization for `sql_dump()` and
+`dump_and_restore()`. Embedded-NUL TEXT remains complete TEXT, separately from
+BLOBs; source and destination encodings can differ. Invalid encoded TEXT raises
+instead of being shortened or substituted. Serialization failure never publishes
+a rebuild. The APSW route retains its native restore shell.
+
+Exports also retain hidden row IDs, including gaps and negative IDs used by
+external-content FTS indexes. True INTEGER PRIMARY KEY aliases and WITHOUT ROWID
+tables retain their declared keys. When a column shadows a row-ID spelling, the
+serializer uses another available spelling, accounting for generated columns.
+If all three (`rowid`, `_rowid_`, `oid`) are shadowed and there is no true alias,
+SQL export raises and rebuild leaves the original file in place. Use
+`direct_backup()` for a native copy of such a database.
+
+SQL exports stream rows from the borrowed primary connection, including its
+pending writes, without committing or rolling back. Serialize use of that
+connection while exporting; a stable snapshot requires a caller-owned read
+transaction. The [value-preservation regressions](../../tests/databases/test_driver_value_preservation.py)
+check actual text/blob bytes, encodings, factories, generated columns,
+AUTOINCREMENT state, hidden row IDs and virtual-table MATCH results.
+SQL export accepts the standard `str` and `bytes` text factories and refuses
+custom factories that could transform schema or value text during extraction.
+
 `driver.dump_and_restore()` prepares and validates a complete replacement before
 publishing it. Pending writes on tracked connections are refused. At publication,
 the driver finalizes its owned cursors and closes its connections; retained

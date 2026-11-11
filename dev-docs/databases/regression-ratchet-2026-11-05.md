@@ -82,6 +82,52 @@ routine “accept lower baseline” switch. This is a ratchet for demonstrated
 behavior, not a claim of complete line/branch coverage. Review must still check
 that assertions meaningfully test the invariant.
 
+## Eighth driver review extension — 2026-11-11
+
+The [eighth review repairs](database-driver-plugins-eighth-review-2026-11-11.md)
+add **147 required cases**, bringing the manifest from **1,180 to 1,327**.
+All earlier identities and invariant memberships remain required.
+
+| Invariant | Added cases | Observable contract |
+| --- | ---: | --- |
+| `driver-postgres-expression-contexts` | 66 | Keyword-separated functions, DISTINCT ON and window frame offsets bind correctly through single/batch writes; native and independent-reader results agree, including JSON-operand controls. |
+| `driver-postgres-connection-string-mode` | 81 | Startup/session/local string modes preserve committed ordinary/continued/E-string values; reused cursors follow rollback/commit, scripts refresh settings, and maintenance preserves literal text while rejecting real statement chaining. |
+
+The initial red run reproduced 69 failures with 76 passing controls; all 145
+initial cases passed after the fix. Two additional chaining cases and commit
+restoration assertions join the final gate. The native keyword sweep retains
+742 comparisons with zero mismatches. Final validation is recorded in the review.
+
+## Seventh driver review extension — 2026-11-10
+
+The [seventh review repairs](database-driver-plugins-seventh-review-2026-11-10.md)
+add **221 cases**, increasing the mandatory set from 959 to **1,180**:
+
+| Invariant | Added cases | Observable contract |
+| --- | ---: | --- |
+| `driver-sqlite-value-preservation` | 56 | Both SQLite names preserve hidden document IDs and external-content FTS MATCH results during export/rebuild; aliases, generated/shadowing names and WITHOUT ROWID tables retain their keys. Inaccessible hidden IDs refuse before replacement or transaction completion. |
+| `driver-postgres-sql-adaptation` | 124 | Continued escape strings preserve committed values for execute/executemany; four bare keyword identifiers remain JSON operands while actual BETWEEN/ESCAPE/SET/VALUES syntax works with both binding styles; bounded subprocesses guard against trailing-comment scanner stalls. |
+| `driver-maintenance-completion` | 5 | Continued escape strings remain opaque in handlers/scripts; later failures roll back source and prompt effects. |
+| `driver-portable-value-parity` | 36 | SQLite, SQLite_apsw and PostgreSQL agree on bound text/binary values, single/batch writes and commit/rollback, checked through independent native readers. |
+
+The new parity group exercises portable behavior on all three driver names.
+Backend-specific SQL uses its relevant engines. Existing 959 IDs keep their
+invariant memberships; the new test module joins the format/lint gates.
+
+## Sixth driver review extension — 2026-11-10
+
+The [sixth review repairs](database-driver-plugins-sixth-review-2026-11-10.md)
+add **151 cases**, increasing the mandatory set from 808 to **959**:
+
+| Invariant | Added cases | Observable contract |
+| --- | ---: | --- |
+| `driver-sqlite-value-preservation` | 60 | SQL exports and rebuilds preserve NUL-containing TEXT, BLOBs, encodings, factories, numeric values, generated columns, sequences and virtual-table data; undecodable text cannot publish a rebuild. |
+| `driver-postgres-sql-adaptation` | 80 | Native and portable expressions retain Unicode identifier and dollar-tag boundaries, including keyword lookalikes; committed literal values match an independent native reader. |
+| `driver-maintenance-completion` | 11 | Unicode dollar bodies remain data in handlers and scripts; a later failure rolls back source and prompt effects. |
+
+Existing node IDs retain their invariant membership. The serializer and its new
+regression module also participate in formatting/lint and database typing gates.
+
 ## Fifth driver review extension — 2026-11-06
 
 The [fifth review mitigations](database-driver-plugins-fifth-review-2026-11-06.md)

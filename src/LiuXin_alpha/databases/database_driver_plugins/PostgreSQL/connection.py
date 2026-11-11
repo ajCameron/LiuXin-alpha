@@ -50,6 +50,7 @@ from LiuXin_alpha.databases.database_driver_plugins.PostgreSQL.config import (
 )
 from LiuXin_alpha.databases.db_types.driver_types import SQLParameters, SQLDescription, SQLRow
 from LiuXin_alpha.utils.logging import default_log
+from LiuXin_alpha.databases.sql_statements import postgres_standard_strings
 from LiuXin_alpha.databases.database_driver_plugins.PostgreSQL.sql_tokens import (
     adapt_sql, split_sql_statements,
 )
@@ -838,7 +839,9 @@ class PostgresConnectionAdapter:
         """
         with closing(self.cursor()) as cur:
             if vars(self).get("_liuxin_before_statement") is not None:
-                for statement in split_sql_statements(sqlscript):
+                for statement in split_sql_statements(
+                    sqlscript, standard_conforming_strings=lambda: postgres_standard_strings(self)
+                ):
                     cur.execute(statement)
             else:
                 cur.execute(sqlscript)
@@ -1058,6 +1061,9 @@ class PostgresCursorAdapter(Generic[_CursorRow]):
         translated = adapt_sql(
             sql, placeholders=values is not None, bound=values is not None,
             parameter_count=len(values) if values is not None else None,
+            standard_conforming_strings=postgres_standard_strings(
+                self._connection if self._connection is not None else getattr(self.raw_cursor, "connection", None)
+            ),
         )
         if self._connection is not None:
             from LiuXin_alpha.databases.connection_hooks import before_statement
@@ -1085,7 +1091,12 @@ class PostgresCursorAdapter(Generic[_CursorRow]):
         """
         iterator = iter(values)
         first = tuple(islice(iterator, 1))
-        translated = adapt_sql(sql, bound=True, parameter_count=len(first[0]) if first else 0)
+        translated = adapt_sql(
+            sql, bound=True, parameter_count=len(first[0]) if first else 0,
+            standard_conforming_strings=postgres_standard_strings(
+                self._connection if self._connection is not None else getattr(self.raw_cursor, "connection", None)
+            ),
+        )
         if self._connection is not None:
             from LiuXin_alpha.databases.connection_hooks import before_statement
 

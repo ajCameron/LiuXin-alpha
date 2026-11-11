@@ -154,8 +154,14 @@ def test_postgres_prefixed_read_and_release_cannot_skip_prompt(
 
 @pytest.mark.parametrize(
     "literal,expected",
-    [("$body$a;COMMIT;$body$", "a;COMMIT;"), ("E'a\\';COMMIT;'", "a';COMMIT;")],
-    ids=["dollar", "escaped"],
+    [
+        ("$body$a;COMMIT;$body$", "a;COMMIT;"),
+        ("E'a\\';COMMIT;'", "a';COMMIT;"),
+        ("$e\u0301$a;COMMIT;$e\u0301$", "a;COMMIT;"),
+        ("$📚$a;COMMIT;$📚$", "a;COMMIT;"),
+        ("$\u00a0$a;COMMIT;$\u00a0$", "a;COMMIT;"),
+    ],
+    ids=["dollar", "escaped", "combining", "emoji", "nbsp"],
 )
 def test_postgres_handler_uses_native_quoted_text_and_comment_rules(
     pg_driver, literal, expected
@@ -189,12 +195,145 @@ def test_postgres_handler_uses_native_quoted_text_and_comment_rules(
         )
 
 
+@pytest.mark.parametrize(
+    "tag",
+    ["body", "e\u0301", "📚", "\u00a0"],
+    ids=["ascii", "combining", "emoji", "nbsp"],
+)
+@pytest.mark.parametrize("fail", [False, True], ids=["success", "late_failure"])
+def test_postgres_script_unicode_literals_keep_completion_atomic(pg_driver, tag, fail):
+    install(pg_driver)
+    payload = "literal; COMMIT; `quoted` ?"
+    sql = (
+        f"INSERT INTO review_items VALUES(1,${tag}${payload}${tag}$);"
+        f"INSERT INTO review_items VALUES({1 if fail else 2},'next');"
+    )
+    if fail:
+        with pytest.raises(DatabaseDriverError):
+            pg_driver.direct_executescript(sql)
+    else:
+        pg_driver.direct_executescript(sql)
+    expected = [] if fail else [(1,), (2,)]
+    assert committed(pg_driver) == (expected, expected)
+    if not fail:
+        with closing(pg_driver.get_connection()) as reader:
+            with reader.raw_connection.cursor() as raw:
+                raw.execute(
+                    "SELECT review_item_value FROM review_items WHERE review_item_id=1"
+                )
+                assert raw.fetchone() == (payload,)
+
+
 def wal_rows(driver):
     driver.conn.execute("PRAGMA journal_mode=WAL").close()
     driver.conn.executemany(
         "INSERT INTO review_items VALUES (?, ?)", ((i, "x" * 500) for i in range(50))
     ).close()
     driver.conn.commit()
+
+
+@pytest.mark.parametrize(
+    "gap", ["\n", " -- literal ; COMMIT\r\n"], ids=["newline", "comment"]
+)
+@pytest.mark.parametrize("fail", [False, True], ids=["success", "late_failure"])
+def test_postgres_continued_escape_scripts_keep_completion_atomic(pg_driver, gap, fail):
+    install(pg_driver)
+    literal = "E'prefix'" + gap + r"'\'`literal`\' ?; COMMIT; 100%'"
+    with pg_driver.conn.raw_connection.cursor() as raw:
+        raw.execute("SELECT " + literal)
+        expected_text = raw.fetchone()[0]
+    script = (
+        f"INSERT INTO review_items VALUES(1,{literal});"
+        f"INSERT INTO review_items VALUES({1 if fail else 2},'next');"
+    )
+    if fail:
+        with pytest.raises(DatabaseDriverError):
+            pg_driver.direct_executescript(script)
+    else:
+        pg_driver.direct_executescript(script)
+    expected = [] if fail else [(1,), (2,)]
+    assert committed(pg_driver) == (expected, expected)
+    if not fail:
+        with closing(pg_driver.get_connection()) as reader:
+            with reader.raw_connection.cursor() as raw:
+                raw.execute(
+                    "SELECT review_item_value FROM review_items WHERE review_item_id=1"
+                )
+                assert raw.fetchone() == (expected_text,)
+
+
+def test_postgres_handler_keeps_continued_escape_text_opaque(pg_driver, monkeypatch):
+    plugin = install(pg_driver)
+    original = plugin.handle_events
+
+    def handle(context, events):
+        with closing(
+            context.connection.execute(
+                "SELECT E'prefix'\n'\\'`literal`\\' ; COMMIT; ?'"
+            )
+        ) as cursor:
+            assert cursor.fetchone() == ("prefix'`literal`' ; COMMIT; ?",)
+        return original(context, events)
+
+    monkeypatch.setattr(plugin, "handle_events", handle)
+    with pg_driver.conn:
+        pg_driver.conn.execute("INSERT INTO review_items VALUES(1,'source')").close()
+    assert committed(pg_driver) == ([(1,)], [(1,)])
+
+
+@pytest.mark.parametrize("gap", ["", "\n"], ids=["single", "continued"])
+@pytest.mark.parametrize("fail", [False, True], ids=["success", "late_failure"])
+def test_nonstandard_postgres_script_and_handler_keep_literals_opaque(
+    pg_driver, monkeypatch, gap, fail
+):
+    plugin = install(pg_driver)
+    pg_driver.conn.execute("SET standard_conforming_strings=off").close()
+    pg_driver.conn.commit()
+    literal = ("'prefix'" + gap if gap else "") + r"'\'`literal`\' ; COMMIT; ?'"
+    with pg_driver.conn.raw_connection.cursor() as raw:
+        raw.execute("SELECT " + literal)
+        expected_text = raw.fetchone()[0]
+    original = plugin.handle_events
+
+    def handle(context, events):
+        with closing(context.connection.execute("SELECT " + literal)) as cursor:
+            assert cursor.fetchone() == (expected_text,)
+        return original(context, events)
+
+    monkeypatch.setattr(plugin, "handle_events", handle)
+    script = f"INSERT INTO review_items VALUES(1,{literal}); INSERT INTO review_items VALUES({1 if fail else 2},'next');"
+    if fail:
+        with pytest.raises(DatabaseDriverError):
+            pg_driver.direct_executescript(script)
+    else:
+        pg_driver.direct_executescript(script)
+    expected = [] if fail else [(1,), (2,)]
+    assert committed(pg_driver) == (expected, expected)
+    if not fail:
+        with closing(pg_driver.get_connection()) as reader:
+            with reader.raw_connection.cursor() as raw:
+                raw.execute(
+                    "SELECT review_item_value FROM review_items WHERE review_item_id=1"
+                )
+                assert raw.fetchone() == (expected_text,)
+
+
+@pytest.mark.parametrize("gap", ["", "\n"], ids=["single", "continued"])
+def test_nonstandard_postgres_rejects_real_statement_chaining(pg_driver, gap):
+    from LiuXin_alpha.databases.maintenance.bound_connection import (
+        MaintenanceTransactionError,
+    )
+
+    plugin = install(pg_driver)
+    pg_driver.conn.execute("SET standard_conforming_strings=off").close()
+    pg_driver.conn.commit()
+    literal = ("'prefix'" + gap if gap else "") + r"'\'`literal`\' ; COMMIT; ?'"
+    pg_driver.conn.execute("INSERT INTO review_items VALUES(1,'pending')").close()
+    with pytest.raises(MaintenanceTransactionError, match="one row statement"):
+        pg_driver.conn.execute("SELECT " + literal + "; COMMIT")
+    assert plugin.calls == 0
+    pg_driver.conn.rollback()
+    assert committed(pg_driver) == ([], [])
 
 
 @pytest.mark.parametrize("owner", ["primary", "auxiliary"])

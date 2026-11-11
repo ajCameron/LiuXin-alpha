@@ -15,6 +15,7 @@ from LiuXin_alpha.databases.transactions import transaction_active
 from LiuXin_alpha.databases.sql_statements import sqlite_row_operation as sqlite_row_operation
 from LiuXin_alpha.databases.sql_statements import (
     has_multiple_statements,
+    postgres_standard_strings,
     statement_keyword as statement_keyword,
 )
 
@@ -32,9 +33,11 @@ def reject_sqlite_replace(sql: str) -> None:
         )
 
 
-def require_single_statement(sql: str, *, postgres: bool = False) -> None:
+def require_single_statement(
+    sql: str, *, postgres: bool = False, standard_conforming_strings: bool = True
+) -> None:
     """Reject statement chaining using the engine's comment and quote rules."""
-    if has_multiple_statements(sql, postgres=postgres):
+    if has_multiple_statements(sql, postgres=postgres, standard_conforming_strings=standard_conforming_strings):
         raise MaintenanceTransactionError(
             "Maintenance handlers require one row statement per execute"
         )
@@ -63,7 +66,8 @@ class BoundConnection:
             raise MaintenanceTransactionError(
                 "Maintenance transaction is no longer active"
             )
-        if sql is not None and statement_keyword(sql, postgres=self._postgres) not in {
+        standard = postgres_standard_strings(self._connection) if self._postgres else True
+        if sql is not None and statement_keyword(sql, postgres=self._postgres, standard_conforming_strings=standard) not in {
             "SELECT",
             "INSERT",
             "UPDATE",
@@ -74,7 +78,7 @@ class BoundConnection:
                 "Maintenance handlers may execute row SQL only"
             )
         if sql is not None:
-            require_single_statement(sql, postgres=self._postgres)
+            require_single_statement(sql, postgres=self._postgres, standard_conforming_strings=standard)
             # This portable-SQL prohibition also rejects unsupported SQLite
             # conflict syntax before it can reach a PostgreSQL handler cursor.
             reject_sqlite_replace(sql)
