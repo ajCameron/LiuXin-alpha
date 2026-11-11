@@ -24,10 +24,10 @@ from LiuXin_alpha.utils.calibre_compat.calibre_database_emulation import (
     CalibreUnsupportedVersionError,
     CalibreVersionPolicy,
 )
-from LiuXin_alpha.databases.database_driver_plugins.SQL.calibre_database_generator import (
+from LiuXin_alpha.utils.calibre_compat.database_generator import (
     CalibreLibraryBuilder,
 )
-from LiuXin_alpha.databases.database_driver_plugins.SQL.calibre_database_generator.database_generator import (
+from LiuXin_alpha.utils.calibre_compat.database_generator.database_generator import (
     calibre_metadata_application_id,
     calibre_metadata_user_version,
 )

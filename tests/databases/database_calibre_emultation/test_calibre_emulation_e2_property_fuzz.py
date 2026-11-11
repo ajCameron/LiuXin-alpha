@@ -29,7 +29,7 @@ from LiuXin_alpha.utils.calibre_compat.calibre_database_emulation import (
     _dedupe_preserve_order,
     _normalize_datetime,
 )
-from LiuXin_alpha.databases.database_driver_plugins.SQL.calibre_database_generator import CalibreLibraryBuilder
+from LiuXin_alpha.utils.calibre_compat.database_generator import CalibreLibraryBuilder
 
 
 # -------------------------------------------------------------------------------------------------

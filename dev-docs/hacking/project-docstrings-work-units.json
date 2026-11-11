@@ -5650,7 +5650,7 @@
       "reviewed_by": "D106",
       "review_checkpoint": "working-memory/project-docstrings-d106-d115-2026-09-17.md"
     },
-    "src/LiuXin_alpha/databases/database_driver_plugins/SQL/calibre_database_generator/__init__.py": {
+    "src/LiuXin_alpha/utils/calibre_compat/database_generator/__init__.py": {
       "status": "reviewed",
       "baseline_sha256": "71370e4541bbecf00f2ae1eb69b67ecea6dbd62964a2391ef314e19024fd9472",
       "declaration_count": 1,
@@ -5662,7 +5662,7 @@
       "reviewed_by": "D107",
       "review_checkpoint": "working-memory/project-docstrings-d106-d115-2026-09-17.md"
     },
-    "src/LiuXin_alpha/databases/database_driver_plugins/SQL/calibre_database_generator/database_generator.py": {
+    "src/LiuXin_alpha/utils/calibre_compat/database_generator/database_generator.py": {
       "status": "reviewed",
       "baseline_sha256": "a92f1ddce5e98199e8e43cf2076dc61ab127250c77a764c305e6875079ad026c",
       "declaration_count": 17,
@@ -5674,7 +5674,7 @@
       "reviewed_by": "D107",
       "review_checkpoint": "working-memory/project-docstrings-d106-d115-2026-09-17.md"
     },
-    "src/LiuXin_alpha/databases/database_driver_plugins/SQL/calibre_database_generator/library_builder.py": {
+    "src/LiuXin_alpha/utils/calibre_compat/database_generator/library_builder.py": {
       "status": "reviewed",
       "baseline_sha256": "22df0288c452d633ab012b21c8f5b64519a5d52dc0aa33566c910726f6b22fda",
       "declaration_count": 28,
@@ -70407,16 +70407,16 @@
     {
       "id": "D107",
       "kind": "documentation",
-      "title": "src/LiuXin_alpha/databases/database_driver_plugins/SQL/calibre_database_generator \u2014 __init__, database_generator",
+      "title": "src/LiuXin_alpha/utils/calibre_compat/database_generator \u2014 __init__, database_generator",
       "track": "D",
-      "owner": "src/LiuXin_alpha/databases/database_driver_plugins/SQL/calibre_database_generator",
+      "owner": "src/LiuXin_alpha/utils/calibre_compat/database_generator",
       "status": "verified",
       "prerequisites": [
         "G02"
       ],
       "scope": [
         {
-          "path": "src/LiuXin_alpha/databases/database_driver_plugins/SQL/calibre_database_generator/__init__.py",
+          "path": "src/LiuXin_alpha/utils/calibre_compat/database_generator/__init__.py",
           "selection": "all",
           "declaration_count": 1,
           "baseline_lines": [
@@ -70425,7 +70425,7 @@
           ]
         },
         {
-          "path": "src/LiuXin_alpha/databases/database_driver_plugins/SQL/calibre_database_generator/database_generator.py",
+          "path": "src/LiuXin_alpha/utils/calibre_compat/database_generator/database_generator.py",
           "selection": "all",
           "declaration_count": 17,
           "baseline_lines": [
@@ -70523,16 +70523,16 @@
     {
       "id": "D108",
       "kind": "documentation",
-      "title": "src/LiuXin_alpha/databases/database_driver_plugins/SQL/calibre_database_generator \u2014 library_builder",
+      "title": "src/LiuXin_alpha/utils/calibre_compat/database_generator \u2014 library_builder",
       "track": "D",
-      "owner": "src/LiuXin_alpha/databases/database_driver_plugins/SQL/calibre_database_generator",
+      "owner": "src/LiuXin_alpha/utils/calibre_compat/database_generator",
       "status": "verified",
       "prerequisites": [
         "G02"
       ],
       "scope": [
         {
-          "path": "src/LiuXin_alpha/databases/database_driver_plugins/SQL/calibre_database_generator/library_builder.py",
+          "path": "src/LiuXin_alpha/utils/calibre_compat/database_generator/library_builder.py",
           "selection": "all",
           "declaration_count": 28,
           "baseline_lines": [

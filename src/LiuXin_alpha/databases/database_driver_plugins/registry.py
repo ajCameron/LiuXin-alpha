@@ -287,7 +287,7 @@ def register_builtin_database_drivers() -> None:
         "SQLite",
         driver_module="LiuXin_alpha.databases.database_driver_plugins.SQLite.databasedriver",
         direct_access_module="LiuXin_alpha.databases.database_driver_plugins.SQLite.databasedriver",
-        builder_module="LiuXin_alpha.databases.database_driver_plugins.SQL.calibre_database_generator.database_generator",
+        builder_module="LiuXin_alpha.utils.calibre_compat.database_generator.database_generator",
         package_dir=os.path.join(base_dir, "SQLite"),
         aliases=("sqlite",),
     )
@@ -295,7 +295,7 @@ def register_builtin_database_drivers() -> None:
         "SQLite_apsw",
         driver_module="LiuXin_alpha.databases.database_driver_plugins.SQLite_apsw.databasedriver",
         direct_access_module="LiuXin_alpha.databases.database_driver_plugins.SQLite_apsw.databasedriver",
-        builder_module="LiuXin_alpha.databases.database_driver_plugins.SQL.calibre_database_generator.database_generator",
+        builder_module="LiuXin_alpha.utils.calibre_compat.database_generator.database_generator",
         package_dir=os.path.join(base_dir, "SQLite_apsw"),
         aliases=("sqlite_apsw", "apsw"),
     )

@@ -410,9 +410,9 @@ src/LiuXin_alpha/databases/database_driver_plugins/PostgreSQL/databasedriver/__i
 src/LiuXin_alpha/databases/database_driver_plugins/PostgreSQL/runtime_privileges.py
 src/LiuXin_alpha/databases/database_driver_plugins/PostgreSQL/schema.py
 src/LiuXin_alpha/databases/database_driver_plugins/SQL/__init__.py
-src/LiuXin_alpha/databases/database_driver_plugins/SQL/calibre_database_generator/__init__.py
-src/LiuXin_alpha/databases/database_driver_plugins/SQL/calibre_database_generator/database_generator.py
-src/LiuXin_alpha/databases/database_driver_plugins/SQL/calibre_database_generator/library_builder.py
+src/LiuXin_alpha/utils/calibre_compat/database_generator/__init__.py
+src/LiuXin_alpha/utils/calibre_compat/database_generator/database_generator.py
+src/LiuXin_alpha/utils/calibre_compat/database_generator/library_builder.py
 src/LiuXin_alpha/databases/database_driver_plugins/SQL/custom_columns.py
 src/LiuXin_alpha/databases/database_driver_plugins/SQL/database_generator_frbr/__init__.py
 src/LiuXin_alpha/databases/database_driver_plugins/SQL/database_generator_frbr/constants.py

@@ -16,7 +16,7 @@ import sqlite3
 
 import pytest
 
-from LiuXin_alpha.databases.database_driver_plugins.SQL.calibre_database_generator import (
+from LiuXin_alpha.utils.calibre_compat.database_generator import (
     create_calibre_library_skeleton,
 )
 

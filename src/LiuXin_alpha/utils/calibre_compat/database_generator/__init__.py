@@ -8,7 +8,7 @@ and files using the minimal trigger functions required by that snapshot.
 
 from __future__ import annotations
 
-from LiuXin_alpha.databases.database_driver_plugins.SQL.calibre_database_generator.database_generator import (
+from .database_generator import (
     create_new_database,
     create_calibre_library_skeleton,
     CalibreLibraryPaths,
@@ -21,7 +21,7 @@ from LiuXin_alpha.databases.database_driver_plugins.SQL.calibre_database_generat
     read_calibre_sql,
 )
 
-from LiuXin_alpha.databases.database_driver_plugins.SQL.calibre_database_generator.library_builder import (
+from .library_builder import (
     CalibreLibraryBuilder,
     AddedBook,
     AddedFormat,

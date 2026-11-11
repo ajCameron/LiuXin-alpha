@@ -36,7 +36,7 @@ or a claim that every method in the package is correct.
 | `SQL/databasedriver` | Shared physical SQL helpers and historical direct methods | The current-table accelerators belong here; transaction and resource conventions remain uneven. |
 | `SQL/macros` | Portable transactions, physical-table operations, links, normalization mechanics and SQLite compatibility helpers | The portable transaction boundary is much stronger than the remaining direct execution surfaces. Keep that distinction explicit. |
 | `SQL/database_generator_frbr` | Current WEMI schema construction and seed data | Current schema authority. Empty-schema round trips alone do not establish populated restore safety. |
-| `SQL/calibre_database_generator` | Explicit legacy schema generation and fixture/library construction | Distinct compatibility scope, not the current catalogue schema owner. |
+| `SQL/calibre_database_generator` (relocated to `utils/calibre_compat/database_generator` on 2026-11-11) | Explicit legacy schema generation and fixture/library construction | Distinct compatibility scope, not the current catalogue schema owner. |
 
 Recent improvements remain valuable: common versus legacy macro APIs are
 explicit, nested portable units use savepoints, direct row batches have failure
