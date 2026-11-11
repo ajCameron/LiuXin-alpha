@@ -7,8 +7,7 @@ is neither atomic nor safely repeatable on a populated database.
 """
 
 import sqlite3
-
-from LiuXin_alpha.databases.db_types.driver_types import SQLConnection
+from collections.abc import Iterable, Sequence
 
 # When viewing the database certain information needs to be all present and correct in one place. There are two options
 # for this
@@ -19,7 +18,9 @@ from LiuXin_alpha.databases.db_types.driver_types import SQLConnection
 # 2) aggregate_tables - put all the information needed in one table which updates itself from other tables using
 #                       quite a lot of triggers. Much faster. Needs a lot more code and results in a bloated database
 # Hopefully you will have the option to choose.
-from typing import Any, Iterable, Literal, NotRequired, Sequence, TypedDict
+from typing import Any, Literal, NotRequired, TypedDict
+
+from LiuXin_alpha.databases.db_types.driver_types import SQLConnection
 
 try:
     import tomllib  # py3.11+
@@ -35,9 +36,7 @@ import pathlib
 import pprint
 import re
 from copy import deepcopy
-from typing import Optional
 
-from LiuXin_alpha.constants import VERBOSE_DEBUG
 from LiuXin_alpha.constants.paths import LiuXin_database_folder as __database_folder__
 from LiuXin_alpha.databases.api import DatabaseGeneratorAPI
 from LiuXin_alpha.databases.column_metadata import (
@@ -47,8 +46,26 @@ from LiuXin_alpha.databases.column_metadata import (
 )
 from LiuXin_alpha.databases.database_driver_plugins.SQL.database_generator_frbr.constants import (
     __ALLOWED_INTERLINK_TYPE_VAL_DICT__,
-    __ALLOWED_INTRALINK_TYPE_VAL_DICT__ as __ALLOWED_INTRALINK_TYPE_VAL_DICT__,
     __INTERLINK_TABLE_CONSTRAINTS__,
+)
+from LiuXin_alpha.databases.database_driver_plugins.SQL.database_generator_frbr.constants import (
+    __ALLOWED_INTRALINK_TYPE_VAL_DICT__ as __ALLOWED_INTRALINK_TYPE_VAL_DICT__,
+)
+from LiuXin_alpha.databases.database_driver_plugins.SQL.database_generator_frbr.link_plan import (
+    LinkBuildStep,
+)
+from LiuXin_alpha.databases.database_driver_plugins.SQL.database_generator_frbr.sql_resources import (
+    execute_sql_resources,
+    load_sql_resources,
+)
+from LiuXin_alpha.databases.database_driver_plugins.SQL.database_generator_frbr.vocabulary import (
+    _sql_quote_literal,
+)
+from LiuXin_alpha.databases.database_driver_plugins.SQL.database_generator_frbr.vocabulary import (
+    _substitute_canonical_vocabulary_placeholders as _substitute_canonical_vocabulary_placeholders,
+)
+from LiuXin_alpha.databases.database_driver_plugins.SQL.link_columns import (
+    LINK_COLUMN_DEFINITIONS,
 )
 from LiuXin_alpha.databases.database_driver_plugins.SQL.utility_mixins import (
     SQLiteTableLinkingMixin,
@@ -58,28 +75,12 @@ from LiuXin_alpha.databases.normalized_identities import (
     iter_normalized_identity_defaults,
     normalized_identity_db_values,
 )
-from LiuXin_alpha.metadata.constants.container_vocabularies import (
-    GenreKind,
-    IdentifierStatus,
-    LabelKind,
-    NoteFormat,
-    NoteKind,
-    NoteVisibility,
-    SubjectKind,
-    TitleKind,
-)
-from LiuXin_alpha.metadata.identifiers import (
-    ALL_IDENTIFIER_ENTITY_TYPES,
-    ENTITY_IDENTIFIER_SCHEMES_BY_TYPE,
-    OBSERVED_ITEM_IDENTIFIER_SCHEMES,
-    IdentifierEntityType,
-)
 from LiuXin_alpha.utils.language_tools import (
     plural_singular_mapper,
     singular_plural_mapper,
 )
 from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
-from LiuXin_alpha.utils.logging import LiuXin_print, LiuXin_warning_print
+from LiuXin_alpha.utils.logging import LiuXin_warning_print
 
 # ---------------------------------------------------------------------------
 # Interlink TOML helpers (types expansion / SQL emission)
@@ -142,205 +143,8 @@ def _require_toml_bool(value: object, *, context: str) -> bool:
     )
 
 
-def _sql_quote_literal(value: str) -> str:
-    """
-    Surround text with apostrophes and double embedded apostrophes.
-
-    Example:
-        >>> _sql_quote_literal("author")
-        "'author'"
-
-
-    :param value: String to embed in controlled generated SQL.
-    :return: Escaped SQL text literal.
-    """
-    return "'" + value.replace("'", "''") + "'"
-
-
-def _sql_in_list(values: list[str] | tuple[str, ...] | set[str]) -> str:
-    """
-    Sort and quote strings for a comma-separated SQL IN-list body.
-
-    Example:
-        >>> _sql_in_list(["b", "a"])
-        "'a', 'b'"
-
-
-    :param values: String collection; duplicates are retained for list/tuple inputs.
-    :return: Joined quoted values without surrounding parentheses; empty input gives
-        empty text.
-    """
-    return ", ".join(_sql_quote_literal(value) for value in sorted(values))
-
-
-def _build_entity_identifier_type_check_sql() -> str:
-    """
-    Build a nullable CHECK constraint from the canonical identifier entity types.
-
-    Example:
-        The generated constraint accepts NULL or a known entity-type spelling.
-
-
-    :return: Constraint fragment ending in a comma for insertion into a CREATE TABLE
-        body.
-    """
-    allowed_entity_types = _sql_in_list(list(ALL_IDENTIFIER_ENTITY_TYPES))
-    return f"""CONSTRAINT `entity_identifier_entity_type_valid`
-    CHECK (
-      `entity_identifier_entity_type` IS NULL
-      OR `entity_identifier_entity_type` IN ({allowed_entity_types})
-    ),"""
-
-
-def _build_entity_identifier_scheme_check_sql() -> str:
-    """
-    Build the entity-type-dependent identifier scheme CHECK constraint.
-
-    A null entity type or null scheme passes; otherwise a matching canonical pair is
-    required.
-
-    Example:
-        An item-specific scheme must be paired with an entity type whose allowed set
-        includes it.
-
-
-    :return: Constraint fragment without a trailing comma.
-    """
-    clauses: list[str] = []
-
-    for entity_type in IdentifierEntityType:
-        allowed_schemes = ENTITY_IDENTIFIER_SCHEMES_BY_TYPE[entity_type]
-        allowed_schemes_sql = _sql_in_list([scheme.value for scheme in allowed_schemes])
-        clauses.append(
-            f"(`entity_identifier_entity_type` = {_sql_quote_literal(entity_type.value)} "
-            f"AND `entity_identifier_scheme` IN ({allowed_schemes_sql}))"
-        )
-
-    joined_clauses = "\n        OR ".join(clauses)
-
-    return f"""CONSTRAINT `entity_identifier_scheme_valid_for_entity_type`
-    CHECK (
-      `entity_identifier_entity_type` IS NULL
-      OR `entity_identifier_scheme` IS NULL
-      OR (
-        {joined_clauses}
-      )
-    )"""
-
-
-def _build_observed_item_identifier_scheme_check_sql() -> str:
-    """
-    Build a nullable observed-item identifier scheme constraint.
-
-    Example:
-        The emitted IN-list uses OBSERVED_ITEM_IDENTIFIER_SCHEMES enum values.
-
-
-    :return: CHECK fragment ending in a comma.
-    """
-    allowed_schemes_sql = _sql_in_list(
-        [scheme.value for scheme in OBSERVED_ITEM_IDENTIFIER_SCHEMES]
-    )
-    return f"""CONSTRAINT `item_identifier_scheme_valid`
-    CHECK (
-      `item_identifier_scheme` IS NULL
-      OR `item_identifier_scheme` IN ({allowed_schemes_sql})
-    ),"""
-
-
-def _build_simple_text_check_sql(
-    *,
-    constraint_name: str,
-    column_name: str,
-    allowed_values: list[str] | tuple[str, ...] | set[str],
-) -> str:
-    """
-    Build a named nullable text CHECK from a sorted canonical vocabulary.
-
-    Example:
-        A title-kind constraint accepts NULL or one of the supplied title-kind values.
-
-
-    :param constraint_name: Trusted unescaped constraint identifier.
-    :param column_name: Trusted unescaped column identifier.
-    :param allowed_values: Canonical strings quoted into the IN-list.
-    :return: CHECK fragment ending in a comma.
-    """
-    allowed_values_sql = _sql_in_list(allowed_values)
-    return f"""CONSTRAINT `{constraint_name}`
-    CHECK (
-      `{column_name}` IS NULL
-      OR `{column_name}` IN ({allowed_values_sql})
-    ),"""
-
-
-def _substitute_canonical_vocabulary_placeholders(sql_text: str) -> str:
-    """
-    Replace known identifier/metadata vocabulary markers throughout SQL text.
-
-    Unknown markers are left untouched; replacements are textual and not SQL-aware.
-
-    Example:
-        SQL without any known marker passes through unchanged.
-
-
-    :param sql_text: Packaged SQL containing supported placeholder tokens.
-    :return: SQL text containing canonical CHECK fragments.
-    """
-    replacements = {
-        "__ENTITY_IDENTIFIER_ENTITY_TYPE_CHECK__": _build_entity_identifier_type_check_sql(),
-        "__ENTITY_IDENTIFIER_SCHEME_BY_TYPE_CHECK__": _build_entity_identifier_scheme_check_sql(),
-        "__ITEM_IDENTIFIER_SCHEME_CHECK__": _build_observed_item_identifier_scheme_check_sql(),
-        "__TITLE_KIND_CHECK__": _build_simple_text_check_sql(
-            constraint_name="title_kind_valid",
-            column_name="title_kind",
-            allowed_values=tuple(member.value for member in TitleKind),
-        ),
-        "__NOTE_KIND_CHECK__": _build_simple_text_check_sql(
-            constraint_name="note_kind_valid",
-            column_name="note_kind",
-            allowed_values=tuple(member.value for member in NoteKind),
-        ),
-        "__NOTE_FORMAT_CHECK__": _build_simple_text_check_sql(
-            constraint_name="note_format_valid",
-            column_name="note_format",
-            allowed_values=tuple(member.value for member in NoteFormat),
-        ),
-        "__NOTE_VISIBILITY_CHECK__": _build_simple_text_check_sql(
-            constraint_name="note_visibility_valid",
-            column_name="note_visibility",
-            allowed_values=tuple(member.value for member in NoteVisibility),
-        ),
-        "__LABEL_KIND_CHECK__": _build_simple_text_check_sql(
-            constraint_name="label_kind_valid",
-            column_name="label_kind",
-            allowed_values=tuple(member.value for member in LabelKind),
-        ),
-        "__GENRE_KIND_CHECK__": _build_simple_text_check_sql(
-            constraint_name="genre_kind_valid",
-            column_name="genre_kind",
-            allowed_values=tuple(member.value for member in GenreKind),
-        ),
-        "__SUBJECT_KIND_CHECK__": _build_simple_text_check_sql(
-            constraint_name="subject_kind_valid",
-            column_name="subject_kind",
-            allowed_values=tuple(member.value for member in SubjectKind),
-        ),
-        "__IDENTIFIER_STATUS_CHECK__": _build_simple_text_check_sql(
-            constraint_name="identifier_status_valid",
-            column_name="identifier_status",
-            allowed_values=tuple(member.value for member in IdentifierStatus),
-        ),
-    }
-
-    for placeholder, replacement in replacements.items():
-        sql_text = sql_text.replace(placeholder, replacement)
-
-    return sql_text
-
-
 def collect_type_tables(
-    allowed_types_by_link_table: dict[str, Optional[list[str]]],
+    allowed_types_by_link_table: dict[str, list[str] | None],
 ) -> dict[str, set[str]]:
     """
     Collect nonempty link type lists as deduplicated __types table values.
@@ -578,16 +382,8 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
 
     # Additional optional columns permitted on interlink tables via TOML requested_columns
     INTERLINK_TABLE_COLUMN_NAME_DICT: dict[str, tuple[str, str, str]] = {
-        "priority": ("priority", "INTEGER", "DEFAULT 0"),
-        "primary": ("primary", "INTEGER", "NULL DEFAULT 0"),
-        "type": ("type", "TEXT", "NULL"),
-        "origin": ("origin", "TEXT", "NULL"),
-        "source": ("source", "TEXT", "NULL"),
-        "policy": ("policy", "TEXT", "NULL"),
-        "data": ("data", "TEXT", "NULL"),
-        "index": ("index", "TEXT", "NULL"),
-        "sequence_number": ("sequence_number", "INTEGER", "NULL"),
-        "is_required": ("is_required", "INTEGER", "DEFAULT 1"),
+        name: (name, sql_type, declaration)
+        for name, sql_type, declaration in LINK_COLUMN_DEFINITIONS
     }
 
     def __init__(self, conn: SQLConnection) -> None:
@@ -606,6 +402,8 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
         :return: None; initializes builder state.
         """
         self.conn = conn
+        self.interlink_allow_placeholders = True
+        self.intralink_allow_placeholders = True
 
         self.main_tables: set[str] = set()
         self.main_tables_sql_files: list[pathlib.Path] = []
@@ -623,13 +421,13 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
 
         # Per-run interlink column/type/nullable configuration derived from TOML
         self.interlink_requested_cols_by_table: dict[str, RequestedColumns | None] = {}
-        self.interlink_allowed_types_by_table: dict[str, Optional[list[str]]] = {}
+        self.interlink_allowed_types_by_table: dict[str, list[str] | None] = {}
         self.interlink_nullable_fks_by_table: dict[str, bool] = {}
-        self.intralink_allowed_types_by_table: dict[str, Optional[list[str]]] = {}
+        self.intralink_allowed_types_by_table: dict[str, list[str] | None] = {}
         self.intralink_requested_cols_by_table: dict[str, RequestedColumns | None] = {}
         self.intralink_nullable_fks_by_table: dict[str, bool] = {}
         self.intralink_symmetric_by_table: dict[str, bool] = {}
-        self.intralink_symmetric_types_by_table: dict[str, Optional[list[str]]] = {}
+        self.intralink_symmetric_types_by_table: dict[str, list[str] | None] = {}
 
         # Per-instance copies so we can add dynamic constraints based on TOML
         self.ALLOWED_INTERLINK_TYPE_VAL_DICT = deepcopy(
@@ -676,14 +474,21 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
         #  - Check what we're being commanded to do is, in fact, sane
         self.sanity_check_interlink_inputs()
 
-        # 1) Building the main tables from SQLite - the main tables have to be created by direct SQL execution
-        self.create_main_tables()
+        # Snapshot both resource stages before the first DDL mutation.
+        table_plan = load_sql_resources(
+            self.main_tables_sql_files,
+            transform=_substitute_canonical_vocabulary_placeholders,
+        )
+        trigger_plan = load_sql_resources(self.triggers_sql_files)
+        execute_sql_resources(self.conn, table_plan)
 
         # Expression indexes use the same comparison policy as Catalog matching.
         # PostgreSQL generates its own schema and does not install these functions.
         from LiuXin_alpha.databases.query_indexes import install_sqlite_search_indexes
         from LiuXin_alpha.databases.search_functions import (
-            APSWSearchConnection, SQLiteSearchConnection, register_search_functions,
+            APSWSearchConnection,
+            SQLiteSearchConnection,
+            register_search_functions,
         )
 
         if not isinstance(self.conn, (SQLiteSearchConnection, APSWSearchConnection)):
@@ -692,7 +497,7 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
         install_sqlite_search_indexes(self.conn)
 
         # 2) Build the triggers
-        self.create_main_triggers()
+        execute_sql_resources(self.conn, trigger_plan)
 
         # 2.5) Seed constant tables (languages, etc.)
         self.seed_constant_tables()
@@ -700,6 +505,30 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
         # Sanity: ensure we can introspect tables after main DDL
         _ = self.direct_get_tables()
 
+        for step in self.build_link_plan():
+            self._execute_link_step(step, self.conn)
+
+        # 9) Add the aggregate tables (here mostly views)
+        self.create_aggregate_tables()
+
+        # 10) Persist a complete policy for every physical column, including
+        # dynamically generated interlink and intralink tables.
+        self.seed_column_metadata()
+        self.seed_normalized_identities()
+
+        # 11) Set the version - so we can check the database and driver version used to build this database
+        self.set_database_version()
+
+        # 12) Lock constant tables so they are stable reference data.
+        self.lock_constant_tables()
+
+    def build_link_plan(self) -> tuple[LinkBuildStep, ...]:
+        """Parse and validate both TOML documents, then freeze emitted link DDL.
+
+        Main tables must exist for name/FK discovery. No link DDL is executed;
+        errors in either document leave relationship tables uncreated.
+        """
+        self.interlink_tables.clear()
         # 2) Creates the interlink tables - these are sufficiently similar that they are amenable to automated creation
         self.interlink_tables_pairs = self.get_requested_interlink_tables()
         for link_pair in self.interlink_tables_pairs:
@@ -717,31 +546,17 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
         # 5) Validate the table column requests - the columns that we want added to each of the link tables
         self.validate_interlink_table_column_requests()
 
-        # 6) Build the interlink tables
-        for left_table, right_table in self.interlink_tables_pairs:
-            self.create_interlink_table(left_table, right_table, connection=self.conn)
-
-        # 7) Read the intralink tables
+        # Validate both relationship configurations before executing any link DDL.
         self.intralink_tables = self.get_requested_intralink_tables()
-
-        # 8) Build the intralink tables
         self.sanity_check_intralink_inputs()
-        for table in self.intralink_tables:
-            self.create_intralink_table(table, connection=self.conn)
 
-        # 9) Add the aggregate tables (here mostly views)
-        self.create_aggregate_tables()
-
-        # 10) Persist a complete policy for every physical column, including
-        # dynamically generated interlink and intralink tables.
-        self.seed_column_metadata()
-        self.seed_normalized_identities()
-
-        # 11) Set the version - so we can check the database and driver version used to build this database
-        self.set_database_version()
-
-        # 12) Lock constant tables so they are stable reference data.
-        self.lock_constant_tables()
+        return tuple(
+            [
+                self._plan_interlink(left, right)
+                for left, right in sorted(self.interlink_tables_pairs)
+            ]
+            + [self._plan_intralink(table) for table in sorted(self.intralink_tables)]
+        )
 
     # ------------------------------------------------------------------
     # Constant tables (seed + lock)
@@ -1084,17 +899,7 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
         if not isinstance(interlinks, list):
             raise TypeError("TOML key `interlinks` must be a list")
 
-        allowed_req_cols = {
-            "priority",
-            "primary",
-            "type",
-            "origin",
-            "source",
-            "policy",
-            "data",
-            "index",
-            "sequence_number",
-            "is_required",
+        allowed_req_cols = {name for name, _, _ in LINK_COLUMN_DEFINITIONS} | {
             "nullable",
             "all",
         }
@@ -1156,151 +961,16 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
                 raise ValueError(f"Unknown intralink main table: {intralink_table!r}")
 
     def create_main_tables(self) -> None:
-        """
-        Read and execute configured table SQL files, committing completed work.
-
-        Files without -- BREAK markers run as scripts; marked files accumulate chunks
-        between pairs of markers for later single-statement execution. Unmatched
-        trailing chunks are ignored. I/O errors become FileNotFoundError; SQLite
-        operational/programming errors become TypeError containing the failing SQL.
-        Known vocabulary placeholders are expanded before execution.
-
-        Example:
-            Populate main_tables_sql_files before this stage; multi-statement unmarked
-            files use executescript.
-
-
-        :return: None; creates objects and commits per script/marked statement.
-        """
-        conn = self.conn
-        c = conn.cursor()
-
-        statements = []
-
-        for main_table_sql_file in self.main_tables_sql_files:
-            try:
-                sql_text = main_table_sql_file.read_text(encoding="utf-8")
-            except OSError as e:
-                raise FileNotFoundError(
-                    f"Unable to read main-table SQL file: {main_table_sql_file!s}"
-                ) from e
-
-            sql_text = _substitute_canonical_vocabulary_placeholders(sql_text)
-            test = sql_text.splitlines(keepends=True)
-
-            # If the table file uses no BREAK markers, execute it as a script (supports multi-statement SQL).
-            # This avoids silently skipping tables like metadata_additional/annotations.sql.
-            if not any(line.startswith("-- BREAK") for line in test):
-                statement = "".join(test)
-                if statement.strip():
-                    try:
-                        conn.executescript(statement)
-                    except sqlite3.OperationalError as e:
-                        raise TypeError(f"\n{statement}\n: {e}")
-                    except sqlite3.ProgrammingError as e:
-                        raise TypeError(f"\n{statement}\n: {e}")
-                    conn.commit()
-                continue
-
-            break_count = 0  # counting the number of break statements so far
-
-            current_statement = """ """
-
-            for line in test:
-                if line[0:8] == "-- BREAK":
-                    break_count += 1
-
-                current_statement += line
-
-                if break_count == 2:
-                    break_count = 0
-                    statements.append(current_statement)
-                    current_statement = """ """
-
-        for statement in statements:
-            if VERBOSE_DEBUG:
-                LiuXin_print(statement)
-            try:
-                c.execute(statement)
-            except sqlite3.OperationalError as e:
-                raise TypeError(f"\n{statement}\n: {e}")
-            except sqlite3.ProgrammingError as e:
-                raise TypeError(f"\n{statement}\n: {e}")
-
-            conn.commit()
+        """Validate and execute the ordered table resources, committing each resource."""
+        plan = load_sql_resources(
+            self.main_tables_sql_files,
+            transform=_substitute_canonical_vocabulary_placeholders,
+        )
+        execute_sql_resources(self.conn, plan)
 
     def create_main_triggers(self) -> None:
-        """
-        Read and execute configured trigger SQL files, committing completed work.
-
-        Files without -- BREAK markers run as scripts; marked files accumulate chunks
-        between pairs of markers for later single-statement execution. Unmatched
-        trailing chunks are ignored. I/O errors become FileNotFoundError; SQLite
-        operational/programming errors become TypeError containing the failing SQL.
-
-        Example:
-            Populate triggers_sql_files before this stage; multi-statement unmarked
-            files use executescript.
-
-
-        :return: None; creates objects and commits per script/marked statement.
-        """
-        conn = self.conn
-        c = conn.cursor()
-
-        statements = []
-
-        for main_table_sql_file in self.triggers_sql_files:
-            try:
-                with main_table_sql_file.open(
-                    "r", encoding="utf-8"
-                ) as main_tables_sqlite_file:
-                    test = main_tables_sqlite_file.readlines()
-            except OSError as e:
-                raise FileNotFoundError(
-                    f"Unable to read trigger SQL file: {main_table_sql_file!s}"
-                ) from e
-
-            # If the trigger file uses no BREAK markers, execute it as a script.
-            # This is important for large trigger bundles (e.g. timestamp triggers) that are authored as multi-statement SQL.
-            if not any(line.startswith("-- BREAK") for line in test):
-                statement = "".join(test)
-                if statement.strip():
-                    try:
-                        conn.executescript(statement)
-                    except sqlite3.OperationalError as e:
-                        raise TypeError(f"\n{statement}\n: {e}")
-                    except sqlite3.ProgrammingError as e:
-                        raise TypeError(f"\n{statement}\n: {e}")
-                    conn.commit()
-                continue
-
-            break_count = 0  # counting the number of break statements so far
-
-            current_statement = """ """
-
-            for line in test:
-                if line[0:8] == "-- BREAK":
-                    break_count += 1
-
-                current_statement += line
-
-                if break_count == 2:
-                    break_count = 0
-                    statements.append(current_statement)
-                    current_statement = """ """
-
-        for statement in statements:
-            if VERBOSE_DEBUG:
-                LiuXin_print(statement)
-            try:
-                c.execute(statement)
-            except sqlite3.OperationalError as e:
-                raise TypeError(f"\n{statement}\n: {e}")
-            except sqlite3.ProgrammingError as e:
-                raise TypeError(f"\n{statement}\n: {e}")
-
-            conn.commit()
+        """Validate and execute complete trigger bodies; BREAK markers are comments."""
+        execute_sql_resources(self.conn, load_sql_resources(self.triggers_sql_files))
 
     def get_requested_interlink_tables(self) -> set[tuple[str, str]]:
         """
@@ -1309,12 +979,11 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
 
         Refresh known tables, normalize cardinality aliases and expand MARC/hash type
         labels. Defaults select priority and strict requested nullability, though the
-        shared DDL builder currently keeps interlink FKs nullable. Reject unknown
+        placeholder policy keeps endpoints nullable unless explicitly disabled. Reject unknown
         tables, duplicate pairs, invalid columns and strict bool settings. Malformed
         entries/self-links are warned and skipped. Forbidden warnings skip pairs;
-        forbidden errors abort. A redundant FK pair is added to the returned set before
-        allow_redundant_links=False skips its metadata, so that flag does not remove the
-        returned pair.
+        forbidden errors abort. Redundant FK pairs are excluded together with their
+        metadata when allow_redundant_links=False.
 
         Example:
             A typed many_to_many entry records direction, columns and labels for later
@@ -1348,6 +1017,11 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
 
         with open(spec_path_toml, "rb") as fh:
             data: dict[str, Any] = tomllib.load(fh)
+
+        self.interlink_allow_placeholders = _require_toml_bool(
+            data.get("allow_placeholders", True),
+            context="interlinks.allow_placeholders",
+        )
 
         if "allow_redundant_links" in data:
             allow_redundant_links = _require_toml_bool(
@@ -1444,17 +1118,7 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
         if not isinstance(interlinks, list):
             raise TypeError("TOML key `interlinks` must be a list")
 
-        allowed_req_cols = {
-            "priority",
-            "primary",
-            "type",
-            "origin",
-            "source",
-            "policy",
-            "data",
-            "index",
-            "sequence_number",
-            "is_required",
+        allowed_req_cols = {name for name, _, _ in LINK_COLUMN_DEFINITIONS} | {
             "nullable",
             "all",
         }
@@ -1569,7 +1233,7 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
                 )
             # allowed_types: optional explicit allowed values for the type column
             allowed_types = entry.get("allowed_types") or entry.get("types")
-            allowed_types_list: Optional[list[str]] = None
+            allowed_types_list: list[str] | None = None
             if allowed_types is not None:
                 if not isinstance(allowed_types, list):
                     raise TypeError(
@@ -1710,8 +1374,6 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
                 )
             seen_interlink_pairs[current_pair] = idx
 
-            link_tables.add(current_pair)
-
             if current_pair in fk_pairs:
                 if warn_on_redundant_links:
                     LiuXin_warning_print(
@@ -1728,6 +1390,8 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
                 )
                 continue
 
+            link_tables.add(current_pair)
+            # Admit the pair and its validated options together.
             # Record spec metadata (direction + link_type + requested columns + allowed types + nullable flag)
             self.interlink_specs_by_pair[current_pair] = {
                 "left_table": c_table1,
@@ -1895,7 +1559,7 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
                 self.interlink_nullable_fks_by_table[link_table_name] = False
                 self.interlink_allowed_types_by_table[link_table_name] = None
 
-    def extract_main_tables(self, interlink_request: str) -> Optional[list[str]]:
+    def extract_main_tables(self, interlink_request: str) -> list[str] | None:
         """
         Parse a legacy name-name_ prefix and resolve its two table names.
 
@@ -2032,8 +1696,8 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
         :return: Multiline diagnostic text.
         """
         err_msg = [
-            "{} not found in the known interlink tables".format(link_table),
-            "\n{}\n".format(pprint.pformat(self.interlink_tables)),
+            f"{link_table} not found in the known interlink tables",
+            f"\n{pprint.pformat(self.interlink_tables)}\n",
         ]
         return "\n".join(err_msg)
 
@@ -2052,9 +1716,7 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
         :return: Conventional link name; fewer than two inputs raise IndexError.
         """
         link_pair = sorted(link_pair)
-        return "{}_{}_links".format(
-            plural_singular_mapper(link_pair[0]), plural_singular_mapper(link_pair[1])
-        )
+        return f"{plural_singular_mapper(link_pair[0])}_{plural_singular_mapper(link_pair[1])}_links"
 
     def get_interlink_constraint(self, link_pair: Sequence[str]) -> dict[str, str]:
         """
@@ -2071,7 +1733,7 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
         link_table_name = self.get_interlink_name(link_pair)
         return self.INTERLINK_TABLE_CONSTRAINTS[link_table_name]
 
-    def match_to_table_name(self, candidate_name: str) -> Optional[str]:
+    def match_to_table_name(self, candidate_name: str) -> str | None:
         """
         Resolve a lowercase exact or pluralized name against main_tables.
 
@@ -2104,75 +1766,49 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
     def create_interlink_table(
         self, table1: str, table2: str, connection: SQLConnection
     ) -> None:
-        """
-        Create an expected link from stored options, commit, then add optional type
-        guards.
+        """Compile and execute one expected interlink, retaining caller ownership."""
+        self._execute_link_step(self._plan_interlink(table1, table2), connection)
 
-        Reject link names absent from interlink_tables. Type reference-table setup
-        commits separately; a later guard failure can leave the link table created.
-
-        Example:
-            Creating an enumerated role link produces both the link and its __types
-            guards.
-
-
-        :param table1: First known main-table name.
-        :param table2: Second known main-table name.
-        :param connection: Open SQLite connection used and committed but not closed
-            here.
-        :return: None; mutates the supplied connection.
-        """
-
-        table1_l = deepcopy(table1)
-        table1_l = six_unicode(table1_l)
-        table2_l = deepcopy(table2)
-        table2_l = six_unicode(table2_l)
-        conn = connection
-        c = conn.cursor()
-
+    def _plan_interlink(self, table1: str, table2: str) -> LinkBuildStep:
+        """Freeze validated interlink options and DDL without changing the database."""
         table_name, column_name = self.get_interlink_table_name(table1, table2)
-
-        requested_cols: RequestedColumns | None = (
-            self.interlink_requested_cols_by_table.get(table_name, {"priority"})
-        )
-
-        if requested_cols is None:
-            requested_cols = set()
-
-        allowed_types = self.interlink_allowed_types_by_table.get(table_name)
-        nullable_fks = self.interlink_nullable_fks_by_table.get(table_name, False)
-
-        # Check that the table we're building is actually expected
         if table_name not in self.interlink_tables:
-            raise ValueError(
-                f"Unexpected interlink table_name {table_name!r} (not in known interlink tables)"
-            )
-
-        # Up to two tables need to be constructed, and one needs to be populated
-        # If required, an allowed_type_table will be constructed and populated from the list of statements already
-        # created
-        att_table_sqlite_list = self.build_interlink_table_sqlite(
-            table1_l,
-            table2_l,
-            requested_cols=requested_cols,
-            allowed_types=None,
-            nullable_fks=nullable_fks,
+            raise ValueError(f"Unexpected interlink table_name {table_name!r}")
+        requested_cols = self.interlink_requested_cols_by_table.get(
+            table_name, {"priority"}
         )
-        for att_table_build_stmt in att_table_sqlite_list:
-            if VERBOSE_DEBUG:
-                LiuXin_print(att_table_build_stmt)
-            c.execute(att_table_build_stmt)
+        allowed_types = self.interlink_allowed_types_by_table.get(table_name)
+        nullable = self.interlink_nullable_fks_by_table.get(table_name, False)
+        statements = self.build_interlink_table_sqlite(
+            table1,
+            table2,
+            requested_cols=requested_cols or set(),
+            allowed_types=None,
+            nullable_fks=nullable or self.interlink_allow_placeholders,
+        )
+        return LinkBuildStep(
+            table_name,
+            column_name,
+            tuple(statements),
+            None if allowed_types is None else tuple(allowed_types),
+            nullable,
+            self.interlink_allow_placeholders,
+        )
 
-        conn.commit()
-
-        # If this interlink defines a permitted enumeration for the type column, materialise it into a
-        # dedicated reference table `{interlink_table}__types` and enforce it via lightweight triggers.
-        if allowed_types is not None:
+    def _execute_link_step(
+        self, step: LinkBuildStep, connection: SQLConnection
+    ) -> None:
+        """Execute only the frozen plan; parsing/configuration changes cannot affect it."""
+        cursor = connection.cursor()
+        for statement in step.statements:
+            cursor.execute(statement)
+        connection.commit()
+        if step.allowed_types is not None:
             self.direct_create_interlink_types_reference_table(
-                interlink_table_name=table_name,
-                interlink_column_base=column_name,
-                allowed_types=allowed_types,
-                connection=conn,
+                interlink_table_name=step.table,
+                interlink_column_base=step.column_base,
+                allowed_types=list(step.allowed_types),
+                connection=connection,
             )
 
     def direct_create_interlink_types_reference_table(
@@ -2211,73 +1847,36 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
     def create_intralink_table(
         self, table_name: str, connection: SQLConnection
     ) -> None:
-        """
-        Build one configured self-link with nullable endpoints, then optional type
-        guards.
+        """Compile and execute one configured self-link with explicit endpoint policy."""
+        self._execute_link_step(self._plan_intralink(table_name), connection)
 
-        The build forces nullable FKs regardless of the parsed nullable setting to
-        support blank-row construction. Commit DDL before separately committed
-        type-guard setup.
-
-        Example:
-            A configured symmetric self-link gets ordering guards but still allows blank
-            endpoint placeholders.
-
-
-        :param table_name: Main table whose self-link schema is requested.
-        :param connection: Open SQLite connection used and committed but not closed
-            here.
-        :return: None; mutates and commits the supplied connection.
-        """
-
-        conn = connection
-        c = conn.cursor()
-
-        name_local = deepcopy(table_name)
-        name_local = six_unicode(name_local)
-
-        # TOML-derived configuration for this intralink table
-        requested_cols: RequestedColumns | None = (
-            self.intralink_requested_cols_by_table.get(name_local, {"type"})
+    def _plan_intralink(self, table_name: str) -> LinkBuildStep:
+        """Freeze self-link DDL and type values without executing either."""
+        requested_cols = self.intralink_requested_cols_by_table.get(
+            table_name, {"type"}
         )
-        allowed_types = self.intralink_allowed_types_by_table.get(name_local)
-        # NOTE:
-        # DriverWrapper.get_blank_row() creates placeholder rows by inserting ONLY the scratch column first,
-        # and then updating FK/type/etc. afterwards.
-        # Until we revisit that design, intralink FK columns must stay nullable or blank-row creation breaks.
-        nullable_fks = True
-        symmetric = self.intralink_symmetric_by_table.get(name_local, False)
-        symmetric_types = self.intralink_symmetric_types_by_table.get(name_local)
-
-        sql_list = super().direct_build_intralink_table_sql(
-            name_local,
+        allowed_types = self.intralink_allowed_types_by_table.get(table_name)
+        nullable = self.intralink_nullable_fks_by_table.get(table_name, False)
+        statements = super().direct_build_intralink_table_sql(
+            table_name,
             allowed_types=allowed_types,
             requested_cols=requested_cols,
-            nullable_fks=nullable_fks,
-            symmetric=symmetric,
-            symmetric_types=symmetric_types,
+            nullable_fks=nullable or self.intralink_allow_placeholders,
+            symmetric=self.intralink_symmetric_by_table.get(table_name, False),
+            symmetric_types=self.intralink_symmetric_types_by_table.get(table_name),
             use_reference_types_table=True,
         )
-
-        for stmt in sql_list:
-            if VERBOSE_DEBUG:
-                LiuXin_print(stmt)
-            c.execute(stmt)
-        conn.commit()
-
-        # If this intralink defines a permitted enumeration for the type column, materialise it into a
-        # dedicated reference table `{intralink_table}__types` and enforce it via lightweight triggers.
-        if allowed_types is not None:
-            target_table_name = self.match_to_table_name(name_local) or name_local
-            target_row_name = plural_singular_mapper(target_table_name)
-            row_name = f"{target_row_name}_{target_row_name}_intralink"
-            intralink_table_name = f"{row_name}s"
-            self.direct_create_interlink_types_reference_table(
-                interlink_table_name=intralink_table_name,
-                interlink_column_base=row_name,
-                allowed_types=allowed_types,
-                connection=conn,
-            )
+        target = self.match_to_table_name(table_name) or table_name
+        singular = plural_singular_mapper(target)
+        column_base = f"{singular}_{singular}_intralink"
+        return LinkBuildStep(
+            column_base + "s",
+            column_base,
+            tuple(statements),
+            None if allowed_types is None else tuple(allowed_types),
+            nullable,
+            self.intralink_allow_placeholders,
+        )
 
     def direct_build_intralink_table_sql(
         self,
@@ -2328,8 +1927,8 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
         targets and invalid columns/types fail. Nullability requires real bools,
         symmetry allows permissive bool spellings. Expand MARC/hash types and require
         symmetric type subsets to be supported. Duplicate table entries overwrite stored
-        settings; old option maps are not cleared first. Parsed nullability is later
-        overridden by creation.
+        settings. Clear old options on each parse. Placeholder mode is explicit and
+        defaults on; disabling it honors each nullable setting in emitted DDL.
 
         Example:
             A types list automatically adds the type column when it was not otherwise
@@ -2339,6 +1938,12 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
         :return: Set of requested main-table names; also populates per-table option
             mappings.
         """
+        self.intralink_allow_placeholders = True
+        self.intralink_allowed_types_by_table.clear()
+        self.intralink_requested_cols_by_table.clear()
+        self.intralink_nullable_fks_by_table.clear()
+        self.intralink_symmetric_by_table.clear()
+        self.intralink_symmetric_types_by_table.clear()
         c = self.conn.cursor()
 
         current_tables = self.main_tables
@@ -2358,21 +1963,16 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
         with open(spec_path_toml, "rb") as fh:
             data: dict[str, Any] = tomllib.load(fh)
 
+        self.intralink_allow_placeholders = _require_toml_bool(
+            data.get("allow_placeholders", True),
+            context="intralinks.allow_placeholders",
+        )
+
         intralinks = data.get("intralinks", [])
         if not isinstance(intralinks, list):
             raise TypeError("TOML key `intralinks` must be a list")
 
-        allowed_req_cols = {
-            "priority",
-            "primary",
-            "type",
-            "origin",
-            "source",
-            "policy",
-            "data",
-            "index",
-            "sequence_number",
-            "is_required",
+        allowed_req_cols = {name for name, _, _ in LINK_COLUMN_DEFINITIONS} | {
             "nullable",
             "all",
         }
@@ -2449,7 +2049,7 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
 
             # allowed types (optional)
             allowed_types = entry.get("allowed_types") or entry.get("types")
-            allowed_types_list: Optional[list[str]] = None
+            allowed_types_list: list[str] | None = None
             if allowed_types is not None:
                 if not isinstance(allowed_types, list):
                     raise TypeError(
@@ -2507,7 +2107,7 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
             symmetric_types = entry.get("symmetric_types") or entry.get(
                 "symmetric_type"
             )
-            symmetric_types_list: Optional[list[str]] = None
+            symmetric_types_list: list[str] | None = None
             if symmetric_types is not None:
                 if not isinstance(symmetric_types, list):
                     raise TypeError(
@@ -2552,8 +2152,8 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
         script.
 
         Missing specs or disabled settings are no-ops. enabled must be a bool. Explicit
-        files precede an optional recursive folder scan; duplicate resources may run
-        twice, and a missing scan folder is ignored. Paths are trusted configuration,
+        files precede a deterministic recursive folder scan; each resource runs
+        once after deduplication, and a missing scan folder is ignored. Paths are trusted configuration,
         not sandboxed.
 
         Example:
@@ -2589,7 +2189,7 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
         sql_files = data.get("sql_files", [])
         sql_folder = data.get("sql_folder")
 
-        scripts: list[str] = []
+        paths: list[pathlib.Path] = []
 
         # Explicit file list
         if sql_files:
@@ -2602,29 +2202,19 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
                     raise FileNotFoundError(
                         f"Aggregate SQL file not found: {rel_str!r}"
                     )
-                with open(abs_path, "r", encoding="utf-8") as f:
-                    scripts.append(f.read())
+                paths.append(pathlib.Path(abs_path))
 
         # Optional folder scan (in addition to explicit files)
         if sql_folder:
             folder_path = os.path.join(__folder__, str(sql_folder))
             if os.path.exists(folder_path):
-                for dirpath, _, filenames in os.walk(folder_path):
+                for dirpath, dirs, filenames in os.walk(folder_path):
+                    dirs.sort()
                     for fn in sorted(filenames):
                         if fn.lower().endswith(".sql"):
-                            with open(
-                                os.path.join(dirpath, fn), "r", encoding="utf-8"
-                            ) as f:
-                                scripts.append(f.read())
+                            paths.append(pathlib.Path(dirpath) / fn)
 
-        if not scripts:
-            return
-
-        for script in scripts:
-            if VERBOSE_DEBUG:
-                LiuXin_print(script)
-            self.conn.executescript(script)
-            self.conn.commit()
+        execute_sql_resources(self.conn, load_sql_resources(paths))
 
     def set_database_version(self) -> None:
         """

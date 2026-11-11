@@ -79,8 +79,9 @@ class IdentifierRepository(BaseRepository):
         database receives one complete validated pair. Changes to ownership or provenance validate
         the existing pair without silently rewriting it.
 
-        Unknown nonblank schemes remain supported by shared identifier normalization. ISBN, UUID
-        and DOI failures occur before insert_row or update_row is called.
+        Explicit primary flags accept None, booleans and integer 0/1; booleans become
+        integers in the write payload. Unknown nonblank schemes remain supported by shared
+        identifier normalization. Validation failures occur before insert_row or update_row.
 
         Example:
             Updating only the value of a stored UUID still validates that value as a UUID because
@@ -91,13 +92,21 @@ class IdentifierRepository(BaseRepository):
         :param existing: Stored identifier row for an update, or None for creation.
         :return: New physical-column payload containing a validated pair when that pair changes.
         :raises CatalogMutationError: If creation or a malformed historical row lacks either pair field.
-        :raises TypeError: If the complete scheme or value is not text.
-        :raises ValueError: If text is blank or fails scheme-specific validation.
+        :raises TypeError: If scheme/value is not text or an explicit primary flag has an unsupported type.
+        :raises ValueError: If text is invalid or an integer primary flag is outside 0/1.
         """
 
         payload = super()._prepare_write(data, existing=existing)
         if existing is not None and not payload:
             return payload
+
+        primary = payload.get("entity_identifier_is_primary")
+        if primary is not None:
+            if not isinstance(primary, int):
+                raise TypeError("is_primary must be None, a boolean, or integer 0/1")
+            if primary not in (0, 1):
+                raise ValueError("is_primary must be 0 or 1 when an integer is supplied")
+            payload["entity_identifier_is_primary"] = int(primary)
 
         scheme_present = self._scheme_column in payload or (
             existing is not None and self._scheme_column in existing
@@ -284,8 +293,9 @@ class IdentifierRepository(BaseRepository):
         create a copy while leaving the original owner unchanged. Ownership lives directly
         on entity_identifiers, not a link table. Priority only controls the primary flag:
         zero sets it, any other integer clears it, and None preserves it even on a copy.
-        No ranking value or cross-row primary uniqueness is enforced. There is no outer
-        transaction across this method's reads and write; callers can supply one.
+        No ranking value is stored. Generated SQLite guards reject a second primary for the same
+        owner and scheme. There is no outer transaction across this method's reads and
+        write; callers can supply one.
 
         Example:
             >>> assigned_id = catalog.identifiers.link_to_wemi(identifier_id=identifier_id, level='manifestation', entity_id=manifestation_id, priority=0)  # doctest: +SKIP
@@ -325,7 +335,8 @@ class IdentifierRepository(BaseRepository):
         with this owner is updated; one owned elsewhere is copied without changing the
         original. No existing equivalent row at the destination is sought. Priority sets
         only is_primary (zero true, other integers false); None retains the existing flag.
-        The assignment does not add an encompassing transaction or enforce a unique primary.
+        The assignment does not add an encompassing transaction; generated SQLite guards enforce
+        primary uniqueness for the owner and scheme.
 
         Example:
             >>> assigned_id = catalog.identifiers.link_to_agent(identifier_id=identifier_id, agent_id=agent_id, priority=0)  # doctest: +SKIP
@@ -591,8 +602,10 @@ class IdentifierRepository(BaseRepository):
 
         Validate level and the string mapping, normalize all candidates, and reject
         duplicate canonical schemes before opening a transaction or checking the owner.
-        Inside the transaction, list the owner's existing IDs, match/create each logical
-        value, assign it with priority zero, then delete old owned rows not selected.
+        Inside the transaction, demote the owner's existing primaries, match/create each
+        logical value, assign it with priority zero, then delete old owned rows not
+        selected. Demotion permits replacing a value without temporarily storing two
+        primaries; failure rolls back the original primary flags too.
         Copies protect other owners; reuse can retain earlier spelling/provenance. Every
         desired scheme is primary. An empty mapping still requires the owner and deletes
         all its identifiers, including non-primary rows. Failures roll back writes through
@@ -634,10 +647,14 @@ class IdentifierRepository(BaseRepository):
             candidates.append(candidate)
 
         with self._macros.transaction():
-            existing_ids = {
-                row[self.id_column]
-                for row in self.list_for_wemi(level=level, entity_id=entity_id)
-            }
+            existing_rows = self.list_for_wemi(level=level, entity_id=entity_id)
+            existing_ids = {row[self.id_column] for row in existing_rows}
+            # The schema enforces one primary per owner/scheme at every statement.
+            # Release those slots inside the same transaction before assigning the
+            # complete replacement. Any later failure restores the original rows.
+            for row in existing_rows:
+                if row.get("entity_identifier_is_primary"):
+                    self.update(row[self.id_column], {"is_primary": False})
             assigned: dict[str, EntityId] = {}
             assigned_ids: set[EntityId] = set()
             for candidate in candidates:

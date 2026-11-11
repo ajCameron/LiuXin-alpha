@@ -136,6 +136,14 @@ select = ["E4", "E7", "E9", "F", "I", "UP", "B"]
 # Positive scope: directory entries also protect newly added Python modules.
 # Formatting does not implicitly expand the separate lint or typing ratchets.
 paths = [
+  "src/LiuXin_alpha/databases/database_driver_plugins/SQL/database_generator_frbr/database_generator.py",
+  "src/LiuXin_alpha/databases/database_driver_plugins/SQL/database_generator_frbr/vocabulary.py",
+  "src/LiuXin_alpha/databases/database_driver_plugins/SQL/database_generator_frbr/sql_resources.py",
+  "src/LiuXin_alpha/databases/database_driver_plugins/SQL/database_generator_frbr/link_plan.py",
+  "src/LiuXin_alpha/databases/database_driver_plugins/SQL/link_columns.py",
+  "tests/databases/test_frbr_build_plan.py",
+  "tests/databases/test_frbr_generator_integrity.py",
+
   "src/LiuXin_alpha/databases/sql_statements.py",
   "src/LiuXin_alpha/databases/database_driver_plugins/SQL/databasedriver/write_result.py",
   "src/LiuXin_alpha/databases/database_driver_plugins/PostgreSQL/sql_tokens.py",

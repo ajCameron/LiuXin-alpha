@@ -113,7 +113,7 @@ class DriverInterlinkMixinAPI(abc.ABC):
 
         Sort singular bases and invert one/many orientation when needed. Strict
         many_many uniqueness ignores type; nonexclusive uniqueness includes type when
-        requested. FKs remain nullable regardless of nullable_fks to allow blank-row
+        requested. The caller chooses nullable_fks to allow or reject blank-row
         construction. Raw overrides replace automatic cardinality/type handling. This
         does not execute SQL; identifiers and legacy type-seed literals require trusted
         inputs.
@@ -134,8 +134,7 @@ class DriverInterlinkMixinAPI(abc.ABC):
             and requested metadata.
         :param override_restriction_sql: Trusted raw constraint SQL replacing generated
             cardinality and type constraints.
-        :param nullable_fks: Requested FK nullability; interlink generation currently
-            always emits nullable FKs.
+        :param nullable_fks: Whether both endpoint foreign keys permit NULL.
         :return: SQL statement list and generated link-table name.
         """
 
@@ -169,8 +168,7 @@ class DriverInterlinkMixinAPI(abc.ABC):
         :param table2: Second table whose singular prefix participates in the link name.
         :param requested_cols: all, None, or iterable of optional metadata suffixes.
         :param allowed_types: Optional iterable of permitted type labels.
-        :param nullable_fks: Requested FK nullability; interlink generation currently
-            always emits nullable FKs.
+        :param nullable_fks: Whether both endpoint foreign keys permit NULL.
         :return: Generated statement list without executing it.
         """
 
@@ -242,8 +240,7 @@ class DriverInterlinkMixinAPI(abc.ABC):
         :param allowed_types: Optional iterable of permitted type labels.
         :param override_restriction_sql: Trusted raw constraint SQL replacing generated
             cardinality and type constraints.
-        :param nullable_fks: Requested FK nullability; interlink generation currently
-            always emits nullable FKs.
+        :param nullable_fks: Whether both endpoint foreign keys permit NULL.
         :return: Generated link-table name on success.
         """
 

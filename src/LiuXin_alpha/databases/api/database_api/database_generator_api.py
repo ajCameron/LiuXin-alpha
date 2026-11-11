@@ -379,9 +379,10 @@ class DatabaseGeneratorAPI(abc.ABC):
         """
         Require creation of the configured self-link schema for a main table.
 
-        The FRBR implementation uses configured type/symmetry options but currently
-        forces nullable foreign keys to support placeholder Row creation; callers should
-        not infer strict nullability from the specification alone.
+        The FRBR implementation uses configured type/symmetry options. Foreign keys
+        permit NULL when either allow_placeholders or the link's nullable setting is
+        true. Placeholder mode defaults to true for blank-row construction; disable
+        it in the owning TOML document to honor nullable literally.
 
         Example:
             For a configured concrete builder, builder.create_intralink_table("agents",
@@ -399,8 +400,9 @@ class DatabaseGeneratorAPI(abc.ABC):
         Require execution of the main-table schema resources.
 
         Example:
-            The concrete run loads its SQL resources before calling
-            builder.create_main_tables().
+            After configuring main_tables_sql_files, call builder.create_main_tables()
+            to validate and execute that stage. The full run snapshots table and trigger
+            resources together before executing either stage.
 
 
         :return: None; populate the concrete database and builder table state.
@@ -412,8 +414,8 @@ class DatabaseGeneratorAPI(abc.ABC):
         Require installation of the loaded main-schema trigger resources.
 
         Example:
-            The concrete run calls builder.create_main_triggers() after main tables are
-            available.
+            After configuring triggers_sql_files and creating main tables, call
+            builder.create_main_triggers() to validate and execute that stage.
 
 
         :return: None; schema trigger definitions are created.

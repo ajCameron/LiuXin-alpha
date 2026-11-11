@@ -4,6 +4,19 @@ Date: **2026-10-20**. DB01–DB03 are implemented for PR review; the remaining e
 proposed work grounded in the driver/schema review. Cross-project order belongs
 to the [architecture tasks](../architectural_reviews/next_tasks.md).
 
+**2026-11-11 FRBR generator review:** [FRBR01–FRBR07](database-generator-frbr-review-2026-11-11.md)
+have local repairs. Resource loading preserves every complete statement;
+identifier guards validate populated rows and cascade owner deletion; link column
+emission, redundant-link exclusion and folder separators are corrected. The
+[build contract](database-generator-frbr-build-contract.md) separates SQL loading,
+immutable link planning and execution, and makes endpoint placeholder policy
+explicit. The second pass adds the primary-flag domain constraint and Catalog
+validation, and aligns the public API documentation with strict nullability.
+Existing-database migrations, pure TOML parsing and PostgreSQL lifecycle
+parity remain follow-ups. Validation is recorded in the review; driver PR #156
+has merged, and this generator tranche is prepared for a separate PR against
+`database-review`.
+
 **2026-11-11 eighth driver review:** [DDP28–DDP29](database-driver-plugins-eighth-review-2026-11-11.md)
 have implemented repairs with 147 new mandatory cases, taking the gate to 1,327.
 PostgreSQL binding classification recognizes the missing expression boundaries;

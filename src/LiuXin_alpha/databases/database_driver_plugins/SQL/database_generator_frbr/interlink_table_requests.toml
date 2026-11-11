@@ -1,3 +1,8 @@
+# Endpoint policy: Catalog/DriverWrapper require blank-row construction.
+# Set allow_placeholders=false only for standalone schemas that populate rows atomically.
+# In that mode each link's nullable setting is honored literally (default false).
+allow_placeholders = true
+
 # Interlink table requests (FRBR generator)
 #
 # Each [[interlinks]] entry requests an interlink table between two existing main tables.

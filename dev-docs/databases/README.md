@@ -7,6 +7,11 @@ meaning belongs to metadata/Catalog; physical storage policy belongs to storage.
 
 ## Working guides and operational contracts
 
+- [FRBR generator review, 2026-11-11](database-generator-frbr-review-2026-11-11.md):
+  five reproduced defects, their local repairs and validation.
+- [FRBR generator build contract](database-generator-frbr-build-contract.md):
+  immutable SQL/link plans, identifier lifecycle rules and explicit blank-row policy.
+
 - [Eighth driver-plugin review, 2026-11-11](database-driver-plugins-eighth-review-2026-11-11.md):
   PostgreSQL connection string-literal mode and qmark expression boundaries
   repaired; 147 new mandatory cases, with native and committed-value comparisons.

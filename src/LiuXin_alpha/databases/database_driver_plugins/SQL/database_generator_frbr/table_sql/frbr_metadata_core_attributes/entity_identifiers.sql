@@ -25,6 +25,8 @@ CREATE TABLE IF NOT EXISTS `entity_identifiers` (
   `entity_identifier_source_modified_datestamp_ep_k` INTEGER NULL,
   `entity_identifier_scratch` TEXT NULL,
 
+  CONSTRAINT `entity_identifier_primary_valid`
+    CHECK (`entity_identifier_is_primary` IS NULL OR `entity_identifier_is_primary` IN (0, 1)),
 
   __ENTITY_IDENTIFIER_ENTITY_TYPE_CHECK__
   __ENTITY_IDENTIFIER_SCHEME_BY_TYPE_CHECK__
