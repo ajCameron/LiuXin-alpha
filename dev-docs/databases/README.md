@@ -19,7 +19,8 @@ meaning belongs to metadata/Catalog; physical storage policy belongs to storage.
   all 36 physical main-table owners, batched relationship/owner reads and bounded pages.
 - [SQL efficiency implementation, 2026-10-31](sql-efficiency-2026-10-31.md):
   pagination, many-owner graphs, normalized SQL search/matching, aggregates, bulk
-  writes and explicit query-index migrations, with backend limits and validation.
+  writes and explicit query-index migrations, with backend limits, validation and
+  2026-11-01 progress/batch overhead measurements.
 - [Schema overview](<../03 - Database Schema.md>): current WEMI graph, assets,
   replicas, generated relations, compatibility views and schema source map.
 - [Worked link examples](wemi-link-examples.md): WEMI rows and paths, novels with
@@ -31,10 +32,39 @@ meaning belongs to metadata/Catalog; physical storage policy belongs to storage.
   explicit offline replacement, recovery backups and server-schema refusal.
 - [Transaction ownership](transactions.md): resource cleanup, owned transactions,
   nested savepoints, borrowed connections and the remaining direct commit points.
+- [Driver-wrapper boundary fixes](next_tasks.md#db08-correct-driver-wrapper-boundaries-and-keep-its-api-declarative):
+  transaction-preserving inspection, targeted updates, atomic custom-column creation,
+  current folder discovery, view filtering and a declarative wrapper API.
+- [Driver-wrapper follow-up and typing](driver-wrapper-review-2026-11-04.md):
+  attachment-preserving edits, transactional deletion, schema-cache hooks,
+  declared types and permanently checked wrapper contracts.
+- [Driver-wrapper reads and diagnostics](driver-wrapper-features-2026-11-04.md):
+  native schema facts, connection ownership, resumable scans, backend capability
+  reports, optional observations and hierarchy cycle detection.
+- [Maintenance modes](maintenance-modes.md): transactional prompt effects,
+  durable lazy delivery, Catalog consumers and explicit operator controls.
+- [Malformed-plugin and failure validation](maintenance-adversarial-validation-2026-11-03.md):
+  current adversarial coverage, reproduced faults and regression evidence.
+- [Latest maintenance review fixes](maintenance-review-fixes-2026-11-03.md):
+  retry/pause coordination, effective lazy priority and bounded jobs history retirement.
+- [Maintenance operational follow-ups](next_tasks.md#maintenance-operational-follow-ups):
+  monitored SquashFS import, explanatory status, opt-in retention, plugin examples,
+  worker supervision and measured batching improvements; proposed after signoff.
+- [Maintenance completion work](maintenance-completion-plan-2026-11-02.md):
+  rebuilds, plugin upgrades, measured scale and domain repair policies.
+- [Maintenance scale evidence](maintenance-scale-2026-11-02.md): reproducible
+  Catalog import/rebuild/drain trials and storage/memory limits of the evidence.
+- [Catalog repair policies](../catalog/maintenance-repair-policies.md): explicit
+  semantic merge, attributed WEMI tags, selected disposal and durable receipts.
+- [Legacy maintenance retirement](legacy-maintenance-retirement-2026-11-02.md):
+  removed capabilities, retained duplicate inspection, restored Agent name/sort
+  maintenance, current Catalog replacements and remaining compatibility policies.
 - [Backend strategy](liuxin_database_backend_strategy.md) and
   [PostgreSQL runbook](postgresql-backend.md).
 - [Connection ownership](<02 - Connection ownership and stale connections.md>) and
   [TEMP trigger cleanup](<03 - TEMP triggers for custom-column cleanup.md>).
+- [Optional SQLite progress callbacks](sqlite-progress.md): explicit observers and
+  cancellation hooks on existing/future connections, with no default VM handler.
 
 ## Schema design and historical notes
 

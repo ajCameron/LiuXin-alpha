@@ -3,7 +3,7 @@ Check Database dirty queues, maintainer callbacks, telemetry, and close behavior
 
 Queue-inspection fixtures request a maintainer stop and briefly join it, but
 suppress errors and do not verify that the stop succeeded. The interlink callback
-case retains its existing expected-failure marker.
+case checks that startup handles follow the installed maintainer.
 
 Example:
     Run with pytest::
@@ -455,10 +455,9 @@ def test_maintenance_thread_stops_on_close(driver_spec, db_metadata):
     assert not th.is_alive()
 
 
-@pytest.mark.xfail(reason="Bug: DIRTY_INTERLINK_RECORD registered with 4 args but maintainer expects 5")
 def test_dirty_interlink_record_udf_enqueues_interlink_queue(stopped_db):
     """
-    Express the expected five-argument interlink callback tuple under the existing arity-bug xfail marker.
+    Check the five-argument callback reaches the maintainer through startup handles.
 
     Example:
         Run the owning tests with pytest::
@@ -473,8 +472,8 @@ def test_dirty_interlink_record_udf_enqueues_interlink_queue(stopped_db):
 
     _drain(stopped_db.maintenance.interlink_dirtied_queue)
 
-    # Desired: the UDF should accept 5 args (update_type, table1, table2, table1_id, table2_id)
-    # and enqueue a corresponding event.
+    # The driver's original handle was opened with an inert callback target.
+    # It must resolve the replacement target when the SQL function is invoked.
     stopped_db.execute("SELECT DIRTY_INTERLINK_RECORD(?, ?, ?, ?, ?)", ("update", "a", "b", 1, 2))
 
     got = stopped_db.maintenance.interlink_dirtied_queue.get_nowait()

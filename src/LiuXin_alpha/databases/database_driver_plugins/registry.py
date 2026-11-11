@@ -188,6 +188,8 @@ def get_direct_access_module(db_type: str):
     return module
 
 
+# Todo: Be good to extend the command line with modular commands -
+# Todo: We can type this down to the known modules?
 def get_database_builder_module(db_type: str):
     """
     Import and cache the registered schema-builder module.
@@ -247,6 +249,7 @@ def create_new_database(db_type: str, target_location: Union[str, pathlib.Path])
     return module
 
 
+# Todo: Why is this tripping duplicate code detection?
 def register_builtin_database_drivers() -> None:
     """
     Install the three built-in registrations and their historical backend aliases.

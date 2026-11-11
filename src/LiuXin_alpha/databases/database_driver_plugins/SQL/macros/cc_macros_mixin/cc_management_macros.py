@@ -3,25 +3,25 @@
 Manage legacy custom-column definitions, physical tables and deferred deletion.
 
 The mixin updates custom_columns metadata, builds SQLite table/index/trigger/view
-scripts and removes mapped objects during deferred cleanup. Schema names and
-datatype/collation fragments are trusted SQL inputs. Execution is split between host
-execute, wrapper methods, explicit connections and driver script execution; these
-helpers do not establish a shared atomic boundary. Some methods explicitly commit even a
-caller-supplied connection.
+scripts and removes mapped objects during deferred cleanup. Datatype/collation
+fragments are trusted SQL inputs. Creation, metadata edits, deletion marking and
+cleanup preserve borrowed transactions through savepoints and commit only units
+they own. Compatibility table creation remains SQLite-specific.
 """
 
 from __future__ import annotations
 
 # Todo: Swap out to our hardened parser
+# Todo: Split this module down - add cc equivalents of other macros
 import json
+from collections.abc import Iterator, Mapping
+from contextlib import contextmanager
+from typing import TYPE_CHECKING, Any
 
-from typing import Optional, TYPE_CHECKING
-
-from LiuXin_alpha.utils.libraries.liuxin_six import iteritems
-
-from LiuXin_alpha.utils.language_tools import plural_singular_mapper
-from LiuXin_alpha.metadata.value_policies import ColumnNormalizationProfile
 from LiuXin_alpha.databases.normalized_identities import normalize_identity_value
+from LiuXin_alpha.databases.transactions import transaction_active, transaction_scope
+from LiuXin_alpha.metadata.value_policies import ColumnNormalizationProfile
+from LiuXin_alpha.utils.language_tools import plural_singular_mapper
 
 if TYPE_CHECKING:
 
@@ -32,216 +32,119 @@ class CustomColumnsManagementMacrosMixin:
     """
     Supply custom-column definition operations to a database-backed macro host.
 
-    The host provides db.driver, db.driver_wrapper and an execute callable for
-    mark_cc_for_delete. Construction does not attach a database or load metadata.
+    The host provides db.driver, db.driver_wrapper and _macro_connection.
+    Construction does not attach a database or load metadata.
     Marking only changes a flag; a later loader must invoke physical cleanup. Table
     creation builds schema but does not create the custom_columns definition row,
     refresh host maps or use the ordered flag.
 
-    Example:
-        >>> from types import SimpleNamespace
-        >>> recorded = []
-        >>> macros = CustomColumnsManagementMacrosMixin()
-        >>> macros.db = SimpleNamespace(
-        ...     driver_wrapper=SimpleNamespace(
-        ...         execute=lambda sql, values: recorded.append(values)
-        ...     )
-        ... )
-        >>> macros.mark_custom_column_for_delete(7)
-        >>> recorded
-        [(7,)]
+    For example, mark_custom_column_for_delete(7) sets the definition's flag;
+    delete_marked_custom_columns() later removes its physical storage and row.
     """
 
     db: "DatabaseAPI"
 
     def mark_cc_for_delete(self, cc_column_id: int) -> None:
         """
-        Set the deferred-deletion flag for one definition through the host execute
-        operation.
+        Set the deferred-deletion flag in an owned unit or borrowed savepoint.
 
         Bind the definition ID and set custom_column_mark_for_delete to 1. Missing IDs
         are silently ignored by the UPDATE; no row count is checked. The method neither
         drops physical objects nor schedules a restart. Commit, rollback and cache
-        behavior belong to self.execute.
-
-        Example:
-            >>> recorded = []
-            >>> macros = CustomColumnsManagementMacrosMixin()
-            >>> macros.execute = lambda sql, values: recorded.append(values)
-            >>> macros.mark_cc_for_delete(7)
-            >>> recorded
-            [(7,)]
-
+        behavior preserve the active macro or primary connection's transaction.
 
         :param cc_column_id: Custom-column definition ID to flag for later cleanup.
         :return: None; the execution result is discarded.
         """
-        self.execute(
-            "UPDATE custom_columns " "SET custom_column_mark_for_delete = 1 " "WHERE custom_column_id=?",
-            (cc_column_id,),
-        )
+        with self._cc_transaction() as active:
+            active.execute(
+                "UPDATE custom_columns SET custom_column_mark_for_delete = 1 "
+                "WHERE custom_column_id=?",
+                (cc_column_id,),
+            ).close()
 
     def set_custom_column_metadata(
         self,
         num: int,
-        name: Optional[str] = None,
-        label: Optional[str] = None,
-        is_editable: Optional[bool] = None,
-        display: Optional[str] = None,
-        in_table: Optional[str] = None,
-        # Todo: Need the conn protocol
-        conn = None,
+        name: str | None = None,
+        label: str | None = None,
+        is_editable: bool | None = None,
+        display: Mapping[str, Any] | None = None,
+        in_table: str | None = None,
+        conn=None,
     ) -> bool:
+        """Update definition fields in one owned transaction or borrowed savepoint.
+
+        Omitted fields retain their values. The attachment table may be checked
+        but cannot be changed without migrating physical storage. Prepare JSON
+        and normalized names before issuing one UPDATE. A failure preserves the
+        previous definition and any caller-owned writes.
         """
-        Write supplied definition fields and commit when at least one field is
-        requested.
-
-        Resolve the connection and always inspect custom_columns headings through the
-        host wrapper, even for an explicit connection or a call with no updates. Process
-        non-None fields in name, label, editable, display and attachment-table order. If
-        the corresponding name_norm or label_norm column exists, update it using
-        NFC/trim/casefold while retaining the original display text. Convert editable
-        with bool and encode display with json.dumps, including when it is already a
-        string.
-
-        None leaves each field unchanged and cannot clear it to SQL NULL. The changed
-        result records requested updates, not changed values or affected rows; it is
-        True even for a missing ID. Successful requested updates commit the chosen
-        connection, including other pending work. No savepoint or rollback is added, so
-        a later failure can follow earlier writes. Changing in_table updates metadata
-        only and does not move or rebuild physical tables.
-
-        Example:
-            >>> import sqlite3
-            >>> from types import SimpleNamespace
-            >>> conn = sqlite3.connect(":memory:")
-            >>> _ = conn.executescript(
-            ...     "CREATE TABLE custom_columns (custom_column_id INTEGER PRIMARY "
-            ...     "KEY, custom_column_name TEXT, custom_column_name_norm TEXT, "
-            ...     "custom_column_display TEXT); INSERT INTO custom_columns VALUES "
-            ...     "(1, 'Old', 'old', NULL);"
-            ... )
-            >>> macros = CustomColumnsManagementMacrosMixin()
-            >>> macros.db = SimpleNamespace(
-            ...     driver_wrapper=SimpleNamespace(
-            ...         get_column_headings=lambda table: ("custom_column_name_norm",)
-            ...     )
-            ... )
-            >>> macros.set_custom_column_metadata(
-            ...     1, name="  Straße  ", display={"heading": "A"}, conn=conn
-            ... )
-            True
-            >>> conn.execute(
-            ...     "SELECT custom_column_name, custom_column_name_norm FROM "
-            ...     "custom_columns"
-            ... ).fetchone()
-            ('  Straße  ', 'strasse')
-            >>> json.loads(
-            ...     conn.execute(
-            ...         "SELECT custom_column_display FROM custom_columns"
-            ...     ).fetchone()[0]
-            ... )
-            {'heading': 'A'}
-            >>> macros.set_custom_column_metadata(999, name="Missing", conn=conn)
-            True
-            >>> macros.set_custom_column_metadata(1, conn=conn)
-            False
-            >>> conn.in_transaction
-            False
-            >>> conn.close()
-
-
-        :param num: Custom-column definition ID bound to custom_column_id.
-        :param name: Replacement display name; None leaves it unchanged. A present
-            normalization column receives its derived key.
-        :param label: Replacement label; None leaves it unchanged. A present
-            normalization column receives its derived key.
-        :param is_editable: Value converted with bool when non-None; no stricter boolean
-            validation occurs.
-        :param display: JSON-serializable object despite the str annotation; serialized
-            with json.dumps when non-None.
-        :param in_table: Replacement attachment-table metadata, or None to leave it
-            unchanged; no table validation or schema migration occurs.
-        :param conn: Optional compatible connection; None selects db.driver.conn. Its
-            role and transaction effects are described above.
-        :return: True if any non-None update was executed, otherwise False; this does
-            not confirm a row changed.
-        """
-        conn = conn if conn is not None else self.db.driver.conn
-
-        changed = False
-        custom_columns_headings = set(
-            self.db.driver_wrapper.get_column_headings("custom_columns")
-        )
-        if name is not None:
-            if "custom_column_name_norm" in custom_columns_headings:
-                conn.execute(
-                    "UPDATE custom_columns "
-                    "SET custom_column_name=?, custom_column_name_norm=? "
-                    "WHERE custom_column_id=?",
-                    (
-                        name,
-                        normalize_identity_value(
-                            name,
-                            ColumnNormalizationProfile.UNICODE_NFC_TRIM_CASEFOLD,
-                        ),
-                        num,
-                    ),
-                )
-            else:
-                conn.execute(
-                    "UPDATE custom_columns SET custom_column_name=? WHERE custom_column_id=?",
-                    (name, num),
-                )
-            changed = True
-
-        if label is not None:
-            if "custom_column_label_norm" in custom_columns_headings:
-                conn.execute(
-                    "UPDATE custom_columns "
-                    "SET custom_column_label=?, custom_column_label_norm=? "
-                    "WHERE custom_column_id=?",
-                    (
-                        label,
-                        normalize_identity_value(
-                            label,
-                            ColumnNormalizationProfile.UNICODE_NFC_TRIM_CASEFOLD,
-                        ),
-                        num,
-                    ),
-                )
-            else:
-                conn.execute(
-                    "UPDATE custom_columns SET custom_column_label=? WHERE custom_column_id=?",
-                    (label, num),
-                )
-            changed = True
-
+        headings = set(self.db.driver_wrapper.get_column_headings("custom_columns"))
+        values = {}
+        for suffix, value in (("name", name), ("label", label)):
+            if value is not None:
+                field = "custom_column_" + suffix
+                values[field] = value
+                if field + "_norm" in headings:
+                    values[field + "_norm"] = normalize_identity_value(
+                        value, ColumnNormalizationProfile.UNICODE_NFC_TRIM_CASEFOLD
+                    )
         if is_editable is not None:
-            conn.execute(
-                "UPDATE custom_columns SET custom_column_editable=? WHERE custom_column_id=?",
-                (bool(is_editable), num),
-            )
-            changed = True
-
+            values["custom_column_editable"] = int(is_editable)
         if display is not None:
-            conn.execute(
-                "UPDATE custom_columns SET custom_column_display=? WHERE custom_column_id=?",
-                (json.dumps(display), num),
+            values["custom_column_display"] = json.dumps(display)
+        with self._cc_transaction(conn) as active:
+            if in_table is not None:
+                cursor = active.execute(
+                    "SELECT custom_column_in_table FROM custom_columns WHERE custom_column_id=?",
+                    (num,),
+                )
+                try:
+                    row = cursor.fetchone()
+                finally:
+                    cursor.close()
+                if row is not None and row[0] != in_table:
+                    raise ValueError("Changing a custom column's attachment requires a storage migration")
+            if not values:
+                return False
+            assignments = ", ".join(f'"{field}"=?' for field in values)
+            active.execute(
+                f"UPDATE custom_columns SET {assignments} WHERE custom_column_id=?",
+                (*values.values(), num),
+            ).close()
+        return True
+
+    @contextmanager
+    def _cc_transaction(self, conn=None) -> Iterator[Any]:
+        """Use the active macro connection, preserving any enclosing transaction."""
+        connection = self._macro_connection() if conn is None else conn
+        with transaction_scope(
+            connection, owns_transaction=not transaction_active(connection)
+        ) as active:
+            yield active
+
+    def delete_marked_custom_columns(self, conn=None) -> None:
+        """Select and remove marked definitions/storage in one SQLite transaction.
+
+        Use the macro transaction connection when present, otherwise the primary
+        connection. A borrowed transaction remains open and can undo the cleanup.
+        """
+        with self._cc_transaction(conn) as active:
+            cursor = active.execute(
+                "SELECT custom_column_id, custom_column_in_table FROM custom_columns "
+                "WHERE custom_column_mark_for_delete=1"
             )
-            changed = True
+            try:
+                rows = cursor.fetchall()
+            finally:
+                cursor.close()
+            objects = {
+                int(num): self.db.driver_wrapper.custom_table_names(int(num), in_table=in_table)
+                for num, in_table in rows
+            }
+            self.preform_cc_column_delete_from_map(objects, conn=active)
 
-        if in_table is not None:
-            conn.execute(
-                "UPDATE custom_columns SET custom_column_in_table=? WHERE custom_column_id=?",
-                (in_table, num),
-            )
-            changed = True
-
-        if changed:
-            conn.commit()
-
-        return changed
 
     def create_cc_table(
         self,
@@ -256,106 +159,26 @@ class CustomColumnsManagementMacrosMixin:
         ordered = False,
         conn=None,
     ):
+        """Create SQLite custom-column tables and helper objects atomically.
+
+        A supplied connection participates through a savepoint when already in a
+        transaction, otherwise this call owns its transaction. Without one, use
+        the macro transaction owner. Execute each complete generated statement
+        individually so SQLite cannot implicitly commit an enclosing transaction.
+
+        The caller registers the custom_columns definition in the same unit.
+        Normalized types have value/link tables and tag-browser views; other
+        types have one value table. Optional rating views retain the legacy
+        schema checks. The ordered argument does not add ordering columns.
+
+        Names and datatype fragments are trusted internal SQL inputs. These
+        compatibility DDL statements use SQLite syntax. This method does not
+        publish facade maps, commit a borrowed unit or replace connections.
+
+        :param conn: Optional connection shared with definition registration.
+        :return: None; failure rolls back this call's DDL statements.
         """
-        Build legacy custom-column schema and submit its complete SQLite DDL script to
-        the driver.
-
-        Resolve the owner ID column through the wrapper and derive storage-column
-        prefixes with the shared inflector. A truthy normalized flag creates a unique
-        non-null value table plus an owner/value link table, pair uniqueness, lookup
-        indexes and validation/deletion triggers. Only datatype="series" adds a nullable
-        REAL _extra column. A falsey flag creates one value table with a unique owner
-        column and owner-validation triggers. No ordered/priority column is generated.
-
-        Normalized columns also get tag-browser views exposing id, value, count,
-        avg_rating and sort. Probe the selected connection for physical
-        book_rating_links and ratings tables; both present selects average-rating SQL,
-        otherwise avg_rating is NULL. Probes do not validate their column layouts.
-        Filtered views call books_list_filter, which must exist when queried.
-
-        The generated value-update trigger watches the literal column value rather than
-        the prefixed link value column, so it does not protect normal updates to that
-        prefixed column. Insert triggers validate both endpoints; deleting a custom
-        value clears its links. This method creates no owner-deletion cleanup trigger or
-        general foreign-key declarations.
-
-        The conn argument supplies only rating-table probes; DDL always goes to
-        db.driver.direct_execute_sql_script. The shared SQLite driver opens a separate
-        connection for that script. Names, dt and collate are interpolated without
-        validation or IF NOT EXISTS, so collisions or invalid fragments can leave a
-        partially created schema according to driver script semantics. Definition-row
-        registration, host cache refresh and an atomic transaction are left to callers.
-
-        Example:
-            >>> import sqlite3
-            >>> from types import SimpleNamespace
-            >>> target = sqlite3.connect(":memory:")
-            >>> probe = sqlite3.connect(":memory:")
-            >>> _ = target.executescript(
-            ...     "CREATE TABLE books (book_id INTEGER PRIMARY KEY); INSERT INTO "
-            ...     "books VALUES (1);"
-            ... )
-            >>> driver = SimpleNamespace(direct_execute_sql_script=target.executescript)
-            >>> wrapper = SimpleNamespace(get_id_column=lambda table: "book_id")
-            >>> macros = CustomColumnsManagementMacrosMixin()
-            >>> macros.db = SimpleNamespace(driver=driver, driver_wrapper=wrapper)
-            >>> macros.create_cc_table(
-            ...     True,
-            ...     "series",
-            ...     "TEXT",
-            ...     "custom_column_1",
-            ...     "books_custom_column_1_link",
-            ...     "",
-            ...     conn=probe,
-            ... )
-            >>> probe.execute("SELECT COUNT(*) FROM sqlite_master").fetchone()[0]
-            0
-            >>> _ = target.execute(
-            ...     "INSERT INTO custom_column_1(custom_column_1_value) VALUES (?)",
-            ...     ("Saga",),
-            ... )
-            >>> _ = target.execute(
-            ...     "INSERT INTO "
-            ...     "books_custom_column_1_link(books_custom_column_1_link_book, "
-            ...     "books_custom_column_1_link_value) VALUES (1, 1)"
-            ... )
-            >>> target.execute(
-            ...     "SELECT value, count, avg_rating FROM tag_browser_custom_column_1"
-            ... ).fetchall()
-            [('Saga', 1, None)]
-            >>> _ = target.execute(
-            ...     "UPDATE books_custom_column_1_link SET "
-            ...     "books_custom_column_1_link_value=999"
-            ... )
-            >>> target.execute(
-            ...     "SELECT books_custom_column_1_link_value FROM "
-            ...     "books_custom_column_1_link"
-            ... ).fetchone()[0]
-            999
-            >>> target.close()
-            >>> probe.close()
-
-
-        :param normalized: Truthy to separate unique values from owner/value links;
-            falsey for a single owner/value table.
-        :param datatype: Logical type string; only the exact series value changes this
-            method's DDL.
-        :param dt: Trusted SQL datatype fragment inserted into the value-column
-            declaration.
-        :param table: Trusted value-table name used directly in DDL and to derive column
-            prefixes.
-        :param link_table: Trusted link-table name used only in normalized mode.
-        :param collate: Trusted collation fragment, such as COLLATE NOCASE, or an empty
-            string.
-        :param in_table: Existing owner table; its ID column is supplied by the driver
-            wrapper, defaulting to books.
-        :param ordered: Accepted but unused; it does not alter any generated table or
-            trigger.
-        :param conn: Optional connection for normalized-mode rating-table probes only;
-            DDL execution always uses the driver. None resolves db.driver.conn even in
-            unnormalized mode.
-        :return: None; the driver script result is discarded.
-        """
+        supplied_conn = conn
         conn = conn if conn is not None else self.db.driver.conn
 
         in_table_id_col = self.db.driver_wrapper.get_id_column(in_table)
@@ -670,8 +493,16 @@ class CustomColumnsManagementMacrosMixin:
                 ),
             ]
 
-        script = " \n".join(lines)
-        self.db.driver.direct_execute_sql_script(script)
+        # Each generated entry is one complete statement, including trigger bodies.
+        # executescript would implicitly commit SQLite's enclosing transaction.
+        scope = (
+            self.transaction()
+            if supplied_conn is None
+            else transaction_scope(conn, owns_transaction=not transaction_active(conn))
+        )
+        with scope as active:
+            for statement in lines:
+                active.execute(statement).close()
 
     # Todo: Is num the same as the id? If not, why. If so, why not called? It doesn't seem to be.
     def do_custom_column_delete_by_num(self, num: int) -> None:
@@ -733,12 +564,12 @@ class CustomColumnsManagementMacrosMixin:
 
     def mark_custom_column_for_delete(self, num: int) -> None:
         """
-        Flag one definition for deferred deletion through the driver wrapper.
+        Flag one definition for deferred deletion on the active connection.
 
         Set custom_column_mark_for_delete to 1 using a bound ID. Marking does not
         immediately remove metadata or schema objects; the caller or a later loader must
-        run cleanup. Missing IDs are silently ignored and wrapper.execute determines
-        transaction and cache effects.
+        run cleanup. Missing IDs are silently ignored. A borrowed transaction is
+        preserved; otherwise this operation owns and commits its transaction.
 
         Example:
             ``macros.mark_custom_column_for_delete(7)`` flags definition 7
@@ -746,12 +577,9 @@ class CustomColumnsManagementMacrosMixin:
 
 
         :param num: Custom-column definition ID bound to custom_column_id.
-        :return: None; the wrapper execution result is discarded.
+        :return: None.
         """
-        self.db.driver_wrapper.execute(
-            "UPDATE custom_columns SET custom_column_mark_for_delete=1 " "WHERE custom_column_id=?",
-            (num,),
-        )
+        self.mark_cc_for_delete(num)
 
     def get_all_cc_ids_marked_for_delete(self, conn = None) -> list[int]:
         """
@@ -786,73 +614,46 @@ class CustomColumnsManagementMacrosMixin:
         return ids_list
 
     def preform_cc_column_delete_from_map(self, num_table_lt_map: dict[int, tuple[str, str]], conn=None) -> None:
+        """Atomically drop mapped SQLite objects and their marked definitions.
+
+        IDs restrict the definition DELETE. Empty mappings do nothing; unmarked
+        definitions are rejected before any DDL. Complete statements execute
+        individually, so no executescript can commit a borrowed transaction.
         """
-        Drop mapped custom-column objects, then delete every marked definition row and
-        commit.
-
-        Iterate mapping values in mapping order; the numeric keys are unused. For each
-        trusted (value_table, link_table) pair, execute a script dropping the named
-        indexes, triggers, browser views and both tables with IF EXISTS. Objects are
-        dropped regardless of whether their definition is marked. SQLite also removes
-        table-owned indexes/triggers when their table is dropped.
-
-        After all scripts, delete every custom_columns row with mark_for_delete=1,
-        including IDs absent from the map, and commit the selected connection. An empty
-        map still performs that broad DELETE and commit. Conversely, dropping an
-        unmarked mapped table leaves its definition row. No transaction or rollback is
-        established; script effects and earlier drops can survive a later failure. Even
-        an explicit connection is committed, including other pending work.
-
-        Example:
-            >>> import sqlite3
-            >>> conn = sqlite3.connect(":memory:")
-            >>> _ = conn.executescript(
-            ...     "CREATE TABLE custom_columns (custom_column_id INTEGER, "
-            ...     "custom_column_mark_for_delete INTEGER); INSERT INTO "
-            ...     "custom_columns VALUES (1, 1), (2, 0);"
-            ... )
-            >>> CustomColumnsManagementMacrosMixin().preform_cc_column_delete_from_map(
-            ...     {}, conn=conn
-            ... )
-            >>> conn.execute("SELECT custom_column_id FROM custom_columns").fetchall()
-            [(2,)]
-            >>> conn.in_transaction
-            False
-            >>> conn.close()
-
-
-        :param num_table_lt_map: Mapping to trusted (value_table, link_table) names;
-            keys do not restrict object drops or the final metadata DELETE.
-        :param conn: Optional compatible connection; None selects db.driver.conn. Its
-            role and transaction effects are described above.
-        :return: None; mapped objects and all marked metadata rows are removed on
-            success.
-        """
-        conn = conn if conn is not None else self.db.driver.conn
-
-        for num, table_lt_pair in iteritems(num_table_lt_map):
-
-            table, lt = table_lt_pair
-
-            conn.executescript(
-                """\
-                                DROP INDEX   IF EXISTS {table}_idx;
-                                DROP INDEX   IF EXISTS {lt}_aidx;
-                                DROP INDEX   IF EXISTS {lt}_bidx;
-                                DROP TRIGGER IF EXISTS fkc_update_{lt}_a;
-                                DROP TRIGGER IF EXISTS fkc_update_{lt}_b;
-                                DROP TRIGGER IF EXISTS fkc_insert_{lt};
-                                DROP TRIGGER IF EXISTS fkc_delete_{lt};
-                                DROP TRIGGER IF EXISTS fkc_insert_{table};
-                                DROP TRIGGER IF EXISTS fkc_delete_{table};
-                                DROP VIEW    IF EXISTS tag_browser_{table};
-                                DROP VIEW    IF EXISTS tag_browser_filtered_{table};
-                                DROP TABLE   IF EXISTS {table};
-                                DROP TABLE   IF EXISTS {lt};
-                                """.format(
-                    table=table, lt=lt
+        if not num_table_lt_map:
+            return
+        with self._cc_transaction(conn) as active:
+            for num in num_table_lt_map:
+                cursor = active.execute(
+                    "SELECT custom_column_mark_for_delete FROM custom_columns WHERE custom_column_id=?",
+                    (num,),
                 )
-            )
-
-        conn.execute("DELETE FROM custom_columns WHERE custom_column_mark_for_delete=1;")
-        conn.commit()
+                try:
+                    row = cursor.fetchone()
+                finally:
+                    cursor.close()
+                if row is None or not row[0]:
+                    raise ValueError(f"Custom column {num} is not marked for deletion")
+            for num, (table, lt) in num_table_lt_map.items():
+                objects = (
+                    ("INDEX", table + "_idx"),
+                    ("INDEX", lt + "_aidx"),
+                    ("INDEX", lt + "_bidx"),
+                    ("TRIGGER", "fkc_update_" + lt + "_a"),
+                    ("TRIGGER", "fkc_update_" + lt + "_b"),
+                    ("TRIGGER", "fkc_insert_" + lt),
+                    ("TRIGGER", "fkc_delete_" + lt),
+                    ("TRIGGER", "fkc_insert_" + table),
+                    ("TRIGGER", "fkc_delete_" + table),
+                    ("VIEW", "tag_browser_" + table),
+                    ("VIEW", "tag_browser_filtered_" + table),
+                    ("TABLE", table),
+                    ("TABLE", lt),
+                )
+                for kind, name in objects:
+                    quoted = '"' + name.replace('"', '""') + '"'
+                    active.execute(f"DROP {kind} IF EXISTS {quoted}").close()
+                active.execute(
+                    "DELETE FROM custom_columns WHERE custom_column_id=? AND custom_column_mark_for_delete=1",
+                    (num,),
+                ).close()

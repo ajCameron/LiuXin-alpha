@@ -23,7 +23,17 @@ def _q(identifier):
 
 @contextmanager
 def _stage(macros, conn, table, columns, rows, *, key_columns=None):
-    """Borrow a savepoint for a temporary table with the stored column types."""
+    """
+    Borrow a savepoint for a temporary table with the stored column types.
+
+    :param macros:
+    :param conn:
+    :param table:
+    :param columns:
+    :param rows:
+    :param key_columns:
+    :return:
+    """
     name = "liuxin_links_" + uuid.uuid4().hex
     target = _q(name)
     names = ", ".join(_q(column) for column in columns)
@@ -50,7 +60,14 @@ def _stage(macros, conn, table, columns, rows, *, key_columns=None):
 
 
 def _match(columns, left, right):
-    # Type-as-identity includes NULL. Endpoints on this path are integer IDs.
+    """
+    Type-as-identity includes NULL. Endpoints on this path are integer IDs.
+
+    :param columns:
+    :param left:
+    :param right:
+    :return:
+    """
     return " AND ".join(
         f"({left}.{_q(column)} = {right}.{_q(column)} OR "
         f"({left}.{_q(column)} IS NULL AND {right}.{_q(column)} IS NULL))"
@@ -59,11 +76,19 @@ def _match(columns, left, right):
 
 
 def upsert_links_batch(macros, conn, spec, owner, prepared):
-    """Upsert one owner's prepared links with two reads and staged insert sets.
+    """
+    Upsert one owner's prepared links with two reads and staged insert sets.
 
     Existing updates execute in input order, retaining immediate priority
     constraint behavior. Consecutive new rows with matching payload shapes
     share INSERT SELECT. Missing optional fields retain defaults/stored values.
+
+    :param macros:
+    :param conn:
+    :param spec:
+    :param owner:
+    :param prepared:
+    :return:
     """
     if not prepared:
         return ()
@@ -78,9 +103,11 @@ def upsert_links_batch(macros, conn, spec, owner, prepared):
         existing[identity] = row
     target = macros._macro_table_sql(spec.link_table)
     identity_columns = (spec.primary_link_col, spec.secondary_link_col)
+
     if spec.type_part_of_identity:
         identity_columns += (spec.type_link_col,)
     operations = []
+
     for link in prepared:
         found = macros._link_identity(spec, link) in existing
         values = {}
@@ -99,6 +126,7 @@ def upsert_links_batch(macros, conn, spec, owner, prepared):
             values[spec.priority_link_col] = link.priority
         values.update(link.extra)
         operations.append((found, tuple(sorted(values)), link, values))
+
     for (found, columns, null_type), group in groupby(
         operations,
         key=lambda op: (
@@ -121,6 +149,7 @@ def upsert_links_batch(macros, conn, spec, owner, prepared):
                 conn.execute(
                     f"INSERT INTO {target} ({names}) SELECT {names} FROM {staged} WHERE 1=1 ON CONFLICT DO NOTHING"
                 )
+
         elif columns:
             conditions = [
                 f"{_q(spec.primary_link_col)} = ?",
@@ -166,7 +195,17 @@ def upsert_links_batch(macros, conn, spec, owner, prepared):
 
 
 def replace_links_batch(macros, conn, spec, replacements, link_type, allowed_types):
-    """Replace many integer owners with bounded reads and staged set operations."""
+    """
+    Replace many integer owners with bounded reads and staged set operations.
+
+    :param macros:
+    :param conn:
+    :param spec:
+    :param replacements:
+    :param link_type:
+    :param allowed_types:
+    :return:
+    """
     if link_type is not LINK_TYPE_UNSET:
         if not spec.type_part_of_identity:
             raise InputIntegrityError(
@@ -204,6 +243,7 @@ def replace_links_batch(macros, conn, spec, replacements, link_type, allowed_typ
                     "replace_links received duplicate priorities in one ordering scope."
                 )
         desired[owner] = prepared
+
     if not desired:
         return {}
 

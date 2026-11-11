@@ -27,6 +27,12 @@ HELPER_TABLES = frozenset(
         "metadata_dirtied_books",
         "new_books",
         "normalized_identities",
+        "maintenance_metadata",
+        "maintenance_plugins",
+        "maintenance_subscriptions",
+        "maintenance_changes",
+        "maintenance_obligations",
+        "maintenance_projections",
         "preferences",
         # FRBR plugin data
         "works_plugin_data",
@@ -55,6 +61,12 @@ HELPER_TABLES = frozenset(
 # migrated; write APIs can still require the physical catalog.
 OPTIONAL_HELPER_TABLES = frozenset(
     {
+        "maintenance_metadata",
+        "maintenance_plugins",
+        "maintenance_subscriptions",
+        "maintenance_changes",
+        "maintenance_obligations",
+        "maintenance_projections",
         "column_metadata",
         "normalized_identities",
         # Storage bootstrapping owns the additive migration from catalogues

@@ -102,6 +102,13 @@ the operation returns no generated IDs. Use explicit IDs or a declared natural
 identity when later work needs to identify inserted records. A conflict in a
 later chunk rolls back earlier chunks.
 
+**2026-11-01:** insert/update batches resolve normalization declarations and
+physical headings once per operation. Each subsequent operation reloads the
+declarations, so committed policy edits and removals take effect without a global
+cache reset. Key-only updates still read display values on their write connection.
+Direct SQLite batches use the same preparation; PostgreSQL direct batches keep
+one snapshot per table, including when a batch contains several tables.
+
 `macros.delete_rows_where(table, where=...)` deletes an equality/NULL scope in
 one statement. A nonempty predicate is required. Composite-member replacement
 uses these helpers inside its existing transaction; typed member envelopes and

@@ -4,6 +4,10 @@ This follows the physical-table mixin split. The scope is all six efficiency
 gaps identified in the review, including production callers and regression
 coverage. A helper alone does not complete a task whose caller still scans.
 
+The original measurements below describe the 2026-10-31 checkpoint. The
+[2026-11-01 follow-up](#follow-up-measurements--2026-11-01) records opt-in progress
+callbacks, batch normalization preparation and the subsequent benchmark.
+
 ## Completion checklist
 
 - [x] Catalog pagination: SQL pages and cursor traversal, with bounded reads,
@@ -258,3 +262,57 @@ References are current materializing/scalar/fallback APIs, not historical-releas
 measurements. The harness deletes its own temporary catalogue and rolls back
 every measured write. The disposable PostgreSQL cluster was also stopped and its
 data removed after validation; logs and test telemetry were retained.
+
+### Follow-up measurements — 2026-11-01
+
+The parent delivery passed all CI gates at `8203b737` in
+[run 41195661329](https://github.com/ajCameron/LiuXin-alpha/actions/runs/41195661329):
+8,065 passed, 363 skipped and 17 xfailed in 34m02s. Full-suite telemetry recorded
+a 1.06 GiB process-tree RSS peak and no OOM kills or swap. The results below
+measure the subsequent `database-batch-overheads` implementation separately.
+
+Profiling identified repeated normalization metadata connections in batch writes
+and millions of Python VM progress callbacks during shared WEMI search. SQLite
+drivers now leave the progress handler unset by default while retaining
+[explicit observation/cancellation hooks](sqlite-progress.md). Portable
+inserts/updates and direct SQLite/PostgreSQL batches resolve declarations and
+headings once per operation (once per table for mixed PostgreSQL batches).
+Each new operation reloads the declarations; key-only updates continue to read
+display values on their write connection.
+
+All 12 scenarios were rerun with the same 50,000-Work dataset, one warmup and
+three timed samples per scenario. Every result digest agrees with the original
+report. The harness now also counts connection opens during its separate traced
+invocation. Counts cover operation work, excluding initial driver setup; SQL
+trace events include metadata and trigger activity.
+
+| Operation | Oct 31 median | Nov 1 median | Nov 1 SQL events | Nov 1 connection opens |
+| --- | ---: | ---: | ---: | ---: |
+| Batch insert 1,000 normalized tags, then roll back | 11,754 ms | 67.7 ms | 31 | 2 |
+| Scalar inserts in one transaction, then roll back | 10,596 ms | 23,932 ms | 6,016 | 1,001 |
+| Shared-manifestation Work-to-Item search | 2,500 ms | 965 ms | 46 | 0 |
+
+Batch trace events fall from 2,029 to 31. Its Python allocation peak is about
+0.59 MiB, versus 1.26 MiB for the current scalar reference. Process RSS peaks are
+about 66.3 and 70.5 MiB respectively, including interpreter/database startup.
+Shared WEMI search retains its integrity preflight and the same SQL-event count;
+the improvement comes from removing the default Python handler, with no query
+or schema change in this follow-up.
+
+Local timings vary substantially: the scalar samples span 15.8–25.6 seconds,
+and shared WEMI samples span 0.82–1.54 seconds. Historical timings therefore do
+not establish a controlled speedup factor. Connection/event counts and equivalent
+results provide the steadier evidence that the repeated preparation is removed.
+These measurements still exclude archive reading, storage effects and complete
+ingest throughput.
+
+The [complete follow-up report](sql-efficiency-overheads-benchmark-2026-11-01.json)
+contains all samples, memory measurements, counts and digests. The reproduction
+command above is unchanged. The disposable catalogue and PostgreSQL test data
+were removed after validation; logs and telemetry were retained under `/tmp`.
+
+Follow-up validation passed 176 broader batch/search/write/backend regressions
+and seven live PostgreSQL cases. The full local quality runner also passed
+formatting, annotation coverage, lint, typing, import budgets, dependency checks
+and both negative type-contract suites. Parent full-suite evidence above applies
+to the parent commit; the follow-up PR reports its own CI state.

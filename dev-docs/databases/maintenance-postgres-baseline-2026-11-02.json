@@ -1,0 +1,967 @@
+{
+  "date": "2026-11-02T22:58:10.371412+00:00",
+  "backend": "PostgreSQL",
+  "platform": "Linux-6.18.33.1-microsoft-standard-WSL2-x86_64-with-glibc2.39",
+  "python": "3.12.3",
+  "workload": {
+    "backend": "PostgreSQL",
+    "historical": 100,
+    "works": 100,
+    "concurrent": 20,
+    "batch": 50,
+    "delivery_page": 128,
+    "drain_passes": 25,
+    "max_seconds": 600,
+    "output": "/tmp/liuxin-maintenance-benchmark-postgres-baseline-20261102.json"
+  },
+  "kind": "synthetic Catalog import with real durable jobs",
+  "memory_scope": "application process; PostgreSQL server excluded",
+  "snapshots": [
+    {
+      "phase": "imported",
+      "elapsed_seconds": 136.63984401291236,
+      "counts": {
+        "works": 200,
+        "maintenance_changes": 200,
+        "maintenance_obligations": 400,
+        "maintenance_projections": 100
+      },
+      "catalogue_bytes": 5857280,
+      "job_ledger_bytes": 0,
+      "scratch_bytes": 0,
+      "pending": 200,
+      "oldest_pending_seconds": 54.445,
+      "process_peak_rss_kib": 95912,
+      "tmp_free_bytes": 989460783104,
+      "windows_free_bytes": 10196295680,
+      "rebuilds": []
+    },
+    {
+      "phase": "rebuilt_scheduled",
+      "elapsed_seconds": 138.2740749900695,
+      "counts": {
+        "works": 200,
+        "maintenance_changes": 400,
+        "maintenance_obligations": 800,
+        "maintenance_projections": 200
+      },
+      "catalogue_bytes": 6127616,
+      "job_ledger_bytes": 0,
+      "scratch_bytes": 0,
+      "pending": 400,
+      "oldest_pending_seconds": 56.08,
+      "process_peak_rss_kib": 95912,
+      "tmp_free_bytes": 989460504576,
+      "windows_free_bytes": 10196295680,
+      "rebuilds": [
+        {
+          "last_change_id": 400,
+          "name": "catalog.work-projections",
+          "phase": "waiting",
+          "plugins": [
+            "catalog.work-revision",
+            "catalog.work-summary"
+          ],
+          "projection_bound": "200",
+          "projection_cursor": "200",
+          "run_uuid": "289bd2fa-77c4-4194-b1e5-bcc03fcd19f2",
+          "scanned": 314,
+          "scheduled": 200,
+          "source_bound": 200,
+          "source_cursor": 200,
+          "source_table": "works",
+          "started_ms": 1793660422745,
+          "updated_ms": 1793660424275,
+          "pending_through_checkpoint": 400,
+          "scheduling_complete": true,
+          "needs_restart": false
+        }
+      ]
+    },
+    {
+      "phase": "draining",
+      "elapsed_seconds": 163.05519502307288,
+      "counts": {
+        "works": 220,
+        "maintenance_changes": 440,
+        "maintenance_obligations": 880,
+        "maintenance_projections": 233
+      },
+      "catalogue_bytes": 6209536,
+      "job_ledger_bytes": 294912,
+      "scratch_bytes": 294912,
+      "pending": 415,
+      "oldest_pending_seconds": 72.474,
+      "process_peak_rss_kib": 97380,
+      "tmp_free_bytes": 989460107264,
+      "windows_free_bytes": 10195746816,
+      "rebuilds": [
+        {
+          "last_change_id": 400,
+          "name": "catalog.work-projections",
+          "phase": "waiting",
+          "plugins": [
+            "catalog.work-revision",
+            "catalog.work-summary"
+          ],
+          "projection_bound": "200",
+          "projection_cursor": "200",
+          "run_uuid": "289bd2fa-77c4-4194-b1e5-bcc03fcd19f2",
+          "scanned": 314,
+          "scheduled": 200,
+          "source_bound": 200,
+          "source_cursor": 200,
+          "source_table": "works",
+          "started_ms": 1793660422745,
+          "updated_ms": 1793660424275,
+          "pending_through_checkpoint": 375,
+          "scheduling_complete": true,
+          "needs_restart": false
+        }
+      ]
+    },
+    {
+      "phase": "draining",
+      "elapsed_seconds": 177.2689962440636,
+      "counts": {
+        "works": 220,
+        "maintenance_changes": 440,
+        "maintenance_obligations": 880,
+        "maintenance_projections": 245
+      },
+      "catalogue_bytes": 6217728,
+      "job_ledger_bytes": 348160,
+      "scratch_bytes": 348160,
+      "pending": 390,
+      "oldest_pending_seconds": 78.901,
+      "process_peak_rss_kib": 97508,
+      "tmp_free_bytes": 989460008960,
+      "windows_free_bytes": 10195746816,
+      "rebuilds": [
+        {
+          "last_change_id": 400,
+          "name": "catalog.work-projections",
+          "phase": "waiting",
+          "plugins": [
+            "catalog.work-revision",
+            "catalog.work-summary"
+          ],
+          "projection_bound": "200",
+          "projection_cursor": "200",
+          "run_uuid": "289bd2fa-77c4-4194-b1e5-bcc03fcd19f2",
+          "scanned": 314,
+          "scheduled": 200,
+          "source_bound": 200,
+          "source_cursor": 200,
+          "source_table": "works",
+          "started_ms": 1793660422745,
+          "updated_ms": 1793660424275,
+          "pending_through_checkpoint": 350,
+          "scheduling_complete": true,
+          "needs_restart": false
+        }
+      ]
+    },
+    {
+      "phase": "draining",
+      "elapsed_seconds": 191.1807226529345,
+      "counts": {
+        "works": 220,
+        "maintenance_changes": 440,
+        "maintenance_obligations": 880,
+        "maintenance_projections": 258
+      },
+      "catalogue_bytes": 6234112,
+      "job_ledger_bytes": 393216,
+      "scratch_bytes": 393216,
+      "pending": 365,
+      "oldest_pending_seconds": 85.811,
+      "process_peak_rss_kib": 97508,
+      "tmp_free_bytes": 989459902464,
+      "windows_free_bytes": 10195812352,
+      "rebuilds": [
+        {
+          "last_change_id": 400,
+          "name": "catalog.work-projections",
+          "phase": "waiting",
+          "plugins": [
+            "catalog.work-revision",
+            "catalog.work-summary"
+          ],
+          "projection_bound": "200",
+          "projection_cursor": "200",
+          "run_uuid": "289bd2fa-77c4-4194-b1e5-bcc03fcd19f2",
+          "scanned": 314,
+          "scheduled": 200,
+          "source_bound": 200,
+          "source_cursor": 200,
+          "source_table": "works",
+          "started_ms": 1793660422745,
+          "updated_ms": 1793660424275,
+          "pending_through_checkpoint": 325,
+          "scheduling_complete": true,
+          "needs_restart": false
+        }
+      ]
+    },
+    {
+      "phase": "draining",
+      "elapsed_seconds": 203.77549362997524,
+      "counts": {
+        "works": 220,
+        "maintenance_changes": 440,
+        "maintenance_obligations": 880,
+        "maintenance_projections": 270
+      },
+      "catalogue_bytes": 6234112,
+      "job_ledger_bytes": 450560,
+      "scratch_bytes": 450560,
+      "pending": 340,
+      "oldest_pending_seconds": 91.519,
+      "process_peak_rss_kib": 97508,
+      "tmp_free_bytes": 989459841024,
+      "windows_free_bytes": 10195812352,
+      "rebuilds": [
+        {
+          "last_change_id": 400,
+          "name": "catalog.work-projections",
+          "phase": "waiting",
+          "plugins": [
+            "catalog.work-revision",
+            "catalog.work-summary"
+          ],
+          "projection_bound": "200",
+          "projection_cursor": "200",
+          "run_uuid": "289bd2fa-77c4-4194-b1e5-bcc03fcd19f2",
+          "scanned": 314,
+          "scheduled": 200,
+          "source_bound": 200,
+          "source_cursor": 200,
+          "source_table": "works",
+          "started_ms": 1793660422745,
+          "updated_ms": 1793660424275,
+          "pending_through_checkpoint": 300,
+          "scheduling_complete": true,
+          "needs_restart": false
+        }
+      ]
+    },
+    {
+      "phase": "draining",
+      "elapsed_seconds": 214.38050574390218,
+      "counts": {
+        "works": 220,
+        "maintenance_changes": 440,
+        "maintenance_obligations": 880,
+        "maintenance_projections": 283
+      },
+      "catalogue_bytes": 6234112,
+      "job_ledger_bytes": 495616,
+      "scratch_bytes": 495616,
+      "pending": 315,
+      "oldest_pending_seconds": 95.029,
+      "process_peak_rss_kib": 97508,
+      "tmp_free_bytes": 989459775488,
+      "windows_free_bytes": 10195812352,
+      "rebuilds": [
+        {
+          "last_change_id": 400,
+          "name": "catalog.work-projections",
+          "phase": "waiting",
+          "plugins": [
+            "catalog.work-revision",
+            "catalog.work-summary"
+          ],
+          "projection_bound": "200",
+          "projection_cursor": "200",
+          "run_uuid": "289bd2fa-77c4-4194-b1e5-bcc03fcd19f2",
+          "scanned": 314,
+          "scheduled": 200,
+          "source_bound": 200,
+          "source_cursor": 200,
+          "source_table": "works",
+          "started_ms": 1793660422745,
+          "updated_ms": 1793660424275,
+          "pending_through_checkpoint": 275,
+          "scheduling_complete": true,
+          "needs_restart": false
+        }
+      ]
+    },
+    {
+      "phase": "draining",
+      "elapsed_seconds": 226.97088991990313,
+      "counts": {
+        "works": 220,
+        "maintenance_changes": 440,
+        "maintenance_obligations": 880,
+        "maintenance_projections": 295
+      },
+      "catalogue_bytes": 6234112,
+      "job_ledger_bytes": 565248,
+      "scratch_bytes": 565248,
+      "pending": 290,
+      "oldest_pending_seconds": 100.976,
+      "process_peak_rss_kib": 97508,
+      "tmp_free_bytes": 989459673088,
+      "windows_free_bytes": 10195800064,
+      "rebuilds": [
+        {
+          "last_change_id": 400,
+          "name": "catalog.work-projections",
+          "phase": "waiting",
+          "plugins": [
+            "catalog.work-revision",
+            "catalog.work-summary"
+          ],
+          "projection_bound": "200",
+          "projection_cursor": "200",
+          "run_uuid": "289bd2fa-77c4-4194-b1e5-bcc03fcd19f2",
+          "scanned": 314,
+          "scheduled": 200,
+          "source_bound": 200,
+          "source_cursor": 200,
+          "source_table": "works",
+          "started_ms": 1793660422745,
+          "updated_ms": 1793660424275,
+          "pending_through_checkpoint": 250,
+          "scheduling_complete": true,
+          "needs_restart": false
+        }
+      ]
+    },
+    {
+      "phase": "draining",
+      "elapsed_seconds": 239.27880616206676,
+      "counts": {
+        "works": 220,
+        "maintenance_changes": 440,
+        "maintenance_obligations": 880,
+        "maintenance_projections": 308
+      },
+      "catalogue_bytes": 6250496,
+      "job_ledger_bytes": 618496,
+      "scratch_bytes": 618496,
+      "pending": 265,
+      "oldest_pending_seconds": 105.135,
+      "process_peak_rss_kib": 97508,
+      "tmp_free_bytes": 989459599360,
+      "windows_free_bytes": 10195734528,
+      "rebuilds": [
+        {
+          "last_change_id": 400,
+          "name": "catalog.work-projections",
+          "phase": "waiting",
+          "plugins": [
+            "catalog.work-revision",
+            "catalog.work-summary"
+          ],
+          "projection_bound": "200",
+          "projection_cursor": "200",
+          "run_uuid": "289bd2fa-77c4-4194-b1e5-bcc03fcd19f2",
+          "scanned": 314,
+          "scheduled": 200,
+          "source_bound": 200,
+          "source_cursor": 200,
+          "source_table": "works",
+          "started_ms": 1793660422745,
+          "updated_ms": 1793660424275,
+          "pending_through_checkpoint": 225,
+          "scheduling_complete": true,
+          "needs_restart": false
+        }
+      ]
+    },
+    {
+      "phase": "draining",
+      "elapsed_seconds": 251.71704776003025,
+      "counts": {
+        "works": 220,
+        "maintenance_changes": 440,
+        "maintenance_obligations": 880,
+        "maintenance_projections": 320
+      },
+      "catalogue_bytes": 6307840,
+      "job_ledger_bytes": 671744,
+      "scratch_bytes": 671744,
+      "pending": 240,
+      "oldest_pending_seconds": 110.851,
+      "process_peak_rss_kib": 97508,
+      "tmp_free_bytes": 989459468288,
+      "windows_free_bytes": 10162180096,
+      "rebuilds": [
+        {
+          "last_change_id": 400,
+          "name": "catalog.work-projections",
+          "phase": "waiting",
+          "plugins": [
+            "catalog.work-revision",
+            "catalog.work-summary"
+          ],
+          "projection_bound": "200",
+          "projection_cursor": "200",
+          "run_uuid": "289bd2fa-77c4-4194-b1e5-bcc03fcd19f2",
+          "scanned": 314,
+          "scheduled": 200,
+          "source_bound": 200,
+          "source_cursor": 200,
+          "source_table": "works",
+          "started_ms": 1793660422745,
+          "updated_ms": 1793660424275,
+          "pending_through_checkpoint": 200,
+          "scheduling_complete": true,
+          "needs_restart": false
+        }
+      ]
+    },
+    {
+      "phase": "draining",
+      "elapsed_seconds": 265.12806688598357,
+      "counts": {
+        "works": 220,
+        "maintenance_changes": 440,
+        "maintenance_obligations": 880,
+        "maintenance_projections": 345
+      },
+      "catalogue_bytes": 6307840,
+      "job_ledger_bytes": 716800,
+      "scratch_bytes": 716800,
+      "pending": 215,
+      "oldest_pending_seconds": 124.237,
+      "process_peak_rss_kib": 97508,
+      "tmp_free_bytes": 989459374080,
+      "windows_free_bytes": 10161995776,
+      "rebuilds": [
+        {
+          "last_change_id": 400,
+          "name": "catalog.work-projections",
+          "phase": "waiting",
+          "plugins": [
+            "catalog.work-revision",
+            "catalog.work-summary"
+          ],
+          "projection_bound": "200",
+          "projection_cursor": "200",
+          "run_uuid": "289bd2fa-77c4-4194-b1e5-bcc03fcd19f2",
+          "scanned": 314,
+          "scheduled": 200,
+          "source_bound": 200,
+          "source_cursor": 200,
+          "source_table": "works",
+          "started_ms": 1793660422745,
+          "updated_ms": 1793660424275,
+          "pending_through_checkpoint": 175,
+          "scheduling_complete": true,
+          "needs_restart": false
+        }
+      ]
+    },
+    {
+      "phase": "draining",
+      "elapsed_seconds": 278.4761506600771,
+      "counts": {
+        "works": 220,
+        "maintenance_changes": 440,
+        "maintenance_obligations": 880,
+        "maintenance_projections": 370
+      },
+      "catalogue_bytes": 6307840,
+      "job_ledger_bytes": 761856,
+      "scratch_bytes": 761856,
+      "pending": 190,
+      "oldest_pending_seconds": 135.425,
+      "process_peak_rss_kib": 97508,
+      "tmp_free_bytes": 989459316736,
+      "windows_free_bytes": 10161991680,
+      "rebuilds": [
+        {
+          "last_change_id": 400,
+          "name": "catalog.work-projections",
+          "phase": "waiting",
+          "plugins": [
+            "catalog.work-revision",
+            "catalog.work-summary"
+          ],
+          "projection_bound": "200",
+          "projection_cursor": "200",
+          "run_uuid": "289bd2fa-77c4-4194-b1e5-bcc03fcd19f2",
+          "scanned": 314,
+          "scheduled": 200,
+          "source_bound": 200,
+          "source_cursor": 200,
+          "source_table": "works",
+          "started_ms": 1793660422745,
+          "updated_ms": 1793660424275,
+          "pending_through_checkpoint": 150,
+          "scheduling_complete": true,
+          "needs_restart": false
+        }
+      ]
+    },
+    {
+      "phase": "draining",
+      "elapsed_seconds": 291.69733231607825,
+      "counts": {
+        "works": 220,
+        "maintenance_changes": 440,
+        "maintenance_obligations": 880,
+        "maintenance_projections": 395
+      },
+      "catalogue_bytes": 6316032,
+      "job_ledger_bytes": 819200,
+      "scratch_bytes": 819200,
+      "pending": 165,
+      "oldest_pending_seconds": 148.612,
+      "process_peak_rss_kib": 97508,
+      "tmp_free_bytes": 989459222528,
+      "windows_free_bytes": 10161971200,
+      "rebuilds": [
+        {
+          "last_change_id": 400,
+          "name": "catalog.work-projections",
+          "phase": "waiting",
+          "plugins": [
+            "catalog.work-revision",
+            "catalog.work-summary"
+          ],
+          "projection_bound": "200",
+          "projection_cursor": "200",
+          "run_uuid": "289bd2fa-77c4-4194-b1e5-bcc03fcd19f2",
+          "scanned": 314,
+          "scheduled": 200,
+          "source_bound": 200,
+          "source_cursor": 200,
+          "source_table": "works",
+          "started_ms": 1793660422745,
+          "updated_ms": 1793660424275,
+          "pending_through_checkpoint": 125,
+          "scheduling_complete": true,
+          "needs_restart": false
+        }
+      ]
+    },
+    {
+      "phase": "draining",
+      "elapsed_seconds": 303.53787827910855,
+      "counts": {
+        "works": 220,
+        "maintenance_changes": 440,
+        "maintenance_obligations": 880,
+        "maintenance_projections": 420
+      },
+      "catalogue_bytes": 6324224,
+      "job_ledger_bytes": 868352,
+      "scratch_bytes": 868352,
+      "pending": 140,
+      "oldest_pending_seconds": 159.293,
+      "process_peak_rss_kib": 97508,
+      "tmp_free_bytes": 989459161088,
+      "windows_free_bytes": 10161971200,
+      "rebuilds": [
+        {
+          "last_change_id": 400,
+          "name": "catalog.work-projections",
+          "phase": "waiting",
+          "plugins": [
+            "catalog.work-revision",
+            "catalog.work-summary"
+          ],
+          "projection_bound": "200",
+          "projection_cursor": "200",
+          "run_uuid": "289bd2fa-77c4-4194-b1e5-bcc03fcd19f2",
+          "scanned": 314,
+          "scheduled": 200,
+          "source_bound": 200,
+          "source_cursor": 200,
+          "source_table": "works",
+          "started_ms": 1793660422745,
+          "updated_ms": 1793660424275,
+          "pending_through_checkpoint": 100,
+          "scheduling_complete": true,
+          "needs_restart": false
+        }
+      ]
+    },
+    {
+      "phase": "draining",
+      "elapsed_seconds": 314.7009775910992,
+      "counts": {
+        "works": 220,
+        "maintenance_changes": 440,
+        "maintenance_obligations": 880,
+        "maintenance_projections": 420
+      },
+      "catalogue_bytes": 6324224,
+      "job_ledger_bytes": 913408,
+      "scratch_bytes": 913408,
+      "pending": 115,
+      "oldest_pending_seconds": 170.431,
+      "process_peak_rss_kib": 97508,
+      "tmp_free_bytes": 989459099648,
+      "windows_free_bytes": 10161971200,
+      "rebuilds": [
+        {
+          "last_change_id": 400,
+          "name": "catalog.work-projections",
+          "phase": "waiting",
+          "plugins": [
+            "catalog.work-revision",
+            "catalog.work-summary"
+          ],
+          "projection_bound": "200",
+          "projection_cursor": "200",
+          "run_uuid": "289bd2fa-77c4-4194-b1e5-bcc03fcd19f2",
+          "scanned": 314,
+          "scheduled": 200,
+          "source_bound": 200,
+          "source_cursor": 200,
+          "source_table": "works",
+          "started_ms": 1793660422745,
+          "updated_ms": 1793660424275,
+          "pending_through_checkpoint": 75,
+          "scheduling_complete": true,
+          "needs_restart": false
+        }
+      ]
+    },
+    {
+      "phase": "draining",
+      "elapsed_seconds": 324.52859641006216,
+      "counts": {
+        "works": 220,
+        "maintenance_changes": 440,
+        "maintenance_obligations": 880,
+        "maintenance_projections": 420
+      },
+      "catalogue_bytes": 6324224,
+      "job_ledger_bytes": 929792,
+      "scratch_bytes": 929792,
+      "pending": 90,
+      "oldest_pending_seconds": 180.159,
+      "process_peak_rss_kib": 97508,
+      "tmp_free_bytes": 989459075072,
+      "windows_free_bytes": 10161967104,
+      "rebuilds": [
+        {
+          "last_change_id": 400,
+          "name": "catalog.work-projections",
+          "phase": "waiting",
+          "plugins": [
+            "catalog.work-revision",
+            "catalog.work-summary"
+          ],
+          "projection_bound": "200",
+          "projection_cursor": "200",
+          "run_uuid": "289bd2fa-77c4-4194-b1e5-bcc03fcd19f2",
+          "scanned": 314,
+          "scheduled": 200,
+          "source_bound": 200,
+          "source_cursor": 200,
+          "source_table": "works",
+          "started_ms": 1793660422745,
+          "updated_ms": 1793660424275,
+          "pending_through_checkpoint": 50,
+          "scheduling_complete": true,
+          "needs_restart": false
+        }
+      ]
+    },
+    {
+      "phase": "draining",
+      "elapsed_seconds": 332.618764918996,
+      "counts": {
+        "works": 220,
+        "maintenance_changes": 440,
+        "maintenance_obligations": 880,
+        "maintenance_projections": 420
+      },
+      "catalogue_bytes": 6324224,
+      "job_ledger_bytes": 942080,
+      "scratch_bytes": 942080,
+      "pending": 65,
+      "oldest_pending_seconds": 187.165,
+      "process_peak_rss_kib": 97508,
+      "tmp_free_bytes": 989459058688,
+      "windows_free_bytes": 10162032640,
+      "rebuilds": [
+        {
+          "last_change_id": 400,
+          "name": "catalog.work-projections",
+          "phase": "waiting",
+          "plugins": [
+            "catalog.work-revision",
+            "catalog.work-summary"
+          ],
+          "projection_bound": "200",
+          "projection_cursor": "200",
+          "run_uuid": "289bd2fa-77c4-4194-b1e5-bcc03fcd19f2",
+          "scanned": 314,
+          "scheduled": 200,
+          "source_bound": 200,
+          "source_cursor": 200,
+          "source_table": "works",
+          "started_ms": 1793660422745,
+          "updated_ms": 1793660424275,
+          "pending_through_checkpoint": 25,
+          "scheduling_complete": true,
+          "needs_restart": false
+        }
+      ]
+    },
+    {
+      "phase": "draining",
+      "elapsed_seconds": 339.7972910050303,
+      "counts": {
+        "works": 220,
+        "maintenance_changes": 440,
+        "maintenance_obligations": 880,
+        "maintenance_projections": 420
+      },
+      "catalogue_bytes": 6324224,
+      "job_ledger_bytes": 962560,
+      "scratch_bytes": 962560,
+      "pending": 40,
+      "oldest_pending_seconds": 193.981,
+      "process_peak_rss_kib": 97508,
+      "tmp_free_bytes": 989459009536,
+      "windows_free_bytes": 10161963008,
+      "rebuilds": [
+        {
+          "last_change_id": 400,
+          "name": "catalog.work-projections",
+          "phase": "complete",
+          "plugins": [
+            "catalog.work-revision",
+            "catalog.work-summary"
+          ],
+          "projection_bound": "200",
+          "projection_cursor": "200",
+          "run_uuid": "289bd2fa-77c4-4194-b1e5-bcc03fcd19f2",
+          "scanned": 314,
+          "scheduled": 200,
+          "source_bound": 200,
+          "source_cursor": 200,
+          "source_table": "works",
+          "started_ms": 1793660422745,
+          "updated_ms": 1793660424275,
+          "pending_through_checkpoint": 0,
+          "scheduling_complete": true,
+          "needs_restart": false
+        }
+      ]
+    },
+    {
+      "phase": "draining",
+      "elapsed_seconds": 345.034629809903,
+      "counts": {
+        "works": 220,
+        "maintenance_changes": 440,
+        "maintenance_obligations": 880,
+        "maintenance_projections": 433
+      },
+      "catalogue_bytes": 6324224,
+      "job_ledger_bytes": 970752,
+      "scratch_bytes": 970752,
+      "pending": 15,
+      "oldest_pending_seconds": 191.455,
+      "process_peak_rss_kib": 97508,
+      "tmp_free_bytes": 989458997248,
+      "windows_free_bytes": 10161942528,
+      "rebuilds": [
+        {
+          "last_change_id": 400,
+          "name": "catalog.work-projections",
+          "phase": "complete",
+          "plugins": [
+            "catalog.work-revision",
+            "catalog.work-summary"
+          ],
+          "projection_bound": "200",
+          "projection_cursor": "200",
+          "run_uuid": "289bd2fa-77c4-4194-b1e5-bcc03fcd19f2",
+          "scanned": 314,
+          "scheduled": 200,
+          "source_bound": 200,
+          "source_cursor": 200,
+          "source_table": "works",
+          "started_ms": 1793660422745,
+          "updated_ms": 1793660424275,
+          "pending_through_checkpoint": 0,
+          "scheduling_complete": true,
+          "needs_restart": false
+        }
+      ]
+    },
+    {
+      "phase": "draining",
+      "elapsed_seconds": 347.73247232311405,
+      "counts": {
+        "works": 220,
+        "maintenance_changes": 440,
+        "maintenance_obligations": 880,
+        "maintenance_projections": 440
+      },
+      "catalogue_bytes": 6332416,
+      "job_ledger_bytes": 978944,
+      "scratch_bytes": 978944,
+      "pending": 0,
+      "oldest_pending_seconds": 0,
+      "process_peak_rss_kib": 97508,
+      "tmp_free_bytes": 989458976768,
+      "windows_free_bytes": 10161942528,
+      "rebuilds": [
+        {
+          "last_change_id": 400,
+          "name": "catalog.work-projections",
+          "phase": "complete",
+          "plugins": [
+            "catalog.work-revision",
+            "catalog.work-summary"
+          ],
+          "projection_bound": "200",
+          "projection_cursor": "200",
+          "run_uuid": "289bd2fa-77c4-4194-b1e5-bcc03fcd19f2",
+          "scanned": 314,
+          "scheduled": 200,
+          "source_bound": 200,
+          "source_cursor": 200,
+          "source_table": "works",
+          "started_ms": 1793660422745,
+          "updated_ms": 1793660424275,
+          "pending_through_checkpoint": 0,
+          "scheduling_complete": true,
+          "needs_restart": false
+        }
+      ]
+    },
+    {
+      "phase": "before_pruning",
+      "elapsed_seconds": 347.7921834299341,
+      "counts": {
+        "works": 220,
+        "maintenance_changes": 440,
+        "maintenance_obligations": 880,
+        "maintenance_projections": 440
+      },
+      "catalogue_bytes": 6332416,
+      "job_ledger_bytes": 978944,
+      "scratch_bytes": 978944,
+      "pending": 0,
+      "oldest_pending_seconds": 0,
+      "process_peak_rss_kib": 97508,
+      "tmp_free_bytes": 989458976768,
+      "windows_free_bytes": 10161942528,
+      "rebuilds": [
+        {
+          "last_change_id": 400,
+          "name": "catalog.work-projections",
+          "phase": "complete",
+          "plugins": [
+            "catalog.work-revision",
+            "catalog.work-summary"
+          ],
+          "projection_bound": "200",
+          "projection_cursor": "200",
+          "run_uuid": "289bd2fa-77c4-4194-b1e5-bcc03fcd19f2",
+          "scanned": 314,
+          "scheduled": 200,
+          "source_bound": 200,
+          "source_cursor": 200,
+          "source_table": "works",
+          "started_ms": 1793660422745,
+          "updated_ms": 1793660424275,
+          "pending_through_checkpoint": 0,
+          "scheduling_complete": true,
+          "needs_restart": false
+        }
+      ]
+    },
+    {
+      "phase": "after_pruning",
+      "elapsed_seconds": 347.93444323702715,
+      "counts": {
+        "works": 220,
+        "maintenance_changes": 0,
+        "maintenance_obligations": 0,
+        "maintenance_projections": 440
+      },
+      "catalogue_bytes": 6332416,
+      "job_ledger_bytes": 978944,
+      "scratch_bytes": 978944,
+      "pending": 0,
+      "oldest_pending_seconds": 0,
+      "process_peak_rss_kib": 97508,
+      "tmp_free_bytes": 989458976768,
+      "windows_free_bytes": 10161942528,
+      "rebuilds": [
+        {
+          "last_change_id": 400,
+          "name": "catalog.work-projections",
+          "phase": "complete",
+          "plugins": [
+            "catalog.work-revision",
+            "catalog.work-summary"
+          ],
+          "projection_bound": "200",
+          "projection_cursor": "200",
+          "run_uuid": "289bd2fa-77c4-4194-b1e5-bcc03fcd19f2",
+          "scanned": 314,
+          "scheduled": 200,
+          "source_bound": 200,
+          "source_cursor": 200,
+          "source_table": "works",
+          "started_ms": 1793660422745,
+          "updated_ms": 1793660424275,
+          "pending_through_checkpoint": 0,
+          "scheduling_complete": true,
+          "needs_restart": false
+        }
+      ]
+    }
+  ],
+  "complete": true,
+  "historical_import": {
+    "works": 100,
+    "seconds": 63.00966462492943,
+    "works_per_second": 1.5870581218811242,
+    "transaction_seconds": [
+      34.399304065154865,
+      28.61035487288609
+    ],
+    "transaction_median_seconds": 31.50482946902048,
+    "transaction_max_seconds": 34.399304065154865
+  },
+  "captured_import": {
+    "works": 100,
+    "seconds": 55.57444627699442,
+    "works_per_second": 1.7993881486750136,
+    "transaction_seconds": [
+      28.016055586049333,
+      27.55838593398221
+    ],
+    "transaction_median_seconds": 27.78722076001577,
+    "transaction_max_seconds": 28.016055586049333
+  },
+  "rebuild_run_uuid": "289bd2fa-77c4-4194-b1e5-bcc03fcd19f2",
+  "concurrent_import": {
+    "works": 20,
+    "seconds": 11.983739234972745,
+    "works_per_second": 1.6689281707359753,
+    "transaction_seconds": [
+      11.983737162081525
+    ],
+    "transaction_median_seconds": 11.983737162081525,
+    "transaction_max_seconds": 11.983737162081525
+  },
+  "drain": {
+    "seconds": 209.45846635801718,
+    "job_passes": 440
+  },
+  "verification": {
+    "works_checked": 220,
+    "all_counts_and_revisions_match": true
+  },
+  "pruned_changes": 440,
+  "total_seconds": 348.06392099009827,
+  "implementation_stage": "Unbatched maintenance delivery baseline after resumable rebuilds and explicit plugin upgrades, 2026-11-02."
+}

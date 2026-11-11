@@ -1,4 +1,3 @@
-
 """
 Update row dictionaries, individual cells and batches of one field.
 
@@ -11,15 +10,13 @@ from __future__ import annotations
 
 from typing import Any
 
+from LiuXin_alpha.databases.driver_wrapper._base import DriverWrapperBase
+from LiuXin_alpha.databases.driver_wrapper.diagnostics import observed
+from LiuXin_alpha.errors import InputIntegrityError
 from LiuXin_alpha.utils.logging import default_log
 
-from LiuXin_alpha.errors import InputIntegrityError
 
-from typing import TYPE_CHECKING, Optional
-
-
-
-class DriverWrapperUpdateMixin:
+class DriverWrapperUpdateMixin(DriverWrapperBase):
     """
     Update row dictionaries, individual cells and batches of one field.
 
@@ -30,8 +27,10 @@ class DriverWrapperUpdateMixin:
     Example:
         >>> wrapper.update_column("works", 1, "work_title", "Revised")  # doctest: +SKIP
     """
+
     # Todo: Again, pretty sure we can hack this for typing
-    def update_row(self, row_dict: dict[str, Any]) -> bool:
+    @observed("update_row", count="unknown")
+    def update_row(self, row_dict: dict[str, Any]) -> bool | None:
         """
         Update the supplied columns of an identified row without mutating the input.
 
@@ -52,14 +51,18 @@ class DriverWrapperUpdateMixin:
         status = self.driver.direct_update_row_dict(row_dict)
         return status
 
-    def update_column(self, table: str, row_id: int, column: str, new_value: Any) -> bool:
+    @observed("update_column", count="unknown")
+    def update_column(
+        self, table: str, row_id: int, column: str, new_value: Any
+    ) -> bool:
         """
-        Read a row, replace one cell and write it back under the lock context.
+        Update one cell and its derived keys without replaying unrelated columns.
 
         First resolves column ownership; mismatching table names raise
-        InputIntegrityError. Within self.lock, fetches the row, mutates its mapping and
-        calls update_row(), ignoring that result. Missing-row or backend write errors
-        propagate. The reentrant mutex serializes cooperating callers on this wrapper;
+        InputIntegrityError. Within self.lock, checks that the row exists and submits
+        only the requested field through the normalization-aware batch writer.
+        Missing rows raise InputIntegrityError; backend write errors propagate.
+        The reentrant mutex serializes cooperating callers on this wrapper;
         the row writer owns its SQL transaction. The mutex alone does not group multiple
         writes into one transaction or coordinate separate database facades.
 
@@ -89,20 +92,23 @@ class DriverWrapperUpdateMixin:
             )
             raise InputIntegrityError(err_str)
 
-        # Having the row deleted or changed while this function runs would be annoying
-        with self.lock:
-            # Get the row - update the column - write back to the database
-            target_row = self.get_row_from_id(table=table, row_id=row_id)
-            target_row[column] = new_value
-            self.update_row(target_row)
+        lock = self.lock
+        if lock is None:
+            raise RuntimeError("The driver wrapper is closed")
+        with lock:
+            if not self.get_row_from_id(table=table, row_id=row_id):
+                raise InputIntegrityError(f"No row {row_id!r} in {table!r}")
+            self.update_columns({row_id: new_value}, field=column, table=table)
 
         return True
 
+    @observed("update_columns", count="unknown")
     def update_columns(
-            self,
-            values_map: dict[int, Any],
-            field: Optional[str] = None,
-            table: Optional[str] = None) -> bool:
+        self,
+        values_map: dict[int, Any],
+        field: str | None = None,
+        table: str | None = None,
+    ) -> bool | None:
         """
         Update one field for each ID as an atomic batch, preserving derived keys.
 
@@ -121,4 +127,6 @@ class DriverWrapperUpdateMixin:
             hint.
         :return: None for shared SQL; True for PostgreSQL.
         """
-        return self.driver.direct_update_columns(id_values_map=values_map, field=field, table=table)
+        return self.driver.direct_update_columns(
+            id_values_map=values_map, field=field, table=table
+        )

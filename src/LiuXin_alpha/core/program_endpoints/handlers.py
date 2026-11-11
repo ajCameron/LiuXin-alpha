@@ -210,7 +210,7 @@ class BackupMaintenanceHandlers(Protocol):
         self, runtime: CoreRuntime, query: CoreQuery
     ) -> Mapping[str, object]:
         """
-        Delegate duplicate-value discovery for one table/column to the legacy maintenance helper.
+        Inspect duplicate candidates through Catalog's scoped, bounded reader.
 
         See :func:`LiuXin_alpha.core.program_services.maintenance.maintenance_duplicates_find`
         for the maintained implementation's validation and failure boundaries.
@@ -220,8 +220,8 @@ class BackupMaintenanceHandlers(Protocol):
 
 
         :param runtime: Runtime whose database is inspected by find_duplicates.
-        :param query: Query with required table/column text and optional comparison mode.
-        :return: Selected table, column, comparison, and plain-projected duplicate groups.
+        :param query: Required table/column and optional comparison, max_rows and where.
+        :return: Comparison policy, scanned count and scoped duplicate candidate groups.
         """
         ...
 
@@ -288,13 +288,110 @@ class CatalogSearchHandlers(Protocol):
     """
     Require field discovery, WEMI/Agent/identifier traversal and mutation, and global-search handlers.
 
-    Catalog inspection and search are queries. Identifier replacement and
-    Agent linking are explicit command methods rather than generic mutation hooks.
+    Catalog inspection and search are queries. Identifier replacement, Agent
+    linking, renaming and sort repair use explicit command methods.
 
     Example:
         >>> from LiuXin_alpha.core.program_endpoints import catalog_search
         >>> catalog_search.install_queries(implementation, runtime)  # doctest: +SKIP
     """
+
+    def catalog_inherited_tags(
+        self, runtime: CoreRuntime, query: CoreQuery
+    ) -> Mapping[str, object]:
+        """
+        Inspect bounded WEMI tag contributions without installation or repair.
+
+        See :func:`LiuXin_alpha.core.program_services.catalog.catalog_inherited_tags`
+        for the maintained implementation’s validation and failure boundaries.
+
+        :param runtime: Runtime supplying Catalog's read-only inherited-tag owner.
+        :param query: Query with level, entity_id and optional max_rows (default 10000).
+        :return: Distinct tags with all attributed source identities and WEMI paths.
+        :raises CoreDispatchError: For invalid fields or an incomplete bounded scan.
+        """
+        ...
+
+    def catalog_repair_merge(
+        self, runtime: CoreRuntime, command: CoreCommand
+    ) -> Mapping[str, object]:
+        """
+        Preview/apply the Catalog merge owner with explicit conflict decisions.
+
+        See :func:`LiuXin_alpha.core.program_services.catalog.catalog_repair_merge`
+        for the maintained implementation’s validation and failure boundaries.
+
+        :param runtime: Runtime supplying Catalog repairs and cache reconciliation.
+        :param command: Merge request with repository, source_id, target_id, optional
+            scalar/relationship resolutions, max_rows, dry_run and expected_state.
+        :return: The complete preview, or the committed repair receipt after cache
+            reconciliation. Domain validation and post-commit cache errors propagate.
+        """
+        ...
+
+    def catalog_repair_cleanup(
+        self, runtime: CoreRuntime, command: CoreCommand
+    ) -> Mapping[str, object]:
+        """
+        Preview/apply explicitly selected disposal and preservation decisions.
+
+        See :func:`LiuXin_alpha.core.program_services.catalog.catalog_repair_cleanup`
+        for the maintained implementation’s validation and failure boundaries.
+
+        :param runtime: Runtime supplying Catalog repairs and cache reconciliation.
+        :param command: Request with repository, candidates and optional max_rows,
+            dry_run and expected_state. Each candidate supplies a decision and reason.
+        :return: The complete preview, or the committed disposal receipt after cache
+            reconciliation. Domain validation and post-commit cache errors propagate.
+        """
+        ...
+
+    def catalog_repair_receipt(
+        self, runtime: CoreRuntime, query: CoreQuery
+    ) -> Mapping[str, object]:
+        """
+        Read a durable Catalog repair receipt without installing audit storage.
+
+        See :func:`LiuXin_alpha.core.program_services.catalog.catalog_repair_receipt`
+        for the maintained implementation’s validation and failure boundaries.
+
+        :param runtime: Runtime supplying the Catalog database and read-only snapshot.
+        :param query: Query with the nonempty receipt_id returned by an applied repair.
+        :return: The requested identity and its stored receipt, or None when absent.
+        """
+        ...
+
+    def catalog_agent_rename(
+        self, runtime: CoreRuntime, command: CoreCommand
+    ) -> Mapping[str, object]:
+        """
+        Preview or apply Catalog's atomic Agent rename and sort policy.
+
+        See :func:`LiuXin_alpha.core.program_services.catalog.catalog_agent_rename`
+        for the maintained implementation’s validation and failure boundaries.
+
+        :param runtime: Runtime supplying Catalog Agent mutations and cache reconciliation.
+        :param command: Request with agent_id, name and optional sort_mode, sort_name,
+            person_sort_method and dry_run (default True).
+        :return: The validated rename preview or applied result, reconciled only if updated.
+        """
+        ...
+
+    def catalog_agent_sort_repair(
+        self, runtime: CoreRuntime, command: CoreCommand
+    ) -> Mapping[str, object]:
+        """
+        Preview or atomically repair an explicit bounded set of Agent sorts.
+
+        See :func:`LiuXin_alpha.core.program_services.catalog.catalog_agent_sort_repair`
+        for the maintained implementation’s validation and failure boundaries.
+
+        :param runtime: Runtime supplying Catalog Agent mutations and cache reconciliation.
+        :param command: Request with agent_ids and optional sort_mode, person_sort_method
+            and dry_run (default True). Catalog owns ID and batch-bound validation.
+        :return: The sort preview or applied result, reconciled only when rows were updated.
+        """
+        ...
 
     def catalog_agent_link(
         self, runtime: CoreRuntime, command: CoreCommand

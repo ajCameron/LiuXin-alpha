@@ -53,6 +53,25 @@ def test_stale_worker_cannot_start_reassigned_lease(tmp_path):
     assert repository.get_run(run.job_run_id).worker_id == "new"
 
 
+def test_kind_filtered_claim_skips_older_unrelated_work(tmp_path):
+    repository = JobRepository(tmp_path / "jobs.sqlite")
+    audit = queued(repository, kind="audit")
+    maintenance = queued(repository, kind="maintenance")
+    assert (
+        repository.lease_next_run(worker_id="empty", lease_for_s=60, job_kinds=())
+        is None
+    )
+    leased = repository.lease_next_run(
+        worker_id="maintenance", lease_for_s=60, job_kinds=("maintenance",)
+    )
+    assert leased.job_run_id == maintenance.job_run_id
+    assert repository.get_run(audit.job_run_id).state.value == "queued"
+    assert (
+        repository.lease_next_run(worker_id="normal", lease_for_s=60).job_run_id
+        == audit.job_run_id
+    )
+
+
 def test_expired_running_attempt_becomes_explicitly_interrupted(tmp_path):
     repository = JobRepository(tmp_path / "jobs.sqlite")
     run = queued(repository)

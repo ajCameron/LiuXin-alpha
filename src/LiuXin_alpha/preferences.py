@@ -878,7 +878,6 @@ class Preferences(MutableMapping[str, Any]):
         self.add_section("DatabasePing")
 
         self.set("DatabasePing", "database_id", str(uuid.uuid4()))
-        self.type_set("DatabasePing", "run_ta_update_after_each_change", False, val_type="bool")
         self.set("DatabasePing", "library_path", "default")
 
         # DatabasePing debug preferences

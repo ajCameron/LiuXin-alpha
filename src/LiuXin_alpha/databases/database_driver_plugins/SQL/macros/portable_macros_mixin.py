@@ -30,6 +30,7 @@ from LiuXin_alpha.databases.column_metadata import (
     ColumnMetadata,
     infer_column_metadata,
 )
+from LiuXin_alpha.databases.db_types.driver_types import QueryConnection
 from LiuXin_alpha.databases.db_types.macro_types import (
     LINK_TYPE_UNSET,
     CanonicalIdentity,
@@ -43,6 +44,7 @@ from LiuXin_alpha.databases.db_types.macro_types import (
 from LiuXin_alpha.databases.normalized_identities import (
     NORMALIZED_IDENTITIES_TABLE,
     NormalizedIdentitySpec,
+    NormalizedValuePreparer,
     default_normalized_identity_spec,
     iter_normalized_identity_defaults,
     normalize_identity_value,
@@ -52,6 +54,7 @@ from LiuXin_alpha.databases.normalized_identities import (
 )
 from LiuXin_alpha.databases.query_indexes import QueryIndexReport
 from LiuXin_alpha.databases.schema_specs import LinkCardinality, StorageLinkSpec
+from LiuXin_alpha.databases.table_pages import read_page
 from LiuXin_alpha.databases.transactions import transaction_active, transaction_scope
 from LiuXin_alpha.errors import DatabaseIntegrityError, InputIntegrityError
 from LiuXin_alpha.metadata.value_policies import (
@@ -286,6 +289,13 @@ class SQLPortableMacrosMixin:
         if driver is None:
             raise DatabaseIntegrityError("Database macros are not attached to a driver.")
         return driver
+
+    def current_transaction_connection(self) -> QueryConnection | None:
+        """Expose the active thread's borrowed handle without acquiring a connection."""
+        state = vars(self).get("_macro_transaction_state")
+        if state is not None and getattr(state, "depth", 0):
+            return getattr(state, "connection", None)
+        return None
 
     def _macro_connection(self) -> Any:
         # Read instance state directly. Some compatibility macro classes use
@@ -527,6 +537,60 @@ class SQLPortableMacrosMixin:
         """
 
         return self._macro_transaction(serialized=serialized, require_outermost=require_outermost)
+
+    def read_transaction(self) -> AbstractContextManager[Any]:
+        """Own a read-only, consistent snapshot for a multi-query inspection.
+
+        Refuse nesting so an inspection cannot change its caller's transaction
+        isolation or accidentally publish prior writes. PostgreSQL uses repeatable
+        read; SQLite's deferred transaction pins its snapshot at the first read.
+        The backend rejects row writes. No writer reservation is taken, and any
+        persistent fallback connection's query-only setting is restored on exit.
+        """
+        return self._read_transaction()
+
+    @contextmanager
+    def _read_transaction(self) -> Iterator[Any]:
+        """Implement the public snapshot context without exposing its generator."""
+        driver = self._macro_driver()
+        restore = None
+        try:
+            with self._macro_transaction(require_outermost=True) as connection:
+                if hasattr(driver, "schema"):
+                    connection.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY").close()
+                else:
+                    previous = connection.execute("PRAGMA query_only").fetchone()[0]
+                    if not callable(getattr(driver, "get_connection", None)):
+                        restore = (connection, previous)
+                    connection.execute("PRAGMA query_only=ON").close()
+                # Protection must cover completion hooks as well as the body.
+                # Owned connections are closed by the transaction owner; only a
+                # persistent fallback needs its setting restored afterward.
+                yield connection
+        finally:
+            if restore is not None:
+                connection, previous = restore
+                connection.execute(f"PRAGMA query_only={int(previous)}").close()
+
+    def inspect_repair_references(self, table: str) -> list[dict]:
+        """Read physical inbound constraints and polymorphic reference declarations."""
+        from .repair_storage import references
+        return references(self, table)
+
+    def lock_repair_references(self, table: str) -> list[dict]:
+        """Reserve source/reference tables in an owned serialized repair transaction."""
+        from .repair_storage import lock_references
+        return lock_references(self, table)
+
+    def record_catalog_repair(self, receipt: Mapping[str, Any]) -> str:
+        """Append an immutable receipt atomically with an explicit Catalog repair."""
+        from .repair_storage import record
+        return record(self, receipt)
+
+    def get_catalog_repair_receipt(self, receipt_id: str) -> dict | None:
+        """Read a durable repair receipt, returning None without installing anything."""
+        from .repair_storage import read_receipt
+        return read_receipt(self, receipt_id)
 
     def _row_id_column(self, table: str, id_column: str | None) -> str:
         """
@@ -863,29 +927,11 @@ class SQLPortableMacrosMixin:
         id_column = self._row_id_column(table, None)
         predicates = dict(where or {})
         self._validate_columns(table, predicates)
-        conditions, values = [], []
-        if after_id is not None:
-            conditions.append(f"{_quoted(id_column)} > ?")
-            values.append(after_id)
-        for column, value in predicates.items():
-            conditions.append(
-                f"{_quoted(column)} IS NULL"
-                if value is None
-                else f"{_quoted(column)} = ?"
-            )
-            if value is not None:
-                values.append(value)
-        sql = (
-            f"SELECT {', '.join(_quoted(column) for column in columns)} "
-            f"FROM {self._macro_table_sql(table)}"
+        return read_page(
+            self._macro_connection(), table_sql=self._macro_table_sql(table),
+            columns=columns, id_column=id_column, where=predicates,
+            limit=limit, offset=offset, after_id=after_id,
         )
-        if conditions:
-            sql += " WHERE " + " AND ".join(conditions)
-        sql += f" ORDER BY {_quoted(id_column)} LIMIT ? OFFSET ?"
-        rows = self._mapping_rows(
-            columns, self._macro_connection().execute(sql, (*values, limit + 1, offset))
-        )
-        return rows[:limit], len(rows) <= limit
 
     def audit_query_indexes(self) -> QueryIndexReport:
         """Inspect known query indexes without changing schema or stored data."""
@@ -1096,7 +1142,8 @@ class SQLPortableMacrosMixin:
     def insert_rows(self, table: str, rows: Iterable[Mapping[str, Any]]) -> None:
         """Insert physical records in bounded multi-value SQL statements.
 
-        Prepare all normalized keys and validate columns before writing. Keep
+        Resolve normalization declarations/headings once for this operation;
+        prepare all normalized keys and validate columns before writing. Keep
         consecutive equal column shapes in input order and bind at most 500
         values per statement. Missing columns use database defaults. No IDs
         are returned: use explicit IDs or look up a declared natural identity
@@ -1106,11 +1153,21 @@ class SQLPortableMacrosMixin:
         table = self._physical_table(table)
         prepared = []
         id_column = self._row_id_column(table, None)
+        normalizer = None
         for values in rows:
             if not values:
                 raise InputIntegrityError("insert_rows payloads cannot be empty")
-            payload = prepare_normalized_values(self.db.driver_wrapper, table, values)
-            columns = tuple(sorted(self._validate_columns(table, payload)))
+            if normalizer is None:
+                available = frozenset(self._column_names(table))
+                normalizer = NormalizedValuePreparer.from_source(
+                    self.db.driver_wrapper, table, available_columns=available
+                )
+            payload = normalizer.prepare(values)
+            columns = tuple(
+                sorted(
+                    self._validate_columns(table, payload, available_columns=available)
+                )
+            )
             if len(columns) > 500:
                 raise InputIntegrityError("insert_rows payload exceeds 500 columns")
             if id_column in payload:
@@ -1408,7 +1465,13 @@ class SQLPortableMacrosMixin:
         headings = self.db.driver_wrapper.get_column_headings(table)
         return tuple(str(column) for column in headings)
 
-    def _validate_columns(self, table: str, columns: Iterable[str]) -> tuple[str, ...]:
+    def _validate_columns(
+        self,
+        table: str,
+        columns: Iterable[str],
+        *,
+        available_columns: frozenset[str] | None = None,
+    ) -> tuple[str, ...]:
         """
         Validate a simple table name and each requested physical column.
 
@@ -1426,10 +1489,16 @@ class SQLPortableMacrosMixin:
             driver wrapper.
         :param columns: Iterable of physical column names; may be empty or contain
             duplicates.
+        :param available_columns: Headings already inspected for this operation,
+            or None to load them now. Never retain this snapshot across operations.
         :return: Requested names after identifier normalization, as a tuple.
         """
         table = _identifier(table, kind="table name")
-        available = set(self._column_names(table))
+        available = (
+            frozenset(self._column_names(table))
+            if available_columns is None
+            else available_columns
+        )
         validated = tuple(_identifier(column, kind="column name") for column in columns)
         missing = sorted(set(validated) - available)
         if missing:
@@ -3417,7 +3486,8 @@ class SQLPortableMacrosMixin:
         """Update physical rows atomically, batching consecutive matching shapes.
 
         Copy and validate every payload before writes; reject ID-column changes.
-        Derive comparison keys through the same declarations as update_row.
+        Resolve declarations/headings once and derive comparison keys through the
+        same policies as update_row. Reload the declarations for the next call.
         Empty payloads and missing IDs are no-ops. Preserve input order so trigger
         and uniqueness behavior does not depend on grouping by column names.
         """
@@ -3425,22 +3495,32 @@ class SQLPortableMacrosMixin:
         id_column = self._row_id_column(table, None)
         materialized = [(row_id, dict(values)) for row_id, values in updates.items()]
         self._batch_row_ids(row_id for row_id, _ in materialized)
+        available = frozenset(self._column_names(table))
         for _, values in materialized:
             if id_column in values:
                 raise InputIntegrityError("update_rows cannot change the ID column")
-            self._validate_columns(table, values)
+            self._validate_columns(table, values, available_columns=available)
         with self._macro_transaction() as conn:
             prepared = []
+            normalizer = None
             for row_id, values in materialized:
                 if not values:
                     continue
-                payload = prepare_normalized_values(
-                    self.db.driver_wrapper,
-                    table,
+                if normalizer is None:
+                    normalizer = NormalizedValuePreparer.from_source(
+                        self.db.driver_wrapper, table, available_columns=available
+                    )
+                payload = normalizer.prepare(
                     values,
                     read_existing=lambda row_id=row_id: self.get_row(table, row_id),
                 )
-                columns = tuple(sorted(self._validate_columns(table, payload)))
+                columns = tuple(
+                    sorted(
+                        self._validate_columns(
+                            table, payload, available_columns=available
+                        )
+                    )
+                )
                 prepared.append(
                     (columns, tuple(payload[c] for c in columns) + (row_id,))
                 )

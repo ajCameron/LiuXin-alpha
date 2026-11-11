@@ -10,26 +10,61 @@ implementations where relevant.
 
 from __future__ import annotations
 
-from typing import Optional, Union, Any, Sequence, Iterator, Iterable
-
 import abc
+from collections.abc import Iterable
+from typing import Any, Optional, Sequence, Union
 
-from LiuXin_alpha.databases.api.macros_api import MacrosAPI
-from LiuXin_alpha.databases.api.driver_api.mixins.tree_mixin_api import DriverTreeMixinAPI
-from LiuXin_alpha.databases.api.driver_api.mixins.metadata_mixin_api import DriverMetadataMixinAPI
-from LiuXin_alpha.databases.api.driver_api.mixins.interlink_mixin_api import DriverInterlinkMixinAPI
-from LiuXin_alpha.databases.api.driver_api.mixins.properties_mixin_api import DriverDatabasePropertiesMixinAPI
-from LiuXin_alpha.databases.api.driver_api.mixins.names_mixin_api import DriverNamesMixinAPI
-from LiuXin_alpha.databases.api.driver_api.mixins.intralink_mixin_api import DriverIntralinkMixinAPI
-from LiuXin_alpha.databases.api.driver_api.mixins.search_mixin_api import DriverSearchMixinAPI
 from LiuXin_alpha.databases.api.driver_api.mixins.add_mixin_api import DriverAddMixinAPI
-from LiuXin_alpha.databases.api.driver_api.mixins.delete_mixin_api import DriverDeleteMixinAPI
-from LiuXin_alpha.databases.api.driver_api.mixins.custom_columns_mixin_api import DriverCustomColumnsMixinAPI
-from LiuXin_alpha.databases.api.driver_api.mixins.tables_mixin_api import DriverTablesMixinAPI
-from LiuXin_alpha.databases.api.driver_api.mixins.triggers_mixin_api import DriverTriggersMixinAPI
-from LiuXin_alpha.databases.api.driver_api.mixins.new_books_compressed_files_mixin_api import DriverNewBooksCompressedFilesMixinAPI
-from LiuXin_alpha.databases.api.driver_api.mixins.view_mixin_api import DriverViewMixinAPI
-from LiuXin_alpha.databases.api.driver_api.mixins.update_mixin_api import DriverUpdateMixinAPI
+from LiuXin_alpha.databases.api.driver_api.mixins.custom_columns_mixin_api import (
+    DriverCustomColumnsMixinAPI,
+)
+from LiuXin_alpha.databases.api.driver_api.mixins.delete_mixin_api import (
+    DriverDeleteMixinAPI,
+)
+from LiuXin_alpha.databases.api.driver_api.mixins.interlink_mixin_api import (
+    DriverInterlinkMixinAPI,
+)
+from LiuXin_alpha.databases.api.driver_api.mixins.intralink_mixin_api import (
+    DriverIntralinkMixinAPI,
+)
+from LiuXin_alpha.databases.api.driver_api.mixins.metadata_mixin_api import (
+    DriverMetadataMixinAPI,
+)
+from LiuXin_alpha.databases.api.driver_api.mixins.names_mixin_api import (
+    DriverNamesMixinAPI,
+)
+from LiuXin_alpha.databases.api.driver_api.mixins.new_books_compressed_files_mixin_api import (
+    DriverNewBooksCompressedFilesMixinAPI,
+)
+from LiuXin_alpha.databases.api.driver_api.mixins.properties_mixin_api import (
+    DriverDatabasePropertiesMixinAPI,
+)
+from LiuXin_alpha.databases.api.driver_api.mixins.search_mixin_api import (
+    DriverSearchMixinAPI,
+)
+from LiuXin_alpha.databases.api.driver_api.mixins.tables_mixin_api import (
+    DriverTablesMixinAPI,
+)
+from LiuXin_alpha.databases.api.driver_api.mixins.tree_mixin_api import (
+    DriverTreeMixinAPI,
+)
+from LiuXin_alpha.databases.api.driver_api.mixins.triggers_mixin_api import (
+    DriverTriggersMixinAPI,
+)
+from LiuXin_alpha.databases.api.driver_api.mixins.update_mixin_api import (
+    DriverUpdateMixinAPI,
+)
+from LiuXin_alpha.databases.api.driver_api.mixins.view_mixin_api import (
+    DriverViewMixinAPI,
+)
+from LiuXin_alpha.databases.api.macros_api import MacrosAPI
+from LiuXin_alpha.databases.db_types.backend_capabilities import BackendCapabilities
+from LiuXin_alpha.databases.db_types.driver_types import (
+    QueryConnection,
+    QueryCursor,
+    SQLParameters,
+)
+from LiuXin_alpha.databases.schema_specs import PhysicalTableSpec
 
 
 class DatabaseDriverAPI(
@@ -64,6 +99,8 @@ class DatabaseDriverAPI(
         >>> inspect.isabstract(DatabaseDriverAPI)
         True
     """
+
+    conn: QueryConnection | None
 
     @abc.abstractmethod
     def __init__(self, db_metadata, db=None, set_conn=True, dirty_records_queue=None) -> None:
@@ -406,7 +443,23 @@ class DatabaseDriverAPI(
         raise NotImplementedError("This driver does not support database replacement.")
 
     @abc.abstractmethod
-    def direct_execute(self, sql: str, values: Optional[tuple[Any, ...]] = None) -> None:
+    def direct_get_backend_capabilities(
+        self, *, connection: QueryConnection | None = None
+    ) -> BackendCapabilities:
+        """Report the adapter's facilities and live limits without committing."""
+
+    @abc.abstractmethod
+    def direct_get_physical_table_spec(
+        self, table: str, *, connection: QueryConnection | None = None
+    ) -> PhysicalTableSpec:
+        """Inspect native schema on the supplied handle; close only owned resources."""
+
+    @abc.abstractmethod
+    def _get_unique_column_groups(self, table: str) -> tuple[tuple[str, ...], ...]:
+        """Return non-partial unique index columns for relationship introspection."""
+
+    @abc.abstractmethod
+    def direct_execute(self, sql: str, values: SQLParameters | int | None = None) -> QueryCursor:
         """
         Execute one statement using a live primary connection and its transaction
         context.
@@ -431,10 +484,7 @@ class DatabaseDriverAPI(
         """
 
     @abc.abstractmethod
-    def direct_executemany(
-            self,
-            sql: str,
-            values: Optional[tuple[tuple[Any, ...], ...]] = None) -> None:
+    def direct_executemany(self, sql: str, values: Iterable[SQLParameters] | None = None) -> None:
         """
         Execute a batch on the primary connection, or delegate an unbound script.
 
@@ -510,31 +560,6 @@ class DatabaseDriverAPI(
         :param table: Table name resolved by the host driver.
         :return: Whether a row with ID zero exists.
         """
-
-    # Todo: This is a macro
-    @abc.abstractmethod
-    def direct_run_ta_update(self, ta_row_id):
-        """
-        Launch the legacy aggregate-update thread when its preference enables it.
-
-        Abstract backend hook. The behavior below describes the shared SQL/SQLite
-        implementation; this declaration itself has no operational body.
-
-        Only the exact string "true" for run_ta_update_after_each_change dispatches
-        run_ta_updates with a one-element ID list and this driver. The helper starts a
-        daemon thread; this method does not wait for completion. "false" and other
-        values, including boolean True, cause no dispatch. Preference lookup and launch
-        errors propagate; background failures are not returned to the caller.
-
-        Example:
-            >>> driver.direct_run_ta_update(1)  # doctest: +SKIP
-
-
-        :param ta_row_id: Aggregate/title row ID passed unchanged in the worker input
-            list; not validated here.
-        :return: None, regardless of whether an update thread is launched.
-        """
-        ...
 
     @abc.abstractmethod
     def direct_self_delete(self) -> None:
@@ -710,7 +735,7 @@ class DatabaseDriverAPI(
     # Todo: Need a protocol for this
     # Todo: direct_*
     @abc.abstractmethod
-    def get_connection(self):
+    def get_connection(self) -> QueryConnection:
         """
         Open, configure and track a fresh SQLite connection.
 
@@ -725,11 +750,12 @@ class DatabaseDriverAPI(
 
         Request foreign-key enforcement and warn if SQLite does not report it enabled.
         Install aggregates, collations, regex/tree/sort/UUID helpers, an always-true
-        books_list_filter, maintenance callbacks and a progress callback after every
-        virtual-machine instruction. The progress handler prints the initial counter
-        value, zero. DIRTY_RECORD and NEW_DIRTY_RECORD look up the current maintainer on
-        each invocation; DIRTY_INTERLINK_RECORD binds the maintainer method at
-        connection creation. Cross-thread access still requires caller coordination.
+        books_list_filter and maintenance callbacks. SQLite drivers can opt into
+        progress callbacks through set_progress_callbacks after connection setup;
+        no progress handler is installed by default. DIRTY_RECORD and NEW_DIRTY_RECORD
+        look up the current maintainer on each invocation; DIRTY_INTERLINK_RECORD
+        binds the maintainer method at connection creation. Cross-thread access still
+        requires caller coordination.
 
         Best-effort LANGUAGE_ID registration may seed and lock an existing FRBR
         languages table, committing changes; exceptions from that registration are

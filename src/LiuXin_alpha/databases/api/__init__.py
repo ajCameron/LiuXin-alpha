@@ -50,6 +50,7 @@ from LiuXin_alpha.databases.api.maintenance_api import (
     MaintenancePluginAPI,
     MaintenanceServiceAPI,
 )
+from LiuXin_alpha.databases.db_types.maintenance_types import MaintenanceMode
 
 
 __all__ = [
@@ -75,6 +76,7 @@ __all__ = [
     "MetadataSQLAPI",
     "MaintenanceBotAPI",
     "MaintenanceCallbackSinkAPI",
+    "MaintenanceMode",
     "MaintenancePluginAPI",
     "MaintenanceServiceAPI",
     "PortableMacrosAPI",

@@ -1,30 +1,27 @@
-
 """
 Traverse parent-linked rows and delegate persisted tree updates.
 
-The host supplies table/column discovery, search and row lookup. Traversal assumes
-an acyclic tree: these helpers have no visited-node guard, and sibling iteration
-order is unspecified.
+The host supplies table/column discovery, search and row lookup. Traversal rejects
+cycles with InputIntegrityError. Sibling iteration order is unspecified.
 """
 
 from __future__ import annotations
 
-from typing import Any, Iterator
+from collections.abc import Iterator
+from typing import Any
 
+from LiuXin_alpha.databases.driver_wrapper._base import DriverWrapperBase
+from LiuXin_alpha.errors import InputIntegrityError
 from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 from LiuXin_alpha.utils.logging import default_log
-from LiuXin_alpha.errors import InputIntegrityError
 
 
-
-
-class DriverWrapperTreeMixin:
+class DriverWrapperTreeMixin(DriverWrapperBase):
     """
     Traverse parent-linked rows and delegate persisted tree updates.
 
-    The host supplies table/column discovery, search and row lookup. Traversal assumes
-    an acyclic tree: these helpers have no visited-node guard, and sibling iteration
-    order is unspecified.
+    The host supplies table/column discovery, search and row lookup. Traversal
+    rejects cycles with InputIntegrityError; sibling order is unspecified.
 
     Example:
         >>> list(wrapper.walk(series_row))  # doctest: +SKIP
@@ -40,9 +37,9 @@ class DriverWrapperTreeMixin:
 
         Infers table and parent heading from the starting mapping. Missing parent keys,
         None and case-insensitive text none terminate the chain; the starting mapping is
-        retained as-is. Parent rows are fetched through get_row_from_id(). No cycle
-        detection or sibling traversal occurs, and missing ancestor rows can cause
-        lookup/type errors.
+        retained as-is. Parent rows are fetched through get_row_from_id(). Repeated
+        parents, empty input and missing ancestors raise InputIntegrityError; a
+        table without parents returns the start row. No siblings are traversed.
 
         Example:
             >>> from types import SimpleNamespace
@@ -61,20 +58,31 @@ class DriverWrapperTreeMixin:
             start_row.
         """
         table = self.identify_table_from_row_dict(start_row)
+        if table is False:
+            raise InputIntegrityError("Cannot identify an empty tree row")
         table_parent_column = self.get_parent_column(table)
+        if table_parent_column is False or table_parent_column is None:
+            return [start_row]
 
         linear_rows = []
+        visited_parents: set[str] = set()
         current_row = start_row
         try:
             current_parent_id = start_row[table_parent_column]
-            if six_unicode(current_parent_id).lower() == "none" or current_parent_id is None:
+            if (
+                six_unicode(current_parent_id).lower() == "none"
+                or current_parent_id is None
+            ):
                 linear_rows.append(start_row)
                 return linear_rows
         except KeyError:
             linear_rows.append(start_row)
             return linear_rows
 
-        while six_unicode(current_parent_id).upper() != "NONE" and current_parent_id is not None:
+        while (
+            six_unicode(current_parent_id).upper() != "NONE"
+            and current_parent_id is not None
+        ):
             # extracting the current parent id
             try:
                 current_parent_id = current_row[table_parent_column]
@@ -87,15 +95,29 @@ class DriverWrapperTreeMixin:
 
             linear_rows = [current_row] + linear_rows
 
-            if six_unicode(current_parent_id).lower() != "none" and current_parent_id is not None:
-                current_row = self.get_row_from_id(table=table, row_id=current_parent_id)
+            if (
+                six_unicode(current_parent_id).lower() != "none"
+                and current_parent_id is not None
+            ):
+                parent_key = str(current_parent_id)
+                if parent_key in visited_parents:
+                    raise InputIntegrityError(
+                        f"Cycle detected in {table!r} at parent {parent_key}"
+                    )
+                visited_parents.add(parent_key)
+                parent_row = self.get_row_from_id(table=table, row_id=current_parent_id)
+                if parent_row is False:
+                    raise InputIntegrityError(
+                        f"Missing ancestor {current_parent_id!r} in {table!r}"
+                    )
+                current_row = parent_row
             else:
                 break
 
         return linear_rows
 
     # Todo: Again, should error when called on a table which does not have a tree structure
-    def set_tree_ids(self, table: str) -> None:
+    def set_tree_ids(self, table: str) -> bool:
         """
         Write each positive-ID row's root ID and display value as a tree identifier.
 
@@ -115,7 +137,7 @@ class DriverWrapperTreeMixin:
         """
         return self.driver.direct_set_tree_ids(table)
 
-    def set_full_column(self, table: str) -> None:
+    def set_full_column(self, table: str) -> bool:
         """
         Write ancestor display paths for positive-ID rows, committing each row
         separately.
@@ -143,8 +165,8 @@ class DriverWrapperTreeMixin:
 
         Infers the table and ID heading. A missing parent heading (None or False) raises
         InputIntegrityError before iteration. Returns _walk() without consuming it;
-        traversal starts with the supplied row and has neither a defined sibling order
-        nor cycle protection.
+        traversal starts with the supplied row. Sibling order is unspecified.
+        A cycle or repeated descendant raises InputIntegrityError during iteration.
 
         Example:
             >>> wrapper.walk(series_row)  # doctest: +SKIP
@@ -155,6 +177,8 @@ class DriverWrapperTreeMixin:
         :return: Iterator of row dictionaries beginning with start_row.
         """
         table = self.identify_table_from_row_dict(start_row)
+        if table is False:
+            raise InputIntegrityError("Cannot identify an empty tree row")
         table_id_col = self.get_id_column(table)
         table_parent_col = self.get_parent_column(table)
 
@@ -173,11 +197,12 @@ class DriverWrapperTreeMixin:
         return self._walk(start_row, table, table_id_col, table_parent_col)
 
     def _walk(
-            self,
-            start_row: dict[str, Any],
-            table: str,
-            table_id_col: str,
-            table_parent_col: str) -> Iterator[dict[str, Any]]:
+        self,
+        start_row: dict[str, Any],
+        table: str,
+        table_id_col: str,
+        table_parent_col: str,
+    ) -> Iterator[dict[str, Any]]:
         # Load the ids pool with the ids of parent rows - search for them in the parent column and yield those rows
         # If a row has no children (not referenced in any parent column) then it's a leaf row and we're done for that
         # branch
@@ -186,8 +211,8 @@ class DriverWrapperTreeMixin:
 
         Converts IDs to integers and keeps pending IDs in a set. Yields the original
         starting mapping first, then children returned by search(), scheduling each
-        child ID. The pending set is not a visited set: cycles can yield forever and
-        sibling order is unspecified.
+        child ID. A separate visited set rejects cycles/repeated rows before yielding
+        the duplicate. Sibling order is unspecified; memory grows with visited IDs.
 
         Example:
             >>> from types import SimpleNamespace
@@ -213,15 +238,23 @@ class DriverWrapperTreeMixin:
         """
         ids_pool = set()
         ids_pool.add(int(start_row[table_id_col]))
+        visited = set(ids_pool)
 
         # Start the walk by yielding the start row - then working through the ids pool - take each id from it, find all
         # the children, yield them and add their ids for recursion on down. Continue until all rows have been yielded.
         yield start_row
         while ids_pool:
-
             working_id = ids_pool.pop()
-            working_children = self.search(table=table, column=table_parent_col, search_term=working_id)
+            working_children = self.search(
+                table=table, column=table_parent_col, search_term=working_id
+            )
 
             for child_row in working_children:
-                ids_pool.add(int(child_row[table_id_col]))
+                child_id = int(child_row[table_id_col])
+                if child_id in visited:
+                    raise InputIntegrityError(
+                        f"Cycle or repeated row in {table!r}: {child_id}"
+                    )
+                visited.add(child_id)
+                ids_pool.add(child_id)
                 yield child_row

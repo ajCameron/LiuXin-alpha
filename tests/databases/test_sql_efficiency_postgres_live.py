@@ -13,6 +13,51 @@ from tests.databases.test_transaction_ownership_postgres_live import (
 )
 
 
+@pytest.mark.parametrize("route", ("macros", "driver"))
+def test_postgres_batch_normalization_reloads_policy_per_operation(
+    pg_database, monkeypatch, route
+):
+    """Portable and mixed-table direct batches share policy reads without stale keys."""
+    db, _, _ = pg_database
+    reads = []
+    original = db.driver.direct_iter_normalized_identity_specs
+
+    def declarations(*, table=None):
+        reads.append(table)
+        return original(table=table)
+
+    monkeypatch.setattr(
+        db.driver, "direct_iter_normalized_identity_specs", declarations
+    )
+
+    def insert(values):
+        if route == "macros":
+            db.macros.insert_rows("tags", ({"tag": value} for value in values))
+        else:
+            db.driver.direct_add_multiple_simple_row_dicts(
+                [{"tag": value} for value in values]
+                + [{"label_text": f"Label {value}"} for value in values]
+            )
+
+    insert([f"  Ａ Value {i}  " for i in range(50)])
+    assert reads == (["tags"] if route == "macros" else ["tags", "labels"])
+    tags = db.macros.get_rows("tags", order_by=("tag_id",))
+    assert [row["tag_phash"] for row in tags] == [f"a value {i}" for i in range(50)]
+    with db.macros.transaction() as conn:
+        conn.execute(
+            "UPDATE normalized_identities SET normalized_identity_normalization_profile = ? "
+            "WHERE normalized_identity_table_name = ?",
+            ("unicode_nfc_trim_casefold", "tags"),
+        )
+    reads.clear()
+    insert(["  Ｂ Value  "])
+    assert reads == (["tags"] if route == "macros" else ["tags", "labels"])
+    assert (
+        db.macros.get_rows("tags", where={"tag": "  Ｂ Value  "})[0]["tag_phash"]
+        == "ｂ value"
+    )
+
+
 def test_postgres_pages_aggregates_and_batched_graphs(pg_database):
     db, _, _ = pg_database
     macros = db.macros

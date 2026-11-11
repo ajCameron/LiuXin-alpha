@@ -1,4 +1,3 @@
-
 """
 Delete rows or clear cell values through wrapper and driver helpers.
 
@@ -8,14 +7,13 @@ deletion; scalar and other iterable objects use the single-value path.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
-if TYPE_CHECKING:
+from LiuXin_alpha.databases.driver_wrapper._base import DriverWrapperBase
+from LiuXin_alpha.databases.driver_wrapper.diagnostics import observed
 
-    from LiuXin_alpha.databases.api.driver_api.driver_api import DatabaseDriverAPI
 
-
-class DriverWrapperDeleteMixin:
+class DriverWrapperDeleteMixin(DriverWrapperBase):
     """
     Delete rows or clear cell values through wrapper and driver helpers.
 
@@ -26,9 +24,8 @@ class DriverWrapperDeleteMixin:
         >>> wrapper.delete_by_id("works", 1)  # doctest: +SKIP
     """
 
-    driver: "DatabaseDriverAPI"
-
-    def delete(self, target_table: str, column: str, value: Any) -> None:
+    @observed("delete", count="unknown")
+    def delete(self, target_table: str, column: str, value: Any) -> bool:
         """
         Delete rows matching a scalar value or a list/set of values.
 
@@ -47,11 +44,20 @@ class DriverWrapperDeleteMixin:
             execution.
         """
         if isinstance(value, (list, set)):
-            return self.driver.direct_delete_many(target_table=target_table, column=column, values=value)
+            return self.driver.direct_delete_many(
+                target_table=target_table, column=column, values=value
+            )
         else:
-            return self.driver.direct_delete(target_table=target_table, column=column, value=value)
+            return self.driver.direct_delete(
+                target_table=target_table, column=column, value=value
+            )
 
-    def delete_by_id(self, target_table: str, row_id: int) -> None:
+    # Todo: Add "delet_by_value"
+
+    @observed("delete_by_id", count="unknown")
+    def delete_by_id(
+        self, target_table: str, row_id: int | list[int] | set[int]
+    ) -> bool:
         """
         Delete one row ID or dispatch list/set IDs to the bulk driver helper.
 
@@ -64,7 +70,7 @@ class DriverWrapperDeleteMixin:
 
 
         :param target_table: Table whose rows are affected.
-        :param row_id: Single ID, or a list/set of IDs despite the int annotation.
+        :param row_id: Single ID, or a list/set of IDs.
         :return: Unmodified driver deletion result.
         """
         if isinstance(row_id, (list, set)):
@@ -72,12 +78,13 @@ class DriverWrapperDeleteMixin:
         else:
             return self.driver.direct_delete_row_by_id(target_table, row_id)
 
-    def nullify_column(self, table: str, row_id: int, column: str) -> None:
+    @observed("nullify_column", count="unknown")
+    def nullify_column(self, table: str, row_id: int, column: str) -> bool:
         """
         Set a cell to None through the wrapper's single-column update path.
 
         Uses update_column(), including its column/table check, lock context and
-        full-row read/write behavior. Does not substitute schema defaults or a
+        targeted, normalization-aware write. Does not substitute schema defaults or a
         column-policy empty value.
 
         Example:
@@ -91,7 +98,8 @@ class DriverWrapperDeleteMixin:
         """
         return self.update_column(table, row_id, column, None)
 
-    def clear(self, target_table: str) -> None:
+    @observed("clear", count="unknown")
+    def clear(self, target_table: str) -> bool:
         """
         Delete every row, commit, and count remaining rows before closing the
         connection.

@@ -18,10 +18,15 @@ from LiuXin_alpha.jobs.handler_api import (
 )
 from LiuXin_alpha.jobs.models import JobProgressUpdate, now_ep_k
 from LiuXin_alpha.jobs.repository import JobLeaseLost, JobRepository
+from LiuXin_alpha.utils.errors import exception_message
 
 
 class JobWorker:
-    """Lease one run at a time and persist only results owned by that exact claim."""
+    """Lease one run at a time and persist only results owned by that exact claim.
+
+    job_kinds optionally limits claims for a scoped drain. None permits every
+    kind; the handler registry still determines how a claimed run is executed.
+    """
 
     def __init__(
         self,
@@ -30,11 +35,13 @@ class JobWorker:
         handlers: JobHandlerRegistry,
         worker_id: str | None = None,
         lease_for_s: float = 60.0,
+        job_kinds: tuple[str, ...] | None = None,
     ) -> None:
         self.repository = repository
         self.handlers = handlers
         self.worker_id = worker_id or f"{socket.gethostname()}:{uuid.uuid4().hex}"
         self.lease_for_s = repository._lease_milliseconds(lease_for_s) / 1000
+        self.job_kinds = job_kinds
         self._stop = threading.Event()
 
     def stop(self) -> None:
@@ -50,7 +57,9 @@ class JobWorker:
         Cancellation is checked before execution and when accepting the receipt.
         """
         leased = self.repository.lease_next_run(
-            worker_id=self.worker_id, lease_for_s=self.lease_for_s
+            worker_id=self.worker_id,
+            lease_for_s=self.lease_for_s,
+            job_kinds=self.job_kinds,
         )
         if leased is None:
             return False
@@ -114,9 +123,9 @@ class JobWorker:
         except JobLeaseLost:
             pass  # The old owner cannot overwrite the current run or its events.
         except JobCancelled as exc:
-            self._finish_if_owned(run_id, claim, str(exc), cancelled=True)
+            self._finish_if_owned(run_id, claim, exception_message(exc), cancelled=True)
         except Exception as exc:
-            self._finish_if_owned(run_id, claim, str(exc))
+            self._finish_if_owned(run_id, claim, exception_message(exc))
         finally:
             renewal_stop.set()
             if renewal.ident is not None:

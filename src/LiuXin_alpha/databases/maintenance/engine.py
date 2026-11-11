@@ -4,6 +4,9 @@ Dispatch queued maintenance events to plugins on demand or in a daemon thread.
 Manual requests are drained before row callbacks and interlink callbacks. Each
 plugin receives its own filtered/coalesced view of the batch; events are broadcast,
 not consumed by the first handler.
+The queue engine accepts lazy plugins only. Delivery is best-effort and in-memory;
+prompt plugins belong to MaintenanceRuntime, which borrows the originating write
+transaction. No legacy creator plugins are registered implicitly.
 """
 
 from __future__ import annotations
@@ -12,11 +15,11 @@ import queue
 import threading
 import time
 import weakref
-
 from collections import defaultdict
-from typing import TYPE_CHECKING, Iterable
+from collections.abc import Iterable
+from typing import TYPE_CHECKING
 
-from LiuXin_alpha.utils.logging import default_log
+from LiuXin_alpha.databases.db_types.maintenance_types import MaintenanceMode
 from LiuXin_alpha.databases.maintenance.events import (
     DirtyInterlinkEvent,
     DirtyRowEvent,
@@ -29,10 +32,25 @@ from LiuXin_alpha.databases.maintenance.plugins import (
     MaintenancePluginContext,
     MaintenancePluginResult,
 )
+from LiuXin_alpha.utils.logging import default_log
 
 if TYPE_CHECKING:
     from LiuXin_alpha.databases.api import DatabaseAPI
     from LiuXin_alpha.databases.api.maintenance_api import MaintenancePluginAPI
+
+
+def _require_lazy_plugin(plugin: MaintenancePluginAPI) -> None:
+    """Reject declarations this best-effort queue engine cannot safely dispatch.
+
+    Older duck-typed plugins without a mode retain lazy behavior. Unknown values
+    raise ValueError; prompt mode requires the transaction-bound MaintenanceRuntime.
+    """
+    mode = MaintenanceMode(getattr(plugin, "mode", MaintenanceMode.LAZY))
+    if mode is MaintenanceMode.PROMPT:
+        raise NotImplementedError(
+            "Prompt maintenance requires the originating write transaction; "
+            "install it with MaintenanceRuntime instead of the legacy queue engine"
+        )
 
 
 class MaintenanceCallbackSink:
@@ -45,9 +63,9 @@ class MaintenanceCallbackSink:
     Example:
         >>> from types import SimpleNamespace
         >>> engine = MaintenanceEngine(SimpleNamespace(), [])
-        >>> engine.callback_sink.dirty_record("creators", 1)
+        >>> engine.callback_sink.dirty_record("works", 1)
         >>> engine.main_table_dirtied_queue.get_nowait()
-        ('creators', 1)
+        ('works', 1)
     """
 
     def __init__(self, engine: "MaintenanceEngine") -> None:
@@ -71,7 +89,7 @@ class MaintenanceCallbackSink:
         construct the event until the engine drains this queue.
 
         Example:
-            >>> worker.dirty_record("creators", 1)  # doctest: +SKIP
+            >>> worker.dirty_record("works", 1)  # doctest: +SKIP
 
 
         :param table: Table associated with the row or operation.
@@ -88,7 +106,7 @@ class MaintenanceCallbackSink:
         compatibility queues.
 
         Example:
-            >>> worker.new_dirty_record("creators", 1)  # doctest: +SKIP
+            >>> worker.new_dirty_record("works", 1)  # doctest: +SKIP
 
 
         :param table: Table associated with the row or operation.
@@ -111,7 +129,7 @@ class MaintenanceCallbackSink:
 
         Example:
             >>> worker.dirty_interlink_record(
-            ...     "UPDATE", "creators", "titles", 1, 1
+            ...     "UPDATE", "works", "expressions", 1, 1
             ... )  # doctest: +SKIP
 
 
@@ -135,6 +153,8 @@ class MaintenanceEngine(threading.Thread):
     Construction does not start the daemon thread. start() enables periodic dispatch;
     run_once() dispatches in the caller. No lock serializes manual and background
     dispatch. stop() requests exit without joining or promising a queue drain.
+    Only transient lazy compatibility plugins are accepted here. Install durable
+    table subscriptions through MaintenanceRuntime for prompt/lazy guarantees.
 
     Example:
         >>> from types import SimpleNamespace
@@ -156,7 +176,8 @@ class MaintenanceEngine(threading.Thread):
 
         Retains db weakly when possible, otherwise through a closure. Sorts descending
         integer priorities and converts timing options to float; no positivity
-        validation or enabled_by_default filtering occurs.
+        validation or enabled_by_default filtering occurs. Reject prompt/unknown
+        modes before the constructed engine can be used.
 
         Example:
             >>> MaintenanceEngine(database, [])  # doctest: +SKIP
@@ -176,6 +197,8 @@ class MaintenanceEngine(threading.Thread):
         except TypeError:
             self._db_ref = lambda: db
         self._plugins = list(sorted(plugins, key=lambda plugin: int(getattr(plugin, "priority", 0)), reverse=True))
+        for plugin in self._plugins:
+            _require_lazy_plugin(plugin)
         self._manual_events: queue.Queue[MaintenanceEvent] = queue.Queue()
         self._keep_running = True
         self._interval = float(interval)
@@ -225,6 +248,7 @@ class MaintenanceEngine(threading.Thread):
         If the thread is alive, immediately calls startup in the registering thread and
         logs ordinary startup exceptions. Registration has no duplicate check or
         synchronization with dispatch; integer-priority conversion errors propagate.
+        Validate mode before registration/startup; prompt and unknown modes fail.
 
         Example:
             >>> engine.register_plugin(plugin)  # doctest: +SKIP
@@ -234,6 +258,7 @@ class MaintenanceEngine(threading.Thread):
             filtering.
         :return: None.
         """
+        _require_lazy_plugin(plugin)
         self._plugins.append(plugin)
         self._plugins.sort(key=lambda item: int(getattr(item, "priority", 0)), reverse=True)
         if self.is_alive():
@@ -292,9 +317,10 @@ class MaintenanceEngine(threading.Thread):
 
         Synchronous dispatch does not run startup/shutdown hooks and can overlap the
         worker thread. Plugin result telemetry is discarded.
+        now=True still dispatches lazy plugins; it supplies no prompt guarantee.
 
         Example:
-            >>> engine.rename_item(1, "creators", "New name")  # doctest: +SKIP
+            >>> engine.rename_item(1, "works", "New name")  # doctest: +SKIP
 
 
         :param item_id: Identifier of the row to rename.
@@ -305,6 +331,8 @@ class MaintenanceEngine(threading.Thread):
         :return: None.
         """
         event = RenameRequestEvent(item_id=item_id, table=table, value=value)
+        if not self._plugins:
+            raise NotImplementedError("Legacy maintenance renames are retired; use the Catalog mutation APIs")
         if now:
             self._dispatch([event])
         else:
@@ -369,6 +397,8 @@ class MaintenanceEngine(threading.Thread):
         Drain pending work and dispatch one batch in the calling thread.
 
         Does not check the stop flag or run lifecycle hooks; idle queues produce a tick.
+        Recheck modes before draining, preserving queued work if a plugin's declaration
+        has become unsupported. Configure modes before registration.
 
         Example:
             >>> engine.run_once()  # doctest: +SKIP
@@ -378,6 +408,8 @@ class MaintenanceEngine(threading.Thread):
             one.
         :return: Mapping from participating plugin names to their results.
         """
+        for plugin in self._plugins:
+            _require_lazy_plugin(plugin)
         return self._dispatch(self._drain_pending_events(max_events=max_events))
 
     def _dispatch(self, batch: Iterable["MaintenanceEvent"]) -> dict[str, "MaintenancePluginResult"]:
@@ -389,6 +421,8 @@ class MaintenanceEngine(threading.Thread):
         is not caught. Passthrough events come first, then the last event for each key
         in first-key order. Plugins with no interest are omitted; duplicate names
         overwrite earlier results.
+        Validate every plugin's mode before invoking any handler. Unsupported modes
+        propagate rather than becoming successful-looking error telemetry.
 
         Example:
             >>> engine._dispatch(events)  # doctest: +SKIP
@@ -397,6 +431,8 @@ class MaintenanceEngine(threading.Thread):
         :param batch: Iterable of events materialized once for every plugin to inspect.
         :return: Result mapping keyed by stringified plugin name.
         """
+        for plugin in self._plugins:
+            _require_lazy_plugin(plugin)
         context = self.context
         events = list(batch)
         plugin_results: dict[str, MaintenancePluginResult] = {}
@@ -454,6 +490,7 @@ class MaintenanceEngine(threading.Thread):
         Ordinary lifecycle exceptions are logged. Dispatch-loop exceptions still run
         shutdown hooks but terminate the worker; stop() is observed between scheduling
         checks. No final queue drain is performed.
+        Unsupported mode declarations fail before any startup hook is called.
 
         Example:
             >>> engine.run()  # doctest: +SKIP
@@ -461,6 +498,8 @@ class MaintenanceEngine(threading.Thread):
 
         :return: None.
         """
+        for plugin in self._plugins:
+            _require_lazy_plugin(plugin)
         context = self.context
         for plugin in self._plugins:
             try:

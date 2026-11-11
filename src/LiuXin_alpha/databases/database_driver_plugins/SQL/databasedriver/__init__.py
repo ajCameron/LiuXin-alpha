@@ -178,6 +178,17 @@ class SQLBaseDriver:
         :param conn: Open connection supplied by the caller.
         :return: The supplied connection.
         """
+        runtime = vars(self).get("_maintenance_runtime")
+        if runtime is not None:
+            if runtime.in_handler:
+                conn.close()
+                raise RuntimeError("Maintenance handlers must use their supplied connection")
+            runtime.bind(conn)
+        elif hasattr(conn, "create_function"):
+            # Persistent capture remains safe when optional maintenance code is absent.
+            conn.create_function("LIUXIN_MAINTENANCE_READY", 2, lambda *_: 0)
+            conn.create_function("LIUXIN_MAINTENANCE_ORIGIN", 0, lambda: "")
+            conn.create_function("LIUXIN_MAINTENANCE_ANCESTRY", 0, lambda: "[]")
         try:
             self._open_connections.append(conn)
         except Exception as e:
@@ -437,6 +448,10 @@ class SQLBaseDriver:
     def simple_print_progress_handler(self) -> None:
         """
         Print the counter at multiples of one hundred million, then increment it.
+
+        SQLite drivers retain this observer for explicit registration through
+        set_progress_callbacks; it is not installed by default. The counter counts
+        callback invocations, matching VM instructions only at interval one.
 
         Example:
             With ``event_count = 0``, the first call prints zero and advances the

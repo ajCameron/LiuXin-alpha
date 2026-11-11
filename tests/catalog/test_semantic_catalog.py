@@ -13,6 +13,7 @@ from __future__ import annotations
 import uuid
 
 import pytest
+from tests.catalog.repair_helpers import apply_target_preferred_merge
 
 from LiuXin_alpha.catalog.catalog import Catalog
 from LiuXin_alpha.catalog.api import (
@@ -375,7 +376,7 @@ def test_coordinated_attachment_and_work_merge_preserve_relationships(db) -> Non
             ],
         },
     )
-    catalog.mutations.writer.merge_entities(
+    apply_target_preferred_merge(catalog,
         level="work",
         source_id=source_id,
         target_id=target_id,
@@ -403,7 +404,7 @@ def test_coordinated_attachment_and_work_merge_preserve_relationships(db) -> Non
         expression_source,
         MetadataCandidate({"subtitle": _token("manifestation-to-transfer")}),
     )
-    catalog.mutations.writer.merge_entities(
+    apply_target_preferred_merge(catalog,
         level="expression",
         source_id=expression_source,
         target_id=expression_target,
@@ -422,7 +423,7 @@ def test_coordinated_attachment_and_work_merge_preserve_relationships(db) -> Non
         manifestation_source,
         MetadataCandidate({"inventory_code": _token("item-to-transfer")}),
     )
-    catalog.mutations.writer.merge_entities(
+    apply_target_preferred_merge(catalog,
         level="manifestation",
         source_id=manifestation_source,
         target_id=manifestation_target,

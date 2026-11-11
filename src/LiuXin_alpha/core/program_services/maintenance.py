@@ -9,7 +9,7 @@ discovery do not assert that a maintenance run has completed.
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from typing import TYPE_CHECKING, Any, cast
 
 from LiuXin_alpha.core.errors import CoreDispatchError
@@ -35,6 +35,10 @@ def maintenance_status(
     """
     Describe the maintenance service's optional plugins, database dirty count, and queue sizes.
 
+    An attached durable runtime instead reports schema/configuration and pending
+    obligations, age, attempts, errors and job references. This branch neither
+    creates a jobs ledger nor resolves/starts the legacy maintenance service.
+
     Missing callable plugin enumeration yields no plugins; a missing callable dirty
     counter or absent queue attribute yields None. Errors from present methods,
     attributes, integer conversion, and qsize propagate. Queue counts are separate
@@ -49,6 +53,10 @@ def maintenance_status(
     :return: Service type, plugin name/type records, dirty_count, and optional queue sizes.
     """
     del query
+    driver = getattr(runtime.database, "driver", None)
+    durable = vars(driver).get("_maintenance_runtime") if driver is not None else None
+    if durable is not None:
+        return {"service": type(durable).__name__, **durable.status()}
     maintenance = runtime.services.maintenance
     iter_plugins = getattr(maintenance, "iter_plugins", None)
     plugins = (
@@ -84,38 +92,44 @@ def maintenance_duplicates_find(
     query: CoreQuery,
 ) -> dict[str, Any]:
     """
-    Delegate duplicate-value discovery for one table/column to the legacy maintenance helper.
+    Inspect duplicate candidates through Catalog's scoped, bounded reader.
 
-    Falsey comparison values select nocase; other values are stringified without
-    stripping or validation here. The helper owns comparison semantics and result
-    grouping. This handler neither merges duplicates nor adds paging.
+    Comparison defaults to identity; nocase and exact are also supported.
+    max_rows bounds the complete scan, and optional where equality filters
+    restrict its scope. Oversized scans fail without returning partial groups.
+    No repair, maintenance service initialization or worker startup occurs.
 
     Example:
         >>> duplicates = maintenance_duplicates_find(runtime, query)  # doctest: +SKIP
 
 
     :param runtime: Runtime whose database is inspected by find_duplicates.
-    :param query: Query with required table/column text and optional comparison mode.
-    :return: Selected table, column, comparison, and plain-projected duplicate groups.
+    :param query: Required table/column and optional comparison, max_rows and where.
+    :return: Comparison policy, scanned count and scoped duplicate candidate groups.
     """
     payload = _payload(query)
-    from LiuXin_alpha.databases.maintenance.legacy import find_duplicates
+    from LiuXin_alpha.catalog.duplicates import (
+        DEFAULT_MAX_ROWS,
+        DuplicateScanLimit,
+        find_duplicates,
+    )
+    from LiuXin_alpha.errors import InputIntegrityError
 
     table = _required_text(payload, "table")
     column = _required_text(payload, "column")
-    comparison = str(payload.get("comparison") or "nocase")
-    result = find_duplicates(
-        runtime.database,
-        table,
-        column,
-        comparison=comparison,
-    )
-    return {
-        "table": table,
-        "column": column,
-        "comparison": comparison,
-        "duplicates": plain(result),
-    }
+    try:
+        return find_duplicates(
+            runtime.database,
+            table,
+            column,
+            comparison=payload.get("comparison", "identity"),
+            max_rows=payload.get("max_rows", DEFAULT_MAX_ROWS),
+            where=payload.get("where"),
+        )
+    except DuplicateScanLimit as error:
+        raise CoreDispatchError(str(error), code="scan_limit_exceeded") from error
+    except (ValueError, TypeError, KeyError, InputIntegrityError) as error:
+        raise CoreDispatchError(str(error), code="invalid_payload") from error
 
 
 def maintenance_run(
@@ -124,6 +138,15 @@ def maintenance_run(
 ) -> dict[str, Any]:
     """
     Run one maintenance-service pass with a positive event budget and project its plugin results.
+
+    An attached durable runtime accepts action=install/drain/retry/pause/resume/
+    prune/prune-jobs/start/rebuild/upgrade. Upgrade defaults to an inspected migration preview.
+    Rebuild checkpoints bounded Work projection pages without
+    starting a worker; restart explicitly requests a new scan. Install is explicit
+    schema/configuration work; drain uses bounded
+    jobs passes, while start polls only for the lifetime of a long-lived Core.
+    Retry and enable controls require plugin_id. Legacy injected services retain
+    their existing run_once route when no durable runtime is attached.
 
     max_events defaults to 128 with no adapter upper cap; explicit None reaches
     an assertion rather than choosing the default. The service owns event-budget
@@ -145,6 +168,42 @@ def maintenance_run(
         minimum=1,
     )
     assert max_events is not None
+    driver = getattr(runtime.database, "driver", None)
+    durable = vars(driver).get("_maintenance_runtime") if driver is not None else None
+    if durable is not None:
+        action = str(payload.get("action", "drain"))
+        if action == "install":
+            return {"action": action, **durable.install()}
+        if action == "upgrade":
+            return {"action": action, **_upgrade_plugin(durable, payload)}
+        if action == "rebuild":
+            return {
+                "action": action,
+                **_rebuild_work_pages(runtime, payload, max_events),
+            }
+        if action == "retry":
+            return {
+                "action": action,
+                "reset": durable.retry(_required_text(payload, "plugin_id")),
+            }
+        if action in {"pause", "resume"}:
+            durable.set_enabled(
+                _required_text(payload, "plugin_id"), action == "resume"
+            )
+            return {"action": action, "plugin_id": payload["plugin_id"]}
+        if action in {"prune", "prune-jobs"}:
+            return {
+                "action": action,
+                **_prune_history(runtime, durable, action, payload, max_events),
+            }
+        if action == "start":
+            return {
+                "action": action,
+                **runtime.durable_jobs.start_maintenance(limit=max_events),
+            }
+        if action == "drain":
+            return {"action": action, **_drain_jobs(runtime, payload, max_events)}
+        raise CoreDispatchError("Unknown maintenance action")
     result = _callable(
         runtime.services.maintenance,
         "run_once",
@@ -153,12 +212,88 @@ def maintenance_run(
     return {"max_events": max_events, "plugins": plain(result)}
 
 
+def _prune_history(
+    runtime: CoreRuntime,
+    durable: Any,
+    action: str,
+    payload: Mapping[str, Any],
+    limit: int,
+) -> dict[str, Any]:
+    """Keep journal reclamation and age-based jobs retirement with their owners."""
+    if action == "prune":
+        return {"removed": durable.prune_completed(limit=limit)}
+    return runtime.durable_jobs.prune_maintenance_history(
+        older_than_days=payload.get("older_than_days", 7),
+        limit=limit,
+        before_run_id=payload.get("before_run_id"),
+    )
+
+
+def _upgrade_plugin(durable: Any, payload: Mapping[str, Any]) -> dict[str, Any]:
+    """Adapt an explicit upgrade request and report malformed fields consistently."""
+    try:
+        return durable.upgrade(
+            _required_text(payload, "plugin_id"),
+            expected_version=_required_text(payload, "expected_version"),
+            expected_definition=payload.get("expected_definition"),
+            dry_run=payload.get("dry_run", True),
+        )
+    except (ValueError, TypeError) as error:
+        raise CoreDispatchError(str(error), code="invalid_payload") from error
+
+
+def _drain_jobs(
+    runtime: CoreRuntime, payload: Mapping[str, Any], max_events: int
+) -> dict[str, Any]:
+    """Validate the concrete job-pass budget before resolving a worker or ledger."""
+    batches = _optional_int(payload, "max_batches", default=128, minimum=1)
+    if batches is None:
+        raise CoreDispatchError("max_batches cannot be null", code="invalid_payload")
+    return runtime.durable_jobs.drain_maintenance(max_batches=batches, limit=max_events)
+
+
+def _rebuild_work_pages(
+    runtime: CoreRuntime, payload: Mapping[str, Any], max_events: int
+) -> dict[str, Any]:
+    """Schedule bounded Catalog rebuild pages, restarting only the first page."""
+    from LiuXin_alpha.catalog.maintenance import rebuild_work_projections
+
+    batches = payload.get("max_batches", 1)
+    if type(batches) is not int or not 1 <= batches <= 128:
+        raise CoreDispatchError(
+            "Rebuild max_batches must be between 1 and 128",
+            code="invalid_payload",
+        )
+    restart = payload.get("restart", False)
+    try:
+        result = rebuild_work_projections(
+            runtime.database, limit=max_events, restart=restart
+        )
+        scheduled = result["scheduled_this_page"]
+        for _ in range(1, batches):
+            if result["scheduling_complete"]:
+                break
+            result = rebuild_work_projections(
+                runtime.database,
+                limit=max_events,
+                restart=False,
+            )
+            scheduled += result["scheduled_this_page"]
+    except (ValueError, TypeError) as error:
+        raise CoreDispatchError(str(error), code="invalid_payload") from error
+    return {**result, "scheduled_this_call": scheduled}
+
+
 def maintenance_clean(
     runtime: CoreRuntime,
     command: CoreCommand,
 ) -> dict[str, Any]:
     """
     Clean explicitly selected rows through the maintenance service, then reconcile read-side state.
+
+    The built-in selective cleanup is unavailable; its NotImplementedError is
+    exposed as capability_unavailable before any reconciliation. Injected services
+    can supply an actual implementation.
 
     row_ids must be a non-str/non-bytes Sequence. Plain int conversion accepts
     bool and truncatable numeric values, preserving duplicates and order. The
@@ -180,11 +315,18 @@ def maintenance_clean(
     if not isinstance(raw_ids, Sequence) or isinstance(raw_ids, (str, bytes)):
         raise CoreDispatchError("`row_ids` must be an array.")
     row_ids = [int(cast(Any, item)) for item in raw_ids]
-    _callable(
-        runtime.services.maintenance,
-        "clean",
-        area="maintenance",
-    )(table, row_ids)
+    try:
+        _callable(
+            runtime.services.maintenance,
+            "clean",
+            area="maintenance",
+        )(table, row_ids)
+    except NotImplementedError as error:
+        raise CoreDispatchError(
+            str(error),
+            code="capability_unavailable",
+            details={"area": "maintenance", "operation": "clean"},
+        ) from error
     return runtime.services.reconcile(
         {"cleaned": True, "table": table, "row_ids": row_ids}
     )

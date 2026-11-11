@@ -208,6 +208,7 @@ def _measure(path: Path, args) -> dict:
         # executions on newly opened driver connections. Connection initialization
         # itself is excluded; these counts are not just data SELECTs.
         statements = 0
+        connection_opens = 0
 
         def trace(_sql):
             nonlocal statements
@@ -216,6 +217,8 @@ def _measure(path: Path, args) -> dict:
         original = db.driver.get_connection
 
         def traced_connection():
+            nonlocal connection_opens
+            connection_opens += 1
             conn = original()
             conn.set_trace_callback(trace)
             return conn
@@ -234,6 +237,7 @@ def _measure(path: Path, args) -> dict:
             "process_peak_rss_kib": rss_kib,
             "operation_python_peak_bytes": peak,
             "sql_statements": statements,
+            "connection_opens": connection_opens,
             "result_count": len(expected),
             "result_sha256": hashlib.sha256(json.dumps(expected).encode()).hexdigest(),
         }

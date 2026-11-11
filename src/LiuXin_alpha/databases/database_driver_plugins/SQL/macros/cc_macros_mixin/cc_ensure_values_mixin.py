@@ -47,6 +47,7 @@ class CustomColumnsEnsureValueMacrosMixin:
     # ------------------------------------------------------------------------------------------------------------------
     #
     # - CUSTOM COLUMN MACROS
+    # Todo: we can type value better
     def ensure_custom_column_value(self, cc_table: str, value: Any) -> Any:
         """
         Attempt to insert a custom value, then return the lowest ID matched by raw
