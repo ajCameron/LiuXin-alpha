@@ -19,7 +19,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
-from LiuXin_alpha.databases.database_driver_plugins.SQL.calibre_database_generator import (
+from LiuXin_alpha.utils.calibre_compat.database_generator import (
     create_calibre_library_skeleton,
     calibre_metadata_schema_info,
 )

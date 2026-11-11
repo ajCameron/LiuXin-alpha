@@ -3,6 +3,7 @@
 Source review: **2026-10-20**, against the working tree based on `fc5de7af`.
 The reader/import examples were exercised in the 2026-10-19 compatibility review.
 Updated **2026-10-29** for the implemented Expression conversion policy.
+Updated **2026-11-11** for Calibre database generator ownership.
 
 Calibre compatibility spans source-library readers, metadata adapters, generated
 SQL projections and web responses. Each has its own contract and identity space.
@@ -14,6 +15,7 @@ There is no single adapter that makes LiuXin interchangeable with Calibre.
 | --- | --- | --- |
 | Convert canonical book projections and selected writes | [Catalog Calibre adapter](../src/LiuXin_alpha/catalog/compatibility/calibre.py) | `expression-v1` anchors books to Expressions, validates ray context and routes six fields to declared WEMI owners. Existing source/SQL/web IDs keep their meanings. |
 | Inspect a source library | [Calibre database emulation](../src/LiuXin_alpha/utils/calibre_compat/calibre_database_emulation/__init__.py) | Reads `metadata.db`, inspects schema/custom columns, streams normalized payloads and reports filesystem drift. |
+| Generate a Calibre library | [Database generator](../src/LiuXin_alpha/utils/calibre_compat/database_generator/__init__.py) | Creates `metadata.db` and optional auxiliary databases; `CalibreLibraryBuilder` populates fixture metadata and files. SQL snapshots remain in `resources/calibre`. |
 | Recover sidecar metadata | [OPF sidecar reader](../src/LiuXin_alpha/utils/calibre_compat/calibre_database_emulation/opf_sidecar.py) | Reads metadata from library folders; the scan/job helpers use this route when `metadata.db` is absent. |
 | Adapt metadata values | [Calibre-like containers](../src/LiuXin_alpha/metadata/containers/calibre_like_book_metadata/__init__.py) and [compatibility Metadata](../src/LiuXin_alpha/utils/calibre_compat/ebooks/metadata/book/base.py) | Expose supported fields and conversion methods. These objects do not establish canonical database identity. |
 | Project canonical records into SQL | [WEMI views](../src/LiuXin_alpha/databases/database_driver_plugins/SQL/database_generator_frbr/aggregate_sql/wemi_views.sql) | SQLite `books`/`books_v` expose one row per W–E–M ray; `titles`/`titles_v` expose one row per Work. They are lossy read projections. |
@@ -26,6 +28,12 @@ is a **proposal** for preserving source records and assigning WEMI identities.
 Its compatibility-record tables and canonical importer have not been implemented.
 The separate [Expression projection policy](calibre_compat/expression-conversion-policy.md)
 is callable as `catalog.calibre`; it does not import a source library.
+
+Import generation helpers from
+`LiuXin_alpha.utils.calibre_compat.database_generator`. This replaces the former
+`databases.database_driver_plugins.SQL.calibre_database_generator` package.
+The driver registry's explicit SQLite/APSW builder lookup resolves this Calibre
+generator; ordinary SQLite/APSW database creation continues to create FRBR catalogues.
 
 ## Read a source library
 

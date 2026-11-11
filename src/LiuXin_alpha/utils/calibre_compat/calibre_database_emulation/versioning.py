@@ -52,7 +52,7 @@ def _try_load_snapshot_versions() -> Tuple[Optional[int], Optional[int]]:
         described above.
     """
     try:
-        from LiuXin_alpha.databases.database_driver_plugins.SQL.calibre_database_generator.database_generator import (
+        from LiuXin_alpha.utils.calibre_compat.database_generator.database_generator import (
             calibre_metadata_application_id,
             calibre_metadata_user_version,
         )

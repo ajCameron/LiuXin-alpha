@@ -89,6 +89,7 @@ namespaces = true
 [tool.setuptools.package-data]
 "LiuXin_alpha.catalog" = ["py.typed"]
 "LiuXin_alpha.databases" = ["py.typed"]
+"LiuXin_alpha.utils.calibre_compat.database_generator" = ["py.typed"]
 "LiuXin_alpha.resources" = [
   "calibre/*",
   "calibre/catalog/*",
@@ -349,6 +350,7 @@ typeCheckingMode = "standard"
 include = [
   "src/LiuXin_alpha/errors.py",
   "src/LiuXin_alpha/databases",
+  "src/LiuXin_alpha/utils/calibre_compat/database_generator",
   "src/LiuXin_alpha/jobs/history.py",
   "src/LiuXin_alpha/jobs/handler_api.py",
   "src/LiuXin_alpha/utils/jobs/api.py",
@@ -454,6 +456,7 @@ python_version = "3.12"
 files = [
   "src/LiuXin_alpha/errors.py",
   "src/LiuXin_alpha/databases",
+  "src/LiuXin_alpha/utils/calibre_compat/database_generator",
   "src/LiuXin_alpha/jobs/history.py",
   "src/LiuXin_alpha/jobs/handler_api.py",
   "src/LiuXin_alpha/utils/jobs/api.py",

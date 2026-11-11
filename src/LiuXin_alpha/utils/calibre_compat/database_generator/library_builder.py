@@ -6,8 +6,6 @@ trigger UDFs. It targets realistic fixtures rather than full Calibre behavior.
 Filesystem writes are not transactional with database changes.
 """
 
-# Todo: This should probably be over in utils?
-
 from __future__ import annotations
 
 from dataclasses import dataclass

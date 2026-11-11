@@ -1,5 +1,7 @@
 """Check lazy plugin resolution and explicit file-location requirements."""
 
+import sqlite3
+from contextlib import closing
 from types import ModuleType
 
 import pytest
@@ -71,3 +73,20 @@ def test_builder_results_remain_extension_defined(
     monkeypatch.setattr(builder, "create_new_database", create, raising=False)
     assert registry.create_new_database("alias", tmp_path) is result
     assert received == [tmp_path]
+
+
+@pytest.mark.parametrize("db_type", ["SQLite", "sqlite", "SQLite_apsw", "apsw"])
+def test_builtin_builder_lookup_creates_calibre_schema(db_type):
+    """Keep the explicit Calibre builder usable through each SQLite registration."""
+    builder = registry.get_database_builder_module(db_type)
+    with closing(sqlite3.connect(":memory:")) as connection:
+        builder.create_new_database(connection)
+        builder.validate_metadata_database(connection)
+        tables = {
+            row[0]
+            for row in connection.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'"
+            )
+        }
+    assert {"books", "authors", "library_id"} <= tables
+    assert "works" not in tables

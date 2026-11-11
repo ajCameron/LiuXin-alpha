@@ -11,7 +11,7 @@ from __future__ import annotations
 import sqlite3
 
 from LiuXin_alpha.utils.calibre_compat.calibre_database_emulation import CalibreDB
-from LiuXin_alpha.databases.database_driver_plugins.SQL.calibre_database_generator import CalibreLibraryBuilder
+from LiuXin_alpha.utils.calibre_compat.database_generator import CalibreLibraryBuilder
 
 
 def test_custom_column_introspection_flags_and_tables(provision_calibre_library) -> None:

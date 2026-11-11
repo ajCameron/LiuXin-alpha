@@ -1,6 +1,7 @@
 # Calibre compatibility
 
 Updated **2026-10-29** for the implemented Expression conversion policy.
+Updated **2026-11-11** for Calibre database generator ownership.
 
 Compatibility includes source-library inspection, metadata adapters, generated
 SQL views and selected web routes. Each boundary has its own owner and IDs.
@@ -9,6 +10,10 @@ it does not reinterpret existing SQL, source or web IDs.
 
 ## Current behaviour
 
+- [Database generator](../../src/LiuXin_alpha/utils/calibre_compat/database_generator/__init__.py):
+  creates Calibre schemas and fixture libraries from the packaged SQL snapshots.
+  Schema creation and `CalibreLibraryBuilder` live together under
+  `LiuXin_alpha.utils.calibre_compat.database_generator`.
 - [Expression conversion policy](expression-conversion-policy.md): versioned
   field owners, validated ray conversion, atomic writes and migrated cache hooks.
 - [Compatibility overview](<../05 - Calibre compat.md>): implemented adapters,

@@ -105,7 +105,7 @@ def test_legacy_link_request_identifies_unresolved_endpoints():
 
 
 def test_calibre_resource_paths_decode_filesystem_bytes(monkeypatch, tmp_path):
-    from LiuXin_alpha.databases.database_driver_plugins.SQL.calibre_database_generator import (
+    from LiuXin_alpha.utils.calibre_compat.database_generator import (
         database_generator,
     )
 

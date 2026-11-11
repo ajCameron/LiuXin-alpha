@@ -1,5 +1,17 @@
 # Working Memory Index
 
+Calibre move ready for publication, **2026-11-11**:
+[Calibre generator relocation](calibre-generator-relocation-2026-11-11.md).
+PR #157 is merged; fast-forwarded to `fcf9166c` and created branch
+`calibre-generator-relocation-2026-11-11` in the persistent review clone.
+Generator and library builder now live in `utils/calibre_compat/database_generator`.
+145 focused tests pass; full quality and installed-wheel Calibre checks pass.
+Extra generated-fixture checks expose two existing tooling issues, reproduced
+on the merged baseline (13 failures); read the handoff before generator signoff.
+All local checks finished. Commit and PR publication to `database-review` are
+authorized; the user will fast-forward their own checkout after merging.
+Read the handoff for publication receipts. No original-checkout switch or stash.
+
 Signed off locally, **2026-11-11**: read
 [the FRBR generator repair handoff](database-generator-frbr-review-2026-11-11.md).
 All seven findings have repairs, including the second-pass primary-flag domain

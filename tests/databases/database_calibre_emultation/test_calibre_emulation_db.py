@@ -16,7 +16,7 @@ from LiuXin_alpha.utils.calibre_compat.calibre_database_emulation import (
     CalibreDB,
     CalibreLibraryNotFoundError,
 )
-from LiuXin_alpha.databases.database_driver_plugins.SQL.calibre_database_generator import (
+from LiuXin_alpha.utils.calibre_compat.database_generator import (
     CalibreLibraryBuilder,
     calibre_metadata_schema_info,
 )
@@ -211,7 +211,7 @@ def test_schema_info_version_plan_warns_on_mismatch_and_newer_schema(tmp_path) -
         fixture files.
     :return: None; failed expectations raise AssertionError.
     """
-    from LiuXin_alpha.databases.database_driver_plugins.SQL.calibre_database_generator import calibre_metadata_user_version
+    from LiuXin_alpha.utils.calibre_compat.database_generator import calibre_metadata_user_version
 
     root = tmp_path / "badlib"
     root.mkdir(parents=True, exist_ok=True)

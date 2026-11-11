@@ -37,7 +37,7 @@ def test_iter_book_payloads_best_effort_survives_missing_author_tables(provision
     """
     lib = provision_calibre_library(name="lib_b2_missing_authors")
 
-    from LiuXin_alpha.databases.database_driver_plugins.SQL.calibre_database_generator import CalibreLibraryBuilder
+    from LiuXin_alpha.utils.calibre_compat.database_generator import CalibreLibraryBuilder
 
     b = CalibreLibraryBuilder(lib.root)
     b.add_book(
@@ -111,7 +111,7 @@ def test_schema_info_strict_version_policy_can_refuse(tmp_path: Path) -> None:
         fixture files.
     :return: None; failed expectations raise AssertionError.
     """
-    from LiuXin_alpha.databases.database_driver_plugins.SQL.calibre_database_generator.database_generator import (
+    from LiuXin_alpha.utils.calibre_compat.database_generator.database_generator import (
         calibre_metadata_application_id,
         calibre_metadata_user_version,
     )
