@@ -10,20 +10,37 @@ exported path/size/timestamp/thumbnail_size namedtuple. Bibliographic title matc
 lives in ``catalog.matching``.
 """
 
-from __future__ import unicode_literals, division, absolute_import, print_function
+from __future__ import (
+    unicode_literals,
+    division,
+    absolute_import,
+    print_function,
+    annotations,
+)
 
 import os
 import re
 from collections import namedtuple
 from math import floor, ceil
 
-from typing import Optional, Any, Iterable, Union
+from typing import (
+    Optional,
+    Any,
+    Iterable,
+    Union,
+    Sequence,
+    Mapping,
+    Protocol,
+    Literal,
+    cast,
+    overload,
+)
 
 from LiuXin_alpha.metadata.utils import authors_to_string
 from LiuXin_alpha.preferences import preferences
-from LiuXin_alpha.utils.libraries.liuxin_six import string_types, dict_iteritems as iteritems
+from LiuXin_alpha.utils.libraries.liuxin_six import string_types
 
-from LiuXin_alpha.databases.constants import CUSTOM_DATA_TYPES
+from LiuXin_alpha.databases.constants import CUSTOM_DATA_TYPES as CUSTOM_DATA_TYPES
 
 from LiuXin_alpha.utils.language_tools import plural_singular_mapper
 from LiuXin_alpha.utils.language_tools.icu import lower as icu_lower
@@ -34,7 +51,7 @@ __license__ = "GPL v3"
 __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"
 
 
-def force_to_bool(val: Any) -> Optional[bool]:
+def force_to_bool(val: object) -> Optional[bool]:
     """
     Interpret common boolean labels or numeric text, preserving unknown as None.
 
@@ -122,6 +139,7 @@ class CacheError(Exception):
         >>> str(CacheError("cache unavailable"))
         'cache unavailable'
     """
+
     pass
 
 
@@ -141,10 +159,22 @@ def cleanup_tags(tags: Iterable[Union[str, bytes]]) -> list[str]:
 
 
 # Todo: This should be public and seems to be a dupe of elsewhere?
+@overload
 def _get_next_series_num_for_list(
-        series_indices: list[Union[float, int]],
-        unwrap: bool = True
-) -> Union[int, float]:
+    series_indices: Sequence[Sequence[int | float]], unwrap: Literal[True] = True
+) -> int | float: ...
+
+
+@overload
+def _get_next_series_num_for_list(
+    series_indices: Sequence[int | float], unwrap: Literal[False]
+) -> int | float: ...
+
+
+def _get_next_series_num_for_list(
+    series_indices: Sequence[int | float] | Sequence[Sequence[int | float]],
+    unwrap: bool = True,
+) -> int | float:
     """
     Choose a series index according to the configured auto-increment mode.
 
@@ -152,8 +182,7 @@ def _get_next_series_num_for_list(
     scans integers 1 through 9999; next_free scans ceil(first) through 9999; last_free
     scans downward from ceil(last) to 1, then uses last+1 if none are free. Numeric
     configuration returns that constant; unknown modes return 1.0. Input is not sorted
-    or deduplicated, and the flat-number annotation does not describe the default unwrap
-    requirement.
+    or deduplicated. Default unwrapping accepts rows; unwrap=False accepts flat numbers.
 
     Example:
         With series_index_auto_increment="next", get_next_series_num_for_list([[1.0],
@@ -172,7 +201,10 @@ def _get_next_series_num_for_list(
         range.
     :raises TypeError: unwrap=True receives non-indexable scalar entries.
     """
-    series_index_auto_inc = preferences.parse("series_index_auto_increment", "str", "next")
+    series_index_auto_inc = preferences.parse(
+        "series_index_auto_increment", "str", "next"
+    )
+    series_index_num: int | float | None
     try:
         series_index_num = int(series_index_auto_inc)
     except ValueError:
@@ -188,29 +220,35 @@ def _get_next_series_num_for_list(
             return float(series_index_num)
         return 1.0
 
+    # Overloads tie the input shape to unwrap. The selected branch preserves the
+    # legacy runtime behavior, including TypeError for mismatched scalar rows.
     if unwrap:
-        series_indices = [x[0] for x in series_indices]
+        indices: Sequence[int | float] = [
+            row[0] for row in cast(Sequence[Sequence[int | float]], series_indices)
+        ]
+    else:
+        indices = cast(Sequence[int | float], series_indices)
 
     if series_index_auto_inc == "next":
-        return floor(float(series_indices[-1])) + 1.0
+        return floor(float(indices[-1])) + 1.0
 
     if series_index_auto_inc == "first_free":
         for i in range(1, 10000):
-            if i not in series_indices:
+            if i not in indices:
                 return i
         raise NotImplementedError
 
     if series_index_auto_inc == "next_free":
-        for i in range(int(ceil(series_indices[0])), 10000):
-            if i not in series_indices:
+        for i in range(int(ceil(indices[0])), 10000):
+            if i not in indices:
                 return i
         raise NotImplementedError
 
     if series_index_auto_inc == "last_free":
-        for i in range(int(ceil(series_indices[-1])), 0, -1):
-            if i not in series_indices:
+        for i in range(int(ceil(indices[-1])), 0, -1):
+            if i not in indices:
                 return i
-        return series_indices[-1] + 1
+        return indices[-1] + 1
 
     if isinstance(series_index_num, (int, float)):
         return float(series_index_num)
@@ -245,9 +283,9 @@ def _get_series_values(val: str) -> tuple[str, Optional[float]]:
         return val, None
     match = series_index_pat.match(val.strip())
     if match is not None:
-        idx = match.group(2)
+        raw_index = match.group(2)
         try:
-            idx = float(idx)
+            idx = float(raw_index)
             return match.group(1).strip(), idx
         except:
             pass
@@ -257,12 +295,51 @@ def _get_series_values(val: str) -> tuple[str, Optional[float]]:
 get_series_values = _get_series_values
 
 
+class _LegacyExportConfiguration(Protocol):
+    """Settings read from either the legacy cache or its separate backend."""
+
+    @property
+    def library_path(self) -> str: ...
+
+    @property
+    def custom_column_num_map(self) -> Mapping[int, Mapping[str, Any]]: ...
+
+
+class LegacyExportHost(Protocol):
+    """Read operations needed by the retained legacy metadata export helper.
+
+    Cached metadata cells remain dynamic. The host itself must provide the
+    concrete row-index map and path/format lookup operations below.
+    """
+
+    @property
+    def data(self) -> Iterable[Sequence[Any] | None]: ...
+
+    @property
+    def FIELD_MAP(self) -> Mapping[str | int, int]: ...
+
+    @property
+    def library_path(self) -> str: ...
+
+    def isbn(self, idx: int, index_is_id: bool = False) -> str | None: ...
+
+    def path(self, idx: int, index_is_id: bool = False) -> str: ...
+
+    def formats(self, idx: int, index_is_id: bool = False) -> str | None: ...
+
+    def format_abspath(
+        self, idx: int, fmt: str, index_is_id: bool = False
+    ) -> str | None: ...
+
+
 # Todo: This feels like legacy calibre code which is going to need a lot more effort to work. Also shouldn't be in utils.
-def get_data_as_dict(self,
-                     prefix: Optional[str] = None,
-                     authors_as_string: bool = False,
-                     ids: Optional[set[str]] = None,
-                     convert_to_local_tz: bool = True):
+def get_data_as_dict(
+    self: LegacyExportHost,
+    prefix: str | None = None,
+    authors_as_string: bool = False,
+    ids: set[int] | None = None,
+    convert_to_local_tz: bool = True,
+) -> list[dict[str | int, Any]]:
     """
     Materialize legacy cached book metadata and derived cover/format paths.
 
@@ -296,14 +373,16 @@ def get_data_as_dict(self,
     """
     from LiuXin_alpha.utils.date import as_local_time
 
-    backend = getattr(self, "backend", self)  # Works with both old and legacy interfaces
+    backend = cast(
+        _LegacyExportConfiguration, getattr(self, "backend", self)
+    )  # Works with both old and legacy interfaces
     if prefix is None:
         prefix = backend.library_path
 
     # Will be used to serialize the custom column data
     fdata = backend.custom_column_num_map
 
-    db_fields = {
+    db_fields: set[str | int] = {
         "title",
         "sort",
         "authors",
@@ -321,19 +400,20 @@ def get_data_as_dict(self,
         "last_modified",
         "identifiers",
         "languages",
-    }.union(set(fdata))
+    }
+    db_fields.update(fdata)
 
-    for x, data in iteritems(fdata):
-        if data["datatype"] == "series":
-            db_fields.add("%d_index" % x)
-    data = []
+    for number, column in fdata.items():
+        if column["datatype"] == "series":
+            db_fields.add("%d_index" % number)
+    data: list[dict[str | int, Any]] = []
     for record in self.data:
         if record is None:
             continue
         db_id = record[self.FIELD_MAP["id"]]
         if ids is not None and db_id not in ids:
             continue
-        x = {}
+        x: dict[str | int, Any] = {}
         for field in db_fields:
             x[field] = record[self.FIELD_MAP[field]]
         if convert_to_local_tz:
@@ -350,22 +430,28 @@ def get_data_as_dict(self,
         x["authors"] = [i.replace("|", ",") for i in x["authors"].split(",")]
         if authors_as_string:
             x["authors"] = authors_to_string(x["authors"])
-        x["tags"] = [i.replace("|", ",").strip() for i in x["tags"].split(",")] if x["tags"] else []
-        path = os.path.join(prefix, self.path(record[self.FIELD_MAP["id"]], index_is_id=True))
+        x["tags"] = (
+            [i.replace("|", ",").strip() for i in x["tags"].split(",")]
+            if x["tags"]
+            else []
+        )
+        path = os.path.join(
+            prefix, self.path(record[self.FIELD_MAP["id"]], index_is_id=True)
+        )
         x["cover"] = os.path.join(path, "cover.jpg")
         if not record[self.FIELD_MAP["cover"]]:
             x["cover"] = None
         formats = self.formats(record[self.FIELD_MAP["id"]], index_is_id=True)
         if formats:
             for fmt in formats.split(","):
-                path = self.format_abspath(x["id"], fmt, index_is_id=True)
-                if path is None:
+                format_path = self.format_abspath(x["id"], fmt, index_is_id=True)
+                if format_path is None:
                     continue
                 if prefix != self.library_path:
-                    path = os.path.relpath(path, self.library_path)
-                    path = os.path.join(prefix, path)
-                x["formats"].append(path)
-                x["fmt_" + fmt.lower()] = path
+                    format_path = os.path.relpath(format_path, self.library_path)
+                    format_path = os.path.join(prefix, format_path)
+                x["formats"].append(format_path)
+                x["fmt_" + fmt.lower()] = format_path
             x["available_formats"] = [i.upper() for i in formats.split(",")]
 
     return data

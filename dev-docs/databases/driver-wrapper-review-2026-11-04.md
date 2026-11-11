@@ -5,6 +5,9 @@ This follows the [first boundary repair](next_tasks.md#db08-correct-driver-wrapp
 It covers `databases.driver_wrapper`, its API, the driver hooks it calls and the
 custom-column management paths. It is not a full database-module signoff.
 
+Delivery update: the [combined maintenance/wrapper PR checkpoint](review-upgrade-delivery-2026-11-04.md)
+supersedes the uncommitted status below; the dated validation remains historical.
+
 ## Reproduced findings and changes
 
 | Priority | Finding | Result |

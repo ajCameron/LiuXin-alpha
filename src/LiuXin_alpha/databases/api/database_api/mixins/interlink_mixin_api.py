@@ -9,7 +9,7 @@ implementation-specific.
 from __future__ import annotations
 
 import abc
-from typing import Optional, Union, Any, Iterable, TYPE_CHECKING
+from typing import Optional, Union, Any, Iterable, TYPE_CHECKING, Literal, overload
 
 if TYPE_CHECKING:
     from LiuXin_alpha.databases.api import RowAPI
@@ -28,13 +28,32 @@ class DatabaseInterlinkRowsMixinAPI(abc.ABC):
         True
     """
 
-
     # Todo: get_interlink_rows and get_interlinked_rows seem similar
-
 
     # ---------------------------------------------------------------------------------------------
     # Interlink tables (many-to-many between two *different* tables)
     # ---------------------------------------------------------------------------------------------
+    @overload
+    @abc.abstractmethod
+    def get_interlink_row(
+        self,
+        primary_row: "RowAPI",
+        secondary_row: "RowAPI",
+        onelink: Literal[True] = True,
+    ) -> Optional["RowAPI"]: ...
+
+    @overload
+    @abc.abstractmethod
+    def get_interlink_row(
+        self, primary_row: "RowAPI", secondary_row: "RowAPI", onelink: Literal[False]
+    ) -> Optional[list["RowAPI"]]: ...
+
+    @overload
+    @abc.abstractmethod
+    def get_interlink_row(
+        self, primary_row: "RowAPI", secondary_row: "RowAPI", onelink: bool
+    ) -> Optional[Union["RowAPI", list["RowAPI"]]]: ...
+
     @abc.abstractmethod
     def get_interlink_row(
         self,
@@ -66,7 +85,9 @@ class DatabaseInterlinkRowsMixinAPI(abc.ABC):
         """
 
     @abc.abstractmethod
-    def get_interlink_rows(self, primary_row: "RowAPI", secondary_table: str) -> list["RowAPI"]:
+    def get_interlink_rows(
+        self, primary_row: "RowAPI", secondary_table: str
+    ) -> list["RowAPI"]:
         """
         Return relationship Rows from one endpoint to a target table.
 
@@ -89,11 +110,11 @@ class DatabaseInterlinkRowsMixinAPI(abc.ABC):
     @abc.abstractmethod
     def get_interlinked_rows(
         self,
-        primary_row: Optional["RowAPI"] = None,
+        target_row: Optional["RowAPI"] = None,
         secondary_table: Optional[str] = None,
         type_filter: Optional[str] = None,
         **kwargs: Any,
-    ) -> list["RowAPI"]:
+    ) -> list["RowAPI | None"]:
         """
         Resolve endpoint Rows reached through inter-table relationships.
 
@@ -116,14 +137,16 @@ class DatabaseInterlinkRowsMixinAPI(abc.ABC):
         :param kwargs: Extra implementation arguments; concrete Database also exposes
             target_row and rejects unknown keywords.
         :return: Endpoint Row list, descending by link priority when available; [] when
-            no link table or matches exist.
+            no link table or matches exist. Missing endpoint records remain None.
         :raises TypeError: Keywords are unexpected or secondary_table is missing.
         :raises InputIntegrityError: The seed is not a concrete Row, the target category
             is invalid, or the tables match.
         """
 
     @abc.abstractmethod
-    def get_interlink_values(self, target_row: "RowAPI", secondary_column: str) -> set[Any]:
+    def get_interlink_values(
+        self, target_row: "RowAPI", secondary_column: str
+    ) -> set[Any]:
         """
         Collect distinct column values from linked endpoint Rows.
 
@@ -139,6 +162,7 @@ class DatabaseInterlinkRowsMixinAPI(abc.ABC):
         :param secondary_column: Column whose owning table is identified by the wrapper.
         :return: Set of values; relationship priority and duplicates are discarded.
         :raises TypeError: A retrieved column value is unhashable.
+        :raises DatabaseIntegrityError: A relationship refers to a missing endpoint.
         """
 
     @abc.abstractmethod
@@ -217,7 +241,9 @@ class DatabaseInterlinkRowsMixinAPI(abc.ABC):
         """
 
     @abc.abstractmethod
-    def swap_priorities(self, src_row: "RowAPI", dst_row_1: "RowAPI", dst_row_2: "RowAPI") -> None:
+    def swap_priorities(
+        self, src_row: "RowAPI", dst_row_1: "RowAPI", dst_row_2: "RowAPI"
+    ) -> None:
         """
         Apply the legacy two-link priority update sequence.
 
@@ -253,8 +279,8 @@ class DatabaseInterlinkRowsMixinAPI(abc.ABC):
         Abstract hook; subclasses supply the operation. Concrete Database behavior:
         Resolve a priority column even when unchanged is requested. Highest/lowest use
         whole-column integer extrema; extra keyword columns can override earlier
-        assignments. No rollback is added around sync. Missing links are not explicitly
-        checked before subsequent Row use.
+        assignments. No rollback is added around sync. Missing links are rejected before
+        column resolution or mutation.
 
         Example:
             For an existing unique relationship, db.update_interlink(agent, work,
@@ -267,7 +293,7 @@ class DatabaseInterlinkRowsMixinAPI(abc.ABC):
         :param col_value_pairs: Other link-column values, resolved after priority
             processing.
         :return: Updated relationship Row.
-        :raises InputIntegrityError: The priority value is unsupported.
+        :raises InputIntegrityError: The link is missing or the priority is unsupported.
         :raises DatabaseIntegrityError: The pair is ambiguous, extrema are invalid, or
             synchronization fails.
         """
@@ -295,8 +321,8 @@ class DatabaseInterlinkRowsMixinAPI(abc.ABC):
 
         :param primary_row: Seed Row.
         :param secondary_table: Target endpoint table.
-        :param ordered_ids: Desired target IDs; use a sized, copyable list or tuple with
-            the concrete facade, despite this broader Iterable annotation.
+        :param ordered_ids: Desired target IDs, consumed once into a list before
+            length validation and reverse-order updates.
         :return: None.
         :raises AssertionError: The number of linked endpoints differs from ordered_ids.
         :raises KeyError: A requested ID is absent from the linked endpoint map.
@@ -321,19 +347,24 @@ class DatabaseInterlinkRowsMixinAPI(abc.ABC):
         :return: None.
         :raises DatabaseIntegrityError: The endpoint pair has multiple relationship
             Rows.
-        :raises AttributeError: No relationship exists and delete receives None.
+        :raises InputIntegrityError: No relationship exists for the endpoint pair.
         """
 
     @abc.abstractmethod
-    def unlink_all(self, primary_row: "RowAPI", secondary_table: str, type_filter: Optional[str] = None) -> None:
+    def unlink_all(
+        self,
+        primary_row: "RowAPI",
+        secondary_table: str,
+        type_filter: Optional[str] = None,
+    ) -> None:
         """
         Delete relationships from a seed to a target table, optionally by type.
 
         Abstract hook; subclasses supply the operation. Concrete Database behavior:
         Initially fetch endpoints without filtering. The typed path retries ambiguous
         single-link lookups in multi-link mode; the unfiltered path does not. Repeated
-        endpoints can revisit already deleted links, so missing-link failures and
-        partial deletion remain possible. No group transaction or endpoint deletion is
+        endpoints can revisit already deleted links; absent links are skipped. Partial
+        deletion remains possible. No group transaction or endpoint deletion is
         performed.
 
         Example:

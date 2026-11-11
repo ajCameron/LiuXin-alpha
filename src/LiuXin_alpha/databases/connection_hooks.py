@@ -7,11 +7,34 @@ must use the supplied transaction and must never commit it independently.
 from __future__ import annotations
 
 import sqlite3
+from collections.abc import Callable, Iterable, Mapping
 from functools import lru_cache
-from typing import Any
+from types import TracebackType
+from typing import Any, Literal, Protocol, Self, overload
+from weakref import WeakSet
+
+from LiuXin_alpha.databases.db_types.driver_types import QueryConnection
 
 
-def flush_connection_work(connection: Any) -> None:
+class _IndexedParameters(Protocol):
+    """Native SQLite also accepts indexed bindings without sequence inheritance."""
+
+    def __len__(self) -> int: ...
+
+    def __getitem__(self, index: int, /) -> Any: ...
+
+
+type SQLiteParameters = _IndexedParameters | Mapping[str, Any]
+
+
+def connection_closed(connection: object) -> None:
+    """Release driver tracking only after the native handle closes successfully."""
+    callback = vars(connection).pop("_liuxin_on_close", None)
+    if callback is not None:
+        callback(connection)
+
+
+def flush_connection_work(connection: object) -> None:
     """Flush an explicitly installed hook without probing dynamic mock attributes."""
     try:
         hook = vars(connection).get("_liuxin_before_completion")
@@ -21,7 +44,7 @@ def flush_connection_work(connection: Any) -> None:
         hook(connection)
 
 
-def before_statement(connection: Any, sql: str) -> None:
+def before_statement(connection: object, sql: str) -> None:
     """Run an optional boundary hook before executing SQL, never inside a trigger."""
     if vars(connection).get("_liuxin_transaction_control", False):
         return
@@ -30,7 +53,7 @@ def before_statement(connection: Any, sql: str) -> None:
         hook(connection, sql)
 
 
-def execute_transaction_control(connection: Any, sql: str) -> None:
+def execute_transaction_control(connection: QueryConnection, sql: str) -> None:
     """Execute scope-owned controls after the scope's explicit completion check.
 
     In particular, releasing a rolled-back savepoint must not dispatch unrelated
@@ -52,17 +75,29 @@ def execute_transaction_control(connection: Any, sql: str) -> None:
 class SQLiteCompletionCursor(sqlite3.Cursor):
     """Keep cursor SQL on the same maintenance boundaries as connection SQL."""
 
-    def execute(self, sql, parameters=()):
+    def __init__(self, connection: sqlite3.Connection) -> None:
+        """Track owned statements weakly so closing a connection finalizes them."""
+        super().__init__(connection)
+        if isinstance(connection, SQLiteCompletionConnection):
+            connection._owned_cursors.add(self)
+
+    def close(self) -> None:
+        """Finalize the native statement before releasing its owner registration."""
+        super().close()
+        if isinstance(self.connection, SQLiteCompletionConnection):
+            self.connection._owned_cursors.discard(self)
+
+    def execute(self, sql: str, parameters: SQLiteParameters = ()) -> Self:
         """Prepare the connection before one statement."""
         before_statement(self.connection, sql)
         return super().execute(sql, parameters)
 
-    def executemany(self, sql, parameters):
+    def executemany(self, sql: str, parameters: Iterable[SQLiteParameters]) -> Self:
         """Prepare each supplied row batch before execution."""
         before_statement(self.connection, sql)
         return super().executemany(sql, parameters)
 
-    def executescript(self, sql):
+    def executescript(self, sql: str) -> Self:
         """Keep installed-maintenance scripts atomic without an implicit pre-commit."""
         if vars(self.connection).get("_liuxin_before_completion") is not None:
             # An attached but uninstalled runtime must not change old script APIs.
@@ -71,7 +106,7 @@ class SQLiteCompletionCursor(sqlite3.Cursor):
                 "SELECT 1 FROM sqlite_master WHERE type='table' AND name='maintenance_metadata'",
             ).fetchone()
             if installed:
-                from LiuXin_alpha.databases.maintenance.bound_connection import (
+                from LiuXin_alpha.databases.sql_statements import (
                     statement_keyword,
                 )
                 from LiuXin_alpha.databases.transactions import (
@@ -103,11 +138,12 @@ class SQLiteCompletionCursor(sqlite3.Cursor):
                     for statement in statements:
                         self.execute(statement)
                 return self
-        return super().executescript(sql)
+        super().executescript(sql)
+        return self
 
 
 @lru_cache(maxsize=64)
-def _completion_cursor_factory(factory):
+def _completion_cursor_factory(factory: object) -> type[SQLiteCompletionCursor]:
     """Preserve custom cursor behavior behind the connection's boundary hooks.
 
     Wrap from creation, including before maintenance installation. Otherwise an
@@ -125,7 +161,14 @@ def _completion_cursor_factory(factory):
 class SQLiteCompletionConnection(sqlite3.Connection):
     """Include required connection work in native SQLite commit/context handling."""
 
-    def __setattr__(self, name, value):
+    @property
+    def _owned_cursors(self) -> WeakSet[sqlite3.Cursor]:
+        """Retain no cursor solely for bookkeeping, including custom factories."""
+        if "_liuxin_cursors" not in vars(self):
+            self._liuxin_cursors: WeakSet[sqlite3.Cursor] = WeakSet()
+        return self._liuxin_cursors
+
+    def __setattr__(self, name: str, value: object) -> None:
         """Keep settings that implicitly commit inside the completion boundary."""
         completes = (name == "autocommit" and value is True) or (
             name == "isolation_level"
@@ -148,19 +191,39 @@ class SQLiteCompletionConnection(sqlite3.Connection):
                 raise
         super().__setattr__(name, value)
 
-    def cursor(self, factory=SQLiteCompletionCursor):
-        """Return a cursor that honors transaction completion and read boundaries."""
-        return super().cursor(_completion_cursor_factory(factory))
+    @overload
+    def cursor(self, factory: None = None) -> SQLiteCompletionCursor: ...
 
-    def execute(self, sql, parameters=()):
+    @overload
+    def cursor[CursorT: sqlite3.Cursor](
+        self, factory: Callable[[sqlite3.Connection], CursorT]
+    ) -> CursorT: ...
+
+    def cursor(
+        self,
+        factory: Callable[[sqlite3.Connection], sqlite3.Cursor]
+        | None = SQLiteCompletionCursor,
+    ) -> sqlite3.Cursor:
+        """Return a cursor that honors transaction completion and read boundaries."""
+        return super().cursor(
+            _completion_cursor_factory(
+                SQLiteCompletionCursor if factory is None else factory
+            )
+        )
+
+    def execute(
+        self, sql: str, parameters: SQLiteParameters = ()
+    ) -> SQLiteCompletionCursor:
         """Execute through the same hooks as explicitly created cursors."""
         return self.cursor().execute(sql, parameters)
 
-    def executemany(self, sql, parameters):
+    def executemany(
+        self, sql: str, parameters: Iterable[SQLiteParameters]
+    ) -> SQLiteCompletionCursor:
         """Execute a batch through the same hooks as explicitly created cursors."""
         return self.cursor().executemany(sql, parameters)
 
-    def executescript(self, sql):
+    def executescript(self, sql: str) -> SQLiteCompletionCursor:
         """Delegate scripts to the cursor's explicit transaction safeguard."""
         return self.cursor().executescript(sql)
 
@@ -173,7 +236,19 @@ class SQLiteCompletionConnection(sqlite3.Connection):
             raise
         super().commit()
 
-    def __exit__(self, exc_type: Any, exc: Any, tb: Any) -> Any:
+    def close(self) -> None:
+        """Finalize owned cursors, then close without committing pending writes."""
+        for cursor in tuple(self._owned_cursors):
+            cursor.close()
+        super().close()
+        connection_closed(self)
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        tb: TracebackType | None,
+    ) -> Literal[False]:
         """Keep hook failures inside the native transaction's rollback boundary."""
         if exc_type is None:
             try:

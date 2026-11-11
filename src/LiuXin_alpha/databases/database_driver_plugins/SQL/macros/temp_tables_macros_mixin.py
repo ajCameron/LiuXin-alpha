@@ -1,4 +1,3 @@
-
 """
 Maintain the legacy custom-column bulk-edit temporary ID tables.
 
@@ -11,19 +10,18 @@ connection implementation's commit behavior.
 
 from __future__ import annotations
 
-from typing import Any, TYPE_CHECKING, Iterable
+from LiuXin_alpha.databases.database_driver_plugins._macro_state import MacroHostState
+from typing import Any, Iterable
+from LiuXin_alpha.databases.db_types.driver_types import SQLConnection
+from LiuXin_alpha.errors import DatabaseIntegrityError
 
 from LiuXin_alpha.databases.database_driver_plugins.SQL.macros.portable_macros_mixin import (
     _identifier,
     _quoted,
 )
 
-if TYPE_CHECKING:
 
-    from LiuXin_alpha.databases.api.database_api import DatabaseAPI
-
-
-class TempTablesMacrosMixin:
+class TempTablesMacrosMixin(MacroHostState):
     """
     Supply the legacy temporary-table lifecycle used by custom-column bulk edits.
 
@@ -47,8 +45,6 @@ class TempTablesMacrosMixin:
         >>> conn.close()
     """
 
-    db: "DatabaseAPI"
-
     # ------------------------------------------------------------------------------------------------------------------
     #
     # - TEMP TABLES
@@ -58,22 +54,21 @@ class TempTablesMacrosMixin:
     # Todo: Also can forsee a problem where the temp tables can be used to drop main tables if their names clash
     # Todo: conn can be protocoled?
     def create_cc_temp_tables(
-            self,
-            temp_tables: Iterable[str],
-            conn: Any = None) -> None:
+        self, temp_tables: Iterable[str], conn: SQLConnection | None = None
+    ) -> None:
         """
         Replace named temporary tables with empty id INTEGER PRIMARY KEY tables.
 
         Resolve the connection, then materialize and validate every simple identifier
-        before executing SQL. Strip surrounding name whitespace. The script drops all
+        before executing SQL. Strip surrounding name whitespace. Execute individual
+        statements, preserving any caller-owned transaction. Drop all
         requested temp-schema tables before creating any replacements; same-name main
         tables are preserved. Existing temporary data is discarded. Duplicate names are
         not deduplicated, so a repeated CREATE can fail after earlier statements ran.
 
-        Even an empty iterable submits a script. No BEGIN, commit or rollback is added
-        here; executescript controls transaction effects and may commit pending work
-        on SQLite connections. Validation/iteration failures occur before script
-        execution, while SQL failures may leave partial changes.
+        Empty input performs no SQL. No BEGIN, commit or rollback is added here.
+        Validation/iteration failures occur before SQL; later SQL failures remain
+        inside the caller's transaction.
 
         Example:
             >>> import sqlite3
@@ -89,39 +84,38 @@ class TempTablesMacrosMixin:
 
         :param temp_tables: Iterable of simple table names, fully consumed and validated
             before the drop/create script runs.
-        :param conn: Connection supporting executescript, or None to use db.driver.conn;
+        :param conn: Connection supporting execute, or None to use db.driver.conn;
             an explicit non-None connection is retained even if falsey.
-        :return: None; the script result is discarded and the connection remains open.
+        :return: None; statement cursors close and the connection remains open.
         """
-        conn = conn if conn is not None else self.db.driver.conn
+        conn = conn if conn is not None else self._macro_database.driver.conn
+        if conn is None:
+            raise DatabaseIntegrityError(
+                "Temporary-table macros have no active connection"
+            )
 
         temp_tables = tuple(
-            _identifier(table, kind="temporary table name")
-            for table in temp_tables
+            _identifier(table, kind="temporary table name") for table in temp_tables
         )
-        drops = "\n".join(
-            f"DROP TABLE IF EXISTS temp.{_quoted(table)};"
-            for table in temp_tables
-        )
-        creates = "\n".join(
-            f"CREATE TEMP TABLE {_quoted(table)}(id INTEGER PRIMARY KEY);"
-            for table in temp_tables
-        )
-        conn.executescript(drops + "\n" + creates)
+        for table in temp_tables:
+            conn.execute(f"DROP TABLE IF EXISTS temp.{_quoted(table)}").close()
+        for table in temp_tables:
+            conn.execute(
+                f"CREATE TEMP TABLE {_quoted(table)}(id INTEGER PRIMARY KEY)"
+            ).close()
 
     def destroy_cc_temp_tables(
-            self,
-            temp_tables: Iterable[str],
-            conn: Any = None) -> None:
+        self, temp_tables: Iterable[str], conn: SQLConnection | None = None
+    ) -> None:
         """
         Drop named temp-schema tables while preserving same-name main-schema tables.
 
         Build the complete script before executing it, validating and trimming each
         simple name. IF EXISTS tolerates absent tables and repeated names. Invalid
         identifiers or iterable failures prevent the entire script from being sent;
-        SQL failures may occur after earlier drops. An empty iterable still calls
-        executescript. This helper neither owns a transaction nor closes the connection;
-        the connection's script implementation determines commit behavior.
+        SQL failures may occur after earlier drops. Empty input performs no SQL.
+        Execute individual statements without committing or closing the connection;
+        the caller owns rollback on SQL failure.
 
         Example:
             >>> import sqlite3
@@ -145,22 +139,24 @@ class TempTablesMacrosMixin:
 
         :param temp_tables: Iterable of simple temporary-table names; all names are
             processed before executing the drop script.
-        :param conn: Connection supporting executescript, or None to use db.driver.conn.
+        :param conn: Connection supporting execute, or None to use db.driver.conn.
         :return: None; missing tables are ignored by SQL IF EXISTS.
         """
-        conn = conn if conn is not None else self.db.driver.conn
+        conn = conn if conn is not None else self._macro_database.driver.conn
+        if conn is None:
+            raise DatabaseIntegrityError(
+                "Temporary-table macros have no active connection"
+            )
 
-        drops = "\n".join(
-            f"DROP TABLE IF EXISTS temp.{_quoted(_identifier(table, kind='temporary table name'))};"
-            for table in temp_tables
+        tables = tuple(
+            _identifier(table, kind="temporary table name") for table in temp_tables
         )
-        conn.executescript(drops)
+        for table in tables:
+            conn.execute(f"DROP TABLE IF EXISTS temp.{_quoted(table)}").close()
 
     def insert_values_into_temp_table(
-            self,
-            temp_table: str,
-            values: Iterable[Any],
-            conn: Any = None) -> None:
+        self, temp_table: str, values: Iterable[Any], conn: SQLConnection | None = None
+    ) -> None:
         """
         Append scalar values to an existing one-column temporary table with executemany.
 
@@ -210,7 +206,11 @@ class TempTablesMacrosMixin:
         :param conn: Connection supporting executemany, or None to use db.driver.conn.
         :return: None; the execution result is discarded.
         """
-        conn = conn if conn is not None else self.db.driver.conn
+        conn = conn if conn is not None else self._macro_database.driver.conn
+        if conn is None:
+            raise DatabaseIntegrityError(
+                "Temporary-table macros have no active connection"
+            )
 
         temp_table = _identifier(temp_table, kind="temporary table name")
         stmt = f"INSERT INTO temp.{_quoted(temp_table)} VALUES (?)"

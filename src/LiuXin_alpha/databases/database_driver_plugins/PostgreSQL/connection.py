@@ -10,9 +10,29 @@ from __future__ import annotations
 
 import importlib.util
 import time
-from collections.abc import Callable, Iterable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
-from typing import Any
+from itertools import chain, islice
+from typing import Any, TYPE_CHECKING, Literal, Protocol, TypeVar, Generic, Self, cast, overload
+from contextlib import closing
+from types import TracebackType
+
+if TYPE_CHECKING:
+    from psycopg2.extensions import connection as NativeConnection, cursor as NativeCursor
+    from psycopg2.extras import RealDictCursor
+
+_ResultT = TypeVar("_ResultT")
+
+
+class _PostgresConnector(Protocol):
+    """The optional connector's supported URL/service keyword boundary."""
+
+    def connect(
+        self, dsn: str | None = None, *, service: str | None = None,
+        password: str | None = None, connect_timeout: int = 10,
+        application_name: str = "liuxin-alpha",
+    ) -> NativeConnection: ...
+
 
 from LiuXin_alpha.databases.database_driver_plugins.PostgreSQL.config import (
     PostgresConnectionTarget,
@@ -28,8 +48,12 @@ from LiuXin_alpha.databases.database_driver_plugins.PostgreSQL.config import (
     store_postgres_password,
     url_has_password,
 )
-from LiuXin_alpha.databases.db_types.driver_types import SQLParameters
+from LiuXin_alpha.databases.db_types.driver_types import SQLParameters, SQLDescription, SQLRow
 from LiuXin_alpha.utils.logging import default_log
+from LiuXin_alpha.databases.sql_statements import postgres_standard_strings
+from LiuXin_alpha.databases.database_driver_plugins.PostgreSQL.sql_tokens import (
+    adapt_sql, split_sql_statements,
+)
 
 
 DEFAULT_POSTGRES_APPLICATION_NAME = "liuxin-alpha"
@@ -205,7 +229,7 @@ def connect_postgres(
     prompt_for_password: bool = True,
     connect_timeout_seconds: int = DEFAULT_POSTGRES_CONNECT_TIMEOUT_SECONDS,
     application_name: str = DEFAULT_POSTGRES_APPLICATION_NAME,
-) -> Any:
+) -> NativeConnection:
     """
     Open a raw psycopg2 connection and transfer closing responsibility to the caller.
 
@@ -289,13 +313,13 @@ def connect_postgres(
 
 
 def _connect_psycopg2(
-    psycopg2_module: Any,
+    psycopg2_module: _PostgresConnector,
     target: PostgresConnectionTarget,
     *,
     password: str,
     connect_timeout: int,
     application_name: str,
-) -> Any:
+) -> NativeConnection:
     """
     Call the supplied driver with native service keywords or a password-augmented DSN.
 
@@ -316,14 +340,15 @@ def _connect_psycopg2(
     :return: The connection returned by psycopg2.connect.
     """
     if target.kind == "service":
-        kwargs: dict[str, object] = {
-            "service": target.value,
-            "connect_timeout": connect_timeout,
-            "application_name": application_name,
-        }
         if password:
-            kwargs["password"] = password
-        return psycopg2_module.connect(**kwargs)
+            return psycopg2_module.connect(
+                service=target.value, password=password,
+                connect_timeout=connect_timeout, application_name=application_name,
+            )
+        return psycopg2_module.connect(
+            service=target.value, connect_timeout=connect_timeout,
+            application_name=application_name,
+        )
     return psycopg2_module.connect(
         dsn=add_password_to_url(target.value, password),
         connect_timeout=connect_timeout,
@@ -346,7 +371,7 @@ def _target_has_password(target: PostgresConnectionTarget) -> bool:
     return target.kind == "url" and url_has_password(target.value)
 
 
-def postgres_cursor(conn: Any) -> Any:
+def postgres_cursor(conn: NativeConnection) -> RealDictCursor:
     """
     Open a RealDictCursor on an existing connection.
 
@@ -366,7 +391,7 @@ def postgres_cursor(conn: Any) -> Any:
     return conn.cursor(cursor_factory=RealDictCursor)
 
 
-def set_statement_timeout(cur: Any, timeout_ms: int = DEFAULT_POSTGRES_STATEMENT_TIMEOUT_MS) -> None:
+def set_statement_timeout(cur: NativeCursor, timeout_ms: int = DEFAULT_POSTGRES_STATEMENT_TIMEOUT_MS) -> None:
     """
     Set a transaction-local statement timeout, clamped to nonnegative milliseconds.
 
@@ -381,7 +406,7 @@ def set_statement_timeout(cur: Any, timeout_ms: int = DEFAULT_POSTGRES_STATEMENT
     cur.execute("set local statement_timeout = %s", (max(0, int(timeout_ms)),))
 
 
-def table_exists(cur: Any, table_name: str, *, schema: str = "public") -> bool:
+def table_exists(cur: RealDictCursor, table_name: str, *, schema: str = "public") -> bool:
     """
     Resolve a relation through to_regclass using a bound textual name.
 
@@ -403,7 +428,7 @@ def table_exists(cur: Any, table_name: str, *, schema: str = "public") -> bool:
 
 
 def check_required_tables(
-    cur: Any,
+    cur: RealDictCursor,
     required_tables: Iterable[str],
     *,
     schema: str = "public",
@@ -427,11 +452,11 @@ def check_required_tables(
 
 
 def ensure_required_tables(
-    cur: Any,
+    cur: RealDictCursor,
     required_tables: Iterable[str],
     *,
     schema: str = "public",
-    create_schema: Callable[[Any], None] | None = None,
+    create_schema: Callable[[RealDictCursor], None] | None = None,
     always_create_schema: bool = False,
     operation: str = "PostgreSQL schema check",
 ) -> PostgresSchemaCheck:
@@ -480,7 +505,7 @@ def ensure_required_tables(
 
 def with_postgres_connection(
     operation: str,
-    action: Callable[[Any], Any],
+    action: Callable[[RealDictCursor], _ResultT],
     *,
     metadata: Mapping[str, object] | None = None,
     url: str | None = None,
@@ -490,13 +515,13 @@ def with_postgres_connection(
     prompt_for_password: bool = True,
     read_only: bool = False,
     required_tables: Iterable[str] = (),
-    create_schema: Callable[[Any], None] | None = None,
+    create_schema: Callable[[RealDictCursor], None] | None = None,
     always_create_schema: bool = False,
     statement_timeout_ms: int = DEFAULT_POSTGRES_STATEMENT_TIMEOUT_MS,
     retries: int = DEFAULT_POSTGRES_WRITE_RETRIES,
     retry_delay: float = DEFAULT_POSTGRES_WRITE_RETRY_DELAY,
     application_name: str = DEFAULT_POSTGRES_APPLICATION_NAME,
-) -> Any:
+) -> _ResultT:
     """
     Run a callback inside an owned connection, transaction and mapping cursor.
 
@@ -633,106 +658,60 @@ def redact_postgres_error(exc: BaseException | None, *urls: object) -> str:
 
 
 def translate_sqlite_placeholders(sql: str) -> str:
+    """Translate qmark expression bindings, preserving literals and native operators.
+
+    >>> translate_sqlite_placeholders("select ? as value")
+    'select %s as value'
     """
-    Replace question marks outside single/double-quoted text with %s.
-
-    This character scanner handles backslash escapes inside quotes. It does not parse
-    SQL comments, dollar-quoted strings or PostgreSQL question-mark operators.
-
-    Example:
-        >>> translate_sqlite_placeholders("select ? as value")
-        'select %s as value'
-
-
-    :param sql: SQL text subjected to the small placeholder/identifier translations.
-    :return: SQL text with unquoted question marks replaced.
-    """
-
-    out: list[str] = []
-    quote: str | None = None
-    escape = False
-    for char in str(sql):
-        if quote:
-            out.append(char)
-            if escape:
-                escape = False
-            elif char == "\\":
-                escape = True
-            elif char == quote:
-                quote = None
-            continue
-        if char in {"'", '"'}:
-            quote = char
-            out.append(char)
-            continue
-        if char == "?":
-            out.append("%s")
-        else:
-            out.append(char)
-    return "".join(out)
+    return adapt_sql(sql, identifiers=False)
 
 
 def translate_identifier_quotes(sql: str) -> str:
+    """Translate backtick identifiers outside literals and comments.
+
+    >>> translate_identifier_quotes("select `work_id` from `works`")
+    'select "work_id" from "works"'
     """
-    Replace backtick identifier delimiters with double quotes outside quoted text.
-
-    This is a small character scanner, not a SQL parser; comments and dollar quoting
-    are not recognized.
-
-    Example:
-        >>> translate_identifier_quotes("select `work_id` from `works`")
-        'select "work_id" from "works"'
-
-
-    :param sql: SQL text subjected to the small placeholder/identifier translations.
-    :return: SQL text with recognized backtick delimiters replaced.
-    """
-
-    out: list[str] = []
-    quote: str | None = None
-    escape = False
-    for char in str(sql):
-        if quote:
-            if quote == "`" and char == "`":
-                out.append('"')
-                quote = None
-                continue
-            out.append(char)
-            if escape:
-                escape = False
-            elif char == "\\":
-                escape = True
-            elif char == quote:
-                quote = None
-            continue
-        if char == "`":
-            quote = "`"
-            out.append('"')
-            continue
-        if char in {"'", '"'}:
-            quote = char
-            out.append(char)
-            continue
-        out.append(char)
-    return "".join(out)
+    return adapt_sql(sql, placeholders=False)
 
 
 def translate_sql_for_postgres(sql: str) -> str:
+    """Translate identifier quotes and qmark expression bindings lexically.
+
+    >>> translate_sql_for_postgres("select `work_id` from `works` where work_id = ?")
+    'select "work_id" from "works" where work_id = %s'
     """
-    Translate identifier quotes first, then unquoted SQLite placeholders.
-
-    Example:
-        >>> translate_sql_for_postgres(
-        ...     "select `work_id` from `works` where work_id = ?"
-        ... )
-        'select "work_id" from "works" where work_id = %s'
+    return adapt_sql(sql)
 
 
-    :param sql: SQL text subjected to the small placeholder/identifier translations.
-    :return: SQL text after both limited translations.
+_CursorRow = TypeVar("_CursorRow", bound=SQLRow)
+
+
+class _RawCursor(Protocol[_CursorRow]):
+    """Preserve a native cursor's selected row shape through its adapter.
+
+    Native fetches return fresh lists. Default cursor factories yield positional
+    rows; alternate factories may yield mappings. SQL cell values stay dynamic.
     """
 
-    return translate_sqlite_placeholders(translate_identifier_quotes(sql))
+    @property
+    def description(self) -> SQLDescription | None: ...
+
+    @property
+    def rowcount(self) -> int: ...
+
+    def execute(self, sql: str, values: SQLParameters | None = None, /) -> object: ...
+    def executemany(self, sql: str, values: Iterable[SQLParameters], /) -> object: ...
+    def fetchone(self) -> _CursorRow | None: ...
+    def fetchmany(self, size: int = 1, /) -> list[_CursorRow]: ...
+    def fetchall(self) -> list[_CursorRow]: ...
+    def close(self) -> None: ...
+    def __iter__(self) -> Iterator[_CursorRow]: ...
+    def __enter__(self) -> object: ...
+    def __exit__(
+        self, exc_type: type[BaseException] | None, exc: BaseException | None,
+        tb: TracebackType | None, /,
+    ) -> None: ...
 
 
 class PostgresConnectionAdapter:
@@ -741,14 +720,14 @@ class PostgresConnectionAdapter:
 
     ``raw_connection`` retains the underlying connection. Context exit delegates commit/
     rollback but does not explicitly close it; callers remain responsible for closing.
-    Convenience fetch/script methods do not explicitly close their temporary cursors.
+    Convenience fetch/script methods close their temporary cursors before returning.
 
     Example:
         Wrap an open connection with ``PostgresConnectionAdapter(raw)`` to use
         ``execute("select ?", (1,))`` with translated placeholders.
     """
 
-    def __init__(self, raw_connection: Any):
+    def __init__(self, raw_connection: NativeConnection) -> None:
         """
         Retain a raw connection without opening a transaction or taking a copy.
 
@@ -757,27 +736,60 @@ class PostgresConnectionAdapter:
             PostgresConnectionAdapter(raw)``.
 
 
-        :param raw_connection: Open psycopg2 connection to wrap; no new connection is
-            opened.
+        :param raw_connection: Open psycopg2 connection using its default positional
+            row factory. Select alternate factories on cursor() when needed; no new
+            connection is opened.
         :return: None; stores the connection.
         """
         self.raw_connection = raw_connection
 
-    def cursor(self, *args: Any, **kwargs: Any) -> "PostgresCursorAdapter":
+    @overload
+    def cursor(
+        self, name: str | bytes | None = None, cursor_factory: None = None,
+        withhold: bool = False, scrollable: bool | None = None,
+    ) -> PostgresCursorAdapter[Sequence[Any]]: ...
+
+    @overload
+    def cursor(
+        self, name: str | bytes | None = None, *,
+        cursor_factory: Callable[[NativeConnection, str | bytes | None], NativeCursor],
+        withhold: bool = False, scrollable: bool | None = None,
+    ) -> PostgresCursorAdapter[SQLRow]: ...
+
+    @overload
+    def cursor(
+        self, name: str | bytes | None,
+        cursor_factory: Callable[[NativeConnection, str | bytes | None], NativeCursor],
+        withhold: bool = False, scrollable: bool | None = None,
+    ) -> PostgresCursorAdapter[SQLRow]: ...
+
+    def cursor(
+        self, name: str | bytes | None = None,
+        cursor_factory: Callable[[NativeConnection, str | bytes | None], NativeCursor] | None = None,
+        withhold: bool = False, scrollable: bool | None = None,
+    ) -> PostgresCursorAdapter[Sequence[Any]] | PostgresCursorAdapter[SQLRow]:
+        """Wrap a native cursor, retaining named-cursor and factory options.
+
+        The default physical connection contract requires positional rows.
+        Alternate factories expose SQLRow (positional or mapping), so callers
+        must narrow the container before positional-only access. The caller
+        owns the returned cursor and must close it.
         """
-        Create and wrap a raw cursor, forwarding all cursor-construction options.
+        if name is None and cursor_factory is None and not withhold and scrollable is None:
+            raw = self.raw_connection.cursor()
+        else:
+            raw = self.raw_connection.cursor(name, cursor_factory, withhold, scrollable)
+        # psycopg2's native cursor type is not generic in its row factory. The
+        # extras stubs override row methods incompatibly with the base class.
+        # Refine that native boundary here; fetch lists are newly caller-owned,
+        # so widening tuple rows to Sequence does not create a mutable alias.
+        if cursor_factory is None:
+            positional = cast("_RawCursor[Sequence[Any]]", raw)
+            return PostgresCursorAdapter(positional, connection=self)
+        selected = cast("_RawCursor[SQLRow]", raw)
+        return PostgresCursorAdapter(selected, connection=self)
 
-        Example:
-            ``adapter.cursor(cursor_factory=RealDictCursor)`` wraps a mapping cursor.
-
-
-        :param args: Positional arguments forwarded to raw_connection.cursor.
-        :param kwargs: Keyword arguments forwarded to raw_connection.cursor.
-        :return: New cursor adapter; the caller owns cursor cleanup.
-        """
-        return PostgresCursorAdapter(self.raw_connection.cursor(*args, **kwargs), connection=self)
-
-    def execute(self, sql: str, values: SQLParameters | None = None) -> "PostgresCursorAdapter":
+    def execute(self, sql: str, values: SQLParameters | None = None) -> "PostgresCursorAdapter[Sequence[Any]]":
         """
         Open a cursor and execute one translated statement.
 
@@ -797,7 +809,7 @@ class PostgresConnectionAdapter:
             raise
         return cur
 
-    def executemany(self, sql: str, values: Iterable[SQLParameters]) -> "PostgresCursorAdapter":
+    def executemany(self, sql: str, values: Iterable[SQLParameters]) -> "PostgresCursorAdapter[Sequence[Any]]":
         """
         Open a cursor and execute translated SQL for each parameter sequence.
 
@@ -819,31 +831,36 @@ class PostgresConnectionAdapter:
         return cur
 
     def executescript(self, sqlscript: str) -> None:
+        """Execute native scripts without splitting quoted or procedural bodies.
+
+        No commit is performed here. Installed statement hooks retain a boundary
+        before each statement and may reject SQL beyond their supported surface.
+        The cursor closes on success and failure; the connection remains borrowed.
         """
-        Split text on semicolons and execute nonblank fragments on one cursor.
+        with closing(self.cursor()) as cur:
+            if vars(self).get("_liuxin_before_statement") is not None:
+                for statement in split_sql_statements(
+                    sqlscript, standard_conforming_strings=lambda: postgres_standard_strings(self)
+                ):
+                    cur.execute(statement)
+            else:
+                cur.execute(sqlscript)
 
-        Semicolons inside strings, comments or procedural bodies are also split. No
-        commit or explicit cursor close is performed here; use only suitable simple
-        scripts.
+    @overload
+    def get(self, sql: str, values: SQLParameters | None = None, *, all: Literal[True] = True) -> list[Sequence[Any]]: ...
 
-        Example:
-            ``adapter.executescript("select 1; select 2;")`` executes two fragments.
+    @overload
+    def get(self, sql: str, values: SQLParameters | None = None, *, all: Literal[False]) -> Any: ...
 
+    @overload
+    def get(self, sql: str, values: SQLParameters | None = None, *, all: bool) -> Any: ...
 
-        :param sqlscript: Simple semicolon-separated SQL script.
-        :return: None; leaves transaction ownership with the caller.
-        """
-        statements = [stmt.strip() for stmt in str(sqlscript).split(";") if stmt.strip()]
-        cur = self.cursor()
-        for statement in statements:
-            cur.execute(statement)
-
-    def get(self, sql: str, values: Sequence[Any] | None = None, *, all: bool = True) -> Any:
+    def get(self, sql: str, values: SQLParameters | None = None, *, all: bool = True) -> Any:
         """
         Fetch all rows, or the first scalar when all is false.
 
-        Scalar mode tries index zero, then the first mapping value. The temporary cursor
-        is not explicitly closed.
+        Scalar mode tries index zero, then the first mapping value for a native
+        custom row factory. The owned cursor closes before return or error.
 
         Example:
             ``adapter.get("select 1", all=False)`` returns the scalar 1.
@@ -854,18 +871,30 @@ class PostgresConnectionAdapter:
         :param all: Whether to fetch all rows rather than one result.
         :return: All rows, the first scalar, or None when scalar mode finds no row.
         """
-        cur = self.execute(sql, values)
-        if all:
-            return cur.fetchall()
-        row = cur.fetchone()
-        if not row:
-            return None
-        try:
-            return row[0]
-        except Exception:
-            return next(iter(row.values()))
+        with closing(self.execute(sql, values)) as cur:
+            if all:
+                return cur.fetchall()
+            row = cur.fetchone()
+            if not row:
+                return None
+            try:
+                return row[0]
+            except Exception:
+                # Native custom factories can expose mappings rather than the
+                # portable positional rows described by this adapter's contract.
+                mapping_values = getattr(row, "values")
+                return next(iter(mapping_values()))
 
-    def get_row(self, sql: str, values: Sequence[Any] | None = None, *, all: bool = True) -> Any:
+    @overload
+    def get_row(self, sql: str, values: SQLParameters | None = None, *, all: Literal[True] = True) -> list[Sequence[Any]]: ...
+
+    @overload
+    def get_row(self, sql: str, values: SQLParameters | None = None, *, all: Literal[False]) -> Sequence[Any] | None: ...
+
+    @overload
+    def get_row(self, sql: str, values: SQLParameters | None = None, *, all: bool) -> list[Sequence[Any]] | Sequence[Any] | None: ...
+
+    def get_row(self, sql: str, values: SQLParameters | None = None, *, all: bool = True) -> list[Sequence[Any]] | Sequence[Any] | None:
         """
         Fetch all rows or one complete row, retaining the raw row representation.
 
@@ -877,10 +906,10 @@ class PostgresConnectionAdapter:
         :param sql: SQL text subjected to the small placeholder/identifier translations.
         :param values: Bound values passed to the underlying cursor.
         :param all: Whether to fetch all rows rather than one result.
-        :return: All fetched rows or one row/None; cursor cleanup is not performed here.
+        :return: All fetched rows or one row/None, after closing the owned cursor.
         """
-        cur = self.execute(sql, values)
-        return cur.fetchall() if all else cur.fetchone()
+        with closing(self.execute(sql, values)) as cur:
+            return cur.fetchall() if all else cur.fetchone()
 
     def commit(self) -> None:
         """
@@ -924,6 +953,9 @@ class PostgresConnectionAdapter:
         :return: None; forwards the operation to the raw connection.
         """
         self.raw_connection.close()
+        from LiuXin_alpha.databases.connection_hooks import connection_closed
+
+        connection_closed(self)
 
     def __enter__(self) -> "PostgresConnectionAdapter":
         """
@@ -938,7 +970,10 @@ class PostgresConnectionAdapter:
         self.raw_connection.__enter__()
         return self
 
-    def __exit__(self, exc_type: Any, exc: Any, tb: Any) -> Any:
+    def __exit__(
+        self, exc_type: type[BaseException] | None, exc: BaseException | None,
+        tb: TracebackType | None,
+    ) -> None:
         """
         Delegate transaction context exit to the raw connection.
 
@@ -965,7 +1000,7 @@ class PostgresConnectionAdapter:
         return self.raw_connection.__exit__(exc_type, exc, tb)
 
 
-class PostgresCursorAdapter:
+class PostgresCursorAdapter(Generic[_CursorRow]):
     """
     Translate SQL while retaining the underlying cursor row and context behavior.
 
@@ -980,20 +1015,22 @@ class PostgresCursorAdapter:
     lastrowid = None
 
     @property
-    def description(self):
+    def description(self) -> SQLDescription | None:
         """Expose DB-API result columns for portable bounded journal reads."""
         return self.raw_cursor.description
 
     @property
-    def rowcount(self):
+    def rowcount(self) -> int:
         """Expose the affected-row count for checked configuration mutations."""
         return self.raw_cursor.rowcount
 
-    def fetchmany(self, size=1):
+    def fetchmany(self, size: int = 1) -> list[_CursorRow]:
         """Fetch a bounded result slice without materializing the remaining rows."""
         return self.raw_cursor.fetchmany(size)
 
-    def __init__(self, raw_cursor: Any, *, connection=None):
+    def __init__(
+        self, raw_cursor: _RawCursor[_CursorRow], *, connection: PostgresConnectionAdapter | None = None
+    ) -> None:
         """
         Retain an existing cursor without changing its row factory.
 
@@ -1007,7 +1044,7 @@ class PostgresCursorAdapter:
         self.raw_cursor = raw_cursor
         self._connection = connection
 
-    def execute(self, sql: str, values: SQLParameters | None = None) -> "PostgresCursorAdapter":
+    def execute(self, sql: str, values: SQLParameters | None = None) -> Self:
         """
         Translate SQL and execute with optional bound values.
 
@@ -1021,20 +1058,26 @@ class PostgresCursorAdapter:
         :param values: Bound values passed to the underlying cursor.
         :return: This cursor adapter for chained operations.
         """
+        translated = adapt_sql(
+            sql, placeholders=values is not None, bound=values is not None,
+            parameter_count=len(values) if values is not None else None,
+            standard_conforming_strings=postgres_standard_strings(
+                self._connection if self._connection is not None else getattr(self.raw_cursor, "connection", None)
+            ),
+        )
         if self._connection is not None:
             from LiuXin_alpha.databases.connection_hooks import before_statement
 
             before_statement(self._connection, sql)
-        translated = translate_sql_for_postgres(sql)
         if values is None:
             self.raw_cursor.execute(translated)
         else:
             self.raw_cursor.execute(translated, values)
         return self
 
-    def executemany(self, sql: str, values: Iterable[SQLParameters]) -> "PostgresCursorAdapter":
+    def executemany(self, sql: str, values: Iterable[SQLParameters]) -> Self:
         """
-        Translate one SQL template and pass all parameter sequences to the raw cursor.
+        Translate one SQL template using the first row's arity, then stream the batch.
 
         Example:
             ``cur.executemany("insert into t(v) values (?)", [(1,), (2,)])``
@@ -1046,14 +1089,22 @@ class PostgresCursorAdapter:
             materialization.
         :return: This cursor adapter.
         """
+        iterator = iter(values)
+        first = tuple(islice(iterator, 1))
+        translated = adapt_sql(
+            sql, bound=True, parameter_count=len(first[0]) if first else 0,
+            standard_conforming_strings=postgres_standard_strings(
+                self._connection if self._connection is not None else getattr(self.raw_cursor, "connection", None)
+            ),
+        )
         if self._connection is not None:
             from LiuXin_alpha.databases.connection_hooks import before_statement
 
             before_statement(self._connection, sql)
-        self.raw_cursor.executemany(translate_sql_for_postgres(sql), values)
+        self.raw_cursor.executemany(translated, chain(first, iterator))
         return self
 
-    def fetchone(self) -> Any:
+    def fetchone(self) -> _CursorRow | None:
         """
         Fetch the next row without changing its representation.
 
@@ -1065,7 +1116,7 @@ class PostgresCursorAdapter:
         """
         return self.raw_cursor.fetchone()
 
-    def fetchall(self) -> list[Any]:
+    def fetchall(self) -> list[_CursorRow]:
         """
         Fetch all remaining rows from the raw cursor.
 
@@ -1089,7 +1140,7 @@ class PostgresCursorAdapter:
         """
         self.raw_cursor.close()
 
-    def __iter__(self) -> Any:
+    def __iter__(self) -> Iterator[_CursorRow]:
         """
         Iterate directly over the underlying cursor.
 
@@ -1101,7 +1152,7 @@ class PostgresCursorAdapter:
         """
         return iter(self.raw_cursor)
 
-    def __enter__(self) -> "PostgresCursorAdapter":
+    def __enter__(self) -> Self:
         """
         Enter the raw cursor context and expose this adapter in the with body.
 
@@ -1114,7 +1165,10 @@ class PostgresCursorAdapter:
         self.raw_cursor.__enter__()
         return self
 
-    def __exit__(self, exc_type: Any, exc: Any, tb: Any) -> Any:
+    def __exit__(
+        self, exc_type: type[BaseException] | None, exc: BaseException | None,
+        tb: TracebackType | None,
+    ) -> None:
         """
         Forward context exit and exception details to the raw cursor.
 
@@ -1146,7 +1200,13 @@ def _missing_tables_message(operation: str, missing_tables: tuple[str, ...]) -> 
     return f"{operation} missing required PostgreSQL tables: {', '.join(missing_tables)}"
 
 
-def _row_bool(row: Any, key: str) -> bool:
+class _NamedRow(Protocol):
+    """Read a native row by column label without assuming its cell types."""
+
+    def __getitem__(self, key: str, /) -> object: ...
+
+
+def _row_bool(row: Mapping[str, object] | _NamedRow | None, key: str) -> bool:
     """
     Read a named truth value, returning False for absent or inaccessible values.
 

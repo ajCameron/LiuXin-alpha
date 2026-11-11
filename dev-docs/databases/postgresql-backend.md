@@ -23,6 +23,73 @@ python -m pip install -e '.[postgres,test,search]'
 The PostgreSQL extra installs `psycopg2-binary`. System `psycopg2` is also fine
 when available in the active Python environment.
 
+## SQL parameters and native operators
+
+Configured PostgreSQL connections accept portable qmark parameters (`?`) and
+native psycopg2 parameters (`%s` or `%(name)s`). Use one parameter style per
+statement. SQL comments, quoted text and PostgreSQL JSON operators retain their
+meaning. Prefer native parameters for PostgreSQL-specific SQL or use an explicit
+cast when writing a portable parameter inside a native expression:
+
+```python
+connection.execute("SELECT INTERVAL %s DAY", ("2",))
+connection.execute("SELECT CAST(? AS INTERVAL)", ("2 days",))
+connection.execute("SELECT ?::jsonb ? ?", ('{"key": 1}', "key"))
+connection.execute("SELECT ?::jsonb OPERATOR(pg_catalog.?) ?", ('{"key": 1}', "key"))
+```
+
+Temporal typed literals also support qmarks, including field qualifiers,
+precision and time-zone modifiers. `SELECT INTERVAL ? DAY` binds its value;
+`SELECT time ? day` can instead read JSON columns named `time` and `day`.
+The adapter uses the supplied parameter count to distinguish these forms.
+If several ambiguous positions permit more than one assignment, it raises
+`ValueError` before execution and asks for native parameters or `CAST`, rather
+than assigning values to an arbitrary interpretation. Syntax-only translation
+helpers have no parameter count and leave these ambiguous qmarks as operators.
+
+Explicit `OPERATOR([schema.]symbol)` names stay operators, including `?`, `?|`,
+`?&` and `@?`. Native and qmark operands both work. Quoted schema names, comments
+and the adapter's backtick identifier conversion retain their meaning inside
+the operator notation.
+
+Bare JSON column names such as `between`, `escape`, `set` and `values` remain
+operands; the same words retain their grammatical meaning in BETWEEN, LIKE
+ESCAPE, UPDATE SET and VALUES clauses. Both binding styles are covered by
+native-server comparisons, including nested VALUES and tuple bindings.
+
+Qmark bindings also work in keyword-separated SUBSTRING/OVERLAY and TRIM,
+VARIADIC arguments, SELECT targets following DISTINCT ON, and window frame
+offsets. ROWS/RANGE/GROUPS still name JSON columns at expression positions.
+
+Execution reads `standard_conforming_strings` from the native connection's
+ParameterStatus, without issuing SQL. Ordinary literals honor the current
+setting, including startup options, SET LOCAL and rollback; explicit E-strings
+always use backslash escapes. Maintenance guards and handler connections use
+the same setting. Hooked scripts refresh it between statements; unhooked scripts
+retain native whole-script parsing. Syntax-only translation without a connection
+defaults to standard-conforming strings. See the
+[eighth driver review repairs](database-driver-plugins-eighth-review-2026-11-11.md).
+
+Newline-separated string continuations retain the first chunk's escape mode.
+An initial `E'...'` therefore also governs later chunks without another `E`.
+Line comments and CR/LF separators are supported. Quoted SQL-looking content
+stays data during adaptation and maintenance script splitting. Regressions
+compare committed values through independent readers and check rollback when
+a later statement fails; see the
+[seventh driver review repairs](database-driver-plugins-seventh-review-2026-11-10.md).
+
+Identifiers and dollar tags recognize PostgreSQL's non-ASCII character rules,
+including combining marks, emoji and Unicode spaces. Dollar-quoted contents
+remain literal data through parameter adaptation, statement splitting and
+installed-maintenance checks. Regressions compare native queries and committed
+values read on a separate connection; see the
+[sixth driver review](database-driver-plugins-sixth-review-2026-11-10.md).
+
+`executemany` inspects the first row's arity once, then streams that row and the
+remaining iterator through the same translated template. Rows must share the
+same parameter shape. It does not retry or replay a partially consumed iterable;
+the driver's batch method rolls back an input or execution failure.
+
 ## Guided Initialization
 
 When the target database and login role already exist, the top-level wizard

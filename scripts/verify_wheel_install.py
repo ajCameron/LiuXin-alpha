@@ -44,6 +44,8 @@ CALIBRE_RESOURCE_SOURCE = REPO_ROOT / "src" / "LiuXin_alpha" / "resources" / "ca
 INSTALLED_CONVERSION_SMOKE = REPO_ROOT / "scripts" / "run_installed_conversion_smoke.py"
 REQUIRED_MODULE_ASSETS = (
     PACKAGE_ROOT / "catalog" / "py.typed",
+    PACKAGE_ROOT / "databases" / "py.typed",
+    PACKAGE_ROOT / "utils" / "calibre_compat" / "database_generator" / "py.typed",
     PACKAGE_ROOT / "startup_scripts" / "LX_folders",
     PACKAGE_ROOT / "startup_scripts" / "lx_folders.json",
     PACKAGE_ROOT / "utils" / "libraries" / "iso639" / "ISO-639-2_utf-8.txt",
@@ -116,13 +118,25 @@ def _origin_check_program(install_root: Path) -> str:
                 "names = ('LiuXin_alpha', 'LiuXin_alpha.plugins.application', "
                 "'LiuXin_alpha.plugins.contracts', 'chardet', 'cssselect', 'cssutils', "
                 "'lxml', 'numpy', 'PIL', 'regex', 'past', 'past.builtins', "
-                "'LiuXin_alpha.utils.image_tools.img')"
+                "'LiuXin_alpha.utils.image_tools.img', "
+                "'LiuXin_alpha.utils.calibre_compat.database_generator', "
+                "'LiuXin_alpha.utils.calibre_compat.database_generator.database_generator', "
+                "'LiuXin_alpha.utils.calibre_compat.database_generator.library_builder')"
             ),
             "origins = {}",
             "for name in names:",
             "    module = importlib.import_module(name)",
             "    origins[name] = str(Path(module.__file__).resolve())",
             "assert all(Path(path).is_relative_to(root) for path in origins.values())",
+            "from contextlib import closing",
+            "import sqlite3",
+            "from LiuXin_alpha.utils.calibre_compat import database_generator as cal_gen",
+            "for path in cal_gen.calibre_sql_paths().values():",
+            "    assert Path(path).resolve().is_relative_to(root)",
+            "    assert Path(path).is_file()",
+            "with closing(sqlite3.connect(':memory:')) as connection:",
+            "    cal_gen.create_new_database(connection)",
+            "    cal_gen.validate_metadata_database(connection)",
             "assert importlib.util.find_spec('LiuXin_alpha.customize') is None",
             "assert importlib.util.find_spec('LiuXin_alpha.plugin_system') is None",
             "host = importlib.import_module('LiuXin_alpha.plugins.application')",

@@ -990,7 +990,20 @@ class _FakeDriverCursor:
         """
         lowered = self.sql.lower()
         if "from pg_catalog.pg_index" in lowered:
-            return [(["digital_asset_id", "digital_asset_size_bytes"],)]
+            # Physical index facts: name, unique, primary, partial, predicate,
+            # definition, valid, ordered key columns, ordered INCLUDE columns.
+            return [
+                ("asset_key", True, False, False, None, "unique key", True,
+                 ["digital_asset_id", "digital_asset_size_bytes"], ["included_value"]),
+                ("partial", True, False, True, "id > 0", "partial key", True,
+                 ["digital_asset_id"], []),
+                ("expression", True, False, False, None, "expression key", True,
+                 [None], []),
+                ("invalid", True, False, False, None, "invalid key", False,
+                 ["digital_asset_id"], []),
+                ("ordinary", False, False, False, None, "ordinary index", True,
+                 ["digital_asset_id"], []),
+            ]
         if "from information_schema.tables" in lowered:
             return [("database_metadata",), ("stores",), ("digital_assets",)]
         if "from information_schema.columns" in lowered and "table_name, column_name" in lowered:
@@ -1187,6 +1200,11 @@ class _ResultCursor:
         """
         self.rows = list(rows)
         self.lastrowid = None
+        self.closed = False
+
+    def close(self) -> None:
+        """Record release of the result cursor, independently of its connection."""
+        self.closed = True
 
     def fetchone(self):
         """
@@ -1281,6 +1299,16 @@ class _RecordingDriverConnection:
         """
         self.calls.append((sql, values))
         lowered = sql.lower()
+        if "from pg_catalog.pg_class c" in lowered:
+            return _ResultCursor([(42, "v", "liuxin_test")])
+        if "from pg_catalog.pg_attribute a" in lowered:
+            return _ResultCursor([
+                ("id", "bigint", False, 1, None, "", ""),
+                ("label", "text", False, 2, None, "", ""),
+                ("rating", "bigint", False, 3, None, "", ""),
+            ])
+        if "from pg_catalog.pg_index" in lowered or "from pg_catalog.pg_constraint" in lowered:
+            return _ResultCursor([])
         if (
             lowered.lstrip().startswith("select")
             and "column_metadata_case_sensitive" in lowered
@@ -1394,8 +1422,8 @@ def test_postgresql_driver_connects_and_introspects(monkeypatch) -> None:
     """
     Use fake connections to check redaction, existence, table/column/type/index introspection, invalid-name errors, schema setup, and first-connection closure.
 
-    Also require index-query filters excluding partial and expression indexes; no real
-    server is contacted.
+    Require unique-key interpretation to exclude partial, expression, invalid and
+    nonunique indexes, and to omit INCLUDE columns; no real server is contacted.
 
     Example:
         Run the owning tests with pytest::
@@ -1450,12 +1478,12 @@ def test_postgresql_driver_connects_and_introspects(monkeypatch) -> None:
     assert raw_connections
     assert raw_connections[0].closed is True
     assert any('set search_path to "public"' in cursor.sql for cursor in raw_connections[0].cursors)
-    assert any(
-        "index_info.indpred is null" in cursor.sql
-        and "index_info.indexprs is null" in cursor.sql
-        for connection in raw_connections
-        for cursor in connection.cursors
-    )
+    index_cursors = [
+        cursor for connection in raw_connections for cursor in connection.cursors
+        if "from pg_catalog.pg_index" in cursor.sql.lower()
+    ]
+    assert index_cursors
+    assert all(cursor.values == ("public", "digital_assets") for cursor in index_cursors)
 
 
 def test_postgresql_driver_inherits_link_capability_introspection(monkeypatch) -> None:
@@ -2012,6 +2040,15 @@ def test_postgresql_driver_view_helpers_are_native_and_schema_qualified(monkeypa
     )
     conn = _RecordingDriverConnection()
     drv.conn = conn
+    cursors = []
+    original_execute = conn.execute
+
+    def observe(sql, values=None):
+        cursor = original_execute(sql, values)
+        cursors.append(cursor)
+        return cursor
+
+    monkeypatch.setattr(conn, "execute", observe)
     monkeypatch.setattr(drv, "_short_connection", lambda: conn)
     monkeypatch.setattr(drv, "direct_get_relation_type", lambda name: "view")
     monkeypatch.setattr(
@@ -2021,6 +2058,9 @@ def test_postgresql_driver_view_helpers_are_native_and_schema_qualified(monkeypa
     )
 
     headings = drv.direct_get_view_column_headings("rating_view")
+    # Heading discovery owns a separate connection. The row reader below owns
+    # each result cursor on the primary connection supplied to its helpers.
+    cursors.clear()
     row = drv.direct_get_view_row_dict_from_id("rating_view", 3)
 
     assert headings == ["id", "label", "rating"]
@@ -2031,9 +2071,10 @@ def test_postgresql_driver_view_helpers_are_native_and_schema_qualified(monkeypa
         for sql, values in conn.calls
     )
     assert (
-        'select * from "liuxin_test"."rating_view" where "id" = %s',
+        'SELECT * FROM "liuxin_test"."rating_view" WHERE "id"=? LIMIT 2',
         (3,),
     ) in conn.calls
+    assert cursors and all(cursor.closed for cursor in cursors)
 
 
 def test_postgresql_driver_trigger_helpers_are_native_and_schema_qualified(monkeypatch) -> None:

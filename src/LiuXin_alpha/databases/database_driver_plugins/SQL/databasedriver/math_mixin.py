@@ -1,4 +1,3 @@
-
 """
 Query column extrema and coerce successful aggregate results to integers.
 """
@@ -6,9 +5,16 @@ Query column extrema and coerce successful aggregate results to integers.
 from __future__ import annotations
 
 from typing import Optional
+from contextlib import closing
 
 
-class MathFunctionsMixin:
+from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver._state import (
+    SQLDriverMixinState,
+    driver_operations,
+)
+
+
+class MathFunctionsMixin(SQLDriverMixinState):
     """
     Provide integer-valued SQL MIN/MAX queries using host table inference.
 
@@ -22,7 +28,7 @@ class MathFunctionsMixin:
         values.
 
         Float conversion truncates. SQL/inference errors propagate; the acquired
-        connection is not explicitly closed here.
+        connection and cursor close on every path.
 
         Example:
             ``driver.direct_get_max("book_id")`` returns ``None`` for an empty table.
@@ -32,11 +38,15 @@ class MathFunctionsMixin:
         :return: The integer maximum, or ``None`` on TypeError/ValueError during
             conversion.
         """
-        col_table = self.direct_identify_table_from_column(column)
+        col_table = driver_operations(self).direct_identify_table_from_column(column)
         stmt = "SELECT MAX({}) FROM {};".format(column, col_table)
 
-        conn = self.get_connection()
-        max_val = next(conn.execute(stmt))[0]
+        with closing(driver_operations(self).get_connection()) as conn:
+            with closing(conn.execute(stmt)) as cursor:
+                row = cursor.fetchone()
+                max_val = row[0] if row is not None else None
+        if max_val is None:
+            return None
         try:
             return int(max_val)
         except (TypeError, ValueError):
@@ -48,7 +58,7 @@ class MathFunctionsMixin:
         values.
 
         Float conversion truncates. SQL/inference errors propagate; the acquired
-        connection is not explicitly closed here.
+        connection and cursor close on every path.
 
         Example:
             ``driver.direct_get_min("book_id")`` returns the smallest ID when present.
@@ -58,11 +68,15 @@ class MathFunctionsMixin:
         :return: The integer minimum, or ``None`` on TypeError/ValueError during
             conversion.
         """
-        col_table = self.direct_identify_table_from_column(column)
+        col_table = driver_operations(self).direct_identify_table_from_column(column)
         stmt = "SELECT MIN({}) FROM {};".format(column, col_table)
 
-        conn = self.get_connection()
-        min_val = next(conn.execute(stmt))[0]
+        with closing(driver_operations(self).get_connection()) as conn:
+            with closing(conn.execute(stmt)) as cursor:
+                row = cursor.fetchone()
+                min_val = row[0] if row is not None else None
+        if min_val is None:
+            return None
         try:
             return int(min_val)
         except (TypeError, ValueError):

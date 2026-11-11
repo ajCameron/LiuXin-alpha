@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import abc
 import dataclasses
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Hashable, Iterable
 from typing import TYPE_CHECKING
 
 from LiuXin_alpha.databases.db_types.maintenance_types import MaintenanceMode
@@ -20,6 +20,8 @@ from LiuXin_alpha.databases.maintenance.events import MaintenanceEvent
 
 if TYPE_CHECKING:
     from LiuXin_alpha.databases.api import DatabaseAPI
+    from LiuXin_alpha.databases.db_types.driver_types import RowSQLConnection
+    from LiuXin_alpha.databases.maintenance.declarations import PluginDeclaration
 
 
 @dataclasses.dataclass(slots=True)
@@ -40,7 +42,7 @@ class MaintenancePluginContext:
 
     db: DatabaseAPI | None
     logger: object | None = None
-    connection: object | None = None
+    connection: RowSQLConnection | None = None
     plugin_id: str | None = None
     mode: MaintenanceMode = MaintenanceMode.LAZY
 
@@ -81,7 +83,7 @@ class MaintenancePluginUpgrade:
 
     from_version: str
     replay_pending: bool = False
-    migrate: Callable | None = None
+    migrate: Callable[[MaintenancePluginContext, PluginDeclaration], None] | None = None
 
 
 class MaintenancePluginBase(abc.ABC):
@@ -152,7 +154,7 @@ class MaintenancePluginBase(abc.ABC):
         """
         return True
 
-    def coalesce_key(self, event: MaintenanceEvent) -> object | None:
+    def coalesce_key(self, event: MaintenanceEvent) -> Hashable | None:
         """
         Keep an event independent of every other event in the batch.
 

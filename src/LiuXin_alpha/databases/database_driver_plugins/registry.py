@@ -12,10 +12,14 @@ import importlib
 import os
 import pathlib
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Union
+from types import ModuleType
+from typing import TYPE_CHECKING, Callable, Union, cast
 
 from LiuXin_alpha.errors import DatabaseDriverError
 from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
+
+if TYPE_CHECKING:
+    from LiuXin_alpha.databases.api.driver_api import DatabaseDriverAPI
 
 
 @dataclass(frozen=True)
@@ -31,6 +35,7 @@ class DriverRegistration:
         ``DriverRegistration("Custom", "my_backend.driver")`` uses
         ``DatabaseDriver`` as the driver attribute.
     """
+
     canonical_name: str
     driver_module: str
     driver_attr: str = "DatabaseDriver"
@@ -40,8 +45,8 @@ class DriverRegistration:
 
 
 _DRIVER_REGISTRY: dict[str, DriverRegistration] = {}
-_DIRECT_ACCESS_CACHE: dict[str, object] = {}
-_BUILDER_CACHE: dict[str, object] = {}
+_DIRECT_ACCESS_CACHE: dict[str, ModuleType] = {}
+_BUILDER_CACHE: dict[str, ModuleType] = {}
 
 
 def register_database_driver(
@@ -109,7 +114,7 @@ def _get_registration(db_type: str) -> "DriverRegistration":
         raise DatabaseDriverError(err_str) from exc
 
 
-def load_database_driver(db_type: str):
+def load_database_driver(db_type: str) -> type[DatabaseDriverAPI]:
     """
     Import the registered implementation and return its driver attribute.
 
@@ -125,7 +130,9 @@ def load_database_driver(db_type: str):
     """
     registration = _get_registration(db_type)
     module = importlib.import_module(registration.driver_module)
-    return getattr(module, registration.driver_attr)
+    # Registration is the dynamic plugin boundary; implementations supply the
+    # canonical driver constructor and operations. Imports remain lazy.
+    return cast("type[DatabaseDriverAPI]", getattr(module, registration.driver_attr))
 
 
 def get_registered_database_driver_names() -> tuple[str, ...]:
@@ -159,11 +166,16 @@ def get_driver_location(db_type: str) -> str:
     registration = _get_registration(db_type)
     if registration.package_dir is not None:
         return registration.package_dir
-    module = importlib.import_module(registration.driver_module.rsplit('.', 1)[0])
-    return os.path.dirname(os.path.realpath(module.__file__))
+    module = importlib.import_module(registration.driver_module.rsplit(".", 1)[0])
+    module_file = getattr(module, "__file__", None)
+    if module_file is None:
+        raise DatabaseDriverError(
+            f"Driver package {module.__name__!r} has no file location; register package_dir explicitly"
+        )
+    return os.path.dirname(os.path.realpath(module_file))
 
 
-def get_direct_access_module(db_type: str):
+def get_direct_access_module(db_type: str) -> ModuleType:
     """
     Import and cache the registered direct-access module.
 
@@ -182,7 +194,9 @@ def get_direct_access_module(db_type: str):
     if key in _DIRECT_ACCESS_CACHE:
         return _DIRECT_ACCESS_CACHE[key]
     if not registration.direct_access_module:
-        raise DatabaseDriverError(f"Driver {registration.canonical_name!r} does not expose a direct access module")
+        raise DatabaseDriverError(
+            f"Driver {registration.canonical_name!r} does not expose a direct access module"
+        )
     module = importlib.import_module(registration.direct_access_module)
     _DIRECT_ACCESS_CACHE[key] = module
     return module
@@ -190,7 +204,7 @@ def get_direct_access_module(db_type: str):
 
 # Todo: Be good to extend the command line with modular commands -
 # Todo: We can type this down to the known modules?
-def get_database_builder_module(db_type: str):
+def get_database_builder_module(db_type: str) -> ModuleType:
     """
     Import and cache the registered schema-builder module.
 
@@ -209,13 +223,17 @@ def get_database_builder_module(db_type: str):
     if key in _BUILDER_CACHE:
         return _BUILDER_CACHE[key]
     if not registration.builder_module:
-        raise DatabaseDriverError(f"Driver {registration.canonical_name!r} does not expose a builder module")
+        raise DatabaseDriverError(
+            f"Driver {registration.canonical_name!r} does not expose a builder module"
+        )
     module = importlib.import_module(registration.builder_module)
     _BUILDER_CACHE[key] = module
     return module
 
 
-def create_new_database(db_type: str, target_location: Union[str, pathlib.Path]):
+def create_new_database(
+    db_type: str, target_location: Union[str, pathlib.Path]
+) -> object:
     """
     Create a new database through the file driver or registered server builder.
 
@@ -239,13 +257,17 @@ def create_new_database(db_type: str, target_location: Union[str, pathlib.Path])
             {"database_path": str(target_location)}, set_conn=False
         )
         try:
-            return driver.direct_create_new_database()
+            driver.direct_create_new_database()
+            return None
         finally:
             driver.close()
     module = get_database_builder_module(db_type)
     create_fn = getattr(module, "create_new_database", None)
     if callable(create_fn):
-        return create_fn(target_location)
+        # Third-party builders define their own result payloads. The registry
+        # promises only to pass the target through, not a fabricated result type.
+        create = cast(Callable[[str | pathlib.Path], object], create_fn)
+        return create(target_location)
     return module
 
 
@@ -268,7 +290,7 @@ def register_builtin_database_drivers() -> None:
         "SQLite",
         driver_module="LiuXin_alpha.databases.database_driver_plugins.SQLite.databasedriver",
         direct_access_module="LiuXin_alpha.databases.database_driver_plugins.SQLite.databasedriver",
-        builder_module="LiuXin_alpha.databases.database_driver_plugins.SQL.calibre_database_generator.database_generator",
+        builder_module="LiuXin_alpha.utils.calibre_compat.database_generator.database_generator",
         package_dir=os.path.join(base_dir, "SQLite"),
         aliases=("sqlite",),
     )
@@ -276,7 +298,7 @@ def register_builtin_database_drivers() -> None:
         "SQLite_apsw",
         driver_module="LiuXin_alpha.databases.database_driver_plugins.SQLite_apsw.databasedriver",
         direct_access_module="LiuXin_alpha.databases.database_driver_plugins.SQLite_apsw.databasedriver",
-        builder_module="LiuXin_alpha.databases.database_driver_plugins.SQL.calibre_database_generator.database_generator",
+        builder_module="LiuXin_alpha.utils.calibre_compat.database_generator.database_generator",
         package_dir=os.path.join(base_dir, "SQLite_apsw"),
         aliases=("sqlite_apsw", "apsw"),
     )

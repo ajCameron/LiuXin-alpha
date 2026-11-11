@@ -1040,12 +1040,15 @@ def test_set_driver_then_close_cleans_new_driver(open_db, db_metadata: dict, dri
 
     # Capture new connection objects before close.
     conn = new_driver.conn
+    wrapper = db.driver_wrapper
     extra_conn = db.get_connection()
 
     db.close()
 
     assert getattr(new_driver, "conn", None) is None
-    assert getattr(db.driver_wrapper, "lock", None) is None
+    assert wrapper.lock is None
+    with pytest.raises(DatabaseIntegrityError, match="closed"):
+        db.driver_wrapper
     _assert_any_operation_fails(conn)
     _assert_any_operation_fails(extra_conn)
 

@@ -1,4 +1,3 @@
-
 """
 Queue dirty-record notifications for later processing by the host driver.
 """
@@ -6,15 +5,18 @@ Queue dirty-record notifications for later processing by the host driver.
 from __future__ import annotations
 
 from LiuXin_alpha.utils.logging import default_log
+from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver._state import (
+    SQLDriverMixinState,
+    driver_operations,
+)
 
 
-
-class DirtyRecordsMixin:
+class DirtyRecordsMixin(SQLDriverMixinState):
     """
     Submit table/ID/reason tuples to a host-provided dirtied-record queue.
 
     Example:
-        The host supplies ``tables`` and ``dirtied_records_queue`` before using this
+        The host supplies ``tables`` and ``dirty_records_queue`` before using this
         mixin.
     """
 
@@ -34,7 +36,10 @@ class DirtyRecordsMixin:
         :param reason: Reason string retained in the queued tuple.
         :return: ``None``.
         """
-        if table not in self.tables:
+        queue = driver_operations(self).dirty_records_queue
+        if queue is None:
+            raise RuntimeError("The driver has no dirty-record queue")
+        if self.tables is None or table not in self.tables:
             wrn_str = "Unable to dirtied record - table not found.\n"
             default_log.log_variables(
                 wrn_str,
@@ -43,4 +48,4 @@ class DirtyRecordsMixin:
                 ("table_id", table_id),
                 ("reason", reason),
             )
-        self.dirtied_records_queue.put((table, table_id, reason))
+        queue.put((table, table_id, reason))

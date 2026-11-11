@@ -1,4 +1,3 @@
-
 """
 Inspect SQLite schema caches and read or update the single-row database metadata table.
 """
@@ -8,7 +7,7 @@ from __future__ import annotations
 import pprint
 import uuid
 from copy import deepcopy
-from typing import Any, Optional
+from typing import Any, Optional, Literal
 
 from LiuXin_alpha.databases.db_types.backend_capabilities import BackendCapabilities
 from LiuXin_alpha.databases.db_types.driver_types import QueryConnection
@@ -19,7 +18,13 @@ from LiuXin_alpha.utils.libraries.liuxin_six import force_unicode
 from LiuXin_alpha.utils.logging import default_log
 
 
-class MetadataMethodMixin:
+from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver._state import (
+    SQLDriverMixinState,
+    driver_operations,
+)
+
+
+class MetadataMethodMixin(SQLDriverMixinState):
     """
     Supply schema-version-aware introspection and database metadata operations.
 
@@ -35,7 +40,7 @@ class MetadataMethodMixin:
         """Inspect supported SQLite facilities without completing a transaction."""
         from .physical_schema import capabilities
 
-        with schema_connection(self, connection) as active:
+        with schema_connection(driver_operations(self), connection) as active:
             return capabilities(active)
 
     def direct_get_physical_table_spec(
@@ -44,7 +49,7 @@ class MetadataMethodMixin:
         """Read uncached native schema facts on the supplied or primary handle."""
         from .physical_schema import inspect_relation
 
-        with schema_connection(self, connection) as active:
+        with schema_connection(driver_operations(self), connection) as active:
             return inspect_relation(active, table)
 
     def direct_get_relation_type(self, name: str) -> str | None:
@@ -55,8 +60,8 @@ class MetadataMethodMixin:
         """
         conn = getattr(self, "conn", None)
         owned = conn is None
-        if owned:
-            conn = self.get_connection()
+        if conn is None:
+            conn = driver_operations(self).get_connection()
         try:
             cursor = conn.execute(
                 "SELECT type FROM sqlite_master "
@@ -73,7 +78,7 @@ class MetadataMethodMixin:
                 conn.close()
 
     @property
-    def user_version(self) -> Optional[str]:
+    def user_version(self) -> int | None:
         """
         Read the first PRAGMA user_version value from the primary connection.
 
@@ -85,10 +90,15 @@ class MetadataMethodMixin:
         :return: The raw PRAGMA value, normally an integer, or ``None`` if no row is
             returned.
         """
-        for row in self.conn.execute("pragma user_version;"):
+        connection = self.conn
+        if connection is None:
+            raise RuntimeError("The driver has no primary connection")
+        for row in connection.execute("pragma user_version;"):
             return row[0]
 
-    def direct_get_user_version(self) -> str:
+        return None
+
+    def direct_get_user_version(self) -> int | None:
         """
         Expose the user_version property through the driver method interface.
 
@@ -109,8 +119,8 @@ class MetadataMethodMixin:
         """
         conn = getattr(self, "conn", None)
         owned = conn is None
-        if owned:
-            conn = self.get_connection()
+        if conn is None:
+            conn = driver_operations(self).get_connection()
         try:
             cursor = conn.execute("PRAGMA schema_version")
             try:
@@ -163,8 +173,9 @@ class MetadataMethodMixin:
             self._invalidate_schema_caches()
 
         # Ensure we have a live connection for introspection.
-        if getattr(self, 'conn', None) is None:
-            self.conn = self.get_connection()
+        connection = self.conn
+        if connection is None:
+            connection = self.conn = driver_operations(self).get_connection()
 
         # If we have cached data, verify it against schema_version.
         if self.tables is not None and not force_refresh:
@@ -178,7 +189,7 @@ class MetadataMethodMixin:
             # surfaces (e.g. `titles`, `books`) implemented as views.
             stmt = "SELECT name FROM sqlite_master WHERE type IN ('table','view');"
             processed_return = []
-            for row in self.conn.execute(stmt):
+            for row in connection.execute(stmt):
                 processed_return.append(row[0])
 
             # If both a base view/table and its "_v" variant exist, prefer the base.
@@ -197,7 +208,9 @@ class MetadataMethodMixin:
             return self.tables
 
     # Todo: Not sure what normalize is intended to do...
-    def direct_get_column_headings(self, table: str, normalize: bool = False) -> list[str]:
+    def direct_get_column_headings(
+        self, table: str, normalize: bool = False
+    ) -> list[str]:
         """
         Look up cached column names after canonicalizing the table identifier.
 
@@ -250,7 +263,6 @@ class MetadataMethodMixin:
         if "." in t:
             t = t.split(".")[-1].strip()
 
-        wrappers = ["`", '"', "[", "]", "\\", "%", "_"]
         # Bracket form: [name]
         if t.startswith("[") and t.endswith("]") and len(t) >= 2:
             return t[1:-1]
@@ -261,7 +273,9 @@ class MetadataMethodMixin:
 
         return t
 
-    def direct_get_tables_and_columns(self, force_refresh: bool = False) -> dict[str, list[str]]:
+    def direct_get_tables_and_columns(
+        self, force_refresh: bool = False
+    ) -> dict[str, list[str]]:
         """
         Build or reuse the table/view-to-column-list cache with schema-version checks.
 
@@ -295,11 +309,16 @@ class MetadataMethodMixin:
         tables = self.direct_get_tables(force_refresh=force_refresh)
 
         columns = {}
-        c = self.conn.cursor()
+        connection = self.conn
+        if connection is None:
+            raise RuntimeError("The driver has no primary connection")
+        c = connection.cursor()
         try:
             for table in tables:
                 quoted = '"' + table.replace('"', '""') + '"'
-                columns[table] = [row[1] for row in c.execute(f"PRAGMA table_info({quoted})")]
+                columns[table] = [
+                    row[1] for row in c.execute(f"PRAGMA table_info({quoted})")
+                ]
         finally:
             c.close()
         self.tables_and_columns = columns
@@ -310,57 +329,24 @@ class MetadataMethodMixin:
         return self.tables_and_columns
 
     def _get_unique_column_groups(self, table: str) -> tuple[tuple[str, ...], ...]:
+        """Read global unique column groups from the common physical schema facts.
+
+        Include rowid and composite primary keys. Exclude partial/expression
+        indexes, quote native names, and preserve the caller's transaction.
+        Primary keys precede remaining indexes; duplicate groups are omitted.
         """
-        Collect column tuples from non-partial unique SQLite indexes.
-
-        Skip expression indexes and empty groups. Validate table/index identifiers,
-        raising integrity errors for unsafe names. Reuse the primary handle or close a
-        temporary one in finally.
-
-        Example:
-            ``driver._get_unique_column_groups("books")`` lists uniqueness constraints
-            backed by ordinary indexes.
-
-
-        :param table: Table or view name used for schema introspection.
-        :return: A tuple of column tuples in PRAGMA index-list order.
-        """
-
         table = self._canonicalise_table_name_for_cache(table)
-        if (
-            not table
-            or table[0].isdigit()
-            or not all(char.isalnum() or char == "_" for char in table)
-        ):
-            raise InputIntegrityError(f"Unsafe table name for index introspection: {table!r}")
-        owns_connection = self.conn is None
-        conn = self.get_connection() if owns_connection else self.conn
-        try:
-            groups: list[tuple[str, ...]] = []
-            for index_row in conn.execute(f'PRAGMA index_list("{table}")'):
-                is_unique = bool(index_row[2])
-                is_partial = len(index_row) > 4 and bool(index_row[4])
-                if not is_unique or is_partial:
-                    continue
-                index_name = str(index_row[1])
-                if not all(char.isalnum() or char == "_" for char in index_name):
-                    raise DatabaseIntegrityError(
-                        f"SQLite returned an unsafe index name: {index_name!r}"
-                    )
-                index_columns = tuple(
-                    column_row[2]
-                    for column_row in conn.execute(f'PRAGMA index_info("{index_name}")')
-                )
-                if not index_columns or any(column is None for column in index_columns):
-                    continue
-                columns = tuple(str(column) for column in index_columns)
-                if columns:
+        spec = self.direct_get_physical_table_spec(table)
+        groups = [spec.primary_key] if spec.primary_key else []
+        for index in spec.indexes:
+            if (
+                index.unique and index.valid and not index.partial
+                and index.columns and all(column is not None for column in index.columns)
+            ):
+                columns = tuple(column for column in index.columns if column is not None)
+                if columns not in groups:
                     groups.append(columns)
-            return tuple(groups)
-        finally:
-            if owns_connection:
-                conn.close()
-
+        return tuple(groups)
 
     def direct_get_highest_id(self, target_table: str) -> int | None:
         """
@@ -375,10 +361,10 @@ class MetadataMethodMixin:
         :return: The scalar maximum ID, or ``None`` for an empty result/table.
         """
         target_table = force_unicode(target_table)
-        target_table_id = self.direct_get_id_column(target_table)
+        target_table_id = driver_operations(self).direct_get_id_column(target_table)
         stmt = "SELECT max({}) FROM {};".format(target_table_id, target_table)
 
-        conn = self.get_connection()
+        conn = driver_operations(self).get_connection()
         c = conn.cursor()
 
         for row in c.execute(stmt):
@@ -388,7 +374,7 @@ class MetadataMethodMixin:
         # In the case where the table has no entries
         return None
 
-    def direct_get_record_count(self, target_table):
+    def direct_get_record_count(self, target_table: str) -> int:
         """
         Validate a table name and count its rows using a fresh connection.
 
@@ -403,12 +389,16 @@ class MetadataMethodMixin:
         :param target_table: Existing table name used in the aggregate query.
         :return: The raw COUNT result, normally an integer.
         """
-        if not self.direct_validate_existing_table_name(target_table):
+        if not driver_operations(self).direct_validate_existing_table_name(
+            target_table
+        ):
             err_str = "target_table not found in database.\n"
-            err_str = default_log.log_variables(err_str, "ERROR", ("target_table", target_table))
+            err_str = default_log.log_variables(
+                err_str, "ERROR", ("target_table", target_table)
+            )
             raise InputIntegrityError(err_str)
 
-        conn = self.get_connection()
+        conn = driver_operations(self).get_connection()
         c = conn.cursor()
         stmt = "SELECT COUNT(*) FROM {}".format(target_table)
         for row in c.execute(stmt):
@@ -431,7 +421,7 @@ class MetadataMethodMixin:
         :param table: Trusted table identifier interpolated directly into SQL.
         :return: The integer row count.
         """
-        conn = self.get_connection()
+        conn = driver_operations(self).get_connection()
         c = conn.cursor()
 
         stmt = "SELECT COUNT(*) FROM {}".format(table)
@@ -461,7 +451,7 @@ class MetadataMethodMixin:
         conn = getattr(self, "conn", None)
         owns_connection = conn is None
         if conn is None:
-            conn = self.get_connection()
+            conn = driver_operations(self).get_connection()
         unique_ids = []
         try:
             for row in conn.execute(stmt):
@@ -502,12 +492,12 @@ class MetadataMethodMixin:
         else:
             new_force_value = force_value
 
-        conn = self.get_connection()
+        conn = driver_operations(self).get_connection()
         test_val = self.direct_get_db_unique_id()
         if test_val is not None:
-
             stmt = (
-                "UPDATE `database_metadata` SET `database_metadata_unique_id` = ? " "WHERE `database_metadata_id` = 1"
+                "UPDATE `database_metadata` SET `database_metadata_unique_id` = ? "
+                "WHERE `database_metadata_id` = 1"
             )
             conn.execute(stmt, (new_force_value,))
             conn.commit()
@@ -521,7 +511,6 @@ class MetadataMethodMixin:
             return True
 
         else:
-
             stmt = "INSERT into `database_metadata` (`database_metadata_unique_id`) VALUES (?)"
             conn.execute(stmt, (new_force_value,))
             conn.commit()
@@ -534,7 +523,7 @@ class MetadataMethodMixin:
                 raise DatabaseIntegrityError(err_str)
             return True
 
-    def _initialize_md(self):
+    def _initialize_md(self) -> Literal[True]:
         """
         Ensure the metadata table contains one row, inserting a placeholder if empty.
 
@@ -547,11 +536,11 @@ class MetadataMethodMixin:
 
         :return: ``True`` when exactly one row exists or was inserted.
         """
-        md_rows = self.direct_get_all_rows("database_metadata")
+        md_rows = driver_operations(self).direct_get_all_rows("database_metadata")
         if len(md_rows) == 0:
             md_row_dict = dict()
             md_row_dict["database_metadata_scratch"] = "None"
-            self.direct_add_simple_row_dict(md_row_dict)
+            driver_operations(self).direct_add_simple_row_dict(md_row_dict)
             return True
         elif len(md_rows) == 1:
             return True
@@ -598,10 +587,10 @@ class MetadataMethodMixin:
 
         # After this method has been run there should be one and only one row in the 'database_metadata' table
         self._initialize_md()
-        md_rows = self.direct_get_all_rows("database_metadata")
+        md_rows = driver_operations(self).direct_get_all_rows("database_metadata")
         md_row = md_rows[0]
         md_row[n_md_field_name] = md_field_value
-        self.direct_update_row_dict(row_dict=md_row)
+        driver_operations(self).direct_update_row_dict(row_dict=md_row)
 
     def direct_read_metadata(self, md_field_name: str) -> Any:
         """
@@ -639,7 +628,7 @@ class MetadataMethodMixin:
 
         # After this method has been run there should be one and only one row in the 'database_metadata' table
         self._initialize_md()
-        md_rows = self.direct_get_all_rows("database_metadata")
+        md_rows = driver_operations(self).direct_get_all_rows("database_metadata")
         md_row = md_rows[0]
         candidate_value = md_row[n_md_field_name]
         if candidate_value is None or str(candidate_value).lower() == "none":

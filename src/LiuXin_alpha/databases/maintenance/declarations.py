@@ -7,7 +7,6 @@ import inspect
 import json
 import math
 from collections.abc import Iterable
-from typing import Any
 
 from LiuXin_alpha.databases.db_types.maintenance_types import MaintenanceMode
 from LiuXin_alpha.databases.maintenance.errors import MaintenanceFailure
@@ -29,7 +28,7 @@ class PluginDeclaration:
     retry_backoff_s: float
 
     @classmethod
-    def from_plugin(cls, plugin: Any) -> PluginDeclaration:
+    def from_plugin(cls, plugin: object) -> PluginDeclaration:
         """Validate configuration before it can acquire persistent obligations."""
         name = getattr(plugin, "name", None)
         version = getattr(plugin, "version", "1")
@@ -130,7 +129,7 @@ def _names(values: Iterable[str], kind: str) -> tuple[str, ...]:
     return names
 
 
-def require_sync_callable(callback, name):
+def require_sync_callable(callback: object, name: str) -> None:
     """Reject missing and deferred hooks before they can own persistent work."""
     if not callable(callback) or any(
         predicate(candidate)
@@ -144,7 +143,7 @@ def require_sync_callable(callback, name):
         raise ValueError(f"Maintenance {name} must be a synchronous callable")
 
 
-def reject_deferred_result(result, name):
+def reject_deferred_result(result: object, name: str) -> None:
     """Catch synchronous wrappers that return unexecuted asynchronous/generator work."""
     if (
         inspect.isawaitable(result)
@@ -178,7 +177,7 @@ def order_declarations(
             ):
                 raise ValueError("Prompt maintenance cannot depend on lazy completion")
     ordered = []
-    completed = set()
+    completed: set[str] = set()
     while pending:
         ready = [
             item for item in pending.values() if set(item.dependencies) <= completed

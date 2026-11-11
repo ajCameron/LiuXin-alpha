@@ -1,5 +1,3 @@
-
-
 # Todo: This feels like it needs a bit of a rethink
 
 """
@@ -21,19 +19,38 @@ own.
 # If it's a fundamental operation, then it should be done in the driver
 # Todo: In line with this, move the create custom columns logic down into the driver
 
-from collections import defaultdict
-from typing import TYPE_CHECKING
+from __future__ import annotations
 
-from LiuXin_alpha.databases.database_driver_plugins.SQL.macros.cc_macros_mixin import \
-    SQLiteDatabaseCustomColumnMacros
+from LiuXin_alpha.databases.database_driver_plugins._macro_state import macro_database
+from collections import defaultdict
+from collections.abc import Iterable
+from LiuXin_alpha.databases.db_types.macro_types import LegacyLinkData
+from LiuXin_alpha.errors import DatabaseIntegrityError
+from LiuXin_alpha.databases.db_types.driver_types import (
+    SQLExecuteOperation,
+    SQLExecuteManyOperation,
+    SQLGetOperation,
+    SQLParameters,
+    QueryCursor,
+)
+from typing import TYPE_CHECKING, Any, Literal
+
+from LiuXin_alpha.databases.database_driver_plugins.SQL.macros.cc_macros_mixin import (
+    SQLiteDatabaseCustomColumnMacros,
+)
 from LiuXin_alpha.databases.api import MacrosAPI
 
 # Todo: This needs to be replaced with a column name factory
 from LiuXin_alpha.databases.database_driver_plugins.macros_base import MacrosBase
-from LiuXin_alpha.databases.database_driver_plugins.SQL.macros.temp_tables_macros_mixin import TempTablesMacrosMixin
-from LiuXin_alpha.databases.database_driver_plugins.SQL.macros.hash_tables_macros_mixin import HashTablesMacrosMixin
+from LiuXin_alpha.databases.database_driver_plugins.SQL.macros.temp_tables_macros_mixin import (
+    TempTablesMacrosMixin,
+)
+from LiuXin_alpha.databases.database_driver_plugins.SQL.macros.hash_tables_macros_mixin import (
+    HashTablesMacrosMixin,
+)
 from LiuXin_alpha.databases.database_driver_plugins.SQL.macros.portable_macros_mixin import (
     SQLPortableMacrosMixin,
+    _row_value,
 )
 
 
@@ -51,7 +68,7 @@ class SQLiteDatabaseMacros(
     TempTablesMacrosMixin,
     HashTablesMacrosMixin,
     # Todo: We're gonna need to re-write this API some
-    MacrosAPI
+    MacrosAPI,
 ):
     """
     Attach portable and legacy database macros to a database facade.
@@ -66,9 +83,9 @@ class SQLiteDatabaseMacros(
         ``macros.get_link_data("works", "agents", work_id, typed=True)``.
     """
 
-    def __init__(self, db: "DatabaseAPI") -> None:
+    def __init__(self, db: "DatabaseAPI | None") -> None:
         """
-        Retain the database facade through the base macro initializer.
+        Retain an optional database facade through the base macro initializer.
 
         No connection is opened and no schema is inspected during construction.
 
@@ -80,30 +97,35 @@ class SQLiteDatabaseMacros(
 
 
         :param db: Facade supplying row access, a driver wrapper and portable-macro
-            dependencies.
+            dependencies, or None for a detached provider.
         :return: None; the facade is retained as db.
         """
         super(SQLiteDatabaseMacros, self).__init__(db=db)
 
     # Todo - These should probably be semi private
     @property
-    def get(self):
+    def get(self) -> SQLGetOperation:
         """
-        Expose the current facade get operation for legacy callers.
+        Expose the bound facade result reader for legacy callers.
 
         The attribute is resolved on every property access, with no argument adaptation
         or caching.
 
         Example:
-            ``macros.get`` returns the same attribute obtained as ``macros.db.get``.
+            ``macros.get("SELECT 1")`` returns rows through the bound wrapper.
 
 
-        :return: The facade get attribute; missing attributes raise AttributeError.
+        :return: The wrapper reader; all=False selects a complete row, not a scalar.
         """
-        return self.db.get
+        reader = self._macro_database.get
+        if reader is None:
+            raise DatabaseIntegrityError(
+                "Database macros have no active result reader."
+            )
+        return reader
 
     @property
-    def execute(self):
+    def execute(self) -> SQLExecuteOperation:
         """
         Expose the driver wrapper's current single-statement execution operation.
 
@@ -114,10 +136,10 @@ class SQLiteDatabaseMacros(
         :return: The wrapper execute attribute; result and transaction behavior belong
             to that wrapper.
         """
-        return self.db.driver_wrapper.execute
+        return self._macro_database.driver_wrapper.execute
 
     @property
-    def executemany(self):
+    def executemany(self) -> SQLExecuteManyOperation:
         """
         Expose the driver wrapper's current repeated-statement execution operation.
 
@@ -128,13 +150,21 @@ class SQLiteDatabaseMacros(
         :return: The wrapper executemany attribute, without an added transaction
             boundary.
         """
-        return self.db.driver_wrapper.executemany
+        return self._macro_database.driver_wrapper.executemany
 
     # ------------------------------------------------------------------------------------------------------------------
     #
     # - LINK MAKING METHODS
 
-    def make_generic_link(self, link_table, left_link_col, right_link_col, priority_col, left_id, right_id):
+    def make_generic_link(
+        self,
+        link_table: str,
+        left_link_col: str,
+        right_link_col: str,
+        priority_col: str,
+        left_id: int,
+        right_id: int,
+    ) -> None:
         """
         Insert one endpoint pair with the next priority for its left endpoint.
 
@@ -173,13 +203,13 @@ class SQLiteDatabaseMacros(
     # Todo: The interface for this macro is terrible and you should feel bad. Fix it.
     def make_generic_link_no_priority(
         self,
-        link_table,
-        left_link_col,
-        right_link_col,
-        left_id=None,
-        right_id=None,
-        id_pairs=None,
-    ):
+        link_table: str,
+        left_link_col: str,
+        right_link_col: str,
+        left_id: int | None = None,
+        right_id: int | None = None,
+        id_pairs: Iterable[tuple[int, int]] | None = None,
+    ) -> None:
         """
         Insert links using the legacy reversed endpoint-column order.
 
@@ -218,7 +248,9 @@ class SQLiteDatabaseMacros(
             order, or None for one link.
         :return: None; single or repeated execution results are discarded.
         """
-        ins_stmt = "INSERT INTO {0}({2}, {1}) VALUES(?, ?)".format(link_table, left_link_col, right_link_col)
+        ins_stmt = "INSERT INTO {0}({2}, {1}) VALUES(?, ?)".format(
+            link_table, left_link_col, right_link_col
+        )
         if id_pairs is None:
             self.execute(ins_stmt, (left_id, right_id))
         else:
@@ -232,7 +264,12 @@ class SQLiteDatabaseMacros(
 
     # Todo: This is not actually about cleaning - it's about breaking a generic link - need to rename and
     # merge
-    def generic_clean_update(self, link_table, link_col, value_for_clear):
+    def generic_clean_update(
+        self,
+        link_table: str,
+        link_col: str,
+        value_for_clear: int | Iterable[SQLParameters],
+    ) -> None:
         """
         Delete links matching one column value or a batch of parameter rows.
 
@@ -262,7 +299,13 @@ class SQLiteDatabaseMacros(
     #
     # ------------------------------------------------------------------------------------------------------------------
 
-    def get_foreign_key_replacement_trigger(self, target_table, search_column="book", target_id="book_id", old=True):
+    def get_foreign_key_replacement_trigger(
+        self,
+        target_table: str,
+        search_column: str = "book",
+        target_id: str = "book_id",
+        old: bool = True,
+    ) -> str:
         """
         Build a DELETE statement for use inside a trigger body.
 
@@ -288,18 +331,23 @@ class SQLiteDatabaseMacros(
         :return: A semicolon-terminated DELETE statement referencing the trigger's OLD
             row.
         """
-        return "DELETE FROM {} WHERE {}=OLD.{};".format(target_table, search_column, target_id)
+        return "DELETE FROM {} WHERE {}=OLD.{};".format(
+            target_table, search_column, target_id
+        )
 
     #
     # ------------------------------------------------------------------------------------------------------------------
 
-
     # Todo: Merge with the below
-    def direct_update_column_in_table(self, table, column, table_id_col, item_id, new_value):
+    def direct_update_column_in_table(
+        self, table: str, column: str, table_id_col: str, item_id: int, new_value: Any
+    ) -> None:
         """Update through portable row preparation and its transaction owner."""
         self.update_row(table, item_id, {column: new_value}, id_column=table_id_col)
 
-    def update_column_in_table(self, table, column, table_id_col, item_id, new_value):
+    def update_column_in_table(
+        self, table: str, column: str, table_id_col: str, item_id: int, new_value: Any
+    ) -> None:
         """
         Assign a value through a facade row object and synchronize that row.
 
@@ -323,12 +371,14 @@ class SQLiteDatabaseMacros(
         # Todo: Why isn't this working?
         # stmt = "UPDATE {0} SET {1} = ? WHERE {2} = ?;".format(table, column, table_id_col)
         # self.execute(stmt, (item_id, new_value))
-        target_row = self.db.get_row_from_id(table, item_id)
+        target_row = self._macro_database.get_row_from_id(table, item_id)
+        if target_row is None:
+            raise DatabaseIntegrityError(f"Cannot update missing row {table}:{item_id}")
         target_row[column] = new_value
         target_row.sync()
 
     # Todo: Merge with the driver method - which does the same thing - dry the code base out
-    def get_unique_values(self, table, column):
+    def get_unique_values(self, table: str, column: str) -> set[Any]:
         """
         Collect first-column query values into a Python set.
 
@@ -345,13 +395,20 @@ class SQLiteDatabaseMacros(
         :param column: Trusted column name interpolated directly into SQL.
         :return: A set of selected values, empty when the query yields no rows.
         """
-        current_values = set()
+        current_values: set[Any] = set()
         stmt = "SELECT {} FROM {};".format(column, table)
         for row in self.execute(stmt):
-            current_values.add(row[0])
+            current_values.add(_row_value(row, 0, column))
         return current_values
 
-    def get_values_one_condition(self, table, rtn_column, cond_column, value, default_value=None):
+    def get_values_one_condition[DefaultT](
+        self,
+        table: str,
+        rtn_column: str,
+        cond_column: str,
+        value: Any,
+        default_value: DefaultT | None = None,
+    ) -> set[Any] | DefaultT | None:
         """
         Collect distinct values satisfying one parameter-bound equality condition.
 
@@ -381,11 +438,13 @@ class SQLiteDatabaseMacros(
             result values.
         :return: A set of matches, or default_value after a caught TypeError.
         """
-        current_values = set()
-        stmt = "SELECT {0} FROM {1} WHERE {2} = ?;".format(rtn_column, table, cond_column)
+        current_values: set[Any] = set()
+        stmt = "SELECT {0} FROM {1} WHERE {2} = ?;".format(
+            rtn_column, table, cond_column
+        )
         try:
             for row in self.execute(stmt, (value,)):
-                current_values.add(row[0])
+                current_values.add(_row_value(row, 0, rtn_column))
         except TypeError:
             return default_value
         return current_values
@@ -393,14 +452,14 @@ class SQLiteDatabaseMacros(
     #
     # ------------------------------------------------------------------------------------------------------------------
 
-
-
     # ------------------------------------------------------------------------------------------------------------------
     #
     # - BULK DELETE METHODS
 
     # Todo: Rename bulk delete by values
-    def bulk_delete_in_table(self, table, column, column_values):
+    def bulk_delete_in_table(
+        self, table: str, column: str, column_values: Iterable[Iterable[Any]]
+    ) -> None:
         """Delete equality matches through the portable transaction owner.
 
         Validate the table, column and all one-cell bindings before writing.
@@ -410,8 +469,8 @@ class SQLiteDatabaseMacros(
         self._delete_matching_rows(table, (column,), column_values)
 
     def bulk_delete_items_in_table_two_matching_cols(
-        self, table, col_1, col_2, column_values
-    ):
+        self, table: str, col_1: str, col_2: str, column_values: Iterable[Iterable[Any]]
+    ) -> None:
         """Delete matching column pairs through the portable transaction owner.
 
         Validate both physical columns and every binding before effects. Bind
@@ -420,7 +479,7 @@ class SQLiteDatabaseMacros(
         """
         self._delete_matching_rows(table, (col_1, col_2), column_values)
 
-    def delete_in_table(self, table, column, value):
+    def delete_in_table(self, table: str, column: str, value: Any) -> None:
         """Delete equality matches through the validated portable row primitive.
 
         The selected column need not be unique. No match is a no-op, and None
@@ -428,7 +487,13 @@ class SQLiteDatabaseMacros(
         """
         self.delete_row(table, value, id_column=column)
 
-    def bulk_update_link_table(self, link_table, update_column, other_column, values):
+    def bulk_update_link_table(
+        self,
+        link_table: str,
+        update_column: str,
+        other_column: str,
+        values: Iterable[tuple[Any, Any, Any]],
+    ) -> None:
         """
         Repoint selected links using a new value and two matching old values.
 
@@ -450,10 +515,18 @@ class SQLiteDatabaseMacros(
             value) triples.
         :return: None; the repeated UPDATE result is discarded.
         """
-        stmt = "UPDATE {0} SET {1} = ? WHERE {1} = ? AND {2} = ?".format(link_table, update_column, other_column)
+        stmt = "UPDATE {0} SET {1} = ? WHERE {1} = ? AND {2} = ?".format(
+            link_table, update_column, other_column
+        )
         self.executemany(stmt, values)
 
-    def bulk_add_links(self, link_table, src_col, dst_col, values):
+    def bulk_add_links(
+        self,
+        link_table: str,
+        src_col: str,
+        dst_col: str,
+        values: Iterable[tuple[int, int]],
+    ) -> None:
         """
         Insert endpoint pairs, assigning per-source priorities when the schema has them.
 
@@ -480,9 +553,11 @@ class SQLiteDatabaseMacros(
         :return: None; the prepared batch is passed to executemany.
         """
         values = tuple(values)
-        headings = set(self.db.driver_wrapper.get_column_headings(link_table))
+        headings = set(
+            self._macro_database.driver_wrapper.get_column_headings(link_table)
+        )
         priority_col = "{}_priority".format(
-            self.db.driver_wrapper.get_column_base(link_table)
+            self._macro_database.driver_wrapper.get_column_base(link_table)
         )
         if priority_col not in headings:
             stmt = "INSERT INTO {0}({1}, {2}) VALUES (?,?);".format(
@@ -493,14 +568,14 @@ class SQLiteDatabaseMacros(
             self.executemany(stmt, values)
             return
 
-        next_priorities = {}
+        next_priorities: dict[int, Any] = {}
         prepared_values = []
         for src_id, dst_id in values:
             if src_id not in next_priorities:
                 row = next(
                     iter(
                         self.execute(
-                            "SELECT COALESCE(MAX({0}), 0) FROM {1} WHERE {2}=?".format(
+                            "SELECT COALESCE(MAX({0}), 0) AS maximum_priority FROM {1} WHERE {2}=?".format(
                                 priority_col,
                                 link_table,
                                 src_col,
@@ -509,7 +584,7 @@ class SQLiteDatabaseMacros(
                         )
                     )
                 )
-                next_priorities[src_id] = row[0]
+                next_priorities[src_id] = _row_value(row, 0, "maximum_priority")
             next_priorities[src_id] += 1
             prepared_values.append((src_id, dst_id, next_priorities[src_id]))
         self.executemany(
@@ -524,14 +599,14 @@ class SQLiteDatabaseMacros(
 
     def reprioritize_link(
         self,
-        link_table,
-        left_link_col,
-        right_link_col,
-        left_id,
-        right_id,
-        new_type=None,
-        new_priority="MAX",
-    ):
+        link_table: str,
+        left_link_col: str,
+        right_link_col: str,
+        left_id: int,
+        right_id: int,
+        new_type: Any = None,
+        new_priority: Literal["MAX"] = "MAX",
+    ) -> None:
         """
         Move matching endpoint links above the current left-endpoint maximum.
 
@@ -563,7 +638,7 @@ class SQLiteDatabaseMacros(
         """
         assert new_priority == "MAX", "Only max mode is supported at the moment"
 
-        link_base_col = self.db.driver_wrapper.get_column_base(link_table)
+        link_base_col = self._macro_database.driver_wrapper.get_column_base(link_table)
         link_priority_col = "{0}_priority".format(link_base_col)
 
         if new_type is None:
@@ -594,7 +669,9 @@ class SQLiteDatabaseMacros(
     # ------------------------------------------------------------------------------------------------------------------
     #
     # - READ METHODS - FOR READING DATA FROM THE BACKEND
-    def read_link_property_trios(self, link_table, link_property_col, first_id, second_id):
+    def read_link_property_trios(
+        self, link_table: str, link_property_col: str, first_id: str, second_id: str
+    ) -> QueryCursor:
         """
         Return the wrapper query result for link property and endpoint columns.
 
@@ -615,10 +692,14 @@ class SQLiteDatabaseMacros(
         :param second_id: Trusted second endpoint column name.
         :return: The wrapper execute result, normally iterable rows of three values.
         """
-        stmt = "SELECT {0}, {1}, {2} FROM {3};".format(link_property_col, first_id, second_id, link_table)
+        stmt = "SELECT {0}, {1}, {2} FROM {3};".format(
+            link_property_col, first_id, second_id, link_table
+        )
         return self.execute(stmt)
 
-    def get_all_table_link_data(self, table1, table2, typed=False, priority=False):
+    def get_all_table_link_data(
+        self, table1: str, table2: str, typed: bool = False, priority: bool = False
+    ) -> dict[int, LegacyLinkData]:
         """
         Collect link containers for every primary-table row using the physical link
         spec.
@@ -645,34 +726,43 @@ class SQLiteDatabaseMacros(
             defaultdicts.
         """
 
-        link_spec = self.db.driver_wrapper.get_link_spec(table1, table2)
+        link_spec = self._macro_database.driver_wrapper.get_link_spec(table1, table2)
         if link_spec is None:
             return {}
-        primary_ids = tuple(row.row_id for row in self.db.get_all_rows(table1))
+        primary_ids = []
+        for source in self._macro_database.get_all_rows(table1):
+            if source.row_id is None:
+                raise DatabaseIntegrityError(
+                    f"Stored row in {table1!r} has no identity"
+                )
+            primary_ids.append(source.row_id)
         grouped = self.get_link_rows_bulk(link_spec, primary_ids)
-        all_table_link_data = {}
+        all_table_link_data: dict[int, LegacyLinkData] = {}
         for primary_id, rows in grouped.items():
             if not typed and not priority:
-                all_table_link_data[primary_id] = {
-                    row.secondary_id for row in rows
-                }
+                all_table_link_data[primary_id] = {row.secondary_id for row in rows}
             elif not typed and priority:
-                all_table_link_data[primary_id] = [
-                    row.secondary_id for row in rows
-                ]
+                all_table_link_data[primary_id] = [row.secondary_id for row in rows]
             elif typed and not priority:
-                link_data = defaultdict(set)
+                link_data: defaultdict[Any, set[int]] = defaultdict(set)
                 for row in rows:
                     link_data[row.link_type].add(row.secondary_id)
                 all_table_link_data[primary_id] = link_data
             else:
-                link_data = defaultdict(list)
+                ordered_data: defaultdict[Any, list[int]] = defaultdict(list)
                 for row in rows:
-                    link_data[row.link_type].append(row.secondary_id)
-                all_table_link_data[primary_id] = link_data
+                    ordered_data[row.link_type].append(row.secondary_id)
+                all_table_link_data[primary_id] = ordered_data
         return all_table_link_data
 
-    def get_link_data(self, table1, table2, table1_id, typed=False, priority=False):
+    def get_link_data(
+        self,
+        table1: str,
+        table2: str,
+        table1_id: int,
+        typed: bool = False,
+        priority: bool = False,
+    ) -> LegacyLinkData:
         """
         Collect linked secondary IDs for one primary ID, optionally grouped by type.
 
@@ -720,7 +810,7 @@ class SQLiteDatabaseMacros(
         :return: A set/list of secondary IDs, or a typed defaultdict when a spec is
             available.
         """
-        link_spec = self.db.driver_wrapper.get_link_spec(table1, table2)
+        link_spec = macro_database(self).driver_wrapper.get_link_spec(table1, table2)
         if link_spec is None:
             return [] if priority else set()
         rows = self.get_link_rows(link_spec, table1_id)
@@ -729,17 +819,23 @@ class SQLiteDatabaseMacros(
         if not typed and priority:
             return [row.secondary_id for row in rows]
         if typed and not priority:
-            link_container = defaultdict(set)
+            link_container: defaultdict[Any, set[int]] = defaultdict(set)
             for row in rows:
                 link_container[row.link_type].add(row.secondary_id)
             return link_container
-        link_container = defaultdict(list)
+        ordered_links: defaultdict[Any, list[int]] = defaultdict(list)
         for row in rows:
-            link_container[row.link_type].append(row.secondary_id)
-        return link_container
+            ordered_links[row.link_type].append(row.secondary_id)
+        return ordered_links
 
-
-    def get_linked_ids(self, link_table, left_id_col, right_id_col, left_id, type_filter=None):
+    def get_linked_ids(
+        self,
+        link_table: str,
+        left_id_col: str,
+        right_id_col: str,
+        left_id: int,
+        type_filter: Any = None,
+    ) -> set[int]:
         """
         Read distinct right-endpoint IDs for one bound left endpoint.
 
@@ -762,19 +858,27 @@ class SQLiteDatabaseMacros(
         :return: A set of selected endpoint values, empty for no matching rows.
         """
         if type_filter is None:
-            stmt = "SELECT {0} FROM {1} WHERE {2} = ?;".format(right_id_col, link_table, left_id_col)
-            return set(row[0] for row in self.execute(stmt, (left_id,)))
+            stmt = "SELECT {0} FROM {1} WHERE {2} = ?;".format(
+                right_id_col, link_table, left_id_col
+            )
+            return set(
+                _row_value(row, 0, right_id_col)
+                for row in self.execute(stmt, (left_id,))
+            )
         else:
-            link_type_col = "{0}_type".format(self.db.driver_wrapper.get_column_base(link_table))
+            link_type_col = "{0}_type".format(
+                self._macro_database.driver_wrapper.get_column_base(link_table)
+            )
             stmt = "SELECT {0} FROM {1} WHERE {2} = ? AND {3} = ?;".format(
                 right_id_col, link_table, left_id_col, link_type_col
             )
-            return set(row[0] for row in self.execute(stmt, (left_id, type_filter)))
-
+            return set(
+                _row_value(row, 0, right_id_col)
+                for row in self.execute(stmt, (left_id, type_filter))
+            )
 
     #
     # ------------------------------------------------------------------------------------------------------------------
-
 
     def replace_in_folder_store_path(self, target_str: str, replacement: str) -> None:
         """
@@ -797,7 +901,9 @@ class SQLiteDatabaseMacros(
         replace_sql = "UPDATE folder_stores SET folder_store_path = replace(folder_store_path, ?, ?);"
         self.execute(replace_sql, (target_str, replacement))
 
-    def replace_in_folder_store_marker_path(self, target_str: str, replacement: str) -> None:
+    def replace_in_folder_store_marker_path(
+        self, target_str: str, replacement: str
+    ) -> None:
         """
         Replace literal substrings throughout the stored folder_store_marker_path
         column.
@@ -841,7 +947,7 @@ class SQLiteDatabaseMacros(
         self.execute(replace_sql, (target_str, replacement))
 
     # Todo: Do you need two different unique ids stores in two different places?
-    def set_library_id(self, new_val):
+    def set_library_id(self, new_val: str) -> None:
         """
         Update all legacy library UUID rows, or insert one if the table is empty.
 
@@ -857,14 +963,16 @@ class SQLiteDatabaseMacros(
         :param new_val: New library identifier bound without format validation.
         :return: None; the write result is discarded.
         """
-        if self.db.driver_wrapper.get_record_count("library_id"):
+        if self._macro_database.driver_wrapper.get_record_count("library_id"):
             self.execute("UPDATE library_id SET library_id_uuid = ?", (new_val,))
 
         else:
-            self.execute("INSERT INTO library_id (library_id_uuid) VALUES (?);", (new_val,))
+            self.execute(
+                "INSERT INTO library_id (library_id_uuid) VALUES (?);", (new_val,)
+            )
 
     # Todo: Sure I've seen this method somewhere else...
-    def set_database_version(self, new_val):
+    def set_database_version(self, new_val: str) -> None:
         """
         Update all legacy version rows, or insert one if the table is empty.
 
@@ -880,8 +988,10 @@ class SQLiteDatabaseMacros(
         :param new_val: New database-version marker bound without format validation.
         :return: None; the write result is discarded.
         """
-        if self.db.driver_wrapper.get_record_count("database_version"):
-            self.execute("UPDATE database_version SET database_version_version = ?", (new_val,))
+        if self._macro_database.driver_wrapper.get_record_count("database_version"):
+            self.execute(
+                "UPDATE database_version SET database_version_version = ?", (new_val,)
+            )
 
         else:
             self.execute(

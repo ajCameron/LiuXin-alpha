@@ -7,7 +7,7 @@ the maintenance overhaul as well. The branch is
 `/tmp/liuxin-driver-wrapper-pr`. The wrapper commit is `073c9214`; maintenance and
 delivery documentation follow separately. No merge was requested.
 
-The [delivery checkpoint](https://github.com/ajCameron/LiuXin-alpha/blob/maintenance-driver-wrapper-upgrades/dev-docs/databases/review-upgrade-delivery-2026-11-04.md)
+The [delivery checkpoint](../dev-docs/databases/review-upgrade-delivery-2026-11-04.md)
 records the scope, PR-branch checks and remaining limits. It supersedes prior
 uncommitted-delivery instructions in the maintenance/wrapper handoffs.
 

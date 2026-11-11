@@ -20,11 +20,7 @@ class DriverWrapperBase(DatabaseDriverWrapperAPI):
 
     @property
     def driver(self) -> DatabaseDriverAPI:
-        """
-        Return the live driver or reject operations after wrapper shutdown.
-
-        :return:
-        """
+        """Return the live driver or reject operations after wrapper shutdown."""
         if self._driver is None:
             raise RuntimeError("The driver wrapper is closed")
         return self._driver
@@ -35,8 +31,4 @@ class DriverWrapperBase(DatabaseDriverWrapperAPI):
 
     @abstractmethod
     def _clear_derived_schema_caches(self) -> None:
-        """
-        Discard wrapper descriptions after a schema refresh.
-
-        :return:
-        """
+        """Discard wrapper descriptions after a schema refresh."""

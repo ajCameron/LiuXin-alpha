@@ -10,9 +10,12 @@ from __future__ import annotations
 
 import re
 from collections.abc import Mapping
-from typing import TYPE_CHECKING, Any, Never
+from typing import TYPE_CHECKING, Any, Never, Protocol, cast
 
 from LiuXin_alpha.databases.constants import CUSTOM_DATA_TYPES
+from LiuXin_alpha.databases.database_driver_plugins._macro_state import (
+    require_legacy_macros,
+)
 from LiuXin_alpha.databases.db_types.driver_types import (
     QueryConnection,
 )
@@ -22,12 +25,25 @@ from LiuXin_alpha.utils.python_tools import to_json_str
 
 if TYPE_CHECKING:
     from LiuXin_alpha.databases.api.database_api import DatabaseAPI
-    from LiuXin_alpha.databases.api.macros_api import MacrosAPI
+    from LiuXin_alpha.databases.api.portable_macros_api import DatabaseMacrosAPI
+
+
+class _MacroProvider(Protocol):
+    """Read-only view of the macro provider installed by a concrete host."""
+
+    @property
+    def macros(self) -> DatabaseMacrosAPI: ...
 
 
 # Todo: Round these up and move them to the custom columns mixin - as with everything else
 # Todo: Or, perhaps preferably, move them down into the driver and integrate properly
-class CustomColumnsDriverWrapperMixin:
+class _MutableMacroProvider(Protocol):
+    """Fallback host whose macro binding can be assigned during composition."""
+
+    macros: DatabaseMacrosAPI
+
+
+class CustomColumnStorageMixin[ConnectionT: QueryConnection]:
     """
     Manage custom-column definitions and physical value tables.
 
@@ -39,7 +55,9 @@ class CustomColumnsDriverWrapperMixin:
         >>> wrapper.create_custom_column("note", in_table="works")  # doctest: +SKIP
     """
 
-    def __init__(self, db: DatabaseAPI | None, macros: MacrosAPI | None) -> None:
+    def __init__(
+        self, db: DatabaseAPI | None, macros: DatabaseMacrosAPI | None
+    ) -> None:
         """
         Initialize database ownership, connection override and custom-table tracking.
 
@@ -62,7 +80,7 @@ class CustomColumnsDriverWrapperMixin:
         """
         # Worker objects
         self.db = db
-        self._conn_override: QueryConnection | None = (
+        self._conn_override: ConnectionT | None = (
             None  # prefer using the live driver connection via @property conn
         )
 
@@ -76,14 +94,19 @@ class CustomColumnsDriverWrapperMixin:
                 macros_setter(macros)
             else:
                 try:
-                    self.macros = macros
+                    cast(_MutableMacroProvider, self).macros = macros
                 except AttributeError:
                     # Last resort: common convention used by wrappers
                     self._macros = macros
 
         # Todo: Might want to rename this to custom_column_tables
         # Stores properties of the database
-        self.custom_tables: set[str] = set()
+        self._custom_tables: set[str] = set()
+
+    @property
+    def custom_tables(self) -> set[str]:
+        """Expose storage names; service facades may resolve them from their owner."""
+        return self._custom_tables
 
     def _require_database(self) -> DatabaseAPI:
         """Reject owner-dependent operations before the facade has been wired."""
@@ -101,14 +124,14 @@ class CustomColumnsDriverWrapperMixin:
 
         Example:
             >>> from types import SimpleNamespace
-            >>> host = SimpleNamespace(
+            >>> host = CustomColumnsDriverWrapperMixin(
             ...     db=SimpleNamespace(
             ...         main_tables={"works", "items"},
             ...         interlink_tables=set(),
             ...         intralink_tables=set(),
-            ...     )
+            ...     ), macros=None
             ... )
-            >>> CustomColumnsDriverWrapperMixin._canonicalise_cc_in_table(host, "books")
+            >>> host._canonicalise_cc_in_table("books")
             'items'
 
 
@@ -129,7 +152,7 @@ class CustomColumnsDriverWrapperMixin:
         return in_table
 
     @property
-    def conn(self) -> QueryConnection | None:
+    def conn(self) -> ConnectionT | None:
         """
         Resolve an override or the current owner/driver connection.
 
@@ -188,7 +211,9 @@ class CustomColumnsDriverWrapperMixin:
         return override
 
     @conn.setter
-    def conn(self, value: QueryConnection | None) -> None:
+    def conn(self, value: ConnectionT | None) -> None:
+        # Backwards-compat: allow code to assign self.conn = <connection>.
+        # Prefer leaving this unset so the property resolves a fresh connection from the driver.
         """
         Store a connection override for lazy resolution on the next read.
 
@@ -202,8 +227,6 @@ class CustomColumnsDriverWrapperMixin:
             >>> mixin._conn_override is token
             True
 
-        Backwards-compat: allow code to assign self.conn = <connection>.
-        Prefer leaving this unset so the property resolves a fresh connection from the driver.
 
         :param value: Replacement connection-like object, or None to clear the override.
         :return: None.
@@ -214,13 +237,14 @@ class CustomColumnsDriverWrapperMixin:
     #
     # - CUSTOM COLUMN METHODS
     def deleted_marked_custom_columns(self) -> None:
-        """
-        Atomically remove marked definitions and their physical SQLite storage.
+        """Atomically remove marked definitions and their physical SQLite storage.
 
         The macro reuses the current transaction through a savepoint, or owns a
         new unit on an idle connection. Selection and deletion share that unit.
         """
-        self._require_database().macros.delete_marked_custom_columns()
+        require_legacy_macros(
+            self._require_database().macros
+        ).delete_marked_custom_columns()
 
     def get_custom_tables(self) -> set[str]:
         """
@@ -238,9 +262,9 @@ class CustomColumnsDriverWrapperMixin:
         """
         # Always use the driver's live connection to avoid stale db.conn aliases pointing
         # at a closed connection after driver/connection churn.
-        return self._require_database().macros.direct_get_custom_tables(
-            conn=self._require_database().driver.conn
-        )
+        return require_legacy_macros(
+            self._require_database().macros
+        ).direct_get_custom_tables(conn=self._require_database().driver.conn)
 
     def direct_get_custom_extra(self, link_table: str, index: int) -> Any:
         """
@@ -260,9 +284,9 @@ class CustomColumnsDriverWrapperMixin:
         :param index: Owner identifier matched against the link _book column.
         :return: Selected extra scalar or the connection adapter's missing-value result.
         """
-        return self._require_database().macros.direct_get_custom_and_extra(
-            link_table, index, conn=self.conn
-        )
+        return require_legacy_macros(
+            self._require_database().macros
+        ).direct_get_custom_and_extra(link_table, index, conn=self.conn)
 
     def direct_get_custom_id_val_pairs(self, table: str) -> list[tuple[int, Any]]:
         """
@@ -280,9 +304,9 @@ class CustomColumnsDriverWrapperMixin:
         :param table: Table name in the current schema.
         :return: Macro result, normally a list of (ID, value) tuples.
         """
-        return self._require_database().macros.get_all_cc_id_val_pairs(
-            table, conn=self.conn
-        )
+        return require_legacy_macros(
+            self._require_database().macros
+        ).get_all_cc_id_val_pairs(table, conn=self.conn)
 
     @staticmethod
     def custom_table_names(num: int, in_table: str = "books") -> tuple[str, str]:
@@ -326,22 +350,15 @@ class CustomColumnsDriverWrapperMixin:
         display: Mapping[str, Any] | None = None,
         in_table: str | None = None,
     ) -> bool:
-        """
-        Atomically update definition fields, preserving omitted fields.
+        """Atomically update definition fields, preserving omitted fields.
 
         Attachment changes require a storage migration and are rejected here.
         The macro joins the current transaction without committing unrelated
         writes. The caller remains responsible for facade metadata refresh.
-
-        :param num:
-        :param name:
-        :param label:
-        :param is_editable:
-        :param display:
-        :param in_table:
-        :return:
         """
-        return self._require_database().macros.set_custom_column_metadata(
+        return require_legacy_macros(
+            self._require_database().macros
+        ).set_custom_column_metadata(
             num=num,
             name=name,
             label=label,
@@ -523,7 +540,7 @@ class CustomColumnsDriverWrapperMixin:
                 "custom_columns", cc_row_dict
             )
             cc_table, link_table = self.custom_table_names(num, in_table=in_table)
-            self._require_database().macros.create_cc_table(
+            require_legacy_macros(self._require_database().macros).create_cc_table(
                 normalized=normalized,
                 datatype=datatype,
                 dt=dt,
@@ -560,7 +577,9 @@ class CustomColumnsDriverWrapperMixin:
         :param num: Custom-column metadata identifier.
         :return: None.
         """
-        self.macros.mark_custom_column_for_delete(num=num)
+        require_legacy_macros(
+            cast(_MacroProvider, self).macros
+        ).mark_custom_column_for_delete(num=num)
 
     # Todo: CustomColumnRowAPI class?
     def _get_custom_column_row(self, in_table: str, cc_name: str) -> None:
@@ -608,3 +627,19 @@ class CustomColumnsDriverWrapperMixin:
         :return: No normal return; always raises NotImplementedError.
         """
         raise NotImplementedError
+
+
+class CustomColumnsDriverWrapperMixin(CustomColumnStorageMixin[QueryConnection]):
+    """Wrapper storage adapter retaining its mutable local table-name cache.
+
+    The service facade uses the shared storage operations with a physical SQL
+    connection and discovers table names from its owner on each access instead.
+    """
+
+    @property
+    def custom_tables(self) -> set[str]:
+        return self._custom_tables
+
+    @custom_tables.setter
+    def custom_tables(self, value: set[str]) -> None:
+        self._custom_tables = value

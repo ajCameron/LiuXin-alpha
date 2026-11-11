@@ -8,12 +8,13 @@ or empty namespace, with serialized initialization and strict object creation.
 
 from __future__ import annotations
 
+from LiuXin_alpha.databases.db_types.driver_types import SQLConnection
+
 import json
 import pathlib
 import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from typing import Any
 
 from LiuXin_alpha.databases.database.constants import HELPER_TABLES
 from LiuXin_alpha.databases.column_metadata import (
@@ -28,7 +29,9 @@ from LiuXin_alpha.databases.database_driver_plugins.PostgreSQL.connection import
     PostgresConnectionAdapter,
     connect_postgres,
 )
-from LiuXin_alpha.databases.database_driver_plugins.PostgreSQL.config import configured_postgres_schema
+from LiuXin_alpha.databases.database_driver_plugins.PostgreSQL.config import (
+    configured_postgres_schema,
+)
 from LiuXin_alpha.errors import DatabaseDriverError
 from LiuXin_alpha.utils.logging import default_log
 
@@ -49,17 +52,40 @@ _HELPER_SQL_FOLDERS = (
     _SQL_FRBR_TABLE_ROOT / "storage_tables",
 )
 
-_CATALOG_TABLES = frozenset({
-    "works", "expressions", "manifestations", "items", "agents", "languages",
-    "tags", "labels", "genres", "subjects", "series", "ratings", "comments",
-    "synopses", "notes", "annotations", "entity_identifiers", "item_identifiers",
-    "human_agents", "org_agents", "org_agent_relations",
-})
+_CATALOG_TABLES = frozenset(
+    {
+        "works",
+        "expressions",
+        "manifestations",
+        "items",
+        "agents",
+        "languages",
+        "tags",
+        "labels",
+        "genres",
+        "subjects",
+        "series",
+        "ratings",
+        "comments",
+        "synopses",
+        "notes",
+        "annotations",
+        "entity_identifiers",
+        "item_identifiers",
+        "human_agents",
+        "org_agents",
+        "org_agent_relations",
+    }
+)
 
-_STORAGE_HELPER_TABLES = frozenset({
-    "backup_workflows", "backup_workflow_sources", "backup_workflow_outputs",
-    "backup_workflow_state",
-})
+_STORAGE_HELPER_TABLES = frozenset(
+    {
+        "backup_workflows",
+        "backup_workflow_sources",
+        "backup_workflow_outputs",
+        "backup_workflow_state",
+    }
+)
 
 
 @dataclass(frozen=True)
@@ -116,7 +142,7 @@ def create_new_database(target_location: str | Mapping[str, object]) -> None:
         raw.close()
 
 
-def create_postgres_schema(conn: Any, *, schema: str = "public") -> None:
+def create_postgres_schema(conn: SQLConnection, *, schema: str = "public") -> None:
     """
     Initialize an absent or empty schema and seed its objects in one transaction.
 
@@ -161,7 +187,11 @@ def create_postgres_schema(conn: Any, *, schema: str = "public") -> None:
                 )
             conn.execute(f"set search_path to {schema_name}")
             for statement in statements:
-                conn.execute(statement.replace("IF NOT EXISTS ", "").replace("if not exists ", ""))
+                conn.execute(
+                    statement.replace("IF NOT EXISTS ", "").replace(
+                        "if not exists ", ""
+                    )
+                )
     except Exception as exc:
         raise DatabaseDriverError(f"Unable to create PostgreSQL schema: {exc}") from exc
 
@@ -196,7 +226,10 @@ def build_schema_statements(*, schema: str = "public") -> tuple[str, ...]:
         statements.extend(table.indexes)
     statements.extend(_helper_sql_statements())
     statements.extend(_catalog_link_statements())
-    from LiuXin_alpha.databases.database_driver_plugins.PostgreSQL.catalog_schema import hierarchy_guard_statements
+    from LiuXin_alpha.databases.database_driver_plugins.PostgreSQL.catalog_schema import (
+        hierarchy_guard_statements,
+    )
+
     statements.extend(hierarchy_guard_statements())
     statements.extend(_column_metadata_seed_statements())
     statements.extend(_normalized_identity_seed_statements())
@@ -205,7 +238,9 @@ def build_schema_statements(*, schema: str = "public") -> tuple[str, ...]:
 
 def _catalog_link_statements() -> tuple[str, ...]:
     """Render current Catalog interlinks after collecting their physical endpoints."""
-    from LiuXin_alpha.databases.database_driver_plugins.PostgreSQL.catalog_schema import catalog_link_statements
+    from LiuXin_alpha.databases.database_driver_plugins.PostgreSQL.catalog_schema import (
+        catalog_link_statements,
+    )
 
     tables = {table.name: _column_names(table.columns) for table in TABLE_DEFINITIONS}
     tables.update(_helper_table_catalog())
@@ -276,9 +311,13 @@ def _helper_sql_statements() -> tuple[str, ...]:
     grouped: dict[str, list[str]] = {}
     discovery_order: list[str] = []
     explicit = {definition.name for definition in TABLE_DEFINITIONS}
-    helper_tables = (set(HELPER_TABLES) | _CATALOG_TABLES | _STORAGE_HELPER_TABLES) - explicit
+    helper_tables = (
+        set(HELPER_TABLES) | _CATALOG_TABLES | _STORAGE_HELPER_TABLES
+    ) - explicit
     for sqlite_statement in _sqlite_helper_statements():
-        table_name = _statement_table_name(sqlite_statement) or _statement_index_table_name(sqlite_statement)
+        table_name = _statement_table_name(
+            sqlite_statement
+        ) or _statement_index_table_name(sqlite_statement)
         if table_name not in helper_tables:
             continue
         if table_name not in grouped:
@@ -301,24 +340,17 @@ def _helper_sql_statements() -> tuple[str, ...]:
         ready = [
             table
             for table in discovery_order
-            if table in remaining
-            and not (dependencies[table] & remaining)
+            if table in remaining and not (dependencies[table] & remaining)
         ]
         if not ready:
-            cycle = ", ".join(
-                table for table in discovery_order if table in remaining
-            )
+            cycle = ", ".join(table for table in discovery_order if table in remaining)
             raise DatabaseDriverError(
                 "PostgreSQL helper-table foreign keys contain a dependency "
                 f"cycle: {cycle}."
             )
         ordered_tables.extend(ready)
         remaining.difference_update(ready)
-    return tuple(
-        statement
-        for table in ordered_tables
-        for statement in grouped[table]
-    )
+    return tuple(statement for table in ordered_tables for statement in grouped[table])
 
 
 def _statement_referenced_tables(statement: str) -> set[str]:
@@ -357,7 +389,9 @@ def _helper_table_catalog() -> dict[str, tuple[str, ...]]:
     """
     catalog: dict[str, tuple[str, ...]] = {}
     explicit = {definition.name for definition in TABLE_DEFINITIONS}
-    helper_tables = (set(HELPER_TABLES) | _CATALOG_TABLES | _STORAGE_HELPER_TABLES) - explicit
+    helper_tables = (
+        set(HELPER_TABLES) | _CATALOG_TABLES | _STORAGE_HELPER_TABLES
+    ) - explicit
     for sqlite_statement in _sqlite_helper_statements():
         table_name = _statement_table_name(sqlite_statement)
         if table_name not in helper_tables:
@@ -496,13 +530,13 @@ def _schema_column_metadata_defaults() -> tuple[ColumnMetadata, ...]:
             )
 
     for statement in (*_helper_sql_statements(), *_catalog_link_statements()):
-        table = _statement_table_name(statement)
-        if table is None:
+        table_name = _statement_table_name(statement)
+        if table_name is None:
             continue
         foreign_keys = _foreign_key_columns(statement)
         for column, declared_type in _create_statement_column_declarations(statement):
-            records[(table, column)] = infer_column_metadata(
-                table,
+            records[(table_name, column)] = infer_column_metadata(
+                table_name,
                 column,
                 declared_type,
                 is_primary_key="primary key" in declared_type.casefold(),
@@ -609,15 +643,23 @@ def _sqlite_helper_statements() -> tuple[str, ...]:
                 from LiuXin_alpha.databases.database_driver_plugins.SQL.database_generator_frbr.database_generator import (
                     _substitute_canonical_vocabulary_placeholders,
                 )
+
                 text = _substitute_canonical_vocabulary_placeholders(text)
             text = re.sub(r",\s*\)", ")", text)
-            text = re.sub(r"CREATE TABLE (?!IF NOT EXISTS)", "CREATE TABLE IF NOT EXISTS ", text, flags=re.IGNORECASE)
+            text = re.sub(
+                r"CREATE TABLE (?!IF NOT EXISTS)",
+                "CREATE TABLE IF NOT EXISTS ",
+                text,
+                flags=re.IGNORECASE,
+            )
             for raw_statement in text.split(";"):
                 statement = raw_statement.strip()
                 if not statement:
                     continue
                 lowered = statement.casefold()
-                if lowered.startswith("create table if not exists") or lowered.startswith("create index if not exists"):
+                if lowered.startswith(
+                    "create table if not exists"
+                ) or lowered.startswith("create index if not exists"):
                     statements.append(statement)
                 elif lowered.startswith("create unique index if not exists"):
                     statements.append(statement)
@@ -669,7 +711,9 @@ def _translate_sqlite_statement(sql: str) -> str:
         translated,
         flags=re.IGNORECASE,
     )
-    translated = re.sub(r'\s+COLLATE\s+(?:"NOCASE"|NOCASE)', "", translated, flags=re.IGNORECASE)
+    translated = re.sub(
+        r'\s+COLLATE\s+(?:"NOCASE"|NOCASE)', "", translated, flags=re.IGNORECASE
+    )
     translated = re.sub(
         r"\bINTEGER\s+PRIMARY\s+KEY\b",
         "bigint generated by default as identity primary key",
@@ -678,8 +722,12 @@ def _translate_sqlite_statement(sql: str) -> str:
     )
     translated = re.sub(r"\bINTEGER\b", "bigint", translated, flags=re.IGNORECASE)
     translated = re.sub(r"\bINT\b", "bigint", translated, flags=re.IGNORECASE)
-    translated = re.sub(r"\bREAL\b", "double precision", translated, flags=re.IGNORECASE)
-    translated = re.sub(r"\bFLOAT\b", "double precision", translated, flags=re.IGNORECASE)
+    translated = re.sub(
+        r"\bREAL\b", "double precision", translated, flags=re.IGNORECASE
+    )
+    translated = re.sub(
+        r"\bFLOAT\b", "double precision", translated, flags=re.IGNORECASE
+    )
     translated = re.sub(r"\bBLOB\b", "bytea", translated, flags=re.IGNORECASE)
     translated = re.sub(r"\bTEXT\b", "text", translated, flags=re.IGNORECASE)
     return translated
@@ -697,7 +745,11 @@ def _statement_table_name(sql: str) -> str | None:
     :param sql: SQL text in the limited layout used by bundled table definitions.
     :return: Matched ASCII word-like name, or None.
     """
-    match = re.search(r'create\s+table\s+if\s+not\s+exists\s+[`"]?([A-Za-z0-9_]+)[`"]?', sql, re.IGNORECASE)
+    match = re.search(
+        r'create\s+table\s+if\s+not\s+exists\s+[`"]?([A-Za-z0-9_]+)[`"]?',
+        sql,
+        re.IGNORECASE,
+    )
     return match.group(1) if match else None
 
 
@@ -1140,7 +1192,7 @@ TABLE_DEFINITIONS: tuple[TableDefinition, ...] = (
             'constraint "backup_policy_min_copies_check" check ("backup_policy_min_backup_copies" >= 0)',
             'constraint "backup_policy_periodic_verification_bool" check ("backup_policy_periodic_verification" in (0,1))',
             'constraint "backup_policy_retention_locked_bool" check ("backup_policy_retention_locked" in (0,1))',
-            'constraint "backup_policy_mode_check" check ("backup_policy_mode" in (\'backup\',\'archive\'))',
+            "constraint \"backup_policy_mode_check\" check (\"backup_policy_mode\" in ('backup','archive'))",
         ),
         indexes=(
             'create unique index if not exists "idx_backup_policies_unique_name_norm" '
@@ -1329,7 +1381,7 @@ TABLE_DEFINITIONS: tuple[TableDefinition, ...] = (
             '"digital_assets" ("digital_asset_id") on delete cascade on update cascade',
             'constraint "digital_asset_item_link_item_fk" foreign key '
             '("digital_asset_item_link_item_id") references "items" ("item_id") '
-            'on delete cascade on update cascade',
+            "on delete cascade on update cascade",
             'constraint "digital_asset_item_link_primary_bool" check '
             '("digital_asset_item_link_primary" is null or '
             '"digital_asset_item_link_primary" in (0,1))',
@@ -1359,10 +1411,10 @@ TABLE_DEFINITIONS: tuple[TableDefinition, ...] = (
             'constraint "composite_digital_asset_item_link_asset_fk" foreign key '
             '("composite_digital_asset_item_link_composite_digital_asset_id") references '
             '"composite_digital_assets" ("composite_digital_asset_id") '
-            'on delete cascade on update cascade',
+            "on delete cascade on update cascade",
             'constraint "composite_digital_asset_item_link_item_fk" foreign key '
             '("composite_digital_asset_item_link_item_id") references "items" ("item_id") '
-            'on delete cascade on update cascade',
+            "on delete cascade on update cascade",
             'constraint "composite_digital_asset_item_link_primary_bool" check '
             '("composite_digital_asset_item_link_primary" is null or '
             '"composite_digital_asset_item_link_primary" in (0,1))',
@@ -1396,11 +1448,11 @@ TABLE_DEFINITIONS: tuple[TableDefinition, ...] = (
             'constraint "composite_member_composite_fk" foreign key '
             '("composite_digital_asset_digital_asset_link_composite_digital_asset_id") '
             'references "composite_digital_assets" ("composite_digital_asset_id") '
-            'on delete cascade on update cascade',
+            "on delete cascade on update cascade",
             'constraint "composite_member_asset_fk" foreign key '
             '("composite_digital_asset_digital_asset_link_digital_asset_id") '
             'references "digital_assets" ("digital_asset_id") '
-            'on delete cascade on update cascade',
+            "on delete cascade on update cascade",
             'constraint "composite_member_required_bool" check '
             '("composite_digital_asset_digital_asset_link_is_required" is null or '
             '"composite_digital_asset_digital_asset_link_is_required" in (0,1))',
@@ -1447,7 +1499,7 @@ TABLE_DEFINITIONS: tuple[TableDefinition, ...] = (
             'references "stores" ("store_id") on delete restrict on update cascade',
             'constraint "asset_replica_folder_fk" foreign key ("asset_replica_folder_id") '
             'references "folders" ("folder_id") on delete set null on update cascade',
-            'constraint "asset_replica_mode_check" check ("asset_replica_mode" in (\'active\',\'backup\',\'archive\',\'cache\',\'transient\',\'unmanaged\'))',
+            "constraint \"asset_replica_mode_check\" check (\"asset_replica_mode\" in ('active','backup','archive','cache','transient','unmanaged'))",
         ),
         indexes=(
             'create unique index if not exists "idx_asset_replicas_unique_store_key" on "asset_replicas" ("asset_replica_store_id", "asset_replica_storage_key")',

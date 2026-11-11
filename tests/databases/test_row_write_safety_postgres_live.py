@@ -16,6 +16,46 @@ from LiuXin_alpha.databases.database_driver_plugins.PostgreSQL.connection import
 from LiuXin_alpha.errors import DatabaseDriverError
 
 
+@pytest.mark.parametrize("path", ["dictionary", "row", "view"])
+@pytest.mark.parametrize("payload", [b"\x00\xffpayload\x10", b"", b"12"])
+def test_conversion_options_binary_round_trip(pg_db, path, payload):
+    """Changing only format must not overwrite an existing binary payload."""
+    db, _ = pg_db
+    row_id = db.driver.direct_add_simple_row_dict(
+        {
+            "conversion_option_format": "EPUB",
+            "conversion_option_book": None,
+            "conversion_option_data": payload,
+        }
+    )
+    if path == "row":
+        row = db.get_row_from_id("conversion_options", row_id)
+        assert row["conversion_option_data"] == payload
+        row["conversion_option_format"] = "PDF"
+        row.sync()
+    else:
+        if path == "view":
+            db.driver.direct_execute(
+                "CREATE VIEW conversion_review AS SELECT conversion_option_id AS id, conversion_options.* FROM conversion_options"
+            ).close()
+            row = db.driver.direct_get_view_row_dict_from_id(
+                "conversion_review", row_id
+            )
+            del row["id"]
+        else:
+            row = db.driver.direct_get_row_dict_from_id("conversion_options", row_id)
+        assert row["conversion_option_data"] == payload
+        row["conversion_option_format"] = "PDF"
+        db.driver.direct_update_row_dict(row)
+    persisted = stored(
+        pg_db,
+        "conversion_options",
+        "conversion_option_format, conversion_option_data",
+        "conversion_option_id",
+    )
+    assert [(kind, bytes(binary)) for kind, binary in persisted] == [("PDF", payload)]
+
+
 @pytest.fixture
 def pg_db():
     """Own a disposable schema; inspect commits using an independent connection."""
@@ -186,3 +226,48 @@ def test_postgres_identity_only_update_keeps_derived_key_and_uniqueness(pg_db, r
     ]
     with pytest.raises(psycopg2.IntegrityError):
         db.macros.insert_row("tags", {"tag": "SPACE OPERA"})
+
+
+def test_postgres_failed_draft_sync_leaves_no_blank_row_and_can_retry(pg_db):
+    from LiuXin_alpha.databases.row import Row, RowState
+
+    db, _ = pg_db
+    db.driver_wrapper.add_row({"review_item_text": "duplicate"})
+    row = Row(db, {"review_item_text": "duplicate"})
+    with pytest.raises(DatabaseDriverError):
+        row.sync()
+    assert row.state is RowState.DRAFT
+    assert row.row_id is None
+    assert stored(pg_db, "review_items", "review_item_text", "review_item_id") == [
+        ("duplicate",)
+    ]
+    row["review_item_text"] = "retry"
+    row.sync()
+    assert row.state is RowState.IDENTIFIED
+    assert stored(pg_db, "review_items", "review_item_text", "review_item_id") == [
+        ("duplicate",),
+        ("retry",),
+    ]
+
+
+def test_postgres_missing_row_stays_missing_on_sync(pg_db):
+    from LiuXin_alpha.databases.row import Row, RowState
+
+    db, _ = pg_db
+    row = Row(db)
+    row.load_row_from_id(-99999, "review_items")
+    assert row.state is RowState.MISSING
+    row.sync()
+    assert row.state is RowState.MISSING
+    assert stored(pg_db, "review_items", "review_item_id", "review_item_id") == []
+
+
+def test_postgres_draft_sync_accepts_an_explicit_null_identity(pg_db):
+    from LiuXin_alpha.databases.row import Row, RowState
+
+    db, _ = pg_db
+    row = Row(db, {"review_item_id": None, "review_item_text": "null identity"})
+    row.sync()
+    assert row.state is RowState.IDENTIFIED
+    assert row.row_id is not None
+    assert row.row_dict["review_item_id"] == row.row_id

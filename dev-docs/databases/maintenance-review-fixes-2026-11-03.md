@@ -2,6 +2,10 @@
 
 Date: **2026-11-03**. Status: **complete; maintenance tranche ready for signoff**.
 
+Delivery update, **2026-11-04**: this work is included with the driver-wrapper
+upgrades in the [combined PR checkpoint](review-upgrade-delivery-2026-11-04.md).
+Uncommitted/publishing statements below describe the earlier signoff date.
+
 This follows the [adversarial validation](maintenance-adversarial-validation-2026-11-03.md).
 The subsequent review reproduced three operator/scheduling defects and identified
 maintenance job-history retention as an outstanding storage requirement.

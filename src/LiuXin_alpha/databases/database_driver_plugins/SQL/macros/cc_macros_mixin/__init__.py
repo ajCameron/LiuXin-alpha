@@ -1,21 +1,21 @@
-
 """
 Provide legacy custom-column value, link and cleanup SQL macros.
 
 These helpers expect trusted schema names and inflected column prefixes, commonly with
 _id, _value, _book and _extra suffixes. Names are interpolated without identifier
-validation while data is bound. Reads often require the project connection.get
-extension; raw sqlite3.Connection does not provide it. Writes have method-specific
+validation while data is bound. Reads preserve the project connection.get extension
+when present and otherwise use cursors on an ordinary borrowed query connection. Writes have method-specific
 commit behavior and do not share an automatic transaction or cache-invalidation
 boundary. Inherited mixins supply column management and insert-then-search value lookup.
 """
 
-import datetime
-import json
-import sqlite3
+from __future__ import annotations
+
+from LiuXin_alpha.databases.transactions import transaction_active, transaction_scope
+
 import types
-from collections.abc import Iterable
-from typing import Any, Optional, Union
+from collections.abc import Callable, Iterable, Mapping, Sequence
+from typing import Any, Literal, overload
 
 from LiuXin_alpha.databases.database_driver_plugins.SQL.macros.cc_macros_mixin.cc_ensure_values_mixin import (
     CustomColumnsEnsureValueMacrosMixin,
@@ -23,9 +23,19 @@ from LiuXin_alpha.databases.database_driver_plugins.SQL.macros.cc_macros_mixin.c
 from LiuXin_alpha.databases.database_driver_plugins.SQL.macros.cc_macros_mixin.cc_management_macros import (
     CustomColumnsManagementMacrosMixin,
 )
-from LiuXin_alpha.databases.db_types.driver_types import QueryConnection
+from LiuXin_alpha.databases.db_types.driver_types import (
+    QueryConnection,
+    SQLConnection,
+    SQLCursor,
+    SQLParameters,
+)
+from LiuXin_alpha.databases.database_driver_plugins.SQL.macros.cc_macros_mixin._reads import (
+    read_rows,
+    read_scalar,
+)
+from LiuXin_alpha.errors import DatabaseIntegrityError
+from LiuXin_alpha.databases.database_driver_plugins._macro_state import macro_operations
 from LiuXin_alpha.utils.language_tools import plural_singular_mapper
-from LiuXin_alpha.utils.libraries.liuxin_six import iteritems
 
 
 class SQLiteDatabaseCustomColumnMacros(
@@ -40,8 +50,8 @@ class SQLiteDatabaseCustomColumnMacros(
     has no initializer that attaches a database. Read results preserve the chosen
     connection.get semantics: project SQLite returns row lists by default and the first
     cell or None for all=False. The methods do not generally validate schema,
-    cardinality or value types, and return annotations may describe a narrower shape
-    than the actual result.
+    cardinality or SQL cell types. Annotations distinguish row containers, scalar
+    absence and owned versus borrowed connection capabilities.
 
     Example:
         >>> macros = SQLiteDatabaseCustomColumnMacros()
@@ -52,6 +62,7 @@ class SQLiteDatabaseCustomColumnMacros(
         ...     databasedriver,
         ... )
         >>> SQLite_Connection = databasedriver.SQLite_Connection
+        >>> import sqlite3
         >>> conn = sqlite3.connect(":memory:", factory=SQLite_Connection)
         >>> _ = conn.execute(
         ...     "CREATE TABLE custom_column_1 (custom_column_1_id INTEGER PRIMARY KEY, "
@@ -71,6 +82,22 @@ class SQLiteDatabaseCustomColumnMacros(
         {'custom_column_1'}
         >>> conn.close()
     """
+
+    def _cc_read_connection(self, conn: QueryConnection | None) -> QueryConnection:
+        """Borrow an explicit or primary handle; a detached driver cannot be read."""
+        if conn is not None:
+            return conn
+        return self._cc_write_connection(None)
+
+    def _cc_write_connection(self, conn: SQLConnection | None) -> SQLConnection:
+        """Borrow the existing write handle without adding transaction ownership."""
+        active = conn if conn is not None else self._macro_database.driver.conn
+        if active is None:
+            raise DatabaseIntegrityError(
+                "Custom-column macros have no active connection"
+            )
+        return active
+
     @staticmethod
     def _get_cc_id_val(custom_column: str) -> tuple[str, str]:
         """
@@ -114,7 +141,7 @@ class SQLiteDatabaseCustomColumnMacros(
     #
     # - READ
 
-    def get_dirtied_cache(self):
+    def get_dirtied_cache(self) -> dict[Any, int]:
         """
         Map dirty book IDs to enumeration positions while accommodating two queue
         schemas.
@@ -129,6 +156,7 @@ class SQLiteDatabaseCustomColumnMacros(
 
         Example:
             >>> from types import SimpleNamespace
+            >>> import sqlite3
             >>> conn = sqlite3.connect(":memory:")
             >>> _ = conn.execute(
             ...     "CREATE TABLE metadata_dirtied_books (metadata_dirtied_table TEXT, "
@@ -154,7 +182,12 @@ class SQLiteDatabaseCustomColumnMacros(
         #   current: metadata_dirtied_books(metadata_dirtied_table, metadata_dirtied_table_id)
 
         try:
-            cols = [row[1] for row in self.db.driver_wrapper.execute("PRAGMA table_info(metadata_dirtied_books)")]
+            cols = [
+                row["name"] if isinstance(row, Mapping) else row[1]
+                for row in self._macro_database.driver_wrapper.execute(
+                    "PRAGMA table_info(metadata_dirtied_books)"
+                )
+            ]
         except Exception:
             cols = []
 
@@ -173,13 +206,15 @@ class SQLiteDatabaseCustomColumnMacros(
             # Best effort: empty cache when table is absent or unknown.
             return {}
 
-        dirtied_cache = {x: i for i, (x,) in enumerate(self.db.driver_wrapper.execute(stmt))}
+        dirtied_cache = {
+            x: i
+            for i, (x,) in enumerate(self._macro_database.driver_wrapper.execute(stmt))
+        }
         return dirtied_cache
 
     def get_cc_id_and_value_from_id(
-            self, custom_column: str,
-            target_id: int,
-            conn: Optional[sqlite3.Connection] = None) -> tuple[int, str]:
+        self, custom_column: str, target_id: int, conn: QueryConnection | None = None
+    ) -> tuple[int, Any]:
         """
         Read the first ID/value row matching one custom-value ID.
 
@@ -202,28 +237,35 @@ class SQLiteDatabaseCustomColumnMacros(
         """
         if conn is None:
             cc_id_col, cc_val_col = self._get_cc_id_val(custom_column)
-            return self.db.driver.conn.get(
-                "SELECT {0}, {1} FROM {2} WHERE {0}=?" "".format(cc_id_col, cc_val_col, custom_column),
+            row = read_rows(
+                self._cc_read_connection(None),
+                "SELECT {0}, {1} FROM {2} WHERE {0}=?".format(
+                    cc_id_col, cc_val_col, custom_column
+                ),
                 (target_id,),
             )[0]
+            return row[0], row[1]
         else:
             cc_id_col, cc_val_col = self._get_cc_id_val(custom_column)
-            return conn.get(
-                "SELECT {0}, {1} FROM {2} WHERE {0}=?" "".format(cc_id_col, cc_val_col, custom_column),
+            row = read_rows(
+                self._cc_read_connection(conn),
+                "SELECT {0}, {1} FROM {2} WHERE {0}=?".format(
+                    cc_id_col, cc_val_col, custom_column
+                ),
                 (target_id,),
             )[0]
+            return row[0], row[1]
 
     # Todo: Basically the same as the above method - merge
     def get_cc_id_value_from_cc_id(
-            self, table: str, old_id: int
-    ) -> tuple[int, str]:
+        self, table: str, old_id: int, conn: QueryConnection | None = None
+    ) -> tuple[int, Any]:
         """
         Read the first ID/value row for an ID through the stored default connection.
 
         Derive both column names and index the default get result at zero. Missing rows
         raise IndexError with the project SQLite adapter; duplicate matches are not
-        checked. This is a legacy counterpart to get_cc_id_and_value_from_id without a
-        connection override.
+        checked. An explicit connection keeps the lookup in its caller's transaction.
 
         Example:
             ``macros.get_cc_id_value_from_cc_id("custom_column_1", 7)``
@@ -236,20 +278,49 @@ class SQLiteDatabaseCustomColumnMacros(
         :return: The first matching two-cell row.
         """
         cc_id_col, cc_val_col = self._get_cc_id_val(table)
-        return self.db.driver.conn.get(
+        row = read_rows(
+            self._cc_read_connection(conn),
             "SELECT {id_col}, {val_col} FROM {table} WHERE {id_col}=?".format(
                 id_col=cc_id_col, val_col=cc_val_col, table=table
             ),
             (old_id,),
         )[0]
+        return row[0], row[1]
+
+    @overload
+    def get_cc_id_from_value(
+        self,
+        target_table: str,
+        cc_value: Any,
+        all: Literal[False] = False,
+        conn: QueryConnection | None = None,
+    ) -> int | None: ...
+
+    @overload
+    def get_cc_id_from_value(
+        self,
+        target_table: str,
+        cc_value: Any,
+        all: Literal[True],
+        conn: QueryConnection | None = None,
+    ) -> list[Sequence[Any]]: ...
+
+    @overload
+    def get_cc_id_from_value(
+        self,
+        target_table: str,
+        cc_value: Any,
+        all: bool,
+        conn: QueryConnection | None = None,
+    ) -> int | None | list[Sequence[Any]]: ...
 
     def get_cc_id_from_value(
-            self,
-            target_table: str,
-            cc_value: Union[str, int, datetime.datetime],
-            all: bool = False,
-            conn: Optional[sqlite3.Connection] = None
-    ) -> int:
+        self,
+        target_table: str,
+        cc_value: Any,
+        all: bool = False,
+        conn: QueryConnection | None = None,
+    ) -> int | None | list[Sequence[Any]]:
         """
         Look up custom-value IDs using SQL equality and the requested get result mode.
 
@@ -261,7 +332,7 @@ class SQLiteDatabaseCustomColumnMacros(
         Example:
             >>> from types import SimpleNamespace
             >>> conn = SimpleNamespace(
-            ...     get=lambda sql, params, **kw: [(4,)] if kw["all"] else 4
+            ...     get=lambda sql, params, **kw: [(4,)] if kw.get("all", True) else 4
             ... )
             >>> macros = SQLiteDatabaseCustomColumnMacros()
             >>> macros.get_cc_id_from_value("custom_column_1", "A", conn=conn)
@@ -282,29 +353,46 @@ class SQLiteDatabaseCustomColumnMacros(
         """
         cc_id_col, cc_val_col = self._get_cc_id_val(target_table)
         if conn is None:
-            return self.db.driver.conn.get(
-                "SELECT {id_col} FROM {table} WHERE {val_col}=?".format(
-                    id_col=cc_id_col, table=target_table, val_col=cc_val_col
-                ),
-                (cc_value,),
-                all=all,
+            return (
+                read_rows(
+                    self._cc_read_connection(None),
+                    "SELECT {id_col} FROM {table} WHERE {val_col}=?".format(
+                        id_col=cc_id_col, table=target_table, val_col=cc_val_col
+                    ),
+                    (cc_value,),
+                )
+                if all
+                else read_scalar(
+                    self._cc_read_connection(None),
+                    "SELECT {id_col} FROM {table} WHERE {val_col}=?".format(
+                        id_col=cc_id_col, table=target_table, val_col=cc_val_col
+                    ),
+                    (cc_value,),
+                )
             )
         else:
-            return conn.get(
-                "SELECT {id_col} FROM {table} WHERE {val_col}=?".format(
-                    id_col=cc_id_col, table=target_table, val_col=cc_val_col
-                ),
-                (cc_value,),
-                all=all,
+            return (
+                read_rows(
+                    self._cc_read_connection(conn),
+                    "SELECT {id_col} FROM {table} WHERE {val_col}=?".format(
+                        id_col=cc_id_col, table=target_table, val_col=cc_val_col
+                    ),
+                    (cc_value,),
+                )
+                if all
+                else read_scalar(
+                    self._cc_read_connection(conn),
+                    "SELECT {id_col} FROM {table} WHERE {val_col}=?".format(
+                        id_col=cc_id_col, table=target_table, val_col=cc_val_col
+                    ),
+                    (cc_value,),
+                )
             )
 
     # Todo: Needs a new name in line with the extensions of custom columns to all table
     def get_cc_lt_books_from_lt_value(
-            self,
-            lt: str,
-            value: Union[str, int, datetime.datetime],
-            conn: Optional[sqlite3.Connection] = None
-    ) -> Iterable[int]:
+        self, lt: str, value: Any, conn: QueryConnection | None = None
+    ) -> list[Sequence[Any]]:
         """
         Read owner IDs linked to one custom-value ID using legacy _book/_value columns.
 
@@ -329,22 +417,25 @@ class SQLiteDatabaseCustomColumnMacros(
 
         if conn is None:
             # return self.db.driver.conn.get('SELECT book from %s WHERE value=?;' % lt, (value,))
-            return self.db.driver.conn.get(
-                "SELECT {lt_col}_book from {lt} WHERE {lt_col}_value=?;" "".format(lt=lt, lt_col=lt_col),
+            return read_rows(
+                self._cc_read_connection(None),
+                "SELECT {lt_col}_book from {lt} WHERE {lt_col}_value=?;".format(
+                    lt=lt, lt_col=lt_col
+                ),
                 (value,),
             )
         else:
-            return conn.get(
-                "SELECT {lt_col}_book from {lt} WHERE {lt_col}_value=?;" "".format(lt=lt, lt_col=lt_col),
+            return read_rows(
+                self._cc_read_connection(conn),
+                "SELECT {lt_col}_book from {lt} WHERE {lt_col}_value=?;".format(
+                    lt=lt, lt_col=lt_col
+                ),
                 (value,),
             )
 
     def get_all_cc_custom_values(
-            self,
-            cc_table: str,
-            distinct: bool = False,
-            conn: Optional[sqlite3.Connection] = None
-    ) -> Iterable[Union[int, str, float]]:
+        self, cc_table: str, distinct: bool = False, conn: QueryConnection | None = None
+    ) -> list[Sequence[Any]]:
         """
         Read every legacy _value cell, optionally applying SQL DISTINCT.
 
@@ -371,26 +462,41 @@ class SQLiteDatabaseCustomColumnMacros(
 
         if not distinct:
             if conn is None:
-                return self.db.driver.conn.get(
-                    "SELECT {cc_col}_value FROM {table}" "".format(table=cc_table, cc_col=cc_col),
-                    all=True,
+                return read_rows(
+                    self._cc_read_connection(None),
+                    "SELECT {cc_col}_value FROM {table}".format(
+                        table=cc_table, cc_col=cc_col
+                    ),
                 )
             else:
-                return conn.get(
-                    "SELECT {cc_col}_value FROM {table}" "".format(table=cc_table, cc_col=cc_col),
-                    all=True,
+                return read_rows(
+                    self._cc_read_connection(conn),
+                    "SELECT {cc_col}_value FROM {table}".format(
+                        table=cc_table, cc_col=cc_col
+                    ),
                 )
         else:
             if conn is None:
-                return self.db.driver.conn.get(
-                    "SELECT DISTINCT {cc_col}_value FROM {table}" "".format(table=cc_table, cc_col=cc_col)
+                return read_rows(
+                    self._cc_read_connection(None),
+                    "SELECT DISTINCT {cc_col}_value FROM {table}".format(
+                        table=cc_table, cc_col=cc_col
+                    ),
                 )
             else:
-                return conn.get("SELECT DISTINCT {cc_col}_value FROM {table}" "".format(table=cc_table, cc_col=cc_col))
+                return read_rows(
+                    self._cc_read_connection(conn),
+                    "SELECT DISTINCT {cc_col}_value FROM {table}".format(
+                        table=cc_table, cc_col=cc_col
+                    ),
+                )
 
     def get_cc_series_index_indices(
-            self, cc_series_link_table: str, series_id: int, conn: Optional[sqlite3.Connection] = None
-    ) -> tuple[Union[float, int], ...]:
+        self,
+        cc_series_link_table: str,
+        series_id: int,
+        conn: QueryConnection | None = None,
+    ) -> list[Sequence[Any]]:
         """
         Read ordered extra values for every owner linked to the requested series ID.
 
@@ -415,32 +521,39 @@ class SQLiteDatabaseCustomColumnMacros(
         lt_col = plural_singular_mapper(cc_series_link_table)
 
         if conn is None:
-            return self.db.driver.conn.get(
+            return read_rows(
+                self._cc_read_connection(None),
                 "SELECT {lt}.{lt_col}_extra "
                 "FROM {lt} "
                 "WHERE {lt}.{lt_col}_book IN "
                 "(SELECT {lt_col}_book FROM {lt} where {lt_col}_value=?) "
-                "ORDER BY {lt}.{lt_col}_extra".format(lt=cc_series_link_table, lt_col=lt_col),
+                "ORDER BY {lt}.{lt_col}_extra".format(
+                    lt=cc_series_link_table, lt_col=lt_col
+                ),
                 (series_id,),
             )
         else:
-            return conn.get(
+            return read_rows(
+                self._cc_read_connection(conn),
                 "SELECT {lt}.{lt_col}_extra "
                 "FROM {lt} "
                 "WHERE {lt}.{lt_col}_book IN "
                 "(SELECT {lt_col}_book FROM {lt} where {lt_col}_value=?) "
-                "ORDER BY {lt}.{lt_col}_extra".format(lt=cc_series_link_table, lt_col=lt_col),
+                "ORDER BY {lt}.{lt_col}_extra".format(
+                    lt=cc_series_link_table, lt_col=lt_col
+                ),
                 (series_id,),
             )
 
     # Todo: Will sometimes yield unexpected reuslts - so checking to make sure it's being used as expected would be appropriate
     # Todo: This doesn't work on non-normalized tables - might want to update?
     def check_for_cc_link(
-            self,
-            link_table: str,
-            book_id: int,
-            value_id: int,
-            conn: Optional[sqlite3.Connection] = None) -> bool:
+        self,
+        link_table: str,
+        book_id: int,
+        value_id: int,
+        conn: QueryConnection | None = None,
+    ) -> int | None:
         """
         Return the first owner cell matching an owner/value link pair.
 
@@ -471,26 +584,23 @@ class SQLiteDatabaseCustomColumnMacros(
         lt_col = plural_singular_mapper(link_table)
 
         if conn is None:
-            return self.db.driver.conn.get(
+            return read_scalar(
+                self._cc_read_connection(None),
                 "SELECT {lt_col}_book FROM {link_table} WHERE {lt_col}_book=? AND {lt_col}_value=?"
                 "".format(link_table=link_table, lt_col=lt_col),
                 (book_id, value_id),
-                all=False,
             )
         else:
-            return conn.get(
+            return read_scalar(
+                self._cc_read_connection(conn),
                 "SELECT {lt_col}_book FROM {link_table} WHERE {lt_col}_book=? AND {lt_col}_value=?"
                 "".format(link_table=link_table, lt_col=lt_col),
                 (book_id, value_id),
-                all=False,
             )
 
     def read_cc_value_from_meta_2(
-            self,
-            num: int,
-            book_id: int,
-            conn: Optional[sqlite3.Connection] = None
-    ) -> Iterable[Union[int, str, float]]:
+        self, num: int, book_id: int, conn: QueryConnection | None = None
+    ) -> Any:
         """
         Read the first custom_N cell from the legacy meta2 relation for one book.
 
@@ -512,11 +622,21 @@ class SQLiteDatabaseCustomColumnMacros(
         :return: The first selected cell according to the connection.get contract.
         """
         if conn is None:
-            return self.db.driver.conn.get("SELECT custom_%s FROM meta2 WHERE id=?" % num, (book_id,), all=False)
+            return read_scalar(
+                self._cc_read_connection(None),
+                "SELECT custom_%s FROM meta2 WHERE id=?" % num,
+                (book_id,),
+            )
         else:
-            return conn.get("SELECT custom_%s FROM meta2 WHERE id=?" % num, (book_id,), all=False)
+            return read_scalar(
+                self._cc_read_connection(conn),
+                "SELECT custom_%s FROM meta2 WHERE id=?" % num,
+                (book_id,),
+            )
 
-    def get_all_cc_id_val_pairs(self, table: str, conn: QueryConnection | None = None) -> list[tuple[int, Any]]:
+    def get_all_cc_id_val_pairs(
+        self, table: str, conn: QueryConnection | None = None
+    ) -> list[tuple[int, Any]]:
         """
         Read ID/value pairs from a custom table using the default get result mode.
 
@@ -537,19 +657,27 @@ class SQLiteDatabaseCustomColumnMacros(
         """
         cc_id_col, cc_val_col = self._get_cc_id_val(table)
 
-        conn = conn if conn is not None else self.db.driver.conn
+        conn = self._cc_read_connection(conn)
 
-        return conn.get(
-            "SELECT {id_col}, {val_col} FROM {table}" "".format(id_col=cc_id_col, val_col=cc_val_col, table=table)
-        )
+        return [
+            (row[0], row[1])
+            for row in read_rows(
+                self._cc_read_connection(conn),
+                "SELECT {id_col}, {val_col} FROM {table}".format(
+                    id_col=cc_id_col, val_col=cc_val_col, table=table
+                ),
+            )
+        ]
 
-    def get_cc_books_from_link_table(self, lt: str, lt_value: Any) -> Iterable[int]:
+    def get_cc_books_from_link_table(
+        self, lt: str, lt_value: Any, conn: QueryConnection | None = None
+    ) -> list[Sequence[Any]]:
         """
         Read owners linked to a custom-value ID on the stored default connection.
 
         Bind the value ID and return the unmodified default get result, normally one-
-        cell rows on project SQLite. No explicit ordering, duplicate removal or
-        connection override is provided.
+        cell rows on project SQLite. No explicit ordering or duplicate removal is
+        provided; an explicit connection preserves the caller's transaction view.
 
         Example:
             ``macros.get_cc_books_from_link_table("books_custom_column_1_link", 7)``
@@ -563,8 +691,11 @@ class SQLiteDatabaseCustomColumnMacros(
         """
         lt_col = plural_singular_mapper(lt)
 
-        books = self.db.driver.conn.get(
-            "SELECT {lt_col}_book from {lt} WHERE {lt_col}_value=?;" "".format(lt=lt, lt_col=lt_col),
+        books = read_rows(
+            self._cc_read_connection(conn),
+            "SELECT {lt_col}_book from {lt} WHERE {lt_col}_value=?;".format(
+                lt=lt, lt_col=lt_col
+            ),
             (lt_value,),
         )
         return books
@@ -573,8 +704,8 @@ class SQLiteDatabaseCustomColumnMacros(
     # Todo: This probably doesn't work well for generalized custom columns
     # Todo: Deprecate conn - use the stored connections
     def get_cc_books_for_dirtying(
-            self, table: str, link: str, id: int, conn: Optional[Any] = None
-    ) -> Iterable[str]:
+        self, table: str, link: str, id: int, conn: QueryConnection | None = None
+    ) -> list[Sequence[Any]]:
         """
         Read legacy book IDs from the derived books_<table>_link relation.
 
@@ -597,19 +728,21 @@ class SQLiteDatabaseCustomColumnMacros(
             described above. Connections are not closed here.
         :return: The connection.get result, normally (book_id,) rows.
         """
-        conn = conn if conn is not None else self.db.driver.conn
+        conn = self._cc_read_connection(conn)
 
-        table_col = plural_singular_mapper(table)
-        lt = "books_{table}_link".format(table=table, table_col=table_col, link=link)
+        lt = "books_{table}_link".format(table=table)
         lt_col = self._cc_table_col_mapper(lt)
 
-        return conn.get(
+        return read_rows(
+            self._cc_read_connection(conn),
             "SELECT {lt_col}_book from books_{table}_link WHERE {lt_col}_{link}=?"
             "".format(table=table, lt_col=lt_col, link=link),
             (id,),
         )
 
-    def direct_get_custom_and_extra(self, link_table, index, conn=None):
+    def direct_get_custom_and_extra(
+        self, link_table: str, index: int, conn: QueryConnection | None = None
+    ) -> Any:
         """
         Read only the first extra cell for one owner from a legacy link table.
 
@@ -631,12 +764,14 @@ class SQLiteDatabaseCustomColumnMacros(
         """
         lt_col = plural_singular_mapper(link_table)
 
-        conn = conn if conn is not None else self.db.driver.conn
+        conn = self._cc_read_connection(conn)
 
-        return conn.get(
-            "SELECT {lt_col}_extra FROM {lt} WHERE {lt_col}_book=?" "".format(lt=link_table, lt_col=lt_col),
+        return read_scalar(
+            self._cc_read_connection(conn),
+            "SELECT {lt_col}_extra FROM {lt} WHERE {lt_col}_book=?".format(
+                lt=link_table, lt_col=lt_col
+            ),
             (index,),
-            all=False,
         )
 
     #
@@ -645,7 +780,9 @@ class SQLiteDatabaseCustomColumnMacros(
     #
     # - WRITE
 
-    def add_cc_table_value(self, table, value, conn=None):
+    def add_cc_table_value(
+        self, table: str, value: Any, conn: SQLConnection | None = None
+    ) -> int | None:
         """
         Insert one custom value and return the selected execution path's new-row result.
 
@@ -656,6 +793,7 @@ class SQLiteDatabaseCustomColumnMacros(
         caches.
 
         Example:
+            >>> import sqlite3
             >>> conn = sqlite3.connect(":memory:")
             >>> _ = conn.execute(
             ...     "CREATE TABLE custom_column_1 (custom_column_1_id INTEGER PRIMARY "
@@ -684,20 +822,32 @@ class SQLiteDatabaseCustomColumnMacros(
             # This solution was leaving the database locked, but this might be breaking lastrowid
             # return self.db.driver.conn.execute('INSERT INTO %s(value) VALUES(?)'%table, (value,)).lastrowid
             # Todo: not sure lastrowid is entirely thread safe?
-            return self.db.driver.direct_execute_sql(
-                "INSERT INTO {table}({table_col}_value) VALUES(?)" "".format(table=table, table_col=cc_table_col),
+            return self._macro_database.driver.direct_execute_sql(
+                "INSERT INTO {table}({table_col}_value) VALUES(?)".format(
+                    table=table, table_col=cc_table_col
+                ),
                 (value,),
             )
         else:
             # Todo: not sure lastrowid is entirely thread safe?
             conn_rtn = conn.execute(
-                "INSERT INTO {table}({table_col}_value) VALUES(?)" "".format(table=table, table_col=cc_table_col),
+                "INSERT INTO {table}({table_col}_value) VALUES(?)".format(
+                    table=table, table_col=cc_table_col
+                ),
                 (value,),
             ).lastrowid
             return conn_rtn
 
     # Todo: As extra is an optional argument, might want to change the name here
-    def add_cc_link_with_extra(self, lt, book_id, value_id, extra=None, conn=None, target_column="value"):
+    def add_cc_link_with_extra(
+        self,
+        lt: str,
+        book_id: int,
+        value_id: int,
+        extra: Any = None,
+        conn: SQLConnection | None = None,
+        target_column: str = "value",
+    ) -> None:
         """
         Insert one legacy owner/value link, including the extra column only when extra
         is non-None.
@@ -727,14 +877,11 @@ class SQLiteDatabaseCustomColumnMacros(
         """
         lt_col = self._cc_table_col_mapper(lt)
 
-        local_conn = conn if conn is not None else self.db.driver.conn
+        local_conn = self._cc_write_connection(conn)
 
         if extra is not None:
-
-            extra_stmt = (
-                "INSERT INTO {lt}({lt_col}_book, {lt_col}_{target_column}, {lt_col}_extra) VALUES (?,?,?)".format(
-                    lt=lt, target_column=target_column, lt_col=lt_col
-                )
+            extra_stmt = "INSERT INTO {lt}({lt_col}_book, {lt_col}_{target_column}, {lt_col}_extra) VALUES (?,?,?)".format(
+                lt=lt, target_column=target_column, lt_col=lt_col
             )
             local_conn.execute(extra_stmt, (book_id, value_id, extra))
         else:
@@ -752,7 +899,14 @@ class SQLiteDatabaseCustomColumnMacros(
 
     # Todo: As extra is an optional argument, might want to change the name here
     # Todo: Should be able to detect the extra or not automatically
-    def add_cc_link_with_extra_multi(self, lt, sequence, extra=False, conn=None, target_column="value"):
+    def add_cc_link_with_extra_multi(
+        self,
+        lt: str,
+        sequence: Iterable[SQLParameters],
+        extra: bool = False,
+        conn: SQLConnection | None = None,
+        target_column: str = "value",
+    ) -> None:
         """
         Insert legacy links from two- or three-item parameter sequences.
 
@@ -764,6 +918,7 @@ class SQLiteDatabaseCustomColumnMacros(
         commit.
 
         Example:
+            >>> import sqlite3
             >>> conn = sqlite3.connect(":memory:")
             >>> _ = conn.execute(
             ...     "CREATE TABLE links (link_book INTEGER, link_value INTEGER, "
@@ -794,19 +949,18 @@ class SQLiteDatabaseCustomColumnMacros(
         :return: None; the executemany result is discarded.
         """
         lt_col = self._cc_table_col_mapper(lt)
-        local_conn = conn if conn is not None else self.db.driver.conn
+        local_conn = self._cc_write_connection(conn)
 
         if extra:
-
             extra_stmt = (
                 "INSERT INTO {lt}({lt_col}_book, {lt_col}_{target_column}, {lt_col}_extra) VALUES (?,?,?)"
                 "".format(lt=lt, lt_col=lt_col, target_column=target_column)
             )
             local_conn.executemany(extra_stmt, sequence)
         else:
-
-            stmt = "INSERT INTO {lt} ({lt_col}_book, {lt_col}_{target_column}) VALUES (?,?)" "".format(
-                lt=lt, lt_col=lt_col, target_column=target_column
+            stmt = (
+                "INSERT INTO {lt} ({lt_col}_book, {lt_col}_{target_column}) VALUES (?,?)"
+                "".format(lt=lt, lt_col=lt_col, target_column=target_column)
             )
             local_conn.executemany(stmt, sequence)
 
@@ -817,7 +971,9 @@ class SQLiteDatabaseCustomColumnMacros(
             local_conn.commit()
 
     # Todo: Merge into add_cc_table_value - with the different of the value being an iterable
-    def insert_multiple_values_into_cc_table(self, table, values, conn=None):
+    def insert_multiple_values_into_cc_table(
+        self, table: str, values: Iterable[Any], conn: SQLConnection | None = None
+    ) -> None:
         """
         Materialize scalar values into one-item bindings and append them to a custom
         table.
@@ -840,17 +996,27 @@ class SQLiteDatabaseCustomColumnMacros(
             described above. Connections are not closed here.
         :return: None; the executemany result is discarded.
         """
-        conn = conn if conn is not None else self.db.driver.conn
+        conn = self._cc_write_connection(conn)
 
         table_col = self._cc_table_col_mapper(table)
 
         conn.executemany(
-            "INSERT INTO {table}({table_col}_value) VALUES (?)" "".format(table=table, table_col=table_col),
+            "INSERT INTO {table}({table_col}_value) VALUES (?)".format(
+                table=table, table_col=table_col
+            ),
             [(x,) for x in values],
         )
 
     # Todo: Can rename this - remove db
-    def do_cc_db_bulk_addition(self, temp_tables, custom_table, link_table, add, remove, conn=None):
+    def do_cc_db_bulk_addition(
+        self,
+        temp_tables: tuple[str, str, str],
+        custom_table: str,
+        link_table: str,
+        add: Sequence[Any],
+        remove: Sequence[Any],
+        conn: SQLConnection | None = None,
+    ) -> None:
         """
         Populate prepared add/remove ID tables, then change links for their selected
         owners.
@@ -888,14 +1054,14 @@ class SQLiteDatabaseCustomColumnMacros(
         :return: None; temporary-table population and link changes execute on the chosen
             connection.
         """
-        conn = conn if conn is not None else self.db.driver.conn
+        conn = self._cc_write_connection(conn)
         ct_col = self._cc_table_col_mapper(custom_table)
         lt_col = self._cc_table_col_mapper(link_table)
 
-        for table, tags in enumerate([add, remove]):
+        for table_index, tags in enumerate([add, remove]):
             if not tags:
                 continue
-            table = temp_tables[table + 1]
+            table = temp_tables[table_index + 1]
             insert = (
                 "INSERT INTO {tt}(id) SELECT {ct}.{ct_col}_id FROM {ct} WHERE {ct_col}_value=?"
                 " COLLATE PYNOCASE LIMIT 1"
@@ -927,7 +1093,13 @@ class SQLiteDatabaseCustomColumnMacros(
     #
     # - UPDATE
 
-    def update_cc_value(self, cc_column, cc_id, cc_value, conn=None):
+    def update_cc_value(
+        self,
+        cc_column: str,
+        cc_id: int,
+        cc_value: Any,
+        conn: SQLConnection | None = None,
+    ) -> SQLCursor | None:
         """
         Replace a custom-value cell selected by its legacy ID column.
 
@@ -952,16 +1124,19 @@ class SQLiteDatabaseCustomColumnMacros(
         """
         cc_col = self._cc_table_col_mapper(cc_column)
 
-        update_stmt = "UPDATE {cc_column} SET {cc_col}_value=? WHERE {cc_col}_id=?".format(
-            cc_column=cc_column, cc_col=cc_col
+        update_stmt = (
+            "UPDATE {cc_column} SET {cc_col}_value=? WHERE {cc_col}_id=?".format(
+                cc_column=cc_column, cc_col=cc_col
+            )
         )
 
         if conn is None:
-            self.execute(update_stmt, (cc_value, cc_id))
+            macro_operations(self).execute(update_stmt, (cc_value, cc_id))
+            return None
         else:
             return conn.execute(update_stmt, (cc_value, cc_id))
 
-    def repoint_cc_lt_values(self, lt, new_id, old_id):
+    def repoint_cc_lt_values(self, lt: str, new_id: int, old_id: int) -> None:
         """
         Replace every matching legacy link value ID through the host execute operation.
 
@@ -981,8 +1156,10 @@ class SQLiteDatabaseCustomColumnMacros(
         :return: None; the host execution result is discarded.
         """
         lt_col = self._cc_table_col_mapper(lt)
-        self.execute(
-            "UPDATE {lt} SET {lt_col}_value=? WHERE {lt_col}_value=?".format(lt=lt, lt_col=lt_col),
+        macro_operations(self).execute(
+            "UPDATE {lt} SET {lt_col}_value=? WHERE {lt_col}_value=?".format(
+                lt=lt, lt_col=lt_col
+            ),
             (
                 new_id,
                 old_id,
@@ -990,7 +1167,13 @@ class SQLiteDatabaseCustomColumnMacros(
         )
 
     # Todo: Rename these two methods to be consistent - decide a pithy name for the src and dst table
-    def update_cc_lt_value_by_value(self, lt, new_value_id, old_value_id, conn=None):
+    def update_cc_lt_value_by_value(
+        self,
+        lt: str,
+        new_value_id: int,
+        old_value_id: int,
+        conn: SQLConnection | None = None,
+    ) -> None:
         """
         Repoint matching legacy link values on an explicit or stored connection.
 
@@ -1012,10 +1195,12 @@ class SQLiteDatabaseCustomColumnMacros(
         :return: None; no affected-row count is returned.
         """
         lt_col = self._cc_table_col_mapper(lt)
-        update_stmt = "UPDATE {lt} SET {lt_col}_value=? WHERE {lt_col}_value=?".format(lt=lt, lt_col=lt_col)
+        update_stmt = "UPDATE {lt} SET {lt_col}_value=? WHERE {lt_col}_value=?".format(
+            lt=lt, lt_col=lt_col
+        )
 
         if conn is None:
-            self.db.driver.conn.execute(
+            self._cc_write_connection(None).execute(
                 update_stmt,
                 (
                     new_value_id,
@@ -1031,7 +1216,9 @@ class SQLiteDatabaseCustomColumnMacros(
                 ),
             )
 
-    def update_custom_column_additional_column_many(self, table, column, sequence):
+    def update_custom_column_additional_column_many(
+        self, table: str, column: str, sequence: Iterable[SQLParameters]
+    ) -> None:
         """
         Update one suffixed link column for each owner/value pair through
         db.executemany.
@@ -1056,7 +1243,7 @@ class SQLiteDatabaseCustomColumnMacros(
         stmt = "UPDATE {table} SET {table_col}_{column}=? WHERE {table_col}_book=? AND {table_col}_value=?".format(
             table=table, table_col=table_col, column=column
         )
-        self.db.executemany(stmt, sequence)
+        self._macro_database.driver_wrapper.executemany(stmt, sequence)
 
     #
     # ------------------------------------------------------------------------------------------------------------------
@@ -1067,60 +1254,33 @@ class SQLiteDatabaseCustomColumnMacros(
     # Todo: This might want to be replaced with a trigger - probably better
     # Todo: Also needs to be renamed
     # Todo: Rename target_id to custom_id
-    def delete_cc_item(self, table, lt, target_id, conn=None):
-        """
-        Delete all links to a custom value, delete its row, then commit the chosen
-        connection.
+    def delete_cc_item(
+        self, table: str, lt: str, target_id: int, conn: SQLConnection | None = None
+    ) -> None:
+        """Delete links and their value in an owned transaction or borrowed savepoint.
 
-        Both table and lt are required and have inflected ID/value columns. Delete links
-        first and the value second; even an explicit connection is committed, including
-        its other pending work. No savepoint or rollback is established, so an
-        intermediate failure can leave earlier writes pending. Missing rows are silently
-        tolerated.
-
-        Example:
-            >>> from types import SimpleNamespace
-            >>> calls = []
-            >>> conn = SimpleNamespace(
-            ...     execute=lambda sql, params: calls.append(params),
-            ...     commit=lambda: calls.append("commit"),
-            ... )
-            >>> SQLiteDatabaseCustomColumnMacros().delete_cc_item(
-            ...     "custom_column_1", "links", 7, conn=conn
-            ... )
-            >>> calls
-            [(7,), (7,), 'commit']
-
-
-        :param table: Trusted custom-table name, interpolated into SQL; column prefixes
-            come from plural_singular_mapper.
-        :param lt: Trusted legacy link-table name with inflected _book and _value column
-            names.
-        :param target_id: ID bound to the selected row or link predicate.
-        :param conn: Optional compatible connection; None uses the default path
-            described above. Connections are not closed here.
-        :return: None; commit is attempted after both DELETE statements succeed.
+        Preserve caller-owned pending work, including on a second-statement failure.
+        No cache updates occur here; the cached facade supplies its own boundary.
+        An explicit connection is borrowed, never closed.
         """
         lt_col = self._cc_table_col_mapper(lt)
         table_col = self._cc_table_col_mapper(table)
 
         lt_stmt = "DELETE FROM {lt} WHERE {lt_col}_value=?".format(lt=lt, lt_col=lt_col)
-        table_stmt = "DELETE FROM {table} WHERE {table_col}_id=?".format(table=table, table_col=table_col)
+        table_stmt = "DELETE FROM {table} WHERE {table_col}_id=?".format(
+            table=table, table_col=table_col
+        )
 
-        if conn is None:
-            self.db.driver.conn.execute(lt_stmt, (target_id,))
-            self.db.driver.conn.execute(table_stmt, (target_id,))
-            self.db.driver.conn.commit()
-        else:
-            conn.execute(lt_stmt, (target_id,))
-            conn.execute(table_stmt, (target_id,))
-            conn.commit()
+        active = self._cc_write_connection(conn)
+        with transaction_scope(active, owns_transaction=not transaction_active(active)):
+            active.execute(lt_stmt, (target_id,)).close()
+            active.execute(table_stmt, (target_id,)).close()
 
     # Todo: Make this consistent with the use of conn - might want to make new versions of all these functions, semi-prviate
     #       which actually include conn
     # Todo: Check that the comment is accurate - might be making malformed custom column tables
     # Todo: rename book to target_id and value to cc_id?
-    def break_cc_lt_link(self, lt, book, value=None):
+    def break_cc_lt_link(self, lt: str, book: int, value: int | None = None) -> None:
         """
         Delete one owner/value pair for a truthy value, or every link for an owner
         otherwise.
@@ -1149,13 +1309,21 @@ class SQLiteDatabaseCustomColumnMacros(
         """
         lt_col = self._cc_table_col_mapper(lt)
         if value:
-            del_stmt = "DELETE FROM {lt} WHERE {lt_col}_book=? and {lt_col}_value=?".format(lt=lt, lt_col=lt_col)
-            self.execute(del_stmt, (book, value))
+            del_stmt = (
+                "DELETE FROM {lt} WHERE {lt_col}_book=? and {lt_col}_value=?".format(
+                    lt=lt, lt_col=lt_col
+                )
+            )
+            macro_operations(self).execute(del_stmt, (book, value))
         else:
-            del_stmt = "DELETE FROM {lt} WHERE {lt_col}_book=?".format(lt=lt, lt_col=lt_col)
-            self.execute(del_stmt, (book,))
+            del_stmt = "DELETE FROM {lt} WHERE {lt_col}_book=?".format(
+                lt=lt, lt_col=lt_col
+            )
+            macro_operations(self).execute(del_stmt, (book,))
 
-    def delete_from_cc_table_by_id(self, table, target_id, conn=None):
+    def delete_from_cc_table_by_id(
+        self, table: str, target_id: int, conn: SQLConnection | None = None
+    ) -> None:
         """
         Delete matching custom-table ID rows using the selected execution path.
 
@@ -1176,20 +1344,25 @@ class SQLiteDatabaseCustomColumnMacros(
         :return: None; the execution result is discarded.
         """
         table_col = self._cc_table_col_mapper(table)
-        del_stmt = "DELETE FROM {table} WHERE {table_col}_id=?".format(table=table, table_col=table_col)
+        del_stmt = "DELETE FROM {table} WHERE {table_col}_id=?".format(
+            table=table, table_col=table_col
+        )
 
         if conn is None:
-            self.execute(del_stmt, (target_id,))
+            macro_operations(self).execute(del_stmt, (target_id,))
         else:
             conn.execute(del_stmt, (target_id,))
 
-    def delete_from_cc_table_by_value(self, table, target_id):
+    def delete_from_cc_table_by_value(
+        self, table: str, target_id: Any, conn: SQLConnection | None = None
+    ) -> None:
         """
         Delete every custom-table row whose _value equals the supplied value.
 
         Despite the parameter name, target_id is matched against _value, not _id. None
-        is bound to equality and does not select SQL nulls. Delegate to self.execute
-        without explicit link cleanup or transaction handling.
+        is bound to equality and does not select SQL nulls. An explicit connection
+        is borrowed without committing; the default path retains host-execute
+        transaction behavior. No additional link cleanup is performed.
 
         Example:
             ``macros.delete_from_cc_table_by_value("custom_column_1", "A")``
@@ -1203,23 +1376,33 @@ class SQLiteDatabaseCustomColumnMacros(
         :return: None; the host execution result is discarded.
         """
         table_col = self._cc_table_col_mapper(table)
-        del_stmt = "DELETE FROM {table} WHERE {table_col}_value=?".format(table=table, table_col=table_col)
+        del_stmt = "DELETE FROM {table} WHERE {table_col}_value=?".format(
+            table=table, table_col=table_col
+        )
 
-        self.execute(del_stmt, (target_id,))
+        if conn is None:
+            macro_operations(self).execute(del_stmt, (target_id,))
+        else:
+            conn.execute(del_stmt, (target_id,)).close()
 
-    def break_cc_links_by_book_id(self, lt, book_id, conn=None):
+    def break_cc_links_by_book_id(
+        self,
+        lt: str,
+        book_id: str | int | Iterable[str | int | tuple[str | int]],
+        conn: SQLConnection | None = None,
+    ) -> None:
         """
         Delete links for one owner or a supported collection of owners.
 
         Strings and integers, including bool, use one bound DELETE. Tuples, lists, sets
         and generator objects select the bulk branch; other forms raise
-        NotImplementedError. An explicit connection receives one-item binding tuples.
-        Without it, materialize raw elements and pass them unchanged to db.executemany,
-        falling back to driver.direct_executemany on AttributeError. Scalar elements in
-        that default bulk path may be invalid parameter sequences. No explicit commit or
-        rollback is added.
+        NotImplementedError. Both connection paths accept scalar IDs or existing
+        one-cell parameter tuples and submit one binding per owner. The default path
+        uses db.executemany when present, otherwise driver.direct_executemany. No
+        explicit commit or rollback is added.
 
         Example:
+            >>> import sqlite3
             >>> conn = sqlite3.connect(":memory:")
             >>> _ = conn.execute(
             ...     "CREATE TABLE links (link_book INTEGER, link_value INTEGER)"
@@ -1247,61 +1430,52 @@ class SQLiteDatabaseCustomColumnMacros(
 
         if isinstance(book_id, (str, int)):
             if conn is None:
-                self.db.driver.conn.execute(stmt, (book_id,))
+                self._cc_write_connection(None).execute(stmt, (book_id,))
 
             else:
                 conn.execute(stmt, (book_id,))
 
         elif isinstance(book_id, (tuple, list, set, types.GeneratorType)):
-
+            target_ids = tuple(
+                value if isinstance(value, tuple) else (value,) for value in book_id
+            )
             if conn is None:
-                target_ids = tuple([k for k in book_id])
-                try:
-                    self.db.executemany(stmt, target_ids)
-                except AttributeError:
-                    self.db.driver.direct_executemany(stmt, target_ids)
-
+                execute_many: (
+                    Callable[[str, Iterable[SQLParameters]], object] | None
+                ) = getattr(self._macro_database, "executemany", None)
+                if callable(execute_many):
+                    execute_many(stmt, target_ids)
+                else:
+                    self._macro_database.driver.direct_executemany(stmt, target_ids)
             else:
-                conn.executemany(stmt, ((k,) for k in book_id))
+                conn.executemany(stmt, target_ids)
 
         else:
-            raise NotImplementedError("book_id had unexpected form {} - type {}".format(book_id, type(book_id)))
+            raise NotImplementedError(
+                "book_id had unexpected form {} - type {}".format(
+                    book_id, type(book_id)
+                )
+            )
 
-    def break_cc_links_by_book_id_and_value(self, lt, book_id, value_id, conn=None):
-        """
-        Delete a specific owner/value pair using only the stored default connection.
+    def break_cc_links_by_book_id_and_value(
+        self, lt: str, book_id: int, value_id: int, conn: SQLConnection | None = None
+    ) -> None:
+        """Delete an owner/value pair using the supplied or primary connection.
 
-        Build a legacy _book/_value predicate and bind both IDs. Any non-None conn
-        argument raises NotImplementedError before execution. No commit, duplicate check
-        or value-row deletion occurs.
-
-        Example:
-            >>> try:
-            ...     (
-            ...         SQLiteDatabaseCustomColumnMacros()
-            ...     ).break_cc_links_by_book_id_and_value("links", 7, 3, conn=object())
-            ... except NotImplementedError:
-            ...     print("override unsupported")
-            override unsupported
-
-
-        :param lt: Trusted legacy link-table name with inflected _book and _value column
-            names.
-        :param book_id: Book or legacy owner ID bound as a query value.
-        :param value_id: Custom-value ID bound to the link value column.
-        :param conn: Must be None; every explicit connection is unsupported.
-        :return: None after default-connection execution.
+        The caller owns commit/rollback and the connection's lifetime.
         """
         lt_col = self._cc_table_col_mapper(lt)
-        break_stmt = "DELETE FROM {lt} WHERE {lt_col}_book=? and {lt_col}_value=?".format(lt=lt, lt_col=lt_col)
+        break_stmt = (
+            "DELETE FROM {lt} WHERE {lt_col}_book=? and {lt_col}_value=?".format(
+                lt=lt, lt_col=lt_col
+            )
+        )
 
-        if conn is None:
-            self.db.driver.conn.execute(break_stmt, (book_id, value_id))
-        else:
-            raise NotImplementedError
+        self._cc_write_connection(conn).execute(break_stmt, (book_id, value_id)).close()
 
-    # Todo: Rename as "clear cc by book"
-    def clear_cc_entries_from_table(self, table, book_id, conn=None):
+    def clear_cc_entries_from_table(
+        self, table: str, book_id: int, conn: SQLConnection | None = None
+    ) -> None:
         """
         Delete every row whose legacy _book column matches one owner ID.
 
@@ -1322,10 +1496,12 @@ class SQLiteDatabaseCustomColumnMacros(
         :return: None; the execution result is discarded.
         """
         table_col = self._cc_table_col_mapper(table)
-        clear_stmt = "DELETE FROM {table} WHERE {table_col}_book=?".format(table=table, table_col=table_col)
+        clear_stmt = "DELETE FROM {table} WHERE {table_col}_book=?".format(
+            table=table, table_col=table_col
+        )
 
         if conn is None:
-            self.db.driver.conn.execute(clear_stmt, (book_id,))
+            self._cc_write_connection(None).execute(clear_stmt, (book_id,))
         else:
             conn.execute(clear_stmt, (book_id,))
 
@@ -1333,7 +1509,9 @@ class SQLiteDatabaseCustomColumnMacros(
     #       Make an entry
     #       Clear it.
     #       Add some more. Then add it back. Test it;'x
-    def clear_cc_unused_table_entries(self, table, lt, conn=None):
+    def clear_cc_unused_table_entries(
+        self, table: str, lt: str, conn: SQLConnection | None = None
+    ) -> None:
         """
         Delete value rows for which the generated link-count subquery finds no
         references.
@@ -1346,6 +1524,7 @@ class SQLiteDatabaseCustomColumnMacros(
         is checked.
 
         Example:
+            >>> import sqlite3
             >>> conn = sqlite3.connect(":memory:")
             >>> _ = conn.execute("CREATE TABLE entries (entry_id INTEGER PRIMARY KEY)")
             >>> _ = conn.execute(
@@ -1380,11 +1559,16 @@ class SQLiteDatabaseCustomColumnMacros(
         )
 
         if conn is None:
-            self.db.driver.conn.execute(clear_stmt)
+            self._cc_write_connection(None).execute(clear_stmt)
         else:
             conn.execute(clear_stmt)
 
-    def clean_custom(self, cc_num_map, cc_table_name_factory=None, conn=None):
+    def clean_custom(
+        self,
+        cc_num_map: Mapping[int, Mapping[str, Any]],
+        cc_table_name_factory: Callable[[int], tuple[str, str]] | None = None,
+        conn: SQLConnection | None = None,
+    ) -> None:
         """
         Prune unreferenced values for normalized custom-column definitions, then commit.
 
@@ -1421,24 +1605,29 @@ class SQLiteDatabaseCustomColumnMacros(
 
         statements = []
         for data in cc_num_map.values():
-
             if data["normalized"]:
+                if cc_table_name_factory is None:
+                    raise ValueError(
+                        "Normalized custom columns require a table-name factory"
+                    )
                 table, lt = cc_table_name_factory(data["num"])
                 table_col = self._cc_table_col_mapper(table)
                 lt_col = self._cc_table_col_mapper(lt)
 
-                statements.append(st.format(lt=lt, table=table, table_col=table_col, lt_col=lt_col))
+                statements.append(
+                    st.format(lt=lt, table=table, table_col=table_col, lt_col=lt_col)
+                )
         if statements:
             if conn is None:
-                self.db.driver.conn.executescript(" \n".join(statements))
-                self.db.driver.conn.commit()
+                self._cc_write_connection(None).executescript(" \n".join(statements))
+                self._cc_write_connection(None).commit()
             else:
                 conn.executescript(" \n".join(statements))
                 conn.commit()
 
     #
     # ------------------------------------------------------------------------------------------------------------------
-    def direct_get_custom_tables(self, conn=None) -> set[str]:
+    def direct_get_custom_tables(self, conn: QueryConnection | None = None) -> set[str]:
         """
         Return main-schema physical table names matching the legacy custom-table
         patterns.
@@ -1457,14 +1646,15 @@ class SQLiteDatabaseCustomColumnMacros(
             described above. Connections are not closed here.
         :return: A set of matching table-name cells from the query result.
         """
-        conn = conn if conn is not None else self.db.driver.conn
+        conn = self._cc_read_connection(conn)
 
         return set(
             [
                 x[0]
-                for x in conn.get(
+                for x in read_rows(
+                    self._cc_read_connection(conn),
                     'SELECT name FROM sqlite_master WHERE type="table" AND '
-                    '(name GLOB "custom_column_*" OR name GLOB "*_custom_column_*_link")'
+                    '(name GLOB "custom_column_*" OR name GLOB "*_custom_column_*_link")',
                 )
             ]
         )

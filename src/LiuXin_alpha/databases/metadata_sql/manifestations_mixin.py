@@ -6,6 +6,8 @@ from typing import TYPE_CHECKING
 
 from LiuXin_alpha.databases.db_types.macro_types import LINK_TYPE_UNSET, LinkedTableRow
 
+from ._relationships import require_link_spec
+
 if TYPE_CHECKING:
     from LiuXin_alpha.databases.api.database_api import DatabaseAPI
 
@@ -28,5 +30,5 @@ class ManifestationsSQLMixin:
         Keep link metadata and order; an absent destination has row=None. This
         read uses the current connection without opening a snapshot transaction.
         """
-        spec = self.db.driver_wrapper.get_link_spec("expressions", "manifestations")
+        spec = require_link_spec(self.db, "expressions", "manifestations")
         return self.db.macros.get_linked_rows(spec, expression_id, link_type=link_type)

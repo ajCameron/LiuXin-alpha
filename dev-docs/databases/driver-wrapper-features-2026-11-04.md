@@ -180,6 +180,9 @@ still the next operational exercise; synthetic backend checks do not replace it.
 
 ## Verification
 
+The [combined PR checkpoint](review-upgrade-delivery-2026-11-04.md) records delivery
+and checks on the PR branch. The evidence below predates PR preparation.
+
 Regression owners are the [portable feature cases](../../tests/databases/test_driver_wrapper_features.py),
 [native SQLite cases](../../tests/databases/test_physical_schema_sqlite.py),
 [live PostgreSQL cases](../../tests/databases/test_driver_wrapper_features_postgres_live.py),

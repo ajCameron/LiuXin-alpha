@@ -11,10 +11,8 @@ from __future__ import annotations
 from collections.abc import Iterator, Mapping
 from typing import Any
 
-from LiuXin_alpha.databases.column_metadata import (
-    ColumnMetadata,
-    ColumnOptions,
-)
+from LiuXin_alpha.databases.column_metadata import ColumnMetadata
+from LiuXin_alpha.databases.db_types.column_types import ColumnOptions
 from LiuXin_alpha.databases.driver_wrapper._base import DriverWrapperBase
 from LiuXin_alpha.databases.normalized_identities import NormalizedIdentitySpec
 from LiuXin_alpha.metadata.value_policies import (

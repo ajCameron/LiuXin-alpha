@@ -2,10 +2,14 @@
 Update bound row values and maintain configured normalized identity columns.
 """
 
+from __future__ import annotations
+
 import sqlite3
 from contextlib import closing
 from copy import deepcopy
-from typing import Any
+from typing import Any, Literal
+
+from LiuXin_alpha.databases.db_types.driver_types import RowSQLConnection
 
 from LiuXin_alpha.databases.normalized_identities import (
     prepare_normalized_values,
@@ -15,11 +19,18 @@ from LiuXin_alpha.errors import (
     DatabaseDriverError,
     DatabaseIntegrityError,
     RowIntegrityError,
+    InputIntegrityError,
 )
 from LiuXin_alpha.utils.logging import default_log
 
 
-class UpdateMixin:
+from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver._state import (
+    SQLDriverMixinState,
+    driver_operations,
+)
+
+
+class UpdateMixin(SQLDriverMixinState):
     """
     Provide scalar-column batches and dictionary-based row updates through host schema
     helpers.
@@ -31,7 +42,12 @@ class UpdateMixin:
 
     # Todo: Check for field degeneracy
     # Todo: I think this may have been superseded by the writers....
-    def direct_update_columns(self, id_values_map: dict[int, Any], field: str | None = None, table: str | None = None) -> bool | None:
+    def direct_update_columns(
+        self,
+        id_values_map: dict[int, Any],
+        field: str | None = None,
+        table: str | None = None,
+    ) -> None:
         """Update one field for multiple IDs atomically, preserving normalized keys.
 
         Infer the field's table; a conflicting table hint retains the legacy warning
@@ -49,14 +65,16 @@ class UpdateMixin:
             return
         if any(isinstance(value, dict) for value in id_values_map.values()):
             raise NotImplementedError("Multi-column batch updates are unsupported")
-        target_table = self.direct_identify_table_from_column(field)
+        if field is None:
+            raise InputIntegrityError("A column is required for nonempty updates")
+        target_table = driver_operations(self).direct_identify_table_from_column(field)
         if table is not None and table != target_table:
             default_log.warning(
                 f"Column {field!r} belongs to {target_table!r}, not {table!r}"
             )
-        id_column = self.direct_get_id_column(target_table)
+        id_column = driver_operations(self).direct_get_id_column(target_table)
         try:
-            with closing(self.get_connection()) as conn:
+            with closing(driver_operations(self).get_connection()) as conn:
                 with transaction_scope(conn, owns_transaction=True):
                     for row_id, value in id_values_map.items():
                         self._update_row_values(
@@ -71,7 +89,7 @@ class UpdateMixin:
                 f"Batch update of {target_table!r} failed: {exc}"
             ) from exc
 
-    def direct_update_row_dict(self, row_dict: dict[str, Any]) -> bool | None:
+    def direct_update_row_dict(self, row_dict: dict[str, Any]) -> Literal[True] | None:
         """Update a copied payload without coercing literal text to SQL NULL.
 
         Key-only normalized updates read the missing display value on this write
@@ -85,8 +103,10 @@ class UpdateMixin:
         :return: True for an ID-only no-op; otherwise None.
         """
         row_dict = deepcopy(dict(row_dict))
-        target_table = self.direct_identify_table_from_row(row_dict)
-        id_column = self.direct_get_id_column(target_table)
+        target_table = driver_operations(self).direct_identify_table_from_row(row_dict)
+        if target_table is False:
+            raise InputIntegrityError("Cannot update a row without an identified table")
+        id_column = driver_operations(self).direct_get_id_column(target_table)
         if id_column not in row_dict:
             raise RowIntegrityError(
                 f"Update of {target_table!r} requires {id_column!r}"
@@ -95,7 +115,7 @@ class UpdateMixin:
         if not row_dict:
             return True
         try:
-            with closing(self.get_connection()) as conn:
+            with closing(driver_operations(self).get_connection()) as conn:
                 with transaction_scope(conn, owns_transaction=True):
                     self._update_row_values(
                         conn, target_table, id_column, row_id, row_dict
@@ -109,7 +129,16 @@ class UpdateMixin:
                 f"Update of {target_table!r} failed: {exc}"
             ) from exc
 
-    def _update_row_values(self, conn, table, id_column, row_id, values):
+        return None
+
+    def _update_row_values(
+        self,
+        conn: RowSQLConnection,
+        table: str,
+        id_column: str,
+        row_id: Any,
+        values: dict[str, Any],
+    ) -> None:
         """Derive and update supplied columns inside the caller's transaction.
 
         :param conn: Connection whose transaction is owned by the calling writer.
@@ -120,10 +149,10 @@ class UpdateMixin:
         :return: None; affected-row counts retain the legacy writer contract.
         """
         payload = prepare_normalized_values(
-            self,
+            driver_operations(self),
             table,
             values,
-            read_existing=lambda: self._read_row_for_update(
+            read_existing=lambda: driver_operations(self)._read_row_for_update(
                 conn, table, id_column, row_id
             ),
         )

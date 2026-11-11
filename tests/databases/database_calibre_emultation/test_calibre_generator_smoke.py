@@ -15,7 +15,7 @@ import sqlite3
 
 import pytest
 
-from LiuXin_alpha.databases.database_driver_plugins.SQL.calibre_database_generator import database_generator as cal_gen
+from LiuXin_alpha.utils.calibre_compat.database_generator import database_generator as cal_gen
 
 
 def test_calibre_sql_resources_are_present_and_nonempty() -> None:

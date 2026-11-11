@@ -9,6 +9,8 @@ Example:
 
         python -m pytest -q tests/library/test_unified_library.py
 """
+
+from LiuXin_alpha.databases.database_driver_plugins._macro_state import require_legacy_macros
 from collections import defaultdict
 from copy import deepcopy
 from LiuXin_alpha.utils.libraries.liuxin_six import iteritems
@@ -118,7 +120,7 @@ class CalibreLinkAttributeTable(BaseLinkAttributeTable[T]):
         # Keyed with the auxilary table id and valued with the main table id
         aux_main_property_map = self.auxiliary_main_property_map
 
-        for link_attr, main_id, aux_id in db.macros.read_link_property_trios(
+        for link_attr, main_id, aux_id in require_legacy_macros(db.macros).read_link_property_trios(
             link_table=self.link_table_name,
             link_property_col=self.property_column,
             first_id=self.main_id_col,
@@ -326,7 +328,7 @@ class CalibreIndexLinkAttributeTablePrioritySort(CalibreLinkAttributeTable):
         main_aux_priority_map = self.main_auxiliary_priority_map
         aux_main_priority_map = self.auxiliary_main_priority_map
 
-        for link_attr, main_id, aux_id in db.macros.read_link_property_trios(
+        for link_attr, main_id, aux_id in require_legacy_macros(db.macros).read_link_property_trios(
             link_table=self.link_table_name,
             link_property_col=self.priority_column,
             first_id=self.main_id_col,

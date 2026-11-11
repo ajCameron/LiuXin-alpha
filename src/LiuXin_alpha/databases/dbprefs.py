@@ -9,15 +9,21 @@ methods persist changes; inherited dict operations and mutation of nested values
 automatically use those methods. Defaults are lookup fallbacks rather than stored rows.
 """
 
-from __future__ import unicode_literals, division, absolute_import, print_function, annotations
+from __future__ import (
+    unicode_literals,
+    division,
+    absolute_import,
+    print_function,
+    annotations,
+)
 
 import json
 import os
-import pathlib
 
-from typing import TYPE_CHECKING, Any, AnyStr, Optional, Union
+from typing import TYPE_CHECKING, Any, Optional
 
 from LiuXin_alpha.constants import preferred_encoding
+from LiuXin_alpha.errors import DatabaseIntegrityError
 
 from LiuXin_alpha.utils.config.config_tools import to_json, from_json
 from LiuXin_alpha.utils.logging import default_log
@@ -27,7 +33,7 @@ if TYPE_CHECKING:
     from LiuXin_alpha.databases.api import DatabaseAPI
 
 
-class DBPrefs(dict):
+class DBPrefs(dict[str, Any]):
     """
     Expose stored preferences as a mutable dictionary with explicit database writes.
 
@@ -63,7 +69,7 @@ class DBPrefs(dict):
         """
         super(DBPrefs, self).__init__()
         self.db = db
-        self.defaults = {}
+        self.defaults: dict[str, Any] = {}
         self.disable_setting = False
         self.load_from_db()
 
@@ -98,7 +104,7 @@ class DBPrefs(dict):
             super(DBPrefs, self).__setitem__(key, val)
 
     @staticmethod
-    def raw_to_object(raw: AnyStr) -> Any:
+    def raw_to_object(raw: object) -> Any:
         """
         Decode a JSON preference value, including the project tagged-object format.
 
@@ -200,7 +206,9 @@ class DBPrefs(dict):
         :raises KeyError: The key is absent from the cached dictionary.
         """
         super(DBPrefs, self).__delitem__(key)
-        self.db.driver_wrapper.delete(target_table="preferences", column="preference_key", value=key)
+        self.db.driver_wrapper.delete(
+            target_table="preferences", column="preference_key", value=key
+        )
 
     def __setitem__(self, key: str, val: Any) -> None:
         """
@@ -228,8 +236,10 @@ class DBPrefs(dict):
             return
 
         raw = self.to_raw(val)
-        with self.db.lock:
-
+        lock = self.db.lock
+        if lock is None:
+            raise DatabaseIntegrityError("Cannot persist preferences on a closed database")
+        with lock:
             rows = self.db.driver_wrapper.search(
                 table="preferences",
                 column="preference_key",
@@ -243,7 +253,9 @@ class DBPrefs(dict):
             else:
                 existing_raw = db_row.get("preference_value")
                 if isinstance(existing_raw, bytes):
-                    existing_raw = existing_raw.decode(preferred_encoding, errors="replace")
+                    existing_raw = existing_raw.decode(
+                        preferred_encoding, errors="replace"
+                    )
                 if existing_raw != raw:
                     db_row["preference_value"] = raw
                     self.db.driver_wrapper.update_row(db_row)
@@ -264,7 +276,9 @@ class DBPrefs(dict):
         """
         self.__setitem__(key, val)
 
-    def get_namespaced(self, namespace: str, key: str, default: Optional[Any] = None) -> Any:
+    def get_namespaced(
+        self, namespace: str, key: str, default: Optional[Any] = None
+    ) -> Any:
         """
         Read an explicitly stored namespaced preference or the supplied fallback.
 
@@ -309,15 +323,15 @@ class DBPrefs(dict):
         key = "namespaced:%s:%s" % (namespace, key)
         self[key] = val
 
-    def write_serialized(self, library_path: Union[pathlib.Path, AnyStr]) -> None:
+    def write_serialized(self, library_path: str | os.PathLike[str]) -> None:
         """
         Write cached entries to metadata_db_prefs_backup.json in an existing directory.
 
         Write UTF-8 JSON with the project encoder, excluding defaults. Opening the
         target truncates any existing backup; writes are not atomic and the directory is
         not created. Exceptions from path construction, opening or serialization are
-        printed and logged rather than re-raised by this handler. Despite the AnyStr
-        annotation, a bytes directory cannot be joined to this text filename.
+        printed and logged rather than re-raised by this handler. Directory paths
+        must use text rather than bytes.
 
         Example:
             prefs.write_serialized(library_directory)
@@ -339,9 +353,8 @@ class DBPrefs(dict):
 
     @classmethod
     def read_serialized(
-            cls,
-            library_path: Union[pathlib.Path, AnyStr],
-            recreate_prefs: bool = False) -> Any:
+        cls, library_path: str | os.PathLike[str], recreate_prefs: bool = False
+    ) -> Any:
         """
         Read a preference backup as decoded data without constructing DBPrefs.
 

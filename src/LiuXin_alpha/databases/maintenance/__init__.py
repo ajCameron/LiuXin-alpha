@@ -18,6 +18,7 @@ from LiuXin_alpha.databases.maintenance.engine import (
     MaintenanceCallbackSink,
     MaintenanceEngine,
 )
+from LiuXin_alpha.databases.maintenance.errors import MaintenanceFailure
 from LiuXin_alpha.databases.maintenance.events import (
     DirtyInterlinkEvent,
     DirtyRowEvent,
@@ -31,10 +32,7 @@ from LiuXin_alpha.databases.maintenance.plugins import (
     MaintenancePluginContext,
     MaintenancePluginResult,
 )
-from LiuXin_alpha.databases.maintenance.runtime import (
-    MaintenanceFailure,
-    MaintenanceRuntime,
-)
+from LiuXin_alpha.databases.maintenance.runtime import MaintenanceRuntime
 from LiuXin_alpha.databases.maintenance.service import Maintainer
 
 # Backwards-compatible alias while older code still expects a thread-shaped name.

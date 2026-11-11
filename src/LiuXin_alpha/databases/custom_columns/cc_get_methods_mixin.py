@@ -1,4 +1,3 @@
-
 """
 Read legacy custom values from results-cache rows and custom SQL tables.
 
@@ -9,7 +8,8 @@ the cache before accessing it.
 
 from __future__ import annotations
 
-from functools import partial
+from LiuXin_alpha.databases.database_driver_plugins._macro_state import require_legacy_macros
+
 from typing import Optional, TYPE_CHECKING, Any
 
 from LiuXin_alpha.preferences import preferences
@@ -23,9 +23,8 @@ class CCGetMethodsMixin:
     Expose cached custom values, series extras and stored value inventories.
 
     Select metadata by label before num. A configured results cache is required for
-    positional/ID reads; the plain empty data dictionary used by standalone
-    CustomColumns construction does not provide the complete interface. Multiple text
-    reads use stable case-insensitive sorting when sort_alpha is enabled.
+    positional/ID reads; standalone CustomColumns requires callers to supply it.
+    Multiple text reads use stable case-insensitive sorting when sort_alpha is enabled.
 
     Example:
         A host with a populated results cache can call get_custom(book_id,
@@ -34,11 +33,12 @@ class CCGetMethodsMixin:
 
     # Begin Convenience methods for getting and setting custom data - {{{
     def get_custom(
-            self: "CustomColumnsAPI",
-            idx: int,
-            label: Optional[str] = None,
-            num: Optional[int] = None,
-            index_is_id: bool = False) -> Any:
+        self: "CustomColumnsAPI",
+        idx: int,
+        label: Optional[str] = None,
+        num: Optional[int] = None,
+        index_is_id: bool = False,
+    ) -> Any:
         """
         Read one custom value from a positional or ID-indexed cache row.
 
@@ -75,7 +75,9 @@ class CCGetMethodsMixin:
         elif num is not None:
             data = self.custom_column_num_map[num]
         else:
-            raise NotImplementedError("There is no information here to designate the custom column")
+            raise NotImplementedError(
+                "There is no information here to designate the custom column"
+            )
 
         row = self.data._data[idx] if index_is_id else self.data[idx]
         ans = row[self.FIELD_MAP[data["num"]]]
@@ -87,11 +89,12 @@ class CCGetMethodsMixin:
         return ans
 
     def get_custom_extra(
-            self: "CustomColumnsAPI",
-            idx: int,
-            label: Optional[str] = None,
-            num: Optional[int] = None,
-            index_is_id: bool = False) -> Any:
+        self: "CustomColumnsAPI",
+        idx: int,
+        label: Optional[str] = None,
+        num: Optional[int] = None,
+        index_is_id: bool = False,
+    ) -> Any:
         """
         Read the link-table extra value for a series column.
 
@@ -122,7 +125,9 @@ class CCGetMethodsMixin:
         elif num is not None:
             data = self.custom_column_num_map[num]
         else:
-            raise NotImplementedError("There is no information here to designate the custom column")
+            raise NotImplementedError(
+                "There is no information here to designate the custom column"
+            )
 
         # add future datatypes with an extra column here
         if data["datatype"] not in ["series"]:
@@ -135,11 +140,12 @@ class CCGetMethodsMixin:
         return self.direct_get_custom_extra(lt, idx)
 
     def get_custom_and_extra(
-            self: "CustomColumnsAPI",
-            idx: int,
-            label: Optional[str] = None,
-            num: Optional[int] = None,
-            index_is_id: bool = False) -> tuple[Any, Any]:
+        self: "CustomColumnsAPI",
+        idx: int,
+        label: Optional[str] = None,
+        num: Optional[int] = None,
+        index_is_id: bool = False,
+    ) -> tuple[Any, Any]:
         """
         Return a cached custom value together with its optional series extra.
 
@@ -167,7 +173,9 @@ class CCGetMethodsMixin:
         elif num is not None:
             data = self.custom_column_num_map[num]
         else:
-            raise NotImplementedError("There is no information here to designate the custom column")
+            raise NotImplementedError(
+                "There is no information here to designate the custom column"
+            )
 
         idx = idx if index_is_id else self.id(idx)
         row = self.data._data[idx]
@@ -188,9 +196,8 @@ class CCGetMethodsMixin:
         return ans, extra
 
     def get_custom_items_with_ids(
-            self: "CustomColumnsAPI",
-            label: Optional[str] = None,
-            num: Optional[int] = None) -> list[tuple[int, Any]]:
+        self: "CustomColumnsAPI", label: Optional[str] = None, num: Optional[int] = None
+    ) -> list[tuple[int, Any]]:
         """
         Read ID/value pairs for a normalized custom-column value table.
 
@@ -216,7 +223,9 @@ class CCGetMethodsMixin:
         elif num is not None:
             data = self.custom_column_num_map[num]
         else:
-            raise NotImplementedError("There is no information here to designate the custom column")
+            raise NotImplementedError(
+                "There is no information here to designate the custom column"
+            )
 
         in_table = data.get("in_table") or "books"
         table, lt = self.custom_table_names(data["num"], in_table=in_table)
@@ -226,10 +235,11 @@ class CCGetMethodsMixin:
 
     # Todo: What if the book is already in this series, but in another position in the priority stack
     def get_next_cc_series_num_for(
-            self: "CustomColumnsAPI",
-            series: str,
-            label: Optional[str] = None,
-            num: Optional[int] = None) -> Optional[float]:
+        self: "CustomColumnsAPI",
+        series: str,
+        label: Optional[str] = None,
+        num: Optional[int] = None,
+    ) -> Optional[float]:
         """
         Suggest an index for a named custom series using legacy preferences.
 
@@ -262,31 +272,36 @@ class CCGetMethodsMixin:
             data = self.custom_column_num_map[num]
 
         else:
-            raise NotImplementedError("There is no information here to designate the custom column")
+            raise NotImplementedError(
+                "There is no information here to designate the custom column"
+            )
 
         if data["datatype"] != "series":
             return None
         in_table = data.get("in_table") or "books"
         table, lt = self.custom_table_names(data["num"], in_table=in_table)
         # get the id of the row containing the series string
-        series_id = self.db.macros.get_cc_id_from_value(table, series, all=False, conn=self.conn)
+        series_id = require_legacy_macros(self.db.macros).get_cc_id_from_value(
+            table, series, all=False, conn=self.conn
+        )
 
         # Todo: Upgrade preferences to use json serialization to solve this mess
-        series_index_auto_incr = preferences.parse("series_index_auto_increment", "string", "next")
+        series_index_auto_incr = preferences.parse(
+            "series_index_auto_increment", "string", "next"
+        )
         if series_id is None:
             if isinstance(series_index_auto_incr, (int, float)):
                 return float(series_index_auto_incr)
             return 1.0
-        series_indices = self.db.macros.get_cc_series_index_indices(
+        series_indices = require_legacy_macros(self.db.macros).get_cc_series_index_indices(
             cc_series_link_table=lt, series_id=series_id, conn=self.conn
         )
 
         return self._get_next_series_num_for_list(series_indices)
 
     def all_custom(
-            self: "CustomColumnsAPI",
-            label: Optional[str] = None,
-            num: Optional[int] = None) -> set[Any]:
+        self: "CustomColumnsAPI", label: Optional[str] = None, num: Optional[int] = None
+    ) -> set[Any]:
         """
         Collect distinct stored custom values into a Python set.
 
@@ -315,14 +330,19 @@ class CCGetMethodsMixin:
         elif num is not None:
             data = self.custom_column_num_map[num]
         else:
-            raise NotImplementedError("There is no information here to designate the custom column")
+            raise NotImplementedError(
+                "There is no information here to designate the custom column"
+            )
 
         in_table = data.get("in_table") or "books"
         table, lt = self.custom_table_names(data["num"], in_table=in_table)
         # If the data is already normalized it should already be distinct
         if data["normalized"]:
-            ans = self.db.macros.get_all_cc_custom_values(cc_table=table, distinct=False, conn=self.conn)
+            ans = require_legacy_macros(self.db.macros).get_all_cc_custom_values(
+                cc_table=table, distinct=False, conn=self.conn
+            )
         else:
-            ans = self.db.macros.get_all_cc_custom_values(cc_table=table, distinct=True, conn=self.conn)
-        ans = set([x[0] for x in ans])
-        return ans
+            ans = require_legacy_macros(self.db.macros).get_all_cc_custom_values(
+                cc_table=table, distinct=True, conn=self.conn
+            )
+        return {x[0] for x in ans}

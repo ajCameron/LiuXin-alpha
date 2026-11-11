@@ -9,20 +9,32 @@ apply and rolls back with the repair. It is independent of the maintenance queue
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
+from typing import TYPE_CHECKING, Any
+
+from LiuXin_alpha.databases.database_driver_plugins._macro_state import (
+    macro_transaction_state,
+)
+
+if TYPE_CHECKING:
+    from .portable_macros_mixin import SQLPortableMacrosMixin
 import re
 import time
 from uuid import uuid4
 
-from LiuXin_alpha.databases.db_types.repair_types import repair_json_scalar
+from LiuXin_alpha.databases.db_types.repair_types import (
+    repair_json_scalar,
+    PhysicalReference,
+)
 
 
-def _q(name):
+def _q(name: str) -> str:
     if not isinstance(name, str) or not re.fullmatch(r"[A-Za-z_][A-Za-z_0-9]*", name):
         raise ValueError("Unsupported repair schema identifier")
     return '"' + name + '"'
 
 
-def references(macros, table):
+def references(macros: SQLPortableMacrosMixin, table: str) -> list[PhysicalReference]:
     """Inventory every physical inbound FK, including composite/external ones.
 
     Also report polymorphic entity references. Unknown polymorphic families are
@@ -32,7 +44,9 @@ def references(macros, table):
     table = macros._physical_table(table)
     connection = macros._macro_connection()
     schema = getattr(macros._macro_driver(), "schema", None)
-    result, columns = [], {}
+    result: list[PhysicalReference] = []
+    columns: dict[str, list[str]] = {}
+    grouped: dict[object, PhysicalReference]
     if schema:
         rows = connection.execute(
             "SELECT ns.nspname,rel.relname,c.oid,a.attname,ta.attname,k.ordinality "
@@ -125,7 +139,9 @@ def references(macros, table):
     )
 
 
-def lock_references(macros, table):
+def lock_references(
+    macros: SQLPortableMacrosMixin, table: str
+) -> list[PhysicalReference]:
     """Fence source/reference writes before Catalog replans an explicit repair.
 
     Require an owned serialized macro transaction. PostgreSQL reserves source
@@ -133,7 +149,7 @@ def lock_references(macros, table):
     polymorphic table; SQLite already owns its immediate writer reservation.
     Unknown external schemas are reported for refusal, never locked or edited.
     """
-    state = vars(macros).get("_macro_transaction_state")
+    state = macro_transaction_state(macros)
     if not state or not state.depth or not state.serialized:
         raise RuntimeError("Repair locks require a serialized macro transaction")
     table = macros._physical_table(table)
@@ -154,9 +170,9 @@ def lock_references(macros, table):
     return inventory
 
 
-def record(macros, receipt):
+def record(macros: SQLPortableMacrosMixin, receipt: Mapping[str, Any]) -> str:
     """Append a versioned JSON receipt inside the repair transaction and return its ID."""
-    state = vars(macros).get("_macro_transaction_state")
+    state = macro_transaction_state(macros)
     if not state or not state.depth or not state.serialized:
         raise RuntimeError("Repair receipts require a serialized macro transaction")
     connection = macros._macro_connection()
@@ -183,7 +199,9 @@ def record(macros, receipt):
     return identity
 
 
-def read_receipt(macros, identity):
+def read_receipt(
+    macros: SQLPortableMacrosMixin, identity: str
+) -> dict[str, Any] | None:
     """Read one durable receipt without creating the optional audit table."""
     if not isinstance(identity, str) or not identity:
         raise ValueError("A repair receipt ID must be nonempty text")
@@ -205,4 +223,7 @@ def read_receipt(macros, identity):
         return None
     if row[0] != 1:
         raise ValueError("Unsupported Catalog repair receipt version")
-    return json.loads(row[1])
+    receipt = json.loads(row[1])
+    if not isinstance(receipt, dict):
+        raise ValueError("A Catalog repair receipt must be a JSON object")
+    return receipt

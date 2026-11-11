@@ -161,7 +161,10 @@ class FieldMetadataAPI(Protocol):
         to retrieve the title value belonging to a Work.
     """
 
-    VALID_DATA_TYPES: frozenset[str | None]
+    @property
+    def VALID_DATA_TYPES(self) -> frozenset[str | None]:
+        """Read the host's accepted types, including None only where supported."""
+        ...
     search_items: list[str]
     custom_field_prefix: str
     custom_label_to_key_map: MutableMapping[str, str]

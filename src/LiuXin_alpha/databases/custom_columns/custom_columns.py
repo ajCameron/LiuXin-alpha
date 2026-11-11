@@ -1,4 +1,3 @@
-
 """
 Compose the legacy custom-column facade, metadata loading and cache hooks.
 
@@ -10,11 +9,25 @@ precede the driver adapter so facade bookkeeping runs after successful writes.
 
 from __future__ import annotations
 
+from LiuXin_alpha.databases.custom_columns.value_writes import atomic_custom_write
+
+from LiuXin_alpha.databases.database_driver_plugins._macro_state import (
+    require_legacy_macros,
+)
+
 import json
 import textwrap
-from functools import partial
+from contextlib import closing
 
-from typing import Iterable, TYPE_CHECKING, Optional, Any, Union
+from typing import (
+    Sequence,
+    Iterable,
+    TYPE_CHECKING,
+    Optional,
+    Any,
+    Mapping,
+    MutableMapping,
+)
 
 from LiuXin_alpha.metadata.field_adaptors import (
     cc_adapt_bool,
@@ -24,10 +37,13 @@ from LiuXin_alpha.metadata.field_adaptors import (
     cc_adapt_rating,
     cc_adapt_text,
 )
-from LiuXin_alpha.databases.driver_wrapper.driver_wrapper_custom_columns_mixin import CustomColumnsDriverWrapperMixin
 from LiuXin_alpha.databases.notify import dummy_notify, dummy_dirtied
 
-from LiuXin_alpha.databases.utils import cleanup_tags, _get_next_series_num_for_list, _get_series_values
+from LiuXin_alpha.databases.utils import (
+    cleanup_tags,
+    _get_next_series_num_for_list,
+    _get_series_values,
+)
 
 from LiuXin_alpha.errors import DatabaseIntegrityError, InvalidUpdate
 
@@ -39,15 +55,29 @@ from LiuXin_alpha.utils.language_tools import plural_singular_mapper
 
 from LiuXin_alpha.utils.libraries.liuxin_six import basestring, iterkeys
 
-from LiuXin_alpha.databases.custom_columns.cc_crud_columns_mixin import CCCRUDColumnsMixin
+from LiuXin_alpha.databases.custom_columns.cc_crud_columns_mixin import (
+    CCCRUDColumnsMixin,
+)
 from LiuXin_alpha.databases.custom_columns.cc_names_mixin import CCNamesMixin
 from LiuXin_alpha.databases.custom_columns.cc_set_methods_mixin import CCSetMethodsMixin
 from LiuXin_alpha.databases.custom_columns.cc_get_methods_mixin import CCGetMethodsMixin
-from LiuXin_alpha.databases.custom_columns.cc_delete_methods_mixin import CCDeleteMethodsMixin
+from LiuXin_alpha.databases.custom_columns.cc_delete_methods_mixin import (
+    CCDeleteMethodsMixin,
+)
 
 if TYPE_CHECKING:
     from LiuXin_alpha.databases.api.database_api.database_api import DatabaseAPI
     from LiuXin_alpha.databases.db_types.database_types import MainTableName
+    from LiuXin_alpha.databases.db_types.driver_types import SQLConnection
+    from LiuXin_alpha.databases.api.custom_columns_api import (
+        CustomColumnCache,
+        CustomColumnPreferences,
+        CustomColumnMetadata,
+        CustomColumnDataAdapter,
+        CustomColumnFieldMetadata,
+        CustomColumnDirtied,
+        CustomColumnNotify,
+    )
 
 from LiuXin_alpha.databases.constants import CUSTOM_DATA_TYPES
 
@@ -77,18 +107,18 @@ from LiuXin_alpha.databases.constants import CUSTOM_DATA_TYPES
 # update logic which needs to be done to the library when custom column changes occur
 class CustomColumns(
     CCCRUDColumnsMixin,
-    CustomColumnsDriverWrapperMixin,
     CCNamesMixin,
     CCSetMethodsMixin,
     CCGetMethodsMixin,
-    CCDeleteMethodsMixin):
+    CCDeleteMethodsMixin,
+):
     """
     Manage one attachment table’s legacy custom-column metadata and operations.
 
     Share supplied cache, field-map and FieldMetadata objects. Initialization performs
-    schema cleanup and metadata registration; standalone mode installs inert
-    dirty/notify hooks. Default cache data is an empty dictionary, so cached value
-    operations need additional host setup. CRUD methods delegate to the driver adapter
+    schema cleanup and metadata registration; standalone mode provides inert
+    dirty/notify hooks. Cached value operations require a supplied results cache;
+    definition operations can run without one. CRUD methods delegate to the driver adapter
     before refreshing definition maps and notifying the host.
 
     Example:
@@ -97,9 +127,50 @@ class CustomColumns(
     """
 
     CUSTOM_DATA_TYPES: frozenset[str] = CUSTOM_DATA_TYPES
+    db: DatabaseAPI
+    prefs: CustomColumnPreferences | None = None
+    FIELD_MAP: MutableMapping[str | int, int]
+    field_metadata: CustomColumnFieldMetadata
+    custom_column_label_map: MutableMapping[str, CustomColumnMetadata]
+    custom_column_num_map: MutableMapping[int, CustomColumnMetadata]
+    custom_column_num_to_label_map: MutableMapping[int, str]
+    custom_data_adapters: Mapping[str, CustomColumnDataAdapter]
+    dirtied: CustomColumnDirtied
+    notify: CustomColumnNotify
+    _data_cache: CustomColumnCache | None = None
 
     @property
-    def custom_tables(self) -> Iterable[str]:
+    def data(self) -> CustomColumnCache:
+        """Require the caller-supplied cache before accessing value projections."""
+        if self._data_cache is None:
+            raise RuntimeError("Custom-column value operations require a results cache")
+        return self._data_cache
+
+    @data.setter
+    def data(self, value: CustomColumnCache | None) -> None:
+        self._data_cache = value
+
+    def id(self, idx: int) -> int:
+        """Resolve a displayed cache position through its persistent-ID field."""
+        return int(self.data[idx][self.FIELD_MAP["id"]])
+
+    def _custom_connection(self) -> SQLConnection:
+        """Require a physical connection; never open or close a borrowed handle."""
+        connection = self.conn
+        if connection is None:
+            raise RuntimeError("Custom-column operation requires an open connection")
+        return connection
+
+    def _default_dirtied(self, ids: Iterable[int], commit: bool = True) -> None:
+        """Ignore standalone dirtying; embedded hosts must replace this hook."""
+        dummy_dirtied(ids, commit, cc_class=self)
+
+    def _default_notify(self, event: str, ids: Iterable[int]) -> None:
+        """Ignore standalone events; embedded hosts must replace this hook."""
+        dummy_notify(event, ids, cc_class=self)
+
+    @property
+    def custom_tables(self) -> set[str]:
         """
         Read the owning database’s global custom-table names through the wrapper.
 
@@ -129,13 +200,13 @@ class CustomColumns(
     def __init__(
         self,
         db: "DatabaseAPI",
-        conn=None,
+        conn: SQLConnection | None = None,
         table: "MainTableName" = "books",
-        field_metadata=None,
-        data=None,
-        field_map: dict[str, int] = None,
+        field_metadata: CustomColumnFieldMetadata | None = None,
+        data: CustomColumnCache | None = None,
+        field_map: MutableMapping[str | int, int] | None = None,
         embed: bool = False,
-    ):
+    ) -> None:
         """
         Attach host state, clean obsolete definitions and register custom metadata.
 
@@ -144,7 +215,7 @@ class CustomColumns(
         Adapter and FieldMetadata setup follows; normalized non-composite columns are
         categories only for literal books. Setup is not atomic or read-only. Reusing
         shared FieldMetadata can encounter existing registrations. The instance does not
-        initialize custom_column_num_to_label_map or populate cache rows.
+        populate cache rows. Numeric labels are refreshed with the definition maps.
 
         Example:
             Given db, cc = CustomColumns(db, table="works", field_metadata=metadata)
@@ -157,12 +228,12 @@ class CustomColumns(
         :param table: Attachment table; absent legacy books falls back to manifestations
             when available.
         :param field_metadata: FieldMetadata object retained by reference, or a new one.
-        :param data: Results-cache host retained by reference; None becomes an empty
-            dictionary.
+        :param data: Results-cache host retained by reference; None leaves cached
+            value operations unavailable.
         :param field_map: Field-to-slot mapping retained by reference; None uses the
             legacy 22-slot layout.
-        :param embed: When False, install dummy notification/dirtying hooks; True
-            expects host-provided hooks.
+        :param embed: When False, notification/dirtying defaults are inert; True
+            requires host-provided hooks.
         :return: None; metadata, adapters, temporary triggers and custom field
             registrations are configured.
         :raises ValueError: CUSTOM_DATA_TYPES includes a type absent from
@@ -190,10 +261,7 @@ class CustomColumns(
             self.field_metadata = FieldMetadata()
         else:
             self.field_metadata = field_metadata
-        if data is None:
-            self.data = {}
-        else:
-            self.data = data
+        self.data = data
 
         if field_map is None:
             # This is the default field map for the meta2 view - if the field map changes elsewhere it also HAS to be
@@ -237,8 +305,8 @@ class CustomColumns(
         # label - the name of the column
         # num - id of the custom column in the custom_columns table
         self.custom_column_label_map, self.custom_column_num_map = {}, {}
-        self.triggers = []
-        self.remove = []
+        self.triggers: list[str] = []
+        self.remove: list[int] = []
         self.refresh_db_custom_columns_metadata()
         triggers = self.triggers
 
@@ -247,17 +315,23 @@ class CustomColumns(
             # we must rebuild the trigger definition to include the latest link tables.
             trigger_name = f"custom_{self.table}_delete_trg"
 
-            with self.conn:
+            with self._custom_connection():
                 # Drop/recreate so updates are applied and repeated initialization is idempotent.
                 self.db.driver_wrapper.execute(f"DROP TRIGGER IF EXISTS {trigger_name}")
-                self.db.driver_wrapper.execute(textwrap.dedent(
-                    """
+                self.db.driver_wrapper.execute(
+                    textwrap.dedent(
+                        """
                     CREATE TEMP TRIGGER {trigger_name}
                         AFTER DELETE ON {table}
                         BEGIN
                         {body}
                         END;
-                    """.format(trigger_name=trigger_name, table=self.table, body=(" \n".join(triggers))))
+                    """.format(
+                            trigger_name=trigger_name,
+                            table=self.table,
+                            body=(" \n".join(triggers)),
+                        )
+                    )
                 )
 
         # Setup data adapters
@@ -282,7 +356,11 @@ class CustomColumns(
 
             # Calibre behaviour: non-composite normalized columns appear as categories.
             # LiuXin rule: only those attached to books are categories in the calibre-style browser.
-            is_category = bool(v.get("normalized") and in_table == "books" and v.get("datatype") != "composite")
+            is_category = bool(
+                v.get("normalized")
+                and in_table == "books"
+                and v.get("datatype") != "composite"
+            )
             is_m = v["multiple_seps"]
             tn = "custom_column_{0}".format(v["num"])
             self.field_metadata.add_custom_field(
@@ -304,8 +382,8 @@ class CustomColumns(
         # The methods here replace the actual methods that should be here when this class is being used it it's original
         # context.
         if not embed:
-            self.dirtied = partial(dummy_dirtied, cc_class=self)
-            self.notify = partial(dummy_notify, cc_class=self)
+            self.dirtied = self._default_dirtied
+            self.notify = self._default_notify
 
         # Note that tag browser categories for the custom columns have been, in fact, created
         self.cc_tag_browser_categories_made = True
@@ -320,7 +398,9 @@ class CustomColumns(
         Trigger installation and FieldMetadata registration remain loader operations.
         """
         custom_tables = self.custom_tables
-        label_map, num_map, triggers = {}, {}, []
+        label_map: MutableMapping[str, CustomColumnMetadata] = {}
+        num_map: MutableMapping[int, CustomColumnMetadata] = {}
+        triggers: list[str] = []
         cc = "custom_column_"
         for record in self.db.driver_wrapper.get_all_rows(table="custom_columns"):
             in_table = record[cc + "in_table"] or "books"
@@ -332,7 +412,7 @@ class CustomColumns(
                     display = {}
                 if not isinstance(display, dict):
                     raise ValueError("display must be a JSON object")
-                data = {
+                data: CustomColumnMetadata = {
                     "label": record[cc + "label"],
                     "name": record[cc + "name"],
                     "datatype": record[cc + "datatype"],
@@ -366,21 +446,28 @@ class CustomColumns(
                 )
             label_map[data["label"]] = num_map[data["num"]] = data
             triggers.append(
-                self.db.macros.get_foreign_key_replacement_trigger(
+                require_legacy_macros(
+                    self.db.macros
+                ).get_foreign_key_replacement_trigger(
                     target_table=link_table if data["normalized"] else table,
                     search_column=plural_singular_mapper(in_table),
                     target_id=self.db.driver_wrapper.get_id_column(in_table),
                 )
             )
         self.custom_column_label_map, self.custom_column_num_map = label_map, num_map
+        self.custom_column_num_to_label_map = {
+            num: data["label"] for num, data in num_map.items()
+        }
         self.remove, self.triggers = [], triggers
 
+    @atomic_custom_write
     def rename_custom_item(
-            self,
-            old_id: int,
-            new_name: str,
-            label: Optional[str] = None,
-            num: Optional[int] = None) -> None:
+        self,
+        old_id: int,
+        new_name: str,
+        label: Optional[str] = None,
+        num: Optional[int] = None,
+    ) -> None:
         """
         Rename or merge a stored normalized value and update legacy cache references.
 
@@ -388,8 +475,9 @@ class CustomColumns(
         the old value, avoiding duplicate multiple links. Otherwise update the existing
         value. The adapted value is discarded; original new_name is used throughout.
         Dirty referencing owners, update cached values, and alter an enumeration’s
-        in-memory allowed list when applicable. Lookup, SQL and host-hook failures can
-        leave partial changes; no encompassing transaction is supplied.
+        in-memory allowed list when applicable. One owned transaction rolls back SQL
+        and restores cache/enumeration changes on failure. Caller-owned transactions
+        are rejected before mutation.
 
         Example:
             On a fully configured facade, rename_custom_item(value_id, "Revised",
@@ -413,14 +501,18 @@ class CustomColumns(
         elif num is not None:
             data = self.custom_column_num_map[num]
         else:
-            raise NotImplementedError("There is no information here to designate the custom column")
+            raise NotImplementedError(
+                "There is no information here to designate the custom column"
+            )
 
         in_table = data.get("in_table") or "books"
         table, lt = self.custom_table_names(data["num"], in_table=in_table)
 
         # Check to see if the item for rename is known to the database
         try:
-            db_old_id, db_old_value = self.db.macros.get_cc_id_value_from_cc_id(table, old_id)
+            db_old_id, db_old_value = require_legacy_macros(
+                self.db.macros
+            ).get_cc_id_value_from_cc_id(table, old_id, conn=self.conn)
         except IndexError:
             raise InvalidUpdate
         if not db_old_id:
@@ -429,56 +521,72 @@ class CustomColumns(
         # Adapt the val into a form to be written to the database - the adapters are a dictionary keyed with the vaugue
         # category of the thing to adapt, and valued with a function which takes a tuple of the actual value and the
         # data of that value
-        val = self.custom_data_adapters[data["datatype"]](new_name, data)
+        self.custom_data_adapters[data["datatype"]](new_name, data)
 
         # check if item exists
-        new_id = self.db.macros.get_cc_id_from_value(table, new_name)
+        new_id = require_legacy_macros(self.db.macros).get_cc_id_from_value(
+            table, new_name, conn=self.conn
+        )
         if new_id is None or old_id == new_id:
-
-            self.db.macros.update_cc_value(cc_column=table, cc_id=old_id, cc_value=new_name)
+            require_legacy_macros(self.db.macros).update_cc_value(
+                cc_column=table, cc_id=old_id, cc_value=new_name, conn=self.conn
+            )
             new_id = old_id
 
         else:
-
             # New id exists. If the column is_multiple, then process like tags, otherwise process like publishers
             # (see database2)
             if data["is_multiple"]:
-                books = self.db.macros.get_cc_books_from_link_table(lt, old_id)
+                books = require_legacy_macros(
+                    self.db.macros
+                ).get_cc_books_from_link_table(lt, old_id, conn=self.conn)
                 for (book_id,) in books:
-                    self.db.macros.break_cc_links_by_book_id_and_value(lt, book_id, new_id)
+                    require_legacy_macros(
+                        self.db.macros
+                    ).break_cc_links_by_book_id_and_value(
+                        lt, book_id, new_id, conn=self.conn
+                    )
 
             # Remove the links from the link table - have to use the same conn for most of these transactions, because
             # we're in the middle of a commit
-            self.db.macros.update_cc_lt_value_by_value(lt, new_id, old_id, conn=self.conn)
+            require_legacy_macros(self.db.macros).update_cc_lt_value_by_value(
+                lt, new_id, old_id, conn=self.conn
+            )
             # Remove the links from the actual table
             # Todo: A well chosen set of triggers should take care of this instead
-            self.db.macros.delete_from_cc_table_by_id(table, old_id, conn=self.conn)
+            require_legacy_macros(self.db.macros).delete_from_cc_table_by_id(
+                table, old_id, conn=self.conn
+            )
 
         # Note the change in the relevant places on the database
         data_label = "#" + data["label"]
         book_ids = self.custom_dirty_books_referencing(data_label, new_id, commit=False)
-        self.rename_custom_item_in_data(book_ids=book_ids, column_num=data["num"], new_value=new_name)
+        for (owner,) in book_ids:
+            value = require_legacy_macros(self.db.macros).read_cc_value_from_meta_2(
+                data["num"], owner, conn=self.conn
+            )
+            self.data.set(owner, self.FIELD_MAP[data["num"]], value, row_is_id=True)
 
         # Change the permissible set values in the enumeration type - if that's appropriate
         if data["datatype"] == "enumeration":
             data["display"]["enum_values"].remove(db_old_value)
             data["display"]["enum_values"].append(new_name)
 
-        # Actually update the database
-        self.conn.commit()
+        # The public write boundary commits SQL and cache changes together.
 
     # Todo: Test the right item is being set
     # Todo: This is also kinda cursed, ngl
     def rename_custom_item_in_data(
-            self,
-            book_ids: Union[Iterable[int], Iterable[str]],
-            column_num: str, new_value: Any) -> None:
+        self,
+        book_ids: Iterable[Sequence[int]],
+        column_num: int | str,
+        new_value: Any,
+    ) -> None:
         """
         Replace a cache slot for each owner represented by an indexable row.
 
         No SQL, dirtying or notification occurs. Flat integer entries fail at
-        element-zero lookup. This signature uses book_ids, so deletion code passing
-        target_ids raises before entering the method.
+        element-zero lookup; supply one-column owner-reference rows.
 
         Example:
             Given a configured cache, cc.rename_custom_item_in_data([(1,), (2,)],
@@ -486,26 +594,24 @@ class CustomColumns(
 
 
         :param book_ids: Iterable of row-like entries whose first element is the owner
-            ID, despite the flat-ID annotation.
+            ID.
         :param column_num: Custom-column key in FIELD_MAP.
         :param new_value: Value written to the cache without adaptation.
         :return: None; call data.set with row_is_id=True for each entry.
-        :raises TypeError: An owner entry cannot be indexed, or the caller uses the
-            unsupported target_ids keyword.
+        :raises TypeError: An owner entry cannot be indexed.
+        :raises RuntimeError: No results cache has been supplied.
         """
         for book_id_tuple in book_ids:
             self.data.set(
                 row=book_id_tuple[0],
                 col=self.FIELD_MAP[column_num],
                 val=new_value,
-                row_is_id = True,
+                row_is_id=True,
             )
 
     def is_item_used_in_multiple(
-            self,
-            item: Any,
-            label: Optional[str] = None,
-            num: Optional[int] = None) -> bool:
+        self, item: Any, label: Optional[str] = None, num: Optional[int] = None
+    ) -> bool:
         """
         Check whether a case-insensitive value spelling exists in the column inventory.
 
@@ -530,12 +636,13 @@ class CustomColumns(
 
     @staticmethod
     def _get_next_series_num_for_list(
-            series_indices: list[Union[int, float]]) -> Optional[float]:
+        series_indices: Sequence[Sequence[int | float]],
+    ) -> int | float:
         """
         Delegate series numbering to the preference-driven legacy helper.
 
-        Default unwrapping remains enabled, so nonempty flat numeric sequences violate
-        the actual input shape despite the annotation.
+        Default unwrapping expects rows containing the index at position zero.
+        The returned number follows the configured increment policy.
 
         Example:
             With the default next policy,
@@ -548,14 +655,13 @@ class CustomColumns(
         """
         return _get_next_series_num_for_list(series_indices)
 
-
     def clean_custom(self) -> None:
         """
         Run custom-value cleanup using a newly opened driver connection.
 
         Pass the metadata map and naming factory to the macro, which commits its work.
-        This method does not close the supplied connection or refresh cache values
-        afterward; errors can follow earlier column cleanup.
+        Close the owned connection on success or failure, without refreshing cache
+        values. Errors can follow earlier column cleanup.
 
         Example:
             Given cc, cc.clean_custom() prunes values according to the legacy macro’s
@@ -564,16 +670,19 @@ class CustomColumns(
 
         :return: None; delegate each column’s cleanup to db.macros.clean_custom.
         """
-        clean_conn = self.db.driver.get_connection()
-
-        self.db.macros.clean_custom(
-            cc_num_map=self.custom_column_num_map,
-            cc_table_name_factory=self.custom_table_names,
-            conn=clean_conn,
-        )
+        with closing(self.db.driver.get_connection()) as clean_conn:
+            require_legacy_macros(self.db.macros).clean_custom(
+                cc_num_map=self.custom_column_num_map,
+                cc_table_name_factory=self.custom_table_names,
+                conn=clean_conn,
+            )
 
     # Todo: Not sure where this goes, but perhaps not here.
-    def custom_columns_in_meta(self, update_field_map=True, field_metadata=None):
+    def custom_columns_in_meta(
+        self,
+        update_field_map: bool = True,
+        field_metadata: CustomColumnFieldMetadata | None = None,
+    ) -> dict[int, str]:
         """
         Generate legacy meta2 SQL projection strings for the current custom columns.
 
@@ -596,23 +705,20 @@ class CustomColumns(
         lines = {}
 
         # So, when updating the FIELD_MAP - we know the position to start counting from
-        base = max(self.FIELD_MAP.values())
+        max(self.FIELD_MAP.values())
 
         # Todo: Needs to be generalized to books and titles
         # Todo: Possibly rename meta2 to something concerting books and titles view?
         for data in self.custom_column_label_map.values():
-
             in_table = data.get("in_table") or "books"
             table, lt = self.custom_table_names(data["num"], in_table=in_table)
             table_col = plural_singular_mapper(table)
             lt_col = plural_singular_mapper(lt)
 
             if data["normalized"]:
-
                 query = "{table}.{table_col}_value"
 
                 if data["is_multiple"]:
-
                     if data["multiple_seps"]["cache_to_list"] == "|":
                         query = "sortconcat_bar(link.{lt_col}_id, {table}.{table_col}_value)"
 
@@ -626,7 +732,9 @@ class CustomColumns(
                         )
                         query = "sortconcat_bar(link.{lt_col}_id, {table}.{table_col}_value)"
 
-                final_query = query.format(table=table, table_col=table_col, lt_col=lt_col)
+                final_query = query.format(
+                    table=table, table_col=table_col, lt_col=lt_col
+                )
 
                 line = """(SELECT {query} FROM {lt} AS link INNER JOIN
                     {table} ON(link.{lt_col}_value={table}.{table_col}_id) WHERE link.{lt_col}_book=books.book_id)
@@ -648,18 +756,15 @@ class CustomColumns(
             else:
                 line = """
                 (SELECT {table_col}_value FROM {table} WHERE {table_col}_book=books.book_id) custom_{num}
-                """.format(
-                    table=table, table_col=table_col, num=data["num"]
-                )
+                """.format(table=table, table_col=table_col, num=data["num"])
             lines[data["num"]] = line
 
         return lines
 
     # c.f. calibre.library.databases2 - around line 424
     def update_field_map_from_custom_columns_in_meta(
-            self,
-            lines: dict[int, str],
-            update_field_metadata: bool = True) -> None:
+        self, lines: dict[int, str], update_field_metadata: bool = True
+    ) -> None:
         """
         Append custom value/index slots and optionally update FieldMetadata indices.
 
@@ -698,7 +803,6 @@ class CustomColumns(
                 )
 
             if self.custom_column_num_map[col]["datatype"] == "series":
-
                 # account for the series index column. Field_metadata knows that the series index is one larger than the
                 # series. If you change it here, be sure to change it there as well.
                 self.FIELD_MAP[str(col) + "_index"] = base = base + 1
@@ -710,7 +814,9 @@ class CustomColumns(
                     )
 
     # Todo: Probably the custom column metadata should be a dataclas
-    def custom_field_metadata(self, label=None, num=None):
+    def custom_field_metadata(
+        self, label: str | None = None, num: int | None = None
+    ) -> CustomColumnMetadata:
         """
         Return the metadata record selected by label first, otherwise number.
 
@@ -728,6 +834,8 @@ class CustomColumns(
 
         if label is not None:
             return self.custom_column_label_map[label]
+        if num is None:
+            raise KeyError(num)
         return self.custom_column_num_map[num]
 
     def _get_series_values(self, val: Any) -> tuple[str, Optional[float]]:
@@ -779,13 +887,15 @@ class CustomColumns(
         return cleanup_tags(tags_list)
 
     # Todo: This is mostly not going to actually work. Need ... something better.
-    def custom_dirty_books_referencing(self, field, id, commit: bool = True) -> Iterable[int]:
+    def custom_dirty_books_referencing(
+        self, field: str, id: int, commit: bool = True
+    ) -> list[Sequence[Any]]:
         """
         Query owners referencing a custom value and pass their IDs to dirtied.
 
-        Expect each result entry to unpack to exactly one owner ID. A one-shot result
-        iterator can be exhausted when returned. Standalone dummy dirtied performs no
-        persistence; embedded hosts determine actual dirtying/commit effects.
+        Expect each result entry to unpack to exactly one owner ID. The macro
+        returns a reusable list of rows. Standalone dirtying performs no persistence;
+        embedded hosts determine actual dirtying/commit effects.
 
         Example:
             On a compatible facade, cc.custom_dirty_books_referencing("#shelf",
@@ -802,7 +912,13 @@ class CustomColumns(
         # Get the list of books to dirty -- all books that reference the item
         table = self.field_metadata[field]["table"]
         link = self.field_metadata[field]["link_column"]
-        bks = self.db.macros.get_cc_books_for_dirtying(table, link, id, conn=self.conn)
+        if not isinstance(table, str) or not isinstance(link, str):
+            raise DatabaseIntegrityError(
+                f"Custom field {field!r} lacks a storage table/link column"
+            )
+        bks = require_legacy_macros(self.db.macros).get_cc_books_for_dirtying(
+            table, link, id, conn=self.conn
+        )
         books = []
         for (book_id,) in bks:
             books.append(book_id)

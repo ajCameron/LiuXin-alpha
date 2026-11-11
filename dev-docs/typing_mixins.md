@@ -1,6 +1,6 @@
 # Typing mixins with dependencies on their host class
 
-**Architecture note for LiuXin**  
+**Architecture note for LiuXin**\
 **Suggested approach:** small capability `Protocol`s, used as explicit `self` types.
 
 ## 1. The problem

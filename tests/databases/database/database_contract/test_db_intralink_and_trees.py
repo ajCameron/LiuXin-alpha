@@ -2,8 +2,8 @@
 Check self-links and parent-column tree traversal on dynamically selected database tables.
 
 Tests write scratch payloads, register types when a registry is available, and skip
-absent schema capabilities. Existing expected-failure markers retain the desired
-linked-row and secondary-only unlink contracts.
+absent schema capabilities. The remaining expected-failure marker retains the
+desired endpoint result for get_intralinked_rows.
 
 Example:
     Run with pytest::
@@ -735,10 +735,9 @@ def test_unlinked_intralink_by_primary_deletes_all(open_db, pick_payload):
     assert len(open_db.get_intralink_rows(row=a, primary=True, secondary=False)) == 0
 
 
-@pytest.mark.xfail(reason="Bug: unlinked_intralink uses primary_row.table even when primary_row is None")
 def test_unlinked_intralink_by_secondary_deletes_all(open_db, pick_payload):
     """
-    Express removal of both links into one secondary under the existing secondary-only unlink xfail marker.
+    Remove both incoming links while retaining the endpoint rows.
 
     Example:
         Run the owning tests with pytest::
@@ -763,6 +762,8 @@ def test_unlinked_intralink_by_secondary_deletes_all(open_db, pick_payload):
 
     open_db.unlinked_intralink(primary_row=None, secondary_row=b)
     assert len(open_db.get_intralink_rows(row=b, primary=False, secondary=True)) == 0
+    for endpoint in (a, b, c):
+        assert open_db.get_row_from_id(endpoint.table, endpoint.row_id) is not None
 
 
 # ---------------------------------------------------------------------------

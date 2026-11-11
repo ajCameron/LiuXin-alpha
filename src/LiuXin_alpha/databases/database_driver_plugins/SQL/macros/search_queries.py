@@ -1,12 +1,18 @@
-"""
-Compile validated physical row predicates into bound SQL and EXISTS paths.
-"""
+"""Compile validated physical row predicates into bound SQL and EXISTS paths."""
 
 # Todo: How does this relate to search functions?
 
 from __future__ import annotations
 
 import re
+from collections.abc import Iterable, Mapping
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from .portable_macros_mixin import SQLPortableMacrosMixin
+
+type SearchGuard = tuple[str, str, tuple[Any, ...]]
+type CompiledPredicate = tuple[str, tuple[Any, ...], list[SearchGuard]]
 
 from LiuXin_alpha.databases.db_types.macro_types import LINK_TYPE_UNSET
 from LiuXin_alpha.databases.db_types.query_types import (
@@ -17,6 +23,7 @@ from LiuXin_alpha.databases.db_types.query_types import (
     MissingSearchReference,
     TextMatch,
     ValueMatch,
+    RowPredicate,
 )
 from LiuXin_alpha.databases.search_functions import (
     IDENTIFIER_KEY_FUNCTION,
@@ -26,21 +33,14 @@ from LiuXin_alpha.databases.search_functions import (
 from LiuXin_alpha.errors import InputIntegrityError
 
 
-def _q(name):
+def _q(name: str) -> str:
     return '"' + name.replace('"', '""') + '"'
 
 
 class PredicateCompiler:
-    """
-    Compile one query, retaining guards for dangling traversed references.
-    """
+    """Compile one query, retaining guards for dangling traversed references."""
 
-    def __init__(self, macros) -> None:
-        """
-        Startup the compiler.
-
-        :param macros:
-        """
+    def __init__(self, macros: SQLPortableMacrosMixin) -> None:
         self.macros = macros
         self.counter = 0
 
@@ -48,19 +48,22 @@ class PredicateCompiler:
         self.counter += 1
         return f"r{self.counter}"
 
-    def columns(self, table, names):
+    def columns(self, table: str, names: Iterable[str]) -> tuple[str, ...]:
         return self.macros._validate_columns(table, names)
 
-    def table(self, table):
+    def table(self, table: str) -> str:
         return self.macros._macro_table_sql(self.macros._physical_table(table))
 
-    def compile(self, table, alias, predicate):
+    def compile(
+        self, table: str, alias: str, predicate: RowPredicate
+    ) -> CompiledPredicate:
         """Return SQL, bindings and (table, guard SQL, bindings) integrity checks."""
         if isinstance(predicate, TextMatch):
             self.columns(table, predicate.columns)
             if predicate.exact and len(predicate.columns) > 1:
                 return self.exact_text_union(table, alias, predicate)
-            clauses, values = [], []
+            clauses: list[str] = []
+            text_values: list[str] = []
             for column in predicate.columns:
                 expression = f"{TEXT_KEY_FUNCTION}({alias}.{_q(column)})"
                 if predicate.exact:
@@ -69,13 +72,12 @@ class PredicateCompiler:
                     clauses.append(
                         f"({expression} IS NOT NULL AND instr({expression}, ?) > 0)"
                     )
-                values.append(predicate.term)
+                text_values.append(predicate.term)
             return (
                 "(" + " OR ".join(clauses) + ")" if clauses else "0=1",
-                tuple(values),
+                tuple(text_values),
                 [],
             )
-
         if isinstance(predicate, IdentifierMatch):
             self.columns(table, (predicate.scheme_column, predicate.value_column))
             expression = (
@@ -86,7 +88,6 @@ class PredicateCompiler:
                 predicate.normalized_scheme, predicate.normalized_value
             )
             return f"({expression} IS NOT NULL AND {expression} = ?)", (key,), []
-
         if isinstance(predicate, ValueMatch):
             self.columns(table, (predicate.column,))
             column = f"{alias}.{_q(predicate.column)}"
@@ -124,7 +125,6 @@ class PredicateCompiler:
                 tuple(value for p in parts for value in p[1]),
                 [guard for p in parts for guard in p[2]],
             )
-
         if isinstance(predicate, LinkedMatch):
             spec = self.macros._validate_link_spec(predicate.link_spec)
             if spec.primary_table != table:
@@ -139,7 +139,7 @@ class PredicateCompiler:
             self.columns(table, (spec.primary_id_col,))
             self.columns(spec.secondary_table, (spec.secondary_id_col,))
             base = f"{links}.{_q(spec.primary_link_col)} = {alias}.{_q(spec.primary_id_col)}"
-            bindings = ()
+            bindings: tuple[Any, ...] = ()
             if predicate.link_type is not LINK_TYPE_UNSET:
                 if not spec.typed or spec.type_link_col is None:
                     raise InputIntegrityError(
@@ -175,7 +175,6 @@ class PredicateCompiler:
                 (*bindings, *values),
                 guards,
             )
-
         if isinstance(predicate, ForeignMatch):
             self.columns(table, (predicate.local_column,))
             self.columns(predicate.table, (predicate.remote_column,))
@@ -210,18 +209,14 @@ class PredicateCompiler:
             )
         raise InputIntegrityError("Unsupported physical row predicate")
 
-    def exact_text_union(self, table, alias, predicate):
-        """
-        Search optional text keys independently before reading matching rows.
+    def exact_text_union(
+        self, table: str, alias: str, predicate: TextMatch
+    ) -> CompiledPredicate:
+        """Search optional text keys independently before reading matching rows.
 
         After ANALYZE, a mostly-null canonical-title index can make SQLite choose
         a full scan for the equivalent OR. Independent indexed ID searches avoid
         that plan while UNION preserves one result when several fields match.
-
-        :param table:
-        :param alias:
-        :param predicate:
-        :return:
         """
         identity = _q(self.macros._row_id_column(table, None))
         table_sql = self.table(table)
@@ -240,17 +235,15 @@ class PredicateCompiler:
         )
 
 
-def find_rows(macros, table, predicate, *, limit, offset):
-    """
-    Run a physical predicate and SQL pagination on the active connection.
-
-    :param macros:
-    :param table:
-    :param predicate:
-    :param limit:
-    :param offset:
-    :return:
-    """
+def find_rows(
+    macros: SQLPortableMacrosMixin,
+    table: str,
+    predicate: RowPredicate,
+    *,
+    limit: int | None,
+    offset: int,
+) -> tuple[Mapping[str, Any], ...]:
+    """Run a physical predicate and SQL pagination on the active connection."""
     compiler = PredicateCompiler(macros)
     table_sql = compiler.table(table)
     for name, value in (("limit", limit), ("offset", offset)):
@@ -264,17 +257,18 @@ def find_rows(macros, table, predicate, *, limit, offset):
     conn = macros._macro_connection()
     # The SQL path must not silently turn dangling graph rows into missing hits.
     # Guard each physical path once; no endpoint payloads are materialized.
-    unique = {}
+    unique: dict[SearchGuard, SearchGuard] = {}
     for name, guard, args in guards:
-        aliases = {}
-        canonical = re.sub(
-            r"\br\d+(?=\.|\s|$)",
-            lambda m, aliases=aliases: aliases.setdefault(m[0], f"a{len(aliases)}"),
-            guard,
-        )
+        aliases: dict[str, str] = {}
+
+        def canonical_alias(match: re.Match[str]) -> str:
+            return aliases.setdefault(match[0], f"a{len(aliases)}")
+
+        canonical = re.sub(r"\br\d+(?=\.|\s|$)", canonical_alias, guard)
         unique.setdefault((name, canonical, args), (name, guard, args))
     if unique:
-        checks, parameters = [], []
+        checks: list[str] = []
+        parameters: list[Any] = []
         for name, guard, args in unique.values():
             checks.append(
                 f"SELECT ? WHERE EXISTS (SELECT 1 FROM {table_sql} AS root WHERE {guard})"

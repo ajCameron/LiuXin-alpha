@@ -1,0 +1,1943 @@
+# Archived maintenance-checkout index — 2026-11-11
+
+Historical snapshot from `main` at `520fefc6`, retained during PR #160 conflict resolution.
+Use [the current index](index.md) for the active handoff.
+
+# Working Memory Index
+
+Calibre generator relocated locally, **2026-11-11**. Continue in
+`/mnt/c/dev/LiuXin-alpha/.tmp/database-driver-review-2026-11-10`, branch
+`calibre-generator-relocation-2026-11-11`, based on merged PR #157 (`fcf9166c`).
+Read that clone's `working-memory/calibre-generator-relocation-2026-11-11.md`.
+145 focused tests, full quality and installed-wheel Calibre checks pass.
+Extra fixture tests reproduce two existing tooling problems on the merged
+baseline; the handoff records them for review. Changes are uncommitted.
+Preserve this original checkout and WSL recovery data.
+
+FRBR repairs completed locally, **2026-11-11**. Continue in persistent clone
+`/mnt/c/dev/LiuXin-alpha/.tmp/database-driver-review-2026-11-10`, branch
+`database-generator-frbr-review-2026-11-11`, based on published `5304f34f`.
+Read that clone's `working-memory/database-generator-frbr-review-2026-11-11.md`.
+All five findings repaired with SQL/link plans and explicit placeholder policy.
+Final focused run: 160 passed, including 103 new mandatory cases (manifest 1,430).
+Integration/retry/focused coverage: 1,275 distinct passes, 58 conditional skips;
+required full quality gates pass. All checks are finished; changes staged and
+uncommitted. No generator publication/migration/merge. Preserve this original
+checkout and WSL recovery data. Driver PR #156 is unchanged.
+
+Published **2026-11-11**: commit `5304f34f` includes the sixth–eighth driver
+repairs/reviews and three additional architecture/provider/mixin notes. PR #156
+is updated; fresh PR/push CI and secret scan passed. Full suite: 8,911 passed;
+mandatory database gate: 1,327/1,327 passed. Read
+[the publication handoff](database-driver-plugins-publication-2026-11-11.md).
+The persistent review clone is clean. Preserve this original checkout's work;
+the clone's origin remains local. No merge performed.
+
+Completed locally, **2026-11-11**: read the persistent clone's
+`working-memory/database-driver-plugins-eighth-fixes-2026-11-11.md` in
+`/mnt/c/dev/LiuXin-alpha/.tmp/database-driver-review-2026-11-10`.
+DDP28/DDP29 have repairs and 147 new required cases, taking the manifest to 1,327.
+Final gate: 1,327/1,327 required, 1,358 selected passes, zero skips. Full quality
+and both type checkers pass; integration: 285 passed/29 backend skips; 121 doctest
+examples and 85 documentation/runner checks pass. Private PG16 stopped/removed.
+All checks finished; changes staged, uncommitted. Read the handoff for evidence.
+Preserve this checkout's source/preferences/data and WSL recovery backup.
+No commit/push/merge; the clone's origin is local.
+
+Reviewed again, **2026-11-11**: read the persistent clone's
+`working-memory/database-driver-plugins-eighth-review-2026-11-11.md` in
+`/mnt/c/dev/LiuXin-alpha/.tmp/database-driver-review-2026-11-10`.
+Two new medium findings remain open: DDP28 PostgreSQL qmark expression contexts
+and DDP29 nonstandard connection string mode rewriting literal contents.
+Existing focused tests: 945 passed, zero skips; SQLite probes found no new defect.
+Private PG16 stopped/removed. Previous fixes/staging are unchanged; review docs
+only. Read the handoff for final checks. No commit/push/merge; origin is local.
+Preserve this checkout's source/preferences/data and the WSL recovery backup.
+
+Completed locally, **2026-11-10**:
+read the clone’s `working-memory/database-driver-plugins-seventh-fixes-2026-11-10.md`.
+DDP25–DDP27 are repaired with 221 new mandatory cases across applicable drivers.
+Final gate: 1,180/1,180 required, 1,211 selected passes, zero skips. Both type
+checkers/full quality, 121 doctests and 58 documentation/runner checks pass.
+Affected integration: 177 test calls passed; its one shared-lock cleanup error
+passed an isolated retry. Private PG16 is stopped/removed; all checks are finished.
+Continue in `/mnt/c/dev/LiuXin-alpha/.tmp/database-driver-review-2026-11-10` on
+`database-driver-plugins-review-2026-11-05`. Changes are staged, uncommitted.
+No push/merge. Original checkout source/preferences/data and recovery are preserved.
+The clone's origin is local, not GitHub. Read the handoff before publication.
+
+Reviewed after recovery, **2026-11-10**: continue in persistent isolated clone
+`/mnt/c/dev/LiuXin-alpha/.tmp/database-driver-review-2026-11-10`, branch
+`database-driver-plugins-review-2026-11-05`. Read its
+`working-memory/database-driver-plugins-seventh-review-2026-11-10.md`.
+Three open findings: DDP25 SQLite hidden row IDs/FTS, DDP26 PG continued escape
+strings, DDP27 PG keyword identifiers. Existing SQLite/APSW/live PG checks:
+724 passed, no skips. Private PG16 stopped/removed. Recovered source remains
+staged there; new review docs only, no commit/push/merge. Preserve this checkout's
+source/preferences/data, the recovery backup and old worktree index. The clone's
+`origin` points here, not GitHub. Final 959-case gate remains unverified.
+
+WSL recovery orientation, **2026-11-10**: the `/tmp/liuxin-databases-typing`
+checkout and sixth-review temporary logs are gone. Its surviving Git index
+contains 19 changed files, both latest fixes and the 959-case manifest. They
+are backed up in `.tmp/wsl-recovery-2026-11-10/` on the persistent repo drive.
+Read [the recovery handoff](wsl-recovery-2026-11-10.md) before resuming; restore
+an isolated persistent checkout and rerun the final validation. Old process
+handles/cleanup receipts below are historical. Source/preferences/data and
+the surviving staging index are preserved; no commit/push/merge or test rerun.
+
+Fixes implemented, final validation running, **2026-11-10**: continue in
+`/tmp/liuxin-databases-typing` on `database-driver-plugins-review-2026-11-05`.
+Read its `working-memory/database-driver-plugins-sixth-fixes-2026-11-10.md`.
+DDP23/DDP24 fixes and the expanded 959-case manifest are implemented. Earlier
+943/945-case gates and broader integration passed. Private PG is still running
+for the final gate; the handoff records process handles and cleanup instructions.
+PR #156 published head remains `bab2b682`. No new commit/push/merge.
+Preserve this checkout's accumulated source/preferences/data.
+
+Reviewed again, **2026-11-10**: continue in `/tmp/liuxin-databases-typing`,
+branch `database-driver-plugins-review-2026-11-05`. PR #156 remains OPEN at
+`bab2b682` with all applicable CI green. Read that worktree's
+`working-memory/database-driver-plugins-sixth-review-2026-11-10.md` and matching
+`dev-docs/databases` review. Two new open findings: DDP23, embedded-NUL TEXT
+lost by SQLite rebuild and both SQLite SQL exports (high); DDP24, PostgreSQL
+Unicode identifier/dollar-tag tokenization rejecting valid SQL or rewriting
+literal text (medium). Focused existing regressions: 82 passed, no skips.
+Private PG16 is stopped and removed. Review/navigation/handoff docs only;
+no new production changes, commit, push or merge. Preserve this checkout's
+accumulated source/preferences/data and continue in the isolated worktree.
+
+Published, **2026-11-07**: [PR #156](https://github.com/ajCameron/LiuXin-alpha/pull/156)
+now includes commit `bab2b682cfa642fd3ecd431c1c395fbac0ecad00` on
+`database-driver-plugins-review-2026-11-05`, based on `database-review`.
+DDP20–DDP22 mitigations, regression coverage and review notes are committed/pushed;
+the PR description reflects the final changes and validation. All 808 required
+cases passed (839 selected tests); confidence 313 passed/3 skips; integration
+460 passed/29 backend skips; full quality/types, 121 doctests, 58 documentation/
+runner checks and the final 22 documentation checks pass. Fresh CI is running on
+this commit, with no failed check reported at publication; require it before merge.
+Private PG16 is removed. No merge performed. Continue in the clean isolated
+`/tmp/liuxin-databases-typing` worktree and read its
+`working-memory/database-driver-plugins-fifth-fixes-2026-11-06.md`.
+Preserve this checkout's accumulated source/preferences/data.
+
+Implemented and locally verified, **2026-11-06**: DDP20–DDP22 mitigations are
+staged in `/tmp/liuxin-databases-typing` on `database-driver-plugins-review-2026-11-05`.
+Read its `working-memory/database-driver-plugins-fifth-fixes-2026-11-06.md`.
+All 808 required cases passed (839 selected tests); confidence 313 passed/3 skips;
+integration 460 passed/29 backend skips; both type checkers/full quality,
+121 doctests and 58 documentation/runner checks pass. Private PG16 is removed.
+No new commit/push/merge: PR #156 still has published head 47e089d4.
+Preserve this checkout's accumulated source/preferences/data and continue in
+the isolated worktree. Fresh CI is required after publishing the new changes.
+
+Reviewed again, **2026-11-06**: continue in `/tmp/liuxin-databases-typing`,
+branch `database-driver-plugins-review-2026-11-05`, PR #156 head `47e089d4`.
+Read its `working-memory/database-driver-plugins-fifth-review-2026-11-06.md`
+and matching `dev-docs/databases` review. All applicable CI is green (8,799
+full-suite passes), but new probes show three open findings: completion parsing,
+SQLite WAL surviving rebuild replacement and qualified PostgreSQL JSON operators.
+DDP20/DDP21 are high priority; DDP22 is medium. Review documentation only, no new
+production fixes or publication. Private PG16 is stopped/removed.
+Preserve this checkout's accumulated source/preferences/data.
+
+Published follow-up fixes, **2026-11-06**: [PR #156](https://github.com/ajCameron/LiuXin-alpha/pull/156)
+now includes commit `47e089d4fd6179444d687922f7649ef1a7910a88` on
+`database-driver-plugins-review-2026-11-05`, based on `database-review`.
+DDP17–DDP19 and the missing optional-APSW guard are fixed. Continue in clean
+`/tmp/liuxin-databases-typing`; read its
+`working-memory/database-driver-plugins-fourth-fixes-2026-11-06.md`.
+All 652 required cases passed every phase (683 selected tests); confidence:
+313 passed, three environment/fixture skips. Full quality/types, 121 doctests and
+43 documentation/runner checks pass. Private PG16 is stopped/removed. Fresh CI
+has started; require it before merging. PR body updated through REST because the
+installed CLI's edit command uses a retired Projects endpoint. No merge performed.
+Preserve this checkout's accumulated source/preferences/data.
+
+Reviewed again, **2026-11-06**: continue in `/tmp/liuxin-databases-typing` on
+`database-driver-plugins-review-2026-11-05`, PR #156 head `11b6f320`. Its
+`working-memory/database-driver-plugins-fourth-review-2026-11-06.md` and matching
+`dev-docs/databases` review record three open findings: Unicode CTE partial-write
+durability, PostgreSQL typed-literal binding rejection, and a stale fixture failing
+confidence CI. Mandatory ratchet/typing checks pass; full CI was still running.
+Review-only changes; no new production fixes or push. Private PG16 is removed.
+Preserve this checkout's accumulated source/preferences/data.
+
+Published, **2026-11-06**: [PR #156](https://github.com/ajCameron/LiuXin-alpha/pull/156),
+commit `11b6f320301b2a8f4631dfb9659c70cc50cf6e38`, from
+`database-driver-plugins-review-2026-11-05` into `database-review`. All six new
+findings repaired, alongside the earlier ten repairs/retirements. Final mandatory
+gate: 548 passed, zero skips/xfails; integration: 495 passed, 13 skips, 2 xfail.
+Typing/quality, 121 doctests and 22 documentation checks pass. CI was still running
+when the PR was verified; no failed check was reported. The private PG16 cluster
+is removed and `/tmp/liuxin-databases-typing` is clean. Read its
+`working-memory/database-driver-plugins-third-fixes-2026-11-06.md` for details.
+The implementation/regression/PR goal is complete. Preserve this checkout's
+accumulated source/preferences/data; it has not been switched or reset.
+
+Reviewed again, **2026-11-06**: continue in `/tmp/liuxin-databases-typing`, branch
+`database-driver-plugins-review-2026-11-05`. Read its
+`working-memory/database-driver-plugins-third-review-2026-11-06.md` and matching
+`dev-docs/databases` review. Six findings remain; CTE batch atomicity and PostgreSQL
+BYTEA round trips have reproduced durable-data consequences. Existing 400 required
+cases pass. Review-only changes this turn; private PG16 is removed. Preserve this
+checkout's accumulated work, preferences and data.
+
+Completed locally, **2026-11-05**: continue in `/tmp/liuxin-databases-typing`,
+branch `database-driver-plugins-review-2026-11-05`. Read its
+`working-memory/database-driver-plugins-follow-up-review-2026-11-05.md`.
+All four additional findings repaired/retired; 400 mandatory cases pass without
+skips/xfails, plus affected integration, 121 doctest examples and full quality.
+Private PG16 is stopped/removed. Changes remain uncommitted. Preserve this
+checkout's accumulated work, preferences and data.
+
+Completed locally, **2026-11-05**: all six driver-plugin findings are fixed in
+`/tmp/liuxin-databases-typing` on `database-driver-plugins-review-2026-11-05`, based
+on merged PR #155 (`07fc3326`). Read its
+`working-memory/database-driver-plugins-review-2026-11-05.md` and the corresponding
+`dev-docs/databases` review. The final 350-case mandatory gate passes without skips;
+integration passed 1,275 cases (37 backend/platform/fixture skips); 121 doctest
+examples and every quality gate pass. The private PostgreSQL cluster is removed.
+Changes are staged but uncommitted. Continue there and preserve this checkout’s
+accumulated work, preferences and data.
+
+Published, **2026-11-05**: typing findings are patched/mitigated and protected by
+an enforced 240-case database regression ratchet in PR #155, commit `4b8a36dc`.
+Continue in `/tmp/liuxin-databases-typing` on `databases-full-typing`; its
+`working-memory/database-regression-ratchet-2026-11-05.md` records the changes,
+compatibility limits and verification. All 240 required cases, 87 final tooling
+checks and fresh-environment type checks pass. An integration selection had 292
+passes; its staging-related doc-link failure was corrected and rerun. The private
+PostgreSQL instance is stopped/removed. The original checkout's implementation,
+preferences and data are preserved. No merge was requested or performed.
+
+
+Completed, **2026-11-04**: full database typing is on `databases-full-typing`
+in `/tmp/liuxin-databases-typing` (the former PR checkout moved there).
+It was fast-forwarded to merged integration head `d8d52587`. All 225 database
+modules now have complete signatures; both checkers and all quality gates pass.
+The broad database run had 2,577 passes, with all three reported issues resolved
+and rerun in a 191-pass final lane. Live PostgreSQL and native doctests also pass.
+Read that checkout's `working-memory/databases-typing-2026-11-04.md` for evidence
+and validation limits. Published as regular [PR #155](https://github.com/ajCameron/LiuXin-alpha/pull/155),
+targeting `database-review`, at commit `01d5cf7c`. The branch is pushed, tracks
+origin and its dedicated worktree is clean. CI is running; no merge was requested
+or performed. Continue there; do not recommit the original checkout's already
+published changes. The original implementation/preferences/data remain preserved.
+
+Published, **2026-11-04**: [PR #154](https://github.com/ajCameron/LiuXin-alpha/pull/154)
+includes the maintenance overhaul and driver-wrapper review/upgrades in two commits.
+See the [delivery handoff](review-upgrade-pr-2026-11-04.md). Branch:
+`maintenance-driver-wrapper-upgrades`, based on PR #153. Continue in
+`/tmp/liuxin-driver-wrapper-pr`; that checkout is clean and pushed. The original
+`maintenance-plugin-modes` checkout retains its already-published implementation
+changes, local preferences and dirty data submodule. Do not recommit those changes
+as new work. Final combined checks: 371 passed, 13 backend skips; 44 docs/tooling
+checks and all quality gates pass. Private PostgreSQL is stopped/removed; CI was
+queued at handoff. No merge requested or performed. This supersedes the
+uncommitted-delivery instructions in the historical entries below.
+
+Completed, **2026-11-04**: [driver-wrapper features](driver-wrapper-features-2026-11-04.md).
+Native schema facts, explicit read ownership, resumable bounded scans, backend
+capabilities and optional query observations are implemented, alongside view-row
+cleanup and hierarchy cycle detection. Final checks passed 138 focused, 230
+integration, 49 live PostgreSQL and six final PG cases; selections overlap.
+All quality gates pass, including both 47-invalid-call probes and unchanged
+import budgets. Guide links and protected preferences check out. The private
+server is stopped/removed. Changes remain uncommitted on `maintenance-plugin-modes`;
+the handoff identifies new files and remaining compatibility/operational work.
+
+Completed, **2026-11-04**: [driver-wrapper follow-up and typing](driver-wrapper-followup-2026-11-04.md).
+Five reproduced faults are fixed: WEMI custom-column attachment preservation,
+transactional edits/deletion, view inspection resources, schema-version cache
+invalidation and declared-type discovery. The whole wrapper/API now participate
+in both type checkers, with portable query protocols and accurate missing-row
+results. Final checks passed 119 boundary/tooling, 137 integration (three skips,
+four existing xfails), 25 live PostgreSQL and six API cases; selections overlap.
+All quality gates and both 44-invalid-call probes pass. The private server is
+removed, 105 guide links resolve and preference hashes are unchanged. Changes
+remain uncommitted on `maintenance-plugin-modes`; preserve all unrelated work.
+
+Completed, **2026-11-04**: driver-wrapper review fixes. Schema reads and refresh
+preserve primary transactions/TEMP objects, including probe failure; targeted
+column updates preserve concurrent unrelated edits. Custom-column definitions
+and SQLite DDL commit/roll back together in an owned outermost unit. Folder
+parent discovery follows the backend; table-spec iteration excludes views when
+requested. The wrapper API and schema API base now contain abstract declarations
+only, with a regression guarding every method body. See
+[DB08](../dev-docs/databases/next_tasks.md#db08-correct-driver-wrapper-boundaries-and-keep-its-api-declarative)
+and [transaction ownership](../dev-docs/databases/transactions.md).
+
+Validation: final boundary **73 passed**; cache/custom-column/maintenance
+integration **94 passed, nine PG skips**; live PG wrapper **nine passed**; final
+API checks **nine passed**. Selections overlap. The earlier broad lane had 274
+passes/four existing xfails and one API annotation mismatch, subsequently fixed
+and retested. The original PG lane had 21 passes/two new test-assumption failures,
+both corrected and covered by the final nine passes. All quality gates pass and
+94 edited-guide links resolve. No full-repo invocation claimed. Logs/telemetry
+are `/tmp/liuxin-wrapper-fixes-*`. The private PG cluster is stopped and removed;
+three preference hashes match the previous snapshot. Changes remain uncommitted
+on `maintenance-plugin-modes`; preserve existing maintenance work, preferences,
+user TODOs and the dirty data submodule. New wrapper regression files are
+untracked, ready to include with the eventual commit. PostgreSQL compatibility
+custom-column DDL remains unsupported; its failed creation now leaves no orphan
+definition. The monitored SquashFS import awaits physical server access Friday.
+
+Completed, **2026-11-03**: latest maintenance review fixes and signoff. Retry/pause
+controls, real lazy priority and bounded job-history retirement are implemented.
+The affected SQLite/APSW/live PostgreSQL matrix passed 637 checks (28 backend
+skips); final claim checks passed 29, documentation links 16, and all quality
+gates pass. The private PG cluster is removed; preference hashes are unchanged.
+Changes remain uncommitted. See
+[the current handoff](maintenance-signoff-2026-11-03.md).
+
+Completed, **2026-11-03**: maintenance malformed/failing-plugin validation.
+The full run finished with 9,757 passes, 403 skips, 21 xfails and three failures;
+all three were fixed and covered by the final 83-pass/four-skip SQLite/APSW/live PG
+regression run. Fixes cover strict synchronous callback declarations/results,
+safe failure diagnostics, continued polling, macro API signatures and immediate
+retry eligibility after backward wall-clock steps. Type checkers/contracts,
+264-file formatting, architecture and relevant lint checks pass. No OOM kills;
+the private PG cluster is stopped/removed and preference hashes are unchanged.
+See the [handoff](maintenance-adversarial-2026-11-03.md) and
+[validation evidence](../dev-docs/databases/maintenance-adversarial-validation-2026-11-03.md).
+The full invocation was not repeated after its focused fixes. Preserve all
+uncommitted work on `maintenance-plugin-modes`, data-submodule changes and TODOs.
+
+Completed, **2026-11-03**: all four maintenance follow-ups. Resumable Work rebuilds,
+explicit plugin upgrades, measured delivery improvements and Catalog-owned merge,
+inherited tags and selected cleanup are implemented and locally verified. The
+2,200-Work SQLite and 660-Work PostgreSQL soaks verified every projection and
+drained/pruned their journals. Broad maintenance checks passed 324 tests (28
+backend skips), publication passed 162 (28 skips), and final snapshot/docs checks
+passed nine and 43 respectively; selections overlap. All 258 formatting checks
+and architectural gates passed. The private PostgreSQL cluster is stopped and
+removed. See the [completion handoff](maintenance-completion-2026-11-02.md) and
+[evidence](../dev-docs/databases/maintenance-completion-plan-2026-11-02.md).
+Next: monitored real-file ingest, Catalog scalar-write profiling and explicit
+jobs/audit retention policies. Changes remain uncommitted on
+`maintenance-plugin-modes`; preserve the dirty data submodule, preferences and TODOs.
+
+Capability restored, **2026-11-02**: Agent rename and bounded sort-name repair
+now use Catalog's current WEMI rows, with Core/CLI previews and atomic apply.
+Manual sorts are preserved by default; explicit regeneration/override and person
+copy/comma/nocomma policies are supported. PostgreSQL row locks protect concurrent
+overrides, and required prompt failures roll the operation back. Validation:
+**88 passed, two backend-specific skips**, **23 documentation passes**, quality
+gates and a real installed-CLI persistence smoke. The private PG test instance
+is stopped/removed. See the [capability decision](../dev-docs/databases/legacy-maintenance-retirement-2026-11-02.md#2-creator-sorting-and-rename-maintenance)
+and [handoff](maintenance-implementation-2026-11-01.md). Changes remain uncommitted
+on `maintenance-plugin-modes`; preserve the existing dirty data submodule and TODOs.
+
+Maintenance review validated, **2026-11-02**: six reproduced failure groups fixed
+after the legacy retirement. Prompt drains now roll back caught failures;
+SQLite implicit-commit settings honor completion; PostgreSQL capture rejects
+TRUNCATE; same-runtime lock ordering is consistent; stale jobs cannot alter a
+successor's effects/retry state; old interlink UDF handles follow the active
+maintainer. The final matrix passed **277 tests with 28 backend-specific skips**,
+including live PostgreSQL, real process termination, SQLite/APSW production
+writers and Core/CLI/jobs. Another **28 documentation checks** and all selected
+quality gates passed. See the [review checkpoint](../dev-docs/databases/maintenance-modes.md#review-checkpoint--2026-11-02)
+and [handoff](maintenance-implementation-2026-11-01.md). Still uncommitted on
+`maintenance-plugin-modes`; preserve the dirty data submodule and user TODOs.
+
+Completed retirement, **2026-11-02**: removed `databases.maintenance.legacy`,
+obsolete creator plugins, title-aggregate driver/UDF hooks and their preference.
+Catalog now owns bounded, scoped, read-only duplicate inspection. The
+[capability inventory](../dev-docs/databases/legacy-maintenance-retirement-2026-11-02.md)
+records removed behavior and requirements for future replacements. Projection SQL
+now lives under databases; Catalog retains policy. Final checks: 39 functional
+passes (one PG skip), four real-writer passes (two PG skips), and 33 docs/CLI
+passes; selections overlap. Formatting, lint, import/layer boundaries and man
+rendering pass. See the [implementation handoff](maintenance-implementation-2026-11-01.md)
+for logs. Still uncommitted on `maintenance-plugin-modes`; preserve the pre-existing
+dirty data submodule and user maintenance TODO comments.
+
+Completed implementation, **2026-11-01**:
+[prompt/lazy maintenance](maintenance-implementation-2026-11-01.md) delivers
+transaction-bound prompt effects, durable lazy obligations and jobs recovery,
+Catalog Work revision/summary consumers, and explicit installation/drain/retry
+controls. It supersedes the [declaration-only sketch](maintenance-plugin-modes-2026-11-01.md).
+The broad regression matrix passed 219 tests (one backend-specific skip and two
+existing expected failures); final boundary checks passed 103 tests. Real Core
+polling and PostgreSQL delivery, documentation, formatting, lint and import/layer
+checks also pass. The isolated PG server is stopped and removed; logs remain in
+/tmp. Work remains uncommitted on `maintenance-plugin-modes`. Preserve the user's
+builtin/dummy maintenance comments and dirty data submodule. No PR was requested
+for this task.
+
+Active work, **2026-11-01**: [database batch overheads](database-batch-overheads-2026-11-01.md)
+retains opt-in SQLite progress hooks with no default handler and resolves
+normalization metadata once per batch on `database-batch-overheads`. Broader
+regressions (176), live PostgreSQL (seven), and full local quality gates pass.
+All 12 benchmark scenarios preserve results; batch inserts use two connections
+and take 67.7 ms locally. Final progress/docs/hygiene (17) and link (16) checks pass.
+The follow-up PR for this branch tracks its CI separately from the parent.
+Preserve the dirty data submodule and the user's `maintenance/builtin_plugins.py`
+comments. Parent PR #152's final full suite passed (8,065 tests; no telemetry OOM).
+
+Completed delivery, **2026-10-31**: [database review validation](database-validation-2026-10-31.md)
+packages the Catalog/database ownership and SQL-efficiency work on
+`database-review`, with live PostgreSQL checks, full-suite telemetry and catalogue
+benchmarks in [PR #152](https://github.com/ajCameron/LiuXin-alpha/pull/152).
+Live PostgreSQL checks and the 50,000-Work benchmark pass; a measured title-plan
+regression is fixed. Full-suite CI and final quality outcomes are tracked on the PR.
+Quality lanes now pass, including Core recovery ownership and type documentation.
+The completed full run exposed raw fixture connection setup and stale fault
+injection; corrections cover shared index functions, batched reads and optional
+APSW coverage. CI telemetry recorded a 1.06 GiB process-tree peak and no OOM kills.
+All 68 corrected regression cases pass locally, with two Windows-only skips;
+the final-head full suite subsequently passed all gates at `8203b737`
+(8,065 passed, 363 skipped, 17 xfailed; run `41195661329`).
+The dirty data submodule remains outside this delivery.
+
+Active work, **2026-10-20**: [Composite ownership](storage-composite-owner-2026-10-20.md)
+continues A10 on `storage-owned-composite-mutations`, based on policy PR #143
+at `527301bf`. Composite CRUD now delegates to storage and raw member writes are
+refused. All 90 combined regression cases, 38 final creation/documentation/tooling
+checks and all quality gates pass (overlapping selections). The discovered SQLite repeated-member constraint requires
+a separate schema repair. Audit/policy CI corrections are pushed; the full
+programme remains open and unrelated staged storage work is preserved.
+
+Active work, **2026-10-20**: [policy-definition ownership](storage-policy-owner-2026-10-20.md)
+continues A10 on `storage-owned-policy-mutations`, based on published audit PR #142
+(`8e57d575`). Fourteen reproduced failures are corrected; initial regressions
+passed 41 tests; 32 final contract cases, 36 docs/tooling checks and all quality gates passed. The full programme remains
+open and main's unrelated staged storage edits are preserved.
+
+Active work, **2026-10-20**: [durable Core audit](core-durable-audit-2026-10-20.md) passed 91 final regression checks, 70 compatibility checks and full quality gates on `core-durable-storage-audit`, based on published storage-ownership PR #141 (`7f67a4d1`). PRs #139 and #140 have green full suites. The full A01–A16 programme remains open; preserve the six unrelated staged storage edits.
+
+Active implementation checkpoint, **2026-10-20**:
+[storage record ownership](storage-record-owner-2026-10-20.md) implements A10's
+first admin/scanner family as a prerequisite for the durable Core audit.
+Branch `storage-owned-record-mutations` is based on PR #140 (`5cbd7a6b`).
+The full programme remains open; main's unrelated staged storage work is preserved.
+
+Active implementation checkpoint, **2026-10-20**:
+[durable submissions](durable-job-submissions-2026-10-20.md) continues A09 on
+`durable-job-submissions`, based on lease PR #139 at `ac3a6728`.
+Atomic delivery identity and explicit retry ancestry are implemented for review.
+Production Core workflow integration and the full A01–A16 programme remain open.
+The six unrelated staged storage files and dirty data submodule are preserved.
+No PR has been merged.
+
+Active implementation checkpoint, **2026-10-20**:
+[durable job leases](durable-job-leases-2026-10-20.md) continues A09 on
+`durable-job-leases`, based on JOB01 PR #138 at `1e98ecf5`. Claim fencing,
+atomic transitions/events and explicit interruption pass all 32 durable-job
+cases. Final regressions passed 154 tests; the complete quality gates passed.
+Production workflow integration, submission
+identity and retry ancestry remain open; the full A01–A16 programme is unfinished.
+Unrelated staged storage work is preserved and no PR has been merged.
+
+Active implementation checkpoint, **2026-10-20**:
+[job wait dispatch](job-wait-dispatch-2026-10-20.md) continues JOB01/A09 on
+`core-job-wait-dispatch`, based on rating PR #137 at `875065b7`. All 16 new
+dispatch cases pass after nine reproduced failures on the parent. Broader
+regressions passed 234 tests; final checks passed 86 tests; full quality gates
+passed (overlapping selections). The focused PR targets `catalog-rating-validation`;
+`gh pr view core-job-wait-dispatch` reports its current review/CI status. A09's
+durable workflow integration and the full A01–A16 programme remain open.
+No PR has been merged; the six unrelated staged storage edits are preserved.
+
+Parent PR #137 full CI is green at `875065b7`: 7,525 passed, 289 skipped,
+17 xfailed. JOB01 PR #138 is also fully green: 7,540 passed, 290 skipped,
+17 xfailed (run `39486510953`).
+
+Active implementation checkpoint, **2026-10-20**:
+[rating validation](rating-validation-2026-10-20.md) continues A08 on
+`catalog-rating-validation`, based on PostgreSQL prerequisite PR #136 (`ce43fccd`).
+Its shared value rules and metadata-import transaction pass 29 pure cases, all
+26 supported integration cases and the two existing aggregate cases. Broader
+caller checks passed 175 tests; final import/docs/boundary checks passed 47 tests;
+all quality gates passed. Counts overlap. Published as PR #137; its CI exposed
+existing-driver bootstrap ordering, now fixed with all 56 lifecycle tests passing.
+The confidence rerun passed 304 tests with three skips. A09 job dispatch follows.
+The prerequisite's [handoff](postgres-discovery-2026-10-20.md) records native
+identifier discovery and cache index ownership: 81 checks, 21 final controls/docs
+checks, and full quality passed. PR #136 full CI is green.
+The six unrelated staged storage files remain preserved. The full A01–A16
+programme is open; no PR has been merged.
+
+Latest implementation checkpoint, **2026-10-20**:
+[WEMI selection](wemi-selection-2026-10-20.md) implements A07 on
+`catalog-wemi-selection`, based on A06 PR #134 (`13d6e5aa`). Catalog bundles now
+match SQL complete-ray ranking and retain partial paths explicitly. Exact worked
+examples and the separate hydration relation contract pass 22 final parity tests;
+55 documentation checks and the complete quality runner also pass. Publication
+is complete as [PR #135](https://github.com/ajCameron/LiuXin-alpha/pull/135).
+Its full CI is green: 7,487 passed, 269 skipped, 17 xfailed. A08 follows.
+The full A01–A16 programme remains open; unrelated staged storage edits are preserved.
+
+Latest implementation checkpoint, **2026-10-20**:
+[transport permissions](transport-permissions-2026-10-20.md) implements A06 on
+`core-transport-permissions`, based on A05 `47c5c0d3`. Server-owned authority,
+authentication and restricted read-only clients pass 67 final checks and all
+quality gates, including both 38-example negative type contracts. Published as
+[PR #134](https://github.com/ajCameron/LiuXin-alpha/pull/134); a CI boundary correction
+centralizes deployment roles in Core (41 checks and the quality runner passed).
+Its full CI is green: 7,476 passed, 269 skipped, 17 xfailed. A07 follows. The full
+A01–A16 programme remains open; no PR has been merged.
+
+Latest implementation checkpoint, **2026-10-20**:
+[deletion policy](deletion-policy-2026-10-20.md) implements A05 on
+`storage-deletion-policy`, based on `e9efedc4`. Both manager deletion routes share
+policy, durable reservations and recovery evidence. The final isolated selection
+passed 110 tests with live PostgreSQL, SQLite, Core and CLI; full quality gates
+passed. Published as PR #133, now `47c5c0d3` after Library/SquashFS CI corrections
+(10 and 18 passing targeted checks). Its full PR CI is green: 7,438 passed, 269 skipped, 17 xfailed. The full A01–A16 programme remains open.
+
+[A04 transaction ownership](transaction-ownership-2026-10-20.md), PR #132, is green
+on `e9efedc4`: full CI passed 7,403 tests, 259 skipped, 17 xfailed. A15 PR #131 is
+also green on `a0e4d2ed`: 7,388 passed, 249 skipped, 17 xfailed. Neither is merged.
+The six unrelated staged storage files and dirty data submodule remain preserved.
+
+Earlier implementation checkpoint, **2026-10-20**:
+[CI baseline repair](ci-baseline-repair-2026-10-20.md) continues the full A01–A16
+programme under A15 on `ci-baseline-repair`. It repairs the shared forty-failure
+groups, removes about 98 MiB of generated benchmark scratch, adds CI telemetry
+and validates the clean quality/installed-wheel gates. Focused evidence and its
+limits are recorded in the handoff; the full suite is pending. Next runtime work
+is A04. Unrelated staged storage edits and the data submodule remain preserved.
+
+Earlier implementation checkpoint, **2026-10-20**:
+[database creation safety](database-create-safety-2026-10-20.md) continues the
+user-authorized full A01–A16 programme on `database-create-safety`. A03 adds
+create-only file publication, explicit backed-up offline replacement and
+PostgreSQL empty-schema enforcement. Full quality gates, 105 initial regressions,
+123 isolated checks, the final 60-test follow-up and nine live PostgreSQL checks
+passed. The note records the shared 40-failure CI baseline on #128/#129 and the
+preserved unrelated edits. Repair that baseline under A15 before continuing A04.
+
+Earlier implementation checkpoint, **2026-10-20**:
+[Store read-only intent](store-read-only-intent-2026-10-20.md) implements A02/STOR02
+on `store-read-only-intent`, based on `75b266ed`. The four affected local builders
+preserve read-only policy through drivers and catalogue reopen/reload. SQLite
+opens existing schema without initialization writes and closes each connection.
+All 139 targeted runtime checks passed. The final run also passed all 24 new
+regressions with Asset/Replica assertions and 22 documentation checks.
+The focused PR depends on backup PR #128 while it remains open. Next is A03,
+nondestructive database creation. Unrelated staged edits and the data submodule
+remain separate.
+
+Earlier implementation checkpoint, **2026-10-20**:
+[backup staging ownership](backup-staging-ownership-2026-10-20.md) implements
+A01/STOR01 on `backup-staging-ownership`, based on `a5406cf8`. Backup runs now own
+private workspaces, preserve their ownership through checkpoints, and retain
+borrowed legacy staging. All 60 backup/builder/workflow checks passed, including
+real SquashFS readback. The focused PR depends on documentation PR #127 while it
+remains open. Unrelated staged storage edits and the data submodule are preserved.
+
+Earlier documentation checkpoint:
+
+Latest checkpoint, **2026-10-20**: the
+[subsystem documentation review](documentation-subsystems-2026-10-20.md) continues
+the top-level and architecture passes on `docs-ownership-contracts` at `fc5de7af`.
+All seventeen developer-documentation folders now have indexes and `next_tasks.md`;
+jobs, ingest and caches have dedicated documentation homes. The field guide matches
+all 67 explicit generated SQLite tables. Thirty focused checks passed, including
+the tracked-content link check after staging. The review belongs to
+[PR #127](https://github.com/ajCameron/LiuXin-alpha/pull/127); runtime safety findings
+remain implementation work. Unrelated staged source edits and the dirty data
+submodule remain separate. The previous PR head had CI failures; the new head
+needs its own CI result.
+
+Earlier checkpoint on the same branch:
+
+Current branch: **docs-ownership-contracts**, based on `15080c6e` after PR #126
+merged into `configuration-ownership`. The
+[ownership documentation pass](documentation-ownership-contracts-2026-10-19.md)
+reconciles guide 04, Catalog API/cache/write contracts and migration status with
+source. It records current work separately from historical findings and leaves
+jobs/ingest/registry consolidation explicit. The user-requested schema follow-up
+rewrites guide 03 against a fresh generated database, marks older linked models,
+updates normalized profiles and fixes one missed test/documentation path. All 42
+schema/documentation checks pass after that correction; the earlier 25-check
+ownership pass also passed. The follow-up adds seven worked WEMI/link examples,
+verified against a fresh schema and real Catalog calls, with 22 documentation
+checks passing. It documents the existing SQL-view/bundle default-selection
+difference and corrects the claimed unique upward Item path. The latest examples
+show a novel with a separately authored introduction and an omnibus sharing
+Manifestations across distinct Works; all seven scenarios and 22 documentation
+checks pass. The next slice rewrites guide 05 and the Calibre mapping/policy guides,
+separating current readers/projections from the proposed canonical importer and
+distinguishing source, ray and web Work IDs. Both guide snippets and all 45 focused
+checks pass; guide 06's mixed storage models are next. The user approved publishing
+this documentation review, with six unrelated storage edits preserved separately.
+
+Previous branch: **rename-plugins-package**, based on merge `a5f77cfd`.
+The [package rename](plugins-package-rename-2026-10-19.md) makes `plugins` the sole
+owner, migrating source, tests, documentation, quality scopes and distribution
+checks. Both `customize` and `plugin_system` are retired namespaces; persisted
+plugin settings keep their existing names. The main checkout contains the change,
+with the six unrelated storage edits excluded from the rename commit.
+All 328 focused regressions, complete quality gates and the installed-wheel gate
+pass. The handoff records an existing mismatch in the additional legacy wheel
+checker, reproduced against the previous artifact.
+
+Previous workspace synchronization: **plugin-system-workspace**, based on merge `a5f77cfd`.
+The [workspace synchronization](workspace-plugin-sync-2026-10-19.md) brings the
+merged plugin retirement and documentation into the main checkout. `customize`
+is absent from source and tests, including stale bytecode. The latest guide 02
+edit is present here; six unrelated local storage edits are preserved unchanged.
+The original index/worktree are retained in a recovery stash. Continue work in
+this checkout rather than leaving its source behind the isolated review worktree.
+All 57 focused plugin/runtime/documentation tests, the dependency check and 25
+cold-import budgets pass from the main checkout.
+
+Previous plugin review branch: **plugin-composition-ownership**, completing
+[PR #125](https://github.com/ajCameron/LiuXin-alpha/pull/125). The user's follow-up
+[consolidates both plugin packages](plugin-package-merge-2026-10-19.md) under
+`plugin_system` and removes `customize` and its forwarding shims entirely.
+Internal layer/cold-import rules preserve standalone formats and neutral loading;
+repository callers and installed-wheel checks use the new namespace. The 319-test
+regression run, 35 follow-up tests, full quality gates and installed wheel verifier
+pass. External plugins must migrate old imports using the documented table.
+The documentation follow-up moves the canonical composition/migration guide to
+`dev-docs/plugin_system/`, adds a subsystem index, updates incoming links and
+source signposts, and separates current enforcement from historical measurements.
+See the [merger note](plugin-package-merge-2026-10-19.md#documentation-follow-up).
+
+Earlier startup checkpoint (namespace decision superseded above): following documentation commit
+`7d854316`. The [plugin ownership follow-up](plugin-composition-ownership-2026-10-19.md)
+makes application startup explicit, shares file membership/loading/priority policy,
+and leaves `customize.ui` as a passive compatibility export. Production callers
+name the actual owners, and cold-import/dependency gates enforce the split.
+Documentation is published as [PR #124](https://github.com/ajCameron/LiuXin-alpha/pull/124).
+Targeted regression/follow-up tests and all quality gates pass. The main checkout's
+staging and unrelated edits remain untouched.
+
+Previous documentation branch: **architecture-review-followup**, based on `ce239fd4` from
+`configuration-ownership`. The [navigation migration](documentation-navigation-2026-10-19.md)
+now reconciles the working checkout's folder moves with the newer guides on this
+branch. The [developer index](../dev-docs/README.md) reaches all 126 developer
+Markdown documents through task routes and subsystem indexes. Eighty-one moves,
+twelve new indexes, portable evidence references and packaging/test/source path
+consumers are integrated. All 54 focused documentation/deployment/CI-contract tests
+pass, the complete quality runner passes, and an export of staged documentation
+and referenced targets validates without ignored local evidence. The main working
+checkout's staging and unrelated edits remain untouched;
+the integrated result lives in the isolated review worktree.
+
+Earlier documentation checkpoint on this branch: the
+[top-level structure guide](<../dev-docs/02 - Top Level Structure.md>) was rewritten
+on 2026-10-19 as a current overview: package ownership, a relationship diagram,
+owned versus borrowed resources, configuration, writes/reads, ingest/jobs and
+plugin composition. A follow-up replaces the dense package table with a short
+linked summary and a dedicated section for each of the 17 top-level packages,
+including separate utils/constants/resources/startup sections. The obsolete Catalog
+proposal, speculative APIs and starter migration plan were removed. The user's
+surface/lifecycle additions are retained
+with the ownership limits made explicit. Both checkouts have the same guide content;
+reference-link destinations match their different documentation layouts. All 53
+local link occurrences resolve in each tree, including 20 checked heading links;
+all 25 existing documentation checks pass in the isolated checkout.
+Main-checkout changes in this step are limited to
+the requested guide. Evidence is local-only under
+`working-memory/test-results/top-level-structure-20261019/` and the follow-up
+`working-memory/test-results/top-level-modules-20261019/`.
+
+The new
+[documentation and project structural review](../dev-docs/architectural_reviews/documentation-structural-review-2026-10-18.md)
+covers both the pending documentation layout and current package architecture.
+It recommends preserving subsystem grouping, completing the existing path migration,
+and separating current contracts from decisions and history. The dated audit found
+47 missing local links, 86 links to locally available untracked evidence, and old
+path consumers in packaging, tests and source. The full report is also copied into
+the main checkout's requested `dev-docs/architectural_reviews/` folder; no existing
+user files or moves were changed. All 25 documentation tests pass in this isolated
+checkout, and the report's five links resolve in both trees. Next: reconcile newer
+contracts with pending moves, then complete and validate that path migration.
+
+The [September architecture review](../dev-docs/architectural_reviews/architecture-review-2026-09-26.md)
+now has dated status/evidence/remaining-work notes for all 68 findings, a concrete
+commit trail, current priorities and freshly checked graph/artifact/protection
+facts. All 25 existing documentation checks pass; all 53 review links resolve.
+This is a documentation-only branch. #122/#123 remain open; implemented work is
+explicitly distinguished from main. Work uses the isolated checkout so the main
+checkout's pending documentation moves and user edits remain intact.
+
+Previous branch: **configuration-ownership**, ready
+[PR #123](https://github.com/ajCameron/LiuXin-alpha/pull/123), based on #122.
+Core now owns profile selection and composes a single application preference store;
+profile paths and settings reach database bootstrap, dispatch and managed workers.
+See [configuration ownership](configuration-ownership-2026-10-18.md) for details,
+validation and the remaining jobs/ingest/registry work. Latest targeted outcomes
+cover 943 passing cases; project quality gates pass. Serial telemetry retained at
+least 14.87 GiB of C: headroom with no swap use or OOM kills.
+
+[Integration PR #122](https://github.com/ajCameron/LiuXin-alpha/pull/122) brings the
+reviewed #119–#121 work into main: those PRs were merged into intermediate branches
+after #118 had already reached main. The configuration PR is stacked on #122.
+The stale storage-facade CI guard is fixed; integration checks and its architecture
+CI jobs pass. Its full suite has 40 failures: 30 CI dependency/setup failures and
+the ten previously recorded lazy-export/image-backend cases; see the handoff.
+
+Previous branch: **catalog-read-model-consolidation**, merged PR #121.
+Its latest outcomes cover 331 distinct passing cases; project quality gates pass.
+See [catalogue read ownership](catalogue-read-ownership-2026-10-18.md).
+
+Previous branch: **ownership-consolidation**, merged PR #120,
+a focused writes/normalisation follow-up to #119. Its focused runs now have 236 distinct passing cases, including 66
+write-boundary cases across SQLite, APSW and live PostgreSQL; all 18 previous
+write/normalisation failures are green. See
+[ownership consolidation](ownership-consolidation-2026-10-18.md) for the ownership
+map, validation and remaining work. The user selected
+separate PRs for these ownership areas. Jobs, ingest and registry ownership remain
+after configuration. The user regards WSL as healthy after freeing storage.
+
+Previous diagnostic branch: **test-vm-telemetry**, merged PR #119 (based on #118).
+See [test VM telemetry](test-vm-telemetry-2026-10-17.md) for the isolated branch,
+crash investigation evidence and opt-in durable test/resource logs. All collected
+cases are covered across two serial segments: 8,196 passed, 29 failed, 87 skipped,
+23 xfailed. The VM stayed up; a telemetry/mock collision was fixed before resuming.
+The connection cleanup follow-up now closes auxiliary driver handles: 80 lifecycle
+checks passed (two Windows-only skips), and a 14-test probe reduced deleted-open
+database storage from 54.7 MiB to zero at every test boundary.
+An exact rerun on 2026-10-18 reproduced all 29 previous failures, including the
+six database locks, with zero deleted-open files between tests and stable host
+resources. The current focused PR addresses that transaction-ownership finding.
+
+Current checkpoint: **Legacy review fixes and regression coverage**. See
+[legacy fixes](legacy-review-fixes-2026-10-17.md) for the six findings,
+retired Library facades, migrated callers and validation. The earlier
+[unreachable-code review](unreachable-code-review-2026-10-16.md) records the
+preceding dispatch fixes and dead-source cleanup.
+
+Previous checkpoint: **Catalog audit checkpoint for moving off unstable WSL**.
+Branch `catalog-write-consolidation` includes the earlier green commits and the
+latest audit fixes. The original relocation checkpoint lacked live PostgreSQL
+verification; the current ownership follow-up now verifies the public write
+boundaries on a disposable cluster. See
+[historical notes](catalog-write-consolidation-2026-10-15.md) for that handoff.
+
+The previous file-format containment lane is complete. Its
+[checkpoint](file-formats-containment-2026-10-13.md) records 2,597 passing
+regressions, clean quality checks and remaining metadata/application debt.
+
+The documentation inventory campaign completed on 2026-10-05: 1,372 units,
+2,671 files and 42,166 declarations were verified, with no partial files.
+Its [final checkpoint](project-docstrings-l001-l037-2026-10-05.md) retains the
+historical verification and review-hash observations.
+
+Updated: 2026-10-19
+
+Start here for active handoff notes. This index should stay short.
+
+## Current Notes
+
+- [configuration-ownership-2026-10-18.md](configuration-ownership-2026-10-18.md)
+  Core selection, unified application settings, isolated paths/workers, literal
+  tweak inputs and the integration/configuration PR sequence.
+
+- [catalogue-read-ownership-2026-10-18.md](catalogue-read-ownership-2026-10-18.md)
+  Shared category sources/counts, bounded surface pages, error preservation and
+  direct/HTTP parity across SQLite and APSW.
+
+- [ownership-consolidation-2026-10-18.md](ownership-consolidation-2026-10-18.md)
+  Focused write/normalisation ownership fixes, real-backend rollback/identity
+  regressions and the remaining consolidation plan.
+
+- [test-vm-telemetry-2026-10-17.md](test-vm-telemetry-2026-10-17.md)
+  PR promotion, serial VM diagnostics, durable test phases and independent resource
+  sampling, immediate scratch cleanup, complete serial coverage across two segments,
+  telemetry mock isolation, the verified driver connection cleanup fix, and remaining
+  host-space leads.
+
+- [legacy-review-fixes-2026-10-17.md](legacy-review-fixes-2026-10-17.md)
+  Non-destructive metadata refresh, Python 3 custom values, typed cache projections,
+  retired Library facades, fixture migration and regression evidence.
+
+- [unreachable-code-review-2026-10-16.md](unreachable-code-review-2026-10-16.md)
+  Tag/custom-column dispatch fixes, dead-source cleanup, reachability disposition
+  and isolated validation.
+
+- [catalog-write-consolidation-2026-10-15.md](catalog-write-consolidation-2026-10-15.md)
+  Active consolidation of identity preparation, semantic row routing, container
+  transactions and Row adapters; implementation checkpoints and remaining audit.
+
+- [file-formats-containment-2026-10-13.md](file-formats-containment-2026-10-13.md)
+  Completed standalone file-plugin containment, compatibility guarantees, validation
+  and remaining metadata/application dependencies.
+
+- [layer-direction-ratchet-plan-2026-10-09.md](layer-direction-ratchet-plan-2026-10-09.md)
+  Architecture migration decisions and completed metadata/Catalog ownership
+  slices; file-format containment has its own newer checkpoint above.
+
+- [project-docstrings-l001-l037-2026-10-05.md](project-docstrings-l001-l037-2026-10-05.md)
+  Final retained fixture-database compatibility track: 318 declarations and 52
+  files. The project-wide documentation inventory is complete.
+
+- [project-docstrings-s001-s028-2026-10-05.md](project-docstrings-s001-s028-2026-10-05.md)
+  Project scripts and their regression contracts: 785 declarations and 51 files.
+  S is complete; L001 next.
+
+- [project-docstrings-a102-a128-2026-10-05.md](project-docstrings-a102-a128-2026-10-05.md)
+  Renderers, Tk GUI and application regressions: 672 declarations and 37 files.
+  A is complete; S001 next.
+
+- [project-docstrings-a082-a101-2026-10-05.md](project-docstrings-a082-a101-2026-10-05.md)
+  Library relation/cache tables and GUI compatibility: 450 declarations and 33
+  files. A102 next.
+
+- [project-docstrings-a061-a081-2026-10-05.md](project-docstrings-a061-a081-2026-10-05.md)
+  Library restore and cache fields/views/coordination: 583 declarations and 11
+  files. A082 next.
+
+- [project-docstrings-a041-a060-2026-10-05.md](project-docstrings-a041-a060-2026-10-05.md)
+  Managed jobs and library backup/comments/lazy/legacy/facade/metadata APIs:
+  535 declarations and 12 files. A061 next.
+
+- [project-docstrings-a021-a040-2026-10-05.md](project-docstrings-a021-a040-2026-10-05.md)
+  Customization UI/builtins/cache and managed jobs: 527 declarations and 22
+  files. A041 next.
+
+- [project-docstrings-a001-a020-2026-10-05.md](project-docstrings-a001-a020-2026-10-05.md)
+  Preferences, errors, constants and customization foundations: 480
+  declarations and 18 files. A021 next.
+
+- [project-docstrings-f341-f347-2026-10-05.md](project-docstrings-f341-f347-2026-10-05.md)
+  Final RTF/SNB/TCR/Textile/text regression helpers: 184 declarations and 12
+  files. F is complete; A001 next.
+
+- [project-docstrings-f321-f340-2026-10-05.md](project-docstrings-f321-f340-2026-10-05.md)
+  ODT through RTF regression helpers: 532 declarations and 43 files. F341 next.
+
+- [project-docstrings-f301-f320-2026-10-05.md](project-docstrings-f301-f320-2026-10-05.md)
+  DOCX through ODF regression helpers: 483 declarations and 38 files. F321 next.
+
+- [project-docstrings-f281-f300-2026-10-05.md](project-docstrings-f281-f300-2026-10-05.md)
+  Text conversion/transliteration and early file-format regression helpers:
+  412 declarations and 45 files. F301 next.
+
+- [project-docstrings-f261-f280-2026-10-05.md](project-docstrings-f261-f280-2026-10-05.md)
+  RTF-to-XML, SNB, TCR, Textile and plain-text processing: 523 declarations and
+  36 files. F281 next.
+
+- [project-docstrings-f241-f260-2026-10-05.md](project-docstrings-f241-f260-2026-10-05.md)
+  PDF serializer/TOC, PML, RocketBook, readability and RTF-to-XML: 499 new
+  declarations and 42 promoted files. F261 next.
+
+- [project-docstrings-f221-f240-2026-10-05.md](project-docstrings-f221-f240-2026-10-05.md)
+  OPF3, Palm database and PDF internals: 522 declarations across 36 complete
+  files and one partial file. F241 next.
+
+- [project-docstrings-f201-f220-2026-10-05.md](project-docstrings-f201-f220-2026-10-05.md)
+  OEB polish tests, transformations and OPF/OPF2 models: 600 declarations and
+  28 files. F221 next.
+
+- [project-docstrings-f181-f200-2026-10-05.md](project-docstrings-f181-f200-2026-10-05.md)
+  Complete OEB polish and validation stack: 603 declarations and 28 files.
+  F201 next.
+
+- [project-docstrings-f161-f180-2026-10-05.md](project-docstrings-f161-f180-2026-10-05.md)
+  ODF/ODT and foundational OEB: 442 declarations and 20 files. F181 next.
+
+- [project-docstrings-f141-f160-2026-10-05.md](project-docstrings-f141-f160-2026-10-05.md)
+  ODF XHTML/package/style/table/text: 587 declarations and 11 files. F161 next.
+
+- [project-docstrings-f121-f140-2026-10-05.md](project-docstrings-f121-f140-2026-10-05.md)
+  MOBI writing and ODF internals: 520 declarations and 35 files. F141 next.
+
+- [project-docstrings-f101-f120-2026-10-05.md](project-docstrings-f101-f120-2026-10-05.md)
+  Markdown extensions and MOBI debug/reader internals: 549 declarations and 40
+  complete files. All 110 regressions and full quality checks passed. F121 next.
+
+- [project-docstrings-f081-f100-2026-10-05.md](project-docstrings-f081-f100-2026-10-05.md)
+  PyLRS construction and retained Markdown parsing/serialization: 587
+  declarations and 15 complete files. All 33 regressions and full quality
+  checks passed. F101 next.
+
+- [project-docstrings-f061-f080-2026-10-05.md](project-docstrings-f061-f080-2026-10-05.md)
+  LIT writing and the main LRF parser/object/HTML stack: 488 declarations and
+  19 complete files. All 66 regressions and full quality checks passed. F081 next.
+
+- [project-docstrings-f041-f060-2026-10-05.md](project-docstrings-f041-f060-2026-10-05.md)
+  DOCX writing, EPUB/CFI, FB2, HTML/HTMLZ, JSON and LIT: 502 declarations
+  and 33 complete files. All 218 regressions and full quality checks passed.
+  F061 next.
+
+- [project-docstrings-f021-f040-2026-10-05.md](project-docstrings-f021-f040-2026-10-05.md)
+  Conversion plugins, DjVu and DOCX internals: 543 declarations and 55 complete
+  files. All 46 regressions and full quality checks passed. F041 next.
+
+- [project-docstrings-f001-f020-2026-10-05.md](project-docstrings-f001-f020-2026-10-05.md)
+  Top-level format APIs, covers, markup, AZW4, CHM, comic, compression and the
+  first conversion plugins: 523 declarations and 38 complete files. All 304
+  regressions and full quality checks passed. F021 next.
+
+- [project-docstrings-u176-u208-2026-10-05.md](project-docstrings-u176-u208-2026-10-05.md)
+  Final utility-test batch: 633 declarations and 72 complete files. Regression
+  results match baseline; scoped and full quality checks passed. U is complete
+  and F001 is next.
+
+- [project-docstrings-u143-u175-2026-10-05.md](project-docstrings-u143-u175-2026-10-05.md)
+  Localization, logging, plugins/fallbacks, resources, local storage and text:
+  721 declarations and 73 complete files. Regression results match baseline;
+  full quality passed and the Latin-1 storage source remains intact. U176 next.
+
+- [project-docstrings-u114-u142-2026-10-05.md](project-docstrings-u114-u142-2026-10-05.md)
+  Complete bundled HTML5 parser/tokenizer/tree/filter stack: 796 declarations
+  and 36 complete files. Focused regressions and full quality passed. U143 is
+  next.
+
+- [project-docstrings-u097-u113-2026-10-05.md](project-docstrings-u097-u113-2026-10-05.md)
+  Bundled dateutil test corpus and timezone implementations: 591 declarations
+  and five complete files. The legacy collection barrier matches baseline; five
+  modern regressions and full quality passed. U114 is next.
+
+- [project-docstrings-u068-u096-2026-10-05.md](project-docstrings-u068-u096-2026-10-05.md)
+  Bundled HTML/date/archive/JSON/polyglot/inflection libraries: 726 declarations
+  and 53 complete files. Regressions match the green pre-edit baseline; full
+  quality passed and two Latin-1 source encodings remain intact. U097 is next.
+
+- [project-docstrings-u035-u067-2026-10-05.md](project-docstrings-u035-u067-2026-10-05.md)
+  Configuration, APSW shell, decompression, image, IPC, jobs and language
+  utilities: 772 declarations and 38 complete files. Regression results match
+  the captured baseline exactly; full quality passed. U068 is next.
+
+- [project-docstrings-u001-u034-2026-10-05.md](project-docstrings-u001-u034-2026-10-05.md)
+  First utility batch: 807 declarations and 36 complete files across shared
+  utilities and retained Calibre compatibility. Static and full quality checks
+  passed; 472 scoped regressions passed. U035 is next.
+
+- [project-docstrings-t002-t066-2026-10-05.md](project-docstrings-t002-t066-2026-10-05.md)
+  Final test-infrastructure batch: 984 declarations and 114 complete files.
+  Fixture, database, format-consumer and typing coverage passed; T is complete
+  and the authorized remainder continues at U001.
+
+- [project-docstrings-t001-2026-10-05.md](project-docstrings-t001-2026-10-05.md)
+  Root test package and conftest: 39 declarations across two complete files.
+  Import/runtime isolation and shared provisioning fixtures are documented; 86
+  regressions passed. T002 is next.
+
+- [project-docstrings-c033-c052-2026-10-05.md](project-docstrings-c033-c052-2026-10-05.md)
+  Final catalog search/write and regression-test batch: 500 new declarations,
+  twenty-eight complete files and the prior 37-declaration Search slice promoted.
+  C is complete at 52/52; T001 is next overall.
+
+- [project-docstrings-m267-m274-2026-10-05.md](project-docstrings-m267-m274-2026-10-05.md)
+  Final live-harness/provider/worker tests: 221 declarations and eight complete
+  files. M is complete at 274/274; next campaign selection remains open.
+
+- [project-docstrings-m237-m266-2026-10-05.md](project-docstrings-m237-m266-2026-10-05.md)
+  Remaining legacy file-source, local/standardization and non-live web-source
+  tests: 813 declarations and thirty-five complete files. 368 regressions passed;
+  historical checkpoint before the final M267–M274 batch.
+
+- [project-docstrings-m217-m236-2026-10-05.md](project-docstrings-m217-m236-2026-10-05.md)
+  EXTZ through PDF file-source tests: 580 declarations and thirty complete files.
+  438 regressions passed with one optional LRX skip; historical checkpoint
+  before M237–M266.
+
+- [project-docstrings-m197-m216-2026-10-04.md](project-docstrings-m197-m216-2026-10-04.md)
+  Container hydration, projections, conversions, Calibre-like metadata and
+  archive/comic/DOCX/EPUB tests: 518 new declarations and thirty-two complete
+  files. 286 regressions passed; historical checkpoint before M217–M236.
+
+- [project-docstrings-m177-m196-2026-10-04.md](project-docstrings-m177-m196-2026-10-04.md)
+  Metadata, OPF and standardization tests; API/source/WEMI contracts; book
+  serialization; and hydrator edge cases: 558 declarations, thirty-five complete
+  files and one partial file. 330 regressions passed; historical checkpoint
+  before M197–M216.
+
+- [project-docstrings-m157-m176-2026-10-04.md](project-docstrings-m157-m176-2026-10-04.md)
+  Shared web-source contracts, orchestration and 16 provider/worker modules:
+  599 declarations and twenty-two complete files. 306 regressions passed;
+  historical checkpoint before M177–M196.
+
+- [project-docstrings-m147-m156-2026-10-04.md](project-docstrings-m147-m156-2026-10-04.md)
+  PDB readers, database-backed metadata source contracts, local ISFDB and
+  Amazon: 195 declarations and seventeen complete files. 148 regressions passed;
+  historical checkpoint before M157–M176.
+
+- [project-docstrings-m137-m146-2026-10-03.md](project-docstrings-m137-m146-2026-10-03.md)
+  ODT, OPF, PDF, legacy ebook/archive readers, registry, text formats and workers:
+  290 declarations and sixteen complete files. 201 regressions passed.
+  Historical checkpoint before M147–M156.
+
+- [project-docstrings-m127-m136-2026-09-29.md](project-docstrings-m127-m136-2026-09-29.md)
+  Comic, DOCX, EPUB, EXTZ, FB2, string/HTML inference, IMP, LIT, LRF, LRX and
+  MOBI: 280 declarations and twelve complete files. 354 regressions passed.
+  Historical checkpoint before M137–M146.
+
+- [project-docstrings-m117-m126-2026-09-29.md](project-docstrings-m117-m126-2026-09-29.md)
+  Item, manifestation and work APIs plus metadata-reader dispatch and archive
+  helpers: 268 new declarations and nine complete files. 183 regressions and 915
+  runnable statements passed. Historical checkpoint before M127–M136.
+
+- [project-docstrings-m107-m116-2026-09-28.md](project-docstrings-m107-m116-2026-09-28.md)
+  Agent profiles, expression/item identities, expression metadata and the first
+  item metadata slice: 263 declarations, six complete files and 40 partial
+  declarations. 103 regressions and 1,022 runnable statements passed. Historical
+  checkpoint before M117–M126.
+
+- [project-docstrings-m097-m106-2026-09-27.md](project-docstrings-m097-m106-2026-09-27.md)
+  Titles, work identity/bundle/hydration and shared WEMI/agent identity APIs:
+  256 new declarations, twelve complete files. 195 regressions and 728 runnable
+  statements passed; full quality passed. Historical checkpoint before M107–M116.
+
+- [project-docstrings-m087-m096-2026-09-27.md](project-docstrings-m087-m096-2026-09-27.md)
+  Resources, series, subjects and first title records: 268 new declarations,
+  three complete files and 24 partial title declarations. 96 regressions and
+  748 runnable statements passed; full quality passed. Historical checkpoint before M097–M106.
+
+- [project-docstrings-m077-m086-2026-09-27.md](project-docstrings-m077-m086-2026-09-27.md)
+  Manifestation hydration, notes, bundle/stack projection views and ratings:
+  275 new declarations, all four files complete. 200 regressions and 884 runnable
+  statements passed; full quality passed. Historical checkpoint before M087–M096.
+
+- [project-docstrings-m067-m076-2026-09-26.md](project-docstrings-m067-m076-2026-09-26.md)
+  Identifier accessors, item identity/bundle/hydrator, labels, languages and
+  manifestation identity/bundle: 284 new declarations, all eight files complete.
+  184 regressions and 720 runnable statements passed; full quality passed. Historical checkpoint before M077–M086.
+
+- [project-docstrings-m057-m066-2026-09-26.md](project-docstrings-m057-m066-2026-09-26.md)
+  Dates, expression identity/bundle/hydrator, genres and identifier containers:
+  267 declarations, five complete files and 86 partial identifier declarations.
+  184 regressions and 709 runnable statements passed; full quality passed. Historical checkpoint before M067–M076.
+
+- [code-review-2026-09-26.md](code-review-2026-09-26.md)
+  Whole-repository architecture and boundaries review (eight subsystem reviewers,
+  pushed `01674d15`). Five themes: no lifecycle owner, aspirational layering
+  (121-module runtime cycle; ratchet covers 12% of modules), duplicate owners
+  with divergent behaviour, convention-only safety invariants (delete, read-only,
+  RPC `invoke`), and live-looking legacy code. Prioritised action list inside.
+
+- [project-docstrings-m047-m056-2026-09-26.md](project-docstrings-m047-m056-2026-09-26.md)
+  Agent credits, identity, participation and profiles, plus the first date records:
+  252 declarations, five complete files and 24 partial date declarations.
+  97 regressions and 625 runnable statements passed; full quality passed. Historical checkpoint before M057–M066.
+
+- [project-docstrings-m037-m046-2026-09-26.md](project-docstrings-m037-m046-2026-09-26.md)
+  WEMI conversion/serialization, eager hydration, writer, concrete row and tree
+  containers: 211 new declarations, all 23 files complete. Prior API claim corrected.
+  162 regressions and 296 examples passed; full quality passed. Historical checkpoint before M047–M056.
+
+- [project-docstrings-m027-m036-2026-09-26.md](project-docstrings-m027-m036-2026-09-26.md)
+  WEMI/row contracts, formatting, lazy containers and hydration: 265 new
+  declarations, ten complete files and a 40-declaration partial WEMI slice.
+  207 regressions and 181 examples passed; full quality passed. Historical checkpoint before M037–M046.
+
+- [project-docstrings-m017-m026-2026-09-26.md](project-docstrings-m017-m026-2026-09-26.md)
+  Container exports, legacy Calibre-style metadata/mixins, and API contracts:
+  219 declarations, 20 complete files and a 40-declaration partial API slice.
+  79 regressions and 78 examples passed; full quality passed. Historical checkpoint before M027–M036.
+
+- [project-docstrings-m007-m016-2026-09-25.md](project-docstrings-m007-m016-2026-09-25.md)
+  Metadata utilities/workflows, book containers/codecs, vocabularies and genre
+  maps: 132 new declarations, 21 complete files. 152 regressions and 98 examples
+  passed; full quality passed. Historical checkpoint before M017–M026.
+
+- [project-docstrings-d229-m006-2026-09-25.md](project-docstrings-d229-m006-2026-09-25.md)
+  Final database contracts and first metadata units: 275 declarations, 22 complete
+  files and a 40-declaration utility slice. D complete; historical M007 boundary.
+  215 regressions and 140 examples passed, two existing skips; full quality passed.
+
+- [project-docstrings-d219-d228-2026-09-25.md](project-docstrings-d219-d228-2026-09-25.md)
+  PostgreSQL, SQLite and driver contracts: 249 new declarations, 21 complete files.
+  182 regressions and 40 runnable examples passed, three existing skips;
+  full quality checks passed. Historical checkpoint before D229–D232/M001–M006.
+
+- [project-docstrings-d209-d218-2026-09-25.md](project-docstrings-d209-d218-2026-09-25.md)
+  Unicode, Calibre and PostgreSQL tests: 212 declarations, 24 complete files and
+  a 77-declaration partial file. 209 regressions and 39 runnable examples passed,
+  two optional skips; full quality checks passed. Historical checkpoint before D219–D228.
+
+- [project-docstrings-d199-d208-2026-09-25.md](project-docstrings-d199-d208-2026-09-25.md)
+  Database contracts: 270 declarations, 12 complete files.
+  402 regressions and 50 example statements passed; 40 skips,
+  12 expected failures, 0 non-strict unexpected passes.
+  Historical checkpoint before D209–D218 completed.
+
+- [project-docstrings-d189-d198-2026-09-25.md](project-docstrings-d189-d198-2026-09-25.md)
+  Cache and Database contracts: 290 declarations, 24 complete files.
+  331 regressions and 119 example statements passed; 12 skips,
+  including six gated legacy modules. Historical checkpoint before D199–D208 completed.
+
+- [project-docstrings-d179-d188-2026-09-25.md](project-docstrings-d179-d188-2026-09-25.md)
+  Database/API/cache tests: 271 new declarations, 16 complete files. 309 regressions
+  and 139 runnable example statements passed, two environment skips; full quality
+  checks passed. Historical checkpoint before D189–D198 completed.
+
+- [project-docstrings-d169-d178-2026-09-24.md](project-docstrings-d169-d178-2026-09-24.md)
+  Database-test batch complete: 256 declarations, 24 complete files and a 35-declaration
+  locking slice. 141 regressions and 180 runnable example statements passed, one
+  conditional skip, full quality checks passed. Historical checkpoint before D179–D188 completed.
+
+- [project-docstrings-d149-d168-2026-09-24.md](project-docstrings-d149-d168-2026-09-24.md)
+  Maintenance, metadata SQL and database-test batch complete: 477 declarations,
+  311 passing regressions, 2 skips, 2 expected failures; 339 runnable examples and
+  full quality checks passed. 211 integration statements explicitly skipped.
+  Historical checkpoint before the D169–D178 batch.
+
+- [project-docstrings-d139-d148-2026-09-24.md](project-docstrings-d139-d148-2026-09-24.md)
+  Driver wrapper/API batch complete: 241 declarations, 638 passing regressions, 2 skips, 12 expected failures,
+  103 runnable examples and full quality checks passed. 199 integration statements
+  explicitly skipped. Historical checkpoint before the D149–D168 batch.
+
+- [project-docstrings-d129-d138-2026-09-24.md](project-docstrings-d129-d138-2026-09-24.md)
+  APSW backend and driver API batch complete: 208 declarations, 185 passing regressions, 4 skips,
+  109 runnable examples and full quality checks passed. 157 integration examples
+  explicitly skipped. Historical checkpoint before the D139–D148 batch.
+
+- [project-docstrings-d128-2026-09-24.md](project-docstrings-d128-2026-09-24.md)
+  SQLite concrete driver complete: 15 declarations, seven regression checks,
+  44 runnable example statements and full quality checks passed; six integration
+  examples explicitly skipped. Historical checkpoint before the D129–D138 batch.
+
+- [project-docstrings-d127-2026-09-22.md](project-docstrings-d127-2026-09-22.md)
+  SQLite initializer complete: two declarations, one import regression,
+  nine runnable example statements and full quality checks passed.
+  Historical checkpoint before D128 completed the SQLite concrete driver.
+
+- [project-docstrings-d126-2026-09-22.md](project-docstrings-d126-2026-09-22.md)
+  Custom-column management macro file complete: 11 declarations, 15 regression
+  checks, 64 runnable example statements and full quality checks passed.
+  Historical checkpoint before D127 completed the SQLite plugin initializer.
+
+- [project-docstrings-d125-2026-09-22.md](project-docstrings-d125-2026-09-22.md)
+  Custom-column macro facade and ensure-value mixin complete: 39 declarations,
+  two API contract checks, 81 runnable example statements and full quality checks
+  passed. Historical checkpoint before D126 completed the management macro file.
+
+- [project-docstrings-d124-2026-09-21.md](project-docstrings-d124-2026-09-21.md)
+  Legacy temporary-table macro file complete: five declarations, one focused
+  regression, 37 runnable example statements and full quality checks passed.
+  Historical checkpoint before D125 completed the custom-column macro facade
+  and ensure-value mixin.
+
+- [project-docstrings-d123-2026-09-21.md](project-docstrings-d123-2026-09-21.md)
+  Remaining 36 portable SQL macro declarations verified; all 76 now reviewed and
+  the file promoted. 21 regressions passed, one expected skip; 92 runnable example
+  statements and full quality checks passed. Historical checkpoint before D124
+  completed the legacy temporary-table macro file.
+
+- [project-docstrings-d122-2026-09-21.md](project-docstrings-d122-2026-09-21.md)
+  First 40 portable SQL macro declarations verified; seven focused regressions,
+  47 runnable example statements and full quality checks passed. Historical partial
+  checkpoint before D123 completed and promoted the file.
+
+- [project-docstrings-d121-2026-09-20.md](project-docstrings-d121-2026-09-20.md)
+  SQL macros package and hash-table mixin complete: 32 declarations, three focused
+  regressions, 28 runnable example statements and full quality checks passed.
+  Historical checkpoint before D122 completed the first portable macro selection.
+
+- [project-docstrings-d120-2026-09-20.md](project-docstrings-d120-2026-09-20.md)
+  SQL view helpers complete: four declarations, one SQLite regression and nine
+  runnable example statements passed, full quality checks passed. Historical
+  checkpoint before D121 completed the SQL macros package and hash-table mixin.
+
+- [project-docstrings-d119-2026-09-20.md](project-docstrings-d119-2026-09-20.md)
+  Four value-casting methods verified; all 44 declarations in the file now reviewed.
+  Two SQLite regressions, 36 runnable examples and full quality checks passed.
+  Historical checkpoint before D120 completed the SQL view helpers.
+
+- [project-docstrings-d118-2026-09-20.md](project-docstrings-d118-2026-09-20.md)
+  SQL column policy: 40 declarations verified, 12 SQLite regressions and ten
+  runnable examples passed, configured quality gates passed. Historical partial-file
+  checkpoint before D119 completed the file.
+
+- [project-docstrings-d116-d117-2026-09-20.md](project-docstrings-d116-d117-2026-09-20.md)
+  SQL utilities complete: 56 declarations, two SQLite regressions and 85 runnable
+  examples passed, configured quality gates passed. Historical checkpoint before D118.
+
+- [project-docstrings-d106-d115-2026-09-17.md](project-docstrings-d106-d115-2026-09-17.md)
+  D106–D115 verified: shared SQL support, Calibre/FRBR builders and driver mixins.
+  139 regressions passed, three skipped; 35 examples and full quality gates passed.
+  Historical checkpoint before D116–D117.
+
+- [project-docstrings-ten-2026-09-17.md](project-docstrings-ten-2026-09-17.md)
+  D096–D105 verified: driver registry/macros and PostgreSQL backend. 35 focused
+  tests, 78 examples, four macro modes and full quality gates passed. Historical
+  checkpoint before D106–D115.
+
+- [shim-removal-2026-09-16.md](shim-removal-2026-09-16.md)
+  Completed repository-wide import-shim cleanup: 61 modules removed, tests and
+  quality checks passed, documentation inventory reconciled. Historical checkpoint
+  before the ten-unit documentation continuation.
+
+- [storage-root-shim-removal-2026-09-15.md](storage-root-shim-removal-2026-09-15.md)
+  Storage-root lazy exports removed; callers use owning modules. 165 tests and
+  configured quality checks passed. The documentation campaign remains paused.
+
+- [project-docstrings-d-2026-09-14.md](project-docstrings-d-2026-09-14.md)
+  Historical D001–D095 record and [shutdown checkpoint](project-docstrings-hundred-paused-2026-09-15.md).
+  Current continuation, maintenance-adjusted coverage and M107 resume point are
+  in the latest documentation batch checkpoint above.
+
+- [project-docstrings-thirty-2026-09-13.md](project-docstrings-thirty-2026-09-13.md)
+  Authorized thirty-module batch C03–C032 complete: 566 declarations, 54 complete
+  files and 37 declarations in a partial Search file. Coverage is 722/2,732 files.
+  Final Catalog/docs/examples: 588 passed, 75 explicit doctest skips; full quality
+  runner passed. Stop for token review; C033 is next only on explicit request.
+
+- [project-docstrings-c02-2026-09-12.md](project-docstrings-c02-2026-09-12.md)
+  C02 complete: curated identifier repository/API, 26 declarations. Fifteen focused
+  tests and four doctests pass; 20 examples explicitly skipped. Coverage is 668/2,732
+  files at that checkpoint. C03–C032 subsequently completed; see the latest note above.
+
+- [project-docstrings-c01-2026-09-12.md](project-docstrings-c01-2026-09-12.md)
+  C01 complete: Agent repository/API, 31 declarations. Thirteen focused tests and
+  six doctests pass; 23 examples explicitly skipped. Coverage is 666/2,732 files.
+  C02 subsequently completed; this retains the Agent checkpoint's evidence.
+
+- [project-docstrings-g02-2026-09-12.md](project-docstrings-g02-2026-09-12.md)
+  G02 complete: all seven ownership-guard failures resolved without raised limits;
+  48 tests/doctests passed, seven doctests skipped. Coverage remains 664/2,732 files.
+  C01 subsequently completed; the seven guard fixes remain verified.
+
+- [project-docstrings-g01-2026-09-12.md](project-docstrings-g01-2026-09-12.md)
+  G01 complete: shared docstring-aware measurement helper and focused tests;
+  65 tests/doctests pass. G02 subsequently integrated the helper into existing guards.
+
+- [project-docstrings-p00-2026-09-12.md](project-docstrings-p00-2026-09-12.md)
+  Planning checkpoint: modular plan and complete remaining inventory saved in
+  dev-docs. Work now proceeds one explicitly requested module at a time.
+  G01/G02 are subsequently complete; do not automatically continue the whole-project pass.
+
+- [project-docstrings-paused-2026-09-12.md](project-docstrings-paused-2026-09-12.md)
+  Historical pause for token cost. All outstanding results have been reconciled in
+  [the exact-repository checkpoint](project-docstrings-catalog-exact-repositories-2026-09-12.md).
+
+- [project-docstrings-2026-09-08.md](project-docstrings-2026-09-08.md)
+  Paused whole-project descriptive reST documentation pass on
+  `codex/project-docstrings`. Includes private/nested functions, inherited code,
+  tests, scripts, examples, and tracked data-submodule Python. Records the full
+  baseline, migration safety repairs, 722 reviewed Python modules, the separate
+  native-C documentation pass, legacy startup limitations, and remaining work.
+  All 57 Core and 69 terminal source modules, plus the shared surface/Core adapter,
+  host protocols, presentation/acquisition primitives, system profiles, category
+  helpers, disk thumbnails, image backend, complete shared read model, and shared
+  catalogue/acquisition/OPDS backends are reviewed, as is the standalone OPDS
+  application package and launcher with catalogue/OPDS/help/asset-fixture tests.
+  The Calibre-style and generic read-only web packages, launchers, and all main
+  integration-test helpers are also reviewed, as are the read-only JSON API
+  package/launcher/tests and shared direct/RPC surface acceptance harness.
+  The read/write web package, launcher, and main regression helpers are now
+  reviewed too, with synchronous-write and partial-failure contracts made explicit.
+  CLI entry points, parser contracts, completion, and shared output/job helpers
+  are reviewed, together with dependency and operational-family test fixtures.
+  SquashFS CLI owners/provenance types and regression fixtures, plus Core daemon
+  and managed-job commands, are now reviewed as well.
+  Serving/capability, catalogue, workflow, and diagnostic CLI owners are also
+  documented throughout, including local restore and redaction failure boundaries.
+  Configuration, initialization, ingest history/resume, and standalone storage audit
+  are now documented too, together with full initialization/storage-audit tests.
+  Metadata catalogue/file/online and PostgreSQL diagnostic/SQL/export owners are
+  now reviewed with both complete regression modules, including their nested fakes.
+  The storage compatibility facade, all 23 storage command owners, and the full
+  storage-ingest regression module are now reviewed too. All 47 CLI source modules
+  are documented, including ingest, parser builders, and the Store wizard.
+  The ingest application lifecycle and complete operator-hardening suite are
+  now source-reviewed and documented as well.
+  The ingest package exports, report/checkpoint models, Store copy/adopt helpers,
+  and legacy discovery/import adapters are now documented too, with complete
+  Store-ingest and legacy-adding regression helpers. Remote-HTML discovery sources,
+  registration wrappers/pipeline, and seven complete adjacent regression modules
+  are now reviewed too. All 15 ingest source modules are documented. All nine
+  storage-side native/wget adapter modules and all three storage ingest modules
+  are now reviewed too, with complete SquashFS/mixed-format regression docs.
+  All four storage reconciliation modules, their legacy Library export, and five
+  additional registration/publication regression modules are now reviewed too.
+  All eight raw driver API modules and all five shared storage utilities are now
+  reviewed too. All eight configured Store API modules are now complete, including
+  file primitives, convenience methods, and the driver-backed adapter. Configuration
+  and driver-error regressions are documented alongside the four earlier API suites.
+  All six concrete Store modules are now reviewed too, including the encryption
+  wrapper and private sessions/readers, with complete encryption and nested
+  backed-Store regressions. Driver exports, shared error/validation helpers, and
+  filesystem/SQLite drivers are now reviewed too, alongside the four-module SQLite
+  compatibility package and full filesystem/SQLite regressions. The complete HTTP
+  driver and its regression helpers are now reviewed too, with the HTTP Store
+  inventory callback documentation corrected. The S3 driver and its complete memory
+  client, publication/ingest, and response-pathology regressions are now documented
+  too. The FTP driver, all three compatibility Store modules, and their complete
+  regression module are now documented and verified too. The complete rclone driver,
+  seven read-only/writable adapter modules, and both backend regression modules are
+  now documented and verified as well. Shared archive mechanics, the full ZIP
+  driver, configured ZIP/TAR/RAR/7z adapters and six plugin initializers, and the
+  complete local-archive regression module are now reviewed and verified too.
+  Raw TAR and RAR drivers, the build-once RAR plugin and initializer, and its
+  complete regression module are now reviewed and verified too. The raw 7z driver
+  and its complete regression module are also documented and verified. The complete
+  raw ISO reader, three read-only adapter modules, and full regression module are
+  now documented and verified too. The complete ISO writer, three writable adapter
+  modules, and full regression module/package initializer are also documented and
+  verified. The complete raw SquashFS driver, seven read-only/build plugin modules,
+  all three adjacent regression modules, and manifest launcher are also documented
+  and verified. All seventeen raw-driver modules are complete. The twenty remaining
+  local backend-plugin modules and all six adjacent regression modules are now
+  documented too, completing the full 65-module backend-plugin source tree. Common
+  storage API models, characteristics, shared/legacy errors, Location values,
+  placement hints, and package exports are now reviewed too, with both full hint
+  and bound-Location regression modules. Manager routing, bound Location handles
+  and factories, private protocols, and manager errors are now reviewed too, with
+  the complete storage-manager API regression module and all nested helpers.
+  Store/operational models, API contracts, both implementation mixins, and the
+  complete registration/bootstrap regression module are now reviewed too.
+  Asset identity/metadata, nominal IDs, compatibility exports, Replica/result
+  models, catalogue/lifecycle API contracts, both implementation mixins, and the
+  older manager-documentation tests are now complete too. Composite/resolution
+  models, the Composite/Item-link/retrieval contracts and implementation mixins,
+  and complete composition/StoreContainer SQLite regression modules are now
+  reviewed too. Policy models/API, CRUD/assignment and shared policy support
+  mixins, and the complete policy API regression module are now reviewed too.
+  Derivation values/private validators, resolver/registry API and graph
+  conveniences, and the full provenance/replay implementation are now reviewed too.
+  Reconciliation/ingest APIs and implementations with nested callbacks, plus
+  the public model initializer, are now reviewed too. All 11 manager-model modules
+  are complete. Private requests/state, all internal protocols, and the complete
+  shared support mixin are now reviewed too. Remaining routing/composition exports,
+  public facade context methods, and all six persistence protocols are now complete
+  too. Both database persistence adapters are now complete, finishing all 22
+  storage_manager implementation modules. The full public convenience mixin and
+  its private helpers are complete too, finishing all 29 storage_manager_api
+  modules. All twelve generic/backup/sealed-artifact workflow API modules are now
+  reviewed too, finishing all 65 storage API source modules. Concrete inventory
+  planning, SquashFS execution, sealed-image provenance, both package initializers,
+  and their three regression modules are now complete too. Backup persistence,
+  artifact registration, the prototype pipeline, and their full regression modules
+  are now reviewed too, finishing all six backup source and five backup test modules.
+  Configuration translation, factory/container adapters, legacy location/types and
+  file status, and schema migration modules are now complete too, together with the
+  full backend-registry test module. The full backend registry and all builders,
+  shared Unicode fixtures/contracts, and four-backend matrix are now reviewed too.
+  The application-facing manager, complete MiniDB helper, and complete database
+  reload regression module are now reviewed too. All 206 storage source modules
+  are complete. The full Location test tree, workflow API2 doubles/contracts,
+  manager example regressions, and live backend/PostgreSQL contracts are now
+  reviewed too, completing all 85 storage test/helper modules. All 11 storage
+  examples, six catalog example/helper modules, and their shared JSON/import helper
+  are now documented too. The remaining conversion/Library/metadata/utility examples
+  are complete too, finishing all 28 tracked example/helper modules. Catalog exports,
+  shared values/errors, facade protocols, and the concrete facade are now reviewed
+  too, with the complete import and API-documentation test modules. Shared matching
+  policy, exact-entity matching/specifications, group composition, and their two API
+  modules are now reviewed too, with both full matching regression modules. All four
+  specialized matchers and their API contracts are now complete too, finishing the
+  matching source/API trees. Base CRUD and all four WEMI repositories and their API
+  contracts are now complete too, with the full repository-invariant test module.
+  Remaining repositories and their contracts are next.
+  The exact reviewed set is in
+  [project-docstrings-reviewed-files.txt](project-docstrings-reviewed-files.txt).
+  Latest verification
+  and the known docstring-sensitive ownership-test conflicts are recorded in
+  [project-docstrings-catalog-wemi-repositories-2026-09-12.md](project-docstrings-catalog-wemi-repositories-2026-09-12.md).
+
+- [maintainability-closeout-2026-09-07.md](maintainability-closeout-2026-09-07.md)
+  Final bounded close-out: one general CI owner, failure-aware merge summary,
+  developer-documentation index, portable links, and executable contracts.
+  Quality gate, 129 focused tests, and whole-tree syntax pass. The bounded
+  programme is complete; final checkpoint and publication handoff for
+  [PR #115](https://github.com/ajCameron/LiuXin-alpha/pull/115).
+
+- [terminal-owner-extraction-2026-09-07.md](terminal-owner-extraction-2026-09-07.md)
+  Completed stage 8: both browser and curses owners split by responsibility; all 18
+  complexity violations resolved, complete extracted trees linted/typed, and
+  ownership/behavior contracts added. Expanded quality gate, compatibility
+  comparisons, and 455 final regressions pass. Included in the stage-8 checkpoint;
+  subsequent close-out and PR publication are recorded above.
+
+- [terminal-dependency-direction-2026-09-07.md](terminal-dependency-direction-2026-09-07.md)
+  Completed stage 7: separate terminal startup, browser, creation, and
+  presentation owners; generic extension hosts and lazy compatibility exports.
+  The 197-module graph includes all 45 terminal modules. Records compatibility,
+  typing, and regression evidence in the stage-7 checkpoint.
+  Historical stage-7 verification; subsequent stage-8 work is recorded above.
+
+- [cli-dependency-direction-2026-09-07.md](cli-dependency-direction-2026-09-07.md)
+  Completed stage 6: separates CLI grammar, dispatch, completion, and SquashFS
+  execution; preserves entry points, help, and shell scripts. The dependency
+  gate now protects all 47 CLI modules (152 total). Records typing/regression
+  evidence and the subsequent stage-7 terminal repair. Stages 5–6 are committed
+  together; the final close-out records PR publication.
+
+- [incremental-formatting-2026-09-07.md](incremental-formatting-2026-09-07.md)
+  Completed stage 5: an explicit 109-file formatter scope, pinned Ruff,
+  check-only local/CI enforcement, and real formatter/runner contracts. Records
+  the exact-line negative-type-test adjustment and verification status.
+
+- [maintainability-checkpoint-2026-09-07.md](maintainability-checkpoint-2026-09-07.md)
+  Start here for the readability/maintainability programme: stages 1–4 are
+  complete in commit 859ab804, with their scope and verification linked below.
+  This is the pre-formatting checkpoint; stages 5–6 are recorded above.
+
+- [read-model-failure-visibility-2026-09-06.md](read-model-failure-visibility-2026-09-06.md)
+  Makes failed reads distinct from absent data across shared backends and
+  web/API/OPDS adapters; records explicit capability handling, the count-only
+  Core repair, direct/RPC and WSGI failure contracts, and verification status.
+
+- [dependency-direction-2026-09-06.md](dependency-direction-2026-09-06.md)
+  Repairs cache-writer and shared-surface dependency direction, preserves
+  compatibility exports, and expands the protected dependency gate with
+  explicit import contexts and direction rules. Records focused regression
+  evidence and follow-up CLI/terminal cycle status.
+
+- [workflow-extraction-2026-09-06.md](workflow-extraction-2026-09-06.md)
+  Extracts Core execution and storage CLI ownership, introduces typed
+  evacuation planning/execution with shared safety checks, and extends the
+  implementation complexity/type/architecture gates while preserving public
+  call and parser contracts.
+
+- [internal-call-contracts-2026-09-06.md](internal-call-contracts-2026-09-06.md)
+  Replaces storage's dynamic helper typing and Core's catch-all endpoint
+  contracts with explicit protocols; enforces valid calls and rejection of
+  deliberate mistakes with both type checkers.
+
+- [maintainability-and-packaging-2026-09-02.md](maintainability-and-packaging-2026-09-02.md)
+  Records the whole-project readability and maintainability baseline, its
+  evidence-based priorities and both packaging repairs: explicit production
+  discovery, complete package-owned Calibre resources, isolated dependency
+  provenance, and installed initialization plus HTML-to-EPUB gates.
+
+- [storage-cache-composition-2026-08-21.md](storage-cache-composition-2026-08-21.md)
+  Removes the production manager's inheritance from transient in-memory state,
+  replaces private record dictionaries with database repository views, shares
+  Core's cache for the storage hot path, and records the remaining production
+  work in durable developer documentation.
+
+- [core-interface-consolidation-2026-07-28.md](core-interface-consolidation-2026-07-28.md)
+  Completes migration of maintained web, API, OPDS, acquisition, terminal, Tk,
+  SquashFS CLI, and runner automation to the transport-neutral Core client;
+  records the shared composition seam, boundary enforcement, direct/RPC
+  acceptance, and focused verification.
+
+- [core-program-api-audit-2026-07-28.md](core-program-api-audit-2026-07-28.md)
+  Completes Core API 2.0 as the full application-facing union of LiuXin
+  subsystem APIs: direct/RPC parity, machine-readable capabilities,
+  semantic storage/assets, browse/acquisition, identity/tree, preferences,
+  custom fields, metadata files/jobs, ingest/conversion, durable backup, and
+  maintenance with explicit dependency conditions. Its requested interface
+  consolidation phase is completed by the note above.
+
+- [core-api-completion-2026-07-25.md](core-api-completion-2026-07-25.md)
+  Historical v1 foundation checkpoint, now superseded by the 2026-07-28
+  whole-program audit. It established the direct-or-RPC composition root, one
+  transport-neutral client contract, stable named domain/read/storage/admin
+  operations, Core-owned Catalog/Cache/read-source composition, structured
+  errors and wire DTOs, a repaired cache reconciliation defect, and green real
+  acceptance on both configured drivers. The interface-consolidation phase is
+  now complete.
+
+- [metadata-cache-read-source-coverage-2026-07-25.md](metadata-cache-read-source-coverage-2026-07-25.md)
+  Raises the active metadata cache/read-source boundary to targeted 100%
+  statement and branch coverage with adversarial completeness, fallback,
+  exception, and relation tests; repairs injected-cache loading and five
+  external-run failures, and records the subsequent resolution of the isolated
+  Catalog/cache reconciliation defect.
+
+- [catalog-identifier-work-invariants-2026-07-24.md](catalog-identifier-work-invariants-2026-07-24.md)
+  Covers caller-visible Identifier replacement, ownership, rollback, cache
+  consistency, Work Unicode determinism, and generic repository invariants
+  over the live schema; fixes normalized-scheme duplication and cache updates
+  occurring before authoritative persistence.
+
+- [catalog-unicode-operations-2026-07-24.md](catalog-unicode-operations-2026-07-24.md)
+  Uses the fresh 53.07% full-tree rerun to add twelve real-database Unicode and
+  hostile-text Catalog operation contracts; raises the selected live operation
+  set to 87% combined coverage, repairs three Agent alias-path defects, and
+  records a green 490-test Catalog regression.
+
+- [coverage-triage-2026-07-23.md](coverage-triage-2026-07-23.md)
+  Coverage-driven testing tranches: triages the valid 52.24% combined baseline;
+  raises search, field operators, ICU fallback, field metadata, acquisition,
+  image, and StorageManager boundaries to targeted 100%; raises SquashFS
+  reconciliation to 95% combined; repairs five defects; and calls for a fresh
+  full-tree coverage run before ranking the next tranche.
+
+- [repository-hygiene-2026-07-23.md](repository-hygiene-2026-07-23.md)
+  Completed repository-hygiene pass: enforce cross-platform LF checkout policy,
+  register the existing data gitlink, remove verified line-ending drift, and
+  establish a fresh post-merge test baseline.
+
+- [catalog-legacy-mutation-migration-2026-07-23.md](catalog-legacy-mutation-migration-2026-07-23.md)
+  Completed migration away from the legacy Catalog mutation facades.
+  Production allowlists are empty; preserved implementations are frozen
+  reference and characterization code only.
+
+- [catalog-matching-policy-2026-07-22.md](catalog-matching-policy-2026-07-22.md)
+  Completed evidence-based matching policy for WEMI, Agents, curated and raw
+  Item identifiers, and exact-default metadata value entities. Approximate
+  value reuse is explicit opt-in; ambiguity and conflict block creation.
+
+- [catalog-full-pass-2026-07-22.md](catalog-full-pass-2026-07-22.md)
+  Completed package-wide catalog fitness pass: concrete semantic facade,
+  schema-accurate repositories, matching/retrieval/mutation behavior,
+  search/field-metadata repair, protocol alignment, shared-writer atomicity,
+  explicit ownership, legacy boundaries, and final verification evidence.
+
+- [catalog-writer-reset-2026-07-21.md](catalog-writer-reset-2026-07-21.md)
+  Active catalog-writer rebuild: replaces the incomplete legacy hierarchy with
+  storage-neutral lifecycle/value bases, same-table, shared-value, and owned
+  one-to-one leaves, plus a minimal-string factory and bulk/single-pair write
+  lifecycles. Shared deletions are find-only; owned row
+  update/create/link/unlink is atomic.
+
+- [catalog-link-update-pipeline-2026-07-21.md](catalog-link-update-pipeline-2026-07-21.md)
+  Active catalog/database write seam: legacy compact forms, metadata-aware id
+  matching, immutable relation-to-relation normalization, incremental
+  composition, atomic portable bulk replacement, streaming per-link views,
+  read-only mapping access to link extras, lazy destination values, a typed
+  `Catalog._apply_link_update(...)` private writer-host seam, and complete focused coverage.
+
+- [postgresql-deployment-checkpoint-2026-07-18.md](postgresql-deployment-checkpoint-2026-07-18.md)
+  Pre-direction-change checkpoint covering database/storage stabilization,
+  metadata title-sort isolation, the PostgreSQL backend and CLI, deployment
+  source packaging, the data-submodule update, and final verification.
+
+- [codex-collaboration-contract-2026-05-25.md](codex-collaboration-contract-2026-05-25.md)
+  Lightweight operating contract for future Codex work: ask or state
+  assumptions when repo path, branch/worktree, goal, scope, done criteria,
+  verification, or long-run artifact conventions are missing. Highest-risk
+  omission is repo path.
+
+- [long-run-artifact-scripts-2026-05-25.md](long-run-artifact-scripts-2026-05-25.md)
+  Script-level implementation note for long-running test artifacts:
+  full-suite, coverage, and live-web shell runners now default logs, JSON or
+  coverage outputs, and done markers into `working-memory/test-results` with
+  explicit `--run-id`, `--log-file`, and `--done-file` overrides.
+
+- [coverage-run-2026-05-25.md](coverage-run-2026-05-25.md)
+  Coverage baseline from run `coverage-2026-05-25-154712`: pytest completed
+  green, line coverage is 54.83%, branch coverage is 38.33%, combined
+  line+branch coverage is 50.54%, and the wrapper `.done` marker is caveated
+  because that run exited after a post-pytest shell syntax error.
+
+- [conversion-format-hardening-tails-2026-05-27.md](conversion-format-hardening-tails-2026-05-27.md)
+  Stage 5 format-tail note: PDB Haodoo, MOBI decompression/KF8 image resources,
+  and the LIT unavailable-LZX writer boundary are complete, documented, and
+  covered by the fast file-format lane.
+
+- [conversion-signoff-table-2026-05-28.md](conversion-signoff-table-2026-05-28.md)
+  Stage 6 sign-off-table note: durable matrix added at
+  `dev-docs/conversion_pipeline/conversion_pipeline_signoff.md`, with candidate, provisional,
+  blocked, and open rows for current format and pipeline sign-off decisions.
+
+- [conversion-fb2-fbz-signoff-2026-05-31.md](conversion-fb2-fbz-signoff-2026-05-31.md)
+  First signed-off conversion matrix row: FB2/FBZ input/output/metadata is
+  signed off for the current format scope with focused file-format, metadata,
+  hostile archive, and shared preflight validation.
+
+- [conversion-odt-signoff-2026-06-01.md](conversion-odt-signoff-2026-06-01.md)
+  Second signed-off conversion matrix row: ODT input/container conversion is
+  signed off for the current format scope with focused ODT/ODF, metadata,
+  hostile-container, and shared preflight validation.
+
+- [conversion-epub-signoff-2026-06-02.md](conversion-epub-signoff-2026-06-02.md)
+  Third signed-off conversion matrix row: EPUB input/container conversion is
+  signed off for the current format scope with focused EPUB/OPF, metadata,
+  hostile-container, and shared preflight validation.
+
+- [conversion-docx-signoff-2026-06-02.md](conversion-docx-signoff-2026-06-02.md)
+  Fourth signed-off conversion matrix row: DOCX input/container conversion is
+  signed off for the current format scope with focused DOCX, metadata,
+  hostile-container, and shared preflight validation.
+
+- [conversion-pdb-signoff-2026-06-03.md](conversion-pdb-signoff-2026-06-03.md)
+  Fifth signed-off conversion matrix row: PDB input/metadata hardening is signed
+  off for the current format scope with focused PDB subreader, metadata
+  fallback, malformed-input fuzzing, and conversion smoke validation.
+
+- [conversion-pml-signoff-2026-06-03.md](conversion-pml-signoff-2026-06-03.md)
+  Sixth signed-off conversion matrix row: PML output lossy-boundary behavior is
+  signed off for the current row scope with deterministic output, structured
+  unsupported-character loss reporting, edge context, metadata, and plugin-smoke
+  validation.
+
+- [conversion-txt-loss-report-2026-06-03.md](conversion-txt-loss-report-2026-06-03.md)
+  TXT candidate promotion: malformed TXT input decode replacement and TXT output
+  encoding replacement now emit structured conversion loss events, making TXT
+  input/output encoding-loss behavior ready for focused sign-off review after
+  merge.
+
+- [conversion-txt-signoff-2026-06-04.md](conversion-txt-signoff-2026-06-04.md)
+  Seventh signed-off conversion matrix row: TXT input/output encoding-loss
+  report behavior is signed off for the current row scope with focused TXT,
+  conversion report/edge/plugin, TXT/TXTZ metadata, and broader text-markup
+  validation.
+
+- [conversion-htmlz-diagnostics-2026-06-04.md](conversion-htmlz-diagnostics-2026-06-04.md)
+  HTMLZ candidate promotion: optional OPF read failures, unsafe cover paths, and
+  missing cover files now emit structured recoverable conversion loss events,
+  making HTMLZ optional-enrichment diagnostics ready for focused sign-off review
+  after merge.
+
+- [conversion-htmlz-signoff-2026-06-06.md](conversion-htmlz-signoff-2026-06-06.md)
+  Eighth signed-off conversion matrix row: HTMLZ optional-enrichment diagnostics
+  are signed off for the current row scope with focused HTMLZ, hostile archive,
+  and conversion report/edge/plugin validation.
+
+- [conversion-comic-diagnostics-2026-06-06.md](conversion-comic-diagnostics-2026-06-06.md)
+  Comic candidate promotion: missing CBC listed comics and names-only CBR/RAR
+  fallback preflight now emit structured recoverable conversion diagnostics,
+  making Comic ready for focused sign-off review after merge.
+
+- [conversion-comic-signoff-2026-06-08.md](conversion-comic-signoff-2026-06-08.md)
+  Ninth signed-off conversion matrix row: Comic CBZ/CBC/CBR structured
+  diagnostics are signed off for the current row scope with focused comic,
+  archive preflight, and conversion report/edge/plugin validation.
+
+- [conversion-pml-loss-report-slice-2026-05-26.md](conversion-pml-loss-report-slice-2026-05-26.md)
+  Current conversion implementation slice: add a small report/loss surface and
+  make PML unsupported-character replacement visible while preserving current
+  recoverable output behavior; also records the first explicit
+  `ConversionEdge` model for the legacy OEB-backed path and the shared ZIP
+  archive preflight helper for FBZ/HTMLZ/EPUB/DOCX/ODT/comic containers.
+
+- [conversion-pipeline-architecture-todo-2026-05-24.md](conversion-pipeline-architecture-todo-2026-05-24.md)
+  Current architecture TODO for moving from format-by-format hardening toward a
+  sign-off-able conversion pipeline: explicit capability edges, reportable
+  lossy conversion, fallback diagnostics, shared archive preflight, and
+  format/edge done criteria. Durable TODO:
+  `dev-docs/conversion_pipeline/conversion_pipeline_todo.md`.
+
+- [file-formats-pdb-hardening-2026-05-23.md](file-formats-pdb-hardening-2026-05-23.md)
+  Current branch note for the PDB/PalmDB hardening pass: branch setup,
+  entry-point inventory, durable PDB dossier, reusable PDB/PalmDB fixture
+  layer, strict wrapper validation, PalmDOC/zTXT hostile subreader hardening,
+  eReader, Plucker, and Haodoo hostile subreader hardening.
+  Durable docs:
+  `dev-docs/file_formats/file-format-unicode-conversion.md` and
+  `dev-docs/file_formats/pdb/README.md`.
+
+- [file-formats-mobi-hardening-2026-05-23.md](file-formats-mobi-hardening-2026-05-23.md)
+  Current branch note for the MOBI/KF8/AZW-style hardening pass: reusable
+  PalmDB/MOBI fixtures, hostile PalmDB/MOBI/EXTH parser coverage, deep
+  HUFF/CDIC and KF8 index/resource hardening, verification, and remaining
+  decompression/resource follow-ups. Durable docs:
+  `dev-docs/file_formats/file-format-unicode-conversion.md` and
+  `dev-docs/file_formats/mobi/README.md`.
+
+- [file-formats-fbz-hardening-2026-05-22.md](file-formats-fbz-hardening-2026-05-22.md)
+  Current branch note for the zipped-FB2 hardening pass: reusable zip fixture
+  helpers, first-class `.fbz` conversion/metadata registration, strict
+  single-FB2-member archive selection, hostile path/budget coverage, and
+  unicode conversion-product checks for UTF-8/UTF-16 zipped FB2. Durable docs:
+  `dev-docs/file_formats/file-format-unicode-conversion.md` and
+  `dev-docs/file_formats/fb2/README.md`.
+
+- [file-formats-cbr-rar-hardening-2026-05-22.md](file-formats-cbr-rar-hardening-2026-05-22.md)
+  Current branch note for the CBR/RAR continuation of the comic hardening pass:
+  RAR listing preflight, hostile CBR path/budget/password coverage, deterministic
+  fake-RAR fixtures, lower-level `unrar` safe extraction-boundary coverage, and
+  the tiny `databases.row` import-cycle unblocker needed after the database
+  review merge. Durable docs:
+  `dev-docs/file_formats/file-format-unicode-conversion.md` and
+  `dev-docs/file_formats/comic/README.md`.
+
+- [file-formats-lit-hostile-hardening-2026-05-22.md](file-formats-lit-hostile-hardening-2026-05-22.md)
+  Current branch note for the LIT legacy binary-container parser pass:
+  reusable LIT parser fixtures, malformed whole-file/header/manifest/namelist
+  coverage, `UnBinary` hostile control coverage, reader hardening to raise
+  `LitError` instead of raw parser failures or hangs, plus conversion-facing
+  unicode checks for input products, `postprocess_book`, `ReBinary`, and writer
+  manifest serialization. Durable docs:
+  `dev-docs/file_formats/file-format-unicode-conversion.md` and
+  `dev-docs/file_formats/lit/README.md`.
+
+- [file-formats-fb2-unicode-hostile-2026-05-21.md](file-formats-fb2-unicode-hostile-2026-05-21.md)
+  Current branch note for the FB2 XML/input-output pass: reusable FB2 fixtures,
+  UTF-8/UTF-16 valid conversion coverage, recoverable malformed XML cases,
+  unsafe embedded-binary ID sanitization, corrupted base64 warnings, output
+  unicode serialization coverage, and the zipped-FB2/reporting follow-ups.
+  Durable docs: `dev-docs/file_formats/file-format-unicode-conversion.md` and
+  `dev-docs/file_formats/fb2/README.md`.
+
+- [file-formats-comic-container-2026-05-21.md](file-formats-comic-container-2026-05-21.md)
+  Current branch note for the comic CBZ/CBC archive/container pass: reusable
+  comic fixtures, valid multilingual plugin-path coverage, CBC `comics.txt`
+  decoding and missing-member warning behavior, nested CBZ preflight, hostile
+  archive limits, and the explicit CBR/RAR follow-up boundary. Durable docs:
+  `dev-docs/file_formats/file-format-unicode-conversion.md` and
+  `dev-docs/file_formats/comic/README.md`.
+
+- [file-formats-htmlz-container-2026-05-21.md](file-formats-htmlz-container-2026-05-21.md)
+  Current branch note for the HTMLZ archive/container pass: reusable HTMLZ
+  fixtures, valid multilingual plugin-path coverage, malformed optional
+  OPF/cover warning behavior, required top-level HTML failures, hostile archive
+  limits, and the HTMLZ-specific salvage/reporting boundary. Durable docs:
+  `dev-docs/file_formats/file-format-unicode-conversion.md` and
+  `dev-docs/file_formats/htmlz/README.md`.
+
+- [file-formats-docx-container-2026-05-21.md](file-formats-docx-container-2026-05-21.md)
+  Current branch note for the DOCX archive/XML container pass: reusable DOCX
+  fixtures first, then valid conversion coverage, malformed package cases,
+  hostile archive limits, nested media paths, and salvage/reporting docs.
+  Durable docs: `dev-docs/file_formats/file-format-unicode-conversion.md` and
+  `dev-docs/file_formats/docx/README.md`.
+
+- [file-formats-epub-container-2026-05-21.md](file-formats-epub-container-2026-05-21.md)
+  Current note for the EPUB archive/XML container pass and salvage/reporting
+  follow-up: reusable EPUB fixtures, multilingual conversion/read coverage,
+  OCF/OPF malformed-container cases, hostile archive limits, nested asset paths,
+  preflight rejection diagnostics, and the explicit future salvage boundary.
+  Durable docs:
+  `dev-docs/file_formats/file-format-unicode-conversion.md` and
+  `dev-docs/file_formats/epub/README.md`.
+
+- [file-formats-odt-container-2026-05-21.md](file-formats-odt-container-2026-05-21.md)
+  Current branch note for the ODT archive/XML container pass: reusable ODT
+  fixtures, required-member validation, hostile picture-path hardening,
+  multilingual Extract/ODTInput coverage, generated OPF/XHTML/CSS/assets,
+  bounded archive preflight checks, and the guarded-override docs direction.
+  Durable docs: `dev-docs/file_formats/file-format-unicode-conversion.md` and
+  `dev-docs/file_formats/odt/README.md`.
+
+- [file-formats-markup-hostile-2026-05-21.md](file-formats-markup-hostile-2026-05-21.md)
+  Current branch note for the optional lightweight-markup hostile-input pass:
+  shared malformed Markdown/Textile fixtures, TXTInput extension-path coverage,
+  delimiter stress, and the direct/external converter pipeline follow-up.
+  Durable doc: `dev-docs/file_formats/file-format-unicode-conversion.md`.
+
+- [file-formats-pml-unicode-2026-05-20.md](file-formats-pml-unicode-2026-05-20.md)
+  Current branch note for the PML pass after PR #69: shared OEB fixture
+  coverage for `PMLMLizer`/`PMLOutput`, deterministic `.pmlz` output, and the
+  explicit supported-versus-lossy PML unicode boundary. Durable doc:
+  `dev-docs/file_formats/file-format-unicode-conversion.md`.
+
+- [file-formats-text-unicode-2026-05-20.md](file-formats-text-unicode-2026-05-20.md)
+  Current branch note for the text/unicode file-format pass: reusable
+  multiscript corpus, encoded payload cases, deterministic fuzz helpers,
+  output encoding/newline matrix helpers, and the first TXT conversion/input
+  tests built on the shared framework.
+
+- [file-formats-cover-utils-2026-05-20.md](file-formats-cover-utils-2026-05-20.md)
+  Current branch note for the lateral file-format pass: deterministic
+  cover-extraction utility coverage, Python 3 byte-HTML parsing fixes,
+  top-level/package utility alignment, and the environment-stable PML Pillow
+  fallback test.
+
+- [metadata-web-sources-hardening-2026-05-18.md](metadata-web-sources-hardening-2026-05-18.md)
+  Current web-source hardening and expansion note: provider parser/backoff
+  coverage, Google Images rendered-browser fallback, the new Library of
+  Congress source slice, live-probe behavior, and next source candidates.
+  Durable doc: `dev-docs/metadata/metadata-web-sources.md`.
+
+- [metadata-wemi-container-hardening-plan-2026-05-17.md](metadata-wemi-container-hardening-plan-2026-05-17.md)
+  Current branch note for the planned WEMI container/conversion hardening pass:
+  conversion contracts, identity-spine versus full-graph invariants,
+  lazy/eager projection parity, writer safety, and relation-container torture
+  coverage. Durable doc:
+  `dev-docs/metadata/metadata-wemi-container-hardening.md`.
+
+- [metadata-utils-coverage-2026-05-17.md](metadata-utils-coverage-2026-05-17.md)
+  Current branch note for the metadata helper coverage pass:
+  `metadata.utils` / `metadata.ebook_metadata_tools` coverage, unicode
+  torture, OPF/resource/language/timestamp fixes, and focused coverage at
+  `93%` across the two helper modules.
+
+- [metadata-standardize-coverage-2026-05-17.md](metadata-standardize-coverage-2026-05-17.md)
+  Current branch note for the metadata standardization coverage pass:
+  title separator/strip fixes, Python 3-safe tag cleanup, creator-name
+  punctuation preservation, shared-module parity checks, and focused coverage
+  at `97%` across `metadata.standardize` / `metadata.standardization`.
+
+- [metadata-book-coverage-2026-05-17.md](metadata-book-coverage-2026-05-17.md)
+  Current branch note for the metadata.book coverage pass: core
+  `calibreMetadata`, JSON/dict serialization, unicode torture, renderer
+  wrappers, and narrow Python 3 compatibility fixes now have focused coverage.
+
+- [metadata-coverage-fallback-alignment-2026-05-17.md](metadata-coverage-fallback-alignment-2026-05-17.md)
+  Current branch note for the post-coverage stale-test alignment: strict
+  reader defaults stay strict, explicit `fallback_on_parse_error=True` owns
+  conservative shell metadata, and the latest external coverage run is green.
+
+- [metadata-text-reader-fuzzing-2026-05-17.md](metadata-text-reader-fuzzing-2026-05-17.md)
+  Current branch note for the permissive text-reader malformed-input pass:
+  TXT/HTML/plain-PML safe fallbacks, direct HTML byte payload handling,
+  binary-signature guards, and text-like safety corpus coverage.
+
+- [metadata-comic-reader-fuzzing-2026-05-17.md](metadata-comic-reader-fuzzing-2026-05-17.md)
+  Current branch note for the post-PR #48 CBR/CBZ malformed-input pass:
+  dedicated comic reader wrapper, strict unreadable/non-comic archive failures,
+  and preserved shell metadata for valid image archives without comments.
+
+- [metadata-container-reader-fuzzing-2026-05-17.md](metadata-container-reader-fuzzing-2026-05-17.md)
+  Follow-up on PR #48 for the next metadata reader pass: ODT/ODT-beta named
+  strict failures, a new LRF file-source wrapper, and shared malformed-input
+  coverage for ODT/RAR/LRF.
+
+- [metadata-legacy-format-fuzzing-2026-05-17.md](metadata-legacy-format-fuzzing-2026-05-17.md)
+  Active branch note for the next malformed-input lane after PR #47:
+  legacy/specialty metadata readers, starting with RTF/SNB/LRX strict wrapper
+  checks while preserving valid-container fallbacks.
+
+- [metadata-malformed-input-fuzzing-2026-05-16.md](metadata-malformed-input-fuzzing-2026-05-16.md)
+  Active branch note for deterministic malformed-input and wrong-format
+  metadata extractor coverage. The first slice adds
+  `metadata.file_sources.registry` so tests and future plugin loading can
+  enumerate/register readers without putting registry state on the base class.
+
+- [metadata-writer-coverage-plan-2026-05-16.md](metadata-writer-coverage-plan-2026-05-16.md)
+  Next high-value lane after extractor coverage: metadata writer tests as
+  corruption-prevention checks, with round-trip readability, container
+  validity, payload preservation, hostile unicode/escaping, and clean failure
+  behavior. Durable doc: `dev-docs/metadata/metadata-writer-coverage-contract.md`.
+
+- [metadata-ingest-source-coverage-plan-2026-05-16.md](metadata-ingest-source-coverage-plan-2026-05-16.md)
+  Coverage plan for production-heavy metadata file-source ingest readers, with
+  a unicode/malformed-input testing strategy. The pass now covers the newer
+  ingest readers plus archive/text/ODT, dispatcher/worker, PDB sub-readers, and
+  older adapters; latest private-corpus validation is `457 passed`, `4 skipped`,
+  with `metadata.file_sources` coverage at 91%.
+
+- [data-artifacts-plan-2026-05-16.md](data-artifacts-plan-2026-05-16.md)
+  Optional artifacts now use `scripts/build_artifacts.py`, track small fixtures
+  directly, and keep multi-GB ISFDB DB payloads manifest-only with deterministic
+  child build environment settings.
+
+- [metadata-coverage-lift-2026-05-16.md](metadata-coverage-lift-2026-05-16.md)
+  Focused coverage lift for the recent metadata API/container work, including
+  the new WEMI projection/relation/lazy-value tests, 100% focused coverage
+  across the six metadata hydrator modules, and the post-merge bzzdec malformed
+  payload fix. Durable malformed-input testing docs:
+  `dev-docs/hacking/testing/malformed-input-fuzzing.md`.
+
+- [coverage-syntax-warning-cleanup-2026-05-15.md](coverage-syntax-warning-cleanup-2026-05-15.md)
+  Coverage-runner and SyntaxWarning cleanup note: adds the dedicated coverage
+  wrapper, redirects coverage data out of the repo root, records the 17-file
+  warning cleanup, focused validation, and the remaining full coverage rerun.
+
+- [type-checking-and-coverage-scope-2026-05-15.md](type-checking-and-coverage-scope-2026-05-15.md)
+  Adds the static typing toolchain/config/runner scope and records the latest
+  full coverage result: suite green, project-wide coverage dominated by
+  legacy/vendor areas, and `surfaces.renderers.calibre_metadata` as the next
+  targeted test gap.
+
+- [metadata-api-todo-followups-2026-05-15.md](metadata-api-todo-followups-2026-05-15.md)
+  Numbered list of the still-relevant TODOs in the metadata API/container slice
+  after the relation-key/link/projection cleanup, so we can work down them in
+  order.
+
+- [metadata-projection-views-2026-05-15.md](metadata-projection-views-2026-05-15.md)
+  Decision note for the next metadata API slice: add read-only embedded
+  `values` and `text` projection views for relation-target values while keeping
+  relation links as the authoritative graph/provenance surface.
+
+- [tkinter-gui-architecture-2026-05-11.md](tkinter-gui-architecture-2026-05-11.md)
+  Tkinter GUI spike/design handoff: current `tkinter-gui-foundation` branch/base,
+  validation status, the new canonical dev doc paths, the intended split into
+  backend/state/tasks/views, and a detailed core-backed implementation plan for
+  read, write, job, cache, OPF, and storage slices.
+
+- [metadata-terminal-write-report-parity-2026-05-10.md](metadata-terminal-write-report-parity-2026-05-10.md)
+  Current branch note for terminal parity with metadata write reports: terminal
+  metadata-specific `on` flows now use the WEMI metadata writer/report bridge,
+  while generic links such as languages stay on the direct database path.
+
+- [metadata-surface-write-report-integration-2026-05-10.md](metadata-surface-write-report-integration-2026-05-10.md)
+  Web read-write metadata relation add/create routes now use the WEMI metadata
+  writer/report path where supported, with direct database writes kept for
+  generic links and CRUD.
+
+- [metadata-surface-cache-read-path-2026-05-08.md](metadata-surface-cache-read-path-2026-05-08.md)
+  The read model now accepts an explicit metadata read source/cache snapshot
+  while keeping direct database reads as the default; this note captures the
+  cache-source adapter additions, constructor wiring, read-only surface CLI/config
+  wiring, route/direct-read audit, wrapper-script help/examples, validation, and
+  remaining file/storage caveats.
+
+- [metadata-interaction-surfaces-review-2026-05-08.md](metadata-interaction-surfaces-review-2026-05-08.md)
+  Fresh review of the actual interaction surfaces under `surfaces`, covering
+  the row/dict read model, cache gap, tags/labels transition, local host
+  contracts, write-surface bypasses, and a staged plan to bridge web/API/OPDS
+  and terminal flows onto the current metadata objects.
+
+- [metadata-interface-review-plan-2026-05-08.md](metadata-interface-review-plan-2026-05-08.md)
+  Fresh metadata interface review covering the public facade, API contracts,
+  lazy/cache read paths, write-back reports, stale namespaces, and a staged plan
+  for bringing the interface layer up to the current metadata implementation;
+  test/source hygiene and public import-root cleanup are now implemented.
+
+- [cache-performance-exploration-2026-04-21.md](cache-performance-exploration-2026-04-21.md)
+  Cache backend review concluded that the current `numpy_vectorized` layer is
+  only a helper veneer over `schema_backed`, and that an optional
+  `pyarrow_columnar` backend is the best fit for a genuinely faster immutable
+  snapshot cache.
+
+- [pr-surfaces-normalization-2026-04-16.md](pr-surfaces-normalization-2026-04-16.md)
+  Draft PR title/body for the `interfaces` to `surfaces` normalization pass,
+  including the moved-surface validation command and the two follow-up seams
+  that remain outside this rename work.
+
+- [surfaces-normalization-followups-2026-04-16.md](surfaces-normalization-followups-2026-04-16.md)
+  `interfaces` has been normalized to `surfaces` across the live tree; the
+  remaining code-level follow-up is that `file_formats` still expects a
+  `surfaces.gui2` package that does not exist in this checkout.
+
+- [test-alignment-source-questions-2026-04-16.md](test-alignment-source-questions-2026-04-16.md)
+  Pre-normalization follow-up questions from the post-merge test tidy; the
+  main `interfaces` to `surfaces` import/package issues recorded there have now
+  largely been resolved by the current normalization pass.
+
+- [mainline-storage-merge-2026-04-16.md](mainline-storage-merge-2026-04-16.md)
+  `main` now includes the storage review merge plus the earlier test-port merge; this note captures the new storage/jobs/metadata architecture, the expanded test surface, and which older test-port assumptions are now stale.
+
+- [torrent-discovery-2026-03-15.md](torrent-discovery-2026-03-15.md)
+  Standalone `.torrent` inventory now exists, producing torrent metadata, ebook-shaped file lists, stem-based logical-book groups, and alternate directory-based groups, with a later TODO for a torrent-backed store and on-demand client-driven downloads.
+
+- [fadedpage-wget-discovery-script-2026-03-15.md](fadedpage-wget-discovery-script-2026-03-15.md)
+  Added a standalone stdlib-plus-`wget` Faded Page discovery script that streams resumable state into SQLite, refreshes a JSON export of ebook-shaped objects, emits explicit likely-book group records, and now includes rejection-reason counts in JSON.
+
+- [web-readonly-surface-2026-03-15.md](web-readonly-surface-2026-03-15.md)
+  Added a new top-level `surfaces/web_readonly` package: stdlib WSGI browse/search/detail pages plus conservative file download handling for public-facing read-only use.
+
+- [surface-job-view-seam-2026-03-15.md](surface-job-view-seam-2026-03-15.md)
+  Added a shared terminal job snapshot/log seam plus `jobs tail`, so the surface now has one job-output model for both textual commands and the windowed job pane.
+
+- [windowed-job-pane-scrollback-2026-03-15.md](windowed-job-pane-scrollback-2026-03-15.md)
+  Windowed terminal job output pane now has scrollback/focus parity with the console pane, including `F6` focus switching and status-board hints.
+
+- [core-api-surface-2026-03-15.md](core-api-surface-2026-03-15.md)
+  First explicit core API slice: descriptor models, `api.describe`, HTTP/proxy introspection, and a note that the next step is replacing generic `invoke` with named RPCs.
+
+- [full-suite-green-2026-03-15.md](full-suite-green-2026-03-15.md)
+  Full suite is green again in the main repo, with the current pass/fail counts, latest passing report path, and a note that `LiuXin_alpha_data` has separate local changes not captured by the main repo commit.
+
+- [test-env-rerun-2026-03-13.md](test-env-rerun-2026-03-13.md)
+  Cleaned up the missing test dependency surface, added a minimal `past.builtins` shim, and reran the full suite for a cleaner post-env failure signal.
+
+- [crawler-default-preference-2026-03-13.md](crawler-default-preference-2026-03-13.md)
+  Remote HTML crawl rate defaults now use the shared `crawler_http_max_requests_per_hour_default` preference, with old backend-specific keys kept as fallback-only compatibility reads.
+
+- [ingest-consolidation-2026-03-13.md](ingest-consolidation-2026-03-13.md)
+  Remote HTML ingest now uses neutral `--crawler-*` terminal flags and a dedicated `RemoteHtmlRegistrationReport` under `ingest`.
+
+- [ingest-store-bootstrap-2026-03-13.md](ingest-store-bootstrap-2026-03-13.md)
+  HTML store bootstrap helpers now live in `ingest/remote_html`, and `storage/reconcile/store_db_sync.py` no longer owns the HTML backend setup path.
+
+- [ingest-public-api-2026-03-12.md](ingest-public-api-2026-03-12.md)
+  Public remote-HTML registration now lives under top-level `ingest`, with eager package imports removed from `ingest` and `storage` to avoid import cycles.
+
+- [discovery-sources-refactor-2026-03-12.md](discovery-sources-refactor-2026-03-12.md)
+  Remote HTML crawling now lives under top-level `ingest/sources`, with the shared remote-HTML DB ingest loop moved into `ingest/pipelines` and the HTML store backends reduced to wrapper facades.
+
+- [native-html-readonly-2026-03-12.md](native-html-readonly-2026-03-12.md)
+  Added a lightweight `native_html_readonly` backend and wired it through storage bootstrap, reconcile, library, `sync store`, and `new store`.
+
+- [wget-crawl-telemetry-2026-03-12.md](wget-crawl-telemetry-2026-03-12.md)
+  `wget_html_readonly` sync now reports crawler-observation counters such as HTML seen, book-like URLs found, HTML rejected, and rejection reasons.
+
+- [telemetry-panel-2026-03-12.md](telemetry-panel-2026-03-12.md)
+  Optional DB-write telemetry is now available in the terminal, including a windowed auxiliary panel and `telemetry panel` command for tracking dirty-record and trigger activity.
+
+- [terminal-formatting-2026-03-12.md](terminal-formatting-2026-03-12.md)
+  Terminal detail/report formatting has been standardized onto shared section/table renderers, including `row`, `store show`, `jobs show`, `sync`, `ingest`, `summary`, and the main `new_*` wizard summaries.
+
+- [terminal-mutations-2026-03-11.md](terminal-mutations-2026-03-11.md)
+  Terminal `set` / `edit` / `delete` work, including core-routed row updates and delete impact previews.
+
+- [surface-findings-2026-03-11.md](surface-findings-2026-03-11.md)
+  Terminal surface review focused on windowed UI behavior, job/proxy issues, and the RPC transition boundary.
+
+- [optimization-pass-driver-wrapper-opds-2026-03-19.md](optimization-pass-driver-wrapper-opds-2026-03-19.md)
+  First targeted performance pass added wrapper-level derived-schema caches,
+  narrowed the OPDS metadata path, fixed benchmark setup overhead, and dropped
+  the measured hot paths from multi-second to sub-second / low-second ranges.
+
+## Usage
+
+- Prefer one note per topic per day.
+- Add the newest relevant note here when creating it.
+- Leave older notes in place unless they are clearly obsolete.

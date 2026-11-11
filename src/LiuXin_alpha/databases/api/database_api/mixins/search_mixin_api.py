@@ -8,9 +8,10 @@ described for callers without changing that implementation.
 from __future__ import annotations
 
 import abc
-from typing import Any, Optional, Union, Iterator, TYPE_CHECKING
+from typing import Any, Optional, Union, Iterator, TYPE_CHECKING, Literal, overload
 
 if TYPE_CHECKING:
+    from LiuXin_alpha.databases.db_types.query_types import SearchIndex
     from LiuXin_alpha.databases.api import RowAPI
 
 
@@ -27,12 +28,9 @@ class DatabaseSearchMixinAPI(abc.ABC):
         True
     """
 
-
     # Todo: Split this down into iterator and list
 
-
     # Todo: Add chunk size
-
 
     # ---------------------------------------------------------------------------------------------
     # Search / retrieval
@@ -59,7 +57,9 @@ class DatabaseSearchMixinAPI(abc.ABC):
         """
 
     @abc.abstractmethod
-    def multi_column_search(self, search_index: Any, iterator_return: bool = False) -> Any:
+    def multi_column_search(
+        self, search_index: SearchIndex, iterator_return: bool = False
+    ) -> Any:
         """
         Delegate a backend multi-column query and eagerly wrap every returned record.
 
@@ -82,7 +82,7 @@ class DatabaseSearchMixinAPI(abc.ABC):
         """
 
     @abc.abstractmethod
-    def get_unique(self, target_column: str) -> Any:
+    def get_unique(self, target_column: str) -> set[Any]:
         """
         Return the non-iterator unique-value set for a column.
 
@@ -98,8 +98,28 @@ class DatabaseSearchMixinAPI(abc.ABC):
         :return: Set returned by get_values_set.
         """
 
+    @overload
     @abc.abstractmethod
-    def get_values_set(self, target_column: str, iterator_return: bool = False) -> Any:
+    def get_values_set(
+        self, target_column: str, iterator_return: Literal[False] = False
+    ) -> set[Any]: ...
+
+    @overload
+    @abc.abstractmethod
+    def get_values_set(
+        self, target_column: str, iterator_return: Literal[True]
+    ) -> Iterator[Any]: ...
+
+    @overload
+    @abc.abstractmethod
+    def get_values_set(
+        self, target_column: str, iterator_return: bool
+    ) -> set[Any] | Iterator[Any]: ...
+
+    @abc.abstractmethod
+    def get_values_set(
+        self, target_column: str, iterator_return: bool = False
+    ) -> set[Any] | Iterator[Any]:
         """
         Choose the driver unique-value set or iterator for a column.
 
@@ -186,7 +206,9 @@ class DatabaseSearchMixinAPI(abc.ABC):
         """
 
     @abc.abstractmethod
-    def chunk_iterator(self, column: str, target_table: Optional[str] = None) -> Iterator[list["RowAPI"]]:
+    def chunk_iterator(
+        self, column: str, target_table: Optional[str] = None
+    ) -> Iterator[list["RowAPI | None"]]:
         """
         Yield one Row list per distinct grouping value, optionally following cross-table
         links.

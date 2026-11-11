@@ -19,6 +19,7 @@ from LiuXin_alpha.databases.db_types.macro_types import (
 )
 
 if TYPE_CHECKING:
+    from LiuXin_alpha.databases.db_types.driver_types import RowSQLConnection
     from LiuXin_alpha.databases.api.database_api import DatabaseAPI
 
 
@@ -246,7 +247,9 @@ class MetadataSQLAPI(abc.ABC):
         """
 
     @abc.abstractmethod
-    def lock_agent_rows(self, connection: Any, agent_ids: Sequence[int]) -> None:
+    def lock_agent_rows(
+        self, connection: RowSQLConnection, agent_ids: Sequence[int]
+    ) -> None:
         """Lock up to 500 selected Agent rows in a caller-owned write transaction.
 
         PostgreSQL uses ordered row locks after preparing the maintenance writer

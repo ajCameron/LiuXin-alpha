@@ -1,4 +1,3 @@
-
 """
 Read SQLite-compatible view headings and retrieve a typed row by its id column.
 
@@ -13,9 +12,15 @@ from typing import Any
 from LiuXin_alpha.databases.db_types.driver_types import QueryConnection
 
 
+from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver._state import (
+    SQLDriverMixinState,
+    driver_operations,
+)
+
+
 # Todo: The ability to create custom views?
 # Todo: Rename to DatabaseDriverViewMixin
-class ViewMixin:
+class ViewMixin(SQLDriverMixinState):
     """
     Add view introspection and id-based row lookup to a composed SQL driver.
 
@@ -31,7 +36,6 @@ class ViewMixin:
     """
 
     # Todo: Add the ability to enumerate all views
-
     def direct_get_view_row_dict_from_id(
         self, view: str, row_id: int, *, connection: QueryConnection | None = None
     ) -> dict[str, Any] | None:
@@ -44,7 +48,9 @@ class ViewMixin:
         """
         from LiuXin_alpha.databases.view_reads import read_view_row
 
-        return read_view_row(self, view, row_id, connection=connection)
+        return read_view_row(
+            driver_operations(self), view, row_id, connection=connection
+        )
 
     # Todo: We, nominally, know all the views in the schema ... so we can type this
     def direct_get_view_column_headings(self, view: str) -> list[str]:
@@ -80,8 +86,8 @@ class ViewMixin:
         # Table and view discovery must inspect the same pending schema snapshot.
         conn = getattr(self, "conn", None)
         owned = conn is None
-        if owned:
-            conn = self.get_connection()
+        if conn is None:
+            conn = driver_operations(self).get_connection()
         quoted = '"' + str(view).replace('"', '""') + '"'
         try:
             cursor = conn.execute(f"PRAGMA table_info({quoted})")

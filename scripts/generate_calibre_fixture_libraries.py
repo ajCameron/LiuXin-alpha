@@ -447,7 +447,7 @@ def _create_base_library(tmp_root: Path, *, name: str, notes_db: bool, fts_db: b
     :return: The normalized value, metadata record, path, stream result or collection
         described above.
     """
-    from LiuXin_alpha.databases.database_driver_plugins.SQL.calibre_database_generator import (
+    from LiuXin_alpha.utils.calibre_compat.database_generator import (
         create_calibre_library_skeleton,
     )
 
@@ -595,7 +595,7 @@ def _populate_fixture(
     :return: None; the operation mutates state, writes output or performs cleanup in
         place.
     """
-    from LiuXin_alpha.databases.database_driver_plugins.SQL.calibre_database_generator import CalibreLibraryBuilder
+    from LiuXin_alpha.utils.calibre_compat.database_generator import CalibreLibraryBuilder
 
     builder = CalibreLibraryBuilder(lib_root)
 
@@ -848,7 +848,7 @@ def generate_all(
     :return: The normalized value, metadata record, path, stream result or collection
         described above.
     """
-    from LiuXin_alpha.databases.database_driver_plugins.SQL.calibre_database_generator.database_generator import (
+    from LiuXin_alpha.utils.calibre_compat.database_generator.database_generator import (
         calibre_metadata_schema_info,
     )
 

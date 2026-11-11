@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
-from typing import Any
+from collections.abc import Iterable
+from typing import Any, Literal
 
 from LiuXin_alpha.errors import InputIntegrityError
 from LiuXin_alpha.utils.language_tools.pluralizers import plural_singular_mapper
@@ -88,8 +88,8 @@ def _pg_literal(value: Any) -> str:
 
 
 def _normalise_requested_link_columns(
-    requested_cols: str | Sequence[str] | None,
-) -> str | set[str]:
+    requested_cols: str | Iterable[str] | None,
+) -> Literal["all"] | set[str]:
     """
     Normalize all/None or a suffix sequence for optional link-column selection.
 
@@ -119,7 +119,7 @@ def _normalise_requested_link_columns(
 
 
 def _link_extra_columns(
-    link_base: str, requested: str | set[str]
+    link_base: str, requested: Literal["all"] | set[str]
 ) -> list[tuple[str, str]]:
     """
     Build optional link data columns plus mandatory source, datestamp and scratch.

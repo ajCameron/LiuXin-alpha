@@ -6,8 +6,7 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True, slots=True)
 class QueryObservation:
-    """
-    Operation duration and result count, excluding SQL, bindings and row values.
+    """Operation duration and result count, excluding SQL, bindings and row values.
 
     rows_read is unknown for writes and failures, never an affected-row estimate.
     Duration includes execution/fetching and excludes observer work.

@@ -16,7 +16,7 @@ import threading
 import time
 import weakref
 from collections import defaultdict
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from typing import TYPE_CHECKING
 
 from LiuXin_alpha.databases.db_types.maintenance_types import MaintenanceMode
@@ -68,7 +68,7 @@ class MaintenanceCallbackSink:
         ('works', 1)
     """
 
-    def __init__(self, engine: "MaintenanceEngine") -> None:
+    def __init__(self, engine: MaintenanceEngine) -> None:
         """
         Retain the engine receiving subsequent callbacks.
 
@@ -96,7 +96,9 @@ class MaintenanceCallbackSink:
         :param row_id: Row identifier converted to int by event/callback construction.
         :return: None.
         """
-        self._engine.main_table_dirtied_queue.put((str(table or ""), int(row_id)), block=False)
+        self._engine.main_table_dirtied_queue.put(
+            (str(table or ""), int(row_id)), block=False
+        )
 
     def new_dirty_record(self, table: str, row_id: int) -> None:  # noqa: ANN001 - callback compatibility
         """
@@ -113,15 +115,13 @@ class MaintenanceCallbackSink:
         :param row_id: Row identifier converted to int by event/callback construction.
         :return: None.
         """
-        self._engine._manual_events.put(DirtyRowEvent(str(table or ""), int(row_id), kind="new_dirty_row"))
+        self._engine._manual_events.put(
+            DirtyRowEvent(str(table or ""), int(row_id), kind="new_dirty_row")
+        )
 
     def dirty_interlink_record(
-            self,
-            update_type: str,
-            table1: str,
-            table2: str,
-            table1_id: int,
-            table2_id: int) -> None:  # noqa: ANN001
+        self, update_type: str, table1: str, table2: str, table1_id: int, table2_id: int
+    ) -> None:  # noqa: ANN001
         """
         Enqueue a normalized five-field relationship tuple without blocking.
 
@@ -141,7 +141,13 @@ class MaintenanceCallbackSink:
         :return: None.
         """
         self._engine.interlink_dirtied_queue.put(
-            (str(update_type or ""), str(table1 or ""), str(table2 or ""), int(table1_id), int(table2_id)),
+            (
+                str(update_type or ""),
+                str(table1 or ""),
+                str(table2 or ""),
+                int(table1_id),
+                int(table2_id),
+            ),
             block=False,
         )
 
@@ -165,8 +171,8 @@ class MaintenanceEngine(threading.Thread):
 
     def __init__(
         self,
-        db: "DatabaseAPI",
-        plugins: Iterable["MaintenancePluginAPI"],
+        db: DatabaseAPI,
+        plugins: Iterable[MaintenancePluginAPI],
         *,
         interval: float = 2.0,
         scheduling_interval: float = 0.25,
@@ -192,11 +198,18 @@ class MaintenanceEngine(threading.Thread):
         :return: None.
         """
         super().__init__(name="liuxin-maintenance-engine", daemon=True)
+        self._db_ref: Callable[[], DatabaseAPI | None]
         try:
             self._db_ref = weakref.ref(db)
         except TypeError:
             self._db_ref = lambda: db
-        self._plugins = list(sorted(plugins, key=lambda plugin: int(getattr(plugin, "priority", 0)), reverse=True))
+        self._plugins = list(
+            sorted(
+                plugins,
+                key=lambda plugin: int(getattr(plugin, "priority", 0)),
+                reverse=True,
+            )
+        )
         for plugin in self._plugins:
             _require_lazy_plugin(plugin)
         self._manual_events: queue.Queue[MaintenanceEvent] = queue.Queue()
@@ -207,10 +220,12 @@ class MaintenanceEngine(threading.Thread):
 
         # Compatibility queues: existing code and tests may inspect these names.
         self.main_table_dirtied_queue: queue.Queue[tuple[str, int]] = queue.Queue()
-        self.interlink_dirtied_queue: queue.Queue[tuple[str, str, str, int, int]] = queue.Queue()
+        self.interlink_dirtied_queue: queue.Queue[tuple[str, str, str, int, int]] = (
+            queue.Queue()
+        )
 
     @property
-    def db(self) -> "DatabaseAPI":
+    def db(self) -> DatabaseAPI:
         """
         Resolve the live database object from the retained reference.
 
@@ -228,7 +243,7 @@ class MaintenanceEngine(threading.Thread):
         return db
 
     @property
-    def context(self) -> "MaintenancePluginContext":
+    def context(self) -> MaintenancePluginContext:
         """
         Construct a fresh plugin context using the live database and default logger.
 
@@ -241,7 +256,7 @@ class MaintenanceEngine(threading.Thread):
         """
         return MaintenancePluginContext(db=self.db, logger=default_log)
 
-    def register_plugin(self, plugin: "MaintenancePluginAPI") -> None:#
+    def register_plugin(self, plugin: MaintenancePluginAPI) -> None:  #
         """
         Append a plugin and restore descending priority order.
 
@@ -260,14 +275,18 @@ class MaintenanceEngine(threading.Thread):
         """
         _require_lazy_plugin(plugin)
         self._plugins.append(plugin)
-        self._plugins.sort(key=lambda item: int(getattr(item, "priority", 0)), reverse=True)
+        self._plugins.sort(
+            key=lambda item: int(getattr(item, "priority", 0)), reverse=True
+        )
         if self.is_alive():
             try:
                 plugin.startup(self.context)
             except Exception as exc:
-                default_log.log_exception("Maintenance plugin startup failed.", exc, "WARNING")
+                default_log.log_exception(
+                    "Maintenance plugin startup failed.", exc, "WARNING"
+                )
 
-    def iter_plugins(self) -> Iterable["MaintenancePluginAPI"]:
+    def iter_plugins(self) -> tuple[MaintenancePluginAPI, ...]:
         """
         Snapshot the registered plugins in their current priority order.
 
@@ -281,7 +300,7 @@ class MaintenanceEngine(threading.Thread):
         """
         return tuple(self._plugins)
 
-    def enqueue(self, event: "MaintenanceEvent") -> None:
+    def enqueue(self, event: MaintenanceEvent) -> None:
         """
         Place an event on the manual queue without validating its class or kind.
 
@@ -311,7 +330,9 @@ class MaintenanceEngine(threading.Thread):
         self._keep_running = False
         self._manual_events.put(ShutdownEvent("explicit-stop"))
 
-    def rename_item(self, item_id: int, table: str, value: str, now: bool = True) -> None:
+    def rename_item(
+        self, item_id: int, table: str, value: str, now: bool = True
+    ) -> None:
         """
         Create a rename request and dispatch it immediately or enqueue it.
 
@@ -332,7 +353,9 @@ class MaintenanceEngine(threading.Thread):
         """
         event = RenameRequestEvent(item_id=item_id, table=table, value=value)
         if not self._plugins:
-            raise NotImplementedError("Legacy maintenance renames are retired; use the Catalog mutation APIs")
+            raise NotImplementedError(
+                "Legacy maintenance renames are retired; use the Catalog mutation APIs"
+            )
         if now:
             self._dispatch([event])
         else:
@@ -375,7 +398,9 @@ class MaintenanceEngine(threading.Thread):
 
         while len(batch) < max(1, int(max_events)):
             try:
-                update_type, table1, table2, table1_id, table2_id = self.interlink_dirtied_queue.get_nowait()
+                update_type, table1, table2, table1_id, table2_id = (
+                    self.interlink_dirtied_queue.get_nowait()
+                )
             except queue.Empty:
                 break
             batch.append(
@@ -412,7 +437,9 @@ class MaintenanceEngine(threading.Thread):
             _require_lazy_plugin(plugin)
         return self._dispatch(self._drain_pending_events(max_events=max_events))
 
-    def _dispatch(self, batch: Iterable["MaintenanceEvent"]) -> dict[str, "MaintenancePluginResult"]:
+    def _dispatch(
+        self, batch: Iterable[MaintenanceEvent]
+    ) -> dict[str, MaintenancePluginResult]:
         """
         Filter, coalesce and broadcast a materialized batch to every registered plugin.
 
@@ -446,7 +473,9 @@ class MaintenanceEngine(threading.Thread):
                     exc,
                     "WARNING",
                 )
-                plugin_results[str(getattr(plugin, "name", plugin))] = MaintenancePluginResult(errors=1)
+                plugin_results[str(getattr(plugin, "name", plugin))] = (
+                    MaintenancePluginResult(errors=1)
+                )
                 continue
 
             if not interested:
@@ -471,14 +500,18 @@ class MaintenanceEngine(threading.Thread):
 
             collapsed = passthrough + [group[-1] for group in grouped.values() if group]
             try:
-                plugin_results[str(getattr(plugin, "name", plugin))] = plugin.handle_events(context, collapsed)
+                plugin_results[str(getattr(plugin, "name", plugin))] = (
+                    plugin.handle_events(context, collapsed)
+                )
             except Exception as exc:
                 default_log.log_exception(
                     f"Maintenance plugin {getattr(plugin, 'name', plugin)!r} failed during handle_events().",
                     exc,
                     "WARNING",
                 )
-                plugin_results[str(getattr(plugin, "name", plugin))] = MaintenancePluginResult(errors=1)
+                plugin_results[str(getattr(plugin, "name", plugin))] = (
+                    MaintenancePluginResult(errors=1)
+                )
 
         return plugin_results
 

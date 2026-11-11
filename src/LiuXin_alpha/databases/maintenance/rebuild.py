@@ -9,20 +9,24 @@ from __future__ import annotations
 
 import dataclasses
 import json
-from typing import Any
+from collections.abc import Iterable, Mapping, Sequence
+from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
+from LiuXin_alpha.databases.db_types.driver_types import RowSQLConnection
+from LiuXin_alpha.databases.db_types.maintenance_types import RebuildCheckpoint
 from LiuXin_alpha.databases.maintenance.journal import inspect_source, now_ms
 from LiuXin_alpha.databases.maintenance.schema import quote, table_sql
+
+if TYPE_CHECKING:
+    from LiuXin_alpha.databases.maintenance.runtime import MaintenanceRuntime
 
 CHECKPOINT_PREFIX = "rebuild:"
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class RebuildDefinition:
-    """
-    Name a domain-selected source and the complete projection dependency set.
-    """
+    """Name a domain-selected source and the complete projection dependency set."""
 
     name: str
     version: str
@@ -30,25 +34,33 @@ class RebuildDefinition:
     plugins: tuple[str, ...]
 
 
-def _placeholders(values):
+def _placeholders(values: Iterable[object]) -> str:
     return ",".join("?" for _ in values)
 
 
-def _pending_count(runtime, connection, state):
-    return connection.execute(
+def _pending_count(
+    runtime: MaintenanceRuntime, connection: RowSQLConnection, state: RebuildCheckpoint
+) -> int:
+    row = connection.execute(
         f"SELECT COUNT(*) FROM {runtime.table('maintenance_obligations')} "
         f"WHERE plugin_id IN ({_placeholders(state['plugins'])}) "
         "AND completed_ms IS NULL AND change_id <= ?",
         (*state["plugins"], state["last_change_id"]),
-    ).fetchone()[0]
+    ).fetchone()
+    assert row is not None, "COUNT must produce one row"
+    return row[0]
 
 
-def describe_rebuild(runtime, connection, state) -> dict[str, Any]:
+def describe_rebuild(
+    runtime: MaintenanceRuntime, connection: RowSQLConnection, state: RebuildCheckpoint
+) -> dict[str, Any]:
     """Report completion through the checkpoint, independently of later writes."""
     pending_count = _pending_count(runtime, connection, state)
     recorded = json.loads(state["signature"])["plugins"]
     compatible = recorded == [
-        runtime._installed.get(name, {}).get("definition_json")
+        installed["definition_json"]
+        if (installed := runtime._installed.get(name))
+        else None
         for name in state["plugins"]
     ]
     return {
@@ -66,14 +78,10 @@ def describe_rebuild(runtime, connection, state) -> dict[str, Any]:
     }
 
 
-def rebuild_status(runtime, connection) -> list[dict[str, Any]]:
-    """
-    Inspect persisted rebuild checkpoints without installing or repairing them.
-
-    :param runtime:
-    :param connection:
-    :return:
-    """
+def rebuild_status(
+    runtime: MaintenanceRuntime, connection: RowSQLConnection
+) -> list[dict[str, Any]]:
+    """Inspect persisted rebuild checkpoints without installing or repairing them."""
     states = connection.execute(
         f"SELECT value FROM {runtime.table('maintenance_metadata')} "
         "WHERE key LIKE ? ORDER BY key",
@@ -83,19 +91,15 @@ def rebuild_status(runtime, connection) -> list[dict[str, Any]]:
 
 
 # Todo: Docstring
-def _projection_page(runtime, connection, definition, state, limit):
-    """
-
-
-    :param runtime:
-    :param connection:
-    :param definition:
-    :param state:
-    :param limit:
-    :return:
-    """
+def _projection_page(
+    runtime: MaintenanceRuntime,
+    connection: RowSQLConnection,
+    definition: RebuildDefinition,
+    state: RebuildCheckpoint,
+    limit: int,
+) -> list[Sequence[Any]]:
     conditions = [f"plugin_id IN ({_placeholders(definition.plugins)})"]
-    parameters = list(definition.plugins)
+    parameters: list[Any] = list(definition.plugins)
     if state["projection_cursor"] is not None:
         conditions.append("projection_key > ?")
         parameters.append(state["projection_cursor"])
@@ -108,9 +112,16 @@ def _projection_page(runtime, connection, definition, state, limit):
     ).fetchall()
 
 
-def _capture_manual(runtime, connection, definition, identity, row_id, after):
+def _capture_manual(
+    runtime: MaintenanceRuntime,
+    connection: RowSQLConnection,
+    definition: RebuildDefinition,
+    identity: str,
+    row_id: int,
+    after: Mapping[str, Any] | None,
+) -> int:
     """Create a fresh revision without pretending the source row was modified."""
-    change_id = connection.execute(
+    row = connection.execute(
         f"INSERT INTO {runtime.table('maintenance_changes')} "
         "(table_name,row_id,operation,before_json,after_json,ancestry_json,created_ms) "
         "VALUES (?,?,'manual',?,?, '[]',?) RETURNING change_id",
@@ -121,7 +132,9 @@ def _capture_manual(runtime, connection, definition, identity, row_id, after):
             json.dumps(after) if after is not None else None,
             now_ms(),
         ),
-    ).fetchone()[0]
+    ).fetchone()
+    assert row is not None, "INSERT RETURNING must produce the new change identity"
+    change_id = row[0]
     connection.executemany(
         f"INSERT INTO {runtime.table('maintenance_obligations')} "
         "(change_id,plugin_id,plugin_version,mode) VALUES (?,?,?,?)",
@@ -138,7 +151,13 @@ def _capture_manual(runtime, connection, definition, identity, row_id, after):
     return change_id
 
 
-def rebuild_page(runtime, definition: RebuildDefinition, *, limit=128, restart=False):
+def rebuild_page(
+    runtime: MaintenanceRuntime,
+    definition: RebuildDefinition,
+    *,
+    limit: int = 128,
+    restart: bool = False,
+) -> dict[str, Any]:
     """Commit one bounded scan page, prompt effects and its resumable checkpoint.
 
     First scan source identities up to a fixed upper bound, then existing keys
@@ -185,6 +204,7 @@ def rebuild_page(runtime, definition: RebuildDefinition, *, limit=128, restart=F
             connection, definition.source_table, runtime.schema
         )
         table = table_sql(definition.source_table, runtime.schema)
+        state: RebuildCheckpoint
         if saved and not restart:
             state = json.loads(saved[0])
             if state["signature"] != signature:
@@ -192,14 +212,22 @@ def rebuild_page(runtime, definition: RebuildDefinition, *, limit=128, restart=F
                     "Rebuild declaration changed; explicitly restart the rebuild"
                 )
         else:
-            source_bound = connection.execute(
+            source_result = connection.execute(
                 f"SELECT MAX({quote(identity)}) FROM {table}"
-            ).fetchone()[0]
-            projection_bound = connection.execute(
+            ).fetchone()
+            assert source_result is not None, "MAX must produce one row"
+            source_bound = source_result[0]
+            projection_result = connection.execute(
                 f"SELECT MAX(projection_key) FROM {runtime.table('maintenance_projections')} "
                 f"WHERE plugin_id IN ({_placeholders(definition.plugins)})",
                 definition.plugins,
-            ).fetchone()[0]
+            ).fetchone()
+            assert projection_result is not None, "MAX must produce one row"
+            projection_bound = projection_result[0]
+            change_result = connection.execute(
+                f"SELECT COALESCE(MAX(change_id),0) FROM {runtime.table('maintenance_changes')}"
+            ).fetchone()
+            assert change_result is not None, "MAX must produce one row"
             state = {
                 "name": definition.name,
                 "run_uuid": str(uuid4()),
@@ -214,13 +242,12 @@ def rebuild_page(runtime, definition: RebuildDefinition, *, limit=128, restart=F
                 "scanned": 0,
                 "scheduled": 0,
                 "started_ms": now_ms(),
-                "last_change_id": connection.execute(
-                    f"SELECT COALESCE(MAX(change_id),0) FROM {runtime.table('maintenance_changes')}"
-                ).fetchone()[0],
+                "last_change_id": change_result[0],
             }
-        scheduled = []
+        scheduled: list[tuple[int, dict[str, Any] | None]] = []
         if state["phase"] == "source":
-            conditions, values = [f"{quote(identity)} <= ?"], [state["source_bound"]]
+            conditions = [f"{quote(identity)} <= ?"]
+            values: list[Any] = [state["source_bound"]]
             if state["source_cursor"] is not None:
                 conditions.append(f"{quote(identity)} > ?")
                 values.append(state["source_cursor"])
@@ -235,8 +262,8 @@ def rebuild_page(runtime, definition: RebuildDefinition, *, limit=128, restart=F
                 values,
             ).fetchall()
             for row in selected:
-                after = dict(zip(identities, row, strict=True))
-                scheduled.append((after[identity], after))
+                source_values = dict(zip(identities, row, strict=True))
+                scheduled.append((source_values[identity], source_values))
             state["scanned"] += len(selected)
             if selected:
                 state["source_cursor"] = scheduled[-1][0]

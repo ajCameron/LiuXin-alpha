@@ -23,10 +23,8 @@ from LiuXin_alpha.databases.schema_specs import (
 )
 
 if TYPE_CHECKING:
-    from LiuXin_alpha.databases.column_metadata import (
-        ColumnMetadata,
-        ColumnOptions,
-    )
+    from LiuXin_alpha.databases.column_metadata import ColumnMetadata
+    from LiuXin_alpha.databases.db_types.column_types import ColumnOptions
     from LiuXin_alpha.databases.normalized_identities import NormalizedIdentitySpec
     from LiuXin_alpha.metadata.value_policies import (
         ColumnEmptyValuePolicy,

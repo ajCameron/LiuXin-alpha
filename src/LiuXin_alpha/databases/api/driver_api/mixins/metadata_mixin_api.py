@@ -10,7 +10,9 @@ transaction clocks.
 from __future__ import annotations
 
 import abc
-from typing import Any, Optional
+from typing import Literal
+import datetime
+from typing import Any
 
 
 class DriverMetadataMixinAPI(abc.ABC):
@@ -36,7 +38,7 @@ class DriverMetadataMixinAPI(abc.ABC):
     # Toodo: not clear how different to database version.
     @property
     @abc.abstractmethod
-    def user_version(self) -> Optional[str]:
+    def user_version(self) -> int | str | None:
         """
         Read the first PRAGMA user_version value from the primary connection.
 
@@ -50,7 +52,6 @@ class DriverMetadataMixinAPI(abc.ABC):
         :return: The raw PRAGMA value, normally an integer, or ``None`` if no row is
             returned.
         """
-
 
     @abc.abstractmethod
     def set_database_version(self) -> None:
@@ -71,7 +72,7 @@ class DriverMetadataMixinAPI(abc.ABC):
         """
 
     @abc.abstractmethod
-    def _initialize_md(self) -> None:
+    def _initialize_md(self) -> Literal[True]:
         """
         Ensure the metadata table contains one row, inserting a placeholder if empty.
 
@@ -89,15 +90,17 @@ class DriverMetadataMixinAPI(abc.ABC):
         """
 
     @abc.abstractmethod
-    def direct_get_schema_version(self) -> Optional[int]:
+    def direct_get_schema_version(self) -> int | str | None:
         """Read the schema counter without completing or replacing a borrowed handle.
 
-        Query errors propagate. Only a connection acquired for this inspection is
-        closed; callers explicitly reconnect an unusable primary connection.
+        SQLite exposes an integer schema counter; PostgreSQL uses a textual
+        schema fingerprint. None represents unavailable metadata. Query errors
+        propagate. Only a connection acquired for this inspection is closed;
+        callers explicitly reconnect an unusable primary connection.
         """
 
     @abc.abstractmethod
-    def direct_last_modified(self):
+    def direct_last_modified(self) -> datetime.datetime:
         """
         Read the database file mtime and convert it to a UTC datetime.
 
@@ -176,7 +179,7 @@ class DriverMetadataMixinAPI(abc.ABC):
         """
 
     @abc.abstractmethod
-    def last_modified(self):
+    def last_modified(self) -> datetime.datetime:
         """
         Read the configured database file modification time in UTC.
 
@@ -185,9 +188,8 @@ class DriverMetadataMixinAPI(abc.ABC):
 
         Stat database_path on each call and convert st_mtime with utcfromtimestamp. This
         is the main file timestamp, so it may not reflect changes still held in a WAL or
-        an uncommitted transaction. The result is a timezone-aware datetime despite the
-        legacy date annotation. Missing-file and other stat errors propagate; no
-        connection is opened.
+        an uncommitted transaction. The result is a timezone-aware datetime.
+        Missing-file and other stat errors propagate; no connection is opened.
 
         Example:
             >>> driver.last_modified()  # doctest: +SKIP

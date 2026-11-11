@@ -25,7 +25,7 @@ class DriverWrapperDeleteMixin(DriverWrapperBase):
     """
 
     @observed("delete", count="unknown")
-    def delete(self, target_table: str, column: str, value: Any) -> bool:
+    def delete(self, target_table: str, column: str, value: Any) -> bool | None:
         """
         Delete rows matching a scalar value or a list/set of values.
 
@@ -40,8 +40,8 @@ class DriverWrapperDeleteMixin(DriverWrapperBase):
         :param target_table: Table whose rows are affected.
         :param column: Column name in the selected table.
         :param value: Scalar match value, or list/set selecting the bulk deletion path.
-        :return: Unmodified driver result; shared SQL normally returns True after
-            execution.
+        :return: Unmodified driver result: shared SQL returns None for list/set
+            batches and True for scalar deletion; PostgreSQL returns True.
         """
         if isinstance(value, (list, set)):
             return self.driver.direct_delete_many(
@@ -53,7 +53,6 @@ class DriverWrapperDeleteMixin(DriverWrapperBase):
             )
 
     # Todo: Add "delet_by_value"
-
     @observed("delete_by_id", count="unknown")
     def delete_by_id(
         self, target_table: str, row_id: int | list[int] | set[int]

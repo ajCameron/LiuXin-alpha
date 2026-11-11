@@ -1,6 +1,4 @@
-"""
-Optional operation diagnostics with no timer or callback work when disabled.
-"""
+"""Optional operation diagnostics with no timer or callback work when disabled."""
 
 import logging
 from collections.abc import Callable
@@ -23,13 +21,7 @@ _log = logging.getLogger(__name__)
 
 
 def _row_count(result: object, mode: str) -> int | None:
-    """
-    Count returned rows only where the operation's result shape proves it.
-
-    :param result:
-    :param mode:
-    :return:
-    """
+    """Count returned rows only where the operation's result shape proves it."""
     if mode == "one":
         return 0 if result is None or result is False else 1
     if mode == "all" and isinstance(result, (list, tuple)):
@@ -45,13 +37,7 @@ def observed(
     *,
     count: Literal["unknown", "one", "all", "page", "get"] = "unknown",
 ) -> Callable[[Callable[P, R]], Callable[P, R]]:
-    """
-    Observe the outermost selected wrapper operation; observers cannot recurse.
-
-    :param operation:
-    :param count:
-    :return:
-    """
+    """Observe the outermost selected wrapper operation; observers cannot recurse."""
 
     def decorate(function: Callable[P, R]) -> Callable[P, R]:
         @wraps(function)

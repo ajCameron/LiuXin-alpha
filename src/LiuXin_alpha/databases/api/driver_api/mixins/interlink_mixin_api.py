@@ -9,7 +9,8 @@ preserve cardinality, nullable-FK and type-table limitations.
 from __future__ import annotations
 
 import abc
-from typing import Any, Iterable, Literal, LiteralString, Optional, Union
+from LiuXin_alpha.databases.db_types.driver_types import SQLConnection
+from typing import Iterable, Literal, Optional, Union
 
 
 class DriverInterlinkMixinAPI(abc.ABC):
@@ -45,7 +46,9 @@ class DriverInterlinkMixinAPI(abc.ABC):
 
     # Todo: Merge these methods
     @abc.abstractmethod
-    def _build_allowed_types_table_interlink(self, for_table: str, allowed_types: Iterable[str]) -> str:
+    def _build_allowed_types_table_interlink(
+        self, for_table: str, allowed_types: Iterable[str]
+    ) -> list[str]:
         """
         Generate a legacy allowed-type table and one unescaped insert per label.
 
@@ -69,9 +72,7 @@ class DriverInterlinkMixinAPI(abc.ABC):
 
     @abc.abstractmethod
     def build_allowed_types_table_interlink(
-            self,
-            for_table: str,
-            allowed_types: Optional[Iterable[str]] = None
+        self, for_table: str, allowed_types: Optional[Iterable[str]] = None
     ) -> list[str]:
         """
         Return no statements for None, otherwise build a legacy allowed-type table.
@@ -90,20 +91,20 @@ class DriverInterlinkMixinAPI(abc.ABC):
         :return: DDL/insert statement list, or an empty list.
         """
 
-
     # Todo: May not be a general drive method - should only be sql
     @abc.abstractmethod
     def direct_get_direct_link_main_tables_sql(
-            self,
-            primary_table: str,
-            secondary_table: str,
-            link_type: str = 'many_many',
-            requested_cols: str = 'all',
-            index_both: bool = True,
-            allowed_types: Optional[Iterable[str]] = None,
-            one_link_with_one_type: bool = True,
-            override_restriction_sql: Optional[str] = None,
-            nullable_fks: bool = True) -> tuple[list[str], str]:
+        self,
+        primary_table: str,
+        secondary_table: str,
+        link_type: str = "many_many",
+        requested_cols: str | Iterable[str] | None = "all",
+        index_both: bool = True,
+        allowed_types: Optional[Iterable[str]] = None,
+        one_link_with_one_type: bool = True,
+        override_restriction_sql: Optional[str] = None,
+        nullable_fks: bool = True,
+    ) -> tuple[list[str], str]:
         """
         Generate link DDL, optional type-table inserts and endpoint/sequence indexes.
 
@@ -112,7 +113,7 @@ class DriverInterlinkMixinAPI(abc.ABC):
 
         Sort singular bases and invert one/many orientation when needed. Strict
         many_many uniqueness ignores type; nonexclusive uniqueness includes type when
-        requested. FKs remain nullable regardless of nullable_fks to allow blank-row
+        requested. The caller chooses nullable_fks to allow or reject blank-row
         construction. Raw overrides replace automatic cardinality/type handling. This
         does not execute SQL; identifiers and legacy type-seed literals require trusted
         inputs.
@@ -133,23 +134,20 @@ class DriverInterlinkMixinAPI(abc.ABC):
             and requested metadata.
         :param override_restriction_sql: Trusted raw constraint SQL replacing generated
             cardinality and type constraints.
-        :param nullable_fks: Requested FK nullability; interlink generation currently
-            always emits nullable FKs.
+        :param nullable_fks: Whether both endpoint foreign keys permit NULL.
         :return: SQL statement list and generated link-table name.
         """
-
-
-
 
     # Todo: Might want to be a private method - we do, eventually, want to be not SQL
     @abc.abstractmethod
     def build_interlink_table_sqlite(
-            self,
-            table1: str,
-            table2: str,
-            requested_cols: Optional[Union[str, Iterable[str]]] = None,
-            allowed_types: Optional[Iterable[str]] = None,
-            nullable_fks: bool = True) -> list[str]:
+        self,
+        table1: str,
+        table2: str,
+        requested_cols: Optional[Union[str, Iterable[str]]] = None,
+        allowed_types: Optional[Iterable[str]] = None,
+        nullable_fks: bool = True,
+    ) -> list[str]:
         """
         Resolve a required legacy constraint entry and generate the matching link
         script.
@@ -170,19 +168,19 @@ class DriverInterlinkMixinAPI(abc.ABC):
         :param table2: Second table whose singular prefix participates in the link name.
         :param requested_cols: all, None, or iterable of optional metadata suffixes.
         :param allowed_types: Optional iterable of permitted type labels.
-        :param nullable_fks: Requested FK nullability; interlink generation currently
-            always emits nullable FKs.
+        :param nullable_fks: Whether both endpoint foreign keys permit NULL.
         :return: Generated statement list without executing it.
         """
 
     # Todo: A view showing type counts for intralinks/intralinks
     @abc.abstractmethod
     def direct_create_interlink_types_reference_table(
-            self,
-            interlink_table_name: str,
-            interlink_column_base: str,
-            allowed_types: list[str],
-            connection: Any) -> None:
+        self,
+        interlink_table_name: str,
+        interlink_column_base: str,
+        allowed_types: list[str],
+        connection: SQLConnection,
+    ) -> None:
         """
         Create/seed a __types table, install nonnull-type guard triggers and commit.
 
@@ -209,15 +207,18 @@ class DriverInterlinkMixinAPI(abc.ABC):
     # Todo: We need to get a type for "allowed sql types"
     @abc.abstractmethod
     def direct_link_main_tables(
-            self,
-            primary_table: str,
-            secondary_table: str,
-            link_type: Literal["many_many", "many_one", "one_many", "one_one"] = 'many_many',
-            requested_cols: Optional[Union[Iterable[str], LiteralString["all"]]] = 'all',
-            index_both: bool = True,
-            allowed_types: Optional[str] = None,
-            override_restriction_sql: str = None,
-            nullable_fks: bool = True) -> str:
+        self,
+        primary_table: str,
+        secondary_table: str,
+        link_type: Literal[
+            "many_many", "many_one", "one_many", "one_one"
+        ] = "many_many",
+        requested_cols: str | Iterable[str] | None = "all",
+        index_both: bool = True,
+        allowed_types: Iterable[str] | None = None,
+        override_restriction_sql: str | None = None,
+        nullable_fks: bool = True,
+    ) -> str:
         """
         Generate a link script, execute it through the host and clear property caches.
 
@@ -239,13 +240,14 @@ class DriverInterlinkMixinAPI(abc.ABC):
         :param allowed_types: Optional iterable of permitted type labels.
         :param override_restriction_sql: Trusted raw constraint SQL replacing generated
             cardinality and type constraints.
-        :param nullable_fks: Requested FK nullability; interlink generation currently
-            always emits nullable FKs.
+        :param nullable_fks: Whether both endpoint foreign keys permit NULL.
         :return: Generated link-table name on success.
         """
 
     @abc.abstractmethod
-    def direct_unlink_main_tables(self, primary_table: str, secondary_table: str) -> None:
+    def direct_unlink_main_tables(
+        self, primary_table: str, secondary_table: str
+    ) -> None:
         """
         Drop the whole interlink table between two main tables and invalidate caches.
 

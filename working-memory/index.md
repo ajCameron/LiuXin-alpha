@@ -1,56 +1,62 @@
 # Working Memory Index
 
-Calibre generator relocated locally, **2026-11-11**. Continue in
-`/mnt/c/dev/LiuXin-alpha/.tmp/database-driver-review-2026-11-10`, branch
-`calibre-generator-relocation-2026-11-11`, based on merged PR #157 (`fcf9166c`).
-Read that clone's `working-memory/calibre-generator-relocation-2026-11-11.md`.
-145 focused tests, full quality and installed-wheel Calibre checks pass.
-Extra fixture tests reproduce two existing tooling problems on the merged
-baseline; the handoff records them for review. Changes are uncommitted.
-Preserve this original checkout and WSL recovery data.
+PR #160 reconciliation, **2026-11-11**:
+[database review/main remediation](database-review-main-remediation-2026-11-11.md).
+PRs #158 and #159 merged into different target branches. The resulting 81
+conflicts are resolved, retaining the reviewed driver/FRBR/Calibre
+implementation and main-only notes, preference removal and APSW version bump.
+Copilot already ended with startup failure; no active Copilot run remained.
+Full quality gates pass; 822 focused tests pass, with 149 conditional skips.
+Delivery is a normal merge commit to the existing PR #160; no PR merge.
+Read the handoff and publication receipts. Continue in the persistent
+review clone on `database-review-main-remediation-2026-11-11`; preserve the
+original checkout and data submodule.
 
-FRBR repairs completed locally, **2026-11-11**. Continue in persistent clone
-`/mnt/c/dev/LiuXin-alpha/.tmp/database-driver-review-2026-11-10`, branch
-`database-generator-frbr-review-2026-11-11`, based on published `5304f34f`.
-Read that clone's `working-memory/database-generator-frbr-review-2026-11-11.md`.
-All five findings repaired with SQL/link plans and explicit placeholder policy.
-Final focused run: 160 passed, including 103 new mandatory cases (manifest 1,430).
-Integration/retry/focused coverage: 1,275 distinct passes, 58 conditional skips;
-required full quality gates pass. All checks are finished; changes staged and
-uncommitted. No generator publication/migration/merge. Preserve this original
-checkout and WSL recovery data. Driver PR #156 is unchanged.
+Calibre move ready for publication, **2026-11-11**:
+[Calibre generator relocation](calibre-generator-relocation-2026-11-11.md).
+PR #157 is merged; fast-forwarded to `fcf9166c` and created branch
+`calibre-generator-relocation-2026-11-11` in the persistent review clone.
+Generator and library builder now live in `utils/calibre_compat/database_generator`.
+145 focused tests pass; full quality and installed-wheel Calibre checks pass.
+Extra generated-fixture checks expose two existing tooling issues, reproduced
+on the merged baseline (13 failures); read the handoff before generator signoff.
+All local checks finished. Commit and PR publication to `database-review` are
+authorized; the user will fast-forward their own checkout after merging.
+Read the handoff for publication receipts. No original-checkout switch or stash.
 
-Published **2026-11-11**: commit `5304f34f` includes the sixth–eighth driver
-repairs/reviews and three additional architecture/provider/mixin notes. PR #156
-is updated; fresh PR/push CI and secret scan passed. Full suite: 8,911 passed;
-mandatory database gate: 1,327/1,327 passed. Read
-[the publication handoff](database-driver-plugins-publication-2026-11-11.md).
-The persistent review clone is clean. Preserve this original checkout's work;
-the clone's origin remains local. No merge performed.
+Signed off locally, **2026-11-11**: read
+[the FRBR generator repair handoff](database-generator-frbr-review-2026-11-11.md).
+All seven findings have repairs, including the second-pass primary-flag domain
+and stale API documentation. Final focused run: 174 passed, including all 117 FRBR
+mandatory cases; identifier integration: 10 passed. Manifest: 1,444. Required full
+quality gates pass. Earlier broad validation and remaining migration/PostgreSQL
+limits are recorded in the handoff.
+All checks finished; source/preferences/recovery are preserved. Commit and PR
+publication are authorized on `database-generator-frbr-review-2026-11-11`, based
+on `5304f34f`, targeting `database-review`. Driver PR #156 has merged. Read the
+handoff for publication evidence; no generator merge or migration requested.
 
-Completed locally, **2026-11-11**: read the persistent clone's
-`working-memory/database-driver-plugins-eighth-fixes-2026-11-11.md` in
-`/mnt/c/dev/LiuXin-alpha/.tmp/database-driver-review-2026-11-10`.
+Completed locally, **2026-11-11**:
+[eighth driver fixes](database-driver-plugins-eighth-fixes-2026-11-11.md).
 DDP28/DDP29 have repairs and 147 new required cases, taking the manifest to 1,327.
 Final gate: 1,327/1,327 required, 1,358 selected passes, zero skips. Full quality
 and both type checkers pass; integration: 285 passed/29 backend skips; 121 doctest
 examples and 85 documentation/runner checks pass. Private PG16 stopped/removed.
 All checks finished; changes staged, uncommitted. Read the handoff for evidence.
-Preserve this checkout's source/preferences/data and WSL recovery backup.
-No commit/push/merge; the clone's origin is local.
+Continue in `/mnt/c/dev/LiuXin-alpha/.tmp/database-driver-review-2026-11-10`;
+preserve all previous changes and the original checkout. No commit/push/merge.
 
-Reviewed again, **2026-11-11**: read the persistent clone's
-`working-memory/database-driver-plugins-eighth-review-2026-11-11.md` in
-`/mnt/c/dev/LiuXin-alpha/.tmp/database-driver-review-2026-11-10`.
+Reviewed again, **2026-11-11**:
+[eighth driver review](database-driver-plugins-eighth-review-2026-11-11.md).
 Two new medium findings remain open: DDP28 PostgreSQL qmark expression contexts
 and DDP29 nonstandard connection string mode rewriting literal contents.
 Existing focused tests: 945 passed, zero skips; SQLite probes found no new defect.
 Private PG16 stopped/removed. Previous fixes/staging are unchanged; review docs
-only. Read the handoff for final checks. No commit/push/merge; origin is local.
-Preserve this checkout's source/preferences/data and the WSL recovery backup.
+only. Continue in `/mnt/c/dev/LiuXin-alpha/.tmp/database-driver-review-2026-11-10`.
+Read the handoff for final checks. No commit/push/merge; origin is local.
 
 Completed locally, **2026-11-10**:
-read the clone’s `working-memory/database-driver-plugins-seventh-fixes-2026-11-10.md`.
+[seventh driver fixes](database-driver-plugins-seventh-fixes-2026-11-10.md).
 DDP25–DDP27 are repaired with 221 new mandatory cases across applicable drivers.
 Final gate: 1,180/1,180 required, 1,211 selected passes, zero skips. Both type
 checkers/full quality, 121 doctests and 58 documentation/runner checks pass.
@@ -61,176 +67,123 @@ Continue in `/mnt/c/dev/LiuXin-alpha/.tmp/database-driver-review-2026-11-10` on
 No push/merge. Original checkout source/preferences/data and recovery are preserved.
 The clone's origin is local, not GitHub. Read the handoff before publication.
 
-Reviewed after recovery, **2026-11-10**: continue in persistent isolated clone
-`/mnt/c/dev/LiuXin-alpha/.tmp/database-driver-review-2026-11-10`, branch
-`database-driver-plugins-review-2026-11-05`. Read its
-`working-memory/database-driver-plugins-seventh-review-2026-11-10.md`.
-Three open findings: DDP25 SQLite hidden row IDs/FTS, DDP26 PG continued escape
-strings, DDP27 PG keyword identifiers. Existing SQLite/APSW/live PG checks:
-724 passed, no skips. Private PG16 stopped/removed. Recovered source remains
-staged there; new review docs only, no commit/push/merge. Preserve this checkout's
-source/preferences/data, the recovery backup and old worktree index. The clone's
-`origin` points here, not GitHub. Final 959-case gate remains unverified.
+Reviewed after WSL recovery, **2026-11-10**:
+[seventh driver review](database-driver-plugins-seventh-review-2026-11-10.md).
+Continue in persistent `/mnt/c/dev/LiuXin-alpha/.tmp/database-driver-review-2026-11-10`
+on `database-driver-plugins-review-2026-11-05`. Three findings remain open:
+DDP25 SQLite hidden row IDs/FTS, DDP26 PG continued escape-string rewriting,
+DDP27 PG keyword-identifier binding. Existing checks: 724 passes, zero skips.
+Private PG16 is stopped/removed. Recovered production changes remain staged;
+this review adds docs only, with no commit/push/merge. Old `/tmp` process handles
+below are historical; the interrupted final 959-case gate is not verified.
 
-WSL recovery orientation, **2026-11-10**: the `/tmp/liuxin-databases-typing`
-checkout and sixth-review temporary logs are gone. Its surviving Git index
-contains 19 changed files, both latest fixes and the 959-case manifest. They
-are backed up in `.tmp/wsl-recovery-2026-11-10/` on the persistent repo drive.
-Read [the recovery handoff](wsl-recovery-2026-11-10.md) before resuming; restore
-an isolated persistent checkout and rerun the final validation. Old process
-handles/cleanup receipts below are historical. Source/preferences/data and
-the surviving staging index are preserved; no commit/push/merge or test rerun.
+Implemented **2026-11-10**: [sixth driver fixes](database-driver-plugins-sixth-fixes-2026-11-10.md).
+DDP23/DDP24 now have shared lossless SQLite export/rebuild serialization and
+PostgreSQL Unicode token/ASCII keyword handling. The final 959-case regression
+gate and final quality checks are running; see the handoff for process handles
+and private PG cleanup. Earlier full 943/945-case gates and expanded integration
+passed. Work remains in the isolated review worktree, with no commit/push/merge.
 
-Fixes implemented, final validation running, **2026-11-10**: continue in
-`/tmp/liuxin-databases-typing` on `database-driver-plugins-review-2026-11-05`.
-Read its `working-memory/database-driver-plugins-sixth-fixes-2026-11-10.md`.
-DDP23/DDP24 fixes and the expanded 959-case manifest are implemented. Earlier
-943/945-case gates and broader integration passed. Private PG is still running
-for the final gate; the handoff records process handles and cleanup instructions.
-PR #156 published head remains `bab2b682`. No new commit/push/merge.
-Preserve this checkout's accumulated source/preferences/data.
+Reviewed **2026-11-10**: [sixth driver-plugin review](database-driver-plugins-sixth-review-2026-11-10.md).
+PR #156 remains open at `bab2b682` with all applicable CI green. Two new findings:
+DDP23, lossy embedded-NUL SQLite SQL export/rebuild (high); DDP24, PostgreSQL
+Unicode identifier/dollar-tag recognition and literal rewriting (medium).
+The focused existing regressions pass 82 cases. New real-engine probes and
+controls are recorded in the review; both findings remain unimplemented.
+Private PG16 is stopped/removed. Review/navigation/handoff documentation only,
+in `/tmp/liuxin-databases-typing`; no new commit, push or merge.
 
-Reviewed again, **2026-11-10**: continue in `/tmp/liuxin-databases-typing`,
-branch `database-driver-plugins-review-2026-11-05`. PR #156 remains OPEN at
-`bab2b682` with all applicable CI green. Read that worktree's
-`working-memory/database-driver-plugins-sixth-review-2026-11-10.md` and matching
-`dev-docs/databases` review. Two new open findings: DDP23, embedded-NUL TEXT
-lost by SQLite rebuild and both SQLite SQL exports (high); DDP24, PostgreSQL
-Unicode identifier/dollar-tag tokenization rejecting valid SQL or rewriting
-literal text (medium). Focused existing regressions: 82 passed, no skips.
-Private PG16 is stopped and removed. Review/navigation/handoff docs only;
-no new production changes, commit, push or merge. Preserve this checkout's
-accumulated source/preferences/data and continue in the isolated worktree.
+Delivery follow-up, **2026-11-07**: the user authorized committing and pushing
+the [fifth driver review mitigations](database-driver-plugins-fifth-fixes-2026-11-06.md)
+on the existing PR #156 branch. Validation below applies to the delivered source
+and test tree; inspect the PR for the published commit and new CI results.
+No merge requested. Continue in the isolated review checkout.
 
-Published, **2026-11-07**: [PR #156](https://github.com/ajCameron/LiuXin-alpha/pull/156)
-now includes commit `bab2b682cfa642fd3ecd431c1c395fbac0ecad00` on
-`database-driver-plugins-review-2026-11-05`, based on `database-review`.
-DDP20–DDP22 mitigations, regression coverage and review notes are committed/pushed;
-the PR description reflects the final changes and validation. All 808 required
-cases passed (839 selected tests); confidence 313 passed/3 skips; integration
-460 passed/29 backend skips; full quality/types, 121 doctests, 58 documentation/
-runner checks and the final 22 documentation checks pass. Fresh CI is running on
-this commit, with no failed check reported at publication; require it before merge.
-Private PG16 is removed. No merge performed. Continue in the clean isolated
-`/tmp/liuxin-databases-typing` worktree and read its
-`working-memory/database-driver-plugins-fifth-fixes-2026-11-06.md`.
-Preserve this checkout's accumulated source/preferences/data.
+Implemented and verified, **2026-11-06**:
+[fifth driver review mitigations](database-driver-plugins-fifth-fixes-2026-11-06.md).
+DDP20–DDP22 are fixed with 156 new mandatory cases. Final gate: 808/808 required,
+839 selected passes; confidence: 313 passed/3 existing skips; integration:
+460 passed/29 backend skips. Both type checkers, full quality, 121 doctests and
+58 documentation/runner checks pass. Private PG16 is stopped/removed.
+Changes are staged, uncommitted, in `/tmp/liuxin-databases-typing` on the existing
+PR #156 branch. Published head remains 47e089d4; require fresh CI after publishing.
 
-Implemented and locally verified, **2026-11-06**: DDP20–DDP22 mitigations are
-staged in `/tmp/liuxin-databases-typing` on `database-driver-plugins-review-2026-11-05`.
-Read its `working-memory/database-driver-plugins-fifth-fixes-2026-11-06.md`.
-All 808 required cases passed (839 selected tests); confidence 313 passed/3 skips;
-integration 460 passed/29 backend skips; both type checkers/full quality,
-121 doctests and 58 documentation/runner checks pass. Private PG16 is removed.
-No new commit/push/merge: PR #156 still has published head 47e089d4.
-Preserve this checkout's accumulated source/preferences/data and continue in
-the isolated worktree. Fresh CI is required after publishing the new changes.
+Reviewed again, **2026-11-06**: [fifth driver review](database-driver-plugins-fifth-review-2026-11-06.md).
+PR #156 head 47e089d4 has all applicable CI checks green (full suite: 8,799 passed),
+but three new real-engine findings: completion parsing, SQLite WAL surviving
+rebuild replacement, and qualified PostgreSQL JSON operators. DDP20/DDP21 are
+high priority; DDP22 is medium. Review/navigation/handoff documentation only;
+no production fixes or publication. Private PG16 is stopped and removed.
+Continue in `/tmp/liuxin-databases-typing` and read the handoff before proceeding.
 
-Reviewed again, **2026-11-06**: continue in `/tmp/liuxin-databases-typing`,
-branch `database-driver-plugins-review-2026-11-05`, PR #156 head `47e089d4`.
-Read its `working-memory/database-driver-plugins-fifth-review-2026-11-06.md`
-and matching `dev-docs/databases` review. All applicable CI is green (8,799
-full-suite passes), but new probes show three open findings: completion parsing,
-SQLite WAL surviving rebuild replacement and qualified PostgreSQL JSON operators.
-DDP20/DDP21 are high priority; DDP22 is medium. Review documentation only, no new
-production fixes or publication. Private PG16 is stopped/removed.
-Preserve this checkout's accumulated source/preferences/data.
+Repaired and locally verified, **2026-11-06**:
+[fourth driver review fixes](database-driver-plugins-fourth-fixes-2026-11-06.md).
+DDP17–DDP19 plus the missing optional-APSW guard are fixed. Mandatory gate:
+652/652 required, 683 selected tests passed; confidence: 313 passed, three
+environment/fixture skips. Both type checkers, full quality, 121 doctests and
+43 documentation/runner checks pass. Private PG16 is removed. Continue in the
+isolated review checkout and inspect PR #156 before publication; no merge requested.
 
-Published follow-up fixes, **2026-11-06**: [PR #156](https://github.com/ajCameron/LiuXin-alpha/pull/156)
-now includes commit `47e089d4fd6179444d687922f7649ef1a7910a88` on
-`database-driver-plugins-review-2026-11-05`, based on `database-review`.
-DDP17–DDP19 and the missing optional-APSW guard are fixed. Continue in clean
-`/tmp/liuxin-databases-typing`; read its
-`working-memory/database-driver-plugins-fourth-fixes-2026-11-06.md`.
-All 652 required cases passed every phase (683 selected tests); confidence:
-313 passed, three environment/fixture skips. Full quality/types, 121 doctests and
-43 documentation/runner checks pass. Private PG16 is stopped/removed. Fresh CI
-has started; require it before merging. PR body updated through REST because the
-installed CLI's edit command uses a retired Projects endpoint. No merge performed.
-Preserve this checkout's accumulated source/preferences/data.
+Reviewed again, **2026-11-06**: [fourth driver review](database-driver-plugins-fourth-review-2026-11-06.md).
+PR #156 head `11b6f320` has three open findings: Unicode CTE transaction handling,
+PostgreSQL typed-literal bindings and a stale index fixture failing confidence CI.
+The mandatory ratchet and typing checks pass; full CI is still running. This turn
+adds review/navigation/handoff docs only. Private PG16 is stopped and removed.
+Continue in `/tmp/liuxin-databases-typing`; prioritize DDP17 before merging.
 
-Reviewed again, **2026-11-06**: continue in `/tmp/liuxin-databases-typing` on
-`database-driver-plugins-review-2026-11-05`, PR #156 head `11b6f320`. Its
-`working-memory/database-driver-plugins-fourth-review-2026-11-06.md` and matching
-`dev-docs/databases` review record three open findings: Unicode CTE partial-write
-durability, PostgreSQL typed-literal binding rejection, and a stale fixture failing
-confidence CI. Mandatory ratchet/typing checks pass; full CI was still running.
-Review-only changes; no new production fixes or push. Private PG16 is removed.
-Preserve this checkout's accumulated source/preferences/data.
+Ready for PR, **2026-11-06**: [third driver review repairs](database-driver-plugins-third-fixes-2026-11-06.md).
+All six findings repaired; 148 added mandatory cases. Final gate: 548 passed with no
+skips/xfails; integration: 495 passed (13 skips, 2 xfail), 121 doctests and full quality pass.
+The private PG16 cluster is removed. The review branch includes all 16 driver fixes;
+check its remote PR state before publication or further work.
 
-Published, **2026-11-06**: [PR #156](https://github.com/ajCameron/LiuXin-alpha/pull/156),
-commit `11b6f320301b2a8f4631dfb9659c70cc50cf6e38`, from
-`database-driver-plugins-review-2026-11-05` into `database-review`. All six new
-findings repaired, alongside the earlier ten repairs/retirements. Final mandatory
-gate: 548 passed, zero skips/xfails; integration: 495 passed, 13 skips, 2 xfail.
-Typing/quality, 121 doctests and 22 documentation checks pass. CI was still running
-when the PR was verified; no failed check was reported. The private PG16 cluster
-is removed and `/tmp/liuxin-databases-typing` is clean. Read its
-`working-memory/database-driver-plugins-third-fixes-2026-11-06.md` for details.
-The implementation/regression/PR goal is complete. Preserve this checkout's
-accumulated source/preferences/data; it has not been switched or reset.
+Reviewed again, **2026-11-06**:
+[third driver-plugin review](database-driver-plugins-third-review-2026-11-06.md).
+Six open findings; prioritize CTE batch transactions and PostgreSQL BYTEA
+round-trip corruption. Existing 400 required cases pass, with zero skips/xfails.
+This turn changes review/navigation/handoff docs only; the earlier fixes remain
+staged. Private PG16 is removed. Continue in the same isolated review checkout.
 
-Reviewed again, **2026-11-06**: continue in `/tmp/liuxin-databases-typing`, branch
-`database-driver-plugins-review-2026-11-05`. Read its
-`working-memory/database-driver-plugins-third-review-2026-11-06.md` and matching
-`dev-docs/databases` review. Six findings remain; CTE batch atomicity and PostgreSQL
-BYTEA round trips have reproduced durable-data consequences. Existing 400 required
-cases pass. Review-only changes this turn; private PG16 is removed. Preserve this
-checkout's accumulated work, preferences and data.
+Completed locally, **2026-11-05**:
+[driver plugins follow-up fixes](database-driver-plugins-follow-up-review-2026-11-05.md).
+All four findings repaired/retired, with 50 new required cases: final gate 400
+passed, zero skips/xfails. Affected integration and 121 doctest examples pass;
+full quality/type checks pass. Two cache-artifact teardown errors were resolved
+by rerunning after mypy finished. The private PG16 cluster is stopped/removed.
+Work remains uncommitted on the same isolated review branch; read the handoff.
 
-Completed locally, **2026-11-05**: continue in `/tmp/liuxin-databases-typing`,
-branch `database-driver-plugins-review-2026-11-05`. Read its
-`working-memory/database-driver-plugins-follow-up-review-2026-11-05.md`.
-All four additional findings repaired/retired; 400 mandatory cases pass without
-skips/xfails, plus affected integration, 121 doctest examples and full quality.
-Private PG16 is stopped/removed. Changes remain uncommitted. Preserve this
-checkout's accumulated work, preferences and data.
+Completed locally, **2026-11-05**: [driver-plugin review fixes](database-driver-plugins-review-2026-11-05.md).
+All six findings are repaired, with 110 added regressions. Final mandatory gate:
+350 passed, zero skips/xfails. Integration: 1,275 passed, 37 backend/platform/fixture
+skips; 121 doctest examples and all quality gates pass. The PostgreSQL test cluster
+is removed. Changes are staged but uncommitted in `/tmp/liuxin-databases-typing`
+on `database-driver-plugins-review-2026-11-05`, based on merged PR #155 (`07fc3326`).
+See the handoff for contracts, evidence and the remaining structural/performance work.
 
-Completed locally, **2026-11-05**: all six driver-plugin findings are fixed in
-`/tmp/liuxin-databases-typing` on `database-driver-plugins-review-2026-11-05`, based
-on merged PR #155 (`07fc3326`). Read its
-`working-memory/database-driver-plugins-review-2026-11-05.md` and the corresponding
-`dev-docs/databases` review. The final 350-case mandatory gate passes without skips;
-integration passed 1,275 cases (37 backend/platform/fixture skips); 121 doctest
-examples and every quality gate pass. The private PostgreSQL cluster is removed.
-Changes are staged but uncommitted. Continue there and preserve this checkout’s
-accumulated work, preferences and data.
-
-Published, **2026-11-05**: typing findings are patched/mitigated and protected by
-an enforced 240-case database regression ratchet in PR #155, commit `4b8a36dc`.
-Continue in `/tmp/liuxin-databases-typing` on `databases-full-typing`; its
-`working-memory/database-regression-ratchet-2026-11-05.md` records the changes,
-compatibility limits and verification. All 240 required cases, 87 final tooling
-checks and fresh-environment type checks pass. An integration selection had 292
-passes; its staging-related doc-link failure was corrected and rerun. The private
-PostgreSQL instance is stopped/removed. The original checkout's implementation,
-preferences and data are preserved. No merge was requested or performed.
+Completed locally, **2026-11-05**: [typing findings and regression ratchet](database-regression-ratchet-2026-11-05.md).
+Runtime/cache transaction fixes, explicit Row state and required named regressions
+are implemented here. All 240 required cases and 87 final tooling checks pass;
+fresh-environment typing also passes. Delivery is on the existing typing PR branch.
 
 
-Completed, **2026-11-04**: full database typing is on `databases-full-typing`
-in `/tmp/liuxin-databases-typing` (the former PR checkout moved there).
-It was fast-forwarded to merged integration head `d8d52587`. All 225 database
-modules now have complete signatures; both checkers and all quality gates pass.
-The broad database run had 2,577 passes, with all three reported issues resolved
-and rerun in a 191-pass final lane. Live PostgreSQL and native doctests also pass.
-Read that checkout's `working-memory/databases-typing-2026-11-04.md` for evidence
-and validation limits. Published as regular [PR #155](https://github.com/ajCameron/LiuXin-alpha/pull/155),
-targeting `database-review`, at commit `01d5cf7c`. The branch is pushed, tracks
-origin and its dedicated worktree is clean. CI is running; no merge was requested
-or performed. Continue there; do not recommit the original checkout's already
-published changes. The original implementation/preferences/data remain preserved.
+Completed, **2026-11-04**: full database typing on `databases-full-typing`
+in `/tmp/liuxin-databases-typing`, based on merged integration head `d8d52587`.
+All **225 modules / 2,482 function definitions** have complete signatures. Both
+configured checkers and all quality gates pass. The broad database run had 2,577
+passes; all three reported issues were resolved and rerun in the final **191-pass**
+consumer/tooling lane (two PG skips covered by the **46-pass** live lane).
+All **119** native backend doctest examples pass; the wheel contains the typing
+marker and exact database sources. See the [completion handoff](databases-typing-2026-11-04.md)
+for failures, reruns, historical limits and logs. Original source/preferences/data
+remain preserved. The follow-up request authorizes committing and publishing the
+complete pass as a PR against `database-review`; no merge is requested.
 
-Published, **2026-11-04**: [PR #154](https://github.com/ajCameron/LiuXin-alpha/pull/154)
-includes the maintenance overhaul and driver-wrapper review/upgrades in two commits.
-See the [delivery handoff](review-upgrade-pr-2026-11-04.md). Branch:
-`maintenance-driver-wrapper-upgrades`, based on PR #153. Continue in
-`/tmp/liuxin-driver-wrapper-pr`; that checkout is clean and pushed. The original
-`maintenance-plugin-modes` checkout retains its already-published implementation
-changes, local preferences and dirty data submodule. Do not recommit those changes
-as new work. Final combined checks: 371 passed, 13 backend skips; 44 docs/tooling
-checks and all quality gates pass. Private PostgreSQL is stopped/removed; CI was
-queued at handoff. No merge requested or performed. This supersedes the
-uncommitted-delivery instructions in the historical entries below.
+Delivery, **2026-11-04**: [combined maintenance and driver-wrapper PR](review-upgrade-pr-2026-11-04.md).
+The user explicitly requested both sets of work. The branch is
+`maintenance-driver-wrapper-upgrades`, based on PR #153, with separate wrapper
+and maintenance commits. This entry supersedes the uncommitted-delivery status
+in the historical entries below; local preferences and the data submodule stay
+outside the PR. The original checkout is preserved.
 
 Completed, **2026-11-04**: [driver-wrapper features](driver-wrapper-features-2026-11-04.md).
 Native schema facts, explicit read ownership, resumable bounded scans, backend

@@ -21,7 +21,13 @@ from LiuXin_alpha.errors import (
 from LiuXin_alpha.utils.logging import default_log
 
 
-class DeleteMixin:
+from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver._state import (
+    SQLDriverMixinState,
+    driver_operations,
+)
+
+
+class DeleteMixin(SQLDriverMixinState):
     """
     Provide validated-table deletion and link-table removal helpers.
 
@@ -38,7 +44,7 @@ class DeleteMixin:
         :param row_ids: Iterable of IDs; missing rows are harmless no-ops.
         :return: True after the complete batch commits.
         """
-        id_column = self.direct_get_id_column(target_table)
+        id_column = driver_operations(self).direct_get_id_column(target_table)
         return self.direct_delete(target_table, id_column, row_ids, many=True)
 
     # Todo: Merge
@@ -59,11 +65,13 @@ class DeleteMixin:
         :param many: Execute one equality predicate per supplied value when true.
         :return: True after successful completion, including absent matches.
         """
-        if not self.direct_validate_existing_table_name(target_table):
+        if not driver_operations(self).direct_validate_existing_table_name(
+            target_table
+        ):
             raise InputIntegrityError(f"Table {target_table!r} not found in database")
         stmt = f'DELETE FROM "{target_table}" WHERE "{column}" = ?'
         try:
-            with closing(self.get_connection()) as conn:
+            with closing(driver_operations(self).get_connection()) as conn:
                 with transaction_scope(conn, owns_transaction=True):
                     if many:
                         conn.executemany(stmt, ((item,) for item in value))
@@ -80,7 +88,9 @@ class DeleteMixin:
         return True
 
     # Todo: Standardize on "table" not "target_table"
-    def direct_delete_many(self, target_table: str, column: str, values: Iterable[Any]) -> bool:
+    def direct_delete_many(
+        self, target_table: str, column: str, values: Iterable[Any]
+    ) -> None:
         """
         Delegate repeated column-value deletion to ``direct_delete``.
 
@@ -106,7 +116,7 @@ class DeleteMixin:
         :param row_id: ID to delete; missing rows count as successful no-ops.
         :return: True after commit; errors roll back and preserve their cause.
         """
-        id_column = self.direct_get_id_column(target_table)
+        id_column = driver_operations(self).direct_get_id_column(target_table)
         return self.direct_delete(target_table, id_column, row_id)
 
     def direct_clear_table(self, target_table: str) -> bool:
@@ -125,7 +135,9 @@ class DeleteMixin:
         :param target_table: Existing table name, validated by the driver.
         :return: Whether the follow-up row count is zero.
         """
-        if not self.direct_validate_existing_table_name(target_table):
+        if not driver_operations(self).direct_validate_existing_table_name(
+            target_table
+        ):
             err_str = "target_table not found in database.\n"
             err_str = default_log.log_variables(
                 err_str, "ERROR", ("target_table", target_table)
@@ -134,7 +146,7 @@ class DeleteMixin:
 
         # Lock the database (to stop anything being assigned into the space that has just been freed by the delete
         # between the delete and the check) - clear the table - check that there are actually no rows in the table
-        conn = self.get_connection()
+        conn = driver_operations(self).get_connection()
 
         row_count = None
         try:
@@ -147,7 +159,8 @@ class DeleteMixin:
                 # Check to see if there are actually any rows left in the table
                 stmt = f"SELECT COUNT(*) FROM {target_table};"
                 c = conn.cursor()
-                for row in c.execute(stmt):
+                c.execute(stmt)
+                for row in c:
                     row_count = row[0]
                 if row_count is None:
                     row_count = 0
@@ -191,7 +204,7 @@ class DeleteMixin:
         :param secondary_table: Second main-table name used to resolve the link table.
         :return: ``None``.
         """
-        table_name, column_name = self._get_link_table_name_col_name(
+        table_name, column_name = driver_operations(self)._get_link_table_name_col_name(
             primary_table, secondary_table
         )
 
@@ -199,8 +212,8 @@ class DeleteMixin:
         DROP TABLE {table_name};
         """
 
-        self.direct_execute_sql(unlink_sqlite)
-        self._zero_prop_cache()
+        driver_operations(self).direct_execute_sql(unlink_sqlite)
+        driver_operations(self)._zero_prop_cache()
 
     #
     # ----------------------------------------------------------------------------------------------------------------------

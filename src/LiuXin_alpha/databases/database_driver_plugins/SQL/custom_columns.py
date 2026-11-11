@@ -1,4 +1,3 @@
-
 """
 Create SQLite custom-value tables and their one/many relationships.
 
@@ -9,8 +8,13 @@ naming, cached table information and schema-change callbacks.
 
 from __future__ import annotations
 
+from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver._state import (
+    SQLDriverMixinState,
+    driver_operations,
+)
 
-class SQLiteCustomColumnsDriverMixin:
+
+class SQLiteCustomColumnsDriverMixin(SQLDriverMixinState):
     """
     Build dedicated custom-value storage tables through concrete driver hooks.
 
@@ -28,20 +32,21 @@ class SQLiteCustomColumnsDriverMixin:
     # (do this by modifying the link creation syntax so it supports the option of delete triggers)
     # Support all relation types
     def direct_create_custom_column(
-            self,
-            # Todo: This should be highly typable
-            in_table: str,
-            column_name: str,
-            # Todo: This should be highly typable
-            data_type: str = "TEXT",
-            multi: bool = False) -> None:
+        self,
+        # Todo: This should be highly typable
+        in_table: str,
+        column_name: str,
+        # Todo: This should be highly typable
+        data_type: str = "TEXT",
+        multi: bool | str = False,
+    ) -> str:
         """
         Dispatch physical custom-column creation by relationship type.
 
         Falsy multi selects inline one-to-one; True selects many_many. Other supported
         values are one_many and many_one. Reject custom_columns as a target by assertion
-        and unknown modes with NotImplementedError. Despite the annotation, return the
-        created table name from the selected helper.
+        and unknown modes with NotImplementedError. Return the created table name
+        from the selected helper.
 
         Example:
             ``direct_create_custom_column("works", "labels", multi=True)`` selects
@@ -56,7 +61,9 @@ class SQLiteCustomColumnsDriverMixin:
             relationship string.
         :return: Created custom-value table name.
         """
-        assert in_table != "custom_columns", "Cannot create custom column in custom_columns table"
+        assert in_table != "custom_columns", (
+            "Cannot create custom column in custom_columns table"
+        )
 
         # Todo: In one_many type links - make sure that items are exclusive to books
         if not multi:
@@ -66,15 +73,15 @@ class SQLiteCustomColumnsDriverMixin:
                 datatype=data_type,
             )
         else:
-
             # Historically, callers used ``multi=True`` to mean "default" multiple
             # relation type. Treat this as many_many for backwards compatibility.
-            if multi is True or multi == "many_many":
+            if multi is True:
+                multi = "many_many"
+            if multi == "many_many":
                 # Need to create a many_many relation between the book and the values for it in the custom column
                 return self.direct_create_many_many_custom_column(
                     target_table=in_table, custom_column_name=column_name
                 )
-
             elif multi == "one_many":
                 # Need to create a one_many relation between the book and it's items
                 return self.direct_create_one_to_many_custom_column(
@@ -82,12 +89,10 @@ class SQLiteCustomColumnsDriverMixin:
                     custom_column_name=column_name,
                     datatype=data_type,
                 )
-
             elif multi == "many_one":
                 return self.direct_create_many_to_one_custom_column(
                     target_table=in_table, custom_column_name=column_name
                 )
-
             else:
                 raise NotImplementedError("form of multi not recognized")
 
@@ -98,11 +103,11 @@ class SQLiteCustomColumnsDriverMixin:
     # Todo: Front end to database class
     # Todo: Need to register all the custom columns created - make sure this isn't being confused with a main table on restart
     def direct_create_one_to_one_custom_column(
-            self,
-            target_table: str,
-            custom_column_name: str,
-            datatype: str = "TEXT",
-            normalized: bool = False
+        self,
+        target_table: str,
+        custom_column_name: str,
+        datatype: str = "TEXT",
+        normalized: bool = False,
     ) -> str:
         """
         Create an inline custom-value table with a unique parent reference and cascade
@@ -128,27 +133,40 @@ class SQLiteCustomColumnsDriverMixin:
         # VALIDATE
 
         if normalized:
-
             # Create a table to hold the values
 
             raise NotImplementedError
 
         else:
+            assert target_table != "custom_columns", (
+                "Cannot create custom column in custom_columns"
+            )
 
-            assert target_table != "custom_columns", "Cannot create custom column in custom_columns"
-
-            # Check the components which are going to go into the table name
             # Todo: There should be a capability API which we can inherit from
-            assert self.direct_validate_table_name(table_name=custom_column_name), "custom column name not valid"
+            # Check the components which are going to go into the table name
+            assert driver_operations(self).direct_validate_table_name(
+                table_name=custom_column_name
+            ), "custom column name not valid"
 
             # MAIN TABLE
 
-            target_table_id_col = self.direct_get_id_column(target_table)
-            target_table_col_name = self.direct_get_table_col_base(target_table)
+            target_table_id_col = driver_operations(self).direct_get_id_column(
+                target_table
+            )
+            target_table_col_name = driver_operations(self).direct_get_table_col_base(
+                target_table
+            )
 
             # The table name - includes the name of the table linked to and the name of the custom column
-            custom_col_table = self.direct_get_custom_column_table_name(target_table, custom_column_name)
-            assert custom_col_table not in self.tables, "cannot create custom column - it already exists"
+            custom_col_table = self.direct_get_custom_column_table_name(
+                target_table, custom_column_name
+            )
+            known_tables = self.tables
+            if known_tables is None:
+                known_tables = driver_operations(self).direct_get_tables()
+            assert custom_col_table not in known_tables, (
+                "cannot create custom column - it already exists"
+            )
 
             cc_sqlite_template = """
             CREATE TABLE IF NOT EXISTS `{custom_col_table}` (
@@ -179,32 +197,24 @@ class SQLiteCustomColumnsDriverMixin:
             # INDEXES
             # - Indexing the reference to the table this is a custom column for - needed every time a lookup is done for
             #   the custom column value for a particular book
-            table_id_ref_index = "CREATE INDEX {0}_idx ON {0} ({0}_{4}_id);".format(
-                custom_col_table,
-                target_table,
-                target_table_id_col,
-                datatype,
-                target_table_col_name,
+            table_id_ref_index = "CREATE INDEX {0}_idx ON {0} ({0}_{1}_id);".format(
+                custom_col_table, target_table_col_name
             )
 
             # - Indexing the values stored in the custom column - as we might want to search on the custom column values
             #   at some point
-            col_value_ref = "CREATE INDEX {0}_value ON {0} ({0}_{4}_value);".format(
-                custom_col_table,
-                target_table,
-                target_table_id_col,
-                datatype,
-                target_table_col_name,
+            col_value_ref = "CREATE INDEX {0}_value ON {0} ({0}_{1}_value);".format(
+                custom_col_table, target_table_col_name
             )
 
             # BUILD
             sql_scripts = [cc_sqlite_template, table_id_ref_index, col_value_ref]
 
-            self.direct_executescript("\n".join(sql_scripts))
+            driver_operations(self).direct_executescript("\n".join(sql_scripts))
 
             # Todo: Merge these two methods
-            self.call_after_table_changes()
-            self._zero_prop_cache()
+            driver_operations(self).call_after_table_changes()
+            driver_operations(self)._zero_prop_cache()
 
             return custom_col_table
 
@@ -215,10 +225,8 @@ class SQLiteCustomColumnsDriverMixin:
     # Todo: Check that the direct_link_main_tables method has a properly autoincrementing primary key and priority
     # Todo: datatype should do something here....
     def direct_create_one_to_many_custom_column(
-            self,
-            target_table: str,
-            custom_column_name: str,
-            datatype: str = "TEXT") -> str:
+        self, target_table: str, custom_column_name: str, datatype: str = "TEXT"
+    ) -> str:
         """
         Create a value table and exclusive one-to-many links plus an unlink cleanup
         trigger.
@@ -237,18 +245,26 @@ class SQLiteCustomColumnsDriverMixin:
         :param datatype: Requested SQL type; only the inline one-to-one builder uses it.
         :return: Created custom-value table name.
         """
-        assert self.direct_validate_table_name(table_name=custom_column_name)
-        assert target_table != "custom_columns", "Cannot Create a custom column on the custom_columns table"
+        assert driver_operations(self).direct_validate_table_name(
+            table_name=custom_column_name
+        )
+        assert target_table != "custom_columns", (
+            "Cannot Create a custom column on the custom_columns table"
+        )
 
         # Create a custom table to hold the custom column data - then link it over to the main table which it's supposed
         # to be a custom column in
-        custom_col_table = self.direct_get_custom_column_table_name(target_table, custom_column_name)
+        custom_col_table = self.direct_get_custom_column_table_name(
+            target_table, custom_column_name
+        )
 
         # Make the new main table which will be used to hold the custom column information
-        self.direct_create_main_table(table_name=custom_col_table, column_headings=None)
+        driver_operations(self).direct_create_main_table(
+            table_name=custom_col_table, column_headings=None
+        )
 
         # Link the new, storage main table over to the table which it's supposed to represent a custom column in
-        link_table_name = self.direct_link_main_tables(
+        driver_operations(self).direct_link_main_tables(
             primary_table=target_table,
             secondary_table=custom_col_table,
             link_type="one_many",
@@ -258,10 +274,12 @@ class SQLiteCustomColumnsDriverMixin:
         # Add a trigger to remove unused items from the table containing the custom column data when links to them
         # are removed
         # - Gather some properties of the lik we'll need to set up the trigger
-        cc_col = self.direct_get_column_name(custom_col_table)
+        cc_col = driver_operations(self).direct_get_column_name(custom_col_table)
         cc_id_col = "{}_id".format(cc_col)
 
-        link_table, link_table_col = self._get_link_table_name_col_name(
+        link_table, link_table_col = driver_operations(
+            self
+        )._get_link_table_name_col_name(
             primary_table=target_table, secondary_table=custom_col_table
         )
 
@@ -279,17 +297,16 @@ class SQLiteCustomColumnsDriverMixin:
         """.format(
             custom_col_table, target_table, link_table, cc_id_col, link_table_cc_id_col
         )
-        self.direct_execute_sql(cc_cleanup_trigger)
+        driver_operations(self).direct_execute_sql(cc_cleanup_trigger)
 
-        self.call_after_table_changes()
+        driver_operations(self).call_after_table_changes()
 
         return custom_col_table
 
     # Todo: datatype
     def direct_create_many_to_one_custom_column(
-            self,
-            target_table: str,
-            custom_column_name: str) -> str:
+        self, target_table: str, custom_column_name: str
+    ) -> str:
         """
         Create reusable custom values with at most one linked value per parent.
 
@@ -305,32 +322,39 @@ class SQLiteCustomColumnsDriverMixin:
             storage-table name.
         :return: Created custom-value table name.
         """
-        assert target_table != "custom_columns", "Cannot create custom column in custom_columns"
-        assert self.direct_validate_table_name(table_name=custom_column_name)
+        assert target_table != "custom_columns", (
+            "Cannot create custom column in custom_columns"
+        )
+        assert driver_operations(self).direct_validate_table_name(
+            table_name=custom_column_name
+        )
 
         # Create a custom table to hold the custom column data - then link it over to the main table which it's supposed
         # to be a custom column in
-        custom_col_table = self.direct_get_custom_column_table_name(target_table, custom_column_name)
+        custom_col_table = self.direct_get_custom_column_table_name(
+            target_table, custom_column_name
+        )
 
         # Make the new main table which will be used to hold the custom column information
-        self.direct_create_main_table(table_name=custom_col_table, column_headings=None)
+        driver_operations(self).direct_create_main_table(
+            table_name=custom_col_table, column_headings=None
+        )
 
         # Link the new, storage main table over to the table which it's supposed to represent a custom column in
-        self.direct_link_main_tables(
+        driver_operations(self).direct_link_main_tables(
             primary_table=target_table,
             secondary_table=custom_col_table,
             link_type="many_one",
             requested_cols=None,
         )
 
-        self.call_after_table_changes()
+        driver_operations(self).call_after_table_changes()
 
         return custom_col_table
 
     def direct_create_many_many_custom_column(
-            self,
-            target_table: str,
-            custom_column_name: str) -> str:
+        self, target_table: str, custom_column_name: str
+    ) -> str:
         """
         Create shared custom values and strict many-to-many links without optional
         columns.
@@ -348,25 +372,33 @@ class SQLiteCustomColumnsDriverMixin:
             storage-table name.
         :return: Created custom-value table name.
         """
-        assert target_table != "custom_columns", "Cannot create custom column in custom_columns"
-        assert self.direct_validate_table_name(table_name=custom_column_name)
+        assert target_table != "custom_columns", (
+            "Cannot create custom column in custom_columns"
+        )
+        assert driver_operations(self).direct_validate_table_name(
+            table_name=custom_column_name
+        )
 
         # Create a custom table to hold the custom column data - then link it over to the main table which it's supposed
         # to be a custom column in
-        custom_col_table = self.direct_get_custom_column_table_name(target_table, custom_column_name)
+        custom_col_table = self.direct_get_custom_column_table_name(
+            target_table, custom_column_name
+        )
 
         # Make the new main table which will be used to hold the custom column information
-        self.direct_create_main_table(table_name=custom_col_table, column_headings=None)
+        driver_operations(self).direct_create_main_table(
+            table_name=custom_col_table, column_headings=None
+        )
 
         # Link the new, storage main table over to the table which it's supposed to represent a custom column in
-        self.direct_link_main_tables(
+        driver_operations(self).direct_link_main_tables(
             primary_table=target_table,
             secondary_table=custom_col_table,
             link_type="many_many",
             requested_cols=None,
         )
 
-        self.call_after_table_changes()
+        driver_operations(self).call_after_table_changes()
 
         return custom_col_table
 

@@ -63,9 +63,9 @@ BEGIN
     WHEN NEW.`folder_relpath` LIKE '%://%'
     THEN RAISE(ABORT, 'folders.folder_relpath must be relative (no URI scheme)')
     WHEN SUBSTR(NEW.`folder_relpath`, 1, 1) = '/'
-      OR SUBSTR(NEW.`folder_relpath`, 1, 1) = '\\'
+      OR SUBSTR(NEW.`folder_relpath`, 1, 1) = char(92)
     THEN RAISE(ABORT, 'folders.folder_relpath must be relative (must not start with "/" or "\\")')
-    WHEN INSTR(NEW.`folder_relpath`, '\\') > 0
+    WHEN INSTR(NEW.`folder_relpath`, char(92)) > 0
     THEN RAISE(ABORT, 'folders.folder_relpath must use forward slashes (no "\\")')
     WHEN INSTR(NEW.`folder_relpath`, '//') > 0
     THEN RAISE(ABORT, 'folders.folder_relpath must not contain empty segments ("//")')
@@ -96,9 +96,9 @@ BEGIN
     WHEN NEW.`folder_relpath` LIKE '%://%'
     THEN RAISE(ABORT, 'folders.folder_relpath must be relative (no URI scheme)')
     WHEN SUBSTR(NEW.`folder_relpath`, 1, 1) = '/'
-      OR SUBSTR(NEW.`folder_relpath`, 1, 1) = '\\'
+      OR SUBSTR(NEW.`folder_relpath`, 1, 1) = char(92)
     THEN RAISE(ABORT, 'folders.folder_relpath must be relative (must not start with "/" or "\\")')
-    WHEN INSTR(NEW.`folder_relpath`, '\\') > 0
+    WHEN INSTR(NEW.`folder_relpath`, char(92)) > 0
     THEN RAISE(ABORT, 'folders.folder_relpath must use forward slashes (no "\\")')
     WHEN INSTR(NEW.`folder_relpath`, '//') > 0
     THEN RAISE(ABORT, 'folders.folder_relpath must not contain empty segments ("//")')

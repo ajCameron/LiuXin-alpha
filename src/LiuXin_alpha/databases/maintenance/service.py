@@ -1,7 +1,8 @@
 """
 Expose the legacy maintainer interface over the plugin engine.
 
-The facade starts background work immediately and retains a database reference.
+The facade retains a database reference and starts background work unless constructed
+with autostart=False for staged runtime initialization.
 Dirty callbacks delegate to the engine. Selective cleanup is unavailable; physical
 interlink merging uses one transaction and refuses conflicting duplicate payloads.
 """
@@ -18,15 +19,15 @@ from LiuXin_alpha.databases.maintenance.builtin_plugins import (
 from LiuXin_alpha.databases.maintenance.engine import MaintenanceEngine
 
 if TYPE_CHECKING:
-    from LiuXin_alpha.databases.api import DatabaseAPI
-    from LiuXin_alpha.databases.maintenance.engine import MaintenancePluginResult
+    from LiuXin_alpha.databases.api import DatabaseAPI, MaintenancePluginAPI
+    from LiuXin_alpha.databases.maintenance.plugins import MaintenancePluginResult
 
 
 class Maintainer(DatabaseMaintainerAPI):
     """
     Start and expose a database maintenance engine with compatibility helpers.
 
-    Use stop() to request shutdown; joining requires the underlying maintainer thread.
+    Use stop() to request shutdown or close() to stop and join the worker.
     Manual dispatch can overlap background work.
 
     Example:
@@ -40,15 +41,17 @@ class Maintainer(DatabaseMaintainerAPI):
         self,
         db: DatabaseAPI,
         *,
-        plugins=None,
+        plugins: Iterable[MaintenancePluginAPI] | None = None,
         interval: float = 2.0,
         scheduling_interval: float = 0.25,
+        autostart: bool = True,
     ) -> None:
         """
         Bind the database, build the engine, alias its queues and start its thread.
 
         None plugins selects fresh builtins; an empty iterable explicitly selects no
-        plugins. Construction starts background work immediately.
+        plugins. By default construction starts background work immediately; runtime
+        wiring can defer it with autostart=False.
 
         Example:
             >>> Maintainer(database)  # doctest: +SKIP
@@ -61,6 +64,7 @@ class Maintainer(DatabaseMaintainerAPI):
             range validation.
         :param scheduling_interval: Maximum sleep between scheduling checks, in seconds;
             not range-validated.
+        :param autostart: Start immediately; False prepares an unstarted engine.
         :return: None.
         """
         super().__init__(db=db)
@@ -76,9 +80,26 @@ class Maintainer(DatabaseMaintainerAPI):
         )
         self.main_table_dirtied_queue = self.maintainer.main_table_dirtied_queue
         self.interlink_dirtied_queue = self.maintainer.interlink_dirtied_queue
+        if autostart:
+            self.start()
+
+    def start(self) -> None:
+        """Start the prepared worker once, after its owner has finished wiring."""
         self.maintainer.start()
 
-    def register_plugin(self, plugin) -> None:  # noqa: ANN001 - plugin base is intentionally duck-typed
+    def close(self, *, timeout: float = 1.0) -> None:
+        """Stop and join a started worker; refuse to discard one still running.
+
+        Closing an unstarted or already stopped worker is harmless. A timeout
+        leaves ownership with the caller, which may retry after work completes.
+        """
+        self.stop()
+        if self.maintainer.ident is not None:
+            self.maintainer.join(timeout=timeout)
+        if self.maintainer.is_alive():
+            raise RuntimeError("Maintenance worker is still running")
+
+    def register_plugin(self, plugin: MaintenancePluginAPI) -> None:
         """
         Delegate registration and possible immediate startup to the engine.
 
@@ -92,7 +113,7 @@ class Maintainer(DatabaseMaintainerAPI):
         """
         self.maintainer.register_plugin(plugin)
 
-    def iter_plugins(self) -> None:
+    def iter_plugins(self) -> tuple[MaintenancePluginAPI, ...]:
         """
         Return the engine's priority-ordered plugin snapshot.
 
@@ -100,7 +121,7 @@ class Maintainer(DatabaseMaintainerAPI):
             >>> worker.iter_plugins()  # doctest: +SKIP
 
 
-        :return: Tuple of plugin instances, despite the None annotation.
+        :return: Tuple of plugin instances in dispatch order.
         """
         return self.maintainer.iter_plugins()
 
@@ -336,7 +357,12 @@ class Maintainer(DatabaseMaintainerAPI):
                     spec.secondary_link_col: row[spec.secondary_link_col],
                 }
                 if spec.type_part_of_identity:
-                    identity[spec.type_link_col] = row[spec.type_link_col]
+                    type_column = spec.type_link_col
+                    if type_column is None:
+                        raise ValueError(
+                            "Typed link identity requires a physical type column"
+                        )
+                    identity[type_column] = row[type_column]
                 duplicates = macros.get_rows(link_table, where=identity)
                 if duplicates:
                     ignored = {

@@ -1,16 +1,22 @@
-
 """
 Build conventionally named main tables through the driver's script execution helper.
 """
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import Optional, Iterable, Union
 
 from LiuXin_alpha.utils.language_tools import plural_singular_mapper
 
 
-class TableCreationMixin:
+from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver._state import (
+    SQLDriverMixinState,
+    driver_operations,
+)
+
+
+class TableCreationMixin(SQLDriverMixinState):
     """
     Generate main-table DDL with an ID, requested data columns, datestamp and scratch
     fields.
@@ -19,6 +25,7 @@ class TableCreationMixin:
         ``driver.direct_create_main_table("examples")`` creates the conventional default
         layout.
     """
+
     # Todo: Should be creation methods for all types of table
     # Todo: Central registyr on the database for table types
     # ----------------------------------------------------------------------------------------------------------------------
@@ -28,12 +35,12 @@ class TableCreationMixin:
     # Todo: Pull the "new" out of the name - that's implcit
     # Todo: Need a way to designate this new table "custom"
     def direct_create_main_table(
-            self,
-            table_name: str,
-            column_headings: Optional[Iterable[str]] = None,
-            index_on: Optional[Union[str, Iterable[str]]]="all",
-            default_datatype: str = "TEXT",
-            default_unique: bool = False,
+        self,
+        table_name: str,
+        column_headings: Mapping[str, Mapping[str, str]] | None = None,
+        index_on: Optional[Union[str, Iterable[str]]] = "all",
+        default_datatype: str = "TEXT",
+        default_unique: bool = False,
     ) -> None:
         """
         Create a conventionally named main table and invalidate schema caches.
@@ -72,66 +79,59 @@ class TableCreationMixin:
     -- -----------------------------------------------------
     -- Table `{0}`
     -- -----------------------------------------------------
-    """.format(
-            table_name
-        )
+    """.format(table_name)
 
         table_head = """
             CREATE TABLE IF NOT EXISTS `{0}` (
         `{1}_id` INTEGER PRIMARY KEY,
 
-            """.format(
-            table_name, table_col
-        )
+            """.format(table_name, table_col)
 
         # COLUMN CONTENT
         if column_headings is None:
-
             # - In the case where the column headings are None, then generate the default column headings
             table_columns = """
             `{table_col}` {datatype} NULL,
-                """.format(
-                table_name=table_name, table_col=table_col, datatype=default_datatype
-            )
+                """.format(table_col=table_col, datatype=default_datatype)
 
             if index_on == "all":
-
-                default_col_index = "CREATE INDEX {0}_default_col_index ON {0} ({1});".format(table_name, table_col)
+                default_col_index = (
+                    "CREATE INDEX {0}_default_col_index ON {0} ({1});".format(
+                        table_name, table_col
+                    )
+                )
                 indices.append(default_col_index)
 
             else:
-
                 raise NotImplementedError
 
         else:
-
             # - Process the columns headings object to produce the requested headings
             col_template = """
             `{0}_{1}` {2} NULL,            
-                """.format(
-                table_col, "{0}", "{1}"
-            )
+                """.format(table_col, "{0}", "{1}")
 
             additional_columns = []
             for col in column_headings:
-
                 try:
-                    additional_columns.append(col_template.format(col, column_headings[col]["datatype"]))
+                    additional_columns.append(
+                        col_template.format(col, column_headings[col]["datatype"])
+                    )
                 except KeyError:
                     # If no datatype is present in the specifications dict, use the default
-                    additional_columns.append(col_template.format(col, default_datatype))
+                    additional_columns.append(
+                        col_template.format(col, default_datatype)
+                    )
 
             table_columns = "\n".join(additional_columns)
 
         # TABLE FINISHING
         table_tail = """
 
-        `{1}_datestamp` DATETIME DEFAULT CURRENT_TIMESTAMP,
+        `{0}_datestamp` DATETIME DEFAULT CURRENT_TIMESTAMP,
 
-        `{1}_scratch` TEXT NULL);
-            """.format(
-            table_name, table_col
-        )
+        `{0}_scratch` TEXT NULL);
+            """.format(table_col)
 
         table_sqlite = table_comment + table_head + table_columns + table_tail
 
@@ -145,6 +145,6 @@ class TableCreationMixin:
         # default_col_index = "CREATE INDEX {0}_default_col_index ON {0} ({1});".format(table_name, table_col)
         # full_script.append(default_col_index)
 
-        self.direct_executescript("\n".join(full_script))
+        driver_operations(self).direct_executescript("\n".join(full_script))
 
-        self._zero_prop_cache()
+        driver_operations(self)._zero_prop_cache()

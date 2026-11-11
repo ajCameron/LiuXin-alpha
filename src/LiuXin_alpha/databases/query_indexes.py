@@ -9,7 +9,13 @@ transaction; an incompatible same-name index is reported, never silently adopted
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from LiuXin_alpha.databases.database_driver_plugins.SQL.macros.portable_macros_mixin import (
+        SQLPortableMacrosMixin,
+    )
+    from LiuXin_alpha.databases.db_types.driver_types import RowSQLConnection
 
 from LiuXin_alpha.databases.search_functions import (
     IDENTIFIER_KEY_FUNCTION,
@@ -91,14 +97,14 @@ SQLITE_SEARCH_INDEXES = tuple(
 )
 
 
-def _create_sql(index, table_sql):
+def _create_sql(index: QueryIndex, table_sql: str) -> str:
     keys = index.expressions or tuple(f'"{column}"' for column in index.columns)
     return (
         f'CREATE INDEX IF NOT EXISTS "{index.name}" ON {table_sql} ({", ".join(keys)})'
     )
 
 
-def install_sqlite_search_indexes(connection):
+def install_sqlite_search_indexes(connection: RowSQLConnection) -> None:
     """Install versioned comparison indexes during new SQLite schema generation.
 
     The connection must register the shared deterministic functions first. This
@@ -108,7 +114,7 @@ def install_sqlite_search_indexes(connection):
         connection.execute(_create_sql(index, f'"{index.table}"'))
 
 
-def _required_indexes(macros):
+def _required_indexes(macros: SQLPortableMacrosMixin) -> tuple[QueryIndex, ...]:
     extra = SQLITE_SEARCH_INDEXES if macros.supports_normalized_search() else ()
     return (*QUERY_INDEXES, *extra)
 
@@ -127,7 +133,7 @@ class QueryIndexReport:
         return not self.missing and not self.conflicts
 
 
-def _index_matches(macros: Any, index: QueryIndex) -> bool | None:
+def _index_matches(macros: SQLPortableMacrosMixin, index: QueryIndex) -> bool | None:
     """Return None for absence; otherwise require the exact plain index shape."""
     conn = macros._macro_connection()
     driver = macros._macro_driver()
@@ -148,7 +154,7 @@ def _index_matches(macros: Any, index: QueryIndex) -> bool | None:
                WHERE ns.nspname = ? AND n.relname = ?
                GROUP BY t.relname, i.indisunique, i.indisvalid,
                         (i.indpred IS NULL), (i.indexprs IS NULL), am.amname""",
-                (driver.schema, index.name),
+                (getattr(driver, "schema"), index.name),
             )
         )
         if not rows:
@@ -185,7 +191,7 @@ def _index_matches(macros: Any, index: QueryIndex) -> bool | None:
 
         # Conservative comparison: an unfamiliar same-name definition requires
         # explicit review rather than adoption. These expressions have no literals.
-        def canonical(sql):
+        def canonical(sql: str) -> str:
             return (
                 "".join(sql.split()).casefold().replace("ifnotexists", "").rstrip(";")
             )
@@ -207,9 +213,11 @@ def _index_matches(macros: Any, index: QueryIndex) -> bool | None:
     )
 
 
-def audit_query_indexes(macros: Any) -> QueryIndexReport:
+def audit_query_indexes(macros: SQLPortableMacrosMixin) -> QueryIndexReport:
     """Inspect every required index and its physical columns without effects."""
-    present, missing, conflicts = [], [], []
+    present: list[str] = []
+    missing: list[str] = []
+    conflicts: list[str] = []
     for index in _required_indexes(macros):
         macros._physical_table(index.table)
         macros._validate_columns(index.table, index.columns)
@@ -220,7 +228,7 @@ def audit_query_indexes(macros: Any) -> QueryIndexReport:
     return QueryIndexReport(tuple(present), tuple(missing), tuple(conflicts))
 
 
-def migrate_query_indexes(macros: Any) -> QueryIndexReport:
+def migrate_query_indexes(macros: SQLPortableMacrosMixin) -> QueryIndexReport:
     """Install missing indexes atomically, rejecting incompatible definitions."""
     with macros.transaction() as conn:
         before = audit_query_indexes(macros)

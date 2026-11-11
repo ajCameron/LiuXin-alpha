@@ -10,7 +10,8 @@ from LiuXin_alpha.databases.db_types.driver_types import QueryConnection, SQLPar
 class SchemaDriver(Protocol):
     """Connection owner used by schema readers; borrowed handles stay open."""
 
-    conn: QueryConnection | None
+    @property
+    def conn(self) -> QueryConnection | None: ...
 
     def get_connection(self) -> QueryConnection: ...
 

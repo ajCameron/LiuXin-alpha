@@ -1,0 +1,257 @@
+# Database regression ratchet — 2026-11-05
+
+Status: implemented and locally verified; final validation is recorded below. This follows the
+[package typing review](package-typing-2026-11-04.md). Typing exposed runtime
+contract defects as well as incomplete annotations. Each repaired defect needs
+an executable regression that remains a merge requirement.
+
+## What changed
+
+| Boundary | Repair or mitigation | Required regression owner |
+| --- | --- | --- |
+| Single-use iterators | Materialize reused owner IDs/column specifications once; iteration failure publishes no partial write. | `test_custom_column_service_contracts.py`, `test_schema_builder_contracts.py`, `test_custom_value_transactions.py` |
+| Runtime ownership | Bind `.db`; prepare maintenance before starting it, reuse the worker on repeated initialization, and stop/join before disabling. Restore callbacks, owners and preferences on failure. Retain a worker whose cleanup failed for a later `close()` attempt. | `test_database_lifecycle_contracts.py` |
+| SQLite/APSW callbacks | Native aggregate factories use their backend's required shape; scalar reads use supported cursor iteration. | `test_sql_helper_contracts.py` |
+| Error/resource handling | Preserve database errors, close owned cursors/connections on success and failure, and leave borrowed connections/transactions alone. | `test_macro_type_boundaries.py`, `test_postgres_adapter_contracts.py`, `test_schema_builder_contracts.py`, `test_sql_helper_contracts.py` |
+| Backend capabilities/lifetimes | PostgreSQL exposes its supported macro API; legacy-only calls fail explicitly. Closed facade collaborator access fails explicitly. | `test_macro_capability_contracts.py`, `test_database_lifecycle_contracts.py` |
+| Row state | `Row.state` distinguishes `DRAFT`, `IDENTIFIED` and `MISSING` without conflating `{}`, `False` and `None`. Draft `sync()` inserts its complete payload in one operation, assigning an ID only after success. | `test_row_state_contracts.py` |
+| Legacy cached values | Public set/bulk/delete/rename operations own a transaction, restore touched cache rows on failure and notify after commit. Shared-value edits reload affected owners without losing their other choices. | `test_custom_value_transactions.py` |
+| Temporary SQL | Execute TEMP DDL statements individually: SQLite `executescript` could commit unrelated work. Per-operation scratch names avoid collisions. | `test_custom_value_transactions.py` |
+
+These test files live in [tests/databases](../../tests/databases). The existing
+contracts for registration, facade metadata and legacy exports also belong to
+the ratchet; they protect the supporting boundaries changed during typing.
+
+## Enforced baseline
+
+The typing extra also installs APSW and the native PostgreSQL adapter alongside
+its stubs. The previous PR's full suite passed, but its clean CI typing environment
+failed because APSW was present locally and absent from the declared extra.
+`test_run_type_checks.py` now protects this installation requirement.
+
+The [manifest](../../tests/databases/regression_ratchet.json) names individual
+pytest node IDs, including backend/parameter variants, grouped by invariant.
+The [runner](../../scripts/run_database_regression_ratchet.py) requires every
+listed case to be collected and pass setup, call and teardown. A missing test,
+deselection, skip, xfail or xpass fails the gate. A test-count increase cannot
+compensate for losing a named regression.
+
+The **Database Regression Ratchet** CI job installs APSW and the PostgreSQL
+extra, provides a disposable PostgreSQL service, and runs serially. Its result
+is required by **Tests Passed**. It compares the manifest with the PR base or
+previous push commit and refuses to remove a case or move it out of its
+invariant. The first commit introducing the manifest bootstraps this check;
+manual workflow runs still enforce all current cases. Git lookup failures do
+not silently disable comparison.
+
+Telemetry and a machine-readable result are uploaded even on failure. Scratch
+is outside the checkout and removed after the run. This focused gate supplements
+the full suite and both type checkers; it does not replace them.
+
+For local validation, point at an expendable test server and run:
+
+```bash
+PYTHONPATH=src:. \
+LIUXIN_TEST_POSTGRES_URL='postgresql://user:password@localhost/test_database' \
+.venv/bin/python scripts/run_database_regression_ratchet.py \
+  --baseline-ref <full-base-commit-sha> \
+  --artifacts /tmp/liuxin-database-regressions
+```
+
+Omit `--baseline-ref` for a current-baseline run. PostgreSQL-unconfigured and
+APSW-unavailable skips are failures in this gate. Ordinary focused pytest runs
+remain available while developing, but they are not a ratchet signoff.
+
+## Adding coverage
+
+1. Reproduce the defect with a test at its observable boundary. Prefer real
+   database transactions and an independent reader for durability checks.
+2. Include failure and retry paths, iterator reuse, borrowed resource ownership,
+   and relevant backends. Use fault injection when a real failure is impractical;
+   assert the durable state and cache state, not only which helper was called.
+3. Fix the defect, run its focused tests, then add every relevant parameterized
+   node ID to the corresponding manifest invariant. New invariants need their
+   own group and a short explanation in this guide or their feature guide.
+4. Run the ratchet, affected integration tests and required quality gates. Keep
+   old cases. Do not lower the baseline, add xfails/skips, or substitute an
+   unrelated test to make a regression green.
+
+Stable test identities are deliberate. A future removal or rename needs an
+explicitly reviewed migration of the invariant and gate policy; there is no
+routine “accept lower baseline” switch. This is a ratchet for demonstrated
+behavior, not a claim of complete line/branch coverage. Review must still check
+that assertions meaningfully test the invariant.
+
+## Eighth driver review extension — 2026-11-11
+
+The [eighth review repairs](database-driver-plugins-eighth-review-2026-11-11.md)
+add **147 required cases**, bringing the manifest from **1,180 to 1,327**.
+All earlier identities and invariant memberships remain required.
+
+| Invariant | Added cases | Observable contract |
+| --- | ---: | --- |
+| `driver-postgres-expression-contexts` | 66 | Keyword-separated functions, DISTINCT ON and window frame offsets bind correctly through single/batch writes; native and independent-reader results agree, including JSON-operand controls. |
+| `driver-postgres-connection-string-mode` | 81 | Startup/session/local string modes preserve committed ordinary/continued/E-string values; reused cursors follow rollback/commit, scripts refresh settings, and maintenance preserves literal text while rejecting real statement chaining. |
+
+The initial red run reproduced 69 failures with 76 passing controls; all 145
+initial cases passed after the fix. Two additional chaining cases and commit
+restoration assertions join the final gate. The native keyword sweep retains
+742 comparisons with zero mismatches. Final validation is recorded in the review.
+
+## Seventh driver review extension — 2026-11-10
+
+The [seventh review repairs](database-driver-plugins-seventh-review-2026-11-10.md)
+add **221 cases**, increasing the mandatory set from 959 to **1,180**:
+
+| Invariant | Added cases | Observable contract |
+| --- | ---: | --- |
+| `driver-sqlite-value-preservation` | 56 | Both SQLite names preserve hidden document IDs and external-content FTS MATCH results during export/rebuild; aliases, generated/shadowing names and WITHOUT ROWID tables retain their keys. Inaccessible hidden IDs refuse before replacement or transaction completion. |
+| `driver-postgres-sql-adaptation` | 124 | Continued escape strings preserve committed values for execute/executemany; four bare keyword identifiers remain JSON operands while actual BETWEEN/ESCAPE/SET/VALUES syntax works with both binding styles; bounded subprocesses guard against trailing-comment scanner stalls. |
+| `driver-maintenance-completion` | 5 | Continued escape strings remain opaque in handlers/scripts; later failures roll back source and prompt effects. |
+| `driver-portable-value-parity` | 36 | SQLite, SQLite_apsw and PostgreSQL agree on bound text/binary values, single/batch writes and commit/rollback, checked through independent native readers. |
+
+The new parity group exercises portable behavior on all three driver names.
+Backend-specific SQL uses its relevant engines. Existing 959 IDs keep their
+invariant memberships; the new test module joins the format/lint gates.
+
+## Sixth driver review extension — 2026-11-10
+
+The [sixth review repairs](database-driver-plugins-sixth-review-2026-11-10.md)
+add **151 cases**, increasing the mandatory set from 808 to **959**:
+
+| Invariant | Added cases | Observable contract |
+| --- | ---: | --- |
+| `driver-sqlite-value-preservation` | 60 | SQL exports and rebuilds preserve NUL-containing TEXT, BLOBs, encodings, factories, numeric values, generated columns, sequences and virtual-table data; undecodable text cannot publish a rebuild. |
+| `driver-postgres-sql-adaptation` | 80 | Native and portable expressions retain Unicode identifier and dollar-tag boundaries, including keyword lookalikes; committed literal values match an independent native reader. |
+| `driver-maintenance-completion` | 11 | Unicode dollar bodies remain data in handlers and scripts; a later failure rolls back source and prompt effects. |
+
+Existing node IDs retain their invariant membership. The serializer and its new
+regression module also participate in formatting/lint and database typing gates.
+
+## Fifth driver review extension — 2026-11-06
+
+The [fifth review mitigations](database-driver-plugins-fifth-review-2026-11-06.md)
+add **156 cases**, increasing the mandatory set from 652 to **808**:
+
+| Invariant | Added cases | Observable contract |
+| --- | ---: | --- |
+| `driver-maintenance-completion` | 96 | Engine-valid prefixes cannot bypass script preflight or required prompt completion; native quoted data remains data and chained statements stay refused. |
+| `driver-sqlite-restore-validation` | 18 | Retained readers cannot contaminate the published candidate; failed closes and external WAL readers preserve the original and permit retry. |
+| `driver-resource-lifetime` | 2 | Cursor bookkeeping does not retain abandoned readers; closing still rolls back pending writes and releases WAL use. |
+| `driver-postgres-sql-adaptation` | 40 | Explicit JSON operator names survive native/qmark binding, schema qualification, comments and identifier quoting. |
+
+These cases use the same mandatory PostgreSQL service and both SQLite driver
+names. Prior cases retain their identities and invariant membership.
+
+## Driver-plugin extension — 2026-11-05
+
+The [driver review](database-driver-plugins-review-2026-11-05.md) adds 110 cases,
+bringing the required manifest from 240 to **350**, without dropping or moving
+existing cases. The six new invariant groups are:
+
+| Invariant | Cases | Observable contract |
+| --- | ---: | --- |
+| `driver-sqlite-backup` | 16 | A verified committed snapshot includes WAL, survives concurrent writers, preserves existing destinations and leaves no partial published copy. |
+| `driver-connection-recovery` | 8 | Probe failure preserves the existing handle and recoverable transaction; replacement is explicit. |
+| `driver-resource-lifetime` | 36 | Owned handles close on success/failure; closed entries leave tracking; borrowed handles and failed-close ownership are retained. |
+| `driver-postgres-sql-adaptation` | 26 | Bound/unbound data and native operators survive translation; scripts preserve transaction and installed-hook boundaries. |
+| `driver-sql-dump-ownership` | 6 | Exhaustion, early close and sink failure leave caller transactions intact. |
+| `driver-sqlite-restore-validation` | 18 | Populated WEMI, cycles and extensions restore with required callbacks; invalid/failed candidates and pending writes never replace the original. |
+
+The PostgreSQL cases require the existing live service. Restore cases exercise
+both the stdlib replay path and native APSW shell path. The same mandatory CI
+job, baseline comparison and skip/xfail rejection apply to every new case.
+
+Final driver-fix validation passed **all 350 required cases**, with zero skips or
+xfails and the baseline comparison against `07fc3326`. Affected integration
+passed **1,275 cases** with 37 explicitly platform/fixture/backend-specific skips;
+all 121 driver/adapter doctest examples and the complete quality runner passed.
+See the review’s repair-validation section for scope and telemetry limits.
+
+## Second driver review extension — 2026-11-05
+
+The [follow-up repair](database-driver-plugins-follow-up-review-2026-11-05.md)
+adds **50 cases**, taking the mandatory manifest to **400** without removing or
+moving any previously required case:
+
+| Invariant | Added cases | Contract |
+| --- | ---: | --- |
+| `driver-sqlite-batch-atomicity` | 14 | Input/adaptation/constraint errors roll back without retries, retain their cause and leave no durable prefix; supported binding shapes succeed. |
+| `driver-postgres-sql-adaptation` | 24 | Qualified keyword-shaped identifiers remain operands for JSON operators under native and qmark bindings. This group now has 50 cases. |
+| `driver-postgres-index-keys` | 7 | INCLUDE payload never determines uniqueness, cardinality or typed identity; partial/expression/invalid/nonunique indexes do not prove global keys. |
+| `driver-independent-working-copies` | 5 | Removed scratch-switching APIs stay absent; verified backups open independently and preserve source ownership and committed WAL data. |
+
+These cases use real SQLite/APSW-backed drivers and PostgreSQL 16. The invalid
+index case deliberately fails `CREATE UNIQUE INDEX CONCURRENTLY` against
+duplicate values; it does not edit PostgreSQL's system catalogs. The same live
+CI service, baseline comparison and skip/xfail rejection apply to every case.
+
+Final follow-up validation passed **all 400 required cases**, with zero skips or
+xfails, after strengthening the adapter failure to permit duplicate-prefix
+inserts if retried. Both stronger cases failed against the original method before
+passing with the fix. Full typing/quality, 121 doctest examples and the affected
+integration checks also passed; the follow-up review records the existing skips,
+expected failures and two resolved cache-artifact teardown errors.
+
+## Third driver review extension — 2026-11-06
+
+The [third review repairs](database-driver-plugins-third-review-2026-11-06.md)
+add **148 cases**, bringing the required manifest to **548**. Earlier cases keep
+both their identities and invariant membership.
+
+| Invariant | Added cases | Observable contract |
+| --- | ---: | --- |
+| `driver-sqlite-batch-atomicity` | 36 | CTE INSERT/UPDATE/DELETE succeed atomically or roll back iterator/SQL errors, from idle and pending primary transactions. |
+| `driver-sqlite-query-results` | 26 | RETURNING commits before results are consumed, failures leave no durable write, public WEMI wrappers work without maintenance, and ordinary/keyword-named CTE SELECTs stream. |
+| `driver-resource-lifetime` | 4 | Failed book-group deletion/read releases owned handles; a refused delete leaves independent writers usable. |
+| `driver-sqlite-index-keys` | 12 | Rowid/composite primary keys and quoted index names agree with physical schema/cardinality; partial/expression/nonunique indexes remain excluded. |
+| `driver-postgres-sql-adaptation` | 60 | Unqualified contextual words work as JSON operands under both parameter styles; FETCH, AT TIME ZONE and typed literals retain their binding roles. |
+| `driver-postgres-value-roundtrips` | 10 | Actual conversion-options binary payloads survive dictionary/Row/view read-modify-write cycles, including empty/non-UTF-8/numeric-looking bytes; native numeric/date/boolean reads retain their types. |
+
+Tests use both SQLite driver names and the same mandatory real PostgreSQL service.
+Failures are checked against independent readers/writers. The original 400 cases
+remain required, including genuine mixed-binding rejection and ordinary batch
+adaptation failures. Final validation is recorded in the third review.
+
+## Compatibility and remaining limits
+
+The legacy cached custom-column facade now rejects an active transaction before
+mutation. Its `set_custom(..., commit=False)` raises `ValueError`; use explicit
+SQL macros for caller-managed transactions without this cache. This deliberate
+restriction prevents a cache from appearing committed while the caller can
+still roll back. The modern WEMI definition-storage path remains separate.
+`delete_cc_item` at the SQL layer preserves a caller transaction with a savepoint.
+
+Cache-aware calls must be serialized with their cache readers. Rollback restores
+touched row values and enumeration lists in place. Host dirty hooks must honor
+`commit=False` and avoid external side effects; arbitrary third-party callback
+side effects cannot be rolled back. Notifications run after SQL/cache success;
+a listener exception includes a note that the write committed. Do not blindly
+retry the write. Durable/retriable listener delivery is future work.
+
+Maintenance initialization likewise requires the caller to serialize it with
+normal database use. A shutdown timeout is reported and ownership retained;
+it does not force-kill a worker. `Database.close()` retains its best-effort
+cleanup contract. `RowState.IDENTIFIED` means the local payload has an identity,
+not that a concurrent database deletion is impossible. Existing missing-load
+sentinels and writable `deepcopy(Row)` behavior are preserved and tested.
+
+## Initial typing checkpoint validation
+
+- Required manifest: **240 passed, zero skips/xfails**, including native APSW
+  callbacks and live PostgreSQL cursor/Row writes.
+- Affected integration/tooling selection: **292 passed**, with one initial
+  documentation failure because newly linked files were unstaged. After staging,
+  the final documentation/CI/tooling run passed **87 tests**. Selections overlap.
+- All existing formatting, lint, architecture, import-footprint and typing gates
+  passed. Both checkers also passed against a fresh environment containing only
+  declared base/typing dependencies: **453 mypy sources**, and **zero basedpyright
+  errors or warnings**. This includes the APSW dependency repair found in CI.
+- The gate itself has subprocess regressions proving that real pytest skips and
+  xfails cannot produce a green result, plus baseline-removal and missing-case tests.
+
+Runs were serial, with telemetry and scratch under `/tmp`; the private PostgreSQL
+instance was stopped and removed. The earlier lifecycle tests reproduced worker
+leaks before the fix, and fault-injection tests exercise SQL, cache, dirty-hook,
+commit, startup, wiring and notification failures. No new full-suite run or
+production archive import is claimed for this follow-up.

@@ -5,8 +5,10 @@ from __future__ import annotations
 import json
 import time
 from collections.abc import Iterable, Mapping
-from typing import Any
+from typing import Any, cast
 
+from LiuXin_alpha.databases.db_types.driver_types import RowSQLConnection, SQLParameters
+from LiuXin_alpha.databases.db_types.maintenance_types import MaintenanceObligation
 from LiuXin_alpha.databases.maintenance.events import RowChangeEvent
 from LiuXin_alpha.databases.maintenance.schema import quote, table_sql
 
@@ -16,11 +18,16 @@ def now_ms() -> int:
     return time.time_ns() // 1_000_000
 
 
-def rows(connection: Any, sql: str, parameters=()) -> list[dict[str, Any]]:
+def rows(
+    connection: RowSQLConnection, sql: str, parameters: SQLParameters = ()
+) -> list[dict[str, Any]]:
     """Materialize a bounded query with its physical column names on either backend."""
     cursor = connection.execute(sql, parameters)
     try:
-        names = tuple(column[0] for column in cursor.description)
+        description = cursor.description
+        if description is None:
+            raise ValueError("Journal row queries must produce a result set")
+        names = tuple(column[0] for column in description)
         return [
             dict(row)
             if isinstance(row, Mapping)
@@ -32,7 +39,7 @@ def rows(connection: Any, sql: str, parameters=()) -> list[dict[str, Any]]:
 
 
 def inspect_source(
-    connection: Any, table: str, schema: str | None
+    connection: RowSQLConnection, table: str, schema: str | None
 ) -> tuple[str, tuple[str, ...]]:
     """Require a physical table with one integer primary key before installing capture."""
     if schema:
@@ -47,14 +54,14 @@ def inspect_source(
             "WHERE table_schema = ? AND table_name = ? ORDER BY ordinal_position",
             (schema, table),
         )
-        keys = connection.execute(
+        key_rows = connection.execute(
             "SELECT k.column_name FROM information_schema.table_constraints t "
             "JOIN information_schema.key_column_usage k ON k.constraint_name=t.constraint_name "
             "AND k.constraint_schema=t.constraint_schema AND k.table_name=t.table_name "
             "WHERE t.table_schema=? AND t.table_name=? AND t.constraint_type='PRIMARY KEY'",
             (schema, table),
         ).fetchall()
-        keys = [row[0] for row in keys]
+        keys = [row[0] for row in key_rows]
     else:
         exists = connection.execute(
             "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (table,)
@@ -74,7 +81,7 @@ def inspect_source(
 
 
 def pending(
-    connection: Any,
+    connection: RowSQLConnection,
     *,
     schema: str | None,
     mode: str,
@@ -82,7 +89,7 @@ def pending(
     ids: Iterable[int] | None = None,
     limit: int = 128,
     lock: bool = False,
-) -> list[dict[str, Any]]:
+) -> list[MaintenanceObligation]:
     """Read unacknowledged obligations and their immutable captured change facts."""
     if type(limit) is not int or not 1 <= limit <= 1000:
         raise ValueError(
@@ -112,10 +119,11 @@ def pending(
     parameters.append(limit)
     if lock and schema:
         sql += " FOR UPDATE OF o"
-    return rows(connection, sql, parameters)
+    # This SELECT and the versioned journal DDL define every field in the record.
+    return cast(list[MaintenanceObligation], rows(connection, sql, parameters))
 
 
-def event_from_record(record: dict[str, Any]) -> RowChangeEvent:
+def event_from_record(record: MaintenanceObligation) -> RowChangeEvent:
     """Reconstruct physical change identity without querying a deleted source row."""
     return RowChangeEvent(
         record["table_name"],
@@ -132,7 +140,9 @@ def event_from_record(record: dict[str, Any]) -> RowChangeEvent:
 
 
 def acknowledge(
-    connection: Any, records: list[dict[str, Any]], schema: str | None
+    connection: RowSQLConnection,
+    records: list[MaintenanceObligation],
+    schema: str | None,
 ) -> None:
     """Acknowledge exactly these revisions in the handler's effects transaction."""
     connection.executemany(

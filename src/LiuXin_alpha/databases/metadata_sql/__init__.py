@@ -7,7 +7,9 @@ share bounded key lookups; row updates/deletes share atomic batch machinery.
 Normalization maintenance repairs declared comparison keys without schema edits
 or a second set of value rules. Relationship readers batch destination rows and
 retain every link; the mixin returning those rows owns the specialised entry point.
-Foreign-key readers group rows for requested owners in bounded SQL batches.
+Missing physical relationships raise InputIntegrityError; declared relationships
+with no matching rows return empty results. Foreign-key readers group rows for
+requested owners in bounded SQL batches.
 Policy readers resolve explicit references; their callers interpret the results.
 
 Catalog owns bibliographic interpretation, WEMI selection and compatibility

@@ -10,6 +10,8 @@ import re
 import uuid
 from typing import Any
 
+from LiuXin_alpha.databases.db_types.driver_types import RowSQLConnection
+
 SCHEMA_VERSION = 1
 TABLES = (
     "maintenance_metadata",
@@ -33,7 +35,7 @@ def table_sql(name: str, schema: str | None = None) -> str:
     return f"{quote(schema)}.{quote(name)}" if schema else quote(name)
 
 
-def present(connection: Any, schema: str | None = None) -> bool:
+def present(connection: RowSQLConnection, schema: str | None = None) -> bool:
     """Inspect migration presence without writes or probing an absent relation."""
     if schema:
         row = connection.execute(
@@ -46,18 +48,22 @@ def present(connection: Any, schema: str | None = None) -> bool:
             "SELECT COUNT(*) FROM sqlite_master "
             "WHERE type = 'table' AND name = 'maintenance_metadata'"
         ).fetchone()
+    assert row is not None, "COUNT must produce one row"
     return bool(row[0])
 
 
-def migration_status(connection: Any, schema: str | None = None) -> dict[str, Any]:
+def migration_status(
+    connection: RowSQLConnection, schema: str | None = None
+) -> dict[str, Any]:
     """Return the installed version and journal identity without repairing it."""
     if not present(connection, schema):
         return {"installed": False, "version": None, "required_version": SCHEMA_VERSION}
-    rows = dict(
-        connection.execute(
+    rows = {
+        key: value
+        for key, value in connection.execute(
             f"SELECT key, value FROM {table_sql('maintenance_metadata', schema)}"
         ).fetchall()
-    )
+    }
     version = int(rows.get("schema_version", "0"))
     return {
         "installed": True,
@@ -68,7 +74,7 @@ def migration_status(connection: Any, schema: str | None = None) -> dict[str, An
     }
 
 
-def migrate(connection: Any, schema: str | None = None) -> dict[str, Any]:
+def migrate(connection: RowSQLConnection, schema: str | None = None) -> dict[str, Any]:
     """Create the journal in the caller's write unit, preserving existing history.
 
     This function neither commits nor opens a connection. Unknown installed

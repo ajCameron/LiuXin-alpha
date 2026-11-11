@@ -11,26 +11,38 @@ pruning and canonical table fingerprints.
 
 from __future__ import annotations
 
+from LiuXin_alpha.databases.database_driver_plugins._macro_state import (
+    MacroHostState,
+    macro_transaction_state,
+)
 import base64
 import datetime as datetime_module
 import hashlib
 import json
 import math
 import re
-import threading
 import uuid
-from collections.abc import Iterable, Iterator, Mapping
+from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from contextlib import AbstractContextManager, contextmanager, nullcontext
 from dataclasses import replace
 from itertools import groupby
-from typing import Any
+from typing import Any, TYPE_CHECKING, cast
+
+if TYPE_CHECKING:
+    from LiuXin_alpha.databases.api.driver_api import DatabaseDriverAPI
 
 from LiuXin_alpha.databases.column_metadata import (
     COLUMN_METADATA_TABLE,
     ColumnMetadata,
     infer_column_metadata,
 )
-from LiuXin_alpha.databases.db_types.driver_types import QueryConnection
+from LiuXin_alpha.databases.db_types.repair_types import PhysicalReference
+from LiuXin_alpha.databases.db_types.driver_types import (
+    QueryConnection,
+    SQLConnection,
+    SQLRow,
+)
+from LiuXin_alpha.databases.db_types.query_types import RowPredicate
 from LiuXin_alpha.databases.db_types.macro_types import (
     LINK_TYPE_UNSET,
     CanonicalIdentity,
@@ -62,9 +74,18 @@ from LiuXin_alpha.metadata.value_policies import (
     ColumnNormalizationProfile,
 )
 
+type FingerprintValue = str | bool | None | Sequence[FingerprintValue]
+
+
 _SAFE_IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 _TEMP_TYPES = frozenset({"BLOB", "INTEGER", "NUMERIC", "REAL", "TEXT"})
-_LIVE_ALLOWED_TYPES_UNSET = object()
+
+
+class _UnsetAllowedTypes:
+    """Distinguish an unchecked type registry from an absent registry."""
+
+
+_LIVE_ALLOWED_TYPES_UNSET = _UnsetAllowedTypes()
 
 
 def _identifier(value: str, *, kind: str = "identifier") -> str:
@@ -114,7 +135,9 @@ def _quoted(value: str) -> str:
     return '"' + _identifier(value).replace('"', '""') + '"'
 
 
-def _chunks(values: tuple[Any, ...], size: int = 500) -> Iterator[tuple[Any, ...]]:
+def _chunks[ValueT](
+    values: tuple[ValueT, ...], size: int = 500
+) -> Iterator[tuple[ValueT, ...]]:
     """
     Yield consecutive slices of the supplied tuple at the requested step size.
 
@@ -138,7 +161,7 @@ def _chunks(values: tuple[Any, ...], size: int = 500) -> Iterator[tuple[Any, ...
         yield values[offset : offset + size]
 
 
-def _row_value(row: Any, index: int, column: str) -> Any:
+def _row_value(row: SQLRow, index: int, column: str) -> Any:
     """
     Read a cell by mapping key or positional index according to the row type.
 
@@ -164,7 +187,7 @@ def _row_value(row: Any, index: int, column: str) -> Any:
     return row[index]
 
 
-def _canonical_db_value(value: Any) -> Any:
+def _canonical_db_value(value: object) -> FingerprintValue:
     """
     Encode a database value as a type-tagged, JSON-serializable fingerprint value.
 
@@ -223,18 +246,24 @@ def _canonical_db_value(value: Any) -> Any:
         return ["str", value]
     if isinstance(value, (bytes, bytearray, memoryview)):
         return ["bytes", base64.b64encode(bytes(value)).decode("ascii")]
-    if isinstance(value, (datetime_module.date, datetime_module.time, datetime_module.datetime)):
+    if isinstance(
+        value, (datetime_module.date, datetime_module.time, datetime_module.datetime)
+    ):
         return [type(value).__name__, value.isoformat()]
     if isinstance(value, Mapping):
         pairs = [
             (_canonical_db_value(key), _canonical_db_value(item))
             for key, item in value.items()
         ]
-        pairs.sort(key=lambda pair: json.dumps(pair[0], ensure_ascii=False, sort_keys=True))
+        pairs.sort(
+            key=lambda pair: json.dumps(pair[0], ensure_ascii=False, sort_keys=True)
+        )
         return ["mapping", pairs]
     if isinstance(value, (set, frozenset)):
         items = [_canonical_db_value(item) for item in value]
-        items.sort(key=lambda item: json.dumps(item, ensure_ascii=False, sort_keys=True))
+        items.sort(
+            key=lambda item: json.dumps(item, ensure_ascii=False, sort_keys=True)
+        )
         return ["set", items]
     if isinstance(value, (list, tuple)):
         return [type(value).__name__, [_canonical_db_value(item) for item in value]]
@@ -242,7 +271,7 @@ def _canonical_db_value(value: Any) -> Any:
     return ["object", value_type, str(value)]
 
 
-class SQLPortableMacrosMixin:
+class SQLPortableMacrosMixin(MacroHostState):
     """
     Supply portable SQL services to a macro host that provides a db facade.
 
@@ -257,12 +286,10 @@ class SQLPortableMacrosMixin:
         and read their uncommitted results through ``macros.get_row(table, row_id)``.
     """
 
-    db: Any
-
     # ------------------------------------------------------------------------------------------------------------------
     # Infrastructure
 
-    def _macro_driver(self) -> Any:
+    def _macro_driver(self) -> DatabaseDriverAPI:
         """
         Resolve the attached driver, preferring the facade's direct driver attribute.
 
@@ -287,17 +314,19 @@ class SQLPortableMacrosMixin:
         if driver is None:
             driver = getattr(getattr(self.db, "driver_wrapper", None), "driver", None)
         if driver is None:
-            raise DatabaseIntegrityError("Database macros are not attached to a driver.")
-        return driver
+            raise DatabaseIntegrityError(
+                "Database macros are not attached to a driver."
+            )
+        return cast("DatabaseDriverAPI", driver)
 
     def current_transaction_connection(self) -> QueryConnection | None:
         """Expose the active thread's borrowed handle without acquiring a connection."""
-        state = vars(self).get("_macro_transaction_state")
-        if state is not None and getattr(state, "depth", 0):
+        state = macro_transaction_state(self)
+        if state is not None and state.depth:
             return getattr(state, "connection", None)
         return None
 
-    def _macro_connection(self) -> Any:
+    def _macro_connection(self) -> SQLConnection:
         # Read instance state directly. Some compatibility macro classes use
         # ``__getattr__`` to report unsupported public macros, so probing a
         # private implementation attribute through ``getattr`` is observable.
@@ -318,13 +347,13 @@ class SQLPortableMacrosMixin:
 
         :return: The active transaction connection or cached driver connection.
         """
-        state = vars(self).get("_macro_transaction_state")
-        if state is not None and getattr(state, "depth", 0):
-            conn = getattr(state, "connection", None)
-            if conn is not None:
-                return conn
+        state = macro_transaction_state(self)
+        if state is not None and state.depth:
+            active = state.connection
+            if active is not None:
+                return active
         driver = self._macro_driver()
-        conn = getattr(driver, "conn", None)
+        conn: SQLConnection | None = getattr(driver, "conn", None)
         if conn is None:
             conn = driver.get_connection()
             driver.conn = conn
@@ -423,7 +452,9 @@ class SQLPortableMacrosMixin:
             invalidate()
 
     @contextmanager
-    def _macro_transaction(self, *, serialized: bool = False, require_outermost: bool = False) -> Iterator[Any]:
+    def _macro_transaction(
+        self, *, serialized: bool = False, require_outermost: bool = False
+    ) -> Iterator[SQLConnection]:
         """Own one write unit while preserving nested and caller-owned transactions.
 
         A fresh driver connection belongs to this operation and is closed afterward.
@@ -432,41 +463,63 @@ class SQLPortableMacrosMixin:
         Each nested entry has its own savepoint, so catching an inner failure cannot
         retain its partial writes. The facade mutex only serializes threads.
         """
-        state = vars(self).get("_macro_transaction_state")
-        if state is None:
-            state = vars(self).setdefault("_macro_transaction_state", threading.local())
-        depth = getattr(state, "depth", 0)
+        state = macro_transaction_state(self, create=True)
+        depth = state.depth
         if depth:
             if require_outermost:
                 raise RuntimeError("This operation must own an outermost transaction")
-            if serialized and not getattr(state, "serialized", False):
-                raise RuntimeError("Cannot serialize a unit inside an ordinary transaction")
+            if serialized and not state.serialized:
+                raise RuntimeError(
+                    "Cannot serialize a unit inside an ordinary transaction"
+                )
+            active = state.connection
+            if active is None:
+                raise DatabaseIntegrityError(
+                    "Active macro transaction has no connection"
+                )
             state.depth = depth + 1
             try:
-                with transaction_scope(state.connection, owns_transaction=False) as conn:
-                    yield conn
+                with transaction_scope(
+                    active, owns_transaction=False
+                ) as nested_connection:
+                    yield nested_connection
             finally:
                 state.depth -= 1
             return
 
-        lock = getattr(self.db, "lock", None)
+        lock = getattr(self._macro_database, "lock", None)
         # Lightweight legacy hosts may still expose a connection as `lock`.
         # Entering that context would commit unrelated work on exit.
-        lock_context = lock if callable(getattr(lock, "acquire", None)) else nullcontext()
+        lock_context = (
+            cast(AbstractContextManager[object], lock)
+            if lock is not None and callable(getattr(lock, "acquire", None))
+            else nullcontext()
+        )
         with lock_context:
             driver = self._macro_driver()
-            get_connection = getattr(driver, "get_connection", None)
-            owns_connection = callable(get_connection)
-            conn = get_connection() if owns_connection else getattr(driver, "conn", None)
+            get_connection: Callable[[], SQLConnection] | None = getattr(
+                driver, "get_connection", None
+            )
+            conn: SQLConnection | None
+            if callable(get_connection):
+                conn = get_connection()
+                owns_connection = True
+            else:
+                conn = getattr(driver, "conn", None)
+                owns_connection = False
             if conn is None:
-                raise DatabaseIntegrityError("Database driver has no connection for portable macros.")
+                raise DatabaseIntegrityError(
+                    "Database driver has no connection for portable macros."
+                )
             state.depth = 1
             state.connection = conn
             state.serialized = serialized
             try:
                 owns_transaction = owns_connection or not transaction_active(conn)
                 if (serialized or require_outermost) and not owns_transaction:
-                    raise RuntimeError("Serialized units require ownership of the outer transaction")
+                    raise RuntimeError(
+                        "Serialized units require ownership of the outer transaction"
+                    )
                 postgres = hasattr(driver, "schema")
                 with transaction_scope(
                     conn,
@@ -476,7 +529,7 @@ class SQLPortableMacrosMixin:
                     if serialized and postgres:
                         conn.execute(
                             "SELECT pg_advisory_xact_lock(hashtext(current_database()), hashtext(?))",
-                            (f"liuxin.serialized:{driver.schema}",),
+                            (f"liuxin.serialized:{getattr(driver, 'schema')}",),
                         )
                     yield conn
             finally:
@@ -487,7 +540,9 @@ class SQLPortableMacrosMixin:
                     conn.close()
         self._macro_invalidate()
 
-    def transaction(self, *, serialized: bool = False, require_outermost: bool = False) -> AbstractContextManager[Any]:
+    def transaction(
+        self, *, serialized: bool = False, require_outermost: bool = False
+    ) -> AbstractContextManager[SQLConnection]:
         """
         Return the context manager that groups portable operations in one outer write
         boundary.
@@ -536,9 +591,11 @@ class SQLPortableMacrosMixin:
             operations.
         """
 
-        return self._macro_transaction(serialized=serialized, require_outermost=require_outermost)
+        return self._macro_transaction(
+            serialized=serialized, require_outermost=require_outermost
+        )
 
-    def read_transaction(self) -> AbstractContextManager[Any]:
+    def read_transaction(self) -> AbstractContextManager[SQLConnection]:
         """Own a read-only, consistent snapshot for a multi-query inspection.
 
         Refuse nesting so an inspection cannot change its caller's transaction
@@ -550,16 +607,23 @@ class SQLPortableMacrosMixin:
         return self._read_transaction()
 
     @contextmanager
-    def _read_transaction(self) -> Iterator[Any]:
+    def _read_transaction(self) -> Iterator[SQLConnection]:
         """Implement the public snapshot context without exposing its generator."""
         driver = self._macro_driver()
         restore = None
         try:
             with self._macro_transaction(require_outermost=True) as connection:
                 if hasattr(driver, "schema"):
-                    connection.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY").close()
+                    connection.execute(
+                        "SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY"
+                    ).close()
                 else:
-                    previous = connection.execute("PRAGMA query_only").fetchone()[0]
+                    status = connection.execute("PRAGMA query_only").fetchone()
+                    if status is None:
+                        raise DatabaseIntegrityError(
+                            "SQLite did not report its query-only state"
+                        )
+                    previous = status[0]
                     if not callable(getattr(driver, "get_connection", None)):
                         restore = (connection, previous)
                     connection.execute("PRAGMA query_only=ON").close()
@@ -572,24 +636,28 @@ class SQLPortableMacrosMixin:
                 connection, previous = restore
                 connection.execute(f"PRAGMA query_only={int(previous)}").close()
 
-    def inspect_repair_references(self, table: str) -> list[dict]:
+    def inspect_repair_references(self, table: str) -> list[PhysicalReference]:
         """Read physical inbound constraints and polymorphic reference declarations."""
         from .repair_storage import references
+
         return references(self, table)
 
-    def lock_repair_references(self, table: str) -> list[dict]:
+    def lock_repair_references(self, table: str) -> list[PhysicalReference]:
         """Reserve source/reference tables in an owned serialized repair transaction."""
         from .repair_storage import lock_references
+
         return lock_references(self, table)
 
     def record_catalog_repair(self, receipt: Mapping[str, Any]) -> str:
         """Append an immutable receipt atomically with an explicit Catalog repair."""
         from .repair_storage import record
+
         return record(self, receipt)
 
-    def get_catalog_repair_receipt(self, receipt_id: str) -> dict | None:
+    def get_catalog_repair_receipt(self, receipt_id: str) -> dict[str, Any] | None:
         """Read a durable repair receipt, returning None without installing anything."""
         from .repair_storage import read_receipt
+
         return read_receipt(self, receipt_id)
 
     def _row_id_column(self, table: str, id_column: str | None) -> str:
@@ -612,13 +680,13 @@ class SQLPortableMacrosMixin:
         :return: The validated ID-column name.
         """
         if id_column is None:
-            id_column = self.db.driver_wrapper.get_id_column(table)
+            id_column = self._macro_database.driver_wrapper.get_id_column(table)
         return self._validate_columns(table, (id_column,))[0]
 
     @staticmethod
     def _mapping_rows(
         columns: tuple[str, ...],
-        rows: Iterable[Any],
+        rows: Iterable[SQLRow],
     ) -> tuple[Mapping[str, Any], ...]:
         """
         Materialize query rows as fresh dictionaries using the selected column order.
@@ -860,9 +928,7 @@ class SQLPortableMacrosMixin:
         if conditions:
             sql += " WHERE " + " AND ".join(conditions)
         if order_columns:
-            sql += " ORDER BY " + ", ".join(
-                _quoted(column) for column in order_columns
-            )
+            sql += " ORDER BY " + ", ".join(_quoted(column) for column in order_columns)
         return self._mapping_rows(
             columns,
             self._macro_connection().execute(sql, tuple(values)),
@@ -878,7 +944,14 @@ class SQLPortableMacrosMixin:
             getattr(self._macro_driver(), "supports_normalized_search", False) is True
         )
 
-    def find_rows_matching(self, table, predicate, *, limit=100, offset=0):
+    def find_rows_matching(
+        self,
+        table: str,
+        predicate: RowPredicate,
+        *,
+        limit: int | None = 100,
+        offset: int = 0,
+    ) -> tuple[Mapping[str, Any], ...]:
         """Filter physical rows using validated predicates and bound values.
 
         Predicates contain physical columns/links, never SQL snippets. Results
@@ -928,9 +1001,14 @@ class SQLPortableMacrosMixin:
         predicates = dict(where or {})
         self._validate_columns(table, predicates)
         return read_page(
-            self._macro_connection(), table_sql=self._macro_table_sql(table),
-            columns=columns, id_column=id_column, where=predicates,
-            limit=limit, offset=offset, after_id=after_id,
+            self._macro_connection(),
+            table_sql=self._macro_table_sql(table),
+            columns=columns,
+            id_column=id_column,
+            where=predicates,
+            limit=limit,
+            offset=offset,
+            after_id=after_id,
         )
 
     def audit_query_indexes(self) -> QueryIndexReport:
@@ -983,7 +1061,7 @@ class SQLPortableMacrosMixin:
         condition, where_values = self._equality_predicates(table, where)
         count_filters = dict(counts or {})
         expressions = ["COUNT(*)", *(f"SUM({_quoted(c)})" for c in sums)]
-        values = []
+        values: list[Any] = []
         for predicate in count_filters.values():
             sql, bindings = self._equality_predicates(table, predicate)
             expressions.append(f"COUNT(CASE WHEN {sql} THEN 1 END)")
@@ -993,7 +1071,9 @@ class SQLPortableMacrosMixin:
         return {
             "count": int(row[0]),
             "sums": dict(zip(sums, row[1 : len(sums) + 1], strict=True)),
-            "counts": dict(zip(count_filters, map(int, row[len(sums) + 1 :]), strict=True)),
+            "counts": dict(
+                zip(count_filters, map(int, row[len(sums) + 1 :]), strict=True)
+            ),
         }
 
     def has_rows(self, table: str, *, where: Mapping[str, Any] | None = None) -> bool:
@@ -1039,7 +1119,7 @@ class SQLPortableMacrosMixin:
         size = 500 - len(values)
         if size < 1:
             raise InputIntegrityError("Too many grouped-count filter bindings")
-        grouped = {owner: [] for owner in requested}
+        grouped: dict[int, list[Mapping[str, Any]]] = {owner: [] for owner in requested}
         group_sql = ", ".join(_quoted(c) for c in columns)
         for start in range(0, len(requested), size):
             chunk = requested[start : start + size]
@@ -1094,7 +1174,9 @@ class SQLPortableMacrosMixin:
             )
             if link_type is not None:
                 values.append(link_type)
-        result = {owner: {"links": 0, "distinct": 0, "missing": 0} for owner in owners}
+        result: dict[int, Mapping[str, int]] = {
+            owner: {"links": 0, "distinct": 0, "missing": 0} for owner in owners
+        }
         size = 500 - len(values)
         source = f"links.{_quoted(spec.primary_link_col)}"
         destination = f"target.{_quoted(spec.secondary_id_col)}"
@@ -1133,10 +1215,18 @@ class SQLPortableMacrosMixin:
         :return: The minimum and maximum, without numeric conversion.
         """
         (column,) = self._validate_columns(table, (column,))
-        row = self._macro_connection().execute(
-            f"SELECT MIN({_quoted(column)}) AS minimum, "
-            f"MAX({_quoted(column)}) AS maximum FROM {self._macro_table_sql(table)}"
-        ).fetchone()
+        row = (
+            self._macro_connection()
+            .execute(
+                f"SELECT MIN({_quoted(column)}) AS minimum, "
+                f"MAX({_quoted(column)}) AS maximum FROM {self._macro_table_sql(table)}"
+            )
+            .fetchone()
+        )
+        if row is None:
+            raise DatabaseIntegrityError(
+                "Column extrema query returned no aggregate row"
+            )
         return _row_value(row, 0, "minimum"), _row_value(row, 1, "maximum")
 
     def insert_rows(self, table: str, rows: Iterable[Mapping[str, Any]]) -> None:
@@ -1154,13 +1244,16 @@ class SQLPortableMacrosMixin:
         prepared = []
         id_column = self._row_id_column(table, None)
         normalizer = None
+        available: frozenset[str] = frozenset()
         for values in rows:
             if not values:
                 raise InputIntegrityError("insert_rows payloads cannot be empty")
             if normalizer is None:
                 available = frozenset(self._column_names(table))
                 normalizer = NormalizedValuePreparer.from_source(
-                    self.db.driver_wrapper, table, available_columns=available
+                    self._macro_database.driver_wrapper,
+                    table,
+                    available_columns=available,
                 )
             payload = normalizer.prepare(values)
             columns = tuple(
@@ -1243,7 +1336,9 @@ class SQLPortableMacrosMixin:
 
         if not values:
             raise InputIntegrityError("insert_row values cannot be empty")
-        payload = prepare_normalized_values(self.db.driver_wrapper, table, values)
+        payload = prepare_normalized_values(
+            self._macro_database.driver_wrapper, table, values
+        )
         columns = self._validate_columns(table, payload)
         id_column = self._row_id_column(table, id_column)
         sql = (
@@ -1314,7 +1409,7 @@ class SQLPortableMacrosMixin:
             raise InputIntegrityError("update_row cannot change the ID column")
         with self._macro_transaction() as conn:
             payload = prepare_normalized_values(
-                self.db.driver_wrapper,
+                self._macro_database.driver_wrapper,
                 table,
                 values,
                 existing=self.get_row(table, row_id, id_column=id_column),
@@ -1396,7 +1491,9 @@ class SQLPortableMacrosMixin:
             raise TypeError("link_type must be a string or None")
         columns = [link_col]
         if link_type is not None:
-            columns.append(f"{self.db.driver_wrapper.get_column_base(link_table)}_type")
+            columns.append(
+                f"{self._macro_database.driver_wrapper.get_column_base(link_table)}_type"
+            )
         self._delete_matching_rows(
             link_table,
             columns,
@@ -1462,7 +1559,7 @@ class SQLPortableMacrosMixin:
         :param table: Table name passed unchanged to driver_wrapper.get_column_headings.
         :return: A tuple of str-converted column headings.
         """
-        headings = self.db.driver_wrapper.get_column_headings(table)
+        headings = self._macro_database.driver_wrapper.get_column_headings(table)
         return tuple(str(column) for column in headings)
 
     def _validate_columns(
@@ -1545,9 +1642,13 @@ class SQLPortableMacrosMixin:
         if link_spec.typed != (link_spec.type_link_col is not None):
             raise InputIntegrityError("Typed link specs must declare a type_link_col.")
         if link_spec.ordered != (link_spec.priority_link_col is not None):
-            raise InputIntegrityError("Ordered link specs must declare a priority_link_col.")
+            raise InputIntegrityError(
+                "Ordered link specs must declare a priority_link_col."
+            )
         if link_spec.type_part_of_identity and not link_spec.typed:
-            raise InputIntegrityError("Only typed links can include type in their identity.")
+            raise InputIntegrityError(
+                "Only typed links can include type in their identity."
+            )
         return link_spec
 
     @staticmethod
@@ -1586,7 +1687,9 @@ class SQLPortableMacrosMixin:
         return tuple(columns)
 
     @staticmethod
-    def _link_identity(link_spec: StorageLinkSpec, link: LinkValue | LinkRow) -> tuple[Any, ...]:
+    def _link_identity(
+        link_spec: StorageLinkSpec, link: LinkValue | LinkRow
+    ) -> tuple[Any, ...]:
         """
         Extract the secondary ID and optional type key used within one primary endpoint.
 
@@ -1619,7 +1722,7 @@ class SQLPortableMacrosMixin:
         self,
         link_spec: StorageLinkSpec,
         columns: tuple[str, ...],
-        row: Any,
+        row: SQLRow,
     ) -> LinkRow:
         """
         Decode a query row into endpoint, type, priority and extra link values.
@@ -1683,7 +1786,7 @@ class SQLPortableMacrosMixin:
 
     def _read_link_rows(
         self,
-        conn: Any,
+        conn: SQLConnection,
         link_spec: StorageLinkSpec,
         primary_ids: tuple[Any, ...] | None,
         *,
@@ -1731,7 +1834,9 @@ class SQLPortableMacrosMixin:
             values.extend(primary_ids)
         if link_type is not LINK_TYPE_UNSET:
             if not link_spec.typed or link_spec.type_link_col is None:
-                raise InputIntegrityError("Cannot filter an untyped link spec by link type.")
+                raise InputIntegrityError(
+                    "Cannot filter an untyped link spec by link type."
+                )
             if link_type is None:
                 conditions.append(f"{_quoted(link_spec.type_link_col)} IS NULL")
             else:
@@ -1900,6 +2005,7 @@ class SQLPortableMacrosMixin:
         link_spec = self._validate_link_spec(link_spec)
         requested = None if primary_ids is None else tuple(dict.fromkeys(primary_ids))
         conn = self._macro_connection()
+        rows: Iterable[LinkRow]
         if requested is None:
             rows = self._read_link_rows(conn, link_spec, None, link_type=link_type)
         else:
@@ -1949,8 +2055,10 @@ class SQLPortableMacrosMixin:
 
         if link_spec.allowed_types_table is None:
             return None
-        get_allowed_types = getattr(
-            self.db.driver_wrapper,
+        get_allowed_types: (
+            Callable[[StorageLinkSpec], tuple[str, ...] | None] | None
+        ) = getattr(
+            self._macro_database.driver_wrapper,
             "get_allowed_link_types",
             None,
         )
@@ -1966,10 +2074,7 @@ class SQLPortableMacrosMixin:
                 f"table {link_spec.allowed_types_table!r}."
             )
         values = tuple(allowed_types)
-        if any(
-            not isinstance(value, str) or not value.strip()
-            for value in values
-        ):
+        if any(not isinstance(value, str) or not value.strip() for value in values):
             raise DatabaseIntegrityError(
                 f"Allowed-types table {link_spec.allowed_types_table!r} "
                 "contains an invalid type value."
@@ -2026,10 +2131,7 @@ class SQLPortableMacrosMixin:
             raise InputIntegrityError(
                 f"Link type is not allowed by the link spec: {link_type!r}"
             )
-        if (
-            live_allowed_types is not None
-            and link_type not in live_allowed_types
-        ):
+        if live_allowed_types is not None and link_type not in live_allowed_types:
             raise InputIntegrityError(
                 f"Link type {link_type!r} does not exist in allowed-types "
                 f"table {link_spec.allowed_types_table!r}."
@@ -2041,7 +2143,7 @@ class SQLPortableMacrosMixin:
         link: LinkValue,
         *,
         scoped_type: Any = LINK_TYPE_UNSET,
-        live_allowed_types: tuple[str, ...] | None | object = (
+        live_allowed_types: tuple[str, ...] | None | _UnsetAllowedTypes = (
             _LIVE_ALLOWED_TYPES_UNSET
         ),
     ) -> LinkValue:
@@ -2089,7 +2191,7 @@ class SQLPortableMacrosMixin:
                         f"Link type {link_type!r} does not match replacement scope {scoped_type!r}."
                     )
             if (
-                live_allowed_types is _LIVE_ALLOWED_TYPES_UNSET
+                isinstance(live_allowed_types, _UnsetAllowedTypes)
                 and link_type is not None
             ):
                 live_allowed_types = self._live_allowed_link_types(link_spec)
@@ -2098,7 +2200,7 @@ class SQLPortableMacrosMixin:
                 link_type,
                 live_allowed_types=(
                     None
-                    if live_allowed_types is _LIVE_ALLOWED_TYPES_UNSET
+                    if isinstance(live_allowed_types, _UnsetAllowedTypes)
                     else live_allowed_types
                 ),
             )
@@ -2114,7 +2216,9 @@ class SQLPortableMacrosMixin:
             or not isinstance(link.priority, (int, float))
             or not math.isfinite(link.priority)
         ):
-            raise InputIntegrityError("Link priorities must be finite integers or floats.")
+            raise InputIntegrityError(
+                "Link priorities must be finite integers or floats."
+            )
 
         writable_extras = {
             column.name
@@ -2122,7 +2226,9 @@ class SQLPortableMacrosMixin:
             if not column.is_primary_key
         }
         try:
-            link_id_column = self.db.driver_wrapper.get_id_column(link_spec.link_table)
+            link_id_column = self._macro_database.driver_wrapper.get_id_column(
+                link_spec.link_table
+            )
         except Exception:
             link_id_column = None
         if link_id_column is not None:
@@ -2136,7 +2242,7 @@ class SQLPortableMacrosMixin:
 
     def _find_link_row(
         self,
-        conn: Any,
+        conn: SQLConnection,
         link_spec: StorageLinkSpec,
         primary_id: Any,
         link: LinkValue,
@@ -2192,7 +2298,7 @@ class SQLPortableMacrosMixin:
 
     def _upsert_link(
         self,
-        conn: Any,
+        conn: SQLConnection,
         link_spec: StorageLinkSpec,
         primary_id: Any,
         link: LinkValue,
@@ -2230,7 +2336,10 @@ class SQLPortableMacrosMixin:
         existing = self._find_link_row(conn, link_spec, primary_id, link)
         if existing is not None:
             updates: dict[str, Any] = {}
-            if link_spec.type_link_col is not None and not link_spec.type_part_of_identity:
+            if (
+                link_spec.type_link_col is not None
+                and not link_spec.type_part_of_identity
+            ):
                 updates[link_spec.type_link_col] = link.link_type
             if link_spec.priority_link_col is not None and link.priority is not None:
                 updates[link_spec.priority_link_col] = link.priority
@@ -2243,7 +2352,10 @@ class SQLPortableMacrosMixin:
                     + f" AND {_quoted(link_spec.secondary_link_col)} = ?"
                 )
                 values = list(updates.values()) + [primary_id, link.secondary_id]
-                if link_spec.type_part_of_identity and link_spec.type_link_col is not None:
+                if (
+                    link_spec.type_part_of_identity
+                    and link_spec.type_link_col is not None
+                ):
                     if link.link_type is None:
                         sql += f" AND {_quoted(link_spec.type_link_col)} IS NULL"
                     else:
@@ -2370,7 +2482,9 @@ class SQLPortableMacrosMixin:
         )
         identities = [self._link_identity(link_spec, link) for link in prepared]
         if len(set(identities)) != len(identities):
-            raise InputIntegrityError("upsert_links received duplicate logical link identities.")
+            raise InputIntegrityError(
+                "upsert_links received duplicate logical link identities."
+            )
         with self._macro_transaction() as conn:
             if self._can_stage_link_replacements(link_spec, {primary_id: prepared}):
                 from .link_batches import upsert_links_batch
@@ -2383,7 +2497,7 @@ class SQLPortableMacrosMixin:
 
     def _delete_link_row(
         self,
-        conn: Any,
+        conn: SQLConnection,
         link_spec: StorageLinkSpec,
         row: LinkRow,
     ) -> None:
@@ -2427,7 +2541,7 @@ class SQLPortableMacrosMixin:
 
     def _set_link_row_priority(
         self,
-        conn: Any,
+        conn: SQLConnection,
         link_spec: StorageLinkSpec,
         row: LinkRow,
         priority: int,
@@ -2477,7 +2591,7 @@ class SQLPortableMacrosMixin:
 
     def _stage_link_priorities(
         self,
-        conn: Any,
+        conn: SQLConnection,
         link_spec: StorageLinkSpec,
         primary_id: Any,
         rows: tuple[LinkRow, ...],
@@ -2539,13 +2653,13 @@ class SQLPortableMacrosMixin:
 
     def _replace_links(
         self,
-        conn: Any,
+        conn: SQLConnection,
         link_spec: StorageLinkSpec,
         primary_id: Any,
         links: tuple[LinkValue, ...],
         *,
         link_type: Any,
-        live_allowed_types: tuple[str, ...] | None | object = (
+        live_allowed_types: tuple[str, ...] | None | _UnsetAllowedTypes = (
             _LIVE_ALLOWED_TYPES_UNSET
         ),
     ) -> tuple[LinkRow, ...]:
@@ -2594,17 +2708,13 @@ class SQLPortableMacrosMixin:
         has_named_type = (
             link_type is not LINK_TYPE_UNSET and link_type is not None
         ) or any(
-            isinstance(link, LinkValue) and link.link_type is not None
-            for link in links
+            isinstance(link, LinkValue) and link.link_type is not None for link in links
         )
-        if (
-            live_allowed_types is _LIVE_ALLOWED_TYPES_UNSET
-            and has_named_type
-        ):
+        if isinstance(live_allowed_types, _UnsetAllowedTypes) and has_named_type:
             live_allowed_types = self._live_allowed_link_types(link_spec)
         stable_allowed_types = (
             None
-            if live_allowed_types is _LIVE_ALLOWED_TYPES_UNSET
+            if isinstance(live_allowed_types, _UnsetAllowedTypes)
             else live_allowed_types
         )
         if link_type is not LINK_TYPE_UNSET:
@@ -2624,7 +2734,9 @@ class SQLPortableMacrosMixin:
         )
         identities = [self._link_identity(link_spec, link) for link in prepared]
         if len(set(identities)) != len(identities):
-            raise InputIntegrityError("replace_links received duplicate logical link identities.")
+            raise InputIntegrityError(
+                "replace_links received duplicate logical link identities."
+            )
 
         if link_spec.ordered:
             count = len(prepared)
@@ -2642,7 +2754,9 @@ class SQLPortableMacrosMixin:
                 for link in prepared
             ]
             if len(set(priority_keys)) != len(priority_keys):
-                raise InputIntegrityError("replace_links received duplicate priorities in one ordering scope.")
+                raise InputIntegrityError(
+                    "replace_links received duplicate priorities in one ordering scope."
+                )
 
         existing = self._read_link_rows(
             conn,
@@ -2650,10 +2764,7 @@ class SQLPortableMacrosMixin:
             (primary_id,),
             link_type=link_type,
         )
-        desired_identities = {
-            self._link_identity(link_spec, link)
-            for link in prepared
-        }
+        desired_identities = {self._link_identity(link_spec, link) for link in prepared}
         for row in existing:
             if self._link_identity(link_spec, row) not in desired_identities:
                 self._delete_link_row(conn, link_spec, row)
@@ -2668,11 +2779,7 @@ class SQLPortableMacrosMixin:
             link_spec,
             primary_id,
             surviving,
-            tuple(
-                link.priority
-                for link in prepared
-                if link.priority is not None
-            ),
+            tuple(link.priority for link in prepared if link.priority is not None),
         )
         for link in prepared:
             self._upsert_link(conn, link_spec, primary_id, link)
@@ -2683,9 +2790,13 @@ class SQLPortableMacrosMixin:
             link_type=link_type,
         )
 
-    def _can_stage_link_replacements(self, spec, replacements) -> bool:
+    def _can_stage_link_replacements(
+        self, spec: StorageLinkSpec, replacements: Mapping[int, Iterable[LinkValue]]
+    ) -> bool:
         """Restrict staging to physical tables and integer endpoint requests."""
-        relation_type = getattr(self.db.driver_wrapper, "get_relation_type", None)
+        relation_type = getattr(
+            self._macro_database.driver_wrapper, "get_relation_type", None
+        )
         return (
             callable(relation_type)
             and relation_type(spec.link_table) == "table"
@@ -2898,8 +3009,7 @@ class SQLPortableMacrosMixin:
                 tuple(materialized),
             )
             grouped: dict[Any, list[LinkRow]] = {
-                primary_id: []
-                for primary_id in materialized
+                primary_id: [] for primary_id in materialized
             }
             for row in existing_rows:
                 grouped.setdefault(row.primary_id, []).append(row)
@@ -2927,14 +3037,18 @@ class SQLPortableMacrosMixin:
                 if current:
                     destination_id = current[0].secondary_id
                     self.update_row(
-                        link_spec.secondary_table, destination_id, {value_column: value},
+                        link_spec.secondary_table,
+                        destination_id,
+                        {value_column: value},
                         id_column=link_spec.secondary_id_col,
                     )
                     result[primary_id] = tuple(current)
                     continue
 
                 destination_id = self.insert_row(
-                    link_spec.secondary_table, {value_column: value}, id_column=link_spec.secondary_id_col,
+                    link_spec.secondary_table,
+                    {value_column: value},
+                    id_column=link_spec.secondary_id_col,
                 )
                 result[primary_id] = self._replace_links(
                     conn,
@@ -2972,20 +3086,33 @@ class SQLPortableMacrosMixin:
         :return: The wrapper result, or an inferred ColumnMetadata when no metadata hook
             exists.
         """
-        getter = getattr(self.db.driver_wrapper, "get_column_metadata", None)
+        getter: Callable[[str, str], ColumnMetadata] | None = getattr(
+            self._macro_database.driver_wrapper, "get_column_metadata", None
+        )
         if callable(getter):
             metadata = getter(table, column)
         else:
-            declared_type_getter = getattr(self.db.driver_wrapper, "get_declared_column_datatype", None)
-            declared_type = declared_type_getter(table, column) if callable(declared_type_getter) else None
+            declared_type_getter: Callable[[str, str], str | None] | None = getattr(
+                self._macro_database.driver_wrapper,
+                "get_declared_column_datatype",
+                None,
+            )
+            declared_type = (
+                declared_type_getter(table, column)
+                if callable(declared_type_getter)
+                else None
+            )
             metadata = infer_column_metadata(table, column, declared_type)
         identity = self._optional_normalized_identity_spec(table, column)
         if identity is not None:
             metadata = replace(
-                metadata, comparison_column=identity.identity_column,
+                metadata,
+                comparison_column=identity.identity_column,
                 normalization_profile=identity.normalization_profile,
-                case_sensitive=identity.normalization_profile in {
-                    ColumnNormalizationProfile.NONE, ColumnNormalizationProfile.UNICODE_NFC,
+                case_sensitive=identity.normalization_profile
+                in {
+                    ColumnNormalizationProfile.NONE,
+                    ColumnNormalizationProfile.UNICODE_NFC,
                 },
             )
         return metadata
@@ -3064,7 +3191,7 @@ class SQLPortableMacrosMixin:
 
     def _find_ensured_id(
         self,
-        conn: Any,
+        conn: SQLConnection,
         *,
         table: str,
         id_column: str,
@@ -3132,10 +3259,10 @@ class SQLPortableMacrosMixin:
             # Python's Unicode casefolding is deliberately authoritative.
             # SQL LOWER/NOCASE are only approximate and can discard valid
             # matches such as "Straße" versus "STRASSE".
-            values = tuple(scope_bindings)
+            scope_parameters = tuple(scope_bindings)
             matches = [
                 _row_value(row, 0, id_column)
-                for row in conn.execute(sql, values)
+                for row in conn.execute(sql, scope_parameters)
                 if self._normalise_value(
                     _row_value(row, 1, value_column),
                     metadata.normalization_profile,
@@ -3180,7 +3307,7 @@ class SQLPortableMacrosMixin:
 
     def _ensure_table_value(
         self,
-        conn: Any,
+        conn: SQLConnection,
         table: str,
         value_column: str,
         value: Any,
@@ -3324,7 +3451,7 @@ class SQLPortableMacrosMixin:
         id_column = (
             _identifier(id_column, kind="id column")
             if id_column is not None
-            else self.db.driver_wrapper.get_id_column(table)
+            else self._macro_database.driver_wrapper.get_id_column(table)
         )
         additional_values = dict(additional_values or {})
         self._validate_columns(
@@ -3413,7 +3540,7 @@ class SQLPortableMacrosMixin:
         id_column = (
             _identifier(id_column, kind="id column")
             if id_column is not None
-            else self.db.driver_wrapper.get_id_column(table)
+            else self._macro_database.driver_wrapper.get_id_column(table)
         )
         additional_values = dict(additional_values or {})
         self._validate_columns(
@@ -3436,7 +3563,7 @@ class SQLPortableMacrosMixin:
     def _physical_table(self, table: str) -> str:
         """Require a stored table, rejecting views and unknown schema objects."""
         table = _identifier(table, kind="table name")
-        getter = getattr(self.db.driver_wrapper, "get_relation_type", None)
+        getter = getattr(self._macro_database.driver_wrapper, "get_relation_type", None)
         if callable(getter):
             kind = getter(table)
         elif not hasattr(self._macro_driver(), "schema"):
@@ -3508,12 +3635,15 @@ class SQLPortableMacrosMixin:
                     continue
                 if normalizer is None:
                     normalizer = NormalizedValuePreparer.from_source(
-                        self.db.driver_wrapper, table, available_columns=available
+                        self._macro_database.driver_wrapper,
+                        table,
+                        available_columns=available,
                     )
-                payload = normalizer.prepare(
-                    values,
-                    read_existing=lambda row_id=row_id: self.get_row(table, row_id),
-                )
+
+                def read_existing(row_id: int = row_id) -> Mapping[str, Any] | None:
+                    return self.get_row(table, row_id)
+
+                payload = normalizer.prepare(values, read_existing=read_existing)
                 columns = tuple(
                     sorted(
                         self._validate_columns(
@@ -3536,8 +3666,15 @@ class SQLPortableMacrosMixin:
                     conn.executemany(sql, chunk)
 
     def _prepare_value_batch(
-        self, table, value_column, values, id_column, additional_values
-    ):
+        self,
+        table: str,
+        value_column: str,
+        values: Iterable[Any],
+        id_column: str | None,
+        additional_values: Mapping[str, Any] | None,
+    ) -> tuple[
+        str, str, str, tuple[Any, ...], dict[str, Any], ColumnMetadata, dict[str, Any]
+    ]:
         """Share schema, empty-value and scope preflight for batch lookup/ensure."""
         table = self._physical_table(table)
         value_column = _identifier(value_column, kind="column name")
@@ -3573,8 +3710,15 @@ class SQLPortableMacrosMixin:
         )
 
     def _find_value_batch(
-        self, conn, table, value_column, id_column, values, metadata, scope
-    ):
+        self,
+        conn: SQLConnection,
+        table: str,
+        value_column: str,
+        id_column: str,
+        values: tuple[Any, ...],
+        metadata: ColumnMetadata,
+        scope: Mapping[str, Any],
+    ) -> dict[Any, Any]:
         """Look up declared text keys in bounded sets; preserve scalar fallbacks."""
         if metadata.comparison_column is None or not all(
             isinstance(v, str) for v in values
@@ -3713,7 +3857,7 @@ class SQLPortableMacrosMixin:
             found = self._find_value_batch(
                 conn, table, value_column, id_column, values, metadata, scope
             )
-            pending = {}
+            pending: dict[Any, Any] = {}
             for value in values:
                 if found[value] is None:
                     key = self._normalise_value(value, metadata.normalization_profile)
@@ -3744,11 +3888,20 @@ class SQLPortableMacrosMixin:
                 )
             return result
 
-    def _normalized_key_selection(self, table, value_columns, row_ids):
+    def _normalized_key_selection(
+        self,
+        table: str,
+        value_columns: Iterable[str] | None,
+        row_ids: Iterable[int] | None,
+    ) -> tuple[
+        tuple[NormalizedIdentitySpec, ...], dict[str, set[str]], frozenset[int] | None
+    ]:
         """Resolve authoritative declarations and an optional physical-ID selection."""
         table = self._physical_table(table)
         specs = tuple(
-            self.db.driver_wrapper.iter_normalized_identity_specs(table=table)
+            self._macro_database.driver_wrapper.iter_normalized_identity_specs(
+                table=table
+            )
         )
         by_column = {spec.value_column: spec for spec in specs}
         columns = (
@@ -3828,7 +3981,7 @@ class SQLPortableMacrosMixin:
                 raise DatabaseIntegrityError(
                     f"Normalized key repair found collisions; no changes applied: {report.collisions!r}"
                 )
-            groups = {}
+            groups: dict[tuple[str, str, str], list[tuple[Any, Any]]] = {}
             for spec, id_column, row_id, key in updates:
                 groups.setdefault(
                     (spec.table, spec.identity_column, id_column), []
@@ -3878,8 +4031,8 @@ class SQLPortableMacrosMixin:
             column metadata.
         :return: The selected NormalizedIdentitySpec, or None for an undeclared pair.
         """
-        getter = getattr(
-            self.db.driver_wrapper,
+        getter: Callable[[str, str], NormalizedIdentitySpec | None] | None = getattr(
+            self._macro_database.driver_wrapper,
             "get_normalized_identity_spec",
             None,
         )
@@ -4008,10 +4161,7 @@ class SQLPortableMacrosMixin:
                 f"Identity scope for {spec.table}.{spec.value_column} must "
                 f"contain exactly {list(spec.scope_columns)!r}{suffix}"
             )
-        return {
-            column: supplied[column]
-            for column in spec.scope_columns
-        }
+        return {column: supplied[column] for column in spec.scope_columns}
 
     def get_canonical_identity_by_key(
         self,
@@ -4060,7 +4210,7 @@ class SQLPortableMacrosMixin:
         id_column = (
             _identifier(id_column, kind="id column")
             if id_column is not None
-            else self.db.driver_wrapper.get_id_column(table)
+            else self._macro_database.driver_wrapper.get_id_column(table)
         )
         self._validate_columns(table, (id_column,))
 
@@ -4253,11 +4403,8 @@ class SQLPortableMacrosMixin:
         :return: A pair of the applicable spec tuple and a dictionary of physical
             column-name sets.
         """
-        tables = set(self.db.driver_wrapper.get_tables())
-        columns_by_table = {
-            table: set(self._column_names(table))
-            for table in tables
-        }
+        tables = set(self._macro_database.driver_wrapper.get_tables())
+        columns_by_table = {table: set(self._column_names(table)) for table in tables}
         specs: dict[tuple[str, str], NormalizedIdentitySpec] = {}
         for spec in iter_normalized_identity_defaults():
             columns = columns_by_table.get(spec.table)
@@ -4288,7 +4435,7 @@ class SQLPortableMacrosMixin:
 
     def _inspect_normalized_identities(
         self,
-        conn: Any,
+        conn: SQLConnection,
         specs: tuple[NormalizedIdentitySpec, ...],
         columns_by_table: Mapping[str, set[str]],
         *,
@@ -4332,15 +4479,11 @@ class SQLPortableMacrosMixin:
         for spec in specs:
             columns = columns_by_table[spec.table]
             has_identity_column = spec.identity_column in columns
-            id_column = self.db.driver_wrapper.get_id_column(spec.table)
+            id_column = self._macro_database.driver_wrapper.get_id_column(spec.table)
             selected = [
                 id_column,
                 spec.value_column,
-                *(
-                    (spec.identity_column,)
-                    if has_identity_column
-                    else ()
-                ),
+                *((spec.identity_column,) if has_identity_column else ()),
                 *spec.scope_columns,
             ]
             sql = (
@@ -4386,14 +4529,13 @@ class SQLPortableMacrosMixin:
                     ).append((row_id, canonical_value))
                 if selected_row and current_identity != desired_identity:
                     rows_needing_update += 1
-                    updates.append(
-                        (spec, id_column, row_id, desired_identity)
-                    )
+                    updates.append((spec, id_column, row_id, desired_identity))
 
             if spec.unique:
                 for (scope_tuple, identity_value), members in groups.items():
                     if len(members) < 2 or (
-                        row_ids is not None and not any(member[0] in row_ids for member in members)
+                        row_ids is not None
+                        and not any(member[0] in row_ids for member in members)
                     ):
                         continue
                     collisions.append(
@@ -4406,9 +4548,7 @@ class SQLPortableMacrosMixin:
                                 zip(spec.scope_columns, scope_tuple, strict=True)
                             ),
                             row_ids=tuple(member[0] for member in members),
-                            canonical_values=tuple(
-                                member[1] for member in members
-                            ),
+                            canonical_values=tuple(member[1] for member in members),
                         )
                     )
 
@@ -4478,37 +4618,38 @@ class SQLPortableMacrosMixin:
             names.
         """
         schema_names = {
-            ("backup_policies", "backup_policy_name", "global"):
-                "idx_backup_policies_unique_name_norm",
-            ("custom_columns", "custom_column_label", "global"):
-                "idx_custom_columns_unique_label_norm",
-            ("custom_columns", "custom_column_name", "global"):
-                "idx_custom_columns_unique_name_norm",
-            ("genres", "genre", "scope_0"):
-                "idx_genres_unique_root_phash",
-            ("genres", "genre", "scope_1"):
-                "idx_genres_unique_parent_phash",
-            ("labels", "label_text", "global"):
-                "idx_labels_unique_norm",
-            ("replication_policies", "replication_policy_name", "global"):
-                "idx_replication_policies_unique_name_norm",
-            ("series", "series", "global"):
-                "idx_series_unique_name_norm",
-            ("subjects", "subject", "scope_0"):
-                "idx_subjects_unique_root_phash",
-            ("subjects", "subject", "scope_1"):
-                "idx_subjects_unique_parent_phash",
-            ("tags", "tag", "global"):
-                "idx_tags_unique_phash",
+            (
+                "backup_policies",
+                "backup_policy_name",
+                "global",
+            ): "idx_backup_policies_unique_name_norm",
+            (
+                "custom_columns",
+                "custom_column_label",
+                "global",
+            ): "idx_custom_columns_unique_label_norm",
+            (
+                "custom_columns",
+                "custom_column_name",
+                "global",
+            ): "idx_custom_columns_unique_name_norm",
+            ("genres", "genre", "scope_0"): "idx_genres_unique_root_phash",
+            ("genres", "genre", "scope_1"): "idx_genres_unique_parent_phash",
+            ("labels", "label_text", "global"): "idx_labels_unique_norm",
+            (
+                "replication_policies",
+                "replication_policy_name",
+                "global",
+            ): "idx_replication_policies_unique_name_norm",
+            ("series", "series", "global"): "idx_series_unique_name_norm",
+            ("subjects", "subject", "scope_0"): "idx_subjects_unique_root_phash",
+            ("subjects", "subject", "scope_1"): "idx_subjects_unique_parent_phash",
+            ("tags", "tag", "global"): "idx_tags_unique_phash",
         }
-        declared_name = schema_names.get(
-            (spec.table, spec.value_column, suffix)
-        )
+        declared_name = schema_names.get((spec.table, spec.value_column, suffix))
         if declared_name is not None:
             return declared_name
-        name = (
-            f"uidx_{spec.table}_{spec.identity_column}_identity_{suffix}"
-        )
+        name = f"uidx_{spec.table}_{spec.identity_column}_identity_{suffix}"
         if len(name) <= 60:
             return name
         digest = hashlib.sha1(name.encode("utf-8")).hexdigest()[:10]
@@ -4634,7 +4775,7 @@ class SQLPortableMacrosMixin:
 
     def _seed_normalized_identity_column_metadata(
         self,
-        conn: Any,
+        conn: SQLConnection,
         specs: tuple[NormalizedIdentitySpec, ...],
         columns_by_table: Mapping[str, set[str]],
     ) -> None:
@@ -4675,10 +4816,7 @@ class SQLPortableMacrosMixin:
             "column_metadata_merge_policy",
             "column_metadata_validation_profile",
         }
-        if (
-            catalog_columns is None
-            or not required_catalog_columns <= catalog_columns
-        ):
+        if catalog_columns is None or not required_catalog_columns <= catalog_columns:
             return
 
         catalog_sql = self._macro_table_sql(COLUMN_METADATA_TABLE)
@@ -4750,18 +4888,13 @@ class SQLPortableMacrosMixin:
                 self._column_metadata_values(identity_metadata),
             )
 
-        for column in sorted(
-            columns_by_table.get(NORMALIZED_IDENTITIES_TABLE, ())
-        ):
+        for column in sorted(columns_by_table.get(NORMALIZED_IDENTITIES_TABLE, ())):
             catalog_metadata = infer_column_metadata(
                 NORMALIZED_IDENTITIES_TABLE,
                 column,
-                (
-                    "INTEGER"
-                    if column == "normalized_identity_unique"
-                    else "TEXT"
-                ),
-                is_primary_key=column in {
+                ("INTEGER" if column == "normalized_identity_unique" else "TEXT"),
+                is_primary_key=column
+                in {
                     "normalized_identity_table_name",
                     "normalized_identity_value_column",
                 },
@@ -4824,7 +4957,7 @@ class SQLPortableMacrosMixin:
             if (
                 not hasattr(self._macro_driver(), "schema")
                 and hasattr(conn, "in_transaction")
-                and not conn.in_transaction
+                and not getattr(conn, "in_transaction")
             ):
                 # sqlite3's connection context only commits/rolls back a
                 # transaction that has already begun.  Start one explicitly
@@ -4885,9 +5018,7 @@ class SQLPortableMacrosMixin:
                     f"ADD COLUMN {_quoted(spec.identity_column)} TEXT NULL"
                 )
                 columns.add(spec.identity_column)
-                columns_added.append(
-                    f"{spec.table}.{spec.identity_column}"
-                )
+                columns_added.append(f"{spec.table}.{spec.identity_column}")
 
             self._seed_normalized_identity_column_metadata(
                 conn,
@@ -4900,7 +5031,8 @@ class SQLPortableMacrosMixin:
             for spec, id_column, row_id, _identity_value in updates:
                 conn.execute(
                     f"UPDATE {self._macro_table_sql(spec.table)} SET {_quoted(spec.identity_column)} = NULL "
-                    f"WHERE {_quoted(id_column)} = ?", (row_id,),
+                    f"WHERE {_quoted(id_column)} = ?",
+                    (row_id,),
                 )
             for spec, id_column, row_id, identity_value in updates:
                 conn.execute(
@@ -4940,8 +5072,8 @@ class SQLPortableMacrosMixin:
                 )
                 if not spec.unique:
                     continue
-                for index_name, statement in (
-                    self._normalized_identity_index_statements(spec)
+                for index_name, statement in self._normalized_identity_index_statements(
+                    spec
                 ):
                     conn.execute(statement)
                     indexes_created.append(index_name)
@@ -4967,7 +5099,7 @@ class SQLPortableMacrosMixin:
         column: str = "value",
         declared_type: str = "TEXT",
         prefix: str = "liuxin_values",
-    ) -> AbstractContextManager[str]:
+    ) -> Iterator[str]:
         """
         Return a context manager that populates a uniquely named connection-local
         temporary table.
@@ -5083,7 +5215,7 @@ class SQLPortableMacrosMixin:
 
     def _unreferenced_ids(
         self,
-        conn: Any,
+        conn: SQLConnection,
         table: str,
         link_specs: tuple[StorageLinkSpec, ...],
         *,
@@ -5153,11 +5285,13 @@ class SQLPortableMacrosMixin:
             f"SELECT {target_id} FROM {self._macro_table_sql(table)} AS target "
             f"WHERE {' AND '.join(conditions)} ORDER BY {target_id}"
         )
-        return tuple(_row_value(row, 0, id_column) for row in conn.execute(sql, tuple(values)))
+        return tuple(
+            _row_value(row, 0, id_column) for row in conn.execute(sql, tuple(values))
+        )
 
     def _delete_unreferenced_rows(
         self,
-        conn: Any,
+        conn: SQLConnection,
         table: str,
         link_specs: tuple[StorageLinkSpec, ...],
         *,
@@ -5238,7 +5372,7 @@ class SQLPortableMacrosMixin:
         id_column = (
             _identifier(id_column, kind="id column")
             if id_column is not None
-            else self.db.driver_wrapper.get_id_column(table)
+            else self._macro_database.driver_wrapper.get_id_column(table)
         )
         self._validate_columns(table, (id_column,))
         link_specs = tuple(link_specs)
@@ -5276,7 +5410,9 @@ class SQLPortableMacrosMixin:
             candidate ID tuple.
         """
         specs = tuple(specs)
-        prepared: list[tuple[str, str, tuple[StorageLinkSpec, ...], tuple[Any, ...]]] = []
+        prepared: list[
+            tuple[str, str, tuple[StorageLinkSpec, ...], tuple[Any, ...]]
+        ] = []
         seen_tables: set[str] = set()
         for spec in specs:
             if not isinstance(spec, UnreferencedRowsSpec):
@@ -5290,7 +5426,7 @@ class SQLPortableMacrosMixin:
             id_column = (
                 _identifier(spec.id_column, kind="id column")
                 if spec.id_column is not None
-                else self.db.driver_wrapper.get_id_column(table)
+                else self._macro_database.driver_wrapper.get_id_column(table)
             )
             self._validate_columns(table, (id_column,))
             prepared.append(
@@ -5376,12 +5512,16 @@ class SQLPortableMacrosMixin:
         available = self._column_names(target_table)
         selected = available if columns is None else tuple(columns)
         if not selected:
-            raise InputIntegrityError("fingerprint_table requires at least one selected column.")
+            raise InputIntegrityError(
+                "fingerprint_table requires at least one selected column."
+            )
         selected = self._validate_columns(target_table, selected)
 
         if order_by is None:
             try:
-                id_column = self.db.driver_wrapper.get_id_column(target_table)
+                id_column = self._macro_database.driver_wrapper.get_id_column(
+                    target_table
+                )
             except Exception:
                 ordering = selected
             else:
@@ -5414,7 +5554,9 @@ class SQLPortableMacrosMixin:
         try:
             digest = hashlib.new(str(algorithm).strip().lower())
         except (TypeError, ValueError) as exc:
-            raise InputIntegrityError(f"Unsupported fingerprint algorithm: {algorithm!r}") from exc
+            raise InputIntegrityError(
+                f"Unsupported fingerprint algorithm: {algorithm!r}"
+            ) from exc
         header = json.dumps(
             {"table": target_table, "columns": selected},
             ensure_ascii=False,

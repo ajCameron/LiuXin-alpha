@@ -4,6 +4,8 @@ Coordinate legacy many-to-many cache updates and specialized Catalog link writes
 
 from __future__ import division, absolute_import, print_function, unicode_literals
 
+from LiuXin_alpha.databases.database_driver_plugins._macro_state import require_legacy_macros
+
 from LiuXin_alpha.caches.write.base_writer import BaseWriter
 from LiuXin_alpha.catalog.catalog import Catalog
 from LiuXin_alpha.catalog.api.common import MetadataCandidate
@@ -676,7 +678,7 @@ class ManyToManyWriter(BaseWriter):
 
         db.macros.delete_link_rows(table.link_table, table.link_table_bt_id_column, tuple(k for k in updated))
 
-        db.macros.make_generic_link_no_priority(
+        require_legacy_macros(db.macros).make_generic_link_no_priority(
             table.link_table,
             table.link_table_table_id_column,
             table.link_table_bt_id_column,
@@ -714,7 +716,7 @@ class ManyToManyWriter(BaseWriter):
         :param deleted: Iterable of owner IDs forwarded as a generator.
         :return: None; any described database/cache mutations happen in place.
         """
-        db.macros.generic_clean_update(table.link_table, table.link_table_bt_id_column, (k for k in deleted))
+        require_legacy_macros(db.macros).generic_clean_update(table.link_table, table.link_table_bt_id_column, (k for k in deleted))
 
     def generic_many_many_db_remove_links(self, db, table, field, remove, is_authors):
         """

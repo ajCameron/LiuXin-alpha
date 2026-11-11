@@ -232,7 +232,6 @@ class DriverWrapperNamesMixin(DriverWrapperBase):
                         "The physical identifier resolver must return text"
                     )
                 link_col = physical
-
         if link_col not in allowed_columns:
             err_str = "column_type not recognized"
             err_str = default_log.log_variables(
