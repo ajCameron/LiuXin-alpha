@@ -345,6 +345,27 @@ credits = catalog.agents.list_for_wemi(level="work", entity_id=work_id)
 role = credits[0]["_catalog_link"]["type"]
 ```
 
+Canonical rename and sort repair are explicit Catalog operations:
+
+```python
+proposal = catalog.agents.rename(agent_id, "Mary Shelley", sort_mode="derive", dry_run=True)
+receipt = catalog.agents.rename(agent_id, "Mary Shelley", sort_mode="derive")
+repair = catalog.agents.repair_sort_names([agent_id], dry_run=True)
+```
+
+Repository calls apply by default; Core's `catalog.agent.rename` and
+`catalog.agent.sort.repair` default to `dry_run=True`. `preserve` retains nonblank
+sort values and derives missing ones; `derive` explicitly regenerates them. A
+rename can instead supply `sort_name` as a nonblank override. Person formatting
+uses an explicit `person_sort_method` (`comma`, `nocomma`, or `copy`); organisation,
+group and pseudonym sorts keep display order. Locale is not inferred.
+
+Rename preserves identity, aliases, subtype details and credits. Repair preserves
+canonical names and requires 1–500 explicit IDs. Apply replans under locks and
+rolls back the entire operation on failure; dry-run proposals do not write.
+Composition requires an outer `db.macros.transaction(serialized=True)` unit.
+See [operator examples](../../docs/maintenance.md#agent-names-and-sort-repair).
+
 ## Curated and observed identifiers
 
 `catalog.identifiers` stores curated logical identifiers owned by a WEMI
@@ -591,25 +612,33 @@ relationship set. Title replacement clears all title-bearing columns for that
 WEMI level before applying the replacement; explicitly supplied direct
 `fields` are applied last and therefore win if they overlap.
 
-Merging moves supported metadata/relationships to the target and deletes the
-source:
+Merging previews every inspected row/reference and requires explicit decisions
+for differing populated values. Apply checks the preview state again under
+locks, then transfers supported relationships, deletes the source and records a
+durable audit receipt atomically. Unsupported ownership blocks deletion:
 
 ```python
-if catalog.mutations.policy.can_merge(
-    level="work",
-    source_id=duplicate_id,
-    target_id=canonical_id,
-):
-    catalog.mutations.writer.merge_entities(
-        level="work",
-        source_id=duplicate_id,
-        target_id=canonical_id,
+request = dict(
+    level="work", source_id=duplicate_id, target_id=canonical_id,
+    resolutions={"work_title": {"take": "target"}},
+)
+preview = catalog.mutations.writer.merge_entities(**request)
+# Inspect preview['snapshot'], ['changes'], ['operations'], ['conflicts'] and ['blockers'].
+if not preview["conflicts"] and not preview["blockers"]:
+    receipt = catalog.mutations.writer.merge_entities(
+        **request, dry_run=False, expected_state=preview["state"],
     )
 ```
 
 Policy checks are advisory and side-effect-free; writers validate again inside
 their transaction. A caller must not treat a successful policy probe as a
 validation token that allows the writer to skip its own checks.
+
+`catalog.mutations.repairs` owns this policy and selected unused-record cleanup.
+`catalog.retrieval.inherited.tags(level="item", entity_id=item_id)` reads an
+attributed WEMI tag view, retaining all novel/introduction paths without storing
+copies. See [repair policies and JSON requests](maintenance-repair-policies.md)
+for scope, explicit exclusions, scan budgets, Core names and CLI examples.
 
 ## Core direct and RPC operations
 

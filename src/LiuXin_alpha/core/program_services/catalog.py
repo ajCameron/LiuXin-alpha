@@ -1,5 +1,5 @@
 """
-Adapt Core field discovery, WEMI adjacency, identifiers, Agent links, and cross-table search to Catalog services.
+Adapt Core field discovery, WEMI adjacency, identifiers, Agent names/links, and search to Catalog services.
 
 Repositories retain level validation and semantic mutation policy. Write receipts
 are projected and reconciled after repository calls without an adapter transaction.
@@ -29,6 +29,72 @@ if TYPE_CHECKING:
     from LiuXin_alpha.core.commands import CoreCommand
     from LiuXin_alpha.core.queries import CoreQuery
     from LiuXin_alpha.core.runtime import CoreRuntime
+
+
+def catalog_inherited_tags(runtime: CoreRuntime, query: CoreQuery) -> dict[str, Any]:
+    """Inspect bounded WEMI tag contributions without installation or repair.
+
+    :param runtime: Runtime supplying Catalog's read-only inherited-tag owner.
+    :param query: Query with level, entity_id and optional max_rows (default 10000).
+    :return: Distinct tags with all attributed source identities and WEMI paths.
+    :raises CoreDispatchError: For invalid fields or an incomplete bounded scan.
+    """
+    from LiuXin_alpha.catalog.inspection import InspectionLimitExceeded
+
+    payload = _payload(query)
+    try:
+        return runtime.catalog.retrieval.inherited.tags(
+            level=_required_text(payload, "level").lower(),
+            entity_id=payload.get("entity_id"),
+            max_rows=payload.get("max_rows", 10000),
+        )
+    except InspectionLimitExceeded as error:
+        raise CoreDispatchError(str(error), code="scan_limit_exceeded") from error
+    except (ValueError, TypeError) as error:
+        raise CoreDispatchError(str(error), code="invalid_payload") from error
+
+
+def catalog_repair_merge(runtime: CoreRuntime, command: CoreCommand) -> dict[str, Any]:
+    """Preview/apply the Catalog merge owner with explicit conflict decisions.
+
+    :param runtime: Runtime supplying Catalog repairs and cache reconciliation.
+    :param command: Merge request with repository, source_id, target_id, optional
+        scalar/relationship resolutions, max_rows, dry_run and expected_state.
+    :return: The complete preview, or the committed repair receipt after cache
+        reconciliation. Domain validation and post-commit cache errors propagate.
+    """
+    payload = dict(_payload(command))
+    result = runtime.catalog.mutations.repairs.merge(**payload)
+    return runtime.services.reconcile(result) if result["merged"] else result
+
+
+def catalog_repair_cleanup(
+    runtime: CoreRuntime, command: CoreCommand
+) -> dict[str, Any]:
+    """Preview/apply explicitly selected disposal and preservation decisions.
+
+    :param runtime: Runtime supplying Catalog repairs and cache reconciliation.
+    :param command: Request with repository, candidates and optional max_rows,
+        dry_run and expected_state. Each candidate supplies a decision and reason.
+    :return: The complete preview, or the committed disposal receipt after cache
+        reconciliation. Domain validation and post-commit cache errors propagate.
+    """
+    payload = dict(_payload(command))
+    result = runtime.catalog.mutations.repairs.cleanup(**payload)
+    return runtime.services.reconcile(result) if result["deleted"] else result
+
+
+def catalog_repair_receipt(runtime: CoreRuntime, query: CoreQuery) -> dict[str, Any]:
+    """Read a durable Catalog repair receipt without installing audit storage.
+
+    :param runtime: Runtime supplying the Catalog database and read-only snapshot.
+    :param query: Query with the nonempty receipt_id returned by an applied repair.
+    :return: The requested identity and its stored receipt, or None when absent.
+    """
+    identity = _required_text(_payload(query), "receipt_id")
+    with runtime.catalog.db.macros.read_transaction():
+        receipt = runtime.catalog.db.macros.get_catalog_repair_receipt(identity)
+    return {"receipt_id": identity, "receipt": receipt}
 
 
 def catalog_fields_list(
@@ -377,6 +443,56 @@ def catalog_identifiers_replace(
             "identifiers": plain(result),
             "updated": True,
         }
+    )
+
+
+def catalog_agent_rename(runtime: CoreRuntime, command: CoreCommand) -> dict[str, Any]:
+    """Preview or apply Catalog's atomic Agent rename and sort policy.
+
+    Core defaults to a preview. Catalog validates the name, sort policy and
+    strict dry_run boolean. Only an applied change reconciles read-side caches.
+
+    :param runtime: Runtime supplying Catalog Agent mutations and cache reconciliation.
+    :param command: Request with agent_id, name and optional sort_mode, sort_name,
+        person_sort_method and dry_run (default True).
+    :return: The validated rename preview or applied result, reconciled only if updated.
+    """
+    payload = _payload(command)
+    result = runtime.catalog.repositories.agents.rename(
+        payload.get("agent_id"),
+        payload.get("name"),
+        sort_mode=payload.get("sort_mode", "preserve"),
+        sort_name=payload.get("sort_name"),
+        person_sort_method=payload.get("person_sort_method", "comma"),
+        dry_run=payload.get("dry_run", True),
+    )
+    return (
+        runtime.services.reconcile(dict(result)) if result["updated"] else dict(result)
+    )
+
+
+def catalog_agent_sort_repair(
+    runtime: CoreRuntime, command: CoreCommand
+) -> dict[str, Any]:
+    """Preview or atomically repair an explicit bounded set of Agent sorts.
+
+    Preserve supplied ID types for Catalog validation and default to a preview.
+    Only successful changes trigger the existing cache reconciliation boundary.
+
+    :param runtime: Runtime supplying Catalog Agent mutations and cache reconciliation.
+    :param command: Request with agent_ids and optional sort_mode, person_sort_method
+        and dry_run (default True). Catalog owns ID and batch-bound validation.
+    :return: The sort preview or applied result, reconciled only when rows were updated.
+    """
+    payload = _payload(command)
+    result = runtime.catalog.repositories.agents.repair_sort_names(
+        payload.get("agent_ids"),
+        sort_mode=payload.get("sort_mode", "preserve"),
+        person_sort_method=payload.get("person_sort_method", "comma"),
+        dry_run=payload.get("dry_run", True),
+    )
+    return (
+        runtime.services.reconcile(dict(result)) if result["updated"] else dict(result)
     )
 
 

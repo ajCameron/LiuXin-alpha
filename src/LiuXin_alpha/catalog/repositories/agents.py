@@ -5,14 +5,18 @@ Generic CRUD normalizes aliases but creates only the core Agent row. Person and
 organisation helpers add subtype rows and related metadata inside a macro
 transaction. Resolution compares canonical names; matching delegates richer identity
 decisions to AgentMatcher. Credit ordering and persistence follow portable macros.
+Explicit rename/sort repair preserves manual values by default and applies the
+selected policy atomically; generic CRUD does not infer a sort policy.
 """
 
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping, Sequence
-from typing import ClassVar
+from contextlib import nullcontext
+from typing import Any, ClassVar
 
 from LiuXin_alpha.databases.db_types.macro_types import LinkValue
+from LiuXin_alpha.metadata.author_names import AuthorSortMethod, agent_name_to_sort
 
 from ..api.common import (
     CatalogMutationError,
@@ -55,6 +59,159 @@ class AgentRepository(BaseRepository):
     }
 
     _ALIAS_SEPARATOR = "(#BREAK#)"
+
+    @staticmethod
+    def _name_options(sort_mode: str, person_sort_method: str, dry_run: bool) -> None:
+        if sort_mode not in ("preserve", "derive"):
+            raise ValueError("sort_mode must be preserve or derive")
+        if person_sort_method not in ("copy", "comma", "nocomma"):
+            raise ValueError("person_sort_method must be copy, comma or nocomma")
+        if type(dry_run) is not bool:
+            raise ValueError("dry_run must be a boolean")
+
+    @staticmethod
+    def _name_change(row, *, name=None, sort_mode, sort_name=None, person_sort_method):
+        canonical = row["agent_canonical_name"] if name is None else name
+        if not isinstance(canonical, str) or not canonical.strip():
+            raise ValueError("Agent name must be nonblank text")
+        current_sort = row["agent_sort_name"]
+        if sort_name is not None:
+            selected_sort, source = sort_name, "explicit"
+        elif (
+            sort_mode == "preserve"
+            and isinstance(current_sort, str)
+            and current_sort.strip()
+        ):
+            selected_sort, source = current_sort, "preserved"
+        else:
+            selected_sort = agent_name_to_sort(
+                canonical, row["agent_type"], person_method=person_sort_method
+            )
+            source = "derived"
+        before = {"name": row["agent_canonical_name"], "sort_name": current_sort}
+        after = {"name": canonical, "sort_name": selected_sort}
+        return {
+            "agent_id": row["agent_id"],
+            "agent_type": row["agent_type"],
+            "before": before,
+            "after": after,
+            "sort_source": source,
+            "changed": before != after,
+        }
+
+    def rename(
+        self,
+        agent_id: EntityId,
+        name: str,
+        *,
+        sort_mode: str = "preserve",
+        sort_name: str | None = None,
+        person_sort_method: AuthorSortMethod = "comma",
+        dry_run: bool = False,
+    ) -> dict[str, Any]:
+        """Rename an Agent and choose its sort value in one atomic write unit.
+
+        Preserve any nonblank stored sort value by default because historical
+        rows do not distinguish manual overrides from derived values. Missing
+        sorts are derived; ``derive`` explicitly regenerates an existing sort.
+        A nonblank ``sort_name`` supplies an override and conflicts with derive.
+        Persons use the explicit formatter method; other Agent types copy their
+        display order. Canonical input is trimmed, without changing aliases,
+        subtype name parts, identities or credits. No matching or merging occurs.
+
+        ``dry_run`` returns the same before/after proposal without writing or
+        taking writer locks. Apply reads and plans again under the writer/row
+        locks; a preview is advisory. Failures roll back name and sort together.
+        Nested calls require an already serialized macro transaction.
+        """
+        self._name_options(sort_mode, person_sort_method, dry_run)
+        if type(agent_id) is not int or agent_id < 1:
+            raise ValueError("agent_id must be a positive integer")
+        if not isinstance(name, str) or not name.strip():
+            raise ValueError("Agent name must be nonblank text")
+        if sort_name is not None:
+            if not isinstance(sort_name, str) or not sort_name.strip():
+                raise ValueError("sort_name must be nonblank text")
+            if sort_mode == "derive":
+                raise ValueError("An explicit sort_name cannot be combined with derive")
+            sort_name = sort_name.strip()
+        with (
+            nullcontext()
+            if dry_run
+            else self._macros.transaction(serialized=True) as connection
+        ):
+            if not dry_run:
+                self.db.metadata_sql.lock_agent_rows(connection, (agent_id,))
+            change = self._name_change(
+                self.require(agent_id),
+                name=name.strip(),
+                sort_mode=sort_mode,
+                sort_name=sort_name,
+                person_sort_method=person_sort_method,
+            )
+            if change["changed"] and not dry_run:
+                self.update(agent_id, change["after"])
+        return {
+            **change,
+            "dry_run": dry_run,
+            "updated": change["changed"] and not dry_run,
+        }
+
+    def repair_sort_names(
+        self,
+        agent_ids: Sequence[EntityId],
+        *,
+        sort_mode: str = "preserve",
+        person_sort_method: AuthorSortMethod = "comma",
+        dry_run: bool = False,
+    ) -> dict[str, Any]:
+        """Repair sorts for 1–500 explicit Agent IDs, atomically and with a preview.
+
+        Deduplicate IDs in encounter order. Preserve nonblank sorts by default;
+        ``derive`` deliberately replaces them. Never change canonical names.
+        Validate every selected row before any update; a missing/blank-name row,
+        write failure or prompt failure rolls the whole batch back. Dry-run
+        proposals are advisory and require no installation or background worker.
+        """
+        self._name_options(sort_mode, person_sort_method, dry_run)
+        if isinstance(agent_ids, (str, bytes)) or not isinstance(agent_ids, Sequence):
+            raise ValueError("agent_ids must be a sequence of positive integers")
+        if not 1 <= len(agent_ids) <= 500 or any(
+            type(row_id) is not int or row_id < 1 for row_id in agent_ids
+        ):
+            raise ValueError("Select between 1 and 500 positive Agent IDs")
+        identities = tuple(dict.fromkeys(agent_ids))
+        with (
+            nullcontext()
+            if dry_run
+            else self._macros.transaction(serialized=True) as connection
+        ):
+            if not dry_run:
+                self.db.metadata_sql.lock_agent_rows(connection, identities)
+            changes = [
+                self._name_change(
+                    self.require(row_id),
+                    sort_mode=sort_mode,
+                    person_sort_method=person_sort_method,
+                )
+                for row_id in identities
+            ]
+            updates = {
+                change["agent_id"]: {"sort_name": change["after"]["sort_name"]}
+                for change in changes
+                if change["changed"]
+            }
+            if updates and not dry_run:
+                self._update_many(updates)
+        return {
+            "dry_run": dry_run,
+            "selected": len(identities),
+            "changed": len(updates),
+            "updated": 0 if dry_run else len(updates),
+            "changes": changes,
+            "sort_mode": sort_mode,
+            "person_sort_method": person_sort_method,
+        }
 
     @classmethod
     def normalise_aliases(cls, aliases: object) -> str | None:

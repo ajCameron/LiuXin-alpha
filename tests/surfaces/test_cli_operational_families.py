@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import base64
 import json
-
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
@@ -22,6 +21,9 @@ from LiuXin_alpha.surfaces.cli import capabilities as capabilities_cli
 from LiuXin_alpha.surfaces.cli import catalogue as catalogue_cli
 from LiuXin_alpha.surfaces.cli import common as common_cli
 from LiuXin_alpha.surfaces.cli import jobs as jobs_cli
+from LiuXin_alpha.surfaces.cli import workflows as workflows_cli
+from LiuXin_alpha.surfaces.cli.app import build_parser
+from LiuXin_alpha.surfaces.cli.app import main as cli_main
 from LiuXin_alpha.surfaces.cli.storage_commands import (
     administration,
     core_access,
@@ -29,8 +31,6 @@ from LiuXin_alpha.surfaces.cli.storage_commands import (
     store_add,
     store_wizard,
 )
-from LiuXin_alpha.surfaces.cli import workflows as workflows_cli
-from LiuXin_alpha.surfaces.cli.app import build_parser, main as cli_main
 
 
 def _wire(content: bytes) -> dict[str, str]:
@@ -136,6 +136,8 @@ class _Core:
             return {"asset_id": values["asset_id"], "placements": []}
         if name == "search.global":
             return {"text": values["text"], "items": [], "total": 0}
+        if name in {"catalog.inherited.tags", "catalog.repair.receipt"}:
+            return {"operation": name, **values}
         if name == "browse.categories":
             return {"categories": []}
         if name == "acquisition.read":
@@ -150,6 +152,8 @@ class _Core:
             return {"operation": name}
         if name == "maintenance.status":
             return {"service": "MaintenanceManager", "plugins": []}
+        if name == "maintenance.duplicates.find":
+            return {"duplicates": [], "scanned_rows": 0}
         if name in {
             "health",
             "capabilities.list",
@@ -159,7 +163,7 @@ class _Core:
             "ingest.formats",
         }:
             return {"operation": name}
-        raise AssertionError("Unexpected query: {}".format(name))
+        raise AssertionError(f"Unexpected query: {name}")
 
     def command(self, name: str, payload: dict[str, Any] | None = None) -> Any:
         """
@@ -181,6 +185,8 @@ class _Core:
         """
         values = dict(payload or {})
         self.commands.append((name, values))
+        if name.startswith("catalog.repair.") or name == "catalog.metadata.merge":
+            return {"operation": name, **values}
         if name.endswith(".start"):
             return {"job_id": "job-1", "label": values.get("label", "")}
         if name == "jobs.cancel":
@@ -199,7 +205,7 @@ class _Core:
             return {"operation": name, **values}
         if name.startswith("database."):
             return {"operation": name}
-        raise AssertionError("Unexpected command: {}".format(name))
+        raise AssertionError(f"Unexpected command: {name}")
 
 
 @contextmanager
@@ -241,7 +247,10 @@ def fake_core(monkeypatch: pytest.MonkeyPatch) -> _Core:
     :return: New fake whose histories collect calls from the patched command families.
     """
     core = _Core()
-    opener = lambda *args, **kwargs: _session(core, *args, **kwargs)
+
+    def opener(*args, **kwargs):
+        return _session(core, *args, **kwargs)
+
     for module in (
         capabilities_cli,
         catalogue_cli,
@@ -313,6 +322,54 @@ def test_installed_parser_exposes_complete_operational_families() -> None:
         "serve",
         "plugins",
     }.issubset(action.choices)
+
+
+def test_catalog_inheritance_and_repairs_route_preview_and_apply(
+    fake_core, monkeypatch, tmp_path, capsys
+):
+    opened = []
+
+    def open_core(args, **kwargs):
+        opened.append(kwargs)
+        return _session(fake_core)
+
+    monkeypatch.setattr(catalogue_cli, "open_cli_core", open_core)
+    assert (
+        cli_main(
+            [
+                "catalog",
+                "inherited-tags",
+                "item",
+                "42",
+                "--max-rows",
+                "99",
+                *_connection(),
+            ]
+        )
+        == 0
+    )
+    assert json.loads(capsys.readouterr().out)["max_rows"] == 99
+    assert fake_core.queries[-1] == (
+        "catalog.inherited.tags",
+        {"level": "item", "entity_id": 42, "max_rows": 99},
+    )
+    request = tmp_path / "repair.json"
+    request.write_text(
+        json.dumps({"repository": "works", "source_id": 12, "target_id": 18}),
+        encoding="utf-8",
+    )
+    argv = ["catalog", "repair", "merge", str(request), *_connection()]
+    assert cli_main(argv) == 0
+    assert json.loads(capsys.readouterr().out)["dry_run"] is True
+    assert cli_main(argv + ["--expected-state", "inspected-hash", "--yes"]) == 0
+    assert json.loads(capsys.readouterr().out)["dry_run"] is False
+    assert fake_core.commands[-1][1]["expected_state"] == "inspected-hash"
+    assert cli_main(["catalog", "repair", "receipt", "receipt-id", *_connection()]) == 0
+    assert json.loads(capsys.readouterr().out)["receipt_id"] == "receipt-id"
+    assert all(
+        options == {"enable_storage_manager": False, "enable_maintenance": False}
+        for options in opened
+    )
 
 
 def test_jobs_list_logs_and_cancel_use_named_job_operations(
@@ -563,6 +620,52 @@ def test_managed_workflows_preserve_core_host_paths_and_detach(
     assert fake_core.commands[-1][1]["output_path"] == "/srv/a.mobi"
 
 
+def test_duplicate_inspection_routes_budget_and_scope_without_enabling_workers(
+    fake_core, tmp_path, capsys, monkeypatch
+):
+    sessions = []
+
+    @contextmanager
+    def open_inspection(*args, **kwargs):
+        sessions.append(kwargs)
+        yield fake_core
+
+    monkeypatch.setattr(workflows_cli, "open_cli_core", open_inspection)
+    where_file = tmp_path / "scope.json"
+    where_file.write_text('{"genre_parent_id": null}', encoding="utf-8")
+    assert (
+        cli_main(
+            [
+                "maintenance",
+                "duplicates",
+                *_connection(),
+                "genres",
+                "genre",
+                "--comparison",
+                "identity",
+                "--max-rows",
+                "25",
+                "--where-file",
+                str(where_file),
+            ]
+        )
+        == 0
+    )
+    assert fake_core.queries[-1] == (
+        "maintenance.duplicates.find",
+        {
+            "table": "genres",
+            "column": "genre",
+            "comparison": "identity",
+            "max_rows": 25,
+            "where": {"genre_parent_id": None},
+        },
+    )
+    assert not fake_core.commands
+    assert sessions == [{"enable_storage_manager": False, "enable_maintenance": False}]
+    capsys.readouterr()
+
+
 def test_maintenance_mutations_preview_until_explicitly_confirmed(
     fake_core: _Core,
     capsys: pytest.CaptureFixture[str],
@@ -593,6 +696,67 @@ def test_maintenance_mutations_preview_until_explicitly_confirmed(
         "maintenance.merge",
         {"table": "tags", "retained_id": 4, "merged_id": 9},
     )
+
+
+@pytest.mark.parametrize(
+    "operation",
+    ["install", "drain", "retry", "pause", "resume", "prune", "rebuild", "prune-jobs"],
+)
+def test_durable_maintenance_actions_preview_and_route(fake_core, capsys, operation):
+    """Preserve previews while routing explicit durable controls through Core."""
+    argv = [
+        "maintenance",
+        operation,
+        *_connection(),
+        "--max-events",
+        "17",
+        "--max-batches",
+        "4",
+    ]
+    payload = {"action": operation, "max_events": 17, "max_batches": 4}
+    if operation in {"retry", "pause", "resume"}:
+        argv.append("catalog.work-summary")
+        payload["plugin_id"] = "catalog.work-summary"
+    if operation == "rebuild":
+        argv.append("--restart")
+        payload["restart"] = True
+    if operation == "prune-jobs":
+        argv.extend(["--older-than-days", "14", "--before-run-id", "52"])
+        payload.update(older_than_days=14, before_run_id=52)
+    before = len(fake_core.commands)
+    assert cli_main(argv) == 0
+    assert json.loads(capsys.readouterr().out)["preview"]
+    assert len(fake_core.commands) == before
+    assert cli_main([*argv, "--yes"]) == 0
+    capsys.readouterr()
+    assert fake_core.commands[-1] == ("maintenance.run", payload)
+
+
+def test_plugin_upgrade_cli_inspects_before_apply(fake_core, capsys):
+    argv = [
+        "maintenance",
+        "upgrade",
+        *_connection(),
+        "catalog.work-summary",
+        "--from-version",
+        "1",
+    ]
+    assert cli_main(argv) == 0
+    capsys.readouterr()
+    assert fake_core.commands[-1] == (
+        "maintenance.run",
+        {
+            "action": "upgrade",
+            "plugin_id": "catalog.work-summary",
+            "expected_version": "1",
+            "expected_definition": None,
+            "dry_run": True,
+        },
+    )
+    assert cli_main([*argv, "--expected-definition", "reviewed", "--yes"]) == 0
+    capsys.readouterr()
+    assert fake_core.commands[-1][1]["dry_run"] is False
+    assert fake_core.commands[-1][1]["expected_definition"] == "reviewed"
 
 
 def test_plugins_probe_public_capabilities_without_generic_dispatch(

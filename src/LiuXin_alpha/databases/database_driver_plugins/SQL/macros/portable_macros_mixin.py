@@ -30,6 +30,7 @@ from LiuXin_alpha.databases.column_metadata import (
     ColumnMetadata,
     infer_column_metadata,
 )
+from LiuXin_alpha.databases.db_types.driver_types import QueryConnection
 from LiuXin_alpha.databases.db_types.macro_types import (
     LINK_TYPE_UNSET,
     CanonicalIdentity,
@@ -53,6 +54,7 @@ from LiuXin_alpha.databases.normalized_identities import (
 )
 from LiuXin_alpha.databases.query_indexes import QueryIndexReport
 from LiuXin_alpha.databases.schema_specs import LinkCardinality, StorageLinkSpec
+from LiuXin_alpha.databases.table_pages import read_page
 from LiuXin_alpha.databases.transactions import transaction_active, transaction_scope
 from LiuXin_alpha.errors import DatabaseIntegrityError, InputIntegrityError
 from LiuXin_alpha.metadata.value_policies import (
@@ -287,6 +289,13 @@ class SQLPortableMacrosMixin:
         if driver is None:
             raise DatabaseIntegrityError("Database macros are not attached to a driver.")
         return driver
+
+    def current_transaction_connection(self) -> QueryConnection | None:
+        """Expose the active thread's borrowed handle without acquiring a connection."""
+        state = vars(self).get("_macro_transaction_state")
+        if state is not None and getattr(state, "depth", 0):
+            return getattr(state, "connection", None)
+        return None
 
     def _macro_connection(self) -> Any:
         # Read instance state directly. Some compatibility macro classes use
@@ -528,6 +537,60 @@ class SQLPortableMacrosMixin:
         """
 
         return self._macro_transaction(serialized=serialized, require_outermost=require_outermost)
+
+    def read_transaction(self) -> AbstractContextManager[Any]:
+        """Own a read-only, consistent snapshot for a multi-query inspection.
+
+        Refuse nesting so an inspection cannot change its caller's transaction
+        isolation or accidentally publish prior writes. PostgreSQL uses repeatable
+        read; SQLite's deferred transaction pins its snapshot at the first read.
+        The backend rejects row writes. No writer reservation is taken, and any
+        persistent fallback connection's query-only setting is restored on exit.
+        """
+        return self._read_transaction()
+
+    @contextmanager
+    def _read_transaction(self) -> Iterator[Any]:
+        """Implement the public snapshot context without exposing its generator."""
+        driver = self._macro_driver()
+        restore = None
+        try:
+            with self._macro_transaction(require_outermost=True) as connection:
+                if hasattr(driver, "schema"):
+                    connection.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY").close()
+                else:
+                    previous = connection.execute("PRAGMA query_only").fetchone()[0]
+                    if not callable(getattr(driver, "get_connection", None)):
+                        restore = (connection, previous)
+                    connection.execute("PRAGMA query_only=ON").close()
+                # Protection must cover completion hooks as well as the body.
+                # Owned connections are closed by the transaction owner; only a
+                # persistent fallback needs its setting restored afterward.
+                yield connection
+        finally:
+            if restore is not None:
+                connection, previous = restore
+                connection.execute(f"PRAGMA query_only={int(previous)}").close()
+
+    def inspect_repair_references(self, table: str) -> list[dict]:
+        """Read physical inbound constraints and polymorphic reference declarations."""
+        from .repair_storage import references
+        return references(self, table)
+
+    def lock_repair_references(self, table: str) -> list[dict]:
+        """Reserve source/reference tables in an owned serialized repair transaction."""
+        from .repair_storage import lock_references
+        return lock_references(self, table)
+
+    def record_catalog_repair(self, receipt: Mapping[str, Any]) -> str:
+        """Append an immutable receipt atomically with an explicit Catalog repair."""
+        from .repair_storage import record
+        return record(self, receipt)
+
+    def get_catalog_repair_receipt(self, receipt_id: str) -> dict | None:
+        """Read a durable repair receipt, returning None without installing anything."""
+        from .repair_storage import read_receipt
+        return read_receipt(self, receipt_id)
 
     def _row_id_column(self, table: str, id_column: str | None) -> str:
         """
@@ -864,29 +927,11 @@ class SQLPortableMacrosMixin:
         id_column = self._row_id_column(table, None)
         predicates = dict(where or {})
         self._validate_columns(table, predicates)
-        conditions, values = [], []
-        if after_id is not None:
-            conditions.append(f"{_quoted(id_column)} > ?")
-            values.append(after_id)
-        for column, value in predicates.items():
-            conditions.append(
-                f"{_quoted(column)} IS NULL"
-                if value is None
-                else f"{_quoted(column)} = ?"
-            )
-            if value is not None:
-                values.append(value)
-        sql = (
-            f"SELECT {', '.join(_quoted(column) for column in columns)} "
-            f"FROM {self._macro_table_sql(table)}"
+        return read_page(
+            self._macro_connection(), table_sql=self._macro_table_sql(table),
+            columns=columns, id_column=id_column, where=predicates,
+            limit=limit, offset=offset, after_id=after_id,
         )
-        if conditions:
-            sql += " WHERE " + " AND ".join(conditions)
-        sql += f" ORDER BY {_quoted(id_column)} LIMIT ? OFFSET ?"
-        rows = self._mapping_rows(
-            columns, self._macro_connection().execute(sql, (*values, limit + 1, offset))
-        )
-        return rows[:limit], len(rows) <= limit
 
     def audit_query_indexes(self) -> QueryIndexReport:
         """Inspect known query indexes without changing schema or stored data."""

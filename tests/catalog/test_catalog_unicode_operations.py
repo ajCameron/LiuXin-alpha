@@ -17,6 +17,7 @@ import unicodedata
 import uuid
 
 import pytest
+from tests.catalog.repair_helpers import apply_target_preferred_merge
 
 from LiuXin_alpha.catalog.catalog import Catalog
 from LiuXin_alpha.catalog.api import (
@@ -770,10 +771,13 @@ def test_unicode_merge_preserves_graph_metadata_and_primary_identifier_policy(
         priority=0,
     )
 
-    catalog.mutations.writer.merge_entities(
+    apply_target_preferred_merge(catalog,
         level="work",
         source_id=source_id,
         target_id=target_id,
+        relationship_resolutions={
+            f"entity_identifiers:{source_identifier}": {"values": {"entity_identifier_is_primary": 0}},
+        },
     )
 
     assert catalog.works.get(source_id) is None
@@ -825,7 +829,7 @@ def test_unicode_merge_preserves_graph_metadata_and_primary_identifier_policy(
         entity_id=source_item,
         role="own",
     )
-    catalog.mutations.writer.merge_entities(
+    apply_target_preferred_merge(catalog,
         level="item",
         source_id=source_item,
         target_id=target_item,

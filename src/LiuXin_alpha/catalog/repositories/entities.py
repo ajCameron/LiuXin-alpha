@@ -47,7 +47,9 @@ class TagRepository(WorkMembershipRepository):
     declarations, so callers cannot override a key independently of its source text.
 
     Work membership methods are inherited from WorkMembershipRepository. Other
-    WEMI levels and Agent/Series tagging have no supported direct Tag link here.
+    WEMI levels have no convenience methods here; the physical schema also links
+    Tags to Expressions and Items. Inherited retrieval follows those links.
+    Agent/Series tagging has no supported direct relation.
 
     Example:
         >>> repository = TagRepository(None)

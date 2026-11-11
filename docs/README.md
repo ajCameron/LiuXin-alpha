@@ -8,6 +8,8 @@ For local directories and SquashFS collections, see
 [local ingest](local-ingest.md), including disk headroom, WSL host protection,
 resource telemetry and resume after a resource stop.
 The [operational CLI guide](../dev-docs/surfaces/operational-cli.md) covers other
+commands. [Catalogue maintenance](maintenance.md) covers prompt/lazy work,
+installation, bounded drains and retries. The operational guide also covers
 command families and connection settings. Implementation and ownership notes
 belong in [developer documentation](../dev-docs/README.md).
 

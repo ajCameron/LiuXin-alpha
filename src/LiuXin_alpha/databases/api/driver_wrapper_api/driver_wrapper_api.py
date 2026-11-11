@@ -2,38 +2,50 @@
 Define the contract between database objects and low-level driver wrappers.
 
 The concrete DriverWrapper combines dictionary-row helpers, driver delegation,
-schema discovery and custom-column operations. Abstract members have empty bodies
-returning None if invoked directly; their return fields describe the concrete
-wrapper behavior. Historical annotation and default differences are retained and
-called out where relevant. The initializer is concrete and cooperates with other
-bases.
+schema discovery and custom-column operations. Abstract members declare the
+concrete result shapes, including False and None for missing results. Construction
+and behavior belong to concrete wrappers. SQL values remain unconstrained within
+typed row containers and portable connection/cursor protocols.
 """
 
 from __future__ import annotations
 
 import abc
+from collections.abc import Iterable, Iterator, Mapping
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Literal,
+    Never,
+)
 
-from typing import Any, Iterable, Iterator, Optional, Union, TYPE_CHECKING, Literal
-
-from LiuXin_alpha.databases.api.driver_wrapper_api.mixins.schema_introspection_api import SchemaIntrospectionAPI
+from LiuXin_alpha.databases.api.driver_wrapper_api.mixins.query_operations_api import (
+    QueryOperationsAPI,
+)
+from LiuXin_alpha.databases.api.driver_wrapper_api.mixins.schema_introspection_api import (
+    SchemaIntrospectionAPI,
+)
+from LiuXin_alpha.databases.db_types.driver_types import (
+    QueryConnection,
+    QueryCursor,
+    SQLParameters,
+    SQLRow,
+)
 
 if TYPE_CHECKING:
     from LiuXin_alpha.databases.api.database_api.database_api import DatabaseAPI
     from LiuXin_alpha.databases.api.macros_api import MacrosAPI
-    from LiuXin_alpha.databases.api.row_api import RowAPI
     from LiuXin_alpha.databases.schema_specs import StorageLinkSpec
 
 
-class DatabaseDriverWrapperAPI(SchemaIntrospectionAPI):
+class DatabaseDriverWrapperAPI(SchemaIntrospectionAPI, QueryOperationsAPI):
     """
     Define the contract between database objects and low-level driver wrappers.
 
     The concrete DriverWrapper combines dictionary-row helpers, driver delegation,
-    schema discovery and custom-column operations. Abstract members have empty bodies
-    returning None if invoked directly; their return fields describe the concrete
-    wrapper behavior. Historical annotation and default differences are retained and
-    called out where relevant. The initializer is concrete and cooperates with other
-    bases.
+    schema discovery and custom-column operations. These abstract declarations
+    describe concrete containers and missing-result sentinels. Construction and
+    behavior belong to concrete wrappers; no operational methods live here.
 
     Example:
         >>> import inspect
@@ -41,35 +53,7 @@ class DatabaseDriverWrapperAPI(SchemaIntrospectionAPI):
         True
     """
 
-    def __init__(self, db: Optional["DatabaseAPI"] = None, macros: Optional["MacrosAPI"] = None) -> None:
-        """
-        Initialize the owner reference and cooperatively initialize base classes.
-
-        Stores db, calls set_macros() only for a non-None provider, then tries the next
-        initializer with (db, macros). A TypeError causes a retry without arguments; a
-        second TypeError is suppressed. This also suppresses TypeErrors raised inside
-        those base initializers, not only signature mismatches. Other exceptions
-        propagate.
-
-        Example:
-            >>> wrapper = concrete_wrapper_type(driver, db=database)  # doctest: +SKIP
-
-
-        :param db: Owner database, or None during setup.
-        :param macros: Optional provider passed to set_macros(); None leaves the
-            existing provider alone.
-        :return: None.
-        """
-        self.db: Optional["DatabaseAPI"] = db
-        if macros is not None:
-            self.set_macros(macros)
-        try:
-            super().__init__(db, macros)  # type: ignore[misc]
-        except TypeError:
-            try:
-                super().__init__()  # type: ignore[misc]
-            except TypeError:
-                pass
+    db: DatabaseAPI | None
 
     @abc.abstractmethod
     def __del__(self) -> None:
@@ -110,7 +94,7 @@ class DatabaseDriverWrapperAPI(SchemaIntrospectionAPI):
         """
 
     @abc.abstractmethod
-    def _get_custom_column_row(self, in_table: str, cc_name: str) -> "RowAPI":
+    def _get_custom_column_row(self, in_table: str, cc_name: str) -> None:
         """
         Reserve a hook for retrieving a custom-column definition row.
 
@@ -125,11 +109,20 @@ class DatabaseDriverWrapperAPI(SchemaIntrospectionAPI):
 
         :param in_table: Table to which the custom column is attached.
         :param cc_name: Custom column name.
-        :return: None; this hook is unimplemented despite its RowAPI annotation.
+        :return: None; this hook remains unimplemented.
         """
 
     @abc.abstractmethod
-    def _walk(self, start_row: "RowAPI", table: str, table_id_col: str, table_parent_col: str) -> Iterable["RowAPI"]:
+    def _walk(
+        self,
+        start_row: dict[str, Any],
+        table: str,
+        table_id_col: str,
+        table_parent_col: str,
+    ) -> Iterator[dict[str, Any]]:
+        # Load the ids pool with the ids of parent rows - search for them in the parent column and yield those rows
+        # If a row has no children (not referenced in any parent column) then it's a leaf row and we're done for that
+        # branch
         """
         Yield a starting row and descendants selected through parent-column searches.
 
@@ -138,11 +131,10 @@ class DatabaseDriverWrapperAPI(SchemaIntrospectionAPI):
 
         Converts IDs to integers and keeps pending IDs in a set. Yields the original
         starting mapping first, then children returned by search(), scheduling each
-        child ID. The pending set is not a visited set: cycles can yield forever and
-        sibling order is unspecified.
+        child ID. A separate visited set rejects cycles/repeated rows before yielding
+        the duplicate. Sibling order is unspecified; memory grows with visited IDs.
 
-        The concrete implementation consumes and yields plain dictionaries despite the
-        RowAPI annotations in this interface.
+        The concrete implementation consumes and yields plain dictionaries.
 
         Example:
             >>> wrapper._walk(
@@ -159,7 +151,7 @@ class DatabaseDriverWrapperAPI(SchemaIntrospectionAPI):
         """
 
     @abc.abstractmethod
-    def add_multiple_rows(self, row_dict_list: list[dict[str, Any]]):
+    def add_multiple_rows(self, row_dict_list: list[dict[str, Any]]) -> None:
         """
         Insert a batch atomically, binding values by named column.
 
@@ -178,7 +170,7 @@ class DatabaseDriverWrapperAPI(SchemaIntrospectionAPI):
         """
 
     @abc.abstractmethod
-    def add_row(self, row_dict: dict[str, Any]):
+    def add_row(self, row_dict: dict[str, Any]) -> int:
         """
         Insert a copied row mapping, deriving configured normalized identity values.
 
@@ -213,7 +205,7 @@ class DatabaseDriverWrapperAPI(SchemaIntrospectionAPI):
         """
 
     @abc.abstractmethod
-    def check_for_intralink_table(self, table_name: str) -> Union[str, Literal[False]]:
+    def check_for_intralink_table(self, table_name: str) -> str | Literal[False]:
         """
         Check for the conventionally named intralink table of a main table.
 
@@ -233,7 +225,7 @@ class DatabaseDriverWrapperAPI(SchemaIntrospectionAPI):
         """
 
     @abc.abstractmethod
-    def clear(self, target_table: str) -> None:
+    def clear(self, target_table: str) -> bool:
         """
         Delete every row, commit, and count remaining rows before closing the
         connection.
@@ -294,7 +286,7 @@ class DatabaseDriverWrapperAPI(SchemaIntrospectionAPI):
     # Todo: Issue deprecitation warnings from this - we want it gone
     @property
     @abc.abstractmethod
-    def conn(self):
+    def conn(self) -> QueryConnection | None:
         """
         Resolve an override or the current owner/driver connection.
 
@@ -318,20 +310,19 @@ class DatabaseDriverWrapperAPI(SchemaIntrospectionAPI):
 
     @abc.abstractmethod
     def create_custom_column(
-            self,
-            name: str,
-            datatype: str = 'text',
-            is_multiple: bool = False,
-            label: Optional[str] = None,
-            editable: bool = True,
-            display: Optional[str] = None,
-            in_table: str = 'books',
-            table=None, make_category=None):
+        self,
+        name: str,
+        datatype: str = "text",
+        is_multiple: bool = False,
+        label: str | None = None,
+        editable: bool = True,
+        display: Mapping[str, Any] | None = None,
+        in_table: str = "books",
+        table: str | None = None,
+        make_category: bool | None = None,
+    ) -> int:
         """
         Create a custom-column definition and its physical value storage.
-
-        Abstract wrapper hook. The behavior below describes DriverWrapper and its
-        mixins; this declaration supplies no implementation.
 
         The table alias overrides the default books attachment; conflicting nondefault
         aliases raise TypeError. Resolves legacy attachment names and asserts membership
@@ -342,10 +333,10 @@ class DatabaseDriverWrapperAPI(SchemaIntrospectionAPI):
 
         Text, rating, series and enumeration use normalized value/link storage. Multiple
         comments and series request ordering. display is serialized as JSON; for
-        composite columns, make_category updates that mapping. Reserves and updates a
-        custom_columns row before invoking physical DDL, so failures need not undo the
-        metadata write. Adds generated names to custom_tables and returns the definition
-        ID; it does not reload all owner caches.
+        composite columns, make_category updates that mapping. Definition insertion
+        and physical DDL share one owned transaction: either both commit or both roll
+        back. Nested macro transactions are refused before writing, so facade caches
+        are updated only after a real commit. Returns the definition ID.
 
         Example:
             >>> wrapper.create_custom_column("note")  # doctest: +SKIP
@@ -359,10 +350,8 @@ class DatabaseDriverWrapperAPI(SchemaIntrospectionAPI):
         :param label: Optional lowercase registry label; None derives one from
             attachment and name.
         :param editable: Editable flag recorded in the definition.
-        :param display: JSON-serializable display options mapping despite the
-            annotation; None becomes an empty dict.
-        :param in_table: Attachment table name despite the bool annotation; defaults to
-            books.
+        :param display: JSON-serializable options; None becomes an empty dict.
+        :param in_table: Attachment table name; defaults to books.
         :param table: Optional alias for in_table; conflicting explicit names raise
             TypeError.
         :param make_category: Optional boolean-like composite browser-category setting;
@@ -372,12 +361,14 @@ class DatabaseDriverWrapperAPI(SchemaIntrospectionAPI):
 
     @abc.abstractmethod
     def create_new_main_table(
-            self,
-            table_name: str,
-            column_headings: Optional[Iterable[str]] = None,
-            link_to: Optional[Union[str, Iterable[str]]] = None,
-            link_type: Optional[Iterable[str]] = None,
-            link_properties: Optional[Iterable[str]] = None):
+        self,
+        table_name: str,
+        column_headings: Mapping[str, Mapping[str, str]] | None = None,
+        link_to: str | None = None,
+        link_type: Literal["many_many", "many_one", "one_many", "one_one"]
+        | None = None,
+        link_properties: Iterable[str] | None = None,
+    ) -> None:
         """
         Create a main table and optionally link it to an existing table.
 
@@ -413,7 +404,7 @@ class DatabaseDriverWrapperAPI(SchemaIntrospectionAPI):
 
     @staticmethod
     @abc.abstractmethod
-    def custom_table_names(num: int, in_table: str = 'books') -> str:
+    def custom_table_names(num: int, in_table: str = "books") -> tuple[str, str]:
         """
         Construct custom-value and owner-link table names from a numeric ID.
 
@@ -436,11 +427,7 @@ class DatabaseDriverWrapperAPI(SchemaIntrospectionAPI):
     # Todo: Rename for greater clarity.
     # Todo: Might want to return the affected ids
     @abc.abstractmethod
-    def delete(
-            self,
-            target_table: str,
-            column: str,
-            value: Any) -> None:
+    def delete(self, target_table: str, column: str, value: Any) -> bool:
         """
         Delete rows matching a scalar value or a list/set of values.
 
@@ -463,7 +450,9 @@ class DatabaseDriverWrapperAPI(SchemaIntrospectionAPI):
         """
 
     @abc.abstractmethod
-    def delete_by_id(self, target_table: str, row_id: int) -> None:
+    def delete_by_id(
+        self, target_table: str, row_id: int | list[int] | set[int]
+    ) -> bool:
         """
         Delete one row ID or dispatch list/set IDs to the bulk driver helper.
 
@@ -479,12 +468,12 @@ class DatabaseDriverWrapperAPI(SchemaIntrospectionAPI):
 
 
         :param target_table: Table whose rows are affected.
-        :param row_id: Single ID, or a list/set of IDs despite the int annotation.
+        :param row_id: Single ID, or a list/set of IDs.
         :return: Unmodified driver deletion result.
         """
 
     @abc.abstractmethod
-    def delete_custom_column(self, num: str) -> None:
+    def delete_custom_column(self, num: int) -> None:
         """
         Mark a custom-column definition for deferred deletion.
 
@@ -505,24 +494,10 @@ class DatabaseDriverWrapperAPI(SchemaIntrospectionAPI):
 
     @abc.abstractmethod
     def deleted_marked_custom_columns(self) -> None:
-        """
-        Remove custom tables for definitions already marked for deletion.
+        """Atomically remove marked definitions and their physical SQLite storage.
 
-        Abstract wrapper hook. The behavior below describes DriverWrapper and its
-        mixins; this declaration supplies no implementation.
-
-        Reads IDs and attachment tables through the resolved connection, accepting dict
-        or positional rows and defaulting empty attachment names to books. Any initial
-        query error selects a legacy macro fallback that assumes books for every result.
-        Builds the physical-table map and delegates deletion only when it is nonempty.
-        Shared macros commit drops and remove marked metadata; local custom_tables is
-        not refreshed here.
-
-        Example:
-            >>> wrapper.deleted_marked_custom_columns()  # doctest: +SKIP
-
-
-        :return: None.
+        The macro reuses the current transaction through a savepoint, or owns a
+        new unit on an idle connection. Selection and deletion share that unit.
         """
 
     @abc.abstractmethod
@@ -568,7 +543,7 @@ class DatabaseDriverWrapperAPI(SchemaIntrospectionAPI):
         """
 
     @abc.abstractmethod
-    def direct_get_custom_id_val_pairs(self, table: str) -> Iterable[tuple[int, Any]]:
+    def direct_get_custom_id_val_pairs(self, table: str) -> list[tuple[int, Any]]:
         """
         Read all ID/value pairs from a custom table on the resolved connection.
 
@@ -611,7 +586,7 @@ class DatabaseDriverWrapperAPI(SchemaIntrospectionAPI):
         """
 
     @abc.abstractmethod
-    def drop_all_triggers(self) -> None:
+    def drop_all_triggers(self) -> bool:
         """
         Discover and drop all persistent triggers through the driver.
 
@@ -631,7 +606,7 @@ class DatabaseDriverWrapperAPI(SchemaIntrospectionAPI):
         """
 
     @abc.abstractmethod
-    def drop_triggers(self, triggers: list[str]) -> None:
+    def drop_triggers(self, triggers: list[str]) -> bool:
         """
         Drop each named trigger and commit after each removal.
 
@@ -678,7 +653,9 @@ class DatabaseDriverWrapperAPI(SchemaIntrospectionAPI):
         """
 
     @abc.abstractmethod
-    def execute(self, sql: str, values=None):
+    def execute(
+        self, sql: str, values: SQLParameters | int | None = None
+    ) -> QueryCursor:
         """
         Execute one statement using a live primary connection and its transaction
         context.
@@ -701,12 +678,13 @@ class DatabaseDriverWrapperAPI(SchemaIntrospectionAPI):
         :param sql: SQL text to execute, with placeholders when bindings are supplied.
         :param values: Optional bindings; a bare integer is converted to a one-element
             string tuple.
-        :return: The backend execution result, normally a cursor, despite the None
-            annotation.
+        :return: The backend query cursor; the caller must close it.
         """
 
     @abc.abstractmethod
-    def executemany(self, sql: list[str], values = None) -> None:
+    def executemany(
+        self, sql: str, values: Iterable[SQLParameters] | None = None
+    ) -> None:
         """
         Execute repeated bindings or a legacy SQL script, depending on values.
 
@@ -714,8 +692,7 @@ class DatabaseDriverWrapperAPI(SchemaIntrospectionAPI):
         mixins; this declaration supplies no implementation.
 
         When values is None, forwards sql to direct_executescript(); otherwise calls
-        direct_executemany(sql, values). Shared SQLite expects SQL text despite the
-        legacy list annotation. Only ValueError is caught, logged with arguments and
+        direct_executemany(sql, values). Only ValueError is caught, logged with arguments and
         re-raised with added context; other errors propagate. Transaction behavior comes
         from the selected backend operation.
 
@@ -757,29 +734,31 @@ class DatabaseDriverWrapperAPI(SchemaIntrospectionAPI):
         """
 
     @abc.abstractmethod
-    def get(self, *args, **kw):
+    def get(
+        self, sql: str, values: SQLParameters | int | None = None, *, all: bool = True
+    ) -> list[SQLRow] | SQLRow | None:
         """
-        Execute positional SQL arguments and fetch all rows or the first row.
+        Execute SQL with optional bindings and fetch all rows or the first row.
 
         Abstract wrapper hook. The behavior below describes DriverWrapper and its
         mixins; this declaration supplies no implementation.
 
-        Only positional args are forwarded to execute(). The all keyword defaults to
-        True; other keywords are ignored. all=False returns the complete first row, not
-        its first cell, and catches StopIteration or IndexError as an empty result.
+        The all keyword defaults to True. With all=False, return the complete first
+        row, or None for no match. Always close the cursor after fetching, including
+        on errors. Transaction ownership remains that of execute().
 
         Example:
             >>> wrapper.get("SELECT 1", all=False)  # doctest: +SKIP
 
 
-        :param args: Positional arguments for execute(), normally SQL and optional
-            bindings.
-        :param kw: Options read locally; all controls full versus first-row fetching.
+        :param sql: SQL statement passed to execute().
+        :param values: Optional bound parameters.
+        :param all: Whether to fetch all rows or just the first row.
         :return: List of rows by default; a single row or None when all=False.
         """
 
     @abc.abstractmethod
-    def get_all_hashes(self) -> Iterable[str]:
+    def get_all_hashes(self) -> set[str]:
         """
         Union non-null values from recognized hash columns across supported tables.
 
@@ -801,10 +780,8 @@ class DatabaseDriverWrapperAPI(SchemaIntrospectionAPI):
 
     @abc.abstractmethod
     def get_all_rows(
-            self,
-            table: str,
-            sort_column: Optional[str] = None,
-            reverse: bool = False) -> Iterator[dict[str, Any]]:
+        self, table: str, sort_column: str | None = None, reverse: bool = False
+    ) -> list[dict[str, Any]]:
         """
         Load every row into memory, optionally ordering by a validated column.
 
@@ -877,14 +854,11 @@ class DatabaseDriverWrapperAPI(SchemaIntrospectionAPI):
         """
         Look up cached column names after canonicalizing the table identifier.
 
-        Abstract wrapper hook. The behavior below describes DriverWrapper and its
-        mixins; this declaration supplies no implementation.
-
         Delegates to the driver's direct_get_column_headings hook. The following backend
         details describe the shared SQL/SQLite implementation; backend errors propagate.
 
-        Populate the combined cache only when absent; an existing cache is not
-        independently version-checked here. Unknown tables raise InputIntegrityError.
+        Check the combined cache's schema version before using it. Unknown tables
+        raise InputIntegrityError; inspection preserves the primary transaction.
 
         Example:
             >>> wrapper.get_column_headings("works")  # doctest: +SKIP
@@ -897,10 +871,10 @@ class DatabaseDriverWrapperAPI(SchemaIntrospectionAPI):
     @abc.abstractmethod
     def get_allowed_link_types(
         self,
-        link_spec: "StorageLinkSpec",
+        link_spec: StorageLinkSpec,
         *,
         force_refresh: bool = False,
-    ) -> Optional[tuple[str, ...]]:
+    ) -> tuple[str, ...] | None:
         """
         Read the live type values from a link specification's optional registry.
 
@@ -927,7 +901,7 @@ class DatabaseDriverWrapperAPI(SchemaIntrospectionAPI):
 
     # Todo: This needs to go. No direct connections if we can help it.
     @abc.abstractmethod
-    def get_connection(self) -> Any:
+    def get_connection(self) -> QueryConnection:
         """
         Request a connection from the driver for caller-managed use.
 
@@ -1006,7 +980,7 @@ class DatabaseDriverWrapperAPI(SchemaIntrospectionAPI):
         """
 
     @abc.abstractmethod
-    def get_highest_id(self, target_table: str) -> int:
+    def get_highest_id(self, target_table: str) -> int | None:
         """
         Query the maximum ID value in a table, closing the connection after its result.
 
@@ -1047,7 +1021,7 @@ class DatabaseDriverWrapperAPI(SchemaIntrospectionAPI):
         """
 
     @abc.abstractmethod
-    def get_id_from_row(self, row_dict: dict[str, Any]) -> Optional[int]:
+    def get_id_from_row(self, row_dict: dict[str, Any]) -> int | None:
         """
         Extract the conventional identifier from a row dictionary.
 
@@ -1141,9 +1115,9 @@ class DatabaseDriverWrapperAPI(SchemaIntrospectionAPI):
 
         Infers table and parent heading from the starting mapping. Missing parent keys,
         None and case-insensitive text none terminate the chain; the starting mapping is
-        retained as-is. Parent rows are fetched through get_row_from_id(). No cycle
-        detection or sibling traversal occurs, and missing ancestor rows can cause
-        lookup/type errors.
+        retained as-is. Parent rows are fetched through get_row_from_id(). Repeated
+        parents, empty input and missing ancestors raise InputIntegrityError; a
+        table without parents returns the start row. No siblings are traversed.
 
         Example:
             >>> wrapper.get_linear_row_list(series_row)  # doctest: +SKIP
@@ -1180,7 +1154,7 @@ class DatabaseDriverWrapperAPI(SchemaIntrospectionAPI):
         """
 
     @abc.abstractmethod
-    def get_link_table_name(self, table1: str, table2: str) -> str:
+    def get_link_table_name(self, table1: str, table2: str) -> str | Literal[False]:
         """
         Find and optionally cache the conventional table linking two endpoint tables.
 
@@ -1190,9 +1164,8 @@ class DatabaseDriverWrapperAPI(SchemaIntrospectionAPI):
         Stringifies names; distinct endpoints use sorted singular bases and _links,
         equal endpoints use a repeated base and _intralinks. Returns False if the
         generated table is absent. Cache keys are symmetric and include misses. When
-        available, backend schema_version changes clear the cache; a failing version
-        query becomes None. Without that hook, cached names require explicit
-        invalidation.
+        available, backend schema_version changes clear the cache. Version-query
+        errors propagate without replacing the previous cache version.
 
         Example:
             >>> wrapper.get_link_table_name("agents", "works")  # doctest: +SKIP
@@ -1204,27 +1177,17 @@ class DatabaseDriverWrapperAPI(SchemaIntrospectionAPI):
         """
 
     @abc.abstractmethod
-    def get_parent_column(self, table_name: str) -> str:
-        """
-        Find the unique heading whose lowercase name ends in _parent.
+    def get_parent_column(self, table_name: str) -> str | Literal[False] | None:
+        """Delegate discovery of legacy *_parent and current *_parent_id columns.
 
-        Abstract wrapper hook. The behavior below describes DriverWrapper and its
-        mixins; this declaration supplies no implementation.
-
-        Requires table_name in discovered table headings, otherwise InputIntegrityError.
-        Multiple candidates raise DatabaseIntegrityError; a table without a matching
-        heading returns False.
-
-        Example:
-            >>> wrapper.get_parent_column("works")  # doctest: +SKIP
-
-
-        :param table_name: Table name in the current schema.
-        :return: Original parent-column heading, or False when absent.
+        Prefer a sole *_parent_id when both forms exist. Ambiguity raises
+        DatabaseIntegrityError; absence returns False.
         """
 
     @abc.abstractmethod
-    def get_random_row(self, table: str, direct_access: bool = False) -> dict[str, Any]:
+    def get_random_row(
+        self, table: str, direct_access: bool = False
+    ) -> dict[str, Any] | None:
         """
         Pick a random row using SQLite RANDOM or rejection sampling over positive IDs.
 
@@ -1271,29 +1234,17 @@ class DatabaseDriverWrapperAPI(SchemaIntrospectionAPI):
         """
 
     @abc.abstractmethod
-    def get_relation_type(self, name: str) -> Union[Literal["table"], Literal["view"]]:
-        """
-        Look up a schema object's type in the SQLite catalog by name.
+    def get_relation_type(self, name: str) -> str | None:
+        """Return table/view/None through the backend's read-only lookup.
 
-        Abstract wrapper hook. The behavior below describes DriverWrapper and its
-        mixins; this declaration supplies no implementation.
-
-        Stringifies name, binds it in a case-insensitive sqlite_master query and
-        lowercases/strips the first non-None type cell. Does not restrict catalog types
-        to table/view, and does not inspect TEMP objects. Query/iteration exceptions are
-        swallowed as None; errors stringifying name occur before that guard.
-
-        Example:
-            >>> wrapper.get_relation_type("note")  # doctest: +SKIP
-
-
-        :param name: Schema object name to match case-insensitively.
-        :return: Catalog type such as table, view, index or trigger; None for no result
-            or a query failure.
+        Inspection never commits, rolls back or replaces the primary connection.
+        Backend errors propagate rather than being reported as an absent relation.
         """
 
     @abc.abstractmethod
-    def get_row_from_id(self, table: str, row_id: int) -> dict[str, Any]:
+    def get_row_from_id(
+        self, table: str, row_id: int
+    ) -> dict[str, Any] | Literal[False]:
         """
         Bind a text-coerced ID and require at most one matching row.
 
@@ -1336,19 +1287,16 @@ class DatabaseDriverWrapperAPI(SchemaIntrospectionAPI):
         """
 
     @abc.abstractmethod
-    def get_tables(self, force_refresh: bool=False) -> set[str]:
+    def get_tables(self, force_refresh: bool = False) -> list[str]:
         """
         Return cached table/view names, rebuilding when a known schema version changes.
-
-        Abstract wrapper hook. The behavior below describes DriverWrapper and its
-        mixins; this declaration supplies no implementation.
 
         Delegates to the driver's direct_get_tables hook. The following backend details
         describe the shared SQL/SQLite implementation; backend errors propagate.
 
         Suppress an ``_v`` name when its unsuffixed counterpart exists. The returned
-        list is the cache itself; forcing refresh closes and replaces the primary
-        handle.
+        list is the cache itself; refresh preserves the primary connection and its
+        pending transaction.
 
         A refresh first clears derived wrapper schema caches when that hook exists, then
         refreshes backend table discovery.
@@ -1357,25 +1305,21 @@ class DatabaseDriverWrapperAPI(SchemaIntrospectionAPI):
             >>> wrapper.get_tables()  # doctest: +SKIP
 
 
-        :param force_refresh: Invalidate cached schema data and reopen the primary
-            connection before introspection.
+        :param force_refresh: Invalidate cached schema data before introspection.
         :return: The mutable list of visible table and view names.
         """
 
     @abc.abstractmethod
-    def get_tables_and_columns(self) -> dict[str, set[str]]:
+    def get_tables_and_columns(self) -> dict[str, list[str]]:
         """
         Build or reuse the table/view-to-column-list cache with schema-version checks.
-
-        Abstract wrapper hook. The behavior below describes DriverWrapper and its
-        mixins; this declaration supplies no implementation.
 
         Delegates to the driver's direct_get_tables_and_columns hook. The following
         backend details describe the shared SQL/SQLite implementation; backend errors
         propagate.
 
-        Use a fresh connection for PRAGMA table_info and close it on success. Return the
-        cache object directly; force-refresh also replaces the primary connection.
+        Read schema metadata without replacing the primary connection or ending its
+        transaction. Return the cache object directly.
 
         Example:
             >>> wrapper.get_tables_and_columns()  # doctest: +SKIP
@@ -1406,7 +1350,7 @@ class DatabaseDriverWrapperAPI(SchemaIntrospectionAPI):
         """
 
     @abc.abstractmethod
-    def get_uuid(self) -> str:
+    def get_uuid(self) -> str | None:
         """
         Read the database identity from its sole metadata row.
 
@@ -1439,61 +1383,37 @@ class DatabaseDriverWrapperAPI(SchemaIntrospectionAPI):
         backend details describe the shared SQL/SQLite implementation; backend errors
         propagate.
 
-        Interpolate the supplied name directly, without canonicalization, quoting or
-        identifier validation. Tables also work, and an unknown relation normally
-        produces an empty list. Only column names are retained from the PRAGMA rows. SQL
-        errors propagate. This helper does not explicitly close its cursor or
-        connection, even after successful iteration.
+        Quote the relation name and inspect the primary connection, preserving
+        pending schema changes and the caller's transaction. Tables also work; an
+        unknown relation normally yields an empty list. Always close the cursor
+        and any temporary connection opened when no primary exists.
 
         Example:
             >>> wrapper.get_view_column_headings("sample_view")  # doctest: +SKIP
 
 
-        :param view: Trusted relation spelling suitable for direct PRAGMA interpolation;
-            no check distinguishes tables from views.
+        :param view: Relation name; no check distinguishes tables from views.
         :return: A fresh list of column names, possibly empty.
         """
 
     # Todo: A ViewRowAPI
     @abc.abstractmethod
-    def get_view_row_from_id(self, view: str, row_id: int) -> dict[str, Any]:
-        """
-        Retrieve at most one view row by a bound, text-coerced id value.
+    def get_view_row_from_id(
+        self, view: str, row_id: int, *, connection: QueryConnection | None = None
+    ) -> dict[str, Any] | None:
+        """Read at most one view row by its literal id column, on one connection.
 
-        Abstract wrapper hook. The behavior below describes DriverWrapper and its
-        mixins; this declaration supplies no implementation.
-
-        Delegates to the driver's direct_get_view_row_dict_from_id hook. The following
-        backend details describe the shared SQL/SQLite implementation; backend errors
-        propagate.
-
-        Convert both arguments with force_unicode, currently str. Interpolate the view
-        name and query a column literally named id, binding the id as data. Fetch
-        headings through direct_get_view_column_headings and convert every match through
-        _row_to_dict with the view as its declared-type lookup key. Conversion may
-        therefore turn numeric cells into ints or floats.
-
-        Consume all matches before deciding the result. Log and return None for zero
-        rows; log and raise DatabaseIntegrityError for multiple rows. Close this query's
-        connection on these paths and on success. Query, heading, conversion or logging
-        errors propagate without guaranteed cleanup; the headings helper's separate
-        connection is not explicitly closed here.
-
-        Example:
-            >>> wrapper.get_view_row_from_id("sample_view", 1)  # doctest: +SKIP
-
-
-        :param view: Trusted view spelling suitable for direct SQL interpolation;
-            converted to text without identifier validation or quoting.
-        :param row_id: Identifier converted to text and bound to the id predicate; the
-            annotated int type is not enforced at runtime.
-        :return: A new heading-to-converted-value dictionary, or None if no row matches.
-            Duplicate matches raise DatabaseIntegrityError.
+        Quote the relation name and inspect/convert it on the same schema snapshot.
+        Fetch at most two rows; duplicates raise DatabaseIntegrityError, missing
+        matches return None. Always close cursors and only owned connections.
+        Borrowed writes and transaction ownership remain with the caller.
         """
 
     # Todo: Just error - don't given an option
     @abc.abstractmethod
-    def identify_table_from_column(self, column_heading: str, error: bool = True) -> Optional[str]:
+    def identify_table_from_column(
+        self, column_heading: str, error: bool = True
+    ) -> str | None:
         """
         Return the first discovered table containing a column heading.
 
@@ -1514,7 +1434,9 @@ class DatabaseDriverWrapperAPI(SchemaIntrospectionAPI):
         """
 
     @abc.abstractmethod
-    def identify_table_from_row_dict(self, row_dict: dict[str, Any]) -> str:
+    def identify_table_from_row_dict(
+        self, row_dict: dict[str, Any]
+    ) -> str | Literal[False]:
         """
         Find the unique table containing every key in a row dictionary.
 
@@ -1545,7 +1467,7 @@ class DatabaseDriverWrapperAPI(SchemaIntrospectionAPI):
         mixins; this declaration supplies no implementation.
 
         Concrete DriverWrapper compares get_relation_type(name) with the exact string
-        view. Unknown objects and suppressed discovery errors give False.
+        view. Unknown objects give False; backend lookup errors propagate.
 
         Example:
             >>> wrapper.is_view("sample_view")  # doctest: +SKIP
@@ -1557,11 +1479,12 @@ class DatabaseDriverWrapperAPI(SchemaIntrospectionAPI):
 
     @abc.abstractmethod
     def link_main_tables(
-            self,
-            primary_table: str,
-            secondary_table: str,
-            link_type: Union[Literal["one_one", "many_one", "one_many", "many_many"]],
-            link_properties: Optional[Iterable[str]] = None) -> None:
+        self,
+        primary_table: str,
+        secondary_table: str,
+        link_type: Literal["many_many", "many_one", "one_many", "one_one"],
+        link_properties: Iterable[str] | None = None,
+    ) -> None:
         """
         Create an interlink table joining two existing main tables.
 
@@ -1588,7 +1511,7 @@ class DatabaseDriverWrapperAPI(SchemaIntrospectionAPI):
 
     @property
     @abc.abstractmethod
-    def macros(self) -> "MacrosAPI":
+    def macros(self) -> MacrosAPI:
         """
         Return the macro provider currently stored on the wrapper.
 
@@ -1606,15 +1529,12 @@ class DatabaseDriverWrapperAPI(SchemaIntrospectionAPI):
 
     # Todo: Check if it's it's null value, or NULL
     @abc.abstractmethod
-    def nullify_column(self, table: str, row_id: int, column: str) -> None:
+    def nullify_column(self, table: str, row_id: int, column: str) -> bool:
         """
         Set a cell to None through the wrapper's single-column update path.
 
-        Abstract wrapper hook. The behavior below describes DriverWrapper and its
-        mixins; this declaration supplies no implementation.
-
         Uses update_column(), including its column/table check, lock context and
-        full-row read/write behavior. Does not substitute schema defaults or a
+        targeted, normalization-aware write. Does not substitute schema defaults or a
         column-policy empty value.
 
         Example:
@@ -1651,7 +1571,7 @@ class DatabaseDriverWrapperAPI(SchemaIntrospectionAPI):
         """
 
     @abc.abstractmethod
-    def search(self, table: str, column: str, search_term: Any) -> dict[str, Any]:
+    def search(self, table: str, column: str, search_term: Any) -> list[dict[str, Any]]:
         """
         Find exact matches for a bound text search term in a validated column.
 
@@ -1678,48 +1598,23 @@ class DatabaseDriverWrapperAPI(SchemaIntrospectionAPI):
 
     @abc.abstractmethod
     def set_custom_column_metadata(
-            self,
-            num: int,
-            name: Optional[str] = None,
-            label: Optional[str] = None,
-            is_editable: Optional[bool] = None,
-            display: Optional[str] = None,
-            in_table: Optional[str] = None) -> None:
-        """
-        Write supplied custom-column definition fields through the owner macro.
+        self,
+        num: int,
+        name: str | None = None,
+        label: str | None = None,
+        is_editable: bool | None = None,
+        display: Mapping[str, Any] | None = None,
+        in_table: str | None = None,
+    ) -> bool:
+        """Atomically update definition fields, preserving omitted fields.
 
-        Abstract wrapper hook. The behavior below describes DriverWrapper and its
-        mixins; this declaration supplies no implementation.
-
-        No connection override is passed, so shared macros use db.driver.conn. Non-None
-        fields are requested updates; display is JSON-encoded and editable is converted
-        to bool. The concrete default in_table="books" therefore requests an attachment
-        change unless None is passed explicitly. Changing attachment metadata does not
-        move physical tables. Shared macros commit requested updates, including other
-        pending work; the caller schedules any metadata backup.
-
-        This abstract signature defaults in_table to None; the concrete wrapper defaults
-        it to books. Pass an explicit value to avoid relying on that difference.
-
-        Example:
-            >>> wrapper.set_custom_column_metadata(1)  # doctest: +SKIP
-
-
-        :param num: Custom-column metadata identifier.
-        :param name: Replacement name, or None to retain it.
-        :param label: Replacement label, or None to retain it.
-        :param is_editable: Value converted to bool when provided; None retains the
-            existing flag.
-        :param display: JSON-serializable display options despite the str annotation;
-            None retains them.
-        :param in_table: Replacement attachment metadata, or None to retain it; the
-            concrete wrapper defaults to books.
-        :return: Macro changed flag: True for requested updates, not proof that an
-            existing row changed.
+        Attachment changes require a storage migration and are rejected here.
+        The macro joins the current transaction without committing unrelated
+        writes. The caller remains responsible for facade metadata refresh.
         """
 
     @abc.abstractmethod
-    def set_full_column(self, table: str) -> None:
+    def set_full_column(self, table: str) -> bool:
         """
         Write ancestor display paths for positive-ID rows, committing each row
         separately.
@@ -1763,7 +1658,7 @@ class DatabaseDriverWrapperAPI(SchemaIntrospectionAPI):
         """
 
     @abc.abstractmethod
-    def set_tree_ids(self, table: str) -> None:
+    def set_tree_ids(self, table: str) -> bool:
         """
         Write each positive-ID row's root ID and display value as a tree identifier.
 
@@ -1786,7 +1681,7 @@ class DatabaseDriverWrapperAPI(SchemaIntrospectionAPI):
         """
 
     @abc.abstractmethod
-    def set_uuid(self, new_force_value: Optional[str] = None) -> None:
+    def set_uuid(self, new_force_value: str | None = None) -> bool:
         """
         Write a supplied identity or new UUID4, commit, and verify it by rereading.
 
@@ -1832,18 +1727,16 @@ class DatabaseDriverWrapperAPI(SchemaIntrospectionAPI):
     # Todo: I thiiinkk we know that it's string or number for all database entries
     @abc.abstractmethod
     def update_column(
-            self,
-            table: str,
-            row_id: int,
-            column: str,
-            new_value: Any) -> None:
+        self, table: str, row_id: int, column: str, new_value: Any
+    ) -> bool:
         """
-        Read a row, replace one cell and write it back under the lock context.
+        Update one cell and its derived keys without replaying unrelated columns.
 
         First resolves column ownership; mismatching table names raise
-        InputIntegrityError. Within self.lock, fetches the row, mutates its mapping and
-        calls update_row(), ignoring that result. Missing-row or backend write errors
-        propagate. The reentrant mutex serializes cooperating callers on this wrapper;
+        InputIntegrityError. Within self.lock, checks that the row exists and submits
+        only the requested field through the normalization-aware batch writer.
+        Missing rows raise InputIntegrityError; backend write errors propagate.
+        The reentrant mutex serializes cooperating callers on this wrapper;
         the row writer owns its SQL transaction. The mutex alone does not group multiple
         writes into one transaction or coordinate separate database facades.
 
@@ -1863,10 +1756,11 @@ class DatabaseDriverWrapperAPI(SchemaIntrospectionAPI):
 
     @abc.abstractmethod
     def update_columns(
-            self,
-            values_map: dict[int, Any],
-            field: Optional[str] = None,
-            table: Optional[str] = None) -> None:
+        self,
+        values_map: dict[int, Any],
+        field: str | None = None,
+        table: str | None = None,
+    ) -> bool | None:
         """
         Update one field for each ID as an atomic batch, preserving derived keys.
 
@@ -1888,7 +1782,9 @@ class DatabaseDriverWrapperAPI(SchemaIntrospectionAPI):
 
     # Todo: Where we say "num" in ref to custom columns, change it to cc_id or similar
     @abc.abstractmethod
-    def update_custom_column(self, in_table: str, cc_name: str, value: Any) -> None:
+    def update_custom_column(
+        self, in_table: str, cc_name: str, value: Any, extra: str | None = None
+    ) -> Never:
         """
         Reject the unfinished custom-column value update operation.
 
@@ -1913,8 +1809,10 @@ class DatabaseDriverWrapperAPI(SchemaIntrospectionAPI):
         :return: No normal return; always raises NotImplementedError.
         """
 
+        ...
+
     @abc.abstractmethod
-    def update_row(self, row_dict: dict[str, Any]) -> None:
+    def update_row(self, row_dict: dict[str, Any]) -> bool | None:
         """
         Update the supplied columns of an identified row without mutating the input.
 
@@ -1935,7 +1833,7 @@ class DatabaseDriverWrapperAPI(SchemaIntrospectionAPI):
 
     @property
     @abc.abstractmethod
-    def user_version(self) -> str:
+    def user_version(self) -> int | str | None:
         """
         Return the driver's application-controlled user_version value.
 
@@ -1943,8 +1841,8 @@ class DatabaseDriverWrapperAPI(SchemaIntrospectionAPI):
         mixins; this declaration supplies no implementation.
 
         This property simply forwards driver.user_version; it does not query or modify
-        SQLite schema_version. SQLite backends currently return an integer despite the
-        historical str annotation.
+        SQLite schema_version. SQLite backends return an integer; other backends
+        may return text or None.
 
         Example:
             >>> wrapper.user_version  # doctest: +SKIP
@@ -1954,7 +1852,7 @@ class DatabaseDriverWrapperAPI(SchemaIntrospectionAPI):
         """
 
     @abc.abstractmethod
-    def walk(self, start_row: dict[str, Any]) -> Iterable[dict[str, Any]]:
+    def walk(self, start_row: dict[str, Any]) -> Iterator[dict[str, Any]]:
         """
         Resolve a row's tree columns and return an iterator over its descendants.
 
@@ -1963,8 +1861,8 @@ class DatabaseDriverWrapperAPI(SchemaIntrospectionAPI):
 
         Infers the table and ID heading. A missing parent heading (None or False) raises
         InputIntegrityError before iteration. Returns _walk() without consuming it;
-        traversal starts with the supplied row and has neither a defined sibling order
-        nor cycle protection.
+        traversal starts with the supplied row. Sibling order is unspecified.
+        A cycle or repeated descendant raises InputIntegrityError during iteration.
 
         Example:
             >>> wrapper.walk(series_row)  # doctest: +SKIP

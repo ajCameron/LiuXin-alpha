@@ -47,6 +47,7 @@ from LiuXin_alpha.errors import DatabaseIntegrityError, InputIntegrityError
 from LiuXin_alpha.utils.libraries.liuxin_six import force_unicode
 
 
+# Todo: This feels like it's grown too large - and absobred methods which would have a more natural home elsewhere
 class ValueCastingMixin:
     """
     Supply schema policy access and type-aware row conversion to SQL drivers.
@@ -1547,17 +1548,17 @@ class ValueCastingMixin:
         Initialize the per-instance cache lazily, then return a cached dictionary
         directly on later calls. A miss reads table_info and stores column names mapped
         to their original type strings, replacing null declarations with empty text.
-        Unknown tables can yield an empty mapping. The connection closes after
-        successful iteration; this method has no finally cleanup on failure. Table text
-        is interpolated into PRAGMA without quoting or validation.
+        Unknown tables can yield an empty mapping. Quote the relation name and
+        inspect the primary connection's pending schema. Always close the cursor;
+        close the connection only when this method opened it. Failed reads are
+        not cached. The existing schema-refresh path invalidates this cache.
 
         Example:
             Repeated ``driver.direct_get_declared_types_for_table("works")``
             calls return the same dictionary until the schema cache is invalidated.
 
 
-        :param table: Trusted SQL table spelling suitable for direct PRAGMA
-            interpolation; also the exact cache key.
+        :param table: Relation name and exact cache key.
         :return: The cached mutable column-to-declared-type dictionary, not a copy.
         """
         cache = getattr(self, self._DECLARED_TYPES_CACHE_ATTR, None)
@@ -1568,16 +1569,20 @@ class ValueCastingMixin:
         if table in cache:
             return cache[table]
 
-        stmt = f"PRAGMA table_info({table})"
-        conn = self.get_connection()
-        c = conn.cursor()
-        types: Dict[str, str] = {}
-        for row in c.execute(stmt):
-            # row: (cid, name, type, notnull, dflt_value, pk)
-            name = row[1]
-            decl = row[2] or ""
-            types[name] = decl
-        conn.close()
+        conn = getattr(self, "conn", None)
+        owned = conn is None
+        if owned:
+            conn = self.get_connection()
+        quoted = '"' + str(table).replace('"', '""') + '"'
+        try:
+            cursor = conn.execute(f"PRAGMA table_info({quoted})")
+            try:
+                types = {row[1]: row[2] or "" for row in cursor}
+            finally:
+                cursor.close()
+        finally:
+            if owned:
+                conn.close()
 
         cache[table] = types
         return types

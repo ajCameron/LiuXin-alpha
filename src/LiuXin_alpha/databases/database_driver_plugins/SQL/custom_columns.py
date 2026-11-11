@@ -66,15 +66,15 @@ class SQLiteCustomColumnsDriverMixin:
                 datatype=data_type,
             )
         else:
+
             # Historically, callers used ``multi=True`` to mean "default" multiple
             # relation type. Treat this as many_many for backwards compatibility.
-            if multi is True:
-                multi = "many_many"
-            if multi == "many_many":
+            if multi is True or multi == "many_many":
                 # Need to create a many_many relation between the book and the values for it in the custom column
                 return self.direct_create_many_many_custom_column(
                     target_table=in_table, custom_column_name=column_name
                 )
+
             elif multi == "one_many":
                 # Need to create a one_many relation between the book and it's items
                 return self.direct_create_one_to_many_custom_column(
@@ -82,10 +82,12 @@ class SQLiteCustomColumnsDriverMixin:
                     custom_column_name=column_name,
                     datatype=data_type,
                 )
+
             elif multi == "many_one":
                 return self.direct_create_many_to_one_custom_column(
                     target_table=in_table, custom_column_name=column_name
                 )
+
             else:
                 raise NotImplementedError("form of multi not recognized")
 
@@ -136,6 +138,7 @@ class SQLiteCustomColumnsDriverMixin:
             assert target_table != "custom_columns", "Cannot create custom column in custom_columns"
 
             # Check the components which are going to go into the table name
+            # Todo: There should be a capability API which we can inherit from
             assert self.direct_validate_table_name(table_name=custom_column_name), "custom column name not valid"
 
             # MAIN TABLE
@@ -207,9 +210,10 @@ class SQLiteCustomColumnsDriverMixin:
 
     # Todo: Removing values from books should also delete from this table
     # Todo: The values of the custom column should be unique
-    # Todo: We should know the permissable data types - they should not be changeable
+    # Todo: We should know the permissible data types - they should not be changeable
     # Todo: This should update the custom columns table with new information
     # Todo: Check that the direct_link_main_tables method has a properly autoincrementing primary key and priority
+    # Todo: datatype should do something here....
     def direct_create_one_to_many_custom_column(
             self,
             target_table: str,

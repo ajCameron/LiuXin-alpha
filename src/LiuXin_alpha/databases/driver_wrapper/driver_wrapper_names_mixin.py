@@ -1,4 +1,3 @@
-
 # Todo: I think we have solved this problem a bunch of times - needs to be merged
 """
 Resolve conventional table, link and column names for the wrapper.
@@ -8,21 +7,16 @@ against discovered headings where appropriate; link-name caching follows backend
 schema versions when available.
 """
 
-from typing import TYPE_CHECKING, Union, Optional
 from copy import deepcopy
+from typing import Literal
 
-from LiuXin_alpha.utils.logging import default_log
-from LiuXin_alpha.errors import DatabaseIntegrityError, InputIntegrityError, LogicalError
+from LiuXin_alpha.databases.driver_wrapper._base import DriverWrapperBase
+from LiuXin_alpha.errors import DatabaseIntegrityError, InputIntegrityError
 from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.logging import default_log
 
 
-if TYPE_CHECKING:
-
-    from LiuXin_alpha.databases.db_types.database_types import MainTableName, InterLinkTableName, IntraLinkTableName, \
-        HelperTableName
-
-
-class DriverWrapperNamesMixin:
+class DriverWrapperNamesMixin(DriverWrapperBase):
     """
     Resolve conventional table, link and column names for the wrapper.
 
@@ -33,15 +27,11 @@ class DriverWrapperNamesMixin:
     Example:
         >>> wrapper.get_id_column("works")  # doctest: +SKIP
     """
+
     # ------------------------------------------------------------------------------------------------------------------
     # - METHODS TO GET COLUMNS NAMES FROM TABLES AND VISA-VERSA START HERE
     # ------------------------------------------------------------------------------------------------------------------
-    def get_column_base(self,
-                        table_name: Union[
-                            "MainTableName",
-                            "InterLinkTableName",
-                            "IntraLinkTableName",
-                            "HelperTableName"]) -> str:
+    def get_column_base(self, table_name: str) -> str:
         """
         Use the shared plural/singular mapper to obtain a column prefix.
 
@@ -96,21 +86,20 @@ class DriverWrapperNamesMixin:
         """
         return self.driver.direct_get_datestamp_column(table)
 
-    def get_link_table_name(self, table1: str, table2: str) -> str:
+    def get_link_table_name(self, table1: str, table2: str) -> str | Literal[False]:
         """
         Find and optionally cache the conventional table linking two endpoint tables.
 
         Stringifies names; distinct endpoints use sorted singular bases and _links,
         equal endpoints use a repeated base and _intralinks. Returns False if the
         generated table is absent. Cache keys are symmetric and include misses. When
-        available, backend schema_version changes clear the cache; a failing version
-        query becomes None. Without that hook, cached names require explicit
-        invalidation.
+        available, backend schema_version changes clear the cache. Version-query
+        errors propagate without replacing the previous cache version.
 
         Example:
             >>> from types import SimpleNamespace
             >>> host = SimpleNamespace(
-            ...     driver=SimpleNamespace(),
+            ...     driver=SimpleNamespace(direct_get_schema_version=lambda: 1),
             ...     get_tables=lambda: ["agent_work_links"],
             ...     get_column_base=lambda name: {"agents": "agent", "works": "work"}[
             ...         name
@@ -125,20 +114,22 @@ class DriverWrapperNamesMixin:
         :return: Existing conventional link-table name, or False.
         """
         cache = getattr(self, "_link_table_name_cache", None)
-        schema_version_getter = getattr(self.driver, "_get_schema_version", None)
+        schema_version_getter = self.driver.direct_get_schema_version
         if cache is not None and callable(schema_version_getter):
-            try:
-                current_schema_version = schema_version_getter()
-            except Exception:
-                current_schema_version = None
-            cached_schema_version = getattr(self, "_link_table_name_cache_schema_version", None)
+            current_schema_version = schema_version_getter()
+            cached_schema_version = getattr(
+                self, "_link_table_name_cache_schema_version", None
+            )
             if current_schema_version != cached_schema_version:
                 cache.clear()
                 self._link_table_name_cache_schema_version = current_schema_version
 
+        result: str | Literal[False]
         table1 = str(table1)
         table2 = str(table2)
-        cache_key = tuple(sorted((table1, table2))) if table1 != table2 else (table1, table1)
+        cache_key = (
+            tuple(sorted((table1, table2))) if table1 != table2 else (table1, table1)
+        )
         if cache is not None and cache_key in cache:
             return cache[cache_key]
 
@@ -235,7 +226,13 @@ class DriverWrapperNamesMixin:
             # Inspect the class: legacy drivers synthesize missing instance attributes.
             resolver = getattr(type(self.driver), "_physical_identifier", None)
             if callable(resolver):
-                link_col = resolver(self.driver, link_col)
+                physical = resolver(self.driver, link_col)
+                if not isinstance(physical, str):
+                    raise DatabaseIntegrityError(
+                        "The physical identifier resolver must return text"
+                    )
+                link_col = physical
+
         if link_col not in allowed_columns:
             err_str = "column_type not recognized"
             err_str = default_log.log_variables(
@@ -294,52 +291,18 @@ class DriverWrapperNamesMixin:
                 return heading
 
         err_str = "Warning - get_scratch_column failed to find a scratch column for that table.\n"
-        err_str = default_log.log_variables(err_str, "ERROR", ("table", table), ("column_headings", column_headings))
+        err_str = default_log.log_variables(
+            err_str, "ERROR", ("table", table), ("column_headings", column_headings)
+        )
         raise DatabaseIntegrityError(err_str)
 
-    def get_parent_column(self, table_name: str) -> Optional[str] | bool:
+    def get_parent_column(self, table_name: str) -> str | Literal[False] | None:
+        """Delegate discovery of legacy *_parent and current *_parent_id columns.
+
+        Prefer a sole *_parent_id when both forms exist. Ambiguity raises
+        DatabaseIntegrityError; absence returns False.
         """
-        Find the unique heading whose lowercase name ends in _parent.
-
-        Requires table_name in discovered table headings, otherwise InputIntegrityError.
-        Multiple candidates raise DatabaseIntegrityError; a table without a matching
-        heading returns False.
-
-        Example:
-            >>> from types import SimpleNamespace
-            >>> host = SimpleNamespace(
-            ...     get_tables_and_columns=lambda: {"works": ["work_id"]}
-            ... )
-            >>> DriverWrapperNamesMixin.get_parent_column(host, "works")
-            False
-
-
-        :param table_name: Table name in the current schema.
-        :return: Original parent-column heading, or False when absent.
-        """
-        table_name = deepcopy(table_name)
-        tables_and_columns = self.get_tables_and_columns()
-        if table_name not in tables_and_columns:
-            err_str = "get_parent_column failed - input was not a regonized table."
-            err_str = default_log.log_variables(err_str, "ERROR", ("table", table_name))
-            raise InputIntegrityError(err_str)
-
-        column_names = tables_and_columns[table_name]
-        candidate_index = []
-        for name in column_names:
-            if name.lower().endswith("_parent"):
-                candidate_index.append(name)
-
-        if len(candidate_index) > 1:
-            err_str = "Multiple candidates found to be the _parent row.\n"
-            err_str += "All candidates: " + repr(candidate_index) + "\n"
-            raise DatabaseIntegrityError(err_str)
-        elif len(candidate_index) == 1:
-            return candidate_index[0]
-        elif len(candidate_index) == 0:
-            return False
-        else:
-            raise LogicalError
+        return self.driver.direct_get_parent_column_name(table_name)
 
     def get_display_column(self, table_name: str) -> str:
         """
@@ -376,7 +339,7 @@ class DriverWrapperNamesMixin:
         # a display column should never be the id column. Removing it.
         try:
             column_names.remove(table_id_column)
-        except ValueError:
+        except ValueError as error:
             err_str = "identified table_id_column not in column names.\n"
             err_str = default_log.log_variables(
                 err_str,
@@ -385,12 +348,14 @@ class DriverWrapperNamesMixin:
                 ("table_id_column", table_id_column),
                 ("column_names", column_names),
             )
-            raise DatabaseIntegrityError(err_str)
+            raise DatabaseIntegrityError(err_str) from error
         column_names.sort(key=lambda x: len(x))
 
         if len(column_names) == 0:
             err_str = "table_name seems to only have an id column. If that.\n"
-            err_str = default_log.log_variables(err_str, "ERROR", ("table_name", table_name))
+            err_str = default_log.log_variables(
+                err_str, "ERROR", ("table_name", table_name)
+            )
             raise DatabaseIntegrityError(err_str)
 
         else:

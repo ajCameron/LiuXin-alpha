@@ -7,7 +7,7 @@ type/symmetry guards. Most methods only return SQL; execution methods rely on a
 concrete host connection, script executor and schema/cache hooks.
 """
 
-# Moving some of the code here so it can be imported and used for common operations
+# Todo: This module is too long and needs to be split down
 
 from __future__ import absolute_import, annotations
 
@@ -74,6 +74,7 @@ class ColumnNameMixin:
         """
         return plural_singular_mapper(table_name)
 
+    # Todo: Rename to "direct_get_link_table_name_col_name"
     @staticmethod
     def _get_link_table_name_col_name(primary_table: str, secondary_table: str) -> tuple[str, str]:
         """
@@ -169,7 +170,7 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
         ]
     )
 
-    # Todo: Standardize table names for this type of method to primary and secondary
+    # Todo: Should this be here?
     def set_database_version(self) -> None:
         """
         Upsert row 1 of database_version using the APSW driver master-version string.
@@ -209,6 +210,7 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
         ).fetchone()
         assert row is not None and row[0] == version_str
 
+    # Todo: Standardize table names for this type of method to primary and secondary
     # Todo: The aim is for this to be the single source of truth for the database linker/generator
     def direct_link_main_tables(
         self,
@@ -798,7 +800,6 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
             An unknown link_type is included in the multiline NotImplementedError
             detail.
 
-
         :param link_type: Supported cardinality name from allowed_link_types.
         :return: Diagnostic text; set display order is not guaranteed.
         """
@@ -899,9 +900,6 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
 
         return full_script
 
-    # Todo: How is this different from the above?
-
-
     def build_allowed_types_table_interlink(
             self,
             for_table: str,
@@ -923,6 +921,7 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
 
         return self._build_allowed_types_table_interlink(for_table, allowed_types)
 
+    # Todo: How is this different from the above?
     def _build_allowed_types_table_interlink(self, for_table, allowed_types):
         """
         Generate a legacy allowed-type table and one unescaped insert per label.
@@ -1280,6 +1279,7 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
         constraint_lines: list[str] = []
 
         # Always disallow self-self edges when both ends are non-null.
+        # Todo: Wrap this properly - and better formatting
         constraint_lines.append(
             f"  CONSTRAINT `{row_name}_no_self_link` CHECK (`{row_name}_primary_id` IS NULL OR `{row_name}_secondary_id` IS NULL OR `{row_name}_primary_id` != `{row_name}_secondary_id`),"
         )

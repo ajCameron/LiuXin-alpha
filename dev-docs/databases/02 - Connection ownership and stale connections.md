@@ -1,12 +1,26 @@
 # Connection ownership and stale connections
 
-Reviewed **2026-10-20**. Source: [custom-column connection resolution](../../src/LiuXin_alpha/databases/driver_wrapper/driver_wrapper_custom_columns_mixin.py).
+Reviewed **2026-11-04**. Source: [custom-column connection resolution](../../src/LiuXin_alpha/databases/driver_wrapper/driver_wrapper_custom_columns_mixin.py).
 
 SQLite connections are *stateful* objects. In this codebase they can be rotated or replaced during:
-- driver refresh / metadata refresh,
+
+- explicit driver reconnection or recovery of a closed connection,
 - fixture provisioning,
 - explicit auxiliary connection creation/teardown,
 - test harnesses that patch or alias `db.conn`.
+
+Ordinary schema refresh, including `get_tables(force_refresh=True)`, now
+invalidates caches without replacing the primary handle. It preserves pending
+transactions and TEMP objects. Relation-type lookup also preserves transaction
+ownership; it no longer uses the committing direct-SQL executor. An explicit
+reconnect remains a separate lifecycle operation.
+
+SQLite view-heading and declared-type inspection use the same primary connection
+as table discovery, so pending DDL remains visible. They quote relation names,
+close their cursors on success or failure, and close only a temporary connection
+they opened themselves. See the
+[wrapper follow-up review](driver-wrapper-review-2026-11-04.md) for regression
+coverage and the remaining compatibility read limitations.
 
 If helper objects (e.g. `CustomColumns`) store a connection reference (`self.conn = ...`) and that connection later gets closed,
 you will eventually hit:

@@ -9,7 +9,7 @@ file changes or imply metadata validation beyond the database primitives.
 from __future__ import annotations
 
 import abc
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Mapping, Sequence
 from typing import TYPE_CHECKING, Any
 
 from LiuXin_alpha.databases.db_types.macro_types import (
@@ -243,6 +243,15 @@ class MetadataSQLAPI(abc.ABC):
 
         Keep link metadata and order; an absent destination has row=None. This
         read uses the current connection without opening a snapshot transaction.
+        """
+
+    @abc.abstractmethod
+    def lock_agent_rows(self, connection: Any, agent_ids: Sequence[int]) -> None:
+        """Lock up to 500 selected Agent rows in a caller-owned write transaction.
+
+        PostgreSQL uses ordered row locks after preparing the maintenance writer
+        boundary. SQLite requires a serialized macro unit. No transaction or
+        connection is opened or completed; missing rows are diagnosed by callers.
         """
 
     @abc.abstractmethod

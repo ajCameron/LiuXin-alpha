@@ -1,8 +1,8 @@
 """Adapt the durable ledger to Core's existing job views and utility execution.
 
-Only the selected storage audit is persisted here. Utility jobs retain their
-existing IDs and manager. All durable status comes from JobRepository; the
-adapter owns a polling worker, not another run-state registry.
+Storage audits and catalogue maintenance share the ledger and handler registry.
+Utility jobs retain their existing IDs and manager. All durable execution status
+comes from JobRepository; this adapter owns polling, not a second run-state registry.
 """
 
 from __future__ import annotations
@@ -24,6 +24,7 @@ from LiuXin_alpha.jobs.handler_api import JobHandlerRegistry
 from LiuXin_alpha.jobs.models import JobDefinition, JobResultPolicy, JobRun, JobRunState
 from LiuXin_alpha.jobs.repository import JobRepository
 from LiuXin_alpha.jobs.worker import JobWorker
+from LiuXin_alpha.utils.errors import exception_message
 from LiuXin_alpha.utils.jobs.api import JobBackend, JobExecution, JobRequest
 from LiuXin_alpha.utils.jobs.manager import JobManagerAPI, JobState, ManagedJob
 
@@ -40,8 +41,9 @@ class DurableJobService:
 
     Construction opens no files or threads. Submission starts polling. Reopening
     and inspection recover expired attempts explicitly; a pending run resumes when
-    its delivery is resubmitted or another audit starts the worker. Shutdown stops
-    polling without cancelling queued work or preempting an active audit.
+    its delivery is resubmitted or another audit starts the worker. Maintenance
+    uses explicit bounded drains or opt-in continued polling. Shutdown stops
+    polling without cancelling queued work or preempting an active handler.
     """
 
     def __init__(
@@ -59,6 +61,13 @@ class DurableJobService:
         self._handler = StorageAuditHandler(
             library_uuid=library_uuid, open_library=open_library
         )
+        from LiuXin_alpha.core.maintenance_jobs import MaintenanceJobHandler
+
+        self._maintenance_handler = MaintenanceJobHandler(
+            library_uuid=library_uuid, open_library=open_library
+        )
+        self._open_library = open_library
+        self._maintenance_polling = False
         self._lease_for_s = lease_for_s
         self._lock = threading.RLock()
         self._repository: JobRepository | None = None
@@ -107,17 +116,122 @@ class DurableJobService:
             return
         registry = JobHandlerRegistry()
         registry.register(self._handler)
+        registry.register(self._maintenance_handler)
         worker = JobWorker(
             repository=self.repository, handlers=registry, lease_for_s=self._lease_for_s
         )
         thread = threading.Thread(
-            target=worker.run_forever,
-            kwargs={"poll_interval_s": 0.1},
+            target=self._poll_work,
+            args=(worker,),
             name="core-durable-jobs",
             daemon=True,
         )
         thread.start()
         self._worker, self._thread = worker, thread
+
+    def _poll_work(self, worker: JobWorker) -> None:
+        """Use the same worker registry for audits and maintenance outbox deliveries."""
+        next_publication = 0.0
+        while not worker._stop.is_set():
+            if self._maintenance_polling and time.monotonic() >= next_publication:
+                next_publication = time.monotonic() + 2.0
+                try:
+                    self.publish_maintenance(limit=128)
+                except Exception as error:
+                    # Source obligations remain durable. The explicit command exposes errors.
+                    from LiuXin_alpha.utils.logging import default_log
+
+                    default_log.error(
+                        "Maintenance outbox publication failed: %s",
+                        exception_message(error),
+                    )
+            if not worker.run_once():
+                worker._stop.wait(0.25)
+
+    def publish_maintenance(self, *, limit: int = 128) -> dict[str, Any]:
+        """Reopen the catalogue and hand committed obligations to this library ledger."""
+        from LiuXin_alpha.catalog.maintenance import catalog_maintenance
+        from LiuXin_alpha.core.maintenance_jobs import publish_obligations
+
+        with self._open_library() as services:
+            return publish_obligations(
+                catalog_maintenance(services.library.db),
+                self.repository,
+                library_uuid=self.library_uuid,
+                limit=limit,
+            )
+
+    def prune_maintenance_history(
+        self,
+        *,
+        older_than_days: int = 7,
+        limit: int = 128,
+        before_run_id: int | None = None,
+    ) -> dict[str, Any]:
+        """Retire bounded, completed maintenance history without starting a worker."""
+        from LiuXin_alpha.catalog.maintenance import catalog_maintenance
+        from LiuXin_alpha.core.maintenance_history import prune_maintenance_history
+
+        with self._open_library() as services:
+            return prune_maintenance_history(
+                catalog_maintenance(services.library.db),
+                self.repository,
+                library_uuid=self.library_uuid,
+                older_than_days=older_than_days,
+                limit=limit,
+                before_run_id=before_run_id,
+            )
+
+    def start_maintenance(self, *, limit: int = 128) -> dict[str, Any]:
+        """Publish a bounded page and opt this service into continued outbox polling."""
+        result = self.publish_maintenance(limit=limit)
+        with self._lock:
+            self._maintenance_polling = True
+            self._start_worker()
+        return result
+
+    def drain_maintenance(
+        self, *, max_batches: int = 1, limit: int = 128
+    ) -> dict[str, Any]:
+        """Drain published pages without reopening/reconciling them before every job.
+
+        Refill after the publication budget is consumed or the worker becomes
+        idle, so dependency successors and newly committed work still progress.
+        max_batches remains a job-pass bound, not a publication-page count.
+        Queued storage audits are left for their normal worker.
+        """
+        from LiuXin_alpha.core.maintenance_jobs import MAINTENANCE_JOB_KIND
+
+        if type(max_batches) is not int or not 1 <= max_batches <= 1000:
+            raise ValueError("max_batches must be between 1 and 1000")
+        if type(limit) is not int or not 1 <= limit <= 500:
+            raise ValueError("Maintenance publication limit must be between 1 and 500")
+        registry = JobHandlerRegistry()
+        registry.register(self._maintenance_handler)
+        worker = JobWorker(
+            repository=self.repository,
+            handlers=registry,
+            lease_for_s=self._lease_for_s,
+            job_kinds=(MAINTENANCE_JOB_KIND,),
+        )
+        completed = 0
+        published_after = None
+        for _ in range(max_batches):
+            if published_after is None or completed - published_after >= limit:
+                self.publish_maintenance(limit=limit)
+                published_after = completed
+            if not worker.run_once():
+                if published_after == completed:
+                    break
+                # A small dependency layer may finish before its page budget.
+                # Reconcile once after that progress; avoid spinning when there
+                # is no runnable work or retries are waiting for their backoff.
+                self.publish_maintenance(limit=limit)
+                published_after = completed
+                if not worker.run_once():
+                    break
+            completed += 1
+        return {"job_passes": completed}
 
     def submit_audit(
         self,
@@ -256,8 +370,17 @@ class DurableJobService:
         request_key: str,
         acknowledge_possible_effects: bool = False,
     ) -> str:
+        from LiuXin_alpha.core.maintenance_jobs import MAINTENANCE_JOB_KIND
+
         with self._lock:
             self._check_open()
+            if (
+                self.repository.get_run(self._run_id(job_id)).job_kind
+                == MAINTENANCE_JOB_KIND
+            ):
+                raise ValueError(
+                    "Use maintenance retry for maintenance jobs so catalogue delivery state is reset together"
+                )
             run = self.repository.retry_run(
                 self._run_id(job_id),
                 request_key=request_key,

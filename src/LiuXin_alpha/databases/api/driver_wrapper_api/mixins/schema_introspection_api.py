@@ -3,32 +3,31 @@ Specify portable schema structure, relationship capabilities and column policies
 
 Abstract hooks provide no implementation and return None if their bodies are called
 directly. Method contracts describe the reviewed DriverWrapper implementation and
-its shared SQL backend. Two concrete case-sensitivity aliases forward to canonical
-hooks.
+its shared SQL backend. Concrete mixins implement the case-sensitivity aliases.
 """
 
 from __future__ import annotations
 
 # Suggested additions to DatabaseDriverWrapperAPI (or a new SchemaIntrospectionAPI)
-
 import abc
 from abc import abstractmethod
-from collections.abc import Mapping
-from typing import TYPE_CHECKING, Iterator, Optional
+from collections.abc import Iterator, Mapping
+from typing import TYPE_CHECKING
 
+from LiuXin_alpha.databases.db_types.driver_types import QueryConnection
 from LiuXin_alpha.databases.schema_specs import (
     LinkCapabilities,
+    StorageLinkSpec,
     StorageSchemaSpec,
     StorageTableSpec,
-    StorageLinkSpec,
 )
-
 
 if TYPE_CHECKING:
     from LiuXin_alpha.databases.column_metadata import (
         ColumnMetadata,
         ColumnOptions,
     )
+    from LiuXin_alpha.databases.normalized_identities import NormalizedIdentitySpec
     from LiuXin_alpha.metadata.value_policies import (
         ColumnEmptyValuePolicy,
         ColumnMergePolicy,
@@ -36,7 +35,6 @@ if TYPE_CHECKING:
         ColumnSemanticRole,
         ColumnValidationProfile,
     )
-    from LiuXin_alpha.databases.normalized_identities import NormalizedIdentitySpec
 
 
 class SchemaIntrospectionAPI(abc.ABC):
@@ -45,15 +43,13 @@ class SchemaIntrospectionAPI(abc.ABC):
 
     Abstract hooks provide no implementation and return None if their bodies are called
     directly. Method contracts describe the reviewed DriverWrapper implementation and
-    its shared SQL backend. Two concrete case-sensitivity aliases forward to canonical
-    hooks.
+    its shared SQL backend. Concrete mixins implement the case-sensitivity aliases.
 
     Example:
         >>> import inspect
         >>> inspect.isabstract(SchemaIntrospectionAPI)
         True
     """
-
 
     @abstractmethod
     def get_link_capabilities(
@@ -433,7 +429,9 @@ class SchemaIntrospectionAPI(abc.ABC):
         """
 
     @abstractmethod
-    def iter_normalized_identity_specs(self, *, table: str | None = None) -> Iterator[NormalizedIdentitySpec]:
+    def iter_normalized_identity_specs(
+        self, *, table: str | None = None
+    ) -> Iterator[NormalizedIdentitySpec]:
         """
         Yield database identity declarations after checking physical references.
 
@@ -848,77 +846,44 @@ class SchemaIntrospectionAPI(abc.ABC):
         :return: None; the driver setter result is discarded.
         """
 
+    @abstractmethod
     def is_column_case_sensitive(self, table: str, column: str) -> bool:
-        """
-        Forward the legacy getter name to get_case_sensitivity().
+        """Expose the legacy alias for the canonical case-sensitivity getter."""
 
-        Arguments and the getter result pass through unchanged; exceptions propagate.
-
-        Example:
-            >>> from types import SimpleNamespace
-            >>> calls = []
-            >>> host = SimpleNamespace(get_case_sensitivity=lambda table, column: False)
-            >>> SchemaIntrospectionAPI.is_column_case_sensitive(
-            ...     host, "works", "work_title"
-            ... )
-            False
-
-
-        :param table: Table name in the current schema.
-        :param column: Column name in the selected table.
-        :return: Result of the canonical case-sensitivity getter.
-        """
-
-        return self.get_case_sensitivity(table, column)
-
+    @abstractmethod
     def set_column_case_sensitive(
         self,
         table: str,
         column: str,
         case_sensitive: bool,
     ) -> None:
-        """
-        Forward the legacy setter name to set_case_sensitivity().
-
-        Arguments pass through unchanged; the setter result is discarded and errors
-        propagate.
-
-        Example:
-            >>> from types import SimpleNamespace
-            >>> calls = []
-            >>> host = SimpleNamespace(
-            ...     set_case_sensitivity=lambda *args: calls.append(args)
-            ... )
-            >>> SchemaIntrospectionAPI.set_column_case_sensitive(
-            ...     host, "works", "work_title", False
-            ... )
-            >>> calls
-            [('works', 'work_title', False)]
-
-
-        :param table: Table name in the current schema.
-        :param column: Column name in the selected table.
-        :param case_sensitive: Desired text-equality case-sensitivity flag.
-        :return: None.
-        """
-
-        self.set_case_sensitivity(table, column, case_sensitive)
+        """Expose the legacy alias for the canonical case-sensitivity setter."""
 
     @abstractmethod
-    def get_table_spec(self, table: str, force_refresh: bool = False) -> StorageTableSpec:
+    def get_table_spec(
+        self,
+        table: str,
+        force_refresh: bool = False,
+        *,
+        connection: QueryConnection | None = None,
+    ) -> StorageTableSpec:
         """
         Build or reuse the schema specification for a table or view.
 
         Abstract hook; the following behavior describes concrete DriverWrapper
         implementations.
 
-        A missing relation raises ValueError. Headings preserve discovered order;
-        optional backend type and affinity failures leave those values unset. Every
-        column is currently marked nullable, so the result does not certify NOT NULL
-        constraints. Conventional ID, date and scratch columns are inferred locally for
-        tables only. Populated or inferred table groups set classification flags;
-        related main tables are sorted. force_refresh clears wrapper caches but does not
-        explicitly refresh backend table discovery.
+        Read native column types, nullability, SQL defaults, ordered primary keys,
+        indexes and foreign keys. View nullability is unknown (None). id_column is
+        set only for a single physical primary key; parent/date/scratch roles and
+        table groups still follow LiuXin naming conventions. Missing relations
+        raise ValueError and backend errors propagate.
+
+        An explicit connection or active macro transaction bypasses the global
+        cache. Otherwise reuse the primary connection and cached specification;
+        request force_refresh after schema changes. No borrowed handle is closed,
+        committed or rolled back. Check constraints and arbitrary SQL expressions
+        are not interpreted as a complete validation or migration model.
 
         Example:
             >>> wrapper.get_table_spec("works")  # doctest: +SKIP
@@ -927,7 +892,8 @@ class SchemaIntrospectionAPI(abc.ABC):
         :param table: Table name in the current schema.
         :param force_refresh: Whether to clear derived wrapper caches before rebuilding
             this result.
-        :return: Cached StorageTableSpec describing the requested relation.
+        :param connection: Optional borrowed handle, whose uncommitted schema is visible.
+        :return: StorageTableSpec describing the requested relation.
         """
 
     @abstractmethod
@@ -940,12 +906,9 @@ class SchemaIntrospectionAPI(abc.ABC):
         """
         Yield specifications for discovered tables and optionally views.
 
-        Abstract hook; the following behavior describes concrete DriverWrapper
-        implementations.
-
-        Tables come first in backend discovery order. View names already seen as tables
-        are skipped. Refresh clears derived wrapper caches when iteration starts, but
-        discovery uses force_refresh=False.
+        Filter every discovered relation by its actual kind. Tables come first;
+        requested views follow once each. Refresh clears derived wrapper caches
+        when iteration starts, but discovery uses force_refresh=False.
 
         Example:
             >>> wrapper.iter_table_specs()  # doctest: +SKIP
@@ -953,8 +916,7 @@ class SchemaIntrospectionAPI(abc.ABC):
 
         :param force_refresh: Whether to clear derived wrapper caches before rebuilding
             this result.
-        :param include_views: Whether to include separately discovered views after
-            tables.
+        :param include_views: Whether to include views after physical tables.
         :return: Iterator yielding StorageTableSpec objects.
         """
 
@@ -965,7 +927,7 @@ class SchemaIntrospectionAPI(abc.ABC):
         table2: str,
         *,
         force_refresh: bool = False,
-    ) -> Optional["StorageLinkSpec"]:
+    ) -> StorageLinkSpec | None:
         """
         Build or reuse an oriented relationship specification between two tables.
 
@@ -997,7 +959,7 @@ class SchemaIntrospectionAPI(abc.ABC):
         table: str,
         *,
         force_refresh: bool = False,
-    ) -> Optional[StorageLinkSpec]:
+    ) -> StorageLinkSpec | None:
         """
         Build or reuse a self-relationship specification for one main table.
 
@@ -1102,7 +1064,7 @@ class SchemaIntrospectionAPI(abc.ABC):
         table2: str,
         *,
         force_refresh: bool = False,
-    ) -> Optional[type]:
+    ) -> type | None:
         """
         Build and cache a row dataclass for the link between two tables.
 

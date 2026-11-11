@@ -2,6 +2,7 @@
 
 Import connection/legacy aliases from database_types, column option shapes from
 column_types, operation results from macro_types and predicates from query_types.
+Maintenance consistency declarations live in maintenance_types.
 These values describe storage contracts; bibliographic policy belongs to Catalog
 and metadata.
 """

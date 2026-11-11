@@ -28,6 +28,7 @@ from LiuXin_alpha.databases.database_driver_plugins.PostgreSQL.config import (
     store_postgres_password,
     url_has_password,
 )
+from LiuXin_alpha.databases.db_types.driver_types import SQLParameters
 from LiuXin_alpha.utils.logging import default_log
 
 
@@ -774,9 +775,9 @@ class PostgresConnectionAdapter:
         :param kwargs: Keyword arguments forwarded to raw_connection.cursor.
         :return: New cursor adapter; the caller owns cursor cleanup.
         """
-        return PostgresCursorAdapter(self.raw_connection.cursor(*args, **kwargs))
+        return PostgresCursorAdapter(self.raw_connection.cursor(*args, **kwargs), connection=self)
 
-    def execute(self, sql: str, values: Sequence[Any] | None = None) -> "PostgresCursorAdapter":
+    def execute(self, sql: str, values: SQLParameters | None = None) -> "PostgresCursorAdapter":
         """
         Open a cursor and execute one translated statement.
 
@@ -789,10 +790,14 @@ class PostgresConnectionAdapter:
         :return: New cursor adapter; the caller owns cursor cleanup.
         """
         cur = self.cursor()
-        cur.execute(sql, values)
+        try:
+            cur.execute(sql, values)
+        except BaseException:
+            cur.close()
+            raise
         return cur
 
-    def executemany(self, sql: str, values: Iterable[Sequence[Any]]) -> "PostgresCursorAdapter":
+    def executemany(self, sql: str, values: Iterable[SQLParameters]) -> "PostgresCursorAdapter":
         """
         Open a cursor and execute translated SQL for each parameter sequence.
 
@@ -806,7 +811,11 @@ class PostgresConnectionAdapter:
         :return: New cursor adapter; the caller owns cursor cleanup.
         """
         cur = self.cursor()
-        cur.executemany(sql, values)
+        try:
+            cur.executemany(sql, values)
+        except BaseException:
+            cur.close()
+            raise
         return cur
 
     def executescript(self, sqlscript: str) -> None:
@@ -883,6 +892,13 @@ class PostgresConnectionAdapter:
 
         :return: None; forwards the operation to the raw connection.
         """
+        from LiuXin_alpha.databases.connection_hooks import flush_connection_work
+
+        try:
+            flush_connection_work(self)
+        except BaseException:
+            self.raw_connection.rollback()
+            raise
         self.raw_connection.commit()
 
     def rollback(self) -> None:
@@ -938,6 +954,14 @@ class PostgresConnectionAdapter:
         :param tb: Traceback from the context body, or None.
         :return: Underlying context exit result.
         """
+        if exc_type is None:
+            from LiuXin_alpha.databases.connection_hooks import flush_connection_work
+
+            try:
+                flush_connection_work(self)
+            except BaseException as error:
+                self.raw_connection.__exit__(type(error), error, error.__traceback__)
+                raise
         return self.raw_connection.__exit__(exc_type, exc, tb)
 
 
@@ -955,7 +979,21 @@ class PostgresCursorAdapter:
 
     lastrowid = None
 
-    def __init__(self, raw_cursor: Any):
+    @property
+    def description(self):
+        """Expose DB-API result columns for portable bounded journal reads."""
+        return self.raw_cursor.description
+
+    @property
+    def rowcount(self):
+        """Expose the affected-row count for checked configuration mutations."""
+        return self.raw_cursor.rowcount
+
+    def fetchmany(self, size=1):
+        """Fetch a bounded result slice without materializing the remaining rows."""
+        return self.raw_cursor.fetchmany(size)
+
+    def __init__(self, raw_cursor: Any, *, connection=None):
         """
         Retain an existing cursor without changing its row factory.
 
@@ -967,8 +1005,9 @@ class PostgresCursorAdapter:
         :return: None; stores the cursor.
         """
         self.raw_cursor = raw_cursor
+        self._connection = connection
 
-    def execute(self, sql: str, values: Sequence[Any] | None = None) -> "PostgresCursorAdapter":
+    def execute(self, sql: str, values: SQLParameters | None = None) -> "PostgresCursorAdapter":
         """
         Translate SQL and execute with optional bound values.
 
@@ -982,6 +1021,10 @@ class PostgresCursorAdapter:
         :param values: Bound values passed to the underlying cursor.
         :return: This cursor adapter for chained operations.
         """
+        if self._connection is not None:
+            from LiuXin_alpha.databases.connection_hooks import before_statement
+
+            before_statement(self._connection, sql)
         translated = translate_sql_for_postgres(sql)
         if values is None:
             self.raw_cursor.execute(translated)
@@ -989,7 +1032,7 @@ class PostgresCursorAdapter:
             self.raw_cursor.execute(translated, values)
         return self
 
-    def executemany(self, sql: str, values: Iterable[Sequence[Any]]) -> "PostgresCursorAdapter":
+    def executemany(self, sql: str, values: Iterable[SQLParameters]) -> "PostgresCursorAdapter":
         """
         Translate one SQL template and pass all parameter sequences to the raw cursor.
 
@@ -1003,6 +1046,10 @@ class PostgresCursorAdapter:
             materialization.
         :return: This cursor adapter.
         """
+        if self._connection is not None:
+            from LiuXin_alpha.databases.connection_hooks import before_statement
+
+            before_statement(self._connection, sql)
         self.raw_cursor.executemany(translate_sql_for_postgres(sql), values)
         return self
 

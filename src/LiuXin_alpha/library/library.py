@@ -95,6 +95,11 @@ class Library:
         self._database = database
         self._storage = storage if storage is not None else getattr(database, "storage", None)
         self._closed = False
+        if isinstance(database, Database):
+            from LiuXin_alpha.catalog.maintenance import catalog_maintenance
+
+            # Attach implementations only; installation and workers remain explicit.
+            self.maintenance_runtime = catalog_maintenance(database)
 
     @property
     def database(self) -> Database:

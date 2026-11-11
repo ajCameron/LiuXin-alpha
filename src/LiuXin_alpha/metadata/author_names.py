@@ -1,5 +1,5 @@
 """
-Derive bibliographic sort values from author names without database access.
+Derive bibliographic sort values from author and Agent names without database access.
 
 The module owns the legacy prefix, suffix, copy-word and comma policy as a pure
 metadata-value transformation.  Database drivers may adapt stored values before
@@ -15,6 +15,31 @@ from LiuXin_alpha.preferences import preferences
 from LiuXin_alpha.utils.text import remove_bracketed_text
 
 AuthorSortMethod = Literal["copy", "comma", "nocomma"]
+
+
+def agent_name_to_sort(
+    name: str, agent_type: str, *, person_method: AuthorSortMethod = "comma"
+) -> str:
+    """Derive a sort value for a WEMI Agent without guessing its locale.
+
+    Persons use the existing author prefix/suffix policy and an explicit method.
+    Organisations, groups and pseudonyms retain display order: their names do
+    not establish a family name. Use ``person_method="copy"`` for a person's
+    already ordered or locale-specific name, or store an explicit sort override.
+    Outer whitespace is removed; blank names and unsupported policies are refused.
+    """
+    if not isinstance(name, str) or not name.strip():
+        raise ValueError("Agent name must be nonblank text")
+    if person_method not in ("copy", "comma", "nocomma"):
+        raise ValueError("person_method must be copy, comma or nocomma")
+    if agent_type not in ("person", "organisation", "group", "pseudonym"):
+        raise ValueError("Unsupported Agent type for name sorting")
+    name = name.strip()
+    return (
+        author_to_author_sort(name, method=person_method)
+        if agent_type == "person"
+        else name
+    )
 
 
 def author_to_author_sort(
@@ -114,4 +139,9 @@ def authors_to_sort_string(
     )
 
 
-__all__ = ["AuthorSortMethod", "author_to_author_sort", "authors_to_sort_string"]
+__all__ = [
+    "AuthorSortMethod",
+    "agent_name_to_sort",
+    "author_to_author_sort",
+    "authors_to_sort_string",
+]

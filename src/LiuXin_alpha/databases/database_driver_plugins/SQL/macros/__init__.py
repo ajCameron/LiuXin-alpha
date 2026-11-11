@@ -863,6 +863,7 @@ class SQLiteDatabaseMacros(
         else:
             self.execute("INSERT INTO library_id (library_id_uuid) VALUES (?);", (new_val,))
 
+    # Todo: Sure I've seen this method somewhere else...
     def set_database_version(self, new_val):
         """
         Update all legacy version rows, or insert one if the table is empty.

@@ -348,6 +348,11 @@ def _returns_compatible(expected: str | None, actual: str | None) -> bool:
     if expected == actual:
         return True
 
+    # Structural conformance is checked by both static checkers in
+    # tests/typing/internal_contracts.py; the AST comparison cannot infer it.
+    if expected == "QueryConnection" and actual == "sqlite3.Connection":
+        return True
+
     if actual == "Self":
         return True
 

@@ -73,6 +73,36 @@ def test_repeated_delivery_returns_the_same_completed_run(tmp_path):
     assert counts(repository) == (1, 1, 4)
 
 
+def test_claim_priority_precedes_fifo_with_fifo_ties(tmp_path):
+    repository = JobRepository(tmp_path / "priority.sqlite")
+    low = repository.submit_job(definition(priority=-100), request_key="low")
+    first = repository.submit_job(definition(priority=200), request_key="high-1")
+    second = repository.submit_job(definition(priority=200), request_key="high-2")
+    for expected in (first, second, low):
+        assert (
+            repository.lease_next_run(worker_id="priority", lease_for_s=60).job_run_id
+            == expected.job_run_id
+        )
+
+
+def test_coordinating_retry_reuses_existing_successor_and_request_key(tmp_path):
+    repository = JobRepository(tmp_path / "retry.sqlite")
+    parent = repository.submit_job(definition(), request_key="initial")
+    finish(repository, parent)
+    successor = repository.retry_run(
+        parent.job_run_id, request_key="operator", acknowledge_possible_effects=True
+    )
+    for _ in range(2):
+        result = repository.retry_run(
+            parent.job_run_id,
+            request_key="coordinator",
+            acknowledge_possible_effects=True,
+            reuse_successor=True,
+        )
+        assert result.job_run_id == successor.job_run_id
+    assert len(repository.list_runs()) == 2
+
+
 def test_concurrent_duplicate_delivery_has_one_definition_run_and_event(tmp_path):
     path = tmp_path / "jobs.sqlite"
     repository = JobRepository(path)

@@ -13,6 +13,7 @@ from collections.abc import Iterable, Mapping
 from contextlib import AbstractContextManager
 from typing import TYPE_CHECKING, Any
 
+from LiuXin_alpha.databases.db_types.driver_types import QueryConnection
 from LiuXin_alpha.databases.db_types.macro_types import (
     LINK_TYPE_UNSET,
     CanonicalIdentity,
@@ -43,6 +44,10 @@ class PortableMacrosAPI(abc.ABC):
         Given an open database db, use db.driver.macros.get_rows("tags",
         order_by=("tag_id",)) to retrieve tag rows in ID order.
     """
+
+    @abc.abstractmethod
+    def current_transaction_connection(self) -> QueryConnection | None:
+        """Borrow the active thread's macro handle, or None; never open a handle."""
 
     @abc.abstractmethod
     def supports_normalized_search(self) -> bool:
@@ -89,6 +94,31 @@ class PortableMacrosAPI(abc.ABC):
         :raises DatabaseIntegrityError: The driver cannot provide a transaction
             connection.
         """
+
+    @abc.abstractmethod
+    def read_transaction(self) -> AbstractContextManager[Any]:
+        """Own a read-only snapshot for composed portable reads.
+
+        Refuse nesting or borrowing an active transaction. PostgreSQL uses
+        repeatable read and SQLite uses a deferred snapshot. The backend rejects
+        writes; this operation does not reserve the database's writer boundary.
+        """
+
+    @abc.abstractmethod
+    def inspect_repair_references(self, table: str) -> list[dict]:
+        """Inventory inbound physical and polymorphic references without changing data."""
+
+    @abc.abstractmethod
+    def lock_repair_references(self, table: str) -> list[dict]:
+        """Reserve source/reference tables in an owned serialized repair transaction."""
+
+    @abc.abstractmethod
+    def record_catalog_repair(self, receipt: Mapping[str, Any]) -> str:
+        """Persist an immutable JSON receipt in the caller's serialized repair transaction."""
+
+    @abc.abstractmethod
+    def get_catalog_repair_receipt(self, receipt_id: str) -> dict | None:
+        """Read one receipt, returning None without installing optional audit storage."""
 
     @abc.abstractmethod
     def get_row(

@@ -8,6 +8,7 @@ created.
 from __future__ import print_function, annotations
 
 
+# Todo: There's two ways to do this - query live or direct
 class DummyMaintenanceBot:
     """
     Accept legacy dirty callbacks without scheduling work.

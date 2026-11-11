@@ -69,7 +69,7 @@ class DriverTreeMixinAPI(abc.ABC):
         """
 
     @abc.abstractmethod
-    def direct_set_full_column(self, target_table):
+    def direct_set_full_column(self, target_table: str) -> bool:
         """
         Write ancestor display paths for positive-ID rows, committing each row
         separately.

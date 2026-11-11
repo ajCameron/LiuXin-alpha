@@ -31,8 +31,9 @@ class MetadataWriter:
     Coordinate WEMI creation, links and selected metadata attachment/merge operations.
 
     Explicit graph/replacement methods require macro transactions. Attachment
-    and merge methods also support legacy handles without a callable transaction,
-    where atomicity is not guaranteed. Policy checks are preliminary rather than
+    methods also support legacy handles without a callable transaction, where
+    atomicity is not guaranteed. Merge requires an owned serialized transaction
+    and an explicitly resolved preview. Policy checks are preliminary rather than
     a complete validation of all repository payloads.
 
     Example:
@@ -96,7 +97,9 @@ class MetadataWriter:
         """
 
         with self.db.macros.transaction():
-            return CatalogContainerWriter(self.db, repositories=self.repositories).write(
+            return CatalogContainerWriter(
+                self.db, repositories=self.repositories
+            ).write(
                 metadata,
                 fields=fields,
                 target_level=target_level,
@@ -218,13 +221,19 @@ class MetadataWriter:
             existing_work = (
                 None if work_id is None else self.repositories.works.get(work_id)
             )
-            if not self.policy.can_create(level="work", data=work) and existing_work is None:
-                raise CatalogMutationError("WEMI stack requires a non-empty work payload")
+            if (
+                not self.policy.can_create(level="work", data=work)
+                and existing_work is None
+            ):
+                raise CatalogMutationError(
+                    "WEMI stack requires a non-empty work payload"
+                )
             if work_id is None:
                 created_work_id = self.repositories.works.create(work)
             elif existing_work is None:
                 created_work_id = self.repositories.works._create(
-                    work, entity_id=work_id,
+                    work,
+                    entity_id=work_id,
                 )
             elif work:
                 self.repositories.works.update(work_id, work)
@@ -968,92 +977,38 @@ class MetadataWriter:
                 )
 
     def merge_entities(
-        self, *, level: WemiLevel, source_id: EntityId, target_id: EntityId
-    ) -> None:
-        """
-        Fill missing target fields and transfer selected relationships before deleting the source.
-
-        Use macros.transaction when callable, otherwise a null context. Only
-        supported WEMI adjacency, Agent/Note links and curated identifiers are
-        explicitly transferred; this is not a complete merge of every metadata
-        family. Target nonempty fields and existing link identities win. Unsupported
-        link specifications are skipped. Deletion/cascades follow repository policy.
-
-        Example:
-            Merging Manifestations reassigns source Items to the target.
-
-
-        :param level: WEMI level selecting the semantic repository.
-        :param source_id: Existing entity to absorb and delete.
-        :param target_id: Distinct existing entity to retain.
-        :return: None; retains target identity and deletes the source on success.
-        :raises CatalogMutationError: Policy rejects level, IDs or entity existence.
-        """
-
-        transaction = getattr(self.db.macros, "transaction", None)
-        context = transaction() if callable(transaction) else nullcontext()
-        with context:
-            self._merge_entities(
-                level=level,
-                source_id=source_id,
-                target_id=target_id,
-            )
-
-    def _merge_entities(
         self,
         *,
         level: WemiLevel,
         source_id: EntityId,
         target_id: EntityId,
-    ) -> None:
+        resolutions=None,
+        relationship_resolutions=None,
+        max_rows=10000,
+        dry_run=True,
+        expected_state=None,
+    ) -> dict:
+        """Preview or explicitly apply the Catalog semantic merge policy.
+
+        Differing populated metadata requires explicit decisions. Apply requires
+        a matching preview fingerprint and owns its serialized transaction, full
+        reference checks and audit receipt. Unsupported references block deletion.
+        This entrypoint delegates to the same repair owner as Catalog operations.
         """
-        Execute the selected-field/link merge without opening a transaction.
+        from .repairs import CatalogRepairs
 
-        Require both Rows after policy, fill nonempty source values into empty target
-        columns, transfer selected links/identifiers, reassign Manifestation Items,
-        then delete the source. Use merge_entities for optional transaction handling.
-
-        Example:
-            Item merges have no descendant transfer; foreign-key values are filled only
-            when the target field is empty.
-
-
-        :param level: WEMI level selecting the semantic repository.
-        :param source_id: Existing entity to absorb and delete.
-        :param target_id: Distinct existing entity to retain.
-        :return: None; deletes the source after transfers.
-        :raises CatalogMutationError: Policy rejects the merge.
-        """
-
-        if not self.policy.can_merge(
-            level=level, source_id=source_id, target_id=target_id
-        ):
-            raise CatalogMutationError(
-                f"merge rejected for {level}:{source_id}->{target_id}"
-            )
-        repository = getattr(self.repositories, f"{level}s")
-        source = repository.require(source_id)
-        target = repository.require(target_id)
-        changes = self._missing_target_values(repository, source, target)
-        if changes:
-            repository.update(target_id, changes)
-
-        table = WEMI_TABLES[level]
-        for secondary in self._relationship_targets(level):
-            self._transfer_links(table, source_id, target_id, secondary)
-        self._transfer_links(table, source_id, target_id, "agents")
-        self._transfer_links(table, source_id, target_id, "notes")
-        self._transfer_identifiers(level, source_id, target_id)
-
-        if level == "item":
-            pass
-        elif level == "manifestation":
-            for item in self.repositories.items.list_for_manifestation(source_id):
-                self.repositories.items.update(
-                    item["item_id"],
-                    {"item_manifestation_id": target_id},
-                )
-        repository.delete(source_id)
+        if level not in WEMI_TABLES:
+            raise CatalogMutationError("A WEMI merge requires a supported level")
+        return CatalogRepairs(self.db, self.repositories).merge(
+            repository=WEMI_TABLES[level],
+            source_id=source_id,
+            target_id=target_id,
+            resolutions=resolutions,
+            relationship_resolutions=relationship_resolutions,
+            max_rows=max_rows,
+            dry_run=dry_run,
+            expected_state=expected_state,
+        )
 
     @staticmethod
     def _as_sequence(value: object) -> tuple[object, ...]:
@@ -1141,170 +1096,3 @@ class MetadataWriter:
         for note in notes:
             if not isinstance(note, (str, Mapping)):
                 raise CatalogMutationError("notes must be strings or mappings")
-
-    @staticmethod
-    def _missing_target_values(
-        repository: Any,
-        source: RowMapping,
-        target: RowMapping,
-    ) -> dict[str, object]:
-        """
-        Select nonempty source fields to fill empty target columns.
-
-        Exclude the identity column and names ending _timestamp_ep_k or _scratch.
-
-        Example:
-            Whitespace, zero and False count as populated; only None and empty text are treated as missing.
-
-
-        :param repository: Repository exposing columns and id_column.
-        :param source: Source mapping.
-        :param target: Target mapping.
-        :return: New changes mapping sharing source values.
-        """
-
-        return {
-            column: source[column]
-            for column in repository.columns
-            if column != repository.id_column
-            and not column.endswith(("_timestamp_ep_k", "_scratch"))
-            and target.get(column) in (None, "")
-            and source.get(column) not in (None, "")
-        }
-
-    @staticmethod
-    def _relationship_targets(level: WemiLevel) -> tuple[str, ...]:
-        """
-        List WEMI link-table families transferred for a merge level.
-
-        Example:
-            Manifestation returns expressions; its Items are handled separately as foreign keys.
-
-
-        :param level: WEMI level selecting the semantic repository.
-        :return: Tuple of adjacent table names; Item has none.
-        :raises KeyError: Level is unknown.
-        """
-
-        return {
-            "work": ("expressions",),
-            "expression": ("works", "manifestations"),
-            "manifestation": ("expressions",),
-            "item": (),
-        }[level]
-
-    def _transfer_links(
-        self,
-        table: str,
-        source_id: EntityId,
-        target_id: EntityId,
-        secondary_table: str,
-    ) -> None:
-        """
-        Move supported link identities with target-first collision precedence.
-
-        A CatalogMutationError resolving the spec skips the family. Filter extras
-        to writable columns; failure to discover the ID column is ignored. Identity
-        includes link type only when the spec requires it. Clear/replace uses an
-        available macro transaction, otherwise partial effects are possible.
-
-        Example:
-            An existing target link retains its priority/extras when a source link has the same identity.
-
-
-        :param table: Primary entity table.
-        :param source_id: Source entity ID.
-        :param target_id: Target entity ID.
-        :param secondary_table: Linked table to transfer.
-        :return: None; clears source links and replaces target links when source has rows.
-        """
-
-        repository = self.repositories.works
-        try:
-            spec = repository._link_spec(table, secondary_table)
-        except CatalogMutationError:
-            return
-        rows = self.db.macros.get_link_rows(spec, source_id)
-        writable_extras = {
-            column.name
-            for column in spec.extra_link_columns
-            if not column.is_primary_key
-        }
-        try:
-            writable_extras.discard(repository._wrapper.get_id_column(spec.link_table))
-        except Exception:
-            pass
-        if not rows:
-            return
-        target_rows = self.db.macros.get_link_rows(spec, target_id)
-        desired: dict[tuple[object, ...], LinkValue] = {}
-        for row in (*target_rows, *rows):
-            identity: tuple[object, ...] = (row.secondary_id,)
-            if spec.type_part_of_identity:
-                identity += (row.link_type,)
-            desired.setdefault(
-                identity,
-                LinkValue(
-                    row.secondary_id,
-                    link_type=row.link_type,
-                    priority=row.priority,
-                    extra={
-                        key: value
-                        for key, value in row.extra.items()
-                        if key in writable_extras
-                    },
-                ),
-            )
-        transaction = getattr(self.db.macros, "transaction", None)
-        context = transaction() if callable(transaction) else nullcontext()
-        with context:
-            self.db.macros.replace_links(spec, source_id, ())
-            self.db.macros.replace_links(spec, target_id, desired.values())
-
-    def _transfer_identifiers(
-        self,
-        level: WemiLevel,
-        source_id: EntityId,
-        target_id: EntityId,
-    ) -> None:
-        """
-        Move curated identifiers and demote source primaries conflicting with the target.
-
-        The target-primary scheme set is captured once and is not updated as rows
-        move. Multiple source primaries for a previously absent scheme can remain
-        primary. No normalization, deduplication or standalone transaction occurs.
-
-        Example:
-            A primary source ISBN becomes nonprimary when the target already has a primary ISBN.
-
-
-        :param level: WEMI level selecting the semantic repository.
-        :param source_id: Source owner ID.
-        :param target_id: Target owner ID.
-        :return: None; updates source identifier Rows in place.
-        """
-
-        target_primary_schemes = {
-            row.get("entity_identifier_scheme")
-            for row in self.repositories.identifiers.list_for_wemi(
-                level=level,
-                entity_id=target_id,
-            )
-            if row.get("entity_identifier_is_primary")
-        }
-        for row in self.repositories.identifiers.list_for_wemi(
-            level=level,
-            entity_id=source_id,
-        ):
-            changes: dict[str, object] = {
-                "entity_identifier_entity_id": target_id,
-            }
-            if (
-                row.get("entity_identifier_is_primary")
-                and row.get("entity_identifier_scheme") in target_primary_schemes
-            ):
-                changes["entity_identifier_is_primary"] = 0
-            self.repositories.identifiers.update(
-                row["entity_identifier_id"],
-                changes,
-            )

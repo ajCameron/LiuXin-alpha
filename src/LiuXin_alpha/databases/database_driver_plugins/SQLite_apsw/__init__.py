@@ -10,10 +10,11 @@ formatting described by get_SQLite_driver_master_version.
 
 # Increment this if ANY submodule is changed
 
-__driver_version__ = (0, 2, 0)
+__driver_version__ = (0, 3, 0)
 
 
 # Todo: Include the constants now used to determine allowable values against this as well
+# Todo: Rename this to be lower case...
 def get_SQLite_driver_master_version() -> str:
     """
     Build the legacy SQLite component-version string from current module values.

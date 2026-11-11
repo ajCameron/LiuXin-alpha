@@ -720,11 +720,16 @@ class CoreApplicationAPI:
         command(
             "catalog.metadata.merge",
             self.catalog_metadata_merge,
-            summary="Atomically merge one WEMI entity into another.",
+            summary="Preview or explicitly apply one WEMI merge with an audit receipt.",
             payload_fields=(
                 _field("level", required=True, field_type="string"),
                 _field("source_id", required=True, field_type="integer"),
                 _field("target_id", required=True, field_type="integer"),
+                _field("resolutions", field_type="object"),
+                _field("relationship_resolutions", field_type="object"),
+                _field("max_rows", field_type="integer"),
+                _field("dry_run", field_type="boolean"),
+                _field("expected_state", field_type="string"),
             ),
             tags=("catalog", "metadata", "write"),
             remote_capabilities=("write",),
@@ -2586,19 +2591,20 @@ class CoreApplicationAPI:
         command: "CoreCommand",
     ) -> dict[str, Any]:
         """
-        Merge source into target at one WEMI level using the semantic writer, then reconcile.
+        Preview or apply a WEMI merge through the shared Catalog repair policy.
 
-        The writer owns conflict, self-merge, and source-retention policies. Its
-        return value is ignored; merged=True reports completed delegation rather
-        than an independent inspection of the resulting entities.
+        Preview is read-only. Apply requires dry_run=False, the inspected state
+        fingerprint and explicit conflict decisions. The writer owns the complete
+        reference check, serialized transaction and durable receipt. Unsupported
+        references block source deletion. Return the authoritative plan/receipt.
 
         Example:
             >>> receipt = CoreApplicationAPI().catalog_metadata_merge(runtime, command)  # doctest: +SKIP
 
 
-        :param runtime: Runtime whose Catalog supplies entity merging and read-side reconciliation.
-        :param command: Command with level and required integer-convertible source_id/target_id.
-        :return: Reconciled source/target identifiers and merged=True after the writer call.
+        :param runtime: Runtime whose Catalog supplies the shared merge owner.
+        :param command: Level, source/target IDs, decisions and preview/apply controls.
+        :return: Complete preview or committed receipt, including conflicts and attribution.
         """
         payload = _payload(command)
         level = _required_text(
@@ -2608,20 +2614,17 @@ class CoreApplicationAPI:
         )
         source_id = _required_int(payload, "source_id")
         target_id = _required_int(payload, "target_id")
-        runtime.services.catalog.mutations.writer.merge_entities(
+        result = runtime.services.catalog.mutations.writer.merge_entities(
             level=level,
             source_id=source_id,
             target_id=target_id,
+            resolutions=payload.get("resolutions"),
+            relationship_resolutions=payload.get("relationship_resolutions"),
+            max_rows=payload.get("max_rows", 10000),
+            dry_run=payload.get("dry_run", True),
+            expected_state=payload.get("expected_state"),
         )
-        return self._semantic_receipt(
-            runtime,
-            {
-                "level": level,
-                "source_id": source_id,
-                "target_id": target_id,
-                "merged": True,
-            },
-        )
+        return self._semantic_receipt(runtime, result) if result["merged"] else result
 
     @staticmethod
     def _writer_target(runtime: "CoreRuntime") -> tuple[Any, bool]:

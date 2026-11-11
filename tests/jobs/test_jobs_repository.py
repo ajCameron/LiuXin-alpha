@@ -13,6 +13,9 @@ Example:
 from __future__ import annotations
 
 import json
+from contextlib import contextmanager
+
+import pytest
 
 from LiuXin_alpha.jobs.api import (
     JobConcurrencyPolicy,
@@ -25,6 +28,40 @@ from LiuXin_alpha.jobs.api import (
     JobScheduler,
     JobTriggerKind,
 )
+
+
+def test_bounded_run_lookup_uses_one_snapshot_and_refuses_missing_ids(
+    tmp_path, monkeypatch
+):
+    repo = JobRepository(tmp_path / "lookup.sqlite")
+    runs = [
+        repo.submit_job(
+            JobDefinition(job_kind="test", job_name="lookup", payload_json="{}"),
+            request_key=f"lookup:{i}",
+        )
+        for i in range(3)
+    ]
+    original = repo._connection
+    opens = []
+
+    @contextmanager
+    def observed_connection(*args, **kwargs):
+        opens.append(True)
+        with original(*args, **kwargs) as connection:
+            yield connection
+
+    monkeypatch.setattr(repo, "_connection", observed_connection)
+    assert repo.get_runs([]) == {}
+    assert opens == []
+    result = repo.get_runs([runs[2].job_run_id, runs[0].job_run_id, runs[2].job_run_id])
+    assert set(result) == {runs[0].job_run_id, runs[2].job_run_id}
+    assert all(run.state is JobRunState.QUEUED for run in result.values())
+    assert len(opens) == 1
+    with pytest.raises(KeyError, match="Unknown job run IDs"):
+        repo.get_runs([runs[0].job_run_id, 999999])
+    for invalid in ([True], [1.5], [0], range(1, 502)):
+        with pytest.raises(ValueError, match="500 positive integer"):
+            repo.get_runs(invalid)
 
 
 def test_job_repository_round_trip_and_run_lifecycle(tmp_path) -> None:

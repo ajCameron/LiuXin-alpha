@@ -1,4 +1,8 @@
-"""Compile validated physical row predicates into bound SQL and EXISTS paths."""
+"""
+Compile validated physical row predicates into bound SQL and EXISTS paths.
+"""
+
+# Todo: How does this relate to search functions?
 
 from __future__ import annotations
 
@@ -27,13 +31,20 @@ def _q(name):
 
 
 class PredicateCompiler:
-    """Compile one query, retaining guards for dangling traversed references."""
+    """
+    Compile one query, retaining guards for dangling traversed references.
+    """
 
-    def __init__(self, macros):
+    def __init__(self, macros) -> None:
+        """
+        Startup the compiler.
+
+        :param macros:
+        """
         self.macros = macros
         self.counter = 0
 
-    def alias(self):
+    def alias(self) -> str:
         self.counter += 1
         return f"r{self.counter}"
 
@@ -64,6 +75,7 @@ class PredicateCompiler:
                 tuple(values),
                 [],
             )
+
         if isinstance(predicate, IdentifierMatch):
             self.columns(table, (predicate.scheme_column, predicate.value_column))
             expression = (
@@ -74,6 +86,7 @@ class PredicateCompiler:
                 predicate.normalized_scheme, predicate.normalized_value
             )
             return f"({expression} IS NOT NULL AND {expression} = ?)", (key,), []
+
         if isinstance(predicate, ValueMatch):
             self.columns(table, (predicate.column,))
             column = f"{alias}.{_q(predicate.column)}"
@@ -111,6 +124,7 @@ class PredicateCompiler:
                 tuple(value for p in parts for value in p[1]),
                 [guard for p in parts for guard in p[2]],
             )
+
         if isinstance(predicate, LinkedMatch):
             spec = self.macros._validate_link_spec(predicate.link_spec)
             if spec.primary_table != table:
@@ -161,6 +175,7 @@ class PredicateCompiler:
                 (*bindings, *values),
                 guards,
             )
+
         if isinstance(predicate, ForeignMatch):
             self.columns(table, (predicate.local_column,))
             self.columns(predicate.table, (predicate.remote_column,))
@@ -196,11 +211,17 @@ class PredicateCompiler:
         raise InputIntegrityError("Unsupported physical row predicate")
 
     def exact_text_union(self, table, alias, predicate):
-        """Search optional text keys independently before reading matching rows.
+        """
+        Search optional text keys independently before reading matching rows.
 
         After ANALYZE, a mostly-null canonical-title index can make SQLite choose
         a full scan for the equivalent OR. Independent indexed ID searches avoid
         that plan while UNION preserves one result when several fields match.
+
+        :param table:
+        :param alias:
+        :param predicate:
+        :return:
         """
         identity = _q(self.macros._row_id_column(table, None))
         table_sql = self.table(table)
@@ -220,7 +241,16 @@ class PredicateCompiler:
 
 
 def find_rows(macros, table, predicate, *, limit, offset):
-    """Run a physical predicate and SQL pagination on the active connection."""
+    """
+    Run a physical predicate and SQL pagination on the active connection.
+
+    :param macros:
+    :param table:
+    :param predicate:
+    :param limit:
+    :param offset:
+    :return:
+    """
     compiler = PredicateCompiler(macros)
     table_sql = compiler.table(table)
     for name, value in (("limit", limit), ("offset", offset)):

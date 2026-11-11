@@ -31,7 +31,7 @@ class UpdateMixin:
 
     # Todo: Check for field degeneracy
     # Todo: I think this may have been superseded by the writers....
-    def direct_update_columns(self, id_values_map, field=None, table=None) -> None:
+    def direct_update_columns(self, id_values_map: dict[int, Any], field: str | None = None, table: str | None = None) -> bool | None:
         """Update one field for multiple IDs atomically, preserving normalized keys.
 
         Infer the field's table; a conflicting table hint retains the legacy warning
@@ -71,7 +71,7 @@ class UpdateMixin:
                 f"Batch update of {target_table!r} failed: {exc}"
             ) from exc
 
-    def direct_update_row_dict(self, row_dict: dict[str, Any]) -> None:
+    def direct_update_row_dict(self, row_dict: dict[str, Any]) -> bool | None:
         """Update a copied payload without coercing literal text to SQL NULL.
 
         Key-only normalized updates read the missing display value on this write

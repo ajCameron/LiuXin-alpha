@@ -18,6 +18,7 @@ from .metadata_write import (
 )
 from .metadata_writer import MetadataWriterAPI
 from .mutation_policy import MutationPolicyAPI
+from .repairs import CatalogRepairsAPI
 
 
 @runtime_checkable
@@ -27,8 +28,9 @@ class CatalogMutationsAPI(Protocol):
 
     ``writer`` is the preferred public boundary for coordinated semantic mutations.
     Policy reads do not reserve entities. Transaction support depends on the
-    writer operation and supplied macro handle; attachment/merge permit a
-    legacy fallback without a transaction.
+    writer operation and supplied macro handle; attachment permits a legacy
+    fallback. Merge and cleanup require owned serialized transactions and matching
+    previews, with their policy exposed through repairs.
 
     Example:
         A consumer can inspect mutations.policy and perform a supported change
@@ -37,10 +39,12 @@ class CatalogMutationsAPI(Protocol):
 
     writer: MetadataWriterAPI
     policy: MutationPolicyAPI
+    repairs: CatalogRepairsAPI
 
 
 __all__ = [
     "CatalogMutationsAPI",
+    "CatalogRepairsAPI",
     "CreatedWemiStack",
     "MetadataWriterAPI",
     "MetadataWriteRecord",

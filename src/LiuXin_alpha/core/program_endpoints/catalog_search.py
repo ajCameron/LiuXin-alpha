@@ -19,7 +19,7 @@ def install_queries(
     api: CatalogSearchHandlers, runtime: ProgramEndpointRegistrar
 ) -> None:
     """
-    Bind seven catalog/search queries with their field-selection, entity, role, and pagination declarations.
+    Bind nine catalog/search queries with field, entity, role and pagination declarations.
 
     Field discovery and global row search are separate from WEMI relationship and
     identifier traversal. Declared type labels and required flags describe requests;
@@ -30,7 +30,7 @@ def install_queries(
         >>> registrar = Mock()
         >>> install_queries(Mock(), registrar)
         >>> registrar.register_query_handler.call_count
-        7
+        9
 
 
     :param api: Provider of the catalog inspection and global-search query methods.
@@ -39,6 +39,28 @@ def install_queries(
     """
 
     query = runtime.register_query_handler
+
+    query(
+        "catalog.repair.receipt",
+        api.catalog_repair_receipt,
+        summary="Read a durable Catalog repair receipt.",
+        payload_fields=(field("receipt_id", required=True, field_type="string"),),
+        tags=("catalog", "repair", "read"),
+        remote_capabilities=("read",),
+    )
+
+    query(
+        "catalog.inherited.tags",
+        api.catalog_inherited_tags,
+        summary="Inspect direct and inherited tags with complete WEMI attribution.",
+        payload_fields=(
+            field("level", required=True, field_type="string"),
+            field("entity_id", required=True, field_type="integer"),
+            field("max_rows", field_type="integer"),
+        ),
+        tags=("catalog", "wemi", "read"),
+        remote_capabilities=("read",),
+    )
 
     query(
         "catalog.fields.list",
@@ -130,7 +152,7 @@ def install_commands(
     api: CatalogSearchHandlers, runtime: ProgramEndpointRegistrar
 ) -> None:
     """
-    Bind identifier replacement and existing-Agent linking as separate catalog mutation commands.
+    Bind identifier replacement, Agent linking, renaming and sort repair commands.
 
     The replacement route advertises an identifier array or object, while linking
     advertises an Agent ID, WEMI target, and optional role/priority. Validation and
@@ -141,15 +163,44 @@ def install_commands(
         >>> registrar = Mock()
         >>> install_commands(Mock(), registrar)
         >>> [call.args[0] for call in registrar.register_command_handler.call_args_list]
-        ['catalog.identifiers.replace', 'catalog.agent.link']
+        ['catalog.repair.merge', 'catalog.repair.cleanup', 'catalog.identifiers.replace', 'catalog.agent.link', 'catalog.agent.rename', 'catalog.agent.sort.repair']
 
 
-    :param api: Provider supplying the identifier-replacement and Agent-link command handlers.
-    :param runtime: Registrar receiving the two bindings in replacement-then-link order.
-    :return: None after both registrations succeed; lookup or registration errors propagate without adapter rollback.
+    :param api: Provider supplying identifier and Agent mutation handlers.
+    :param runtime: Registrar receiving the six bindings in the documented order.
+    :return: None after registration; errors propagate without adapter rollback.
     """
 
     command = runtime.register_command_handler
+
+    for name, handler in (
+        ("merge", api.catalog_repair_merge),
+        ("cleanup", api.catalog_repair_cleanup),
+    ):
+        shared = (
+            field("repository", required=True, field_type="string"),
+            field("max_rows", field_type="integer"),
+            field("dry_run", field_type="boolean"),
+            field("expected_state", field_type="string"),
+        )
+        operation_fields = (
+            (
+                field("source_id", required=True, field_type="integer"),
+                field("target_id", required=True, field_type="integer"),
+                field("resolutions", field_type="object"),
+                field("relationship_resolutions", field_type="object"),
+            )
+            if name == "merge"
+            else (field("candidates", required=True, field_type="array"),)
+        )
+        command(
+            "catalog.repair." + name,
+            handler,
+            summary="Preview or explicitly apply a Catalog repair with an audit receipt.",
+            payload_fields=shared + operation_fields,
+            tags=("catalog", "repair", "write"),
+            remote_capabilities=("write",),
+        )
 
     command(
         "catalog.identifiers.replace",
@@ -174,6 +225,35 @@ def install_commands(
             field("entity_id", required=True, field_type="integer"),
             field("role", field_type="string|null"),
             field("priority", field_type="integer|null"),
+        ),
+        tags=("catalog", "agents", "write"),
+        remote_capabilities=("write",),
+    )
+
+    command(
+        "catalog.agent.rename",
+        api.catalog_agent_rename,
+        summary="Preview or atomically rename an Agent and select its sort value.",
+        payload_fields=(
+            field("agent_id", required=True, field_type="integer"),
+            field("name", required=True, field_type="string"),
+            field("sort_mode", field_type="string"),
+            field("sort_name", field_type="string|null"),
+            field("person_sort_method", field_type="string"),
+            field("dry_run", field_type="boolean"),
+        ),
+        tags=("catalog", "agents", "write"),
+        remote_capabilities=("write",),
+    )
+    command(
+        "catalog.agent.sort.repair",
+        api.catalog_agent_sort_repair,
+        summary="Preview or atomically repair sort names for selected Agents.",
+        payload_fields=(
+            field("agent_ids", required=True, field_type="array"),
+            field("sort_mode", field_type="string"),
+            field("person_sort_method", field_type="string"),
+            field("dry_run", field_type="boolean"),
         ),
         tags=("catalog", "agents", "write"),
         remote_capabilities=("write",),

@@ -11,6 +11,7 @@ from ..api.common import CreatedWemiStack, DatabaseHandle
 from .container_writer import CatalogMetadataWriteReport
 from .metadata_writer import MetadataWriter
 from .mutation_policy import MutationPolicy
+from .repairs import CatalogRepairs
 
 
 @dataclass(slots=True)
@@ -26,6 +27,7 @@ class CatalogMutations:
     repositories: Any
     writer: MetadataWriter = field(init=False)
     policy: MutationPolicy = field(init=False)
+    repairs: CatalogRepairs = field(init=False)
 
     def __post_init__(self) -> None:
         """
@@ -39,10 +41,12 @@ class CatalogMutations:
         """
         self.policy = MutationPolicy(self.db, self.repositories)
         self.writer = MetadataWriter(self.db, self.repositories, self.policy)
+        self.repairs = CatalogRepairs(self.db, self.repositories)
 
 
 __all__ = [
     "CatalogMutations",
+    "CatalogRepairs",
     "CatalogMetadataWriteReport",
     "CreatedWemiStack",
     "MetadataWriter",

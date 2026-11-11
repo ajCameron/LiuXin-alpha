@@ -9,7 +9,7 @@ incomplete. Abstract declarations do not execute a query.
 from __future__ import annotations
 
 import abc
-from typing import Iterable, Iterator, Optional, Union, Any
+from typing import Any, Iterator, Literal, Optional, Union
 
 
 class DriverSearchMixinAPI(abc.ABC):
@@ -116,7 +116,7 @@ class DriverSearchMixinAPI(abc.ABC):
         """
 
     @abc.abstractmethod
-    def direct_get_highest_id(self, target_table: str) -> Optional[dict[str, Any]]:
+    def direct_get_highest_id(self, target_table: str) -> int | None:
         """
         Query the maximum ID value in a table, closing the connection after its result.
 
@@ -195,7 +195,7 @@ class DriverSearchMixinAPI(abc.ABC):
         """
 
     @abc.abstractmethod
-    def direct_get_row_dict_from_id(self, table: str, row_id: int) -> Optional[dict[str, Any]] | bool:
+    def direct_get_row_dict_from_id(self, table: str, row_id: int) -> dict[str, Any] | Literal[False]:
         """
         Bind a text-coerced ID and require at most one matching row.
 
