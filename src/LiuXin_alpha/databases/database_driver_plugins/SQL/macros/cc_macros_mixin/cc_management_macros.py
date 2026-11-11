@@ -10,6 +10,7 @@ they own. Compatibility table creation remains SQLite-specific.
 
 from __future__ import annotations
 
+# Todo: Split this module down - add cc equivalents of other macros
 # Todo: Swap out to our hardened parser
 from LiuXin_alpha.databases.database_driver_plugins._macro_state import (
     MacroHostState,

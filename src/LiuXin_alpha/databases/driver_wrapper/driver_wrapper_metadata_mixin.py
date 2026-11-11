@@ -24,6 +24,7 @@ from LiuXin_alpha.metadata.value_policies import (
 )
 
 
+# Todo: Break this class down into subclasses of metadata type - semantic can be it's own thing for example
 class DriverWrapperMetadataMixin(DriverWrapperBase):
     """
     Expose database identity, relation discovery and column policy helpers.

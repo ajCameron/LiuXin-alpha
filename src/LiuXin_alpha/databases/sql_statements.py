@@ -92,6 +92,7 @@ def has_multiple_statements(
     return False
 
 
+# Todo: This should also be in utils somewhere
 def sqlite_row_operation(sql: str) -> tuple[str, bool]:
     """Identify a SQLite row operation, including CTEs and replacement conflicts.
 

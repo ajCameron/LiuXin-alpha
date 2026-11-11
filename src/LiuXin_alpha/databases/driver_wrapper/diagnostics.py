@@ -31,6 +31,7 @@ def _row_count(result: object, mode: str) -> int | None:
     return None
 
 
+# Todo: More context as to what this if for and what it does
 def observed(
     operation: str,
     *,

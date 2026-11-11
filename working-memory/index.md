@@ -1,5 +1,17 @@
 # Working Memory Index
 
+PR #160 reconciliation, **2026-11-11**:
+[database review/main remediation](database-review-main-remediation-2026-11-11.md).
+PRs #158 and #159 merged into different target branches. The resulting 81
+conflicts are resolved, retaining the reviewed driver/FRBR/Calibre
+implementation and main-only notes, preference removal and APSW version bump.
+Copilot already ended with startup failure; no active Copilot run remained.
+Full quality gates pass; 822 focused tests pass, with 149 conditional skips.
+Delivery is a normal merge commit to the existing PR #160; no PR merge.
+Read the handoff and publication receipts. Continue in the persistent
+review clone on `database-review-main-remediation-2026-11-11`; preserve the
+original checkout and data submodule.
+
 Calibre move ready for publication, **2026-11-11**:
 [Calibre generator relocation](calibre-generator-relocation-2026-11-11.md).
 PR #157 is merged; fast-forwarded to `fcf9166c` and created branch

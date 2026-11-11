@@ -52,7 +52,7 @@ class TempTablesMacrosMixin(MacroHostState):
     # Todo: Be nice to know what temp tables exist at any given point
     # Todo: Should not be possible to accidentally drop a temp table
     # Todo: Also can forsee a problem where the temp tables can be used to drop main tables if their names clash
-    # Todo: conn can be protocoled
+    # Todo: conn can be protocoled?
     def create_cc_temp_tables(
         self, temp_tables: Iterable[str], conn: SQLConnection | None = None
     ) -> None:

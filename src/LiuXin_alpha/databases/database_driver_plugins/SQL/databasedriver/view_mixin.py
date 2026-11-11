@@ -18,6 +18,8 @@ from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver._state im
 )
 
 
+# Todo: The ability to create custom views?
+# Todo: Rename to DatabaseDriverViewMixin
 class ViewMixin(SQLDriverMixinState):
     """
     Add view introspection and id-based row lookup to a composed SQL driver.
@@ -33,6 +35,7 @@ class ViewMixin(SQLDriverMixinState):
         the corresponding converted row or returns None if no row matches.
     """
 
+    # Todo: Add the ability to enumerate all views
     def direct_get_view_row_dict_from_id(
         self, view: str, row_id: int, *, connection: QueryConnection | None = None
     ) -> dict[str, Any] | None:

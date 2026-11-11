@@ -9,9 +9,9 @@ The deleted implementations remain recoverable through Git history.
 
 Removed `maintenance/legacy.py`, its package re-exports, the creator-specific
 transient plugins, and the SQLite/SQLite_apsw `TA_UPDATE` callback and driver API
-method. The `run_ta_update_after_each_change` preference no longer has any live
-callers. The PR preserves the existing preference defaults and shipped INI files;
-the obsolete key may remain in configuration, but it no longer enables work.
+method. The unused `run_ta_update_after_each_change` preference was removed from
+defaults and both shipped INI files. Existing user configuration may still
+contain that key; it no longer enables work.
 
 Duplicate inspection now belongs to
 [`catalog.duplicates`](../../src/LiuXin_alpha/catalog/duplicates.py), reached by

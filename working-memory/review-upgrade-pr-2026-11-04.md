@@ -35,3 +35,20 @@ for the published PR URL and state. Continue on the dedicated PR checkout while
 the original checkout retains its already-published implementation changes; avoid
 recommitting them as new work there. The source-checkout handoff records the
 returned PR URL after publication.
+
+## Publication confirmed
+
+Regular [PR #154](https://github.com/ajCameron/LiuXin-alpha/pull/154) is open:
+**Upgrade maintenance delivery and harden driver-wrapper contracts**.
+Head: `maintenance-driver-wrapper-upgrades` at `6d54293c1bb11d6ab65e01f175403dc7b49b744f`.
+Base: `database-batch-overheads`. Commits: `073c9214` (wrapper) and `6d54293c`
+(maintenance). GitHub confirms 197 changed files and two commits; it is not a draft.
+The branch is pushed and tracks origin; the dedicated PR checkout is clean.
+CI was queued at handoff. No merge was performed.
+
+All 199 original paths matched the pre-packaging snapshot after validation and
+before this working-memory update. Only this handoff and the source index were
+added/updated here; implementation, preferences and the dirty submodule remain
+untouched. Earlier source-checkout documentation reflects its pre-packaging state;
+the published PR contains the current delivery notes and the corrected retirement
+statement about the inert TA-update preference.

@@ -32,6 +32,7 @@ class DriverWrapperAddMixin(DriverWrapperBase):
         >>> wrapper.get_blank_row("works")  # doctest: +SKIP
     """
 
+    # Todo: Should be able to upsert row
     @observed("add_row", count="unknown")
     def add_row(self, row_dict: dict[str, Any]) -> int:
         """

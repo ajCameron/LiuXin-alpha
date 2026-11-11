@@ -90,6 +90,7 @@ def rebuild_status(
     return [describe_rebuild(runtime, connection, json.loads(row[0])) for row in states]
 
 
+# Todo: Docstring
 def _projection_page(
     runtime: MaintenanceRuntime,
     connection: RowSQLConnection,

@@ -142,6 +142,7 @@ class SQLiteCustomColumnsDriverMixin(SQLDriverMixinState):
                 "Cannot create custom column in custom_columns"
             )
 
+            # Todo: There should be a capability API which we can inherit from
             # Check the components which are going to go into the table name
             assert driver_operations(self).direct_validate_table_name(
                 table_name=custom_column_name
@@ -219,9 +220,10 @@ class SQLiteCustomColumnsDriverMixin(SQLDriverMixinState):
 
     # Todo: Removing values from books should also delete from this table
     # Todo: The values of the custom column should be unique
-    # Todo: We should know the permissable data types - they should not be changeable
+    # Todo: We should know the permissible data types - they should not be changeable
     # Todo: This should update the custom columns table with new information
     # Todo: Check that the direct_link_main_tables method has a properly autoincrementing primary key and priority
+    # Todo: datatype should do something here....
     def direct_create_one_to_many_custom_column(
         self, target_table: str, custom_column_name: str, datatype: str = "TEXT"
     ) -> str:

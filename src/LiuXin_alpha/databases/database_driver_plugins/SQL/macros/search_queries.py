@@ -1,5 +1,7 @@
 """Compile validated physical row predicates into bound SQL and EXISTS paths."""
 
+# Todo: How does this relate to search functions?
+
 from __future__ import annotations
 
 import re

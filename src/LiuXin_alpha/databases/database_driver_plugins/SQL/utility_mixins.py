@@ -6,6 +6,7 @@ type/symmetry guards. Most methods only return SQL; execution methods rely on a
 concrete host connection, script executor and schema/cache hooks.
 """
 
+# Todo: This module is too long and needs to be split down
 # Moving some of the code here so it can be imported and used for common operations
 
 from __future__ import absolute_import, annotations
@@ -109,6 +110,7 @@ class ColumnNameMixin:
         return plural_singular_mapper(table_name)
 
     @staticmethod
+    # Todo: Rename to "direct_get_link_table_name_col_name"
     def _get_link_table_name_col_name(
         primary_table: str, secondary_table: str
     ) -> tuple[str, str]:
@@ -214,6 +216,7 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
         cast(_LinkExecutionHost, self)._zero_prop_cache()
 
     # Todo: Standardize table names for this type of method to primary and secondary
+    # Todo: Should this be here?
     def set_database_version(self) -> None:
         """
         Upsert row 1 of database_version using the APSW driver master-version string.
@@ -1215,6 +1218,7 @@ class SQLiteTableLinkingMixin(ColumnNameMixin):
         # Constraints
         constraint_lines: list[str] = []
 
+        # Todo: Wrap this properly - and better formatting
         # Always disallow self-self edges when both ends are non-null.
         constraint_lines.append(
             f"  CONSTRAINT `{row_name}_no_self_link` CHECK (`{row_name}_primary_id` IS NULL OR `{row_name}_secondary_id` IS NULL OR `{row_name}_primary_id` != `{row_name}_secondary_id`),"

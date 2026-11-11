@@ -52,6 +52,7 @@ class DriverWrapperDeleteMixin(DriverWrapperBase):
                 target_table=target_table, column=column, value=value
             )
 
+    # Todo: Add "delet_by_value"
     @observed("delete_by_id", count="unknown")
     def delete_by_id(
         self, target_table: str, row_id: int | list[int] | set[int]
