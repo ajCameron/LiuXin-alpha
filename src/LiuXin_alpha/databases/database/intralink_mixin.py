@@ -2,8 +2,8 @@
 Create, query and delete directed relationships within one database table.
 
 These facade helpers distinguish link Rows from endpoint Rows and depend on wrapper
-naming and schema rules. Mutations are incremental. The legacy endpoint-read method returns relationship
-Rows; deletion supports either endpoint direction.
+naming and schema rules. Creation inserts a complete link atomically, and endpoint
+queries return opposite endpoint Rows in either direction.
 """
 
 from __future__ import annotations
@@ -45,26 +45,18 @@ class DatabaseIntralinkRowsMixin(DatabaseMixinState):
     def intralink_rows(
         self, primary_row: "RowAPI", secondary_row: "RowAPI", link_type: str
     ) -> "RowAPI":
-        """
-        Create and synchronize a typed directed link between rows in the same table.
+        """Insert one complete directed relationship between rows in the same table.
 
-        Validate equal table names and IDs, then consult allowed_<table>_intralink_types
-        preferences if present. Resolve endpoint/type columns, allocate an ID and sync.
-        Later schema constraints still apply; failed synchronization has no explicit
-        cleanup of an allocated placeholder.
+        Normalize the type and enforce configured preference restrictions before
+        inserting. The complete insert and readback share one macro transaction;
+        constraint failures leave no placeholder. Nested calls use a savepoint.
 
-        Example:
-            With related permitted for the table, link = db.intralink_rows(first,
-            second, " RELATED ") stores the normalized type related.
-
-
-        :param primary_row: Primary endpoint with a non-None row ID.
-        :param secondary_row: Secondary endpoint in the same table, also with an ID.
-        :param link_type: Type converted to text, stripped and lowercased before
-            validation/storage.
-        :return: Persisted generic Row for the self-link.
-        :raises InputIntegrityError: Tables differ, an endpoint ID is missing, or
-            preferences reject the normalized type.
+        :param primary_row: Persisted outgoing endpoint.
+        :param secondary_row: Persisted incoming endpoint in the same table.
+        :param link_type: Type converted to text, stripped and lowercased.
+        :return: Persisted relationship Row.
+        :raises InputIntegrityError: Invalid endpoints or a preference-rejected type.
+        :raises DatabaseIntegrityError: A database constraint rejects the relationship.
         """
         link_type = six_unicode(link_type).lower().strip()
         if not primary_row.table == secondary_row.table:
@@ -128,11 +120,19 @@ class DatabaseIntralinkRowsMixin(DatabaseMixinState):
         payload[secondary_col] = secondary_row.row_id
         payload[type_col] = link_type
 
-        intralink_row = Row(row_dict=payload, database=self._database)
-        intralink_row.ensure_row_has_id()
-        intralink_row.sync()
-
-        return intralink_row
+        intralink_table = self._database.driver_wrapper.get_link_table_name(
+            table, table
+        )
+        if not intralink_table:
+            raise InputIntegrityError(f"No intralink table for {table!r}")
+        with self._write_transaction():
+            row_id = self._database.macros.insert_row(intralink_table, payload)
+            stored = self._database.macros.get_row(intralink_table, row_id)
+            if stored is None:
+                raise DatabaseIntegrityError(
+                    "Inserted intralink could not be read back"
+                )
+            return Row(row_dict=dict(stored), database=self._database)
 
     #
     # ----------------------------------------------------------------------------------------------------------------------
@@ -292,23 +292,17 @@ class DatabaseIntralinkRowsMixin(DatabaseMixinState):
     def get_intralinked_rows(
         self, primary_row: Optional["RowAPI"], secondary_row: Optional["RowAPI"]
     ) -> list["RowAPI"]:
-        """
-        Search one self-link direction while retaining the legacy link-row return value.
+        """Return the opposite endpoint Rows of directed self-links.
 
-        Exactly one seed must be non-None. The method still loads opposite endpoint Rows
-        before returning link Rows, so endpoint-loading errors can propagate without
-        contributing returned values.
+        Supply exactly one seed. A primary seed returns outgoing targets; a
+        secondary seed returns incoming sources. Distinct relationships may yield
+        the same endpoint more than once. Use get_intralink_rows for link records.
 
-        Example:
-            links = db.get_intralinked_rows(primary_row=seed, secondary_row=None)
-            currently returns outgoing relationship records, not their target records.
-
-
-        :param primary_row: Outgoing seed, or None when using secondary_row.
-        :param secondary_row: Incoming seed, or None when using primary_row.
-        :return: Matching link Rows; despite the method name, the separately loaded
-            endpoint Rows are discarded.
-        :raises InputIntegrityError: Both seeds are supplied or both are None.
+        :param primary_row: Persisted outgoing seed, or None.
+        :param secondary_row: Persisted incoming seed, or None.
+        :return: Opposite endpoint Rows in query order.
+        :raises InputIntegrityError: Invalid seed combination or missing identity.
+        :raises DatabaseIntegrityError: A relationship references a missing endpoint.
         """
         if primary_row is not None and secondary_row is not None:
             err_str = "You seem to have both the title rows that you could want - do you want the intralink row itself?"
@@ -324,72 +318,37 @@ class DatabaseIntralinkRowsMixin(DatabaseMixinState):
             default_log.error(err_str)
             raise InputIntegrityError(err_str)
 
-        # Get every row with a the primary_row_id as it's primary - return that
-        if primary_row is not None:
-            table = self._row_table(primary_row)
-            primary_row_id = six_unicode(primary_row.row_id)
-
-            intralink_table = self._database.driver_wrapper.get_link_table_name(
-                table, table
+        seed = primary_row if primary_row is not None else secondary_row
+        assert seed is not None
+        table = self._row_table(seed)
+        if seed.row_id is None:
+            raise InputIntegrityError("Intralink lookup requires a persisted endpoint")
+        wrapper = self._database.driver_wrapper
+        link_table = wrapper.get_link_table_name(table, table)
+        if not link_table:
+            raise InputIntegrityError(f"No intralink table for {table!r}")
+        seed_suffix, target_suffix = (
+            ("primary_id", "secondary_id")
+            if primary_row is not None
+            else ("secondary_id", "primary_id")
+        )
+        seed_column = wrapper.get_link_column(table, table, seed_suffix)
+        target_column = wrapper.get_link_column(table, table, target_suffix)
+        links = self._database.macros.get_rows(
+            link_table, where={seed_column: seed.row_id}
+        )
+        endpoints: list[RowAPI] = []
+        for link in links:
+            target_id = link[target_column]
+            endpoint = (
+                self._database.get_row_from_id(table=table, row_id=target_id)
+                if target_id is not None
+                else None
             )
-            if not intralink_table:
-                raise InputIntegrityError(f"No intralink table for {table!r}")
-            intralink_table_primary_row = self._database.driver_wrapper.get_link_column(
-                table, table, "primary_id"
-            )
-            intralink_table_secondary_row = (
-                self._database.driver_wrapper.get_link_column(
-                    table, table, "secondary_id"
-                )
-            )
-
-            intralink_rows = self._database.search(
-                table=intralink_table,
-                column=intralink_table_primary_row,
-                search_term=primary_row_id,
-            )
-
-            intralinked_rows = []
-            for link_row in intralink_rows:
-                secondary_id = link_row[intralink_table_secondary_row]
-                intralinked_rows.append(
-                    self._database.get_row_from_id(table=table, row_id=secondary_id)
-                )
-            return intralink_rows
-
-        # Get every row with a the secondary_row_id as it's primary - return that
-        else:
-            assert secondary_row is not None
-            table = self._row_table(secondary_row)
-            secondary_row_id = six_unicode(secondary_row.row_id)
-
-            intralink_table = self._database.driver_wrapper.get_link_table_name(
-                table, table
-            )
-            if not intralink_table:
-                raise InputIntegrityError(f"No intralink table for {table!r}")
-            intralink_table_primary_row = self._database.driver_wrapper.get_link_column(
-                table, table, "primary_id"
-            )
-            intralink_table_secondary_row = (
-                self._database.driver_wrapper.get_link_column(
-                    table, table, "secondary_id"
-                )
-            )
-
-            intralink_rows = self._database.search(
-                table=intralink_table,
-                column=intralink_table_secondary_row,
-                search_term=secondary_row_id,
-            )
-
-            intralinked_rows = []
-            for link_row in intralink_rows:
-                primary_id = link_row[intralink_table_primary_row]
-                intralinked_rows.append(
-                    self._database.get_row_from_id(table=table, row_id=primary_id)
-                )
-            return intralink_rows
+            if endpoint is None:
+                raise DatabaseIntegrityError("Intralink refers to a missing endpoint")
+            endpoints.append(endpoint)
+        return endpoints
 
     #
     # ----------------------------------------------------------------------------------------------------------------------
@@ -405,8 +364,8 @@ class DatabaseIntralinkRowsMixin(DatabaseMixinState):
         Delete a unique directed pair or every link in one endpoint direction.
 
         Both seeds select a unique pair; only a primary seed selects all outgoing links.
-        Only a secondary seed selects all incoming links. There is no grouped rollback
-        for multi-row deletion.
+        Only a secondary seed selects all incoming links. The complete deletion uses
+        one macro transaction and preserves any outer caller transaction.
 
         Example:
             For a valid seed, db.unlinked_intralink(primary_row=seed,
@@ -419,61 +378,34 @@ class DatabaseIntralinkRowsMixin(DatabaseMixinState):
         :raises InputIntegrityError: Both seeds are None.
         :raises DatabaseIntegrityError: A requested pair has more than one link.
         """
-        if primary_row is not None and secondary_row is not None:
-            link_row = self.get_intralink_row(
-                primary_row=primary_row, secondary_row=secondary_row
+        seeds = [seed for seed in (primary_row, secondary_row) if seed is not None]
+        if not seeds:
+            raise InputIntegrityError("unlink_intralink called without content")
+        table = self._row_table(seeds[0])
+        if any(self._row_table(seed) != table or seed.row_id is None for seed in seeds):
+            raise InputIntegrityError(
+                "Intralink seeds must be persisted in the same table"
             )
-            # Deal with the case where there is no link to remove
-            if link_row is None:
-                return
-            self._database.delete(link_row)
-
-        elif primary_row is not None and secondary_row is None:
-            table = self._row_table(primary_row)
-            primary_id = primary_row.row_id
-
-            # Search the intralink table for any rows with the given primary_id - delete them
-            intralink_table = self._database.driver_wrapper.get_link_table_name(
-                table1=table, table2=table
-            )
-            if not intralink_table:
-                raise InputIntegrityError(f"No intralink table for {table!r}")
-            intralink_table_primary = self._database.driver_wrapper.get_link_column(
-                table1=table, table2=table, column_type="primary_id"
-            )
-            link_rows = self._database.search(
-                table=intralink_table,
-                column=intralink_table_primary,
-                search_term=primary_id,
-            )
-
-            [self._database.delete(l_r) for l_r in link_rows]
-
-        elif primary_row is None and secondary_row is not None:
-            table = self._row_table(secondary_row)
-            secondary_id = secondary_row.row_id
-
-            # Search the intralink table for any rows with the given primary_id - delete them
-            intralink_table = self._database.driver_wrapper.get_link_table_name(
-                table1=table, table2=table
-            )
-            if not intralink_table:
-                raise InputIntegrityError(f"No intralink table for {table!r}")
-            intralink_table_primary = self._database.driver_wrapper.get_link_column(
-                table1=table, table2=table, column_type="secondary_id"
-            )
-            link_rows = self._database.search(
-                table=intralink_table,
-                column=intralink_table_primary,
-                search_term=secondary_id,
-            )
-
-            [self._database.delete(l_r) for l_r in link_rows]
-
-        elif primary_row is None and secondary_row is None:
-            err_str = "unlink_intralink called without content"
-            default_log.error(err_str)
-            raise InputIntegrityError(err_str)
+        wrapper = self._database.driver_wrapper
+        link_table = wrapper.get_link_table_name(table1=table, table2=table)
+        if not link_table:
+            raise InputIntegrityError(f"No intralink table for {table!r}")
+        with self._write_transaction():
+            if primary_row is not None and secondary_row is not None:
+                link = self.get_intralink_row(primary_row, secondary_row)
+                if link is not None:
+                    self._database.macros.delete_row(link_table, link.row_id)
+            else:
+                column = wrapper.get_link_column(
+                    table1=table,
+                    table2=table,
+                    column_type="primary_id"
+                    if primary_row is not None
+                    else "secondary_id",
+                )
+                self._database.macros.delete_rows_where(
+                    link_table, where={column: seeds[0].row_id}
+                )
 
     #
     # ----------------------------------------------------------------------------------------------------------------------

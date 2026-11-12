@@ -1,5 +1,28 @@
 # Working Memory Index
 
+Database facade consistency follow-up is complete; local commit requested on 2026-11-12.
+See [the active review handoff](database-facade-review-2026-11-11.md) and
+`.tmp/database-facade-followup-2026-11-11/`. Atomic compound helpers, NULL-query
+contracts and defensive tree traversal are repaired. All 93 added regression
+requirements passed; 1,103 distinct database checks passed across validation
+runs and corrected-contract reruns. Quality components and 37 docs/gate checks
+passed; the mypy contracts used an isolated cache. Full 1,622-case ratchet not
+rerun. Temporary PostgreSQL stopped; preserve the dirty data submodule.
+
+
+Database facade review and repairs, **2026-11-11**:
+[review handoff](database-facade-review-2026-11-11.md).
+The user merged PR #160; the original checkout is `main` at `47156490`.
+All seven P2 findings have implementations and deterministic regressions:
+priority swaps, failed intralink cleanup, driver replacement, typed unlinking,
+intralink endpoint results, subtree deletion and iterable tree search.
+Focused repairs/lifecycle: 110 passed; live PostgreSQL: 7 passed. Broader
+contracts: 832 passed, 40 skipped, 6 existing xfailed. Quality components,
+isolated static contracts and all 16 documentation checks passed.
+85 new mandatory cases retain all prior regression requirements. No commit,
+push or PR requested. Preserve the dirty data submodule and original Git index.
+This entry supersedes the older checkout instructions.
+
 PR #160 reconciliation, **2026-11-11**:
 [database review/main remediation](database-review-main-remediation-2026-11-11.md).
 PRs #158 and #159 merged into different target branches. The resulting 81

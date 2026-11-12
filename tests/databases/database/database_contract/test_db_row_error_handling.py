@@ -215,14 +215,14 @@ def test_search_invalid_column_raises_input_integrityerror(open_db, bad_column: 
     assert before == after
 
 
-def test_search_missing_search_term_raises_input_integrityerror(open_db):
+def test_search_missing_search_term_raises_typeerror(open_db):
     """
-    Check a None search term raises InputIntegrityError.
+    Check omitting the required search term raises TypeError; None selects SQL NULL.
 
     Example:
         Run the owning tests with pytest::
 
-            python -m pytest -q tests/databases/database/database_contract/test_db_row_error_handling.py::test_search_missing_search_term_raises_input_integrityerror
+            python -m pytest -q tests/databases/database/database_contract/test_db_row_error_handling.py::test_search_missing_search_term_raises_typeerror
 
 
     :param open_db: Open Database for the selected driver; its fixture attempts close at
@@ -230,8 +230,8 @@ def test_search_missing_search_term_raises_input_integrityerror(open_db):
     :return: None; failed expectations raise AssertionError.
     """
     table, good_col = _choose_table_and_column(open_db)
-    with pytest.raises(InputIntegrityError):
-        open_db.search(table, good_col, None)
+    with pytest.raises(TypeError):
+        open_db.search(table, good_col)
 
 
 @pytest.mark.parametrize(

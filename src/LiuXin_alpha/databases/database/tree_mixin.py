@@ -1,9 +1,8 @@
 """
 Wrap hierarchical database records as Rows and delegate parent/child mutations.
 
-These helpers assume a compatible parent-column schema. Driver traversal determines
-path/walk behavior, while some facade loops do not detect cycles. Deletion relies on
-backend foreign-key actions rather than recursive facade traversal.
+These helpers assume a compatible parent-column schema. Driver traversal rejects
+cycles. Tree mutations use one macro transaction, including nested caller units.
 """
 
 from __future__ import annotations
@@ -116,11 +115,10 @@ class DatabaseTreeMixin(DatabaseMixinState):
         self, start_row: "RowAPI", back_iterate: bool = True
     ) -> set["RowAPI"]:
         """
-        Collect a root or subtree and its descendants using an unordered work set.
+        Collect a root or subtree using the wrapper's cycle-detecting traversal.
 
-        Each popped Row searches its immediate children. Previously visited Rows are not
-        excluded from the work set; cycles can cause nontermination. Requires a finite
-        acyclic parent structure, and Row hashing determines set identity.
+        Both ancestor lookup and descendant traversal reject cycles with
+        InputIntegrityError. Row hashing determines the returned set identity.
 
         Example:
             For an acyclic subtree, db.get_all_tree_rows(parent, back_iterate=False)
@@ -133,35 +131,14 @@ class DatabaseTreeMixin(DatabaseMixinState):
         :return: Set of visited Rows, including the chosen root.
         """
         row_table = self._row_table(start_row)
-        row_parent_column = self._database.driver_wrapper.get_parent_column(row_table)
-        if not row_parent_column:
+        if start_row.row_id is None:
+            raise InputIntegrityError("Tree collection requires a persisted root")
+        if not self._database.driver_wrapper.get_parent_column(row_table):
             raise InputIntegrityError(
                 "Tree operations require a physical parent column"
             )
-        row_id_column = self._database.driver_wrapper.get_id_column(row_table)
-        if back_iterate:
-            root_series = self.get_root_series(start_row)
-        else:
-            root_series = start_row
-
-        row_pool = set()
-        row_pool.add(root_series)
-        found_series = set()
-
-        while len(row_pool) != 0:
-            current_series = row_pool.pop()
-            current_id = current_series[row_id_column]
-
-            # finds all the series which refer to the current_series in the series_parent column
-            child_rows = self._database.search(
-                table=row_table, column=row_parent_column, search_term=current_id
-            )
-            for row in child_rows:
-                row_pool.add(row)
-
-            found_series.add(current_series)
-
-        return found_series
+        root = self.get_root_series(start_row) if back_iterate else start_row
+        return set(self.walk(root))
 
     def walk(self, start_row: "RowAPI") -> Iterator["RowAPI"]:
         """
@@ -180,28 +157,23 @@ class DatabaseTreeMixin(DatabaseMixinState):
             yield Row(row_dict=table_row_dict, database=self._database)
 
     def search_tree(self, root_row: "RowAPI", for_ids: Iterable[int]) -> set[int]:
-        """
-        Collect requested IDs encountered in the wrapper traversal.
+        """Return requested IDs encountered in a complete tree traversal.
 
-        The whole traversal is consumed rather than stopping at the first match. No ID
-        coercion is applied.
+        Materialize the requested iterable once so lists, sets and one-shot
+        generators have the same membership semantics. No ID coercion is applied.
 
-        Example:
-            For a tree rooted at root, db.search_tree(root, {wanted_id}) returns either
-            an empty set or a set containing that ID.
-
-
-        :param root_row: Root Row selecting table and traversal start.
-        :param for_ids: Container used for membership tests against visited IDs.
-        :return: Set of matching IDs, not a boolean.
+        :param root_row: Root selecting the table and traversal start.
+        :param for_ids: Iterable of wanted IDs; consumed once.
+        :return: Set of matching IDs.
         """
         root_row_dict = root_row._require_row_dict()
         target_table = self._row_table(root_row)
         target_table_id_col = self._database.driver_wrapper.get_id_column(target_table)
 
+        wanted_ids = set(for_ids)
         matched_ids = set()
         for child_row in self._database.driver_wrapper.walk(start_row=root_row_dict):
-            if child_row[target_table_id_col] in for_ids:
+            if child_row[target_table_id_col] in wanted_ids:
                 matched_ids.add(child_row[target_table_id_col])
         return matched_ids
 
@@ -211,17 +183,15 @@ class DatabaseTreeMixin(DatabaseMixinState):
     #
     # - METHODS TO WRITE TREE STRUCTURES START HERE
 
-    # Todo: What happens when you try and nest rows from different tables
-    # Todo: What happens when you try and nest a row inside itself? (should fail - might not)
     def nest_rows(
         self, parent_row: "RowAPI", child_rows: Union["RowAPI", Iterable["RowAPI"]]
     ) -> None:
         """
-        Set child parent-column values and update each child record through the wrapper.
+        Atomically assign persisted children to a persisted parent in the same table.
 
-        The facade does not validate equal tables, prevent cycles or verify the final
-        structure. A failed update can leave an input Row changed and earlier writes
-        applied.
+        Reject missing rows and ancestor/self nesting before writing. Update only
+        the parent column, preserving unrelated staged edits. Input Rows change
+        after the write unit succeeds; reload them after a later caller rollback.
 
         Example:
             For compatible Rows in an acyclic tree, db.nest_rows(parent, [first,
@@ -231,14 +201,10 @@ class DatabaseTreeMixin(DatabaseMixinState):
         :param parent_row: Parent Row supplying table, identity and parent-column
             naming.
         :param child_rows: Single RowAPI instance or iterable of child Rows.
-        :return: None; input Rows are mutated before their individual database updates.
+        :return: None; input parent values change only after successful writes.
         """
         container_table = self._row_table(parent_row)
-        # Deals with the case of child_rows being a single row
-        if isinstance(child_rows, RowAPI):
-            child_rows = [child_rows]
-
-        # extract the id from the container_row - then set the parent category in all the target_rows to be that id
+        children = [child_rows] if isinstance(child_rows, RowAPI) else list(child_rows)
         container_row_id = parent_row.row_id
         target_rows_parent_column = self._database.driver_wrapper.get_parent_column(
             container_table
@@ -247,9 +213,39 @@ class DatabaseTreeMixin(DatabaseMixinState):
             raise InputIntegrityError(
                 "Tree operations require a physical parent column"
             )
-        for row in child_rows:
-            row[target_rows_parent_column] = container_row_id
-            self._database.driver_wrapper.update_row(row._require_row_dict())
+        if container_row_id is None:
+            raise InputIntegrityError("Nesting requires a persisted parent")
+        for row in children:
+            if self._row_table(row) != container_table or row.row_id is None:
+                raise InputIntegrityError(
+                    "Children must be persisted in the parent's table"
+                )
+
+        macros = self._database.macros
+        with self._write_transaction():
+            parent = macros.get_row(container_table, container_row_id)
+            if parent is None:
+                raise InputIntegrityError("Nesting requires an existing parent")
+            id_column = self._database.driver_wrapper.get_id_column(container_table)
+            ancestors = {
+                row[id_column]
+                for row in self._database.driver_wrapper.get_linear_row_list(
+                    dict(parent)
+                )
+            }
+            for child in children:
+                if child.row_id in ancestors:
+                    raise InputIntegrityError("Nesting would create a tree cycle")
+                if macros.get_row(container_table, child.row_id) is None:
+                    raise InputIntegrityError("Nesting requires existing children")
+            for child in children:
+                macros.update_row(
+                    container_table,
+                    child.row_id,
+                    {target_rows_parent_column: container_row_id},
+                )
+        for child in children:
+            child[target_rows_parent_column] = container_row_id
 
     #
     # ------------------------------------------------------------------------------------------------------------------
@@ -258,23 +254,33 @@ class DatabaseTreeMixin(DatabaseMixinState):
     # - TREE STRUCTURES - DELETE
 
     def delete_tree(self, parent_row: "RowAPI") -> None:
+        """Delete a root and all of its descendants in one macro transaction.
+
+        Read the persisted root, walk with cycle detection, then delete children
+        before parents. This works with cascading and SET NULL parent foreign keys.
+        Failures roll back every deletion; nested calls respect caller ownership.
+
+        :param parent_row: Persisted root of the subtree, including a non-root branch.
+        :return: None; a root already absent from storage is harmless.
         """
-        Delete only the supplied root Row through the normal facade delete path.
-
-        Descendant deletion depends entirely on configured database cascade rules; the
-        facade does not walk or independently delete child Rows.
-
-        Example:
-            For a schema with cascading parent foreign keys, db.delete_tree(root) relies
-            on those rules to remove descendants after deleting root.
-
-
-        :param parent_row: Root Row to delete.
-        :return: None.
-        """
-        # Due to the foreign key constraints removing the parent of a bunch of folders should also take out all children
-        # of those folders. So deleting the root row should be enough to take out all the folders associated with it
-        self._database.delete(parent_row)
+        table = self._row_table(parent_row)
+        if parent_row.row_id is None:
+            raise InputIntegrityError("Subtree deletion requires a persisted root")
+        wrapper = self._database.driver_wrapper
+        if not wrapper.get_parent_column(table):
+            raise InputIntegrityError(
+                "Tree operations require a physical parent column"
+            )
+        macros = self._database.macros
+        with self._write_transaction():
+            root = macros.get_row(table, parent_row.row_id)
+            if root is None:
+                return
+            id_column = wrapper.get_id_column(table)
+            # The wrapper detects cycles and always visits parents before children.
+            descendants = list(wrapper.walk(dict(root)))
+            for row in reversed(descendants):
+                macros.delete_row(table, row[id_column])
 
     #
     # ----------------------------------------------------------------------------------------------------------------------

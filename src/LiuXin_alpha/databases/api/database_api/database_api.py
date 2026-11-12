@@ -97,25 +97,20 @@ class DatabaseAPI(
 
     @abc.abstractmethod
     def set_driver(self, new_driver: "DatabaseDriverAPI") -> None:
-        """
-        Replace the driver and rebuild wrapper, macros and metadata SQL bindings.
+        """Prepare and install a complete driver binding before retiring old resources.
 
-        Close the old wrapper first. For a different driver, discard pending primary
-        work with rollback, then close it and call the driver's close method to release
-        its other connections. Auxiliary transactions are not committed. Cleanup errors
-        are suppressed. Install the new wrapper and convenience aliases, including
-        storage aliases, which may become None. This does not rerun schema discovery,
-        queue wiring or all runtime back-references; failures during new setup leave
-        partial state.
+        Validate replacement schema, refresh categories and identity caches, and
+        bind owners, aliases and the dirty queue. Preserve same-catalogue maintenance
+        and storage services. Preparation failure leaves the old facade usable and
+        the candidate owned by its caller. A different old driver is rolled back
+        and closed after publication; reinstalling the same driver retains its SQL
+        connections. Pending primary work is never committed by replacement.
 
-        Example:
-            For a compatible open replacement driver, db.set_driver(replacement)
-            releases the previous database connections before constructing its new
-            wrapper.
+        Call while direct SQL users are quiescent. Managed macro transactions and
+        drivers owned by another facade are rejected. Changing physical catalogues
+        with attached runtime services or queued work requires a separate Database.
 
-
-        :param new_driver: Driver to install; supplying the current driver retains its
-            primary connection.
+        :param new_driver: Compatible open driver to install.
         :return: None.
         """
 

@@ -1756,9 +1756,9 @@ class DatabaseDriver(
         """
         Perform a bound equality search on one validated column.
 
-        Reject a None search term rather than translating it to IS NULL. Equality
-        follows the database column semantics; this method does not apply column-policy
-        folding.
+        None selects SQL NULL through IS NULL. Other values use bound equality
+        following database column semantics, without column-policy folding.
+        Reads join an active macro transaction without ending it.
 
         Example:
             ``driver.direct_search_table("works", "work_title", "Example")`` returns
@@ -1767,24 +1767,26 @@ class DatabaseDriver(
 
         :param table: Table name resolved within the configured driver schema.
         :param column: Column name belonging to the selected table.
-        :param search_term: Non-None value bound to the equality predicate.
+        :param search_term: Bound equality value, or None to select SQL NULL.
         :return: List of converted matching rows without an explicit ordering.
         """
         table = self._canonicalise_table_name_for_cache(table)
         headings = self.direct_get_column_headings(table)
         if column not in headings:
             raise InputIntegrityError(f"column {column!r} not found in table {table!r}")
-        if search_term is None:
-            raise InputIntegrityError("PostgreSQL direct_search_table requires a non-None search term.")
+        predicate = f"{_q(column)} IS NULL" if search_term is None else f"{_q(column)} = %s"
+        stmt = f"select * from {self._table_sql(table)} where {predicate}"
+        values = () if search_term is None else (search_term,)
 
-        stmt = f"select * from {self._table_sql(table)} where {_q(column)} = %s"
-        values = (search_term,)
-
+        if self.db is not None and self.db.macros.current_transaction_connection() is not None:
+            return [dict(row) for row in self.db.macros.get_rows(table, where={column: search_term})]
         conn = self._short_connection()
+        cur = conn.cursor()
         try:
-            cur = conn.execute(stmt, values)
+            cur.execute(stmt, values)
             return [self._row_to_dict_from_db_row(table=table, headings=headings, row=row) for row in cur.fetchall()]
         finally:
+            cur.close()
             conn.close()
 
     def direct_multi_column_search(

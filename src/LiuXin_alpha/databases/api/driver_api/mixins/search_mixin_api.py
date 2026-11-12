@@ -322,7 +322,7 @@ class DriverSearchMixinAPI(abc.ABC):
         search_term: Optional[Any] = None,
     ) -> list[dict[str, Any]]:
         """
-        Find exact matches for a bound text search term in a validated column.
+        Find exact matches or SQL NULL in a validated column.
 
         Abstract backend hook. The behavior below describes the shared SQL/SQLite
         implementation; this declaration itself has no operational body.
@@ -330,7 +330,7 @@ class DriverSearchMixinAPI(abc.ABC):
         The table must validate and the column must be a known simple identifier.
         Although table defaults to None, this implementation never infers it; callers
         should supply it. Malformed requests and SQLite operational errors raise
-        InputIntegrityError.
+        InputIntegrityError. Reads join an active macro transaction without ending it.
 
         Example:
             >>> driver.direct_search_table(
@@ -340,8 +340,8 @@ class DriverSearchMixinAPI(abc.ABC):
 
         :param table: Table name resolved by the host driver.
         :param column: Column name to read or match.
-        :param search_term: Non-null value coerced to text; byte-like inputs must be
-            UTF-8.
+        :param search_term: None selects SQL NULL. Other values use equality; the
+            shared SQLite backend coerces them to text and requires UTF-8 bytes.
         :return: Converted matching rows, or an empty list.
         """
 

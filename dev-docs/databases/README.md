@@ -7,6 +7,10 @@ meaning belongs to metadata/Catalog; physical storage policy belongs to storage.
 
 ## Working guides and operational contracts
 
+- [Database facade review, 2026-11-11](database-facade-review-2026-11-11.md):
+  seven reproduced correctness findings in relationship helpers, driver
+  replacement and tree operations, plus repairs for compound writes, NULL queries
+  and cycle handling, with regression evidence.
 - [FRBR generator review, 2026-11-11](database-generator-frbr-review-2026-11-11.md):
   five reproduced defects, their local repairs and validation.
 - [FRBR generator build contract](database-generator-frbr-build-contract.md):

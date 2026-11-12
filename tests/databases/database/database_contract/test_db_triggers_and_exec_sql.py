@@ -492,15 +492,14 @@ def test_driver_wrapper_get_default_all_true_returns_fetchall(open_db):
     assert rows == [(42,)]
 
 
-@pytest.mark.xfail(reason="DriverWrapper.get(all=False) uses cursor.next(); sqlite cursors use fetchone()/__next__")
-def test_driver_wrapper_get_all_false_returns_scalar(open_db):
+def test_driver_wrapper_get_all_false_returns_complete_row(open_db):
     """
-    Express scalar SELECT 7 behavior under the existing non-strict cursor-API xfail marker.
+    Require a complete first row; fetch_scalar is the scalar-returning API.
 
     Example:
         Run the owning tests with pytest::
 
-            python -m pytest -q tests/databases/database/database_contract/test_db_triggers_and_exec_sql.py::test_driver_wrapper_get_all_false_returns_scalar
+            python -m pytest -q tests/databases/database/database_contract/test_db_triggers_and_exec_sql.py::test_driver_wrapper_get_all_false_returns_complete_row
 
 
     :param open_db: Open Database for the selected driver; its fixture attempts close at
@@ -508,7 +507,8 @@ def test_driver_wrapper_get_all_false_returns_scalar(open_db):
     :return: None; failed expectations raise AssertionError.
     """
     val = open_db.driver_wrapper.get("SELECT 7", all=False)
-    assert val == 7
+    assert val == (7,)
+    assert open_db.driver_wrapper.fetch_scalar("SELECT 7") == 7
 
 
 # -------------------------------------------------------------------------------------------------

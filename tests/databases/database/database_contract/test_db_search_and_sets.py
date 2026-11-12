@@ -3,7 +3,7 @@ Check Database exact searches, distinct values, grouped iteration, and random-ro
 
 Dedicated per-test tables use hashed column names to reduce table-inference
 ambiguity. Short-lived SQL connections have best-effort commit/close handling.
-Strict xfail cases retain desired NULL search and grouping behavior.
+NULL search and grouping are ordinary passing contracts.
 
 Example:
     Run with pytest::
@@ -437,10 +437,9 @@ def test_search_invalid_column_raises(open_db, contract_table: ContractTable):
         open_db.search(table=contract_table.name, column="definitely_not_a_column", search_term="alpha")
 
 
-@pytest.mark.xfail(strict=True, reason="Current driver uses '=' so NULL is not matched; consider 'IS NULL' semantics.")
 def test_search_none_should_match_null_rows_desired_behavior(open_db, contract_table: ContractTable):
     """
-    Express a one-row NULL search result under the existing strict xfail marker.
+    Require None to select SQL NULL.
 
     Example:
         Run the owning tests with pytest::
@@ -552,7 +551,7 @@ def test_get_values_set_unknown_column_raises(open_db):
 
 
 def test_chunk_iterator_groups_rows_by_column(open_db, contract_table: ContractTable):
-    # Avoid NULL group values here; see xfail test below.
+    # NULL groups have a separate contract below.
     """
     Check three non-NULL groups produce nonempty Row lists with uniform group values and complete ID coverage.
 
@@ -604,10 +603,9 @@ def test_chunk_iterator_groups_rows_by_column(open_db, contract_table: ContractT
     assert len(chunks) == len({"G1", "G2", "G3"})
 
 
-@pytest.mark.xfail(strict=True, reason="chunk_iterator relies on '=' search; NULL group values yield empty chunks today.")
 def test_chunk_iterator_should_group_null_values_desired_behavior(open_db, contract_table: ContractTable):
     """
-    Express the desired presence of a two-row NULL group under the existing strict xfail marker.
+    Require NULL values to form a two-row group.
 
     Example:
         Run the owning tests with pytest::
@@ -630,8 +628,8 @@ def test_chunk_iterator_should_group_null_values_desired_behavior(open_db, contr
         ],
     )
     chunks = list(open_db.chunk_iterator(column=contract_table.group_col, target_table=None))
-    # Desired: one chunk containing both rows.
-    assert any(len(chunk) == 2 for chunk in chunks)
+    assert len(chunks) == 1
+    assert len(chunks[0]) == 2
 
 
 def test_chunk_iterator_unknown_column_raises(open_db):

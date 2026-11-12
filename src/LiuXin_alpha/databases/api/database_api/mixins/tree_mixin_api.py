@@ -109,12 +109,10 @@ class DatabaseTreeMixinAPI(abc.ABC):
     @abc.abstractmethod
     def get_all_tree_rows(self, start_row: "RowAPI", back_iterate: bool = True) -> set["RowAPI"]:
         """
-        Collect a root or subtree and its descendants using an unordered work set.
+        Collect a root or subtree using the wrapper's cycle-detecting traversal.
 
-        Abstract hook; subclasses supply the operation. Concrete Database behavior: Each
-        popped Row searches its immediate children. Previously visited Rows are not
-        excluded from the work set; cycles can cause nontermination. Requires a finite
-        acyclic parent structure, and Row hashing determines set identity.
+        Both ancestor lookup and descendant traversal reject cycles with
+        InputIntegrityError. Row hashing determines the returned set identity.
 
         Example:
             For an acyclic subtree, db.get_all_tree_rows(parent, back_iterate=False)
@@ -146,32 +144,24 @@ class DatabaseTreeMixinAPI(abc.ABC):
 
     @abc.abstractmethod
     def search_tree(self, root_row: "RowAPI", for_ids: Iterable[int]) -> set[int]:
-        """
-        Collect requested IDs encountered in the wrapper traversal.
+        """Return requested IDs encountered in a complete tree traversal.
 
-        Abstract hook; subclasses supply the operation. Concrete Database behavior: The
-        whole traversal is consumed rather than stopping at the first match. No ID
-        coercion is applied.
+        Materialize the requested iterable once so lists, sets and one-shot
+        generators have the same membership semantics. No ID coercion is applied.
 
-        Example:
-            For a tree rooted at root, db.search_tree(root, {wanted_id}) returns either
-            an empty set or a set containing that ID.
-
-
-        :param root_row: Root Row selecting table and traversal start.
-        :param for_ids: Container used for membership tests against visited IDs.
-        :return: Set of matching IDs, not a boolean.
+        :param root_row: Root selecting the table and traversal start.
+        :param for_ids: Iterable of wanted IDs; consumed once.
+        :return: Set of matching IDs.
         """
 
     @abc.abstractmethod
     def nest_rows(self, parent_row: "RowAPI", child_rows: Union["RowAPI", Iterable["RowAPI"]]) -> None:
         """
-        Set child parent-column values and update each child record through the wrapper.
+        Atomically assign persisted children to a persisted parent in the same table.
 
-        Abstract hook; subclasses supply the operation. Concrete Database behavior: The
-        facade does not validate equal tables, prevent cycles or verify the final
-        structure. A failed update can leave an input Row changed and earlier writes
-        applied.
+        Reject missing rows and ancestor/self nesting before writing. Update only
+        the parent column, preserving unrelated staged edits. Input Rows change
+        after the write unit succeeds; reload them after a later caller rollback.
 
         Example:
             For compatible Rows in an acyclic tree, db.nest_rows(parent, [first,
@@ -180,24 +170,18 @@ class DatabaseTreeMixinAPI(abc.ABC):
 
         :param parent_row: Parent Row supplying table, identity and parent-column
             naming.
-        :param child_rows: Single concrete Row or iterable of child Rows.
-        :return: None; input Rows are mutated before their individual database updates.
+        :param child_rows: Single RowAPI instance or iterable of child Rows.
+        :return: None; input parent values change only after successful writes.
         """
 
     @abc.abstractmethod
     def delete_tree(self, parent_row: "RowAPI") -> None:
-        """
-        Delete only the supplied root Row through the normal facade delete path.
+        """Delete a root and all of its descendants in one macro transaction.
 
-        Abstract hook; subclasses supply the operation. Concrete Database behavior:
-        Descendant deletion depends entirely on configured database cascade rules; the
-        facade does not walk or independently delete child Rows.
+        Read the persisted root, walk with cycle detection, then delete children
+        before parents. This works with cascading and SET NULL parent foreign keys.
+        Failures roll back every deletion; nested calls respect caller ownership.
 
-        Example:
-            For a schema with cascading parent foreign keys, db.delete_tree(root) relies
-            on those rules to remove descendants after deleting root.
-
-
-        :param parent_row: Root Row to delete.
-        :return: None.
+        :param parent_row: Persisted root of the subtree, including a non-root branch.
+        :return: None; a root already absent from storage is harmless.
         """

@@ -42,8 +42,7 @@ class DatabaseSearchMixinAPI(abc.ABC):
 
         Abstract hook; subclasses supply the operation. Concrete Database behavior:
         Backend validation and coercion determine comparison behavior; the facade itself
-        does not convert the value. Current SQLite equality search does not make None
-        match SQL NULL.
+        does not convert the value. None matches SQL NULL on all supported SQL backends.
 
         Example:
             For an open db, db.search("works", "work_title", "Example") performs the
@@ -215,8 +214,7 @@ class DatabaseSearchMixinAPI(abc.ABC):
 
         Abstract hook; subclasses supply the operation. Concrete Database behavior: For
         another target table, concatenate endpoints linked from each matching source Row
-        without deduplication. Distinct-value order is backend-defined. Current SQLite
-        equality search yields empty groups for NULL values.
+        without deduplication. Distinct-value order is backend-defined. NULL values form their own group.
 
         Example:
             For an open db, list(db.chunk_iterator("work_title")) groups works by

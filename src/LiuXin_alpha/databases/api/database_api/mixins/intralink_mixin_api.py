@@ -2,7 +2,7 @@
 Directed relationships within one database table.
 
 Abstract declarations describe the concrete facade conventions; their bodies do not
-execute database operations. Concrete get_intralinked_rows retains its documented legacy link-row result.
+execute database operations. get_intralinked_rows returns opposite endpoint Rows.
 """
 
 from __future__ import annotations
@@ -18,8 +18,8 @@ class DatabaseIntralinkRowsMixinAPI(abc.ABC):
     """
     Declare directed relationships within one database table.
 
-    Implement all abstract members before instantiation. Concrete get_intralinked_rows
-    retains its documented legacy link-row result.
+    Implement all abstract members before instantiation. get_intralinked_rows
+    returns opposite endpoint Rows.
 
     Example:
         >>> import inspect
@@ -38,27 +38,18 @@ class DatabaseIntralinkRowsMixinAPI(abc.ABC):
     def intralink_rows(
         self, primary_row: "RowAPI", secondary_row: "RowAPI", link_type: str
     ) -> "RowAPI":
-        """
-        Create and synchronize a typed directed link between rows in the same table.
+        """Insert one complete directed relationship between rows in the same table.
 
-        Abstract hook; subclasses supply the operation. Concrete Database behavior:
-        Validate equal table names and IDs, then consult allowed_<table>_intralink_types
-        preferences if present. Resolve endpoint/type columns, allocate an ID and sync.
-        Later schema constraints still apply; failed synchronization has no explicit
-        cleanup of an allocated placeholder.
+        Normalize the type and enforce configured preference restrictions before
+        inserting. The complete insert and readback share one macro transaction;
+        constraint failures leave no placeholder. Nested calls use a savepoint.
 
-        Example:
-            With related permitted for the table, link = db.intralink_rows(first,
-            second, " RELATED ") stores the normalized type related.
-
-
-        :param primary_row: Primary endpoint with a non-None row ID.
-        :param secondary_row: Secondary endpoint in the same table, also with an ID.
-        :param link_type: Type converted to text, stripped and lowercased before
-            validation/storage.
-        :return: Persisted generic Row for the self-link.
-        :raises InputIntegrityError: Tables differ, an endpoint ID is missing, or
-            preferences reject the normalized type.
+        :param primary_row: Persisted outgoing endpoint.
+        :param secondary_row: Persisted incoming endpoint in the same table.
+        :param link_type: Type converted to text, stripped and lowercased.
+        :return: Persisted relationship Row.
+        :raises InputIntegrityError: Invalid endpoints or a preference-rejected type.
+        :raises DatabaseIntegrityError: A database constraint rejects the relationship.
         """
 
     @abc.abstractmethod
@@ -122,24 +113,17 @@ class DatabaseIntralinkRowsMixinAPI(abc.ABC):
         primary_row: Optional["RowAPI"],
         secondary_row: Optional["RowAPI"],
     ) -> list["RowAPI"]:
-        """
-        Search one self-link direction while retaining the legacy link-row return value.
+        """Return the opposite endpoint Rows of directed self-links.
 
-        Abstract hook; subclasses supply the operation. Concrete Database behavior:
-        Exactly one seed must be non-None. The method still loads opposite endpoint Rows
-        before returning link Rows, so endpoint-loading errors can propagate without
-        contributing returned values.
+        Supply exactly one seed. A primary seed returns outgoing targets; a
+        secondary seed returns incoming sources. Distinct relationships may yield
+        the same endpoint more than once. Use get_intralink_rows for link records.
 
-        Example:
-            links = db.get_intralinked_rows(primary_row=seed, secondary_row=None)
-            currently returns outgoing relationship records, not their target records.
-
-
-        :param primary_row: Outgoing seed, or None when using secondary_row.
-        :param secondary_row: Incoming seed, or None when using primary_row.
-        :return: Matching link Rows; despite the method name, the separately loaded
-            endpoint Rows are discarded.
-        :raises InputIntegrityError: Both seeds are supplied or both are None.
+        :param primary_row: Persisted outgoing seed, or None.
+        :param secondary_row: Persisted incoming seed, or None.
+        :return: Opposite endpoint Rows in query order.
+        :raises InputIntegrityError: Invalid seed combination or missing identity.
+        :raises DatabaseIntegrityError: A relationship references a missing endpoint.
         """
 
     @abc.abstractmethod
@@ -149,10 +133,9 @@ class DatabaseIntralinkRowsMixinAPI(abc.ABC):
         """
         Delete a unique directed pair or every link in one endpoint direction.
 
-        Abstract hook; subclasses supply the operation. Concrete Database behavior: Both
-        seeds select a unique pair; only a primary seed selects all outgoing links. The
-        secondary seed selects all incoming links. There is no grouped rollback for
-        multi-row deletion.
+        Both seeds select a unique pair; only a primary seed selects all outgoing links.
+        Only a secondary seed selects all incoming links. The complete deletion uses
+        one macro transaction and preserves any outer caller transaction.
 
         Example:
             For a valid seed, db.unlinked_intralink(primary_row=seed,
