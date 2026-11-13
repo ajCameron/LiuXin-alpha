@@ -231,8 +231,9 @@ retry the write. Durable/retriable listener delivery is future work.
 
 Maintenance initialization likewise requires the caller to serialize it with
 normal database use. A shutdown timeout is reported and ownership retained;
-it does not force-kill a worker. `Database.close()` retains its best-effort
-cleanup contract. `RowState.IDENTIFIED` means the local payload has an identity,
+it does not force-kill a worker. The [2026-11-13 lifecycle repairs](module-boundary-and-lifecycle-review-2026-11-13.md#implemented-lifecycle-contract)
+extend that contract to `Database.close()`: shutdown failures retain dependencies
+and propagate for retry. Only finalization remains best effort. `RowState.IDENTIFIED` means the local payload has an identity,
 not that a concurrent database deletion is impossible. Existing missing-load
 sentinels and writable `deepcopy(Row)` behavior are preserved and tested.
 

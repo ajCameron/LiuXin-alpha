@@ -108,51 +108,10 @@ class DatabaseAPI(
 
         Call while direct SQL users are quiescent. Managed macro transactions and
         drivers owned by another facade are rejected. Changing physical catalogues
-        with attached runtime services or queued work requires a separate Database.
+        with owned or attached runtime services or queued work requires a separate Database.
 
         :param new_driver: Compatible open driver to install.
         :return: None.
-        """
-
-    @abc.abstractmethod
-    def set_driver_wrapper(
-        self, new_driver_wrapper: "DatabaseDriverWrapperAPI"
-    ) -> None:
-        """
-        Assign a wrapper and replace its macros reference with the facade macros.
-
-        Abstract declaration; subclasses supply the operation. In the concrete Database
-        implementation: Assignment precedes validation. This neither closes the previous
-        wrapper nor refreshes convenience aliases, locks or back-references.
-
-        Example:
-            During controlled assembly, db.set_driver_wrapper(wrapper) requires
-            wrapper.macros already set before copying db.macros.
-
-
-        :param new_driver_wrapper: Wrapper whose existing macros attribute must be
-            non-None.
-        :return: None.
-        :raises AssertionError: The newly assigned wrapper has macros=None.
-        """
-
-    @abc.abstractmethod
-    def set_macros(self, new_macros: "DatabaseMacrosAPI") -> None:
-        """
-        Replace the facade macros reference after rejecting None.
-
-        Abstract declaration; subclasses supply the operation. In the concrete Database
-        implementation: This does not update the driver, wrapper or collaborator
-        back-references.
-
-        Example:
-            When assembling a compatible facade, db.set_macros(macros) stores that
-            object without rebuilding other collaborators.
-
-
-        :param new_macros: Macros object to retain directly.
-        :return: None.
-        :raises AssertionError: new_macros is None.
         """
 
     @property
@@ -215,13 +174,6 @@ class DatabaseAPI(
         Bibliographic interpretation and compatibility projections belong to Catalog.
         """
 
-    @abc.abstractmethod
-    def set_metadata_sql(self, new_metadata_sql: MetadataSQLAPI) -> None:
-        """Retain a non-None table-query helper without rebinding its owner.
-
-        Construction and runtime rebinding arrange the helper's db reference.
-        """
-
     # These are commonly present on the concrete Database, but are not required for all fakes.
     # They are therefore declared as attributes rather than abstract properties.
     lock: RLock | None
@@ -233,21 +185,11 @@ class DatabaseAPI(
     # ---------------------------------------------------------------------------------------------
     @abc.abstractmethod
     def close(self) -> None:
-        """
-        Stop maintenance and release database connections with best-effort cleanup.
+        """Stop owned services before releasing their database dependencies.
 
-        Stop maintenance, release the wrapper, and roll back pending primary work
-        before closing connections. Cleanup never requests a commit. Auxiliary
-        connections belong to the driver and are closed through it. Ordinary cleanup
-        errors are suppressed so later resources still receive cleanup attempts.
-        Callers must finish active operations before closing the facade.
-
-        Example:
-            Use db.close() in a finally block; commit intended writes explicitly first.
-
-
-        :return: None; connection aliases and selected collaborator references are
-            cleared.
+        Service shutdown failures propagate and retain ownership for retry. Injected
+        storage managers remain caller-owned. Successful cleanup discards pending
+        work without undoing earlier commits; repeat close is harmless.
         """
 
     @abc.abstractmethod

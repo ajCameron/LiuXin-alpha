@@ -16,6 +16,8 @@ Example:
 """
 from __future__ import annotations
 
+from LiuXin_alpha.utils.calibre_compat.custom_columns.adapter import CustomColumnAdapter
+
 from pathlib import Path
 
 import pytest
@@ -240,7 +242,7 @@ def _backend_from_library(tmp_path: Path, metadata_db_path: Path) -> Database:
 
     db.initialize_prefs = _init_prefs
     db.field_metadata = FieldMetadata()
-    db.custom_table_names = db.driver_wrapper.custom_table_names
+    db.custom_table_names = CustomColumnAdapter(db).custom_table_names
     return db
 
 

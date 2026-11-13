@@ -10,8 +10,12 @@ a SQL transaction's lifetime.
 call `close()`, discard uncommitted primary work and close owned connections.
 Completed commits remain durable. Replacing the driver also discards the old
 driver's pending work; reattaching the same driver keeps its primary connection.
-Cleanup is best effort and suppresses ordinary close errors, but never requests
-a commit. Finish active operations before closing or replacing their facade.
+Close stops owned maintenance and storage before releasing database dependencies.
+A service shutdown failure propagates, retains ownership and leaves the facade
+`closing` for retry; it never requests a commit. Injected storage stays caller-owned.
+Finish active operations before closing or replacing their facade. If a context
+body already raised, cleanup errors become notes on that original exception.
+See the [lifecycle contract](module-boundary-and-lifecycle-review-2026-11-13.md#implemented-lifecycle-contract).
 
 This deliberately changes the old primary-connection commit-on-close behaviour.
 Raw SQL callers that intend to persist writes must explicitly commit or use an
@@ -120,8 +124,8 @@ cost is inappropriate. `executemany` retains SQLite's no-returned-rows contract.
 | [Direct SQL execution](../../src/LiuXin_alpha/databases/database_driver_plugins/SQL/databasedriver/sql_execution_mixin.py) | `direct_execute`/`direct_executemany` enter the primary connection's backend context and can commit earlier primary work. `direct_execute_sql` uses and commits a separate connection. Script helpers retain backend script semantics, including SQLite's implicit commits. Do not compose these inside a macro unit. |
 | [Direct inserts](../../src/LiuXin_alpha/databases/database_driver_plugins/SQL/databasedriver/add_mixin.py), [updates](../../src/LiuXin_alpha/databases/database_driver_plugins/SQL/databasedriver/update_mixin.py), [row/value deletes](../../src/LiuXin_alpha/databases/database_driver_plugins/SQL/databasedriver/delete_mixin.py) | Each call owns a transaction on a fresh SQLite connection, commits only on success, rolls back the whole batch on failure and closes the connection. Separate calls do not form an aggregate transaction or join an enclosing macro unit. Whole-table clearing and link DDL retain their documented separate boundaries. |
 | [Value casting](../../src/LiuXin_alpha/databases/database_driver_plugins/SQL/databasedriver/value_casting_mixin.py), [trigger helpers](../../src/LiuXin_alpha/databases/database_driver_plugins/SQL/databasedriver/triggers_mixin.py) | Separate connections, explicit commits or per-operation contexts remain. These privileged maintenance helpers are not atomic Catalog writers. |
-| [Custom-column creation](../../src/LiuXin_alpha/databases/driver_wrapper/driver_wrapper_custom_columns_mixin.py) | Complete definition insertion and value/link DDL use one serialized outermost macro transaction. A failure rolls back both; facade bookkeeping follows a real commit. Public creation refuses nested macro units before writing. The DDL helper accepts a supplied active connection through a savepoint and executes complete statements individually, avoiding SQLite script implicit commits. Generated compatibility DDL remains SQLite-specific. |
-| [Custom-column management](../../src/LiuXin_alpha/databases/database_driver_plugins/SQL/macros/cc_macros_mixin/cc_management_macros.py) | Metadata edits, deletion marking and deferred cleanup join the active macro connection, otherwise the primary connection. They preserve an existing transaction through a savepoint and commit only their own unit. Cleanup selects marked definitions and removes their SQLite objects atomically; a later failed DROP restores earlier removals. Omitted attachment metadata stays unchanged; reattachment requires an explicit storage migration. |
+| [Custom-column creation](../../src/LiuXin_alpha/utils/calibre_compat/custom_columns/adapter.py) | The explicit compatibility adapter and facade create native storage in one owned transaction on SQLite, APSW and PostgreSQL. Definition and DDL roll back together. Projection preparation runs before commit and publication follows commit. Active primary or macro transactions are refused by this creation facade. |
+| [Custom-column management](../../src/LiuXin_alpha/utils/calibre_compat/custom_columns/macros.py) | Compatibility macro names delegate to native validation, revisions and managed transactions. Explicit connections must be the active managed connection. Raw storage creation and implicit purge are unsupported. Field retirement retains data; purge and repair require explicit native plans. |
 | [Link DDL](../../src/LiuXin_alpha/databases/database_driver_plugins/SQL/utility_mixins.py) and remaining legacy scripts/value helpers | These retain their documented local commit points. Do not assume an enclosing resource or macro context groups arbitrary scripts or compatibility value writes. |
 | [PostgreSQL direct driver](../../src/LiuXin_alpha/databases/database_driver_plugins/PostgreSQL/databasedriver/__init__.py) | Direct row and batch writes use one primary-connection transaction per call, rolling back the batch on failure. These contexts can include earlier pending primary work; they do not join a separate macro connection. Fresh connection setup commits its search path before lending the handle to the macro owner. |
 | [Creation/replacement](creation-and-replacement.md) and schema generators | Separate initialization/publication contract, with explicit schema-building commits. Database construction is not part of a later resource or macro transaction. |
@@ -165,12 +169,22 @@ text; PostgreSQL locks that row until the update completes. Draft Rows cannot be
 used as dictionary keys or set members until they have a table and row ID.
 
 
-## Legacy cached custom values (2026-11-05)
+## Custom values and definitions (2026-11-12)
 
-The cached custom-column facade now owns its complete write transaction. It
-rejects an already active transaction and `set_custom(..., commit=False)` before
-mutation; callers composing their own transactions should use SQL macros.
-Touched cache rows are restored on write failure, and notifications follow
-commit. TEMP-table macros no longer use implicitly committing `executescript`.
-See the [regression ratchet](regression-ratchet-2026-11-05.md) for exact guarantees,
-compatibility changes and failure coverage.
+Custom fields use one native storage engine. The compatibility facade owns its
+complete public write transactions and rejects active primary or macro work,
+including `set_custom(..., commit=False)`. Native operations and compatibility
+macros support managed composition. There is no v1 reading, creation or conversion.
+
+Facade cache rows are journaled before mutation. Dirty hooks and projection
+preparation run before commit; metadata publication and notifications follow it.
+Pre-commit failures restore SQL and cache. Post-commit publication failures state
+that the write committed. Enumeration rename changes allowed choices and values
+in the same native transaction.
+
+Construction and refresh read definitions without schema repair or deletion.
+Borrowed reads do not commit the caller's transaction. Refresh projections again
+if a caller rolls back definition changes they previously read. Native retirement
+keeps storage and integrity constraints; purge and repair are explicit planned
+operations. See the [custom-column contract](custom-columns.md) and
+[regression ratchet](regression-ratchet-2026-11-05.md).

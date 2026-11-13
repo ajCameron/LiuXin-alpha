@@ -96,7 +96,9 @@ class TestDBCustomColumns(TestDatabaseBuilder):
         :param scratch_db: Scratch database receiving deterministic schema and rows.
         :return: None; fixture state or the supplied destination is updated in place.
         """
-        from LiuXin_alpha.databases.custom_columns import CustomColumns
+        from LiuXin_alpha.utils.calibre_compat.custom_columns import (
+            CustomColumns,
+        )
 
         # FRBR databases may also expose a read-only books compatibility view.
         # Attach new storage to the physical manifestation table when available.

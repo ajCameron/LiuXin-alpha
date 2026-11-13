@@ -20,11 +20,6 @@ from LiuXin_alpha.databases.api.database_api.mixins.metadata_mixin_api import Da
 
 
 from .row_api import RowAPI
-from LiuXin_alpha.databases.api.custom_columns_api import (
-    CustomColumnDataAdapter,
-    CustomColumnMetadata,
-    CustomColumnsAPI,
-)
 from LiuXin_alpha.databases.api.database_api.database_generator_api import DatabaseGeneratorAPI
 from LiuXin_alpha.databases.api.database_api.database_api import DatabaseAPI
 from LiuXin_alpha.databases.api.database_api.mixins import (
@@ -49,9 +44,6 @@ from LiuXin_alpha.databases.db_types.maintenance_types import MaintenanceMode
 
 __all__ = [
     "DatabaseAPI",
-    "CustomColumnDataAdapter",
-    "CustomColumnMetadata",
-    "CustomColumnsAPI",
     "DatabaseGeneratorAPI",
     "DatabaseDirtiedRecordsMixinAPI",
     "DatabaseDriverAPI",

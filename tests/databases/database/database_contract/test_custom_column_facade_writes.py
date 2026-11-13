@@ -7,7 +7,11 @@ from types import SimpleNamespace
 
 import pytest
 
-from LiuXin_alpha.databases.custom_columns import CustomColumns
+from LiuXin_alpha.databases.custom_columns import CustomFieldService
+
+from LiuXin_alpha.utils.calibre_compat.custom_columns import (
+    CustomColumns,
+)
 
 
 def test_create_edit_rename_and_delete_refresh_facade_state(db):
@@ -83,10 +87,10 @@ def test_failed_metadata_write_preserves_maps_and_skips_notifications(db, monkey
     notifications = []
     facade.notify = lambda *args: notifications.append(args)
 
-    def fail_write(**kwargs):
+    def fail_write(self, plan):
         raise RuntimeError("injected metadata failure")
 
-    monkeypatch.setattr(db.macros, "set_custom_column_metadata", fail_write)
+    monkeypatch.setattr(CustomFieldService, "apply_field_migration", fail_write)
     with pytest.raises(RuntimeError, match="injected"):
         facade.set_custom_column_metadata(column, is_editable=False)
     assert facade.custom_column_num_map == before

@@ -1,46 +1,60 @@
 """Prove legacy cached writes publish all SQL or none on both SQLite drivers."""
 
-from contextlib import closing
+from LiuXin_alpha.utils.calibre_compat.custom_columns.macros import CustomColumnMacros
+
+from contextlib import closing, contextmanager
 from copy import deepcopy
 
 import pytest
 
-from tests.databases.test_custom_column_service_contracts import facade_with_cache
+from tests.databases.test_custom_column_service_contracts import Cache
+from LiuXin_alpha.utils.calibre_compat.custom_columns import (
+    CustomColumns,
+)
+from LiuXin_alpha.databases.custom_columns.native_repository import (
+    CustomFieldRepository,
+)
 from tests.databases.test_row_write_safety import db as db, template as template, stored
 
 
 @pytest.fixture
 def custom(db):
-    facade = facade_with_cache()
-    facade.db = db
-    facade.notify = lambda *args: None
-    facade.dirtied = lambda *args, **kwargs: None
-    facade.custom_data_adapters = {"text": lambda value, data: value}
-    facade.custom_column_label_map = {"shelf": facade.custom_column_num_map[3]}
+    for owner in (7, 8):
+        db.macros.insert_row("works", {"work_id": owner, "work_title": str(owner)})
+    facade = CustomColumns(db, table="works")
+    facade.create_custom_column("Reserved one", label="reserved_one")
+    facade.create_custom_column("Reserved two", label="reserved_two")
+    assert facade.create_custom_column("Shelf", label="shelf", is_multiple=True) == 3
+    facade.set_custom_bulk([7, 8], ["old"], num=3)
+    facade.data = Cache()
+    facade.FIELD_MAP = {"id": 0, 3: 1}
     with closing(db.driver.get_connection()) as conn:
-        conn.executescript("""
-            CREATE TABLE custom_column_3 (custom_column_3_id INTEGER PRIMARY KEY,
-                custom_column_3_value TEXT COLLATE NOCASE UNIQUE);
-            CREATE TABLE books_custom_column_3_link (
-                books_custom_column_3_link_id INTEGER PRIMARY KEY,
-                books_custom_column_3_link_book INTEGER,
-                books_custom_column_3_link_value INTEGER,
-                UNIQUE (books_custom_column_3_link_book, books_custom_column_3_link_value));
-            INSERT INTO custom_column_3 VALUES (1, 'old');
-            INSERT INTO books_custom_column_3_link VALUES (1, 7, 1), (2, 8, 1);
-            CREATE VIEW meta2 AS SELECT books_custom_column_3_link_book AS id,
+        conn.execute("""CREATE VIEW meta2 AS SELECT works_custom_column_3_link_book AS id,
                 group_concat(custom_column_3_value, '|') AS custom_3
-                FROM books_custom_column_3_link JOIN custom_column_3
-                ON books_custom_column_3_link_value=custom_column_3_id
-                GROUP BY books_custom_column_3_link_book;
-        """)
+                FROM works_custom_column_3_link JOIN custom_column_3
+                ON works_custom_column_3_link_value=custom_column_3_id
+                GROUP BY works_custom_column_3_link_book""").close()
+        conn.commit()
     return facade
+
+
+def inject_commit_failure(db, monkeypatch, fail):
+    """Fail the connection that actually owns the native write transaction."""
+    original = db.macros.transaction
+
+    @contextmanager
+    def transaction(*args, **kwargs):
+        with original(*args, **kwargs) as connection:
+            monkeypatch.setattr(connection, "commit", fail)
+            yield connection
+
+    monkeypatch.setattr(db.macros, "transaction", transaction)
 
 
 def sql_snapshot(db):
     return (
         stored(db, "SELECT * FROM custom_column_3 ORDER BY custom_column_3_id"),
-        stored(db, "SELECT * FROM books_custom_column_3_link ORDER BY 1, 2"),
+        stored(db, "SELECT * FROM works_custom_column_3_link ORDER BY 1, 2"),
     )
 
 
@@ -80,18 +94,15 @@ def test_write_failure_restores_sql_cache_and_suppresses_notifications(
     elif failure == "dirty":
         custom.dirtied = fail
     elif failure == "commit":
-        monkeypatch.setattr(custom.conn, "commit", fail)
-    elif route == "multiple":
-        original = custom.db.macros.do_cc_db_bulk_addition
+        inject_commit_failure(custom.db, monkeypatch, fail)
+    else:
+        original = CustomFieldRepository.write_entries
 
         def fail_after_sql(*args, **kwargs):
             original(*args, **kwargs)
             fail()
 
-        monkeypatch.setattr(custom.db.macros, "do_cc_db_bulk_addition", fail_after_sql)
-    else:
-        # Fails after removing the old link, before its replacement is written.
-        monkeypatch.setattr(custom.db.macros, "add_cc_table_value", fail)
+        monkeypatch.setattr(CustomFieldRepository, "write_entries", fail_after_sql)
     with pytest.raises(RuntimeError, match="injected"):
         mutate(custom, route)
     assert sql_snapshot(custom.db) == before_sql
@@ -159,8 +170,8 @@ def test_temp_table_macros_never_commit_a_borrowed_transaction(custom):
     connection = custom.conn
     connection.execute("BEGIN")
     connection.execute("INSERT INTO review_items(review_item_text) VALUES ('pending')")
-    custom.db.macros.create_cc_temp_tables(iter(["selected_ids"]), conn=connection)
-    custom.db.macros.destroy_cc_temp_tables(iter(["selected_ids"]), conn=connection)
+    custom.db.macros.create_temp_id_tables(iter(["selected_ids"]), conn=connection)
+    custom.db.macros.destroy_temp_tables(iter(["selected_ids"]), conn=connection)
     assert connection.in_transaction
     assert stored(custom.db, "SELECT * FROM review_items") == []
     connection.rollback()
@@ -171,14 +182,8 @@ def test_temp_table_macros_never_commit_a_borrowed_transaction(custom):
 def test_delete_and_rename_share_sql_and_cache_failure_boundary(
     custom, monkeypatch, route, failure
 ):
-    custom.field_metadata = {
-        "#shelf": {"table": "custom_column_3", "link_column": "value"}
-    }
     if route == "merge":
-        custom.conn.execute("INSERT INTO custom_column_3 VALUES (2, 'new')")
-        custom.conn.execute("INSERT INTO books_custom_column_3_link VALUES (3, 7, 2)")
-        custom.conn.commit()
-        custom.data._data[7][1] = "old|new"
+        custom.set_custom(7, ["new"], num=3, append=True)
     before = sql_snapshot(custom.db)
     cache = deepcopy(custom.data._data)
 
@@ -188,7 +193,7 @@ def test_delete_and_rename_share_sql_and_cache_failure_boundary(
     if failure == "cache":
         monkeypatch.setattr(custom.data, "set", fail)
     elif failure == "commit":
-        monkeypatch.setattr(custom.conn, "commit", fail)
+        inject_commit_failure(custom.db, monkeypatch, fail)
 
     def apply():
         if route == "delete_id":
@@ -212,29 +217,29 @@ def test_delete_and_rename_share_sql_and_cache_failure_boundary(
 
 
 def test_delete_macro_preserves_caller_transaction(custom):
-    connection = custom.conn
     before = sql_snapshot(custom.db)
-    connection.execute("BEGIN")
-    custom.db.macros.delete_cc_item(
-        "custom_column_3", "books_custom_column_3_link", 1, conn=connection
-    )
-    assert connection.in_transaction
-    assert sql_snapshot(custom.db) == before
-    connection.rollback()
+    with pytest.raises(RuntimeError, match="rollback"):
+        with custom.db.macros.transaction() as connection:
+            CustomColumnMacros(custom.db).delete_cc_item(
+                "custom_column_3", "works_custom_column_3_link", 1, conn=connection
+            )
+            assert connection.in_transaction
+            assert sql_snapshot(custom.db) == before
+            raise RuntimeError("rollback")
     assert sql_snapshot(custom.db) == before
 
 
 def test_partial_bulk_failure_restores_first_owner_as_well(custom, monkeypatch):
     before = sql_snapshot(custom.db)
     cache = deepcopy(custom.data._data)
-    original = custom._set_custom
+    original = CustomFieldRepository.write_entries
 
-    def second_fails(owner, *args, **kwargs):
+    def second_fails(repository, connection, definition, owner, *args, **kwargs):
         if owner == 8:
             raise RuntimeError("second owner failed")
-        return original(owner, *args, **kwargs)
+        return original(repository, connection, definition, owner, *args, **kwargs)
 
-    monkeypatch.setattr(custom, "_set_custom", second_fails)
+    monkeypatch.setattr(CustomFieldRepository, "write_entries", second_fails)
     with pytest.raises(RuntimeError, match="second owner"):
         custom.set_custom_bulk([7, 8], ["new"], num=3)
     assert sql_snapshot(custom.db) == before
@@ -243,13 +248,7 @@ def test_partial_bulk_failure_restores_first_owner_as_well(custom, monkeypatch):
 
 @pytest.mark.parametrize("route", ["delete", "rename"])
 def test_shared_value_changes_preserve_other_cached_choices(custom, route):
-    custom.field_metadata = {
-        "#shelf": {"table": "custom_column_3", "link_column": "value"}
-    }
-    custom.conn.execute("INSERT INTO custom_column_3 VALUES (2, 'keep')")
-    custom.conn.execute("INSERT INTO books_custom_column_3_link VALUES (3, 7, 2)")
-    custom.conn.commit()
-    custom.data._data[7][1] = "old|keep"
+    custom.set_custom(7, ["keep"], num=3, append=True)
     if route == "delete":
         custom.delete_custom_item_using_id(1, num=3)
     else:

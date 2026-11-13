@@ -1,7 +1,7 @@
 """
 Adapt low-level database drivers to dictionary rows and schema specifications.
 
-DriverWrapper combines CRUD, naming, tree, policy and custom-column mixins. It
+DriverWrapper combines CRUD, naming, tree and policy mixins. It
 caches derived schema objects, owns a reentrant mutex for shared facade access,
 and relies on its parent database to populate table groups and the dirty-record
 queue.
@@ -28,9 +28,6 @@ from LiuXin_alpha.databases.db_types.driver_types import (
 from LiuXin_alpha.databases.driver_wrapper.diagnostics import observed
 from LiuXin_alpha.databases.driver_wrapper.driver_wrapper_add_mixin import (
     DriverWrapperAddMixin,
-)
-from LiuXin_alpha.databases.driver_wrapper.driver_wrapper_custom_columns_mixin import (
-    CustomColumnsDriverWrapperMixin,
 )
 from LiuXin_alpha.databases.driver_wrapper.driver_wrapper_delete_mixin import (
     DriverWrapperDeleteMixin,
@@ -84,7 +81,6 @@ if TYPE_CHECKING:
 
 
 class DriverWrapper(
-    CustomColumnsDriverWrapperMixin,
     DriverWrapperQueryMixin,
     DriverWrapperAddMixin,
     DriverWrapperUpdateMixin,
@@ -100,8 +96,7 @@ class DriverWrapper(
     Provide dictionary-row operations and cached schema discovery over a driver.
 
     The parent database supplies table groups and dirty tracking after construction.
-    Most operations delegate to the driver; custom columns also require the owning
-    database. close() releases the mutex and driver references, while the owner
+    Operations delegate to the driver. Custom-field operations use their own service. close() releases the mutex and driver references, while the owner
     remains responsible for the primary driver connection.
 
     Example:
@@ -120,8 +115,8 @@ class DriverWrapper(
 
         Copies the driver macro reference, clears table groups, and leaves the dirty
         queue unset for the parent database to wire. lock serializes cooperating threads
-        without opening a SQL connection. Custom-column initialization records db and an
-        empty custom-table set; db may initially be None.
+        without opening a SQL connection. Record db and an empty custom-table category;
+        db may initially be None.
 
         Example:
             >>> wrapper = DriverWrapper(driver, db=database)  # doctest: +SKIP
@@ -149,7 +144,100 @@ class DriverWrapper(
         self.lock = RLock()
         self._clear_derived_schema_caches()
 
-        super().__init__(db=db, macros=None)
+        self.db = db
+        self._conn_override: QueryConnection | None = None
+        self._custom_tables: set[str] = set()
+
+    @property
+    def conn(self) -> QueryConnection | None:
+        """
+        Resolve an override or the current owner/driver connection.
+
+        An explicit override is probed with SELECT 1 when it exposes execute; an
+        override without that method is accepted as-is. Probe failures clear the stored
+        override where possible. Then prefer db.driver.conn, followed by
+        self.driver.conn, suppressing lookup errors. If neither works, returns the
+        original local override, which may still be stale after a failed probe. No new
+        connection is opened.
+
+        Example:
+            >>> from types import SimpleNamespace
+            >>> token = object()
+            >>> mixin = DriverWrapper(
+            ...     SimpleNamespace(driver=SimpleNamespace(conn=token)), None
+            ... )
+            >>> mixin.conn is token
+            True
+
+
+        :return: Override or live driver connection; possibly None or the failed
+            override when all fallbacks fail.
+        """
+        override = getattr(self, "_conn_override", None)
+        if override is not None:
+            # If the override is stale/closed, drop it and fall back to the live driver connection.
+            try:
+                exec_fn = getattr(override, "execute", None)
+                if callable(exec_fn):
+                    exec_fn("SELECT 1")
+                return override
+            except Exception:
+                try:
+                    self._conn_override = None
+                except Exception:
+                    pass
+
+        # Prefer db.driver.conn when available
+        db = getattr(self, "db", None)
+        if db is not None:
+            drv = getattr(db, "driver", None)
+            if drv is not None:
+                try:
+                    return drv.conn
+                except Exception:
+                    pass
+
+        # Fallback for DriverWrapper, which may not have db set yet
+        drv = getattr(self, "driver", None)
+        if drv is not None:
+            try:
+                return drv.conn
+            except Exception:
+                pass
+
+        return override
+
+    @conn.setter
+    def conn(self, value: QueryConnection | None) -> None:
+        # Backwards-compat: allow code to assign self.conn = <connection>.
+        # Prefer leaving this unset so the property resolves a fresh connection from the driver.
+        """
+        Store a connection override for lazy resolution on the next read.
+
+        No validation or cleanup occurs at assignment. Assign None to prefer the live
+        owner/driver connection.
+
+        Example:
+            >>> mixin = DriverWrapper(None, None)
+            >>> token = object()
+            >>> mixin.conn = token
+            >>> mixin._conn_override is token
+            True
+
+
+        :param value: Replacement connection-like object, or None to clear the override.
+        :return: None.
+        """
+        self._conn_override = value
+
+    @property
+    def custom_tables(self) -> set[str]:
+        """Expose the custom storage category discovered by the owning database."""
+        return self._custom_tables
+
+    @custom_tables.setter
+    def custom_tables(self, value: set[str]) -> None:
+        self._custom_tables = value
 
     def _clear_derived_schema_caches(self) -> None:
         """

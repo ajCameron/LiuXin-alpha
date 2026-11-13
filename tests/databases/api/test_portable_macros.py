@@ -1384,13 +1384,13 @@ def test_legacy_macro_correctness_repairs_and_temp_table_safety():
     ).fetchone()[0] == "new"
 
     db.driver.conn.execute("CREATE TABLE temp_bulk_safe(id INTEGER PRIMARY KEY)")
-    macros.create_cc_temp_tables(("temp_bulk_safe",), conn=db.driver.conn)
-    macros.destroy_cc_temp_tables(("temp_bulk_safe",), conn=db.driver.conn)
+    macros.create_temp_id_tables(("temp_bulk_safe",), conn=db.driver.conn)
+    macros.destroy_temp_tables(("temp_bulk_safe",), conn=db.driver.conn)
     assert db.driver.conn.execute(
         "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='temp_bulk_safe'"
     ).fetchone()[0] == 1
     with pytest.raises(InputIntegrityError):
-        macros.create_cc_temp_tables(('bad"; DROP TABLE tags; --',), conn=db.driver.conn)
+        macros.create_temp_id_tables(('bad"; DROP TABLE tags; --',), conn=db.driver.conn)
     assert db.driver.conn.execute(
         "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='tags'"
     ).fetchone()[0] == 1

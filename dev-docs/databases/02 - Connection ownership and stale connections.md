@@ -1,6 +1,6 @@
 # Connection ownership and stale connections
 
-Reviewed **2026-11-04**. Source: [custom-column connection resolution](../../src/LiuXin_alpha/databases/driver_wrapper/driver_wrapper_custom_columns_mixin.py).
+Reviewed **2026-11-12**. Source: [custom-column connection resolution](../../src/LiuXin_alpha/utils/calibre_compat/custom_columns/adapter.py).
 
 SQLite connections are *stateful* objects. In this codebase they can be rotated or replaced during:
 
@@ -51,43 +51,25 @@ For helper classes that historically accepted/stored `conn`, use a property that
 
 - `conn` getter:
   1. optional override (backwards-compat), validated lazily and discarded if unusable
-  2. `db.driver.conn` if available
-  3. (DriverWrapper fallback) `self.driver.conn`
+  2. for the custom-column service, the active macro transaction connection
+  3. `db.driver.conn` if available
+  4. (DriverWrapper fallback) `self.driver.conn`
 
 - `conn` setter:
   sets the optional override for backwards-compat, but the preferred usage is leaving it unset.
 
 This pattern avoids stale connection references while preserving call sites that still pass `conn=`.
 
-## Notes on TEMP triggers/tables
+## TEMP objects and persistent custom cleanup
 
-SQLite TEMP triggers and TEMP tables are scoped to the connection that created them.
-If code creates TEMP triggers during cache/custom-column initialization, it must do so on the same live connection that
-will later be used for the operations relying on those triggers.
+SQLite TEMP tables and triggers belong to the connection that created them.
+The custom-column bulk writer keeps its TEMP scratch tables and dependent SQL
+inside one owned write transaction. Replacing that connection loses its TEMP
+objects, so a helper must never silently substitute another handle mid-operation.
 
-If you *must* create TEMP objects, ensure you create them on `db.driver.conn` (or whatever connection you will later use
-to execute the dependent statements), and avoid “one-off” connections in the execution path.
-
-### TEMP triggers are *derived state* 
-
-When we use TEMP triggers (for example, the custom-column delete trigger used to clean up link tables), treat them as
-**derived state** that is regenerated from metadata.
-
-That has two important consequences:
-
-1. **Keep these custom-column cleanup triggers temporary.** This rule does not apply to the permanent integrity and timestamp triggers installed by the schema generator.
-2. **Make TEMP trigger creation idempotent by drop/recreate**, not `IF NOT EXISTS`.
-
-Why not `CREATE TRIGGER IF NOT EXISTS`?
-
-Because the trigger body depends on the current set of custom columns (and their link-table names). When you add/remove
-custom columns you must regenerate the trigger definition; `IF NOT EXISTS` would silently keep the stale body and leak
-rows in newly created link tables.
-
-Recommended pattern:
-
-- `DROP TRIGGER IF EXISTS temp.custom_<table>_delete_trg;`
-- `CREATE TEMP TRIGGER custom_<table>_delete_trg AFTER DELETE ON <table> ...;`
-
-Also note that TEMP triggers will disappear if the connection is replaced. This is one more reason to treat
-`db.driver.conn` as the stable, owned connection for database helpers.
+Custom-column owner cleanup now uses persistent per-column triggers. This
+protects macro and independent-connection deletes as well as the primary handle.
+Construction/refresh repairs existing storage using an owned transaction or a
+borrowed savepoint; neither commits the caller's pending work. See the
+[cleanup lifecycle](<03 - TEMP triggers for custom-column cleanup.md>) for the
+migration from connection-local aggregate triggers.

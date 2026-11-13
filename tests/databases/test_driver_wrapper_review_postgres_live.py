@@ -1,14 +1,17 @@
 """Exercise wrapper fixes against a disposable live PostgreSQL schema."""
 
 from contextlib import closing
-from unittest.mock import Mock
 
 import pytest
 
-from LiuXin_alpha.databases.api.macros_api import MacrosAPI
+from LiuXin_alpha.databases.custom_columns import CustomFieldService
+from LiuXin_alpha.databases.custom_columns.native_repository import (
+    CustomFieldRepository,
+    names,
+)
 from LiuXin_alpha.databases.schema_specs import RelationKind
 from LiuXin_alpha.databases.transactions import transaction_active
-from LiuXin_alpha.errors import DatabaseDriverError
+from LiuXin_alpha.utils.calibre_compat.custom_columns.adapter import CustomColumnAdapter
 from tests.databases import test_row_write_safety_postgres_live as fixtures
 
 pg_db = fixtures.pg_db
@@ -70,33 +73,35 @@ def test_postgres_custom_definition_and_supplied_ddl_roll_back_together(
     wrapper = db.driver_wrapper
     known = set(wrapper.custom_tables)
 
-    def fail(*, conn, **kwargs):
+    def fail(repository, conn, definition):
         assert conn.execute("SELECT COUNT(*) FROM custom_columns").fetchone()[0] == 1
         conn.execute("CREATE TABLE wrapper_partial(value TEXT)").close()
         raise RuntimeError("injected DDL failure")
 
-    # This backend deliberately lacks the SQLite compatibility DDL helper.
-    # Supply an explicitly declared legacy capability whose common operations
-    # still use the real PostgreSQL provider and transaction. One injected DDL
-    # failure exercises rollback without pretending PostgreSQL implements it.
-    provider = Mock(spec=MacrosAPI, wraps=db.macros)
-    provider.create_cc_table = fail
-    monkeypatch.setattr(db, "_macros", provider)
+    monkeypatch.setattr(CustomFieldRepository, "create_storage", fail)
     with pytest.raises(RuntimeError, match="injected DDL failure"):
-        wrapper.create_custom_column("Failure", label="failure", in_table="works")
+        CustomColumnAdapter(db).create_custom_column(
+            "Failure", label="failure", in_table="works"
+        )
     assert stored(pg_db, "custom_columns", "custom_column_id", "custom_column_id") == []
     assert wrapper.get_relation_type("wrapper_partial") is None
     assert wrapper.custom_tables == known
 
 
-def test_postgres_unsupported_custom_ddl_does_not_leave_a_definition(pg_db):
-    """A pre-existing backend limitation must fail without publishing metadata."""
+def test_postgres_wrapper_custom_creation_uses_native_storage(pg_db):
+    """The compatibility creation route uses portable native storage on PostgreSQL."""
     db, _ = pg_db
-    with pytest.raises(DatabaseDriverError, match="requires legacy SQLite macros"):
-        db.driver_wrapper.create_custom_column(
-            "Unsupported", label="unsupported", in_table="works"
+    number = CustomColumnAdapter(db).create_custom_column(
+        "Native", label="native", in_table="works"
+    )
+    service = CustomFieldService(db)
+    field = service.get_field(number)
+    with service.read() as conn:
+        assert service.repository.version(conn, field) == 2
+        assert all(
+            service.repository.table_exists(conn, table) for table in names(field)
         )
-    assert stored(pg_db, "custom_columns", "custom_column_id", "custom_column_id") == []
+    assert service.audit() == ()
 
 
 def test_postgres_current_folder_hierarchy_and_view_filter(pg_db):

@@ -340,7 +340,7 @@ class FormatterFunction(object):
             described above.
         """
         ret = self.evaluate(formatter, kwargs, mi, locals, *args)
-        if isinstance(ret, (str, unicode)):
+        if isinstance(ret, str):
             return ret
         if isinstance(ret, list):
             return ",".join(list)

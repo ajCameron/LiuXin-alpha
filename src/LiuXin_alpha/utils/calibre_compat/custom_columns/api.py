@@ -1,5 +1,5 @@
 """
-Describe the shared host required by Calibre-style custom-column mixins.
+Describe the Calibre compatibility facade over native custom-field storage.
 
 CustomColumnMetadata aliases a mutable string-keyed metadata mapping;
 CustomColumnDataAdapter accepts a value and metadata mapping. CustomColumnsAPI specifies
@@ -9,18 +9,18 @@ declarations do not validate payloads or provide persistence implementations.
 
 from __future__ import annotations
 
-from typing import (
-    Sequence,
-    Any,
+from collections.abc import (
     Callable,
     Iterable,
     Mapping,
     MutableMapping,
     MutableSequence,
-    Optional,
-    Protocol,
+    Sequence,
+)
+from typing import (
     TYPE_CHECKING,
-    TypeAlias,
+    Any,
+    Protocol,
 )
 
 if TYPE_CHECKING:
@@ -28,8 +28,8 @@ if TYPE_CHECKING:
     from LiuXin_alpha.databases.db_types.database_types import MainTableName
     from LiuXin_alpha.databases.db_types.driver_types import SQLConnection
 
-CustomColumnMetadata: TypeAlias = MutableMapping[str, Any]
-CustomColumnDataAdapter: TypeAlias = Callable[[Any, Mapping[str, Any]], Any]
+type CustomColumnMetadata = MutableMapping[str, Any]
+type CustomColumnDataAdapter = Callable[[Any, Mapping[str, Any]], Any]
 
 
 class CustomColumnRows(Protocol):
@@ -79,6 +79,12 @@ class CustomColumnFieldMetadata(Protocol):
 
     def __getitem__(self, key: str) -> Mapping[str, object]: ...
 
+    def prepare_custom_fields(
+        self, in_table: str, definitions: Iterable[Mapping[str, Any]]
+    ) -> Callable[[], None]:
+        """Validate one attachment's complete replacement before publishing it."""
+        ...
+
     def set_field_record_index(
         self, label: str, index: int, prefer_custom: bool = False
     ) -> None: ...
@@ -108,8 +114,9 @@ class CustomColumnsAPI(Protocol):
     label/number metadata maps and datatype adapters. This structural Protocol is not
     runtime_checkable; its method bodies are declarations without operational defaults.
     Parameter names match the concrete mixins, including cc_row_id(s) for writes
-    and book_ids for cached rename updates. Cache operations require an explicitly
-    supplied results cache; standalone definition management does not need one.
+    and book_ids for cached rename updates. Positional reads require an explicitly
+    supplied results cache. Persistent-ID reads and value writes support standalone
+    database use.
 
     Example:
         A mixin can annotate ``self: CustomColumnsAPI`` and read
@@ -117,14 +124,27 @@ class CustomColumnsAPI(Protocol):
         num=num, index_is_id=True)``.
     """
 
-    db: "DatabaseAPI"
-    table: "MainTableName"
+    db: DatabaseAPI
+    table: MainTableName
 
     @property
     def data(self) -> CustomColumnCache: ...
 
     @data.setter
-    def data(self, value: CustomColumnCache) -> None: ...
+    def data(self, value: CustomColumnCache | None) -> None: ...
+
+    @property
+    def value_cache(self) -> CustomColumnCache | None: ...
+
+    def _read_custom_rows(
+        self, data: Mapping[str, Any], owner_id: int
+    ) -> list[tuple[Any, Any]]: ...
+
+    def _read_custom_value(self, data: Mapping[str, Any], owner_id: int) -> Any: ...
+
+    def _refresh_custom_cache(
+        self, data: Mapping[str, Any], owner_ids: Iterable[int]
+    ) -> None: ...
 
     prefs: CustomColumnPreferences | None
     FIELD_MAP: MutableMapping[str | int, int]
@@ -191,8 +211,12 @@ class CustomColumnsAPI(Protocol):
         ...
 
     def refresh_db_custom_columns_metadata(self) -> None:
-        """Reload definition maps after validating every selected record."""
+        """Refresh compatibility projections from native definitions without schema repair or deletion. Refresh again after rolling back caller-owned definition changes."""
         ...
+
+    def _prepare_custom_columns_refresh(
+        self, connection: SQLConnection | None = None
+    ) -> Callable[[], None]: ...
 
     def get_custom_tables(self) -> set[str]:
         """
@@ -207,9 +231,7 @@ class CustomColumnsAPI(Protocol):
         """
         ...
 
-    def all_custom(
-        self, label: Optional[str] = None, num: Optional[int] = None
-    ) -> set[Any]:
+    def all_custom(self, label: str | None = None, num: int | None = None) -> set[Any]:
         """
         Return the distinct stored values for a selected custom column.
 
@@ -255,41 +277,14 @@ class CustomColumnsAPI(Protocol):
         name: str,
         datatype: str = "text",
         is_multiple: bool = False,
-        label: Optional[str] = None,
+        label: str | None = None,
         editable: bool = True,
-        display: Optional[Mapping[str, Any]] = None,
-        in_table: Optional[str] = None,
-        table: Optional[str] = None,
-        make_category: Optional[bool] = None,
+        display: Mapping[str, Any] | None = None,
+        in_table: str | None = None,
+        table: str | None = None,
+        make_category: bool | None = None,
     ) -> int:
-        """
-        Create a custom-column definition and the backing storage required by its
-        datatype.
-
-        Creation and validation belong to the concrete host/driver. Choose an insertable
-        attachment table for the active schema; a historical books name may be a
-        compatibility view. Normalized datatypes have value/link tables, while
-        unnormalized datatypes can store values directly in one backing table.
-
-        Example:
-            With a supported attachment table, ``host.create_custom_column("Reading
-            state", datatype="text", in_table="manifestations")`` returns a definition
-            ID.
-
-
-        :param name: Display name for the new column.
-        :param datatype: Legacy custom datatype, defaulting to text.
-        :param is_multiple: Whether the selected datatype supports multiple values.
-        :param label: Optional explicit custom-column label.
-        :param editable: Whether user edits are allowed.
-        :param display: Optional formatting/display metadata passed to the storage
-            owner.
-        :param in_table: Attachment table; the facade uses its configured table by
-            default.
-        :param table: Optional alias for in_table, subject to host conflict checking.
-        :param make_category: Optional override for category creation.
-        :return: Numeric ID of the new custom-column definition.
-        """
+        """Create a native field using Calibre-shaped arguments. This facade owns its transaction and supports scalar fields or text sets; use native creation for other collections."""
         ...
 
     def custom_dirty_books_referencing(
@@ -315,9 +310,9 @@ class CustomColumnsAPI(Protocol):
 
     def custom_field_metadata(
         self,
-        label: Optional[str] = None,
-        num: Optional[int] = None,
-    ) -> "CustomColumnMetadata":
+        label: str | None = None,
+        num: int | None = None,
+    ) -> CustomColumnMetadata:
         """
         Return the shared metadata mapping for a label or definition ID.
 
@@ -355,31 +350,16 @@ class CustomColumnsAPI(Protocol):
         ...
 
     def delete_custom_column(
-        self, num: Optional[int] = None, *, label: Optional[str] = None
+        self, num: int | None = None, *, label: str | None = None
     ) -> None:
-        """
-        Mark a selected definition for removal during a later custom-column load.
-
-        This contract separates marking from the loader operation that drops backing
-        tables. Existing storage/metadata can remain until that later cleanup runs.
-
-        Example:
-            ``host.delete_custom_column(num=column_id)`` marks the definition; a
-            subsequent loader pass performs its backing-table removal.
-
-
-        :param label: Custom-column label; when supplied, legacy mixins prefer it over
-            num.
-        :param num: Custom-column definition ID, used when label is absent.
-        :return: None; the implementing host performs the described operation.
-        """
+        """Retire a native field without deleting values. The facade requires its own transaction and publishes refreshed descriptors after commit."""
         ...
 
     def delete_custom_item_using_id(
         self,
         idx: int | None,
-        label: Optional[str] = None,
-        num: Optional[int] = None,
+        label: str | None = None,
+        num: int | None = None,
     ) -> None:
         """
         Delete one normalized value and update references through the host helpers.
@@ -404,8 +384,8 @@ class CustomColumnsAPI(Protocol):
     def delete_item_from_multiple(
         self,
         item: str,
-        label: Optional[str] = None,
-        num: Optional[int] = None,
+        label: str | None = None,
+        num: int | None = None,
     ) -> list[int]:
         """
         Remove one case-insensitively matched choice from a multiple-text column.
@@ -483,17 +463,16 @@ class CustomColumnsAPI(Protocol):
     def get_custom(
         self,
         idx: int,
-        label: Optional[str] = None,
-        num: Optional[int] = None,
+        label: str | None = None,
+        num: int | None = None,
         index_is_id: bool = False,
     ) -> Any:
         """
-        Read a selected custom value from the host row-data cache.
+        Read a selected custom value from an optional cache or directly by owner ID.
 
-        The current getter resolves the column field index from metadata. Multiple text
-        is split using cache_to_list. Its optional sort_alpha branch still uses the
-        obsolete list.sort(cmp=...) form and can fail on current Python; the protocol
-        does not supply a replacement implementation.
+        Cached reads use the column's FIELD_MAP slot. Without a cache, persistent-ID
+        reads query the attachment's storage. Multiple text is split using cache_to_list
+        and sorted case-insensitively when display.sort_alpha requests it.
 
         Example:
             ``host.get_custom(7, num=column_id, index_is_id=True)`` reads owner 7
@@ -507,15 +486,15 @@ class CustomColumnsAPI(Protocol):
         :param num: Custom-column definition ID, used when label is absent.
         :param index_is_id: Whether idx already identifies a persistent owner rather
             than a current row position.
-        :return: Cached scalar value or a list for a multiple-text column.
+        :return: Scalar value or a list for a multiple-text column.
         """
         ...
 
     def get_custom_extra(
         self,
         idx: int,
-        label: Optional[str] = None,
-        num: Optional[int] = None,
+        label: str | None = None,
+        num: int | None = None,
         index_is_id: bool = False,
     ) -> Any:
         """
@@ -541,16 +520,15 @@ class CustomColumnsAPI(Protocol):
     def get_custom_and_extra(
         self,
         idx: int,
-        label: Optional[str] = None,
-        num: Optional[int] = None,
+        label: str | None = None,
+        num: int | None = None,
         index_is_id: bool = False,
     ) -> tuple[Any, Any]:
         """
-        Read a cached custom value together with its optional series extra.
+        Read a custom value together with its optional series extra.
 
-        The value uses the host cache while a series extra comes from the link query.
-        The legacy multiple-text sort_alpha branch has the same cmp-keyword limitation
-        as get_custom.
+        The value follows get_custom's optional cache behavior. A Series extra comes
+        from its link query; positional reads require a supplied cache.
 
         Example:
             ``value, position = host.get_custom_and_extra(7, num=column_id,
@@ -570,8 +548,8 @@ class CustomColumnsAPI(Protocol):
 
     def get_custom_items_with_ids(
         self,
-        label: Optional[str] = None,
-        num: Optional[int] = None,
+        label: str | None = None,
+        num: int | None = None,
     ) -> list[tuple[int, Any]]:
         """
         Expose ID/value choices for a normalized custom column.
@@ -591,9 +569,9 @@ class CustomColumnsAPI(Protocol):
     def get_next_cc_series_num_for(
         self,
         series: str,
-        label: Optional[str] = None,
-        num: Optional[int] = None,
-    ) -> Optional[float]:
+        label: str | None = None,
+        num: int | None = None,
+    ) -> float | None:
         """
         Choose the next index for a named series in a selected custom-series column.
 
@@ -671,10 +649,10 @@ class CustomColumnsAPI(Protocol):
     def set_custom_bulk_multiple(
         self,
         cc_row_ids: Iterable[int],
-        add: Optional[Iterable[str | bytes]] = None,
-        remove: Optional[Iterable[str]] = None,
-        label: Optional[str] = None,
-        num: Optional[int] = None,
+        add: Iterable[str | bytes] | None = None,
+        remove: Iterable[str] | None = None,
+        label: str | None = None,
+        num: int | None = None,
         notify: bool = False,
     ) -> None:
         """
@@ -707,8 +685,8 @@ class CustomColumnsAPI(Protocol):
         self,
         cc_row_ids: Sequence[int],
         val: Any,
-        label: Optional[str] = None,
-        num: Optional[int] = None,
+        label: str | None = None,
+        num: int | None = None,
         append: bool = False,
         notify: bool = True,
         extras: Sequence[Any] | Mapping[int, Any] | None = None,
@@ -744,8 +722,8 @@ class CustomColumnsAPI(Protocol):
         self,
         cc_row_id: int,
         val: Any,
-        label: Optional[str] = None,
-        num: Optional[int] = None,
+        label: str | None = None,
+        num: int | None = None,
         append: bool = False,
         notify: bool = True,
         extra: Any = None,
@@ -763,7 +741,7 @@ class CustomColumnsAPI(Protocol):
         Example:
             ``additional = host.set_custom(7, "finished", label="state")``
             commits owner 7 and reports additionally affected owner IDs.
-            commit=False is refused by the cached facade; use SQL macros instead.
+            commit=False is refused by the facade; use SQL macros instead.
 
 
         :param cc_row_id: Persistent owner ID.
@@ -774,7 +752,7 @@ class CustomColumnsAPI(Protocol):
         :param append: Whether to append for supported multiple columns.
         :param notify: Whether to notify all affected owners after commit.
         :param extra: Optional series extra value.
-        :param commit: Must be True for cached writes; False is refused before mutation.
+        :param commit: Must be True; False is refused before mutation.
         :param allow_case_change: Whether matching normalized values may change display
             case.
         :return: Set of additional owners needing refresh from the inner write; the
@@ -785,11 +763,11 @@ class CustomColumnsAPI(Protocol):
     def set_custom_column_metadata(
         self,
         num: int,
-        name: Optional[str] = None,
-        label: Optional[str] = None,
-        is_editable: Optional[bool] = None,
-        display: Optional[Mapping[str, Any]] = None,
-        in_table: Optional[str] = None,
+        name: str | None = None,
+        label: str | None = None,
+        is_editable: bool | None = None,
+        display: Mapping[str, Any] | None = None,
+        in_table: str | None = None,
         notify: bool = True,
         update_last_modified: bool = False,
     ) -> bool:
@@ -837,7 +815,7 @@ class CustomColumnsAPI(Protocol):
         """
         ...
 
-    def _get_series_values(self, val: Any) -> tuple[str, Optional[float]]:
+    def _get_series_values(self, val: Any) -> tuple[str, float | None]:
         """
         Parse a legacy series value into a name and optional position.
 
@@ -859,40 +837,12 @@ class CustomColumnsAPI(Protocol):
         self,
         id_: int,
         val: Any,
-        label: Optional[str] = None,
-        num: Optional[int] = None,
+        label: str | None = None,
+        num: int | None = None,
         append: bool = False,
         notify: bool = True,
         extra: Any = None,
         allow_case_change: bool = False,
     ) -> set[int]:
-        """
-        Adapt and persist one custom value and return additional owners requiring
-        refresh.
-
-        The current helper handles normalized, series and direct-value storage, updates
-        row-data projections and may notify. It does not perform the outer set_custom
-        dirtying/commit steps. Unsupported adapters, invalid enum values and
-        persistence/cache errors can propagate after partial work.
-
-        Example:
-            Within a host write implementation, ``host._set_custom(7, "finished",
-            label="state", notify=False)`` performs the inner update before the caller
-            dirties and commits.
-
-
-        :param id_: Persistent owner ID to update.
-        :param val: Value passed to the selected custom datatype adapter.
-        :param label: Custom-column label; when supplied, legacy mixins prefer it over
-            num.
-        :param num: Custom-column definition ID, used when label is absent.
-        :param append: Whether supported multiple values retain existing choices.
-        :param notify: Whether to request notification after the write.
-        :param extra: Optional series index; a parsed or default index can be used when
-            absent.
-        :param allow_case_change: Whether case-equivalent normalized choices may have
-            their display value changed.
-        :return: Set of additional owner IDs affected by shared value case changes;
-            composite writes return an empty set.
-        """
+        """Compatibility alias for the complete atomic set_custom operation. It requires an owned write transaction and does not expose an uncommitted inner writer."""
         ...

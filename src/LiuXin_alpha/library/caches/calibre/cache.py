@@ -16,6 +16,10 @@ Example:
 
 from __future__ import unicode_literals, division, absolute_import, print_function
 
+from LiuXin_alpha.utils.calibre_compat.custom_columns.adapter import CustomColumnAdapter
+from LiuXin_alpha.utils.calibre_compat.custom_columns.facade import CustomColumns
+from LiuXin_alpha.utils.calibre_compat.custom_columns.macros import CustomColumnMacros
+
 from LiuXin_alpha.databases.database_driver_plugins._macro_state import require_legacy_macros
 
 import json
@@ -264,7 +268,7 @@ class BaseCalibreCache(BaseCache):
         :return: None; the operation mutates state, writes output or performs cleanup in
             place.
         """
-        self.dirtied_cache = require_legacy_macros(self.backend.macros).get_dirtied_cache()
+        self.dirtied_cache = CustomColumnMacros(self.backend).get_dirtied_cache()
         if self.dirtied_cache:
             self.dirtied_sequence = max(itervalues(self.dirtied_cache)) + 1
 
@@ -636,7 +640,7 @@ class CalibreCache(BaseCalibreCache):
             ):
                 num = record[0]
                 in_table = record[1] if len(record) > 1 and record[1] is not None else "books"
-                table, lt = self.backend.custom_table_names(num, in_table=in_table)
+                table, lt = CustomColumnAdapter(self.backend).custom_table_names(num, in_table=in_table)
                 stmt = """\
                         DROP INDEX   IF EXISTS {table}_idx;
                         DROP INDEX   IF EXISTS {lt}_aidx;
@@ -709,7 +713,7 @@ class CalibreCache(BaseCalibreCache):
                 seps = {}
             data["multiple_seps"] = seps
 
-            table, lt = self.backend.driver_wrapper.custom_table_names(data["num"], in_table=data.get("in_table", "books"))
+            table, lt = CustomColumnAdapter(self.backend).custom_table_names(data["num"], in_table=data.get("in_table", "books"))
 
             # If the data is not normalized just look for the custom column table - if the data is normalized then look
             # for the table and the link table connecting it to the books table.
@@ -4206,7 +4210,7 @@ class CalibreCache(BaseCalibreCache):
         """
         if display is None:
             display = {}
-        return self.backend.create_custom_column(
+        return CustomColumns(self.backend, field_metadata=self.field_metadata).create_custom_column(
             label=label,
             name=name,
             datatype=datatype,
@@ -4244,7 +4248,7 @@ class CalibreCache(BaseCalibreCache):
         :return: The normalized value, metadata record, path, stream result or collection
             described above.
         """
-        changed = self.backend.set_custom_column_metadata(
+        changed = CustomColumnAdapter(self.backend).set_custom_column_metadata(
             num, name=name, label=label, is_editable=is_editable, display=display
         )
         if changed:
@@ -4300,7 +4304,7 @@ class CalibreCache(BaseCalibreCache):
         :return: None; the operation mutates state, writes output or performs cleanup in
             place.
         """
-        self.backend.delete_custom_column(label, num)
+        CustomColumns(self.backend, field_metadata=self.field_metadata).delete_custom_column(label=label, num=num)
 
     # Todo: Should be part of the search infrastructure
     # ------------------------------------------------------------------------------------------------------------------

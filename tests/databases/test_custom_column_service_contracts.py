@@ -2,15 +2,18 @@
 
 from __future__ import annotations
 
+from contextlib import closing
 from types import SimpleNamespace
-import sqlite3
-from unittest.mock import Mock
 
 import pytest
 
-from LiuXin_alpha.databases.custom_columns import CustomColumns
-from LiuXin_alpha.databases.api.macros_api import MacrosAPI
-from LiuXin_alpha.errors import DatabaseIntegrityError
+from LiuXin_alpha.utils.calibre_compat.custom_columns import (
+    CustomColumns,
+)
+from LiuXin_alpha.databases.custom_columns.native_service import CustomFieldService
+from LiuXin_alpha.databases.custom_columns.native_types import CustomFieldError
+from tests.databases.custom_field_fixtures import sqlite_db as sqlite_db
+from tests.databases.custom_field_fixtures import sqlite_template as sqlite_template
 
 
 class Cache:
@@ -26,7 +29,31 @@ class Cache:
         self._data[row][col] = val
 
 
-def facade_with_cache():
+def facade_with_cache(db=None, *, datatype="text"):
+    if db is not None:
+        for owner in (7, 8):
+            db.macros.insert_row("works", {"work_id": owner, "work_title": str(owner)})
+        facade = CustomColumns(db, table="works")
+        facade.create_custom_column("First", label="first")
+        facade.create_custom_column("Second", label="second")
+        assert (
+            facade.create_custom_column(
+                "Shelf",
+                label="shelf",
+                datatype=datatype,
+                is_multiple=datatype == "text",
+            )
+            == 3
+        )
+        facade.set_custom_bulk([7, 8], ["old"] if datatype == "text" else "old", num=3)
+        facade.data = Cache()
+        facade.FIELD_MAP = {"id": 0, 3: 1}
+        if datatype == "series":
+            facade.FIELD_MAP["3_index"] = 2
+            for row in facade.data._data.values():
+                row.append(1.0)
+        return facade
+
     facade = object.__new__(CustomColumns)
     facade.data = Cache()
     facade.notify = lambda *args: None
@@ -45,91 +72,82 @@ def facade_with_cache():
             "multiple_seps": {"cache_to_list": "|"},
         }
     }
+    facade.custom_column_label_map = {"shelf": facade.custom_column_num_map[3]}
+    facade.field_metadata = SimpleNamespace(custom_field_prefix="#")
     return facade
 
 
-def test_delete_custom_value_updates_its_owners_cache(request):
-    facade = facade_with_cache()
-    deleted = []
-    connection = sqlite3.connect(":memory:")
-    request.addfinalizer(connection.close)
-    facade.custom_dirty_books_referencing = lambda *args, **kwargs: [(7,), (8,)]
-    facade.db = SimpleNamespace(
-        driver=SimpleNamespace(conn=connection),
-        macros=Mock(
-            spec=MacrosAPI,
-            delete_cc_item=lambda *args, **kwargs: deleted.append(args),
-            read_cc_value_from_meta_2=lambda *args, **kwargs: None,
-        ),
-    )
-    facade.delete_custom_item_using_id(9, num=3)
-    assert deleted == [("custom_column_3", "books_custom_column_3_link", 9)]
+def test_delete_custom_value_updates_its_owners_cache(sqlite_db):
+    db = sqlite_db
+    facade = facade_with_cache(db)
+    value_id = facade.get_custom_items_with_ids(num=3)[0][0]
+    facade.delete_custom_item_using_id(value_id, num=3)
+    assert facade.get_custom_items_with_ids(num=3) == []
     assert facade.data.writes == [(7, 1, None, True), (8, 1, None, True)]
 
 
-def test_bulk_multiple_reuses_single_pass_owner_ids(request):
-    facade = facade_with_cache()
-    inserted, dirtied, notified, commits = [], [], [], []
-
-    class CountCommits(sqlite3.Connection):
-        def commit(self):
-            commits.append(True)
-            return super().commit()
-
-    connection = sqlite3.connect(":memory:", factory=CountCommits)
-    request.addfinalizer(connection.close)
-    facade.db = SimpleNamespace(
-        driver=SimpleNamespace(conn=connection),
-        macros=Mock(
-            spec=MacrosAPI,
-            get_all_cc_custom_values=lambda *args, **kwargs: [("new",)],
-            create_cc_temp_tables=lambda *args, **kwargs: None,
-            insert_values_into_temp_table=lambda table, ids, **kwargs: inserted.extend(
-                ids
-            ),
-            do_cc_db_bulk_addition=lambda *args, **kwargs: None,
-            destroy_cc_temp_tables=lambda *args, **kwargs: None,
-            read_cc_value_from_meta_2=lambda num, owner, **kwargs: f"new-{owner}",
-        ),
-    )
+def test_bulk_multiple_reuses_single_pass_owner_ids(sqlite_db):
+    db = sqlite_db
+    facade = facade_with_cache(db)
+    dirtied, notified = [], []
     facade.dirtied = lambda ids, **kwargs: dirtied.extend(ids)
     facade.notify = lambda event, ids: notified.extend(ids)
-    facade.set_custom_bulk_multiple(iter((7, 8)), add=["new"], num=3, notify=True)
-    assert inserted == dirtied == notified == [7, 8]
-    assert facade.data.writes == [(7, 1, "new-7", True), (8, 1, "new-8", True)]
-    assert commits == [True]
+    facade.set_custom_bulk_multiple(
+        iter((7, 8)), add=["new"], remove=["old"], num=3, notify=True
+    )
+    assert dirtied == notified == [7, 8]
+    assert facade.data.writes == [(7, 1, "new", True), (8, 1, "new", True)]
+    with closing(db.driver.get_connection()) as conn:
+        assert (
+            conn.execute("SELECT COUNT(*) FROM works_custom_column_3_link").fetchone()[
+                0
+            ]
+            == 2
+        )
 
 
 @pytest.mark.parametrize("fail", [False, True])
-def test_clean_custom_closes_its_owned_connection(fail):
-    closed = []
-    connection = SimpleNamespace(close=lambda: closed.append(True))
-    facade = facade_with_cache()
+def test_clean_custom_closes_its_owned_connection(sqlite_db, monkeypatch, fail):
+    db = sqlite_db
+    facade = facade_with_cache(db)
+    facade.native.ensure_value(3, "unused")
+    opened, closed = [], []
+    original = db.driver.get_connection
 
-    def clean(**kwargs):
-        assert kwargs["conn"] is connection
-        if fail:
+    def tracked(*args, **kwargs):
+        connection = original(*args, **kwargs)
+        opened.append(connection)
+        close = connection.close
+
+        def close_tracked():
+            closed.append(connection)
+            close()
+
+        monkeypatch.setattr(connection, "close", close_tracked)
+        return connection
+
+    monkeypatch.setattr(db.driver, "get_connection", tracked)
+    if fail:
+
+        def fail_delete(*args, **kwargs):
             raise RuntimeError("injected cleanup failure")
 
-    facade.db = SimpleNamespace(
-        driver=SimpleNamespace(get_connection=lambda: connection),
-        macros=Mock(spec=MacrosAPI, clean_custom=clean),
-    )
-    if fail:
+        monkeypatch.setattr(CustomFieldService, "delete_value", fail_delete)
         with pytest.raises(RuntimeError, match="injected"):
             facade.clean_custom()
     else:
         facade.clean_custom()
-    assert closed == [True]
+    assert opened and closed == opened
 
 
-def test_cached_row_positions_are_not_persistent_ids():
-    facade = facade_with_cache()
+def test_cached_row_positions_are_not_persistent_ids(sqlite_db):
+    db = sqlite_db
+    facade = facade_with_cache(db)
     assert facade.id(0) == 8
     assert facade.get_custom_and_extra(0, num=3) == (["old"], None)
     facade.data = None
     with pytest.raises(RuntimeError, match="require a results cache"):
-        facade.get_custom(7, num=3, index_is_id=True)
+        facade.get_custom(0, num=3)
 
 
 def test_standalone_notification_hooks_keep_embedded_failures_visible():
@@ -148,56 +166,34 @@ def test_standalone_notification_hooks_keep_embedded_failures_visible():
 
 @pytest.mark.parametrize("datatype", ["text", "series"])
 @pytest.mark.parametrize("value_id", [5, None])
-def test_case_change_uses_value_id_and_rejects_a_missing_lookup(datatype, value_id):
-    facade = facade_with_cache()
-    metadata = facade.custom_column_num_map[3]
-    metadata["datatype"] = datatype
-    updates, linked = [], []
-    facade.custom_data_adapters = {datatype: lambda value, data: value}
-    facade.db = SimpleNamespace(
-        macros=Mock(
-            spec=MacrosAPI,
-            get_all_cc_custom_values=lambda *args, **kwargs: [("old",)],
-            get_cc_id_from_value=lambda *args, **kwargs: value_id,
-            update_cc_value=lambda table, cc_id, cc_value, **kwargs: updates.append(
-                (table, cc_id, cc_value)
-            ),
-            check_for_cc_link=lambda *args, **kwargs: linked.append(args) or True,
-            get_cc_lt_books_from_lt_value=lambda *args, **kwargs: [(8,)],
-            read_cc_value_from_meta_2=lambda *args, **kwargs: "OLD",
-        )
-    )
+def test_case_change_uses_value_id_and_rejects_a_missing_lookup(
+    sqlite_db, datatype, value_id
+):
+    db = sqlite_db
+    facade = facade_with_cache(db, datatype=datatype)
+    actual_id = facade.get_custom_items_with_ids(num=3)[0][0]
     if value_id is None:
-        with pytest.raises(DatabaseIntegrityError, match="disappeared"):
-            facade._set_custom(
-                7,
-                ["OLD"],
-                num=3,
-                append=True,
-                extra=1.0,
-                notify=False,
-                allow_case_change=True,
-            )
-        assert updates == linked == []
+        with pytest.raises(CustomFieldError, match="Unknown inventory value"):
+            facade.rename_custom_item(actual_id + 99, "OLD", num=3)
+        assert facade.get_custom_items_with_ids(num=3) == [(actual_id, "old")]
     else:
-        assert facade._set_custom(
+        assert facade.set_custom(
             7,
-            ["OLD"],
+            ["OLD"] if datatype == "text" else "OLD",
             num=3,
             append=True,
             extra=1.0,
-            notify=False,
             allow_case_change=True,
-        ) == {8}
-        assert updates == [("custom_column_3", 5, "OLD")]
+        ) == {7, 8}
+        assert facade.get_custom_items_with_ids(num=3) == [(actual_id, "OLD")]
+        assert [facade.data._data[owner][1] for owner in (7, 8)] == ["OLD", "OLD"]
 
 
 def test_wrapper_table_cache_remains_rebindable():
-    from LiuXin_alpha.databases.driver_wrapper.driver_wrapper_custom_columns_mixin import (
-        CustomColumnsDriverWrapperMixin,
-    )
+    from types import SimpleNamespace
+    from LiuXin_alpha.databases.driver_wrapper import DriverWrapper
 
-    wrapper = CustomColumnsDriverWrapperMixin(None, None)
+    wrapper = DriverWrapper(SimpleNamespace(macros=object()))
     replacement = {"custom_column_3"}
     wrapper.custom_tables = replacement
     wrapper.custom_tables.add("books_custom_column_3_link")

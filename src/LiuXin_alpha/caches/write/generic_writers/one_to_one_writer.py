@@ -8,7 +8,7 @@ from __future__ import division, absolute_import, print_function, unicode_litera
 from LiuXin_alpha.databases.database_driver_plugins._macro_state import require_legacy_macros
 
 from LiuXin_alpha.utils.adaptors import string_to_datetime
-from LiuXin_alpha.caches.write.base_writer import BaseWriter
+from LiuXin_alpha.caches.write.base_writer import BaseWriter, custom_column_macros
 from LiuXin_alpha.catalog.catalog import Catalog
 
 from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems
@@ -345,9 +345,9 @@ class OneToOneWriter(BaseWriter):
         for book_id, val in iteritems(updated):
 
             # break the old link - if one exists
-            require_legacy_macros(db.macros).break_cc_lt_link(lt=field.metadata["table"], book=book_id)
+            custom_column_macros(db).break_cc_lt_link(lt=field.metadata["table"], book=book_id)
 
             # write the new value to the custom column table
-            require_legacy_macros(db.macros).add_cc_link_with_extra(lt=field.metadata["table"], book_id=book_id, value_id=val)
+            custom_column_macros(db).add_cc_link_with_extra(lt=field.metadata["table"], book_id=book_id, value_id=val)
 
         return None, None

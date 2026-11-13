@@ -873,7 +873,7 @@ class DatabaseSchemaHandlers(Protocol):
         self, runtime: CoreRuntime, command: CoreCommand
     ) -> Mapping[str, object]:
         """
-        Create a custom field through database-first capability lookup, then refresh field metadata and reconcile.
+        Create a custom field through the explicit Calibre compatibility facade, then refresh field metadata and reconcile.
 
         See :func:`LiuXin_alpha.core.program_services.schema.custom_fields_create`
         for the maintained implementation's validation and failure boundaries.
@@ -1819,7 +1819,36 @@ class SystemJobsHandlers(Protocol):
         ...
 
 
+class NativeFieldHandlers(Protocol):
+    """Expose the native custom-field query and command service owners."""
+
+    def native_fields_query(self, runtime: CoreRuntime, query: CoreQuery) -> object:
+        """Execute an allowlisted native read or preview; construction never upgrades.
+
+        See :func:`LiuXin_alpha.core.program_services.custom_fields.native_fields_query`.
+
+        :param runtime: Runtime providing the borrowed database for a consistent read.
+        :param query: Named native query with structured owner, field, value or plan intent.
+        :return: Transport-safe definitions, values, pages, audit issues or a change preview.
+        """
+        ...
+
+    def native_fields_command(
+        self, runtime: CoreRuntime, command: CoreCommand
+    ) -> object:
+        """Execute one atomic native mutation; schema changes require admin routes.
+
+        See :func:`LiuXin_alpha.core.program_services.custom_fields.native_fields_command`.
+
+        :param runtime: Runtime providing the database and shared field metadata projection.
+        :param command: Named native command with structured values or reviewed migration intent.
+        :return: Transport-safe write receipt, definition or plan-application result.
+        """
+        ...
+
+
 class ProgramEndpointHandlers(
+    NativeFieldHandlers,
     BackupMaintenanceHandlers,
     CatalogSearchHandlers,
     ContentWorkflowsHandlers,

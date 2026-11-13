@@ -127,7 +127,7 @@ def test_duplicate_rejects_missing_payload_before_allocating(db: Database) -> No
 def test_wrapper_rebinding_uses_the_declared_macro_setter(db):
     """A real wrapper has a read-only macros property and an explicit setter."""
     wrapper = db.driver_wrapper
-    db.set_driver_wrapper(wrapper)
+    wrapper.set_macros(db.macros)
     assert db.driver_wrapper is wrapper
     assert wrapper.macros is db.macros
 

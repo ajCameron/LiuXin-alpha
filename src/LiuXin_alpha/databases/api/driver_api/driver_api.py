@@ -18,9 +18,6 @@ from queue import Queue
 from typing import TYPE_CHECKING, Any, Literal, Optional, Sequence, Union, TypeVar
 
 from LiuXin_alpha.databases.api.driver_api.mixins.add_mixin_api import DriverAddMixinAPI
-from LiuXin_alpha.databases.api.driver_api.mixins.custom_columns_mixin_api import (
-    DriverCustomColumnsMixinAPI,
-)
 from LiuXin_alpha.databases.api.driver_api.mixins.delete_mixin_api import (
     DriverDeleteMixinAPI,
 )
@@ -84,7 +81,6 @@ class DatabaseDriverAPI(
     DriverMetadataMixinAPI,
     DriverInterlinkMixinAPI,
     DriverIntralinkMixinAPI,
-    DriverCustomColumnsMixinAPI,
     DriverDatabasePropertiesMixinAPI,
     DriverNamesMixinAPI,
     DriverSearchMixinAPI,

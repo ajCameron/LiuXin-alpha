@@ -25,6 +25,9 @@ CREATE TABLE IF NOT EXISTS `custom_columns` (
   `custom_column_display` TEXT NULL,
   `custom_column_display_sort` INTEGER NULL DEFAULT 0,
   `custom_column_ordered` INTEGER NULL DEFAULT 0,
+  `custom_column_collection_mode` TEXT NULL,
+  `custom_column_revision` INTEGER NOT NULL DEFAULT 0,
+  `custom_column_storage_version` INTEGER NOT NULL DEFAULT 2,
 
   -- timestamps (epoch_ms)
   `custom_column_created_timestamp_ep_k` INTEGER NOT NULL DEFAULT (CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)),
@@ -34,8 +37,8 @@ CREATE TABLE IF NOT EXISTS `custom_columns` (
 
   `custom_column_scratch` TEXT NULL,
 
-  CONSTRAINT `custom_column_name_unique` UNIQUE (`custom_column_name`),
-  CONSTRAINT `custom_column_label_unique` UNIQUE (`custom_column_label`)
+  CONSTRAINT `custom_column_name_unique` UNIQUE (`custom_column_in_table`, `custom_column_name`),
+  CONSTRAINT `custom_column_label_unique` UNIQUE (`custom_column_in_table`, `custom_column_label`)
   )
 ;
 
@@ -44,14 +47,14 @@ CREATE TABLE IF NOT EXISTS `custom_columns` (
 -- BREAK
 
 CREATE UNIQUE INDEX IF NOT EXISTS `idx_custom_columns_unique_label_norm`
-ON `custom_columns` (`custom_column_label_norm`)
+ON `custom_columns` (`custom_column_in_table`, `custom_column_label_norm`)
 WHERE `custom_column_label_norm` IS NOT NULL;
 
 -- BREAK
 -- BREAK
 
 CREATE UNIQUE INDEX IF NOT EXISTS `idx_custom_columns_unique_name_norm`
-ON `custom_columns` (`custom_column_name_norm`)
+ON `custom_columns` (`custom_column_in_table`, `custom_column_name_norm`)
 WHERE `custom_column_name_norm` IS NOT NULL;
 
 -- BREAK

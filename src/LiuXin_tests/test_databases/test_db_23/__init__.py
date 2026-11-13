@@ -11,6 +11,8 @@ Example:
 """
 from __future__ import print_function
 
+from LiuXin_alpha.utils.calibre_compat.custom_columns.macros import CustomColumnMacros
+
 from LiuXin_tests.test_databases.test_db_22 import TestDB22Builer
 
 from utils.lx_libraries.liuxin_random import LiuXinBadPseudoRandomGenerator
@@ -78,14 +80,14 @@ class TestDB23Builer(TestDB22Builer):
             for current_cc_entry in range(1, title_cc_1_count + 1):
 
                 # Create the new custom column entry
-                scratch_db.macros.add_cc_table_value(
+                CustomColumnMacros(scratch_db).add_cc_table_value(
                     table="custom_column_1",
                     value="test titles cc {} - {}".format(title_row.row_id, current_cc_entry),
                 )
                 cc_1_id += 1
 
                 # Link it back to the given title
-                scratch_db.macros.add_cc_link_with_extra(
+                CustomColumnMacros(scratch_db).add_cc_link_with_extra(
                     lt="titles_custom_column_1_link",
                     book_id=title_row.row_id,
                     value_id=cc_1_id,
@@ -114,7 +116,7 @@ class TestDB23Builer(TestDB22Builer):
         # Populate the ratings table
         for i in range(1, 11):
             new_rating_str = "cc2_rating_{}".format(i)
-            scratch_db.macros.add_cc_table_value(table="custom_column_2", value=new_rating_str)
+            CustomColumnMacros(scratch_db).add_cc_table_value(table="custom_column_2", value=new_rating_str)
 
         # For every book either give it a rating or not
         for book_row in scratch_db.get_all_rows("books"):
@@ -127,7 +129,7 @@ class TestDB23Builer(TestDB22Builer):
                 target_cc_rating = lx_random.randint(1, 10)
 
                 try:
-                    scratch_db.macros.add_cc_link_with_extra(
+                    CustomColumnMacros(scratch_db).add_cc_link_with_extra(
                         lt="books_custom_column_2_link",
                         book_id=target_book_id,
                         value_id=target_cc_rating,
@@ -171,7 +173,7 @@ class TestDB23Builer(TestDB22Builer):
             row_value = lx_random.randint(-3468, 5000)
 
             if row_status:
-                scratch_db.macros.add_cc_link_with_extra(
+                CustomColumnMacros(scratch_db).add_cc_link_with_extra(
                     lt="custom_column_3", book_id=book_row.row_id, value_id=row_value
                 )
                 print("cc3 value was added to books custom_column_2 for book {}" "".format(book_row.row_id))
@@ -202,14 +204,14 @@ class TestDB23Builer(TestDB22Builer):
             if book_cc_1_status:
 
                 # Create the new custom column entry
-                scratch_db.macros.add_cc_table_value(
+                CustomColumnMacros(scratch_db).add_cc_table_value(
                     table="custom_column_4",
                     value="test books cc4 {} - {}".format(book_row.row_id, self.get_random_uuid(current_rng=lx_random)),
                 )
                 cc_1_id += 1
 
                 # Link it back to the given title
-                scratch_db.macros.add_cc_link_with_extra(
+                CustomColumnMacros(scratch_db).add_cc_link_with_extra(
                     lt="books_custom_column_4_link",
                     book_id=book_row.row_id,
                     value_id=cc_1_id,
@@ -242,7 +244,7 @@ class TestDB23Builer(TestDB22Builer):
             )
 
             if row_status:
-                scratch_db.macros.add_cc_link_with_extra(
+                CustomColumnMacros(scratch_db).add_cc_link_with_extra(
                     lt="custom_column_5", book_id=book_row.row_id, value_id=row_value
                 )
                 print("cc3 value was added to books custom_column_5 for book {}" "".format(book_row.row_id))
@@ -271,7 +273,7 @@ class TestDB23Builer(TestDB22Builer):
         # Populate the ratings table
         for i in range(1, 11):
             new_rating_str = "cc6_series_{}".format(i)
-            scratch_db.macros.add_cc_table_value(table="custom_column_6", value=new_rating_str)
+            CustomColumnMacros(scratch_db).add_cc_table_value(table="custom_column_6", value=new_rating_str)
 
         # For every book either give it a rating or not
         for book_row in scratch_db.get_all_rows("books"):
@@ -280,7 +282,7 @@ class TestDB23Builer(TestDB22Builer):
 
             if row_status:
                 target_cc_rating = lx_random.randint(1, 10)  # randint and range have different ends...
-                scratch_db.macros.add_cc_link_with_extra(
+                CustomColumnMacros(scratch_db).add_cc_link_with_extra(
                     lt="books_custom_column_6_link",
                     book_id=book_row.row_id,
                     value_id=target_cc_rating,
@@ -315,7 +317,7 @@ class TestDB23Builer(TestDB22Builer):
         # Populate the enumeration table
         for i in range(1, 11):
             new_rating_str = "cc8_enumeration_{}".format(i)
-            scratch_db.macros.add_cc_table_value(table="custom_column_8", value=new_rating_str)
+            CustomColumnMacros(scratch_db).add_cc_table_value(table="custom_column_8", value=new_rating_str)
 
         # For every book either give it a rating or not
         for book_row in scratch_db.get_all_rows("books"):
@@ -324,7 +326,7 @@ class TestDB23Builer(TestDB22Builer):
 
             if row_status:
                 target_cc_rating = lx_random.randint(1, 10)
-                scratch_db.macros.add_cc_link_with_extra(
+                CustomColumnMacros(scratch_db).add_cc_link_with_extra(
                     lt="books_custom_column_8_link",
                     book_id=book_row.row_id,
                     value_id=target_cc_rating,
@@ -360,7 +362,7 @@ class TestDB23Builer(TestDB22Builer):
             row_value = lx_random.random()
 
             if row_status:
-                scratch_db.macros.add_cc_link_with_extra(
+                CustomColumnMacros(scratch_db).add_cc_link_with_extra(
                     lt="custom_column_9", book_id=book_row.row_id, value_id=row_value
                 )
                 print("cc3 value was added to books custom_column_5 for book {}" "".format(book_row.row_id))
@@ -400,7 +402,7 @@ class TestDB23Builer(TestDB22Builer):
             row_value = "{}-{}-{} {}:{}:{}".format(year_val, month_val, day_val, hour_val, minute_val, second_val)
 
             if row_status:
-                scratch_db.macros.add_cc_link_with_extra(
+                CustomColumnMacros(scratch_db).add_cc_link_with_extra(
                     lt="custom_column_10", book_id=book_row.row_id, value_id=row_value
                 )
                 print("cc5 value was added to books custom_column_10 for book {}" "".format(book_row.row_id))
@@ -430,7 +432,7 @@ class TestDB23Builer(TestDB22Builer):
             row_value = bool(lx_random.randint(0, 1))
 
             if row_status:
-                scratch_db.macros.add_cc_link_with_extra(
+                CustomColumnMacros(scratch_db).add_cc_link_with_extra(
                     lt="custom_column_11", book_id=book_row.row_id, value_id=row_value
                 )
                 print("cc3 value was added to books custom_column_11 for book {}" "".format(book_row.row_id))
@@ -457,7 +459,7 @@ class TestDB23Builer(TestDB22Builer):
         # Populate the enumeration table
         for i in range(1, 11):
             new_rating_str = "cc12_rating_{}".format(i)
-            scratch_db.macros.add_cc_table_value(table="custom_column_12", value=new_rating_str)
+            CustomColumnMacros(scratch_db).add_cc_table_value(table="custom_column_12", value=new_rating_str)
 
         # For every book either give it a rating or not
         for book_row in scratch_db.get_all_rows("books"):
@@ -466,7 +468,7 @@ class TestDB23Builer(TestDB22Builer):
 
             if row_status:
                 target_cc_rating = lx_random.randint(1, 10)
-                scratch_db.macros.add_cc_link_with_extra(
+                CustomColumnMacros(scratch_db).add_cc_link_with_extra(
                     lt="books_custom_column_12_link",
                     book_id=book_row.row_id,
                     value_id=target_cc_rating,
@@ -502,7 +504,7 @@ class TestDB23Builer(TestDB22Builer):
             row_value = lx_random.randint(-50, 50)
 
             if row_status:
-                scratch_db.macros.add_cc_link_with_extra(
+                CustomColumnMacros(scratch_db).add_cc_link_with_extra(
                     lt="custom_column_13", book_id=book_row.row_id, value_id=row_value
                 )
                 print("int value was added to books custom_column_13 for book {}" "".format(book_row.row_id))
@@ -530,7 +532,7 @@ class TestDB23Builer(TestDB22Builer):
         # Populate the enumeration table
         for i in range(1, 11):
             new_rating_str = "cc14_text_{}".format(i)
-            scratch_db.macros.add_cc_table_value(table="custom_column_14", value=new_rating_str)
+            CustomColumnMacros(scratch_db).add_cc_table_value(table="custom_column_14", value=new_rating_str)
 
         # For every book either give it a rating or not
         for book_row in scratch_db.get_all_rows("books"):
@@ -539,7 +541,7 @@ class TestDB23Builer(TestDB22Builer):
 
             if row_status:
                 target_cc_rating = lx_random.randint(1, 10)
-                scratch_db.macros.add_cc_link_with_extra(
+                CustomColumnMacros(scratch_db).add_cc_link_with_extra(
                     lt="books_custom_column_14_link",
                     book_id=book_row.row_id,
                     value_id=target_cc_rating,
@@ -575,7 +577,7 @@ class TestDB23Builer(TestDB22Builer):
             row_value = "this is a test {}".format(self.get_random_uuid(current_rng=lx_random))
 
             if row_status:
-                scratch_db.macros.add_cc_link_with_extra(
+                CustomColumnMacros(scratch_db).add_cc_link_with_extra(
                     lt="custom_column_15", book_id=book_row.row_id, value_id=row_value
                 )
                 print("int value was added to books custom_column_15 for book {}" "".format(book_row.row_id))
@@ -603,7 +605,7 @@ class TestDB23Builer(TestDB22Builer):
         # Populate the enumeration table
         for i in range(1, 11):
             new_rating_str = "cc16_series_{}".format(i)
-            scratch_db.macros.add_cc_table_value(table="custom_column_16", value=new_rating_str)
+            CustomColumnMacros(scratch_db).add_cc_table_value(table="custom_column_16", value=new_rating_str)
 
         # For every book either give it a rating or not
         for book_row in scratch_db.get_all_rows("books"):
@@ -612,7 +614,7 @@ class TestDB23Builer(TestDB22Builer):
 
             if row_status:
                 target_cc_rating = lx_random.randint(1, 10)
-                scratch_db.macros.add_cc_link_with_extra(
+                CustomColumnMacros(scratch_db).add_cc_link_with_extra(
                     lt="books_custom_column_16_link",
                     book_id=book_row.row_id,
                     value_id=target_cc_rating,
@@ -648,7 +650,7 @@ class TestDB23Builer(TestDB22Builer):
         # Populate the enumeration table
         for i in range(1, 11):
             new_rating_str = "cc18_enumeration_{}".format(i)
-            scratch_db.macros.add_cc_table_value(table="custom_column_18", value=new_rating_str)
+            CustomColumnMacros(scratch_db).add_cc_table_value(table="custom_column_18", value=new_rating_str)
 
         # For every book either give it a rating or not
         for book_row in scratch_db.get_all_rows("books"):
@@ -657,7 +659,7 @@ class TestDB23Builer(TestDB22Builer):
 
             if row_status:
                 target_cc_rating = lx_random.randint(1, 10)
-                scratch_db.macros.add_cc_link_with_extra(
+                CustomColumnMacros(scratch_db).add_cc_link_with_extra(
                     lt="books_custom_column_18_link",
                     book_id=book_row.row_id,
                     value_id=target_cc_rating,
@@ -693,7 +695,7 @@ class TestDB23Builer(TestDB22Builer):
             row_value = lx_random.random() * lx_random.randint(-100, 100)
 
             if row_status:
-                scratch_db.macros.add_cc_link_with_extra(
+                CustomColumnMacros(scratch_db).add_cc_link_with_extra(
                     lt="custom_column_19", book_id=book_row.row_id, value_id=row_value
                 )
                 print("int value was added to books custom_column_19 for book {}" "".format(book_row.row_id))
@@ -723,7 +725,7 @@ class TestDB23Builer(TestDB22Builer):
             row_value = "fake datetime value - {}".format(self.get_random_uuid(current_rng=lx_random))
 
             if row_status:
-                scratch_db.macros.add_cc_link_with_extra(
+                CustomColumnMacros(scratch_db).add_cc_link_with_extra(
                     lt="custom_column_20", book_id=book_row.row_id, value_id=row_value
                 )
                 print("int value was added to books custom_column_20 for book {}" "".format(book_row.row_id))
@@ -753,7 +755,7 @@ class TestDB23Builer(TestDB22Builer):
             row_value = lx_random.randint(0, 1)
 
             if row_status:
-                scratch_db.macros.add_cc_link_with_extra(
+                CustomColumnMacros(scratch_db).add_cc_link_with_extra(
                     lt="custom_column_21", book_id=book_row.row_id, value_id=row_value
                 )
                 print("float value was added to books custom_column_21 for book {}" "".format(book_row.row_id))
@@ -783,7 +785,7 @@ class TestDB23Builer(TestDB22Builer):
             row_value = lx_random.randint(0, 1)
 
             if row_status:
-                scratch_db.macros.add_cc_link_with_extra(
+                CustomColumnMacros(scratch_db).add_cc_link_with_extra(
                     lt="custom_column_22", book_id=tag_row.row_id, value_id=row_value
                 )
                 print("float value was added to books custom_column_22 for book {}" "".format(tag_row.row_id))

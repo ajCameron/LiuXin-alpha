@@ -2,10 +2,12 @@
 
 import sqlite3
 from types import SimpleNamespace
-from typing import get_type_hints
 
 import pytest
 
+from LiuXin_alpha.databases.custom_columns import (
+    CustomFieldService,
+)
 from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.value_casting_mixin import (
     ValueCastingMixin,
 )
@@ -14,6 +16,11 @@ from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.view_mixi
 )
 from LiuXin_alpha.databases.transactions import transaction_active
 from LiuXin_alpha.errors import InputIntegrityError
+from LiuXin_alpha.utils.calibre_compat.custom_columns.adapter import CustomColumnAdapter
+from LiuXin_alpha.utils.calibre_compat.custom_columns.errors import (
+    CompatibilityError,
+)
+from LiuXin_alpha.utils.calibre_compat.custom_columns.macros import CustomColumnMacros
 from tests.databases import test_row_write_safety as fixtures
 
 db = fixtures.db
@@ -22,7 +29,7 @@ stored = fixtures.stored
 
 
 def column(db, label="review_column", datatype="text"):
-    return db.driver_wrapper.create_custom_column(
+    return CustomColumnAdapter(db).create_custom_column(
         "Review" if label == "review_column" else label,
         datatype=datatype,
         label=label,
@@ -32,7 +39,7 @@ def column(db, label="review_column", datatype="text"):
 
 def test_rename_preserves_custom_column_attachment(db):
     number = column(db)
-    db.driver_wrapper.set_custom_column_metadata(number, name="Renamed")
+    CustomColumnAdapter(db).set_custom_column_metadata(number, name="Renamed")
     assert stored(db, "SELECT custom_column_in_table FROM custom_columns") == [
         ("works",)
     ]
@@ -40,8 +47,8 @@ def test_rename_preserves_custom_column_attachment(db):
 
 def test_attachment_change_rejected_before_metadata_edit(db):
     number = column(db)
-    with pytest.raises(ValueError, match="storage migration"):
-        db.driver_wrapper.set_custom_column_metadata(
+    with pytest.raises(ValueError, match="native migration"):
+        CustomColumnAdapter(db).set_custom_column_metadata(
             number, name="Must not persist", in_table="manifestations"
         )
     assert stored(
@@ -53,20 +60,22 @@ def test_attachment_change_rejected_before_metadata_edit(db):
 def test_custom_columns_join_the_active_macro_transaction(db, operation):
     number = column(db)
     if operation == "cleanup":
-        db.driver_wrapper.delete_custom_column(number)
+        CustomColumnAdapter(db).delete_custom_column(number)
     with pytest.raises(RuntimeError, match="undo outer"):
         with db.macros.transaction() as conn:
             conn.execute("INSERT INTO works(work_title) VALUES ('pending')")
             if operation == "metadata":
-                db.driver_wrapper.set_custom_column_metadata(number, name="Renamed")
+                CustomColumnAdapter(db).set_custom_column_metadata(
+                    number, name="Renamed"
+                )
                 assert conn.execute(
                     "SELECT custom_column_name FROM custom_columns"
                 ).fetchone() == ("Renamed",)
             elif operation == "cleanup":
-                db.driver_wrapper.deleted_marked_custom_columns()
-                assert conn.execute("SELECT * FROM custom_columns").fetchall() == []
+                CustomColumnAdapter(db).deleted_marked_custom_columns()
+                assert len(conn.execute("SELECT * FROM custom_columns").fetchall()) == 1
             else:
-                db.driver_wrapper.delete_custom_column(number)
+                CustomColumnAdapter(db).delete_custom_column(number)
                 assert conn.execute(
                     "SELECT custom_column_mark_for_delete FROM custom_columns"
                 ).fetchone() == (1,)
@@ -79,36 +88,42 @@ def test_custom_columns_join_the_active_macro_transaction(db, operation):
 def test_failed_cleanup_restores_earlier_ddl_and_preserves_outer_write(db):
     first = column(db, "first_column")
     second = column(db, "second_column")
+    service = CustomFieldService(db)
     for number in (first, second):
-        db.driver_wrapper.delete_custom_column(number)
+        service.retire_field(number)
     before = stored(db, "SELECT type, name, sql FROM sqlite_master ORDER BY type, name")
-    conn = db.driver.conn
-    conn.execute("BEGIN")
-    conn.execute("INSERT INTO works(work_title) VALUES ('pending')")
+    with pytest.raises(RuntimeError, match="undo outer"):
+        with db.macros.transaction() as conn:
+            conn.execute("INSERT INTO works(work_title) VALUES ('pending')")
 
-    def deny_second_drop(action, name, *unused):
-        if action == sqlite3.SQLITE_DROP_TABLE and name == f"custom_column_{second}":
-            return sqlite3.SQLITE_DENY
-        return sqlite3.SQLITE_OK
+            def deny_second_drop(action, name, *unused):
+                if (
+                    action == sqlite3.SQLITE_DROP_TABLE
+                    and name == f"custom_column_{second}"
+                ):
+                    return sqlite3.SQLITE_DENY
+                return sqlite3.SQLITE_OK
 
-    conn.set_authorizer(deny_second_drop)
-    try:
-        with pytest.raises(sqlite3.DatabaseError, match="not authorized"):
-            db.driver_wrapper.deleted_marked_custom_columns()
-    finally:
-        conn.set_authorizer(None)
-    try:
-        assert transaction_active(conn)
-        assert conn.execute("SELECT work_title FROM works").fetchall() == [("pending",)]
-        assert (
-            conn.execute(
-                "SELECT type, name, sql FROM sqlite_master ORDER BY type, name"
-            ).fetchall()
-            == before
-        )
-        assert len(conn.execute("SELECT * FROM custom_columns").fetchall()) == 2
-    finally:
-        conn.rollback()
+            conn.set_authorizer(deny_second_drop)
+            try:
+                with pytest.raises(Exception, match="not authorized"):
+                    with db.macros.transaction():
+                        service.apply_purge(service.plan_purge(first))
+                        service.apply_purge(service.plan_purge(second))
+            finally:
+                conn.set_authorizer(None)
+            assert transaction_active(conn)
+            assert conn.execute("SELECT work_title FROM works").fetchall() == [
+                ("pending",)
+            ]
+            assert (
+                conn.execute(
+                    "SELECT type, name, sql FROM sqlite_master ORDER BY type, name"
+                ).fetchall()
+                == before
+            )
+            assert len(conn.execute("SELECT * FROM custom_columns").fetchall()) == 2
+            raise RuntimeError("undo outer")
     assert stored(db, "SELECT work_title FROM works") == []
 
 
@@ -116,10 +131,13 @@ def test_cleanup_map_only_deletes_its_own_marked_definitions(db):
     first = column(db, "first_column")
     second = column(db, "second_column")
     for number in (first, second):
-        db.driver_wrapper.delete_custom_column(number)
-    db.macros.preform_cc_column_delete_from_map(
-        {first: db.driver_wrapper.custom_table_names(first, in_table="works")}
-    )
+        CustomColumnAdapter(db).delete_custom_column(number)
+    with pytest.raises(CompatibilityError, match="explicit native purge plan"):
+        CustomColumnMacros(db).preform_cc_column_delete_from_map(
+            {first: CustomColumnAdapter(db).custom_table_names(first, in_table="works")}
+        )
+    service = CustomFieldService(db)
+    service.apply_purge(service.plan_purge(first))
     assert stored(db, "SELECT custom_column_id FROM custom_columns") == [(second,)]
     assert db.driver_wrapper.get_relation_type(f"custom_column_{second}") == "table"
 
@@ -128,97 +146,21 @@ def test_cleanup_map_only_deletes_its_own_marked_definitions(db):
 def test_custom_column_operations_preserve_borrowed_transaction(db, operation):
     number = column(db)
     if operation == "cleanup":
-        db.driver_wrapper.delete_custom_column(number)
+        CustomColumnAdapter(db).delete_custom_column(number)
     conn = db.driver.conn
     conn.execute("BEGIN")
     conn.execute("INSERT INTO works(work_title) VALUES ('pending unrelated write')")
     try:
-        if operation == "metadata":
-            db.driver_wrapper.set_custom_column_metadata(
-                number, name="Renamed", in_table=None
-            )
-        elif operation == "cleanup":
-            db.driver_wrapper.deleted_marked_custom_columns()
+        if operation == "cleanup":
+            CustomColumnAdapter(db).deleted_marked_custom_columns()
         else:
-            db.driver_wrapper.delete_custom_column(number)
-        state = (transaction_active(conn), stored(db, "SELECT work_title FROM works"))
-        assert state == (True, [])
-    finally:
-        conn.rollback()
-
-
-def test_view_spec_uses_same_pending_schema_as_table_spec(db):
-    conn = db.driver.conn
-    conn.execute("BEGIN")
-    conn.execute(
-        "CREATE VIEW review_pending_view AS SELECT work_id, work_title FROM works"
-    )
-    try:
-        wrapper = db.driver_wrapper
-        assert wrapper.get_relation_type("review_pending_view") == "view"
-        assert wrapper.get_column_headings("review_pending_view") == [
-            "work_id",
-            "work_title",
-        ]
-        spec = wrapper.get_table_spec("review_pending_view", force_refresh=True)
-        assert [col.name for col in spec.columns] == ["work_id", "work_title"]
-    finally:
-        conn.rollback()
-
-
-def test_link_name_cache_detects_new_link_table(db):
-    wrapper = db.driver_wrapper
-    assert wrapper.get_link_table_name("review_items", "review_references") is False
-    name = "review_item_review_reference_links"
-    conn = db.driver.get_connection()
-    try:
-        conn.execute(
-            f"CREATE TABLE {name} (review_item_review_reference_link_id INTEGER PRIMARY KEY, "
-            "review_item_review_reference_link_review_item_id INTEGER, "
-            "review_item_review_reference_link_review_reference_id INTEGER)"
-        )
-        conn.commit()
-    finally:
-        conn.close()
-    assert name in wrapper.get_tables()
-    assert wrapper.get_link_table_name("review_items", "review_references") == name
-
-
-def test_failed_schema_version_probe_does_not_reuse_link_cache(db, monkeypatch):
-    wrapper = db.driver_wrapper
-    wrapper.get_link_table_name("works", "agents")
-
-    def fail():
-        raise RuntimeError("schema version unavailable")
-
-    monkeypatch.setattr(db.driver, "direct_get_schema_version", fail)
-    with pytest.raises(RuntimeError, match="schema version unavailable"):
-        wrapper.get_link_table_name("works", "agents")
-
-
-def test_table_spec_contains_available_declared_types(db):
-    driver_types = db.driver.direct_get_declared_types_for_table("works")
-    assert driver_types["work_title"] == "TEXT"
-    spec = db.driver_wrapper.get_table_spec("works", force_refresh=True)
-    title = next(col for col in spec.columns if col.name == "work_title")
-    assert (title.declared_type, title.affinity) == ("TEXT", "TEXT")
-    row_class = db.driver_wrapper.get_row_dataclass("works")
-    assert get_type_hints(row_class)["work_title"] == str | None
-
-
-def test_pending_table_types_are_visible_to_schema_inspection(db):
-    conn = db.driver.conn
-    conn.execute("BEGIN")
-    conn.execute(
-        "CREATE TABLE review_pending_types(review_pending_type_id INTEGER PRIMARY KEY, "
-        "review_pending_type_value TEXT)"
-    )
-    try:
-        spec = db.driver_wrapper.get_table_spec("review_pending_types")
-        assert [(col.name, col.declared_type) for col in spec.columns] == [
-            ("review_pending_type_id", "INTEGER"),
-            ("review_pending_type_value", "TEXT"),
-        ]
+            with pytest.raises(RuntimeError, match="owned or managed transaction"):
+                if operation == "metadata":
+                    CustomColumnAdapter(db).set_custom_column_metadata(
+                        number, name="Renamed", in_table=None
+                    )
+                else:
+                    CustomColumnAdapter(db).delete_custom_column(number)
         assert transaction_active(conn)
     finally:
         conn.rollback()

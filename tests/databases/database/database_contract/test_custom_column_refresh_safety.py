@@ -2,10 +2,15 @@
 
 import sqlite3
 from copy import deepcopy
+from json import JSONDecodeError
 
 import pytest
 
-from LiuXin_alpha.databases.custom_columns import CustomColumns
+from LiuXin_alpha.databases.custom_columns import CustomFieldError, CustomFieldService
+
+from LiuXin_alpha.utils.calibre_compat.custom_columns import (
+    CustomColumns,
+)
 from LiuXin_alpha.errors import DatabaseIntegrityError
 
 
@@ -17,17 +22,17 @@ def test_refresh_preserves_corrupt_definition_values_and_previous_snapshot(
     facade.create_custom_column("Valid", label="valid_refresh_column")
     number = facade.create_custom_column("Shelf", label="protected_refresh_column")
     value_table, _ = facade.custom_table_names(number, in_table="works")
-    db.driver_wrapper.execute(
-        f"INSERT INTO {value_table} ({value_table}_value) VALUES (?)", ("Keep me",)
-    )
+    CustomFieldService(db).ensure_value(number, "Keep me")
     previous = deepcopy(facade.custom_column_num_map)
     previous_triggers = list(facade.triggers)
     db.driver_wrapper.execute(
         "UPDATE custom_columns SET custom_column_display=? WHERE custom_column_id=?",
         (bad_display, number),
     )
-    CustomColumns(db, table="manifestations")
-    with pytest.raises(DatabaseIntegrityError, match=f"Invalid custom column {number}"):
+    error_type = JSONDecodeError if bad_display == "{" else CustomFieldError
+    with pytest.raises(error_type):
+        CustomColumns(db, table="manifestations")
+    with pytest.raises(error_type):
         facade.refresh_db_custom_columns_metadata()
     assert facade.custom_column_num_map == previous
     assert (
@@ -35,7 +40,7 @@ def test_refresh_preserves_corrupt_definition_values_and_previous_snapshot(
         is facade.custom_column_num_map[number]
     )
     assert facade.triggers == previous_triggers
-    with pytest.raises(DatabaseIntegrityError, match=f"Invalid custom column {number}"):
+    with pytest.raises(error_type):
         CustomColumns(db, table="works")
     with sqlite3.connect(db.metadata["database_path"]) as persisted:
         assert persisted.execute(

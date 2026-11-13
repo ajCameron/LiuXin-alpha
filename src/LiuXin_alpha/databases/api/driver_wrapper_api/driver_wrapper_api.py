@@ -16,7 +16,6 @@ from typing import (
     TYPE_CHECKING,
     Any,
     Literal,
-    Never,
 )
 
 from LiuXin_alpha.databases.api.driver_wrapper_api.mixins.query_operations_api import (
@@ -69,6 +68,16 @@ class DatabaseDriverWrapperAPI(SchemaIntrospectionAPI, QueryOperationsAPI):
 
     @property
     @abc.abstractmethod
+    def custom_tables(self) -> set[str]:
+        """Return the wrapper's mutable custom-table registry."""
+
+    @custom_tables.setter
+    @abc.abstractmethod
+    def custom_tables(self, value: set[str]) -> None:
+        """Bind custom-table names published by native schema operations."""
+
+    @property
+    @abc.abstractmethod
     def driver(self) -> DatabaseDriverAPI:
         """Return the bound backend; a detached wrapper raises RuntimeError."""
 
@@ -102,45 +111,6 @@ class DatabaseDriverWrapperAPI(SchemaIntrospectionAPI, QueryOperationsAPI):
 
 
         :return: None.
-        """
-
-    @abc.abstractmethod
-    def _canonicalise_cc_in_table(self, in_table: str) -> str:
-        """
-        Resolve the legacy books attachment name against available table groups.
-
-        Abstract wrapper hook. The behavior below describes DriverWrapper and its
-        mixins; this declaration supplies no implementation.
-
-        Existing main, interlink or intralink names pass through. If books is absent,
-        prefer manifestations, then items, then works. Other unknown names pass through
-        unchanged for later validation.
-
-        Example:
-            >>> wrapper._canonicalise_cc_in_table("works")  # doctest: +SKIP
-
-
-        :param in_table: Table to which the custom column is attached.
-        :return: Resolved attachment name, or the original name.
-        """
-
-    @abc.abstractmethod
-    def _get_custom_column_row(self, in_table: str, cc_name: str) -> None:
-        """
-        Reserve a hook for retrieving a custom-column definition row.
-
-        Abstract wrapper hook. The behavior below describes DriverWrapper and its
-        mixins; this declaration supplies no implementation.
-
-        The current body is pass: it performs no lookup and ignores both arguments.
-
-        Example:
-            >>> wrapper._get_custom_column_row("works", "note")  # doctest: +SKIP
-
-
-        :param in_table: Table to which the custom column is attached.
-        :param cc_name: Custom column name.
-        :return: None; this hook remains unimplemented.
         """
 
     @abc.abstractmethod
@@ -340,57 +310,6 @@ class DatabaseDriverWrapperAPI(SchemaIntrospectionAPI, QueryOperationsAPI):
         """
 
     @abc.abstractmethod
-    def create_custom_column(
-        self,
-        name: str,
-        datatype: str = "text",
-        is_multiple: bool = False,
-        label: str | None = None,
-        editable: bool = True,
-        display: Mapping[str, Any] | None = None,
-        in_table: str = "books",
-        table: str | None = None,
-        make_category: bool | None = None,
-    ) -> int:
-        """
-        Create a custom-column definition and its physical value storage.
-
-        The table alias overrides the default books attachment; conflicting nondefault
-        aliases raise TypeError. Resolves legacy attachment names and asserts membership
-        in the owner table groups. Rejects unsupported datatypes, invalid labels, and
-        multiple numeric/date/bool/rating columns. Labels default to
-        <attachment>__<name> and must begin with a letter and contain lowercase word
-        characters.
-
-        Text, rating, series and enumeration use normalized value/link storage. Multiple
-        comments and series request ordering. display is serialized as JSON; for
-        composite columns, make_category updates that mapping. Definition insertion
-        and physical DDL share one owned transaction: either both commit or both roll
-        back. Nested macro transactions are refused before writing, so facade caches
-        are updated only after a real commit. Returns the definition ID.
-
-        Example:
-            >>> wrapper.create_custom_column("note")  # doctest: +SKIP
-
-
-        :param name: Custom-column display name.
-        :param datatype: Supported CUSTOM_DATA_TYPES name, such as text, int, comments,
-            series or composite.
-        :param is_multiple: Whether multiple values are requested; unsupported scalar
-            combinations raise NotImplementedError.
-        :param label: Optional lowercase registry label; None derives one from
-            attachment and name.
-        :param editable: Editable flag recorded in the definition.
-        :param display: JSON-serializable options; None becomes an empty dict.
-        :param in_table: Attachment table name; defaults to books.
-        :param table: Optional alias for in_table; conflicting explicit names raise
-            TypeError.
-        :param make_category: Optional boolean-like composite browser-category setting;
-            ignored for other datatypes.
-        :return: New integer custom-column definition ID.
-        """
-
-    @abc.abstractmethod
     def create_new_main_table(
         self,
         table_name: str,
@@ -431,28 +350,6 @@ class DatabaseDriverWrapperAPI(SchemaIntrospectionAPI, QueryOperationsAPI):
         :param link_properties: Optional requested link-column suffixes passed to the
             driver.
         :return: None.
-        """
-
-    @staticmethod
-    @abc.abstractmethod
-    def custom_table_names(num: int, in_table: str = "books") -> tuple[str, str]:
-        """
-        Construct custom-value and owner-link table names from a numeric ID.
-
-        Abstract wrapper hook. The behavior below describes DriverWrapper and its
-        mixins; this declaration supplies no implementation.
-
-        Converts num with int(), logging and re-raising ValueError; other conversion
-        errors propagate. Does not check table existence or validate the attachment
-        name.
-
-        Example:
-            >>> wrapper.custom_table_names(1)  # doctest: +SKIP
-
-
-        :param num: Custom-column metadata identifier.
-        :param in_table: Table to which the custom column is attached.
-        :return: Pair (custom_column_<id>, <in_table>_custom_column_<id>_link).
         """
 
     # Todo: Rename for greater clarity.
@@ -501,97 +398,6 @@ class DatabaseDriverWrapperAPI(SchemaIntrospectionAPI, QueryOperationsAPI):
         :param target_table: Table whose rows are affected.
         :param row_id: Single ID, or a list/set of IDs.
         :return: Unmodified driver deletion result.
-        """
-
-    @abc.abstractmethod
-    def delete_custom_column(self, num: int) -> None:
-        """
-        Mark a custom-column definition for deferred deletion.
-
-        Abstract wrapper hook. The behavior below describes DriverWrapper and its
-        mixins; this declaration supplies no implementation.
-
-        Calls the configured macro provider; tables are removed later by
-        deleted_marked_custom_columns(), typically during reload. Does not update the
-        local custom-table cache.
-
-        Example:
-            >>> wrapper.delete_custom_column(1)  # doctest: +SKIP
-
-
-        :param num: Custom-column metadata identifier.
-        :return: None.
-        """
-
-    @abc.abstractmethod
-    def deleted_marked_custom_columns(self) -> None:
-        """Atomically remove marked definitions and their physical SQLite storage.
-
-        The macro reuses the current transaction through a savepoint, or owns a
-        new unit on an idle connection. Selection and deletion share that unit.
-        """
-
-    @abc.abstractmethod
-    def get_custom_tables(self) -> set[str]:
-        """
-        Read registered custom-table names through the owner driver's live connection.
-
-        Abstract wrapper hook. The behavior below describes DriverWrapper and its
-        mixins; this declaration supplies no implementation.
-
-        Calls db.macros.direct_get_custom_tables(conn=db.driver.conn), ignoring this
-        mixin's connection override. This is a fresh macro result, not a copy of the
-        local custom_tables set.
-
-        Example:
-            >>> wrapper.get_custom_tables()  # doctest: +SKIP
-
-
-        :return: Set of custom table/link-table names produced by the macro.
-        """
-
-    @abc.abstractmethod
-    def direct_get_custom_extra(self, link_table: str, index: int) -> Any:
-        """
-        Read the extra cell for one owner in a legacy custom link table.
-
-        Abstract wrapper hook. The behavior below describes DriverWrapper and its
-        mixins; this declaration supplies no implementation.
-
-        Passes the resolved connection to db.macros.direct_get_custom_and_extra().
-        Shared SQL looks up the _book owner column and selects only the first _extra
-        value, without ordering; it does not return the custom value itself.
-
-        Example:
-            >>> wrapper.direct_get_custom_extra(
-            ...     "books_custom_column_1_link", 1
-            ... )  # doctest: +SKIP
-
-
-        :param link_table: Trusted legacy custom link-table name.
-        :param index: Owner identifier matched against the link _book column.
-        :return: Selected extra scalar or the connection adapter's missing-value result.
-        """
-
-    @abc.abstractmethod
-    def direct_get_custom_id_val_pairs(self, table: str) -> list[tuple[int, Any]]:
-        """
-        Read all ID/value pairs from a custom table on the resolved connection.
-
-        Abstract wrapper hook. The behavior below describes DriverWrapper and its
-        mixins; this declaration supplies no implementation.
-
-        Passes table and conn to the owner macro without sorting or flattening. The
-        historical tuple annotation does not describe the usual list of pairs.
-
-        Example:
-            >>> wrapper.direct_get_custom_id_val_pairs(
-            ...     "custom_column_1"
-            ... )  # doctest: +SKIP
-
-
-        :param table: Table name in the current schema.
-        :return: Macro result, normally a list of (ID, value) tuples.
         """
 
     @abc.abstractmethod
@@ -1624,23 +1430,6 @@ class DatabaseDriverWrapperAPI(SchemaIntrospectionAPI, QueryOperationsAPI):
         """
 
     @abc.abstractmethod
-    def set_custom_column_metadata(
-        self,
-        num: int,
-        name: str | None = None,
-        label: str | None = None,
-        is_editable: bool | None = None,
-        display: Mapping[str, Any] | None = None,
-        in_table: str | None = None,
-    ) -> bool:
-        """Atomically update definition fields, preserving omitted fields.
-
-        Attachment changes require a storage migration and are rejected here.
-        The macro joins the current transaction without committing unrelated
-        writes. The caller remains responsible for facade metadata refresh.
-        """
-
-    @abc.abstractmethod
     def set_full_column(self, table: str) -> bool:
         """
         Write ancestor display paths for positive-ID rows, committing each row
@@ -1808,35 +1597,6 @@ class DatabaseDriverWrapperAPI(SchemaIntrospectionAPI, QueryOperationsAPI):
         """
 
     # Todo: Where we say "num" in ref to custom columns, change it to cc_id or similar
-    @abc.abstractmethod
-    def update_custom_column(
-        self, in_table: str, cc_name: str, value: Any, extra: str | None = None
-    ) -> Never:
-        """
-        Reject the unfinished custom-column value update operation.
-
-        Abstract wrapper hook. The behavior below describes DriverWrapper and its
-        mixins; this declaration supplies no implementation.
-
-        Always raises NotImplementedError before reading the database or modifying
-        values.
-
-        The concrete wrapper also accepts an optional extra argument, but remains
-        unimplemented.
-
-        Example:
-            >>> wrapper.update_custom_column(
-            ...     "works", "note", "Example"
-            ... )  # doctest: +SKIP
-
-
-        :param in_table: Table to which the custom column is attached.
-        :param cc_name: Custom column name.
-        :param value: Proposed custom value; currently unused.
-        :return: No normal return; always raises NotImplementedError.
-        """
-
-        ...
 
     @abc.abstractmethod
     def update_row(self, row_dict: dict[str, Any]) -> bool | None:

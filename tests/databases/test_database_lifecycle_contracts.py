@@ -174,10 +174,13 @@ def test_failed_worker_shutdown_does_not_discard_its_owner(db, prepared_maintain
     db._initialise_runtime_collaborators(enable_maintenance=True)
     worker, callback = db.maintenance, db.driver.maintainer_callback
     worker.fail_close = True
-    with pytest.raises(RuntimeError, match="still running"):
-        db._initialise_runtime_collaborators(enable_maintenance=False)
-    assert db.maintenance is db.maintainer is worker
-    assert db.driver.maintainer_callback is callback
+    try:
+        with pytest.raises(RuntimeError, match="still running"):
+            db._initialise_runtime_collaborators(enable_maintenance=False)
+        assert db.maintenance is db.maintainer is worker
+        assert db.driver.maintainer_callback is callback
+    finally:
+        worker.fail_close = False
 
 
 def test_real_worker_lifecycle_has_no_orphan_threads(db):

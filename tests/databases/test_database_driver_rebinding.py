@@ -229,3 +229,25 @@ def test_replacement_keeps_storage_repository_on_the_current_transaction(db, tmp
             assert db.storage is manager
         finally:
             other.close()
+
+
+def test_catalogue_switch_cannot_discard_detached_owned_storage(db, tmp_path):
+    """Removing an attachment does not release the facade's shutdown ownership."""
+    db.bootstrap_storage_manager()
+    manager = db.storage
+    db.storage = None
+    path = tmp_path / "other.sqlite"
+    shutil.copyfile(db.driver.database_path, path)
+    new_driver = replacement(db, path)
+    original = db.driver
+    try:
+        with pytest.raises(InputIntegrityError, match="separate Database"):
+            db.set_driver(new_driver)
+        assert db.driver is original
+        assert not manager._closed
+        assert new_driver.db is None
+        assert_live(db, "after refused owned-storage switch")
+    finally:
+        new_driver.close()
+    db.close()
+    assert manager._closed

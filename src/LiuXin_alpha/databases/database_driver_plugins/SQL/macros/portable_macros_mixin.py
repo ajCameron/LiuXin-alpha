@@ -455,6 +455,31 @@ class SQLPortableMacrosMixin(MacroHostState):
     def _macro_transaction(
         self, *, serialized: bool = False, require_outermost: bool = False
     ) -> Iterator[SQLConnection]:
+        """Keep projection completion frames aligned with SQL savepoints."""
+        from LiuXin_alpha.databases.transaction_participants import completion_frame
+
+        state = macro_transaction_state(self, create=True)
+        driver = self._macro_driver()
+        owned = state.depth == 0 and (
+            callable(getattr(driver, "get_connection", None))
+            or not transaction_active(driver.conn)
+        )
+        lock = getattr(self._macro_database, "lock", None)
+        boundary = (
+            cast(AbstractContextManager[object], lock)
+            if lock is not None and callable(getattr(lock, "acquire", None))
+            else nullcontext()
+        )
+        with boundary, completion_frame(self, owned=owned):
+            with self._macro_transaction_body(
+                serialized=serialized, require_outermost=require_outermost
+            ) as connection:
+                yield connection
+
+    @contextmanager
+    def _macro_transaction_body(
+        self, *, serialized: bool = False, require_outermost: bool = False
+    ) -> Iterator[SQLConnection]:
         """Own one write unit while preserving nested and caller-owned transactions.
 
         A fresh driver connection belongs to this operation and is closed afterward.

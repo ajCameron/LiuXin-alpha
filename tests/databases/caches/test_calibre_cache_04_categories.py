@@ -14,6 +14,8 @@ Example:
 
 from __future__ import annotations
 
+from LiuXin_alpha.utils.calibre_compat.custom_columns.adapter import CustomColumnAdapter
+
 import sys
 from pathlib import Path
 from typing import Any, Optional
@@ -44,7 +46,9 @@ if _LIBS.exists() and str(_LIBS) not in sys.path:
     sys.path.insert(0, str(_LIBS))
 
 from LiuXin_alpha.library.caches.calibre.cache import CalibreCache
-from LiuXin_alpha.databases.custom_columns import CustomColumns
+from LiuXin_alpha.utils.calibre_compat.custom_columns import (
+    CustomColumns,
+)
 from LiuXin_alpha.databases.database import Database
 from LiuXin_alpha.catalog.field_metadata import FieldMetadata
 
@@ -295,7 +299,7 @@ def calibre_backend_db(tmp_path: Path, request):
     db.field_metadata = FieldMetadata()
 
     # Some codepaths call backend.custom_table_names(...)
-    db.custom_table_names = db.driver_wrapper.custom_table_names
+    db.custom_table_names = CustomColumnAdapter(db).custom_table_names
 
     return db
 

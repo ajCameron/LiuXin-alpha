@@ -42,9 +42,6 @@ from LiuXin_alpha.utils.logging import LiuXin_print, LiuXin_warning_print
 from LiuXin_alpha.databases.database_driver_plugins.SQL.macros import (
     SQLiteDatabaseMacros,
 )
-from LiuXin_alpha.databases.database_driver_plugins.SQL.custom_columns import (
-    SQLiteCustomColumnsDriverMixin,
-)
 
 from LiuXin_alpha.errors import DatabaseDriverError
 
@@ -339,7 +336,6 @@ class SQLite_Connection(SQLiteCompletionConnection):
 class DatabaseDriver(
     SQLiteProgressMixin,
     SQLBaseDriver,
-    SQLiteCustomColumnsDriverMixin,
     SQLiteTableLinkingMixin,
     ValueCastingMixin,
     CalibreEmulationMixin,

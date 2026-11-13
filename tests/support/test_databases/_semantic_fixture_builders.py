@@ -11,12 +11,16 @@ Example:
 """
 from __future__ import annotations
 
+from LiuXin_alpha.utils.calibre_compat.custom_columns.adapter import CustomColumnAdapter
+
 import re
 import sqlite3
 
 from pathlib import Path
 
-from LiuXin_alpha.databases.custom_columns import CustomColumns
+from LiuXin_alpha.utils.calibre_compat.custom_columns import (
+    CustomColumns,
+)
 from LiuXin_alpha.databases.database import Database
 from LiuXin_alpha.catalog.field_metadata import FieldMetadata
 from tests.support._surface_storage_tables import ensure_surface_asset_tables_sqlite
@@ -242,7 +246,7 @@ def create_custom_column(
     )
     db.refresh_db_metadata()
 
-    cc_table, link_table = db.driver_wrapper.custom_table_names(num, in_table=table)
+    cc_table, link_table = CustomColumnAdapter(db).custom_table_names(num, in_table=table)
     tables = set(db.get_tables(force_refresh=True))
     if link_table not in tables:
         link_table = None

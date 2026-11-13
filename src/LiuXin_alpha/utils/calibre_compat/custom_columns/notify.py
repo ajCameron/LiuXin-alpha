@@ -10,7 +10,8 @@ implement an event bus, dirtied-row persistence or transaction commits.
 
 from __future__ import annotations
 
-from typing import Iterable, Protocol
+from collections.abc import Iterable
+from typing import Protocol
 
 
 class EmbeddedColumnHost(Protocol):

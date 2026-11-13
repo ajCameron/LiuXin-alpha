@@ -12,6 +12,7 @@ from LiuXin_alpha.databases.driver_wrapper import DriverWrapper
 from LiuXin_alpha.databases.schema_specs import RelationKind
 from LiuXin_alpha.databases.transactions import transaction_active
 from LiuXin_alpha.errors import InputIntegrityError
+from LiuXin_alpha.utils.calibre_compat.custom_columns.adapter import CustomColumnAdapter
 from tests.databases import test_row_write_safety as fixtures
 
 # Share the existing disposable schema setup and independent durability reader.
@@ -176,17 +177,21 @@ def test_custom_column_failure_rolls_back_definition_and_schema(
     wrapper = db.driver_wrapper
     before = schema_objects(db)
     known = set(wrapper.custom_tables)
-    original = db.macros.create_cc_table
+    from LiuXin_alpha.databases.custom_columns.native_repository import (
+        CustomFieldRepository,
+    )
 
-    def fail(**kwargs):
+    original = CustomFieldRepository.create_storage
+
+    def fail(*args, **kwargs):
         if after_ddl:
-            original(**kwargs)
+            original(*args, **kwargs)
         raise RuntimeError("injected DDL failure")
 
     with monkeypatch.context() as patch:
-        patch.setattr(db.macros, "create_cc_table", fail)
+        patch.setattr(CustomFieldRepository, "create_storage", fail)
         with pytest.raises(RuntimeError, match="injected DDL failure"):
-            wrapper.create_custom_column(
+            CustomColumnAdapter(db).create_custom_column(
                 "Failure probe",
                 label="failure_probe",
                 datatype=datatype,
@@ -195,7 +200,7 @@ def test_custom_column_failure_rolls_back_definition_and_schema(
     assert stored(db, "SELECT * FROM custom_columns") == []
     assert schema_objects(db) == before
     assert wrapper.custom_tables == known
-    number = wrapper.create_custom_column(
+    number = CustomColumnAdapter(db).create_custom_column(
         "Failure probe", label="failure_probe", datatype=datatype, in_table="works"
     )
     assert stored(
@@ -208,13 +213,16 @@ def test_custom_column_failure_rolls_back_definition_and_schema(
 
 @pytest.mark.parametrize("datatype", ["text", "int"])
 def test_midway_ddl_collision_rolls_back_prior_statements(db, datatype):
-    """A real CREATE INDEX error must undo the preceding CREATE TABLE and insert."""
+    """A storage-name collision must undo the definition and any preceding DDL."""
     connection = db.driver.conn
-    connection.execute("CREATE TABLE custom_column_1_idx(value TEXT)")
+    collision = (
+        "works_custom_column_1_link" if datatype == "text" else "custom_column_1"
+    )
+    connection.execute(f"CREATE TABLE {collision}(value TEXT)")
     connection.commit()
     before = schema_objects(db)
     with pytest.raises(Exception, match="already"):
-        db.driver_wrapper.create_custom_column(
+        CustomColumnAdapter(db).create_custom_column(
             "Collision", label="collision", datatype=datatype, in_table="works"
         )
     assert stored(db, "SELECT * FROM custom_columns") == []
@@ -225,8 +233,8 @@ def test_custom_column_creation_refuses_nested_schema_publication(db):
     """A returned definition must have committed before facade maps can publish it."""
     with db.macros.transaction(serialized=True) as connection:
         connection.execute("INSERT INTO works(work_title) VALUES ('outer')")
-        with pytest.raises(RuntimeError, match="outermost"):
-            db.driver_wrapper.create_custom_column(
+        with pytest.raises(RuntimeError, match="own transaction"):
+            CustomColumnAdapter(db).create_custom_column(
                 "Nested", label="nested", in_table="works"
             )
         assert connection.execute("SELECT * FROM custom_columns").fetchall() == []

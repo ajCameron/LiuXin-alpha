@@ -1912,6 +1912,8 @@ def test_non_strict_database_bootstrap_returns_a_structured_failure() -> None:
         """
         storage = None
         storage_bootstrap_report = None
+        _require_runtime_mutable = lambda self: None
+        _owned_storage_managers: list[StorageManager] = []
         metadata: dict[str, object] = {}
 
         @staticmethod
@@ -2011,6 +2013,8 @@ def test_strict_database_bootstrap_rejects_reported_row_failures() -> None:
         """
         storage = _ReportingStorage()
         storage_bootstrap_report = None
+        _require_runtime_mutable = lambda self: None
+        _owned_storage_managers: list[StorageManager] = []
 
     database = _Database()
     non_strict = bootstrap_storage_manager(cast(Any, database), strict=False)
@@ -2087,6 +2091,8 @@ def test_database_refresh_applies_requested_startup_policy() -> None:
         """
         storage = _TrackingStorage()
         storage_bootstrap_report = None
+        _require_runtime_mutable = lambda self: None
+        _owned_storage_managers: list[StorageManager] = []
 
     database = _Database()
 

@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import pytest
 
-from LiuXin_alpha.databases.notify import dummy_dirtied, dummy_notify
+from LiuXin_alpha.utils.calibre_compat.custom_columns.notify import dummy_dirtied, dummy_notify
 
 
 class _FakeCCClassNotEmbedded:

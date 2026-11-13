@@ -428,51 +428,33 @@ def cc_adapt_datetime(x, d):
 
 
 def cc_adapt_bool(x: Any, d) -> Optional[bool]:
+    """Adapt a nullable boolean, integer or boolean text; reject other objects.
+
+    Text accepts true/false, none and integer spellings, case-insensitively.
+    Bytes decode before parsing. Floats, dates and containers are not booleans.
     """
-    Parse custom boolean text while preserving the existing non-string failure.
-
-    Text true/1, false/0 and none are recognized after lowercasing. Other string values
-    use int conversion with failures wrapped as InvalidUpdate, and floats are rejected.
-    For every non-string, non-float value, the existing datetime.datetime check raises
-    AttributeError because datetime names the imported class. Thus None, booleans,
-    integers and datetime objects currently fail at that check.
-
-    Example:
-        >>> cc_adapt_bool("true", {})
-        True
-        >>> cc_adapt_bool("none", {}) is None
-        True
-
-
-    :param x: Boolean text/bytes or another attempted value.
-    :param d: Column metadata included in failure diagnostics.
-    :return: True, False or None for recognized text; numeric text/bytes use
-        bool(int(x)).
-    :raises InvalidUpdate: A string cannot be converted or x is a float.
-    :raises AttributeError: A non-string, non-float input reaches the shadowed
-        datetime.datetime reference.
-    """
-    if isinstance(x, (str, unicode, bytes)):
-        x = x.lower()
-        if x == "true" or x == "1":
-            x = True
-        elif x == "false" or x == "0":
-            x = False
-        elif x == "none":
-            x = None
-        else:
-            try:
-                x = bool(int(x))
-            except:
-                raise InvalidUpdate(
-                    "adapt_bool has failed - x: {} - d: {}".format(x, d)
-                )
-    elif isinstance(x, float):
-        raise InvalidUpdate("adapt_bool has failed - x: {} - d: {}".format(x, d))
-    elif isinstance(x, datetime.datetime):
-        raise InvalidUpdate("adapt_bool has failed - x: {} - d: {}".format(x, d))
-
-    return x
+    if x is None or isinstance(x, bool):
+        return x
+    if isinstance(x, int):
+        return bool(x)
+    if isinstance(x, bytes):
+        try:
+            x = x.decode(preferred_encoding)
+        except UnicodeError as error:
+            raise InvalidUpdate("Invalid custom boolean encoding") from error
+    if isinstance(x, str):
+        lowered = x.strip().lower()
+        if lowered == "none":
+            return None
+        if lowered == "true":
+            return True
+        if lowered == "false":
+            return False
+        try:
+            return bool(int(lowered))
+        except ValueError as error:
+            raise InvalidUpdate(f"Invalid custom boolean {x!r}") from error
+    raise InvalidUpdate(f"Invalid custom boolean {x!r}")
 
 
 def cc_adapt_enum(x: Any, d) -> Optional[Union[list[str]]]:

@@ -23,6 +23,8 @@ from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 from LiuXin_alpha.catalog.api.metadata_tools_api import CatalogMetadataToolsAPI
 
 if TYPE_CHECKING:
+    from LiuXin_alpha.catalog.custom_fields import CustomFieldEvaluator
+    from LiuXin_alpha.databases.custom_columns.native_service import CustomFieldService
     from collections.abc import Mapping
 
     from LiuXin_alpha.catalog.api.matching_api import CatalogMatchingAPI
@@ -145,6 +147,16 @@ class CatalogAPI(CatalogAddinsAPI, Protocol):
     comments: "CommentRepositoryAPI"
     synopses: "SynopsisRepositoryAPI"
     annotations: "AnnotationRepositoryAPI"
+
+    @property
+    def custom_fields(self) -> CustomFieldService:
+        """Return the native custom-field storage service for this Catalog."""
+        ...
+
+    @property
+    def computed_fields(self) -> CustomFieldEvaluator:
+        """Return composite evaluation over explicit owners and relationship paths."""
+        ...
 
     def create_writer(
         self,

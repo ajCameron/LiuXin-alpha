@@ -11,6 +11,8 @@ Example:
 """
 from __future__ import print_function
 
+from LiuXin_alpha.utils.calibre_compat.custom_columns.adapter import CustomColumnAdapter
+
 from LiuXin_alpha.exceptions import DatabaseIntegrityError
 
 from LiuXin_tests.test_databases.test_db_21 import TestDB21Builer
@@ -60,7 +62,7 @@ class TestDB22Builer(TestDB21Builer):
             place.
         """
         test_titles_cc_1_name = "do_not_read"
-        scratch_db.driver_wrapper.create_custom_column(in_table="titles", name=test_titles_cc_1_name)
+        CustomColumnAdapter(scratch_db).create_custom_column(in_table="titles", name=test_titles_cc_1_name)
 
         # Books custom columns
         # - is_multiple - False - all data
@@ -81,7 +83,7 @@ class TestDB22Builer(TestDB21Builer):
                 "About to create {} cc for books table - books cc {} - not multiple".format(cc_datatype, book_cc_count)
             )
             test_books_cc_name = "books_cc_{}_do_not_read_{}_not_multiple".format(book_cc_count, cc_datatype)
-            scratch_db.driver_wrapper.create_custom_column(
+            CustomColumnAdapter(scratch_db).create_custom_column(
                 name=test_books_cc_name,
                 datatype=cc_datatype,
                 is_multiple=False,
@@ -112,7 +114,7 @@ class TestDB22Builer(TestDB21Builer):
             )
             test_books_cc_name = "books_cc_{}_do_not_read_{}_multiple".format(book_cc_count, cc_datatype)
             try:
-                scratch_db.driver_wrapper.create_custom_column(
+                CustomColumnAdapter(scratch_db).create_custom_column(
                     name=test_books_cc_name,
                     datatype=cc_datatype,
                     is_multiple=True,
@@ -122,7 +124,7 @@ class TestDB22Builer(TestDB21Builer):
                     in_table="books",
                 )
             except NotImplementedError:  # Done for reasons of legacy compatibility
-                scratch_db.driver_wrapper.create_custom_column(
+                CustomColumnAdapter(scratch_db).create_custom_column(
                     name=test_books_cc_name,
                     datatype=cc_datatype,
                     is_multiple=False,
@@ -135,7 +137,7 @@ class TestDB22Builer(TestDB21Builer):
             book_cc_count += 1
 
         test_tags_cc_1_name = "really_do_not_read"
-        scratch_db.driver_wrapper.create_custom_column(in_table="tags", name=test_tags_cc_1_name)
+        CustomColumnAdapter(scratch_db).create_custom_column(in_table="tags", name=test_tags_cc_1_name)
 
 
 def build_test_db(

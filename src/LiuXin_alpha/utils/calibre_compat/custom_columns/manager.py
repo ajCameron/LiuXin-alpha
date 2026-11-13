@@ -3,36 +3,30 @@ Discover custom-column attachment tables and lazily cache their facades.
 
 CustomColumnsManager separates live table discovery from its instance cache. Discovery
 can return no tables while explicit get still constructs a facade. Construction/refresh
-inherit CustomColumns schema-cleanup and metadata side effects; the manager does not add
+read native definitions and replace compatibility projections; the manager does not add
 transactions or concurrency control.
 """
 
 from __future__ import annotations
 
+from collections.abc import Iterator, Mapping
 from dataclasses import dataclass, field
 from typing import (
-    Any,
-    Dict,
-    Iterator,
-    Mapping,
-    Optional,
-    Set,
-    Tuple,
     TYPE_CHECKING,
-    Union,
+    Any,
 )
 
-from LiuXin_alpha.databases.custom_columns.custom_columns import CustomColumns
+from LiuXin_alpha.utils.calibre_compat.custom_columns.facade import CustomColumns
 
 if TYPE_CHECKING:
-    from LiuXin_alpha.databases.api.custom_columns_api import CustomColumnFieldMetadata
-    from LiuXin_alpha.databases.api.row_api import RowAPI
     from LiuXin_alpha.databases.api.database_api import DatabaseAPI
+    from LiuXin_alpha.databases.api.row_api import RowAPI
+    from LiuXin_alpha.utils.calibre_compat.custom_columns.api import (
+        CustomColumnFieldMetadata,
+    )
 
 
-def _row_get(
-    row: Union[Mapping[str, Any], "RowAPI"], key: str, default: Any = None
-) -> Any:
+def _row_get(row: Mapping[str, Any] | RowAPI, key: str, default: Any = None) -> Any:
     """
     Read a row using get when available, falling back to item access on error.
 
@@ -98,7 +92,7 @@ class CustomColumnsManager:
     directly, with a fresh private cache per instance. It does not discover or preload
     on construction. Public membership/iteration query current definitions rather than
     cached keys. No locking prevents concurrent duplicate construction, and invalidation
-    does not close facades or undo their schema effects.
+    does not close facades or undo their projection effects.
 
     Example:
         >>> from types import SimpleNamespace
@@ -107,19 +101,19 @@ class CustomColumnsManager:
         ()
     """
 
-    db: "DatabaseAPI"
+    db: DatabaseAPI
     default_table: str = "books"
     field_metadata_by_table: Mapping[str, CustomColumnFieldMetadata] = field(
         default_factory=dict
     )
 
-    _cache: Dict[str, CustomColumns] = field(
+    _cache: dict[str, CustomColumns] = field(
         default_factory=dict, init=False, repr=False
     )
 
     # ---- public API -----------------------------------------------------
 
-    def tables(self) -> Tuple[str, ...]:
+    def tables(self) -> tuple[str, ...]:
         """
         Rediscover attachment tables and return their names in sorted order.
 
@@ -155,7 +149,7 @@ class CustomColumnsManager:
         for t in self._discover_tables():
             self.get(t)
 
-    def get(self, table: Optional[str] = None) -> "CustomColumns":
+    def get(self, table: str | None = None) -> CustomColumns:
         """
         Return a cached facade or construct one for the canonical requested table.
 
@@ -183,14 +177,14 @@ class CustomColumnsManager:
 
         return self._cache[resolved]
 
-    def refresh(self, *, table: Optional[str] = None) -> None:
+    def refresh(self, *, table: str | None = None) -> None:
         """
         Refresh definition maps on cached facades or one explicitly requested facade.
 
         The all-cached path does not discover newly added attachment tables. Refresh
-        validates each facade’s definitions without deleting malformed records; it does
-        not recreate FieldMetadata registrations or install queued triggers. Errors stop
-        the pass after earlier refreshes.
+        validates each facade’s definitions without deleting malformed records,
+        reconciles persistent cleanup and refreshes its FieldMetadata registrations.
+        Errors stop the pass after earlier facades have refreshed successfully.
 
         Example:
             After updating definitions, manager.refresh(table="works") refreshes that
@@ -208,7 +202,7 @@ class CustomColumnsManager:
 
         self.get(table).refresh_db_custom_columns_metadata()
 
-    def invalidate(self, *, table: Optional[str] = None) -> None:
+    def invalidate(self, *, table: str | None = None) -> None:
         """
         Discard cached facade references without closing them or changing the database.
 
@@ -258,7 +252,7 @@ class CustomColumnsManager:
         resolved = self._canonicalise_table(table)
         return resolved in self._discover_tables()
 
-    def __getitem__(self, table: str) -> "CustomColumns":  # pragma: no cover
+    def __getitem__(self, table: str) -> CustomColumns:  # pragma: no cover
         """
         Delegate bracket access to lazy facade lookup.
 
@@ -375,7 +369,7 @@ class CustomColumnsManager:
 
         return in_table
 
-    def _discover_tables(self) -> Set[str]:
+    def _discover_tables(self) -> set[str]:
         """
         Read non-deleted custom-column definitions and collect canonical attachments.
 
@@ -396,7 +390,7 @@ class CustomColumnsManager:
         :return: Set of attachment names, or an empty set for a known missing
             catalog/query-setup failure.
         """
-        tables: Set[str] = set()
+        tables: set[str] = set()
 
         # Ensure db metadata is loaded if possible (best-effort).
         try:

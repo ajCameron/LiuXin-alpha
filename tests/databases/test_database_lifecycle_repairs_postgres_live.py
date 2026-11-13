@@ -1,0 +1,33 @@
+"""Run the lifecycle failure contracts against real PostgreSQL connections."""
+
+from tests.databases.test_database_lifecycle_repairs import (
+    test_close_shuts_down_owned_storage_before_database as test_close_shuts_down_owned_storage_before_database,
+)
+from tests.databases.test_database_lifecycle_repairs import (
+    test_close_timeout_preserves_worker_dependencies_and_permits_retry as test_close_timeout_preserves_worker_dependencies_and_permits_retry,
+)
+from tests.databases.test_database_lifecycle_repairs import (
+    test_constructor_binding_failure_respects_candidate_ownership as test_constructor_binding_failure_respects_candidate_ownership,
+)
+from tests.databases.test_database_lifecycle_repairs import (
+    test_constructor_cleanup_failure_preserves_original_error_and_retry as test_constructor_cleanup_failure_preserves_original_error_and_retry,
+)
+from tests.databases.test_database_lifecycle_repairs import (
+    test_context_preserves_body_exception_when_cleanup_fails as test_context_preserves_body_exception_when_cleanup_fails,
+)
+from tests.databases.test_database_lifecycle_repairs import (
+    test_failed_construction_releases_acquired_resources as test_failed_construction_releases_acquired_resources,
+)
+from tests.databases.test_database_lifecycle_repairs import (
+    test_injected_storage_remains_caller_owned as test_injected_storage_remains_caller_owned,
+)
+from tests.databases.test_database_lifecycle_repairs import (
+    test_owned_store_shutdown_failure_is_reported_and_retried as test_owned_store_shutdown_failure_is_reported_and_retried,
+)
+from tests.databases.test_database_lifecycle_repairs import (
+    test_shallow_setters_are_absent_and_collaborators_are_read_only as test_shallow_setters_are_absent_and_collaborators_are_read_only,
+)
+from tests.databases.test_native_custom_fields_postgres_live import db as db
+from tests.databases.test_transaction_ownership_postgres_live import (
+    pg_database as pg_database,
+)

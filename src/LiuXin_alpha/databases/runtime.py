@@ -87,7 +87,9 @@ def bootstrap_storage_manager(
     Create or refresh the storage manager and retain its bootstrap report.
 
     If storage is absent, construct StorageManager before the guarded load; construction
-    errors propagate even in non-strict mode. Otherwise atomically rebind the manager
+    errors propagate even in non-strict mode. The database owns managers created
+    here and closes them before releasing its handles; injected managers remain
+    caller-owned. Closing/closed databases reject bootstrap. Otherwise rebind the manager
     and its durable repository views before applying the startup policy. Non-strict
     loading exceptions are logged and converted to one discovered/failed configuration
     with the error text; partial load effects remain. Strict loading exceptions
@@ -115,9 +117,11 @@ def bootstrap_storage_manager(
         or manager construction rejects its configuration.
     """
 
+    db._require_runtime_mutable()
     storage = db.storage
     if storage is None:
         storage = StorageManager(db=db, startup_on_add=startup_on_add)
+        db._owned_storage_managers.append(storage)
         db.storage = storage
     else:
         bind_database = getattr(storage, "bind_database", None)

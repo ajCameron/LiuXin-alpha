@@ -677,7 +677,8 @@ class StoreAdministrationMixin(_StorageManagerState):
         """
         Snapshot live Stores and attempt every close in UUID order. Catch BaseException for each
         attempt and re-raise the first after trying the rest. Registries and the selected default
-        remain retained, even though their facades may now be closed.
+        remain retained, even though their facades may now be closed. A failed close
+        leaves the manager eligible for another shutdown attempt.
 
         Example:
             >>> manager.close()  # doctest: +SKIP
@@ -699,6 +700,8 @@ class StoreAdministrationMixin(_StorageManagerState):
                 if first_error is None:
                     first_error = error
         if first_error is not None:
+            with self._lock:
+                self._closed = False
             raise first_error
 
 

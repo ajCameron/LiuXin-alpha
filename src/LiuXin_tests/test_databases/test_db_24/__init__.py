@@ -11,6 +11,8 @@ Example:
 """
 from __future__ import print_function
 
+from LiuXin_alpha.utils.calibre_compat.custom_columns.macros import CustomColumnMacros
+
 from LiuXin_tests.test_databases.test_db_23 import TestDB23Builer
 
 
@@ -63,7 +65,7 @@ class TestDB24Builder(TestDB23Builer):
         target_id_range = []
         for cc_val_i in range(1, 101):
 
-            scratch_db.macros.add_cc_table_value(
+            CustomColumnMacros(scratch_db).add_cc_table_value(
                 table="custom_column_4",
                 value="test cc4 {} - {}" "".format(cc_val_i, self.get_random_uuid(current_rng=lx_random)),
             )
@@ -84,7 +86,7 @@ class TestDB24Builder(TestDB23Builer):
                 cc_i_id = lx_random.choice(target_id_range)
 
                 # Link it back to the given title
-                scratch_db.macros.add_cc_link_with_extra(
+                CustomColumnMacros(scratch_db).add_cc_link_with_extra(
                     lt="books_custom_column_4_link",
                     book_id=book_row.row_id,
                     value_id=cc_i_id,

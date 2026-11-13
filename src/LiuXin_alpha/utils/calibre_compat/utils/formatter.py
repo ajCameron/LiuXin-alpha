@@ -587,7 +587,7 @@ class _CompileParser(_Parser):
             if self.compile_text:
                 tv = v.replace("\\", "\\\\")
                 tv = tv.replace("'", "\\'")
-                self.compile_text += "\targs[%d].append(unicode('%s'))\n" % (level, tv)
+                self.compile_text += "\targs[%d].append(str('%s'))\n" % (level, tv)
             return v
         else:
             self.error(_("expression is not function or constant"))

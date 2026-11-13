@@ -1,8 +1,7 @@
-"""Own legacy cached value writes and restore touched cache rows on rollback.
+"""Own custom value writes and restore optional cache projections on rollback.
 
-A cache cannot follow an arbitrary caller's later rollback. Cached facade writers
-therefore require an idle connection and a complete commit. Lower-level SQL macros
-remain available for caller-owned transactions. Hosts must serialize these writes
+A cache cannot follow an arbitrary caller's later rollback. Facade writers
+therefore require an idle connection and a complete commit. Native operations remain available for managed transaction composition. Hosts must serialize these writes
 with cache readers; their dirty hooks must honor commit=False and avoid external
 side effects. Listener delivery happens after commit and is not transactional.
 """
@@ -12,14 +11,18 @@ from __future__ import annotations
 from collections.abc import Callable, Iterable, MutableSequence
 from copy import deepcopy
 from functools import wraps
-from typing import Any, Concatenate
+from typing import TYPE_CHECKING, Any, cast
 
-from LiuXin_alpha.databases.api.custom_columns_api import (
+from LiuXin_alpha.databases.custom_columns.native_service import CustomFieldService
+from LiuXin_alpha.databases.transaction_participants import after_commit
+from LiuXin_alpha.databases.transactions import transaction_active
+from LiuXin_alpha.utils.calibre_compat.custom_columns.api import (
     CustomColumnCache,
     CustomColumnRows,
-    CustomColumnsAPI,
 )
-from LiuXin_alpha.databases.transactions import transaction_active, transaction_scope
+
+if TYPE_CHECKING:
+    from LiuXin_alpha.utils.calibre_compat.custom_columns.facade import CustomColumns
 
 
 class _CacheJournal:
@@ -60,20 +63,22 @@ class _JournaledCache:
         self.cache.set(row, col, val, row_is_id=True)
 
 
-def atomic_custom_write[HostT: CustomColumnsAPI, **P, R](
-    operation: Callable[Concatenate[HostT, P], R],
-) -> Callable[Concatenate[HostT, P], R]:
-    """Wrap a cached writer in one SQL transaction and buffered notification unit."""
+def atomic_custom_write[**P, R](
+    operation: Callable[P, R],
+) -> Callable[P, R]:
+    """Wrap a writer in one SQL transaction with optional cache rollback."""
 
     @wraps(operation)
-    def write(host: HostT, /, *args: P.args, **kwargs: P.kwargs) -> R:
+    def write(*args: P.args, **kwargs: P.kwargs) -> R:
+        host = cast("CustomColumns", args[0])
         connection = host._custom_connection()
-        if transaction_active(connection):
-            raise RuntimeError(
-                "Cached custom-column writes require their own transaction"
-            )
-        cache = host.data
-        journaled = _JournaledCache(cache)
+        if (
+            transaction_active(connection)
+            or host.db.macros.current_transaction_connection() is not None
+        ):
+            raise RuntimeError("Custom-column writes require their own transaction")
+        cache = host.value_cache
+        journaled = _JournaledCache(cache) if cache is not None else None
         notify = host.notify
         notices: list[tuple[str, tuple[int, ...]]] = []
 
@@ -88,13 +93,26 @@ def atomic_custom_write[HostT: CustomColumnsAPI, **P, R](
                 enums.append((values, values[:]))
         host.data = journaled
         host.notify = defer
+        committed = False
+
+        def mark_committed() -> None:
+            nonlocal committed
+            committed = True
+
         try:
-            with transaction_scope(connection, owns_transaction=True):
-                result = operation(host, *args, **kwargs)
-        except BaseException:
-            journaled.journal.restore()
-            for values, previous in enums:
-                values[:] = previous
+            with CustomFieldService(host.db).write():
+                after_commit(host.db.macros, mark_committed)
+                result = operation(*args, **kwargs)
+        except BaseException as error:
+            if committed:
+                error.add_note(
+                    "Custom-column SQL committed; projection publication failed."
+                )
+            else:
+                if journaled is not None:
+                    journaled.journal.restore()
+                for values, previous in enums:
+                    values[:] = previous
             raise
         finally:
             host.data = cache
