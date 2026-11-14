@@ -418,7 +418,7 @@ def test_rebuild_refuses_failed_owned_close_without_publishing(driver, monkeypat
 
     with monkeypatch.context() as patch:
         patch.setattr(old, "close", fail)
-        with pytest.raises(RuntimeError, match="Close all owned connections"):
+        with pytest.raises(ExceptionGroup, match="Failed to close"):
             driver.dump_and_restore(sql="CREATE TABLE restored_marker(id INTEGER);")
         assert Path(driver.database_path).stat().st_ino == original
         assert old in driver._open_connections

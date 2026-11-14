@@ -55,7 +55,11 @@ field when making range queries. Empty text, false and zero are stored values.
 `None` clears a field; collection entries themselves cannot be null.
 
 A replacement creates new entry identities unless supplied `ValueEntry`
-objects retain them. `edit_entries` preserves retained IDs and supports
+objects retain them. Deleted entry and vocabulary identities are not reused by
+field migrations, including after a field becomes empty or changes between shared
+and inline storage. Entry IDs and vocabulary IDs remain separate spaces; migration
+allocation can introduce gaps and callers must not infer counts from IDs.
+`edit_entries` preserves retained IDs and supports
 addition, replacement, removal and complete reorder permutations. IDs supplied
 for another owner or field are rejected. Foreign keys and persistent SQLite
 triggers clean memberships when an owner is deleted, including through an
@@ -67,6 +71,16 @@ independent connection with SQLite foreign-key enforcement disabled.
 macro transactions. A patch may span fields and attachment tables; all inputs
 are validated before its first value write. An expected field revision can
 reject stale edits. Revisions cover the whole field, not individual owners.
+Standalone writes reserve the writer before inspecting the field. Nested
+PostgreSQL writes acquire the same transaction advisory lock even inside an
+ordinary macro transaction, before reading revisions or plan fingerprints.
+Savepoint rollback may release its reservation, so each later operation acquires
+it again. This coordinates native/cooperating writers; raw SQL outside that
+protocol remains the caller's responsibility.
+
+Ordinary SQLite composition retains SQLite's single-writer and snapshot rules.
+If a deferred read transaction cannot promote to a writer, roll back and retry
+the outer transaction. Do not retry an inner edit against the same stale snapshot.
 
 ```python
 with db.macros.transaction(serialized=True):
@@ -128,9 +142,10 @@ The result uses an ascending owner-ID cursor. Page limits are 1–1000. Keep an
 outer `fields.read()` context when several pages must share one snapshot.
 Computed fields cannot be SQL-filtered through this API.
 
-The cache-owned FieldMetadata projection includes normalized categories for every
-attachment. Multiple Series descriptors expose structured values rather than
-a misleading scalar `_index` companion. Scalar Series companions remain scoped.
+The cache-owned native FieldMetadata projection includes normalized categories for
+every attachment. Series descriptors expose structured values without synthetic
+`_index` keys. Explicit Calibre projections can expose their own scoped scalar
+Series companions.
 The legacy results-cache projection supports scalar values and delimiter-free
 text sets. Lists, non-text collections and per-entry Series positions require
 the native API and raise `utils.calibre_compat.custom_columns.CompatibilityError`
@@ -167,9 +182,17 @@ conversion. Dependency-changing edits are rejected until dependent composites
 are updated. Plans may materialize the field's values in memory; schedule large
 catalogue migrations accordingly.
 
-The driver wrapper and existing Core `custom-fields.update` route use this
+Label, name and editability changes without value mappings update the definition
+in place, preserving physical tables and indexes. Rebuilds capture allocator
+history before dropping storage, including deleted identities, then reserve that
+bound in every replacement table before generating new identities. Carrying a
+conservative bound through both storage shapes preserves vocabulary history even
+when an intermediate datatype has no vocabulary table. This needs no cache or
+additional storage-version support; all changes remain in the migration unit.
+
+The explicit compatibility adapter and existing Core `custom-fields.update` route use this
 migration validation for every field, including enumeration choices,
-composite dependencies and revision increments. Wrapper edits can join managed
+composite dependencies and revision increments. Adapter edits can join managed
 macro transactions; their caller owns any compatibility projection refresh.
 Compatibility facade metadata edits and retirement require their own transaction
 because they refresh maps immediately after commit. Native service operations support managed composition.

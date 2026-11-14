@@ -13,6 +13,10 @@ from LiuXin_alpha.databases.custom_columns.native_types import (
 def dependencies(
     definition: FieldDefinition, definitions: list[FieldDefinition]
 ) -> set[int]:
+    """Resolve explicit IDs, template references and relationship-path field dependencies.
+
+    Unqualified template labels use the definition's attachment. Reject missing
+    scoped labels or IDs; this reads definitions without evaluating templates."""
     found = set(definition.display.get("dependencies", []))
     scoped = {(d.attachment, d.label): d.id for d in definitions}
     template = definition.display.get("composite_template", "")
@@ -40,6 +44,7 @@ def dependencies(
 def validate_dependencies(
     definition: FieldDefinition, definitions: list[FieldDefinition]
 ) -> None:
+    """Validate the proposed composite dependency graph, rejecting missing nodes and cycles."""
     proposed = [d for d in definitions if d.id != definition.id] + [definition]
     graph = {
         d.id: dependencies(d, proposed) for d in proposed if d.datatype == "composite"
@@ -47,6 +52,7 @@ def validate_dependencies(
     done, active = set(), set()
 
     def visit(node: int) -> None:
+        """Walk each dependency once and detect a return to the current traversal path."""
         if node in active:
             raise CustomFieldError("Composite dependency cycle")
         if node in done:

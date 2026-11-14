@@ -108,16 +108,12 @@ def connection_metadata(driver: DatabaseDriverAPI) -> dict[str, Any]:
 
 
 def close_driver(driver: DatabaseDriverAPI) -> None:
-    """Release retired connections without committing any pending primary work."""
-    connection = getattr(driver, "conn", None)
-    if connection is not None:
-        try:
-            connection.rollback()
-        except Exception:
-            pass
-        try:
-            connection.close()
-        except Exception:
-            pass
-    driver.conn = None
+    """Delegate complete, non-committing handle cleanup to its owning driver.
+
+    Drivers close primary and auxiliary handles together, retain failed handles,
+    and propagate incomplete shutdown. Do not detach the primary or independently
+    swallow its errors here: the facade must retain this owner until cleanup
+    succeeds. Native connection close discards pending work without a preliminary
+    commit or a redundant rollback/close attempt.
+    """
     driver.close()

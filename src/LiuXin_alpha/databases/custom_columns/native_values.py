@@ -20,6 +20,12 @@ from LiuXin_alpha.databases.custom_columns.native_types import (
 
 
 def adapt(value: Any, definition: FieldDefinition) -> Scalar:
+    """Validate one non-null scalar without silently coercing incompatible types.
+
+    Enforce portable integer bounds, rating range, finite numbers, allowed enum
+    choices and bool/integer distinction. Aware datetimes normalize to UTC; naive
+    ones remain naive. Collection shape, clearing and Series positions are handled
+    by entries(), not by this scalar adapter."""
     kind = definition.datatype
     if value is None:
         raise CustomFieldError("Collection entries cannot be null")
@@ -58,6 +64,7 @@ def adapt(value: Any, definition: FieldDefinition) -> Scalar:
 
 
 def encode(value: Scalar) -> str | int | float:
+    """Map validated scalars to SQL primitives, using ISO datetimes and integer bools."""
     if isinstance(value, datetime):
         return value.isoformat()
     if isinstance(value, bool):
@@ -66,6 +73,7 @@ def encode(value: Scalar) -> str | int | float:
 
 
 def decode(value: Any, definition: FieldDefinition) -> Scalar:
+    """Decode stored datetime/bool representations and revalidate their native datatype."""
     if definition.datatype == "datetime" and isinstance(value, str):
         value = datetime.fromisoformat(value)
     if definition.datatype == "bool" and value in (0, 1):
@@ -74,6 +82,11 @@ def decode(value: Any, definition: FieldDefinition) -> Scalar:
 
 
 def identity(value: Scalar, definition: FieldDefinition) -> str:
+    """Hash a typed canonical value for equality, sets and shared vocabulary lookup.
+
+    Text, enumeration and Series use NFC/case folding; comments preserve spelling.
+    Float zero has one identity. Callers adapt values first so writes, queries and
+    migrations share the same typed identity contract."""
     canonical = encode(value)
     if definition.datatype in {"text", "enumeration", "series"}:
         canonical = unicodedata.normalize("NFC", str(canonical)).casefold()
@@ -87,6 +100,12 @@ def identity(value: Scalar, definition: FieldDefinition) -> str:
 def entries(
     value: Any, definition: FieldDefinition
 ) -> list[tuple[Scalar, float | None, int | None]]:
+    """Validate a replacement and return (value, Series position, optional entry ID) rows.
+
+    None clears a field; collection members cannot be null. Scalars take one value,
+    sets deduplicate canonical identities in first-occurrence order, and lists retain
+    repetitions. ValueEntry preserves its ID for later ownership validation by the
+    repository. Only Series permits finite per-entry positions."""
     if definition.datatype == "composite":
         raise CustomFieldError("Composite fields are computed and cannot be written")
     if value is None:
@@ -122,6 +141,12 @@ def entries(
 
 
 def validate_definition(definition: FieldDefinition) -> None:
+    """Check native label, name, datatype, mode and display metadata without SQL.
+
+    Require an explicit attachment, lowercase identifier-style labels, bool editability
+    and serializable display data. Enumeration choices must have distinct canonical
+    identities; composites need a template. SQL owner existence, scoped uniqueness
+    and dependency validation are separate service/repository responsibilities."""
     if not isinstance(definition.attachment, str) or not definition.attachment:
         raise CustomFieldError("Attachment must name an owner table")
     if not isinstance(definition.name, str) or not definition.name.strip():

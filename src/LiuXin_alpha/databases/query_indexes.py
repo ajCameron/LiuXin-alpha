@@ -9,6 +9,9 @@ transaction; an incompatible same-name index is reported, never silently adopted
 from __future__ import annotations
 
 from dataclasses import dataclass
+from contextlib import closing
+import os
+import sqlite3
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -20,6 +23,7 @@ if TYPE_CHECKING:
 from LiuXin_alpha.databases.search_functions import (
     IDENTIFIER_KEY_FUNCTION,
     TEXT_KEY_FUNCTION,
+    record_search_index_semantics,
 )
 from LiuXin_alpha.errors import DatabaseIntegrityError
 
@@ -98,6 +102,7 @@ SQLITE_SEARCH_INDEXES = tuple(
 
 
 def _create_sql(index: QueryIndex, table_sql: str) -> str:
+    """Build idempotent index DDL from a trusted declaration and qualified table SQL."""
     keys = index.expressions or tuple(f'"{column}"' for column in index.columns)
     return (
         f'CREATE INDEX IF NOT EXISTS "{index.name}" ON {table_sql} ({", ".join(keys)})'
@@ -112,9 +117,48 @@ def install_sqlite_search_indexes(connection: RowSQLConnection) -> None:
     """
     for index in SQLITE_SEARCH_INDEXES:
         connection.execute(_create_sql(index, f'"{index.table}"'))
+    record_search_index_semantics(connection)
+
+
+def rebuild_sqlite_search_indexes(path: str | os.PathLike[str]) -> None:
+    """Explicitly rekey an offline SQLite catalogue under the current semantics.
+
+    Stop other catalogue users and retain a backup first. Unknown function-index
+    names or altered definitions are refused. DDL, rekeying and the version stamp
+    commit together; failure leaves the old indexes and stamp in place.
+    """
+    from pathlib import Path
+    from LiuXin_alpha.databases.search_functions import register_search_functions
+    from LiuXin_alpha.databases.transactions import transaction_scope
+
+    uri = Path(path).resolve().as_uri() + "?mode=rw"
+    with closing(sqlite3.connect(uri, uri=True)) as connection:
+        register_search_functions(connection)
+        with transaction_scope(connection, owns_transaction=True, immediate=True):
+            existing = connection.execute(
+                "SELECT name, sql FROM sqlite_master WHERE type='index' AND "
+                "(sql LIKE '%liuxin_text_key_%' OR sql LIKE '%liuxin_identifier_key_%')"
+            ).fetchall()
+            declarations = {index.name: index for index in SQLITE_SEARCH_INDEXES}
+            for name, sql in existing:
+                if name not in declarations:
+                    raise DatabaseIntegrityError(f"Unknown search index {name!r}")
+                index = declarations[name]
+                expected = _create_sql(index, f'"{index.table}"')
+                def canonical(value: str) -> str:
+                    """Compare trusted literal-free index SQL conservatively."""
+                    return "".join(value.split()).casefold().replace("ifnotexists", "").rstrip(";")
+                if canonical(sql) != canonical(expected):
+                    raise DatabaseIntegrityError(f"Altered search index {name!r}")
+            for name, _sql in existing:
+                connection.execute(f'DROP INDEX "{name}"').close()
+                index = declarations[name]
+                connection.execute(_create_sql(index, f'"{index.table}"')).close()
+            record_search_index_semantics(connection)
 
 
 def _required_indexes(macros: SQLPortableMacrosMixin) -> tuple[QueryIndex, ...]:
+    """Select common indexes and the normalized-search indexes supported by this backend."""
     extra = SQLITE_SEARCH_INDEXES if macros.supports_normalized_search() else ()
     return (*QUERY_INDEXES, *extra)
 
@@ -130,6 +174,7 @@ class QueryIndexReport:
 
     @property
     def clean(self) -> bool:
+        """Whether every required index exists without a conflicting physical definition."""
         return not self.missing and not self.conflicts
 
 
@@ -142,7 +187,10 @@ def _index_matches(macros: SQLPortableMacrosMixin, index: QueryIndex) -> bool | 
             conn.execute(
                 """SELECT t.relname, i.indisunique, i.indisvalid,
                       i.indpred IS NULL, i.indexprs IS NULL, am.amname,
-                      array_agg(a.attname ORDER BY k.ordinality)
+                      array_agg(a.attname ORDER BY k.ordinality),
+                      bool_and(i.indoption[(k.ordinality-1)::int] = 0
+                        AND i.indcollation[(k.ordinality-1)::int] = a.attcollation
+                        AND opc.opcdefault)
                FROM pg_catalog.pg_class n
                JOIN pg_catalog.pg_namespace ns ON ns.oid = n.relnamespace
                JOIN pg_catalog.pg_index i ON i.indexrelid = n.oid
@@ -151,6 +199,7 @@ def _index_matches(macros: SQLPortableMacrosMixin, index: QueryIndex) -> bool | 
                CROSS JOIN LATERAL unnest(i.indkey) WITH ORDINALITY k(attnum, ordinality)
                LEFT JOIN pg_catalog.pg_attribute a
                  ON a.attrelid = t.oid AND a.attnum = k.attnum
+               LEFT JOIN pg_catalog.pg_opclass opc ON opc.oid = i.indclass[(k.ordinality-1)::int]
                WHERE ns.nspname = ? AND n.relname = ?
                GROUP BY t.relname, i.indisunique, i.indisvalid,
                         (i.indpred IS NULL), (i.indexprs IS NULL), am.amname""",
@@ -159,7 +208,7 @@ def _index_matches(macros: SQLPortableMacrosMixin, index: QueryIndex) -> bool | 
         )
         if not rows:
             return None
-        table, unique, valid, unfiltered, plain, method, columns = rows[0]
+        table, unique, valid, unfiltered, plain, method, columns, default_keys = rows[0]
         return (
             table == index.table
             and not unique
@@ -168,6 +217,7 @@ def _index_matches(macros: SQLPortableMacrosMixin, index: QueryIndex) -> bool | 
             and plain
             and method == "btree"
             and tuple(columns) == index.columns
+            and default_keys
         )
     rows = tuple(
         conn.execute(
@@ -192,6 +242,7 @@ def _index_matches(macros: SQLPortableMacrosMixin, index: QueryIndex) -> bool | 
         # Conservative comparison: an unfamiliar same-name definition requires
         # explicit review rather than adoption. These expressions have no literals.
         def canonical(sql: str) -> str:
+            """Normalize whitespace and optional creation syntax in trusted, literal-free index DDL."""
             return (
                 "".join(sql.split()).casefold().replace("ifnotexists", "").rstrip(";")
             )
@@ -245,6 +296,8 @@ def migrate_query_indexes(macros: SQLPortableMacrosMixin) -> QueryIndexReport:
                 else f'"{index.table}"'
             )
             conn.execute(_create_sql(index, table_sql))
+        if macros.supports_normalized_search():
+            record_search_index_semantics(conn)
         after = audit_query_indexes(macros)
         if not after.clean:
             raise DatabaseIntegrityError(

@@ -1,7 +1,10 @@
 # Database module boundary and lifecycle review
 
-Date: **2026-11-13**. LC01–LC04 repaired and validated.
+Date: **2026-11-13**. LC01–LC04 and DR01–DR03 repaired and validated.
 The observations below describe the pre-repair code.
+The [post-commit follow-up](#post-commit-follow-up-review) identifies three
+additional findings against commit `7780b7eb`. Their repairs and reviewer handoff
+are recorded [below](#follow-up-repairs-and-reviewer-handoff).
 
 ## Ownership decision
 
@@ -259,3 +262,178 @@ been stopped. All changes remain uncommitted.
 The four reviewed lifecycle findings are resolved. The separately listed
 open/create/repair API separation, wider Calibre extraction and internal module
 splits remain architectural follow-ups.
+
+## Post-commit follow-up review
+
+Reviewed commit `7780b7eb` on **2026-11-13**, following the request for another
+review. The native/custom-column ownership split still matches the agreed
+architecture. The following are additional correctness gaps, not a reopening of
+LC01–LC04 or a proposal to restore compatibility in the native package.
+
+### DR01 — P2: nested native writes bypass revision serialization
+
+[`CustomFieldService.write`](../../src/LiuXin_alpha/databases/custom_columns/native_service.py)
+requests a serialized transaction only when it is not already inside a managed
+unit. Inside an ordinary `db.macros.transaction()`, it silently proceeds without
+the PostgreSQL advisory writer lock. `apply_patch` checks the expected revision
+with a read, then writes values and increments the revision separately.
+
+With two independent facades on one PostgreSQL schema, pause the first writer
+after checking revision zero, let the second writer complete with
+`expected_revision=0`, then resume the first. Both transactions commit and the
+field reaches revision two, although both edits required revision zero. These
+are supported native APIs using managed transactions, without privileged raw
+writes. Repeating this with the same owner lets the resumed first writer
+overwrite the second writer's committed value; both callers reported success.
+An independent reader confirms only the first writer's value remains.
+The standalone native-write control rejects the competing edit with
+`Field revision conflict` and finishes at revision one.
+
+Repair direction: preserve revision validation and the cooperating writer
+boundary when composing native operations. Either require a serialized outer
+unit before effects, or provide equivalent locking/atomic revision checks for
+supported ordinary composition. Apply the same reasoning to schema-plan
+fingerprints, which use this write boundary too; this probe establishes the
+revision failure, not every possible concurrent migration outcome.
+
+### DR02 — P2: field rebuilds reuse deleted persistent identities
+
+[`NativeMigrations._rebuild`](../../src/LiuXin_alpha/databases/custom_columns/native_migrations.py)
+drops and recreates storage for metadata-only changes as well as structural
+ones. It restores surviving rows but not the previous ID allocation bounds.
+SQLite's AUTOINCREMENT state disappears with the tables; the PostgreSQL path
+explicitly resets sequences from the surviving maximum.
+
+On both SQLite driver names, create two list entries, delete the second shared
+value and membership, and change only the field's display name through a
+migration. Adding a new value reuses both the deleted entry ID and vocabulary
+ID, in this probe `2`. A stale `edit_entries(update={2: ...})` then successfully
+changes the unrelated new entry; a stale vocabulary rename likewise reaches
+the replacement inventory identity. Independent readers confirm the durable
+mutations. This is inconsistent with stable entry identities and explicit
+retained/removed identity mappings.
+The otherwise identical no-migration control allocates fresh IDs (`3`) instead.
+
+Repair direction: preserve each allocation bound across rebuilds, including
+deleted IDs, and avoid rebuilding physical storage for metadata-only edits
+where possible. Keep entry and vocabulary identity spaces separate. Verify
+retired/deleted handles cannot become valid handles for unrelated data after
+any supported migration.
+
+### DR03 — P2: connection-close errors are lost at the facade boundary
+
+[`SQLBaseDriver._close_all_open_connections`](../../src/LiuXin_alpha/databases/database_driver_plugins/SQL/databasedriver/__init__.py)
+catches close errors and retains failed handles internally, but returns normally.
+[`close_driver`](../../src/LiuXin_alpha/databases/database/_driver_binding.py)
+also suppresses primary-handle errors. `Database.close()` consequently clears
+its owner graph and reports `closed`; subsequent closes do nothing. Driver
+replacement similarly discards the old driver without retaining a cleanup owner.
+
+Controlled close-error injection on real primary and auxiliary connections
+reproduces both routes on SQLite and SQLite_apsw, eight observations in total.
+The operation returns normally, the handle still executes SQL, and a later
+facade close does not retry it. The probe keeps the old driver solely to release
+the handle explicitly afterward. This demonstrates error propagation and
+ownership loss; it does not claim ordinary successful connection closes leak.
+
+Repair direction: propagate incomplete driver shutdown and retain its owner for
+retry. For replacement, account for an old driver whose cleanup fails after the
+new binding is published. Do not claim full closure while owned handles remain.
+
+### Follow-up validation and recommendation
+
+The existing SQLite lifecycle repairs, driver rebinding, native ownership and
+native custom-field suite passed **150 tests**. Additional disposable probes
+passed **16 cases**: 12 SQLite cases (10 defect reproductions, two identity
+controls) and four live PostgreSQL cases (two revision-race reproductions,
+two standalone controls). Evidence is under
+`.tmp/database-followup-review-2026-11-13/`; the probes assert observed defects,
+so their passing status is not evidence that those defects are fixed.
+Documentation/navigation checks passed **22 tests**. The private PostgreSQL
+cluster was stopped after validation, and all probe resources were released.
+
+This was a focused review, not another full database-gate run. The review itself
+changed no production code or permanent regression tests. Its recommendation was
+to resolve DR01–DR03 and add the corresponding regressions before final sign-off.
+
+## Follow-up repairs and reviewer handoff
+
+The subsequent repair request authorizes fixing all three findings and clarifying
+docstrings throughout the database package before an independent review. The
+implementation now provides these contracts:
+
+- **DR01:** native PostgreSQL writes always obtain the cooperating transaction
+  writer lock before native revision/plan reads, including when nested in ordinary
+  managed units. Ordinary composition remains supported. The generic lock SQL
+  lives in `databases.transactions` and is shared with serialized macros. A
+  savepoint rollback cannot leave an assumed reservation: later native operations
+  reacquire it. SQLite retains its ordinary snapshot/promotion failure behavior.
+- **DR02:** simple label/name/editability edits update metadata in place.
+  Rebuilds preserve live sequence/allocation history, including deleted IDs, and
+  carry a conservative upper bound through changes between inline and shared
+  storage. The two identity spaces keep their separate meanings; allocation gaps
+  are intentional. No v1 support, compatibility facade, cache ownership or extra
+  storage-version path is introduced.
+- **DR03:** SQL drivers attempt every handle, retain failures and raise an
+  exception group. Facade close retains its owner graph in `closing` until retry
+  succeeds. Replacement publishes the new binding before retirement, so failure
+  there retains both driver lifetimes, reports that publication already happened
+  and enters `closing`. Retry `close()`, not replacement. Original constructor or
+  context-body errors retain cleanup failures as notes.
+
+The docstring audit fills the database package's missing implementation
+docstrings, expands native service/repository/query/migration contracts, and
+documents the native mixin protocol. It explains transaction ownership,
+publication timing, identity spaces, bounded queries, maintenance callbacks and
+failure/retry paths. Documentation-only edits were checked for identical
+executable ASTs; implementation changes remain concentrated in the three repairs.
+
+Permanent regressions:
+
+- [Native writer reservations](../../tests/databases/test_custom_field_writer_reservations_postgres_live.py):
+  two independent PostgreSQL facades, observed backend advisory-lock waits,
+  same/different owners, ordinary/serialized/standalone composition, stale plans
+  and savepoint rollback. Independent readers verify durable values; failed edits
+  publish no receipts.
+- [Identity lifetimes](../../tests/databases/test_custom_field_identity_lifetimes.py)
+  and [PostgreSQL execution](../../tests/databases/test_custom_field_identity_lifetimes_postgres_live.py):
+  deleted entry/vocabulary handles, empty fields, datatype round trips, physical
+  index retention and interrupted DDL rollback.
+- [Handle shutdown](../../tests/databases/test_database_handle_shutdown.py)
+  and [PostgreSQL execution](../../tests/databases/test_database_handle_shutdown_postgres_live.py):
+  primary/auxiliary failures, complete error reporting, published replacement,
+  retry, constructor unwind and context-body error preservation.
+
+All 2,206 previous mandatory cases remain in their existing invariant groups.
+The 53 additions bring the gate to **2,259 required cases**. Existing failed-close
+tests now require an error rather than silently accepting incomplete shutdown.
+New tests also belong to the formatting and lint scopes.
+
+Final validation passed **2,370 database tests**, including all **2,259 mandatory
+cases** with passing setup, call and teardown. The complete quality runner passed
+formatting, lint, architecture/import checks and both type checkers. Separate
+checks passed **134 tooling tests**, **22 documentation tests** and **eight
+Core/Library integration tests**. The initial targeted runs also passed 34 SQLite
+checks (30 new, four existing) and all 23 new live PostgreSQL checks.
+
+Evidence is recorded under `.tmp/database-followup-fixes-2026-11-13/`; the final
+gate report is `/tmp/liuxin-database-followup-fixes-final-2026-11-13/ratchet.json`.
+The final audit confirms unchanged validation inputs, the original Git index and
+the pre-existing data-submodule status. The private PostgreSQL test server is
+stopped. The repairs and documentation are uncommitted and ready for independent
+review. Two existing `default_log.warn` deprecation warnings were emitted by the
+empty-table search contracts; there were no test failures.
+
+Independent reviewers should focus on the lock's acquisition/release boundary,
+identity history across storage-shape changes, and replacement failure after
+publication. The earlier architectural follow-ups—open/create/repair API
+separation, storage orchestration, broader Calibre extraction and internal file
+splits—remain separate from these correctness repairs.
+
+## Combined commit checkpoint — 2026-11-14
+
+The earlier uncommitted status above is historical. DR01–DR03 are included with
+the [whole-package review repairs](review-repairs-2026-11-14.md) in the local
+commit containing that note. Combined validation passed 2,425 database cases,
+including all 2,314 mandatory cases, full quality and 96 auxiliary checks.
+The dirty data submodule is excluded. No push or production migration was made.

@@ -24,6 +24,8 @@ from LiuXin_alpha.errors import InputIntegrityError
 
 @dataclass(frozen=True, slots=True)
 class _ScanPlan:
+    """Validated physical-table projection, integer key and filters for repeated keyset pages."""
+
     table_sql: str
     columns: tuple[str, ...]
     id_column: str
@@ -149,6 +151,11 @@ class DriverWrapperQueryMixin(DriverWrapperBase):
         where: Mapping[str, Any] | None,
         connection: QueryConnection | None,
     ) -> _ScanPlan:
+        """Validate table shape and requested columns before building a reusable scan plan.
+
+        Require a non-null integer primary key. Add that key internally when the caller
+        omits it, so continuation still works without exposing an unrequested column.
+        Inspect schema through the supplied borrowed connection when one is available."""
         with self._read_connection(connection) as active:
             spec = self.driver.direct_get_physical_table_spec(table, connection=active)
         if spec.relation_kind != RelationKind.TABLE or len(spec.primary_key) != 1:
@@ -198,6 +205,11 @@ class DriverWrapperQueryMixin(DriverWrapperBase):
         after_id: int | None,
         connection: QueryConnection | None,
     ) -> RowPage:
+        """Read one bounded keyset page and release its cursor before returning.
+
+        Reject non-integer stored keys instead of truncating them into repeated pages.
+        Retain the continuation ID separately when the projection hides its key column;
+        the caller decides whether successive pages share an outer snapshot."""
         if (
             isinstance(batch_size, bool)
             or not isinstance(batch_size, int)

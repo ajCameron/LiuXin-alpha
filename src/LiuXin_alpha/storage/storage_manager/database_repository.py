@@ -210,7 +210,10 @@ class DatabaseStorageMetadataRepository:
 
     @property
     def macros(self) -> Any:
-        """Resolve the current provider after a same-catalogue driver replacement."""
+        """Resolve the current provider after a same-catalogue driver replacement.
+
+        :return: The database's currently bound portable macro provider.
+        """
         return self.db.macros
 
     @classmethod

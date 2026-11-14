@@ -13,7 +13,7 @@ import shutil
 import sqlite3
 import stat
 from collections.abc import Callable
-from contextlib import closing
+from contextlib import AbstractContextManager, closing
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -58,6 +58,22 @@ def _sync(path: Path) -> None:
         os.fsync(stream.fileno())
 
 
+def sync_directory(path: Path) -> None:
+    """Persist a published directory entry on POSIX.
+
+    Windows has no equivalent directory descriptor in this API. A POSIX failure
+    propagates even though publication may already have succeeded; callers must
+    inspect the destination before retrying.
+    """
+    if os.name != "posix":
+        return
+    descriptor = os.open(path, os.O_RDONLY | os.O_DIRECTORY)
+    try:
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
+
+
 def create_sqlite_file(
     path: str | os.PathLike[str], build: Callable[[Path], None]
 ) -> None:
@@ -85,6 +101,7 @@ def create_sqlite_file(
         _sync(candidate)
         require_no_sqlite_sidecars(target)
         os.link(candidate, target)
+        sync_directory(target.parent)
 
 
 def replace_sqlite_file(
@@ -92,6 +109,10 @@ def replace_sqlite_file(
     *,
     backup_path: str | os.PathLike[str],
     build: Callable[[Path], None],
+    backup_connection_factory: Callable[
+        [Path], AbstractContextManager[sqlite3.Connection]
+    ]
+    | None = None,
 ) -> Path:
     """Replace an offline database only after preparing a new schema and backup.
 
@@ -123,6 +144,11 @@ def replace_sqlite_file(
         _sync(candidate)
 
         def snapshot(destination: Path) -> None:
+            """Build and integrity-check a consistent backup before publishing replacement.
+
+            Take a bounded read lock on the existing source, let SQLite copy committed
+            state, and preserve file permissions. The enclosing replacement owns publication
+            and verifies that no competing user changed the source identity."""
             with closing(
                 # rw opens only an existing file and lets SQLite clean up its own
                 # empty WAL coordination files when this offline reader closes.
@@ -132,7 +158,12 @@ def replace_sqlite_file(
                 # whose default busy retry loop would otherwise be unbounded.
                 source.execute("BEGIN")
                 source.execute("SELECT count(*) FROM sqlite_schema").fetchone()
-                with closing(sqlite3.connect(destination)) as output:
+                output_owner = (
+                    closing(sqlite3.connect(destination))
+                    if backup_connection_factory is None
+                    else backup_connection_factory(destination)
+                )
+                with output_owner as output:
                     register_search_functions(output)
                     source.backup(output)
                     if output.execute("PRAGMA integrity_check").fetchone() != ("ok",):
@@ -151,4 +182,5 @@ def replace_sqlite_file(
                 f"Database changed; replacement refused. Backup retained at {backup}"
             )
         os.replace(candidate, target)
+        sync_directory(target.parent)
     return backup

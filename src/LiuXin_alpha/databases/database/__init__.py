@@ -41,7 +41,11 @@ from LiuXin_alpha.databases.database.constants import (
     OPTIONAL_HELPER_TABLES,
 )
 from LiuXin_alpha.databases.database._driver_binding import (
-    close_driver, connection_metadata, same_catalogue, schema_bindings, table_category,
+    close_driver,
+    connection_metadata,
+    same_catalogue,
+    schema_bindings,
+    table_category,
 )
 from LiuXin_alpha.databases.database.dirtied_mixin import (
     DatabaseDirtiedRecordsMixin,
@@ -279,8 +283,11 @@ class Database(
     maintenance: Maintainer | None
     maintainer: Maintainer | None
     _failed_runtime_maintainers: list[Maintainer]
+    _retired_drivers: list[DatabaseDriverAPI]
     _link_has_priority: dict[str, bool] | None
-    _lifecycle_state: Literal["initializing", "open", "closing", "closed"] = "initializing"
+    _lifecycle_state: Literal["initializing", "open", "closing", "closed"] = (
+        "initializing"
+    )
     _owned_storage_managers: list[StorageManager]
 
     def __init__(
@@ -357,6 +364,7 @@ class Database(
         self._maintainer_callback_proxy = None
         self.maintenance = self.maintainer = None
         self._failed_runtime_maintainers = []
+        self._retired_drivers = []
         self.clean = lambda *args, **kwargs: None
 
         try:
@@ -399,7 +407,9 @@ class Database(
             try:
                 self.close()
             except BaseException as cleanup_error:
-                error.add_note(f"Database construction cleanup failed: {cleanup_error!r}")
+                error.add_note(
+                    f"Database construction cleanup failed: {cleanup_error!r}"
+                )
             raise
 
     @property
@@ -614,7 +624,9 @@ class Database(
                 try:
                     candidate.close()
                 except BaseException as cleanup_error:
-                    error.add_note(f"Candidate driver cleanup failed: {cleanup_error!r}")
+                    error.add_note(
+                        f"Candidate driver cleanup failed: {cleanup_error!r}"
+                    )
             raise
 
         # Check to see if the database currently exists
@@ -799,6 +811,11 @@ class Database(
         and closed after publication; reinstalling the same driver retains its SQL
         connections. Pending primary work is never committed by replacement.
 
+        If retiring old handles fails, the new binding is already installed. Keep
+        the retired driver owned, report the error and enter ``closing``; call
+        ``close()`` to finish shutdown of both drivers. Do not retry the replacement
+        or assume the candidate is still caller-owned after publication.
+
         Call while direct SQL users are quiescent. Managed macro transactions and
         drivers owned by another facade are rejected. Changing physical catalogues
         with owned or attached runtime services or queued work requires a separate Database.
@@ -895,20 +912,40 @@ class Database(
                     ) = previous
                     raise
                 vars(self).update(bindings)
-                if old_wrapper is not None:
-                    old_wrapper.close()
                 if old_driver is not None and old_driver is not new_driver:
-                    try:
-                        close_driver(old_driver)
-                    finally:
-                        old_driver.db = None
-                        old_driver.macros.db = None
-                        old_driver.dirty_records_queue = None
-                        old_driver.maintainer_callback = _NoopMaintainerCallback()
+                    self._retired_drivers.append(old_driver)
+                try:
+                    if old_wrapper is not None:
+                        old_wrapper.close()
+                    self._close_retired_drivers()
+                except BaseException as error:
+                    self._lifecycle_state = "closing"
+                    error.add_note(
+                        "Replacement binding is installed; retired cleanup failed. "
+                        "Call Database.close() to finish both driver lifetimes."
+                    )
+                    raise
         except BaseException:
             if getattr(self, "_driver_wrapper", None) is not wrapper:
                 wrapper.close()
             raise
+
+    def _close_retired_drivers(self) -> None:
+        """Release replaced owners only after every one of their handles closes.
+
+        Failed cleanup leaves the driver and its ownership back-references intact.
+        Successful cleanup detaches it and removes the retry obligation. The active
+        binding is separate and remains available to outstanding owned services
+        until Database.close reaches it.
+        """
+        while self._retired_drivers:
+            retired = self._retired_drivers[-1]
+            close_driver(retired)
+            retired.db = None
+            retired.macros.db = None
+            retired.dirty_records_queue = None
+            retired.maintainer_callback = _NoopMaintainerCallback()
+            self._retired_drivers.pop()
 
     def __del__(self) -> None:
         """
@@ -951,7 +988,10 @@ class Database(
         ownership intact for another close attempt. Rebinding and service startup are
         refused once closing begins; callers must quiesce their own operations.
 
-        After services stop, discard pending primary work and release driver handles.
+        After services stop, retry retired drivers, then release active driver handles.
+        A handle failure also leaves ``closing`` and retains its owner for retry;
+        some other handles may already be closed, so this is not a usable database.
+        Discard pending primary work without committing during cleanup.
         Previously committed writes remain durable. Repeated successful close is safe;
         finalization is best effort, whereas explicit close reports failures.
         """
@@ -974,6 +1014,7 @@ class Database(
             owned_storage[-1].close()
             owned_storage.pop()
 
+        self._close_retired_drivers()
         driver, wrapper = self._driver, self._driver_wrapper
         if driver is not None:
             close_driver(driver)

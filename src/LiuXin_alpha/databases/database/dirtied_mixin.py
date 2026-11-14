@@ -554,8 +554,8 @@ class DatabaseDirtiedRecordsMixin(DatabaseMixinState):
 
         :param limit: Maximum number of events to drain, or None for all currently
             available; nonpositive values drain none.
-        :return: Number of rows submitted successfully, or zero for unavailable schema,
-            no events or insertion failure.
+        :return: Number of rows submitted successfully, or zero for unavailable schema
+            or no events. Insertion failures propagate after best-effort requeue.
         """
         table = self.metadata_dirtied_table
         tables: set[str] | None = getattr(self, "all_tables", None)
@@ -660,7 +660,7 @@ class DatabaseDirtiedRecordsMixin(DatabaseMixinState):
                         )
             except Exception:
                 pass
-            return 0
+            raise
 
         return persisted
 

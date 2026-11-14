@@ -31,17 +31,24 @@ def _row_count(result: object, mode: str) -> int | None:
     return None
 
 
-# Todo: More context as to what this if for and what it does
 def observed(
     operation: str,
     *,
     count: Literal["unknown", "one", "all", "page", "get"] = "unknown",
 ) -> Callable[[Callable[P, R]], Callable[P, R]]:
-    """Observe the outermost selected wrapper operation; observers cannot recurse."""
+    """Measure selected outer wrapper calls without changing their result or SQL ownership.
+
+    Disabled observation skips timers and callback work. Observers are synchronous,
+    cannot recursively observe their own queries, and receive duration, a supported
+    row count and the original exception type. Ordinary observer failures are logged
+    without hiding the operation's own result or error."""
 
     def decorate(function: Callable[P, R]) -> Callable[P, R]:
+        """Wrap an operation while retaining its public name, signature metadata and docstring."""
+
         @wraps(function)
         def run(*args: P.args, **kwargs: P.kwargs) -> R:
+            """Execute the operation once, then deliver an isolated synchronous observation."""
             callbacks: tuple[QueryObserver, ...] = getattr(
                 args[0], "_query_observers", ()
             )

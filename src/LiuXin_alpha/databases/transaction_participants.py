@@ -20,6 +20,11 @@ class CompletionFrame:
 
 
 def after_commit(provider: object, callback: Callable[[], None]) -> None:
+    """Append a callback to the current managed transaction or savepoint frame.
+
+    Require an owned outer transaction so delivery cannot precede the real commit.
+    Savepoint rollback discards its callbacks. The callback is synchronous and must
+    not assume that failure can undo SQL that has already committed."""
     state = macro_transaction_state(provider)
     frames = getattr(state, "completion_frames", ())
     if not frames or not frames[0].owned:
@@ -31,6 +36,12 @@ def after_commit(provider: object, callback: Callable[[], None]) -> None:
 
 @contextmanager
 def completion_frame(provider: object, *, owned: bool) -> Iterator[None]:
+    """Match publication lifetime to an outer SQL transaction or nested savepoint.
+
+    On failure discard this frame; on nested success transfer callbacks to its parent.
+    After outer success invoke queued callbacks in order, collecting ordinary errors
+    into an exception group that explicitly warns against retrying committed writes.
+    The caller must exit the SQL scope before completing this publication frame."""
     state = macro_transaction_state(provider, create=True)
     frames: list[CompletionFrame] | None = getattr(state, "completion_frames", None)
     if frames is None:

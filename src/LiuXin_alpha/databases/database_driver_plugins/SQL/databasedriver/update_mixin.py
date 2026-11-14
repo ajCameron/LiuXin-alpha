@@ -100,7 +100,8 @@ class UpdateMixin(SQLDriverMixinState):
             ``None`` still requests SQL NULL.
 
         :param row_dict: Column/value mapping including the target row's ID.
-        :return: True for an ID-only no-op; otherwise None.
+        :return: True for an existing ID-only row; otherwise None.
+        :raises RowIntegrityError: The identified row no longer exists.
         """
         row_dict = deepcopy(dict(row_dict))
         target_table = driver_operations(self).direct_identify_table_from_row(row_dict)
@@ -112,13 +113,20 @@ class UpdateMixin(SQLDriverMixinState):
                 f"Update of {target_table!r} requires {id_column!r}"
             )
         row_id = row_dict.pop(id_column)
-        if not row_dict:
-            return True
         try:
             with closing(driver_operations(self).get_connection()) as conn:
-                with transaction_scope(conn, owns_transaction=True):
+                with transaction_scope(conn, owns_transaction=True, immediate=True):
+                    if not row_dict:
+                        with closing(conn.execute(
+                            f'SELECT 1 FROM "{target_table}" WHERE "{id_column}" = ?',
+                            (row_id,),
+                        )) as cursor:
+                            if cursor.fetchone() is None:
+                                raise RowIntegrityError(f"No row {row_id!r} in {target_table!r}")
+                        return True
                     self._update_row_values(
-                        conn, target_table, id_column, row_id, row_dict
+                        conn, target_table, id_column, row_id, row_dict,
+                        require_existing=True,
                     )
         except sqlite3.IntegrityError as exc:
             raise DatabaseIntegrityError(
@@ -138,6 +146,8 @@ class UpdateMixin(SQLDriverMixinState):
         id_column: str,
         row_id: Any,
         values: dict[str, Any],
+        *,
+        require_existing: bool = False,
     ) -> None:
         """Derive and update supplied columns inside the caller's transaction.
 
@@ -157,7 +167,10 @@ class UpdateMixin(SQLDriverMixinState):
             ),
         )
         assignments = ", ".join(f'"{column}" = ?' for column in payload)
-        conn.execute(
-            f'UPDATE "{table}" SET {assignments} WHERE "{id_column}" = ?',
+        with closing(conn.execute(
+            f'UPDATE "{table}" SET {assignments} WHERE "{id_column}" = ? RETURNING "{id_column}"',
             (*payload.values(), row_id),
-        )
+        )) as cursor:
+            rows = cursor.fetchall()
+        if require_existing and len(rows) != 1:
+            raise RowIntegrityError(f"No row {row_id!r} in {table!r}")

@@ -154,6 +154,7 @@ def build_runtime_grant_statements(
     default_owner_sql = f" for role {_quote_identifier(default_owner)}" if default_owner else ""
     return [
         f"grant connect on database {database_ident} to {role_ident}",
+        f"grant temporary on database {database_ident} to {role_ident}",
         f"grant usage on schema {schema_ident} to {role_ident}",
         f"grant select, insert, update, delete on all tables in schema {schema_ident} to {role_ident}",
         f"grant usage, select, update on all sequences in schema {schema_ident} to {role_ident}",

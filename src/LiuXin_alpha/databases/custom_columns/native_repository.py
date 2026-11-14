@@ -33,11 +33,16 @@ EXTRA_COLUMNS = {
 
 
 def names(definition: FieldDefinition) -> tuple[str, str]:
+    """Return the field's value-table and attachment-membership-table names.
+
+    Normalized fields use both tables; inline fields store entries in the first.
+    Names describe native storage, despite historical column spellings such as book."""
     table = f"custom_column_{definition.id}"
     return table, f"{definition.attachment}_{table}_link"
 
 
 def stem(table: str) -> str:
+    """Derive the schema's column prefix from a physical table name."""
     return plural_singular_mapper(table)
 
 
@@ -45,10 +50,15 @@ class CustomFieldRepository:
     """Read and mutate portable field tables on a caller-supplied SQL connection."""
 
     def __init__(self, db: DatabaseAPI):
+        """Bind a live database and record whether its backend uses PostgreSQL schemas.
+
+        No tables are read or created. Connections and transactions remain with callers;
+        construct a new repository if the database's backend type changes."""
         self.db = db
         self.postgres = hasattr(db.driver, "schema")
 
     def table_exists(self, conn: SQLConnection, name: str) -> bool:
+        """Inspect a physical table on the supplied connection in the current catalogue."""
         if self.postgres:
             return bool(
                 rows(
@@ -66,6 +76,7 @@ class CustomFieldRepository:
         )
 
     def columns(self, conn: SQLConnection, table: str) -> set[str]:
+        """Return physical column names from the connection's current schema snapshot."""
         if self.postgres:
             return {
                 row[0]
@@ -78,6 +89,7 @@ class CustomFieldRepository:
         return {row[1] for row in rows(conn, f"PRAGMA table_info({q(table)})")}
 
     def ready(self, conn: SQLConnection) -> bool:
+        """Check native definition columns without installing them or accepting v1 storage."""
         return set(EXTRA_COLUMNS) <= self.columns(conn, "custom_columns")
 
     def definitions(
@@ -87,6 +99,12 @@ class CustomFieldRepository:
         retired: bool = False,
         issues: list[Issue] | None = None,
     ) -> list[FieldDefinition]:
+        """Decode native definition rows in ID order, optionally including retired fields.
+
+        Without an issues collector, malformed or unsupported metadata raises. Audit
+        callers may collect definition errors and continue with valid records. Explicit
+        attachment tables and storage marker 2 are required; no compatibility defaults
+        or automatic storage conversion are applied."""
         cursor = conn.execute("SELECT * FROM custom_columns ORDER BY custom_column_id")
         try:
             headings = [item[0] for item in cursor.description or ()]
@@ -149,6 +167,7 @@ class CustomFieldRepository:
     def resolve(
         self, conn: SQLConnection, reference: FieldRef, *, retired: bool = False
     ) -> FieldDefinition:
+        """Resolve a field ID or scoped label from the supplied transaction's definitions."""
         for definition in self.definitions(conn, retired=retired):
             if reference == definition.id or reference == (
                 definition.attachment,
@@ -158,6 +177,10 @@ class CustomFieldRepository:
         raise CustomFieldError(f"Unknown or retired custom field {reference!r}")
 
     def owner_column(self, conn: SQLConnection, table: str) -> str:
+        """Find the conventional table-stem ID or fallback id column; otherwise reject it.
+
+        The attachment must name a real physical table with a supported identity. This
+        does not translate Calibre table names or infer an implicit books attachment."""
         candidates = self.columns(conn, table)
         expected = stem(table) + "_id"
         if expected in candidates:
@@ -167,6 +190,7 @@ class CustomFieldRepository:
         raise CustomFieldError(f"Attachment {table!r} has no supported owner identity")
 
     def require_owner(self, conn: SQLConnection, owner: OwnerRef) -> None:
+        """Require an existing integer owner ID, rejecting bool and missing identities."""
         column = self.owner_column(conn, owner.table)
         if (
             isinstance(owner.id, bool)
@@ -178,6 +202,7 @@ class CustomFieldRepository:
             raise CustomFieldError(f"Missing owner {owner!r}")
 
     def require_owners(self, conn: SQLConnection, owners: Iterable[OwnerRef]) -> None:
+        """Validate distinct owner IDs in table groups and bounded batches on one snapshot."""
         grouped: dict[str, set[int]] = {}
         for owner in owners:
             if isinstance(owner.id, bool) or not isinstance(owner.id, int):
@@ -202,6 +227,7 @@ class CustomFieldRepository:
                     )
 
     def version(self, conn: SQLConnection, definition: FieldDefinition) -> int:
+        """Read the persisted storage marker, returning zero for missing native columns."""
         if not self.ready(conn):
             return 0
         return int(
@@ -213,6 +239,7 @@ class CustomFieldRepository:
         )
 
     def require_native(self, conn: SQLConnection, definition: FieldDefinition) -> None:
+        """Reject every storage marker except the sole supported native format, 2."""
         if self.version(conn, definition) != 2:
             raise UnsupportedStorage(
                 f"Unsupported custom-field storage for field {definition.id}; v1 format support has been removed"
@@ -224,6 +251,11 @@ class CustomFieldRepository:
         definition: FieldDefinition,
         owners: list[int] | None = None,
     ) -> dict[int, list[ValueEntry]]:
+        """Decode memberships grouped by owner and ordered by ordinal, then entry ID.
+
+        None selects all owners; an empty owner list returns no rows. Shared vocabulary
+        spelling is authoritative. This low-level reader neither validates owner
+        existence nor repairs gaps, orphan references or malformed stored values."""
         table, link = names(definition)
         storage = link if definition.normalized else table
         base, source = stem(table), stem(storage)
@@ -265,6 +297,12 @@ class CustomFieldRepository:
         return result
 
     def create_storage(self, conn: SQLConnection, definition: FieldDefinition) -> None:
+        """Create native value/membership tables and their integrity rules in this unit.
+
+        Normalized datatypes share vocabulary identities; inline datatypes store values
+        per entry. Constraints enforce scalar/set membership and ordered positions.
+        Foreign keys plus SQLite reference/cleanup triggers protect owner lifetimes.
+        The caller owns rollback, metadata publication and schema-registry refresh."""
         table, link = names(definition)
         base = stem(table)
         owner_id = self.owner_column(conn, definition.attachment)
@@ -358,6 +396,10 @@ class CustomFieldRepository:
             conn.execute(sql).close()
 
     def insert(self, conn: SQLConnection, table: str, values: dict[str, Any]) -> int:
+        """Insert bound values and return the physical table's generated or supplied ID.
+
+        Consume and close the RETURNING cursor before the caller can commit. This helper
+        does not acquire, commit or close the supplied transaction connection."""
         key = stem(table) + "_id"
         cursor = conn.execute(
             f"INSERT INTO {q(table)} ({','.join(q(k) for k in values)}) VALUES ({','.join('?' for _ in values)}) RETURNING {q(key)}",
@@ -380,6 +422,12 @@ class CustomFieldRepository:
         *,
         preserve_ids: bool = False,
     ) -> None:
+        """Replace one owner's memberships using already adapted values and positions.
+
+        Explicit entry IDs must be distinct and belong to this owner/field, except during
+        a validated rebuild with preserve_ids=True. Resolve or allocate shared values
+        by canonical identity, then insert entries in supplied order. Raw replacements
+        allocate fresh entry IDs. All deletes/inserts remain in the caller's transaction."""
         self.require_native(conn, definition)
         table, link = names(definition)
         storage = link if definition.normalized else table
@@ -433,7 +481,85 @@ class CustomFieldRepository:
                 record[ss + "_extra"] = position
             self.insert(conn, storage, record)
 
+    def allocation_high_water(
+        self, conn: SQLConnection, definition: FieldDefinition
+    ) -> int:
+        """Read a conservative allocation bound before replacing field storage.
+
+        Include deleted/previously allocated identities from each sequence, as
+        well as surviving explicit IDs. Entry IDs and shared vocabulary IDs remain
+        different identity spaces. Carry their maximum through every new table so
+        neither space forgets its history when a datatype change removes one of
+        those tables. Gaps are intentional; reusing a deleted handle is not.
+
+        The supplied write transaction must already reserve the native writer.
+        PostgreSQL sequence advances need not roll back, so inspect live allocator
+        state here rather than storing a bound in a previously prepared plan.
+        """
+        high_water = 0
+        for table in names(definition)[: 2 if definition.normalized else 1]:
+            key = stem(table) + "_id"
+            maximum = rows(conn, f"SELECT COALESCE(MAX({q(key)}),0) FROM {q(table)}")[
+                0
+            ][0]
+            high_water = max(high_water, int(maximum))
+            if self.postgres:
+                sequence = rows(
+                    conn,
+                    "SELECT n.nspname,c.relname FROM pg_class c "
+                    "JOIN pg_namespace n ON n.oid=c.relnamespace "
+                    "WHERE c.oid=pg_get_serial_sequence(?,?)::regclass",
+                    (table, key),
+                )
+                if not sequence:
+                    raise CustomFieldError(f"Missing identity sequence for {table}")
+                namespace, name = sequence[0]
+                last, called = rows(
+                    conn,
+                    f"SELECT last_value,is_called FROM {q(namespace)}.{q(name)}",
+                )[0]
+                high_water = max(high_water, int(last) if called else int(last) - 1)
+            else:
+                sequence = rows(
+                    conn, "SELECT seq FROM sqlite_sequence WHERE name=?", (table,)
+                )
+                if sequence:
+                    high_water = max(high_water, int(sequence[0][0]))
+        return high_water
+
+    def reserve_identities(
+        self, conn: SQLConnection, definition: FieldDefinition, high_water: int
+    ) -> None:
+        """Keep newly rebuilt tables from allocating any historical field ID.
+
+        Call after creating storage and restoring explicit vocabulary IDs, before
+        generating replacement vocabulary or entry identities. Preserve any larger
+        current bound and never reset an allocator from surviving rows alone.
+        The reservation lives in the native sequences, including for empty fields,
+        and follows the DDL transaction's rollback without an auxiliary cache.
+        """
+        high_water = max(high_water, self.allocation_high_water(conn, definition))
+        for table in names(definition)[: 2 if definition.normalized else 1]:
+            if self.postgres:
+                conn.execute(
+                    "SELECT setval(pg_get_serial_sequence(?,?), ?, ?)",
+                    (table, stem(table) + "_id", max(1, high_water), high_water > 0),
+                ).close()
+            elif rows(conn, "SELECT 1 FROM sqlite_sequence WHERE name=?", (table,)):
+                conn.execute(
+                    "UPDATE sqlite_sequence SET seq=? WHERE name=?", (high_water, table)
+                ).close()
+            else:
+                conn.execute(
+                    "INSERT INTO sqlite_sequence(name,seq) VALUES (?,?)",
+                    (table, high_water),
+                ).close()
+
     def drop_storage(self, conn: SQLConnection, definition: FieldDefinition) -> None:
+        """Drop the field's owned physical tables and SQLite owner-cleanup triggers.
+
+        The caller must retain needed data and allocator history before invoking this
+        destructive helper. It does not delete the definition or commit the transaction."""
         table, link = names(definition)
         if not self.postgres:
             for target in (table, link):
@@ -445,6 +571,11 @@ class CustomFieldRepository:
         conn.execute(f"DROP TABLE IF EXISTS {q(table)}").close()
 
     def fingerprint(self, conn: SQLConnection) -> str:
+        """Hash definition rows, stored values, physical schema and attachment owner IDs.
+
+        Plans compare this snapshot before applying changes. Allocator history is read
+        again at rebuild time rather than frozen here. The fingerprint is an integrity
+        and staleness check, not a signature authenticating caller-supplied plan intent."""
         values: list[Any] = [
             sorted(self.columns(conn, "custom_columns")),
             [

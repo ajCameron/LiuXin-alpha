@@ -67,10 +67,12 @@ def remove_capture(
 
 
 def _literal(value: str) -> str:
+    """Quote a trusted declaration string as an SQL literal, escaping embedded apostrophes."""
     return "'" + value.replace("'", "''") + "'"
 
 
 def _identity_json(prefix: str, columns: tuple[str, ...], *, postgres: bool) -> str:
+    """Build backend-specific JSON for the declared OLD/NEW identity columns."""
     arguments = ", ".join(
         f"{_literal(column)}, {prefix}.{quote(column)}" for column in columns
     )
@@ -88,6 +90,11 @@ def _install_sqlite(
     columns: tuple[str, ...],
     token: str,
 ) -> None:
+    """Install source guards and durable change/obligation capture in the caller's unit.
+
+    Reject writes whose required prompt handlers are unavailable. Capture row
+    identity snapshots and provenance, excluding self-originating obligations;
+    execution of handlers remains outside SQL trigger callbacks."""
     source = quote(table)
     subscribed = (
         "SELECT p.plugin_id, p.version, p.mode, p.enabled "
@@ -141,7 +148,14 @@ def _install_postgres(
     columns: tuple[str, ...],
     token: str,
 ) -> None:
+    """Install schema-qualified capture functions/triggers using session-local provenance.
+
+    Guard unavailable prompt handlers, reject unsupported TRUNCATE, and journal
+    row changes with their obligations in the source transaction. The caller owns
+    DDL completion and must bind the connection's maintenance readiness state."""
+
     def q(name: str) -> str:
+        """Qualify an owned maintenance object in the explicitly selected PostgreSQL schema."""
         return table_sql(name, schema)
 
     function = q(f"liuxin_m_{token}_capture_v1")

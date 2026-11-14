@@ -11,8 +11,14 @@ call `close()`, discard uncommitted primary work and close owned connections.
 Completed commits remain durable. Replacing the driver also discards the old
 driver's pending work; reattaching the same driver keeps its primary connection.
 Close stops owned maintenance and storage before releasing database dependencies.
-A service shutdown failure propagates, retains ownership and leaves the facade
+A service or connection shutdown failure propagates, retains ownership and leaves the facade
 `closing` for retry; it never requests a commit. Injected storage stays caller-owned.
+The SQL driver attempts every handle and reports an exception group containing
+failed closes. Some handles may already have closed, so `closing` is a cleanup
+state, not a usable database. If replacing a driver fails while retiring old
+handles, the new binding has already been published: both drivers remain owned,
+and `close()` retries retired cleanup before releasing the active driver. Do not
+repeat the replacement or treat its candidate as caller-owned after publication.
 Finish active operations before closing or replacing their facade. If a context
 body already raised, cleanup errors become notes on that original exception.
 See the [lifecycle contract](module-boundary-and-lifecycle-review-2026-11-13.md#implemented-lifecycle-contract).
@@ -39,7 +45,7 @@ direct update boundary listed below.
 
 | Entry | SQL ownership | Connection lifetime |
 | --- | --- | --- |
-| Outermost macro with a connection factory | Explicit `BEGIN`, commit on success, rollback on failure. | Close the newly acquired connection afterward. |
+| Outermost macro with a connection factory | SQLite write units use `BEGIN IMMEDIATE`; PostgreSQL uses `BEGIN`. Commit on success, rollback on failure. | Close the newly acquired connection afterward. |
 | Persistent fallback, initially idle | Own a new explicit transaction. | Leave the caller's connection open. |
 | Persistent fallback with pending work | Savepoint only; success remains pending and failure rolls back only this unit. | Leave connection and outer transaction with their caller. |
 | Nested macro call | Savepoint on the active thread's connection. | Reuse the outer connection. |
@@ -75,12 +81,26 @@ with db.macros.transaction():
 
 ## Serialized storage decisions
 
-A05 extends the same owner with `transaction(serialized=True)`: SQLite reserves
-its writer with `BEGIN IMMEDIATE`; PostgreSQL takes an advisory transaction lock
+A05 extends the same owner with `transaction(serialized=True)`: owned SQLite
+write units already reserve their writer with `BEGIN IMMEDIATE`; PostgreSQL takes an advisory transaction lock
 shared by participating units in that database/schema. A nested serialized unit
 requires an already serialized outer owner; ordinary/borrowed units cannot be
 upgraded. Raw SQL and external Store byte operations do not participate in the
 PostgreSQL advisory contract.
+
+Native custom-field operations preserve ordinary managed composition by acquiring
+that PostgreSQL advisory key themselves before their protected revision/plan reads.
+This does not mark or upgrade the entire outer macro unit as serialized; decisions
+made before entering the native operation are not retroactively protected. Each
+operation reacquires after a possible savepoint rollback. Caller-owned deferred SQLite
+transactions retain their native snapshot-conflict behavior: a stale unit
+must be rolled back and retried. See [native custom fields](native-custom-fields.md).
+
+Owned transaction scopes reject an already active connection before BEGIN. Writer
+waiting is bounded by SQLite's busy timeout; journal mode remains a deployment
+choice. Arbitrary transaction bodies are never replayed implicitly. See the
+[November review contracts](review-repairs-2026-11-14.md) for migration, pruning,
+preference publication and index-version rules.
 
 `require_outermost=True` refuses nesting or borrowing before effects. Successful
 exit must represent a real commit, so deletion reservations cannot remain hidden

@@ -19,10 +19,15 @@ from __future__ import (
 
 import json
 import os
+from base64 import b64encode
+from pathlib import Path
+from tempfile import NamedTemporaryFile
 
 from typing import TYPE_CHECKING, Any, Optional
 
 from LiuXin_alpha.constants import preferred_encoding
+from LiuXin_alpha.databases.creation import sync_directory
+from LiuXin_alpha.databases.transaction_participants import after_commit
 from LiuXin_alpha.errors import DatabaseIntegrityError
 
 from LiuXin_alpha.utils.config.config_tools import to_json, from_json
@@ -33,6 +38,13 @@ if TYPE_CHECKING:
     from LiuXin_alpha.databases.api import DatabaseAPI
 
 
+def _preference_json(value: object) -> object:
+    """Preserve binary preferences while retaining the supported tagged types."""
+    if isinstance(value, bytes):
+        return {"__class__": "bytes", "__value__": b64encode(value).decode("ascii")}
+    return to_json(value)
+
+
 class DBPrefs(dict[str, Any]):
     """
     Expose stored preferences as a mutable dictionary with explicit database writes.
@@ -41,7 +53,7 @@ class DBPrefs(dict[str, Any]):
     membership, inherited dict.get and namespaced lookup inspect stored entries only.
     Use item assignment or set/set_namespaced to persist a replacement; inherited
     update/clear and in-place edits to nested objects bypass persistence.
-    disable_setting makes item assignment local only. Values and defaults are not
+    disable_setting makes item assignment and deletion local only. Values and defaults are not
     copied.
 
     Example:
@@ -77,11 +89,10 @@ class DBPrefs(dict[str, Any]):
         """
         Replace cached entries with successfully decoded preference rows.
 
-        Clear memory before reading all rows. Decode values through raw_to_object,
-        logging and skipping each failed value. Rows are installed directly into the
-        dict without database writes; repeated keys retain the last successfully decoded
-        value. Enumeration or malformed row-access failures propagate after the cache
-        has been cleared.
+        Read and validate all keys before replacing memory. Duplicate or null keys
+        require explicit repair; no row-order heuristic chooses a winner. Decode
+        values through raw_to_object, logging and skipping malformed values.
+        Enumeration or key failures leave the previous cache intact.
 
         Example:
             prefs.load_from_db()
@@ -90,18 +101,22 @@ class DBPrefs(dict[str, Any]):
 
         :return: None; defaults and disable_setting are unchanged.
         """
-        self.clear()
-        key_values = []
+        loaded: dict[str, Any] = {}
+        seen: set[str] = set()
         for row in self.db.driver_wrapper.get_all_rows("preferences"):
-            key_values.append((row["preference_key"], row["preference_value"]))
-        for key, val in key_values:
+            key = row["preference_key"]
+            if not isinstance(key, str) or key in seen:
+                raise DatabaseIntegrityError(
+                    "Invalid or duplicate preference key; audit_preference_keys and "
+                    "migrate_preference_keys require explicit resolution before loading"
+                )
+            seen.add(key)
             try:
-                val = self.raw_to_object(val)
-            except Exception as e:
-                err_str = "Failed to read value for: {} from db".format(key)
-                default_log.log_exception(err_str, e, "WARN")
-                continue
-            super(DBPrefs, self).__setitem__(key, val)
+                loaded[key] = self.raw_to_object(row["preference_value"])
+            except Exception as error:
+                default_log.log_exception(f"Failed to read value for: {key} from db", error, "WARN")
+        self.clear()
+        dict.update(self, loaded)
 
     @staticmethod
     def raw_to_object(raw: object) -> Any:
@@ -147,9 +162,7 @@ class DBPrefs(dict[str, Any]):
         :raises TypeError: A value or dictionary key cannot be serialized.
         :raises ValueError: The JSON encoder detects a circular reference.
         """
-        # sort_keys=True is required so that the serialization of dictionaries is not random, which is needed for the
-        # changed check in __setitem__
-        return json.dumps(val, indent=2, default=to_json, sort_keys=True)
+        return json.dumps(val, indent=2, default=_preference_json, sort_keys=True)
 
     def has_setting(self, key: str) -> bool:
         """
@@ -190,11 +203,11 @@ class DBPrefs(dict[str, Any]):
 
     def __delitem__(self, key: str) -> None:
         """
-        Remove a cached key, then delete matching database preference rows.
+        Delete a persisted preference and publish the cache change after commit.
 
-        Memory changes before driver_wrapper.delete. Database failure therefore leaves
-        the cached entry removed. This method does not consult disable_setting or enter
-        db.lock.
+        With disable_setting, delete only the local value. Otherwise share db.lock
+        and the managed macro transaction; a failed delete or rollback retains the
+        cached entry. Nested successful writes publish after the outer commit.
 
         Example:
             del prefs["page_size"]
@@ -205,22 +218,29 @@ class DBPrefs(dict[str, Any]):
             lookup.
         :raises KeyError: The key is absent from the cached dictionary.
         """
-        super(DBPrefs, self).__delitem__(key)
-        self.db.driver_wrapper.delete(
-            target_table="preferences", column="preference_key", value=key
-        )
+        if key not in self:
+            raise KeyError(key)
+        if self.disable_setting:
+            dict.__delitem__(self, key)
+            return
+        lock = self.db.lock
+        if lock is None:
+            raise DatabaseIntegrityError("Cannot persist preferences on a closed database")
+        with lock, self.db.macros.transaction() as connection:
+            connection.execute(
+                'DELETE FROM preferences WHERE preference_key = ?', (key,)
+            ).close()
+            after_commit(self.db.macros, lambda: dict.pop(self, key, None))
 
     def __setitem__(self, key: str, val: Any) -> None:
         """
         Persist a preference replacement before updating its cached value.
 
         With disable_setting, assign directly without serialization or database access.
-        Otherwise serialize first, enter db.lock, insert a missing row or update the
-        first matching row only when raw JSON differs. Existing byte-valued JSON is
-        decoded before comparison. The facade mutex serializes cooperating callers; the
-        selected row writer owns its transaction. This method makes no explicit commit
-        call and the mutex does not group arbitrary writes atomically. Mutating a
-        previously cached object in place is not detected automatically.
+        Otherwise serialize first, enter db.lock and upsert under the database's
+        unique preference-key constraint. Publish the cached value after the owning
+        macro transaction commits. A legacy schema must explicitly migrate preference
+        keys before writing. Nested mutations of cached objects remain local only.
 
         Example:
             prefs["columns"] = ["title", "authors"]
@@ -239,28 +259,15 @@ class DBPrefs(dict[str, Any]):
         lock = self.db.lock
         if lock is None:
             raise DatabaseIntegrityError("Cannot persist preferences on a closed database")
-        with lock:
-            rows = self.db.driver_wrapper.search(
-                table="preferences",
-                column="preference_key",
-                search_term=key,
-            )
-            db_row = next(iter(rows), None)
-
-            if db_row is None:
-                db_row = {"preference_key": key, "preference_value": raw}
-                self.db.driver_wrapper.add_row(db_row)
-            else:
-                existing_raw = db_row.get("preference_value")
-                if isinstance(existing_raw, bytes):
-                    existing_raw = existing_raw.decode(
-                        preferred_encoding, errors="replace"
-                    )
-                if existing_raw != raw:
-                    db_row["preference_value"] = raw
-                    self.db.driver_wrapper.update_row(db_row)
-
-        super(DBPrefs, self).__setitem__(key, val)
+        if not isinstance(key, str):
+            raise TypeError("Preference keys must be text")
+        with lock, self.db.macros.transaction() as connection:
+            connection.execute(
+                "INSERT INTO preferences (preference_key, preference_value) VALUES (?, ?) "
+                "ON CONFLICT (preference_key) DO UPDATE SET preference_value = excluded.preference_value",
+                (key, raw),
+            ).close()
+            after_commit(self.db.macros, lambda: dict.__setitem__(self, key, val))
 
     def set(self, key: str, val: Any) -> None:
         """
@@ -327,11 +334,9 @@ class DBPrefs(dict[str, Any]):
         """
         Write cached entries to metadata_db_prefs_backup.json in an existing directory.
 
-        Write UTF-8 JSON with the project encoder, excluding defaults. Opening the
-        target truncates any existing backup; writes are not atomic and the directory is
-        not created. Exceptions from path construction, opening or serialization are
-        printed and logged rather than re-raised by this handler. Directory paths
-        must use text rather than bytes.
+        Serialize before touching the existing backup, then publish a flushed sibling
+        temporary file with an atomic replace. The directory must already exist.
+        Errors propagate; a directory flush error can occur after publication.
 
         Example:
             prefs.write_serialized(library_directory)
@@ -339,17 +344,25 @@ class DBPrefs(dict[str, Any]):
 
         :param library_path: Directory path accepted by os.path.join with a text
             filename; normally str or pathlib.Path.
-        :return: None, including after a caught failure.
+        :return: None after publication and the supported durability flushes.
         """
+        serialized = self.to_raw(self)
+        target = Path(library_path) / "metadata_db_prefs_backup.json"
+        temporary: Path | None = None
         try:
-            to_filename = os.path.join(library_path, "metadata_db_prefs_backup.json")
-            with open(to_filename, "w", encoding="utf-8") as f:
-                f.write(json.dumps(self, indent=2, default=to_json))
-        except Exception as e:
-            import traceback
-
-            traceback.print_exc()
-            default_log.log_exception("Preferences did not write out.", e, "WARN")
+            with NamedTemporaryFile(
+                mode="w", encoding="utf-8", dir=target.parent,
+                prefix=".liuxin-prefs-", delete=False,
+            ) as stream:
+                temporary = Path(stream.name)
+                stream.write(serialized)
+                stream.flush()
+                os.fsync(stream.fileno())
+            os.replace(temporary, target)
+            sync_directory(target.parent)
+        finally:
+            if temporary is not None:
+                temporary.unlink(missing_ok=True)
 
     @classmethod
     def read_serialized(

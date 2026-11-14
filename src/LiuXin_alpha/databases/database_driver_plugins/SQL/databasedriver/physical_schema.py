@@ -59,6 +59,7 @@ def _affinity(declared: str) -> str:
 def _indexes(
     connection: QueryConnection, schema: str, name: str
 ) -> tuple[StorageIndexSpec, ...]:
+    """Read SQLite index keys, uniqueness and partial/primary flags without altering schema."""
     result = []
     for row in rows(
         connection, f"PRAGMA {schema}.index_list({quote_identifier(name)})"
@@ -88,6 +89,10 @@ def _indexes(
 def _foreign_keys(
     connection: QueryConnection, schema: str, name: str
 ) -> tuple[StorageForeignKeySpec, ...]:
+    """Group SQLite foreign-key rows in column order and resolve implicit parent keys.
+
+    Return physical constraints, including actions and schema, rather than inferring
+    domain relationships from table names."""
     groups: dict[int, list[Sequence[Any]]] = defaultdict(list)
     for row in rows(
         connection, f"PRAGMA {schema}.foreign_key_list({quote_identifier(name)})"

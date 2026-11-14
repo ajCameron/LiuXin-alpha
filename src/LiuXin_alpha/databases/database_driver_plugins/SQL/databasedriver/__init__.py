@@ -259,26 +259,38 @@ class SQLBaseDriver(SQLDriverMixinState):
     def _close_all_open_connections(self) -> None:
         """Close owned handles, retaining failed closes for a subsequent attempt.
 
-        Closing never commits. Built-in handles remove themselves from tracking;
-        foreign raw handles are removed after successful close. A failed close
-        remains owned even though the primary reference is detached.
+        Attempt every handle without committing. Successful handles leave tracking;
+        failures remain owned and are reported together. Retain the primary alias
+        only when its close failed. Call close again to retry; a normal return means
+        there are no owned handles left, not merely that cleanup was attempted.
         """
         connections = list(self._open_connections)
         primary = self.conn
         if primary is not None and not any(conn is primary for conn in connections):
             connections.append(primary)
         failed = []
+        errors: list[BaseException] = []
         for connection in connections:
             try:
                 connection.close()
-            except Exception:
+            except BaseException as error:
                 failed.append(connection)
+                errors.append(error)
         self._open_connections[:] = failed
-        self.conn = None
+        self.conn = primary if any(conn is primary for conn in failed) else None
+        if errors:
+            raise BaseExceptionGroup(
+                "Failed to close owned database connections", errors
+            )
 
     def close(self) -> None:
         """
         Close all known connections while retaining the driver object for reuse.
+
+        Pending writes are discarded by connection close. Attempt every owned
+        handle, retain failures and raise an exception group if cleanup is incomplete.
+        Retry close after resolving the cause; only successful cleanup permits the
+        facade to discard this driver. Reopening is a separate operation.
 
         Example:
             ``driver.close(); driver.reopen()`` replaces the primary connection.
@@ -450,9 +462,10 @@ class SQLBaseDriver(SQLDriverMixinState):
         """
         Find the first table whose columns contain every supplied row key.
 
-        Remove a ``table`` key from the input. An empty remaining mapping returns False;
-        no match raises DatabaseIntegrityError with partial-match diagnostics. Values do
-        not participate in matching.
+        Remove and honor a supplied ``table`` hint after validating all columns.
+        Without a hint, an empty mapping returns False; no match raises
+        DatabaseIntegrityError with partial-match diagnostics. Values do not
+        participate in matching.
 
         Example:
             ``driver.direct_identify_table_from_row({"book_id": 3})`` matches by column
@@ -463,10 +476,12 @@ class SQLBaseDriver(SQLDriverMixinState):
             key in place.
         :return: The first matching table name, or ``False`` for an empty mapping.
         """
-        if "table" in row_dict.keys():
-            del row_dict["table"]
-
+        hint = row_dict.pop("table", None)
         tables_and_columns = driver_operations(self).direct_get_tables_and_columns()
+        if hint is not None:
+            if hint not in tables_and_columns or not set(row_dict) <= set(tables_and_columns[hint]):
+                raise InputIntegrityError(f"Row columns do not belong to hinted table {hint!r}")
+            return str(hint)
         table_names = tables_and_columns.keys()
         row_columns_set = set(key for key in row_dict.keys())
 

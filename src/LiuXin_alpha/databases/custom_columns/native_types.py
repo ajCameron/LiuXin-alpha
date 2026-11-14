@@ -48,10 +48,12 @@ class FieldDefinition:
 
     @property
     def normalized(self) -> bool:
+        """Whether this datatype stores shared vocabulary separately from owner entries."""
         return self.datatype in {"text", "enumeration", "series", "rating"}
 
     @property
     def key(self) -> str:
+        """Return the unambiguous native metadata key, including its attachment table."""
         return f"#{self.attachment}.{self.label}"
 
 
@@ -65,7 +67,12 @@ class SeriesValue:
 
 @dataclass(frozen=True)
 class ValueEntry:
-    """Return one typed collection membership with stable ID, order and position."""
+    """Snapshot a membership's stable ID, value, ordinal and optional Series position.
+
+    id belongs to this field's membership space; value_id belongs to its separate
+    shared vocabulary space, or is None for inline values. Deleted identities are
+    not recycled by native migrations. Retaining an ID in a write requires that
+    the membership still belongs to the selected owner and field."""
 
     id: int
     value: Scalar

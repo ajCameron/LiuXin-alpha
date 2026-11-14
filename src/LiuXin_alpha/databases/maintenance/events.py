@@ -113,6 +113,10 @@ class RowChangeEvent(DirtyRowEvent):
         before: Mapping[str, object] | None = None,
         after: Mapping[str, object] | None = None,
     ) -> None:
+        """Create an immutable journal event with copied before/after identity mappings.
+
+        The durable change ID defines event_id. Inserts use the new-row event kind;
+        other operations retain the ordinary dirty-row kind for existing consumers."""
         DirtyRowEvent.__init__(
             self,
             table,

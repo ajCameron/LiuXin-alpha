@@ -236,44 +236,6 @@ class Row(RowAPI):
         self.read_only = True
         vars(self)["sync"] = self.no_sync
 
-    @staticmethod
-    def _best_effort_sqlite_object_type(
-        database: DatabaseAPI, name: str
-    ) -> Optional[str]:
-        """
-        Probe sqlite_master to classify a named schema object when possible.
-
-        Open a driver connection through database.driver_wrapper.driver and close it in
-        a finally block. Unsupported drivers, unavailable metadata and lookup failures
-        are deliberately treated as unknown; cleanup errors are suppressed.
-
-        Example:
-            Given a SQLite-backed db, Row._best_effort_sqlite_object_type(db, "works")
-            normally returns "table".
-
-
-        :param database: Open database exposing driver_wrapper, schema headings and a
-            stable uuid.
-        :param name: Object name bound to the sqlite_master lookup.
-        :return: Stored schema type such as table, view or index, or None on no match or
-            any probe error.
-        """
-        try:
-            conn = database.driver_wrapper.driver.get_connection()
-            try:
-                cursor = conn.execute(
-                    "SELECT type FROM sqlite_master WHERE name = ? LIMIT 1;", (name,)
-                )
-                try:
-                    row = cursor.fetchone()
-                    return row[0] if row else None
-                finally:
-                    cursor.close()
-            finally:
-                conn.close()
-        except Exception:
-            return None
-
     @classmethod
     def from_idless_row_dict(
         cls,
@@ -300,8 +262,7 @@ class Row(RowAPI):
         :param database: Open database exposing driver_wrapper, schema headings and a
             stable uuid.
         :param row_dict: Column/value mapping; copied before being retained by the row.
-        :param table: Optional target hint for view checks, ID-column lookup and reload;
-            insertion still delegates to the wrapper’s payload-based table inference.
+        :param table: Optional target table for validation, insertion and reload.
         :param read_only: Whether normal sync() calls should raise RowReadOnlyError;
             local field edits remain possible.
         :param reload_from_db: Reload a nonzero returned ID when its ID column is known,
@@ -327,7 +288,7 @@ class Row(RowAPI):
         # If the inferred target is a view, error early with a helpful message.
         if not target_table:
             raise DatabaseIntegrityError("Cannot identify a table for the new row")
-        obj_type = cls._best_effort_sqlite_object_type(database, target_table)
+        obj_type = database.driver_wrapper.get_relation_type(target_table)
         if obj_type == "view":
             raise DatabaseDriverError(
                 f"Cannot INSERT into '{target_table}' because it is a view. "
@@ -344,7 +305,7 @@ class Row(RowAPI):
         if id_col and id_col in local_row_dict and local_row_dict[id_col] is None:
             local_row_dict.pop(id_col, None)
 
-        new_id = database.driver_wrapper.add_row(local_row_dict)
+        new_id = database.driver_wrapper.add_row({**local_row_dict, "table": target_table})
 
         # If we have a numeric id, prefer to reload from the DB so defaults/triggers are reflected.
         if reload_from_db and new_id not in (None, 0) and id_col:
@@ -356,7 +317,10 @@ class Row(RowAPI):
         if id_col and new_id not in (None, 0):
             local_row_dict[id_col] = new_id
 
-        return cls(database=database, row_dict=local_row_dict, read_only=read_only)
+        row = cls(database=database, row_dict=None, read_only=read_only)
+        row.row_dict = local_row_dict
+        row.refresh_db_properties(table=target_table)
+        return row
 
     @staticmethod
     def _json_sanitize(
@@ -522,7 +486,7 @@ class Row(RowAPI):
 
         return payload
 
-    def refresh_db_properties(self) -> None:
+    def refresh_db_properties(self, *, table: str | None = None) -> None:
         """
         Infer row identity and cache schema/link metadata from the current payload.
 
@@ -545,9 +509,12 @@ class Row(RowAPI):
             object.__setattr__(self, "allowed_tables", allowed_tables)
             return None
 
-        table = self.db.driver_wrapper.identify_table_from_row_dict(row_dict)
-        if not table:
+        resolved_table = table or self.db.driver_wrapper.identify_table_from_row_dict(row_dict)
+        if not resolved_table:
             raise DatabaseIntegrityError("Cannot identify a table for this row payload")
+        table = resolved_table
+        if not set(row_dict) <= set(self.db.get_column_headings(table)):
+            raise DatabaseIntegrityError(f"Row columns do not belong to {table!r}")
         object.__setattr__(self, "_table", table)
 
         allowed_tables = self.db.driver_wrapper.get_allowed_tables_snapshot()
@@ -776,14 +743,14 @@ class Row(RowAPI):
 
     def __getitem__(self, item: str) -> Any:
         """
-        Read a local value, materializing None for an absent recognized column.
+        Read a local value without changing the pending write payload.
 
         An already stored key wins without schema revalidation. A missing allowed key is
-        inserted into row_dict with value None; this is not a database refresh.
+        returned as None without insertion; database defaults remain available.
 
         Example:
-            For a partial Work row, row["work_id"] can return None and add that key to
-            the local mapping before the row has been inserted.
+            For a partial Work row, row["work_id"] returns None without adding a key
+            to the local mapping before the row has been inserted.
 
 
         :param item: Existing payload key or recognized column for the inferred table.
@@ -796,8 +763,7 @@ class Row(RowAPI):
 
         allowed_columns = self.allowed_columns
         if item in allowed_columns:
-            row_dict[item] = None
-            return row_dict[item]
+            return None
 
         err_str = "item couldn't be found in the row_dict, and wasn't a recognized column heading for this table"
         err_str = default_log.log_variables(
@@ -868,7 +834,7 @@ class Row(RowAPI):
         row_dict = self.db.driver_wrapper.get_row_from_id(table=table, row_id=row_id)
         object.__setattr__(self, "row_dict", row_dict)
 
-        self.refresh_db_properties()
+        self.refresh_db_properties(table=table)
 
     def load_blank_row(self, table: Optional[str] = None) -> None:
         """
@@ -958,11 +924,11 @@ class Row(RowAPI):
             insertion = dict(payload)
             if insertion.get(id_column) is None:
                 insertion.pop(id_column, None)
-            new_id = self.db.driver_wrapper.add_row(insertion)
+            new_id = self.db.driver_wrapper.add_row({**insertion, "table": table})
             payload[id_column] = new_id
             self.row_id = new_id
         elif self.int_row_dict:
-            self.db.driver_wrapper.update_row(self.int_row_dict)
+            self.db.driver_wrapper.update_row({**self.int_row_dict, "table": self.table})
 
     def no_sync(self) -> None:
         """

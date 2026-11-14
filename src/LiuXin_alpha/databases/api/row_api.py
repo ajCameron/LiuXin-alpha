@@ -290,30 +290,6 @@ class RowAPI(abc.ABC):
 
     # Todo: "name" should be "column_name
     # Todo: The return is going to be Literal strings - work out what they are
-    @staticmethod
-    @abc.abstractmethod
-    def _best_effort_sqlite_object_type(
-        database: "DatabaseAPI", name: str
-    ) -> Optional[str]:
-        """
-        Probe sqlite_master to classify a named schema object when possible.
-
-        Open a driver connection through database.driver_wrapper.driver and close it in
-        a finally block. Unsupported drivers, unavailable metadata and lookup failures
-        are deliberately treated as unknown; cleanup errors are suppressed.
-
-        Example:
-            Given a SQLite-backed db, Row._best_effort_sqlite_object_type(db, "works")
-            normally returns "table".
-
-
-        :param database: Open database exposing driver_wrapper, schema headings and a
-            stable uuid.
-        :param name: Object name bound to the sqlite_master lookup.
-        :return: Stored schema type such as table, view or index, or None on no match or
-            any probe error.
-        """
-
     @abc.abstractmethod
     def to_jsonable(
         self,
@@ -466,7 +442,7 @@ class RowAPI(abc.ABC):
         """
 
     @abc.abstractmethod
-    def refresh_db_properties(self) -> None:
+    def refresh_db_properties(self, *, table: str | None = None) -> None:
         """
         Infer row identity and cache schema/link metadata from the current payload.
 

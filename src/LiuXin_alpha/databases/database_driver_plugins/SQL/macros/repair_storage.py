@@ -29,6 +29,7 @@ from LiuXin_alpha.databases.db_types.repair_types import (
 
 
 def _q(name: str) -> str:
+    """Validate a portable repair-schema identifier before quoting it for SQL."""
     if not isinstance(name, str) or not re.fullmatch(r"[A-Za-z_][A-Za-z_0-9]*", name):
         raise ValueError("Unsupported repair schema identifier")
     return '"' + name + '"'

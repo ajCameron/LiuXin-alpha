@@ -45,6 +45,11 @@ class NativeMigrations:
     """Preview, validate and apply explicit field/schema changes and integrity repairs."""
 
     def audit(self: CustomFieldHost) -> tuple[Issue, ...]:
+        """Inspect active and retired fields without repairing or rewriting storage.
+
+        Return located metadata, value, cardinality, identity, ownership, ordering and
+        SQLite-trigger issues. Expected malformed records become Issue objects;
+        unexpected connection/SQL failures still propagate. This can scan full fields."""
         issues: list[Issue] = []
         with self.read() as conn:
             for definition in self.repository.definitions(
@@ -244,6 +249,7 @@ class NativeMigrations:
     def _check_plan(
         self: CustomFieldHost, conn: SQLConnection, plan: ChangePlan, kind: str
     ) -> None:
+        """Reject a wrong plan kind, changed source fingerprint or unresolved blockers."""
         if plan.kind != kind or self.repository.fingerprint(conn) != plan.fingerprint:
             raise StalePlan("Plan kind or source fingerprint no longer matches")
         if plan.issues:
@@ -259,7 +265,16 @@ class NativeMigrations:
         new: FieldDefinition,
         stored: dict[int, list[ValueEntry]],
     ) -> None:
+        """Recreate physical storage while retaining membership and allocation history.
+
+        Surviving entry IDs are restored explicitly; compatible vocabulary IDs are
+        retained too. Capture allocator bounds before DROP so deleted IDs and
+        unused allocations cannot be recycled. New identities begin above that
+        bound even when a conversion removes an identity space temporarily.
+        All definition, DDL and value changes belong to the supplied transaction.
+        """
         self._validate_keys(conn, new)
+        high_water = self.repository.allocation_high_water(conn, old)
         preserved = []
         if old.normalized and new.normalized and old.datatype == new.datatype:
             table, _ = names(old)
@@ -288,12 +303,7 @@ class NativeMigrations:
                     ts + "_key": identity(value, new),
                 },
             )
-        if self.repository.postgres and new.normalized:
-            key = ts + "_id"
-            conn.execute(
-                f"SELECT setval(pg_get_serial_sequence(?,?), COALESCE(MAX({q(key)}),0)+1, false) FROM {q(table)}",
-                (table, key),
-            ).close()
+        self.repository.reserve_identities(conn, new, high_water)
         for owner, values in stored.items():
             converted = entries(
                 values if new.mode != "scalar" else values[0] if values else None, new
@@ -301,17 +311,14 @@ class NativeMigrations:
             self.repository.write_entries(
                 conn, new, owner, converted, preserve_ids=True
             )
-        if self.repository.postgres:
-            for target in names(new)[: 2 if new.normalized else 1]:
-                key = stem(target) + "_id"
-                conn.execute(
-                    f"SELECT setval(pg_get_serial_sequence(?,?), COALESCE(MAX({q(key)}),0)+1, false) FROM {q(target)}",
-                    (target, key),
-                ).close()
 
     def _update_definition(
         self: CustomFieldHost, conn: SQLConnection, d: FieldDefinition
     ) -> None:
+        """Persist a validated definition and revision on the supplied write connection.
+
+        Recompute normalized keys and native collection flags together. This changes
+        neither backing tables nor any metadata projection and never commits."""
         conn.execute(
             "UPDATE custom_columns SET custom_column_in_table=?, custom_column_label=?, custom_column_label_norm=?, custom_column_name=?, custom_column_name_norm=?, custom_column_datatype=?, custom_column_is_multiple=?, custom_column_ordered=?, custom_column_normalized=?, custom_column_editable=?, custom_column_display=?, custom_column_collection_mode=?, custom_column_storage_version=2, custom_column_revision=? WHERE custom_column_id=?",
             (
@@ -342,6 +349,13 @@ class NativeMigrations:
         reduce: str | None = None,
         collapse: bool = False,
     ) -> ChangePlan:
+        """Preview an explicit definition change against one read snapshot.
+
+        Validate the new definition/dependencies and materialize conversions to report
+        blockers before writing. Attachment changes need mappings for populated owners;
+        multi-to-scalar reduction and set-identity collapse require explicit policies.
+        Value mappings can remove memberships with None. The returned intent/fingerprint
+        must be revalidated under a writer reservation when applied."""
         allowed = {
             "attachment",
             "label",
@@ -380,12 +394,17 @@ class NativeMigrations:
             except (ValueError, TypeError) as error:
                 count = 0
                 issues.append(Issue("conversion", old.id, str(error)))
+            action = (
+                "Update metadata for"
+                if set(changes) <= {"label", "name", "editable"} and not value_mapping
+                else "Rebuild"
+            )
             return ChangePlan(
                 "migration",
                 self.repository.fingerprint(conn),
                 payload,
                 tuple(issues),
-                (f"Rebuild field {old.id}; resulting entries: {count}",),
+                (f"{action} field {old.id}; resulting entries: {count}",),
             )
 
     def _convert(
@@ -395,6 +414,11 @@ class NativeMigrations:
         new: FieldDefinition,
         payload: dict[str, Any],
     ) -> dict[int, list[ValueEntry]]:
+        """Compute target memberships without writing or inventing a lossy conversion.
+
+        Apply explicit owner/value mappings, retain surviving entry IDs and Series
+        positions, and enforce reduction/collapse policies after owners are combined.
+        Referenced target owners must exist. Callers decide whether to rebuild storage."""
         source = self.repository.read_entries(conn, old)
         result: dict[int, list[ValueEntry]] = defaultdict(list)
         mapping = {int(k): int(v) for k, v in payload["owners"].items()}
@@ -469,6 +493,13 @@ class NativeMigrations:
         return dict(result)
 
     def apply_field_migration(self: CustomFieldHost, plan: ChangePlan) -> WriteReceipt:
+        """Revalidate and apply a migration within one native writer reservation.
+
+        Simple label/name/editability changes update metadata in place. Structural or
+        value changes rebuild storage while preserving historical allocation bounds.
+        Return entry/vocabulary identity mappings and publish only after the outer commit.
+        A stale source or invalid intent raises before mutation; later failures roll back
+        the entire migration, including DDL on supported backends."""
         with self.write() as conn:
             self._check_plan(conn, plan, "migration")
             verified = self.plan_field_migration(
@@ -484,7 +515,14 @@ class NativeMigrations:
             new = replace(old, **plan.payload["changes"], revision=old.revision + 1)
             before = self.repository.read_entries(conn, old)
             converted = self._convert(conn, old, new, plan.payload)
-            self._rebuild(conn, old, new, converted)
+            if (
+                set(plan.payload["changes"]) <= {"label", "name", "editable"}
+                and not plan.payload["values"]
+            ):
+                # Descriptive metadata does not require replacing any table or ID.
+                self._update_definition(conn, new)
+            else:
+                self._rebuild(conn, old, new, converted)
             after = {
                 v.id: v
                 for values in self.repository.read_entries(conn, new).values()
@@ -516,6 +554,10 @@ class NativeMigrations:
             return receipt
 
     def plan_purge(self: CustomFieldHost, field: FieldRef) -> ChangePlan:
+        """Preview permanent removal of an already retired field and all its storage.
+
+        Reject active fields and remaining composite dependents. No deletion occurs
+        until the fingerprinted plan is explicitly applied."""
         with self.read() as conn:
             d = self.repository.resolve(conn, field, retired=True)
             if not d.retired:
@@ -530,6 +572,10 @@ class NativeMigrations:
             )
 
     def apply_purge(self: CustomFieldHost, plan: ChangePlan) -> None:
+        """Revalidate a retired-field purge, then delete its storage and definition atomically.
+
+        Queue a receipt for the outer commit. Purging is permanent after commit; ordinary
+        retirement leaves values intact and is a separate operation."""
         with self.write() as conn:
             self._check_plan(conn, plan, "purge")
             d = self.repository.resolve(conn, plan.payload["field"], retired=True)
@@ -547,6 +593,11 @@ class NativeMigrations:
         *,
         actions: tuple[str, ...] = ("cleanup_trigger", "ordering"),
     ) -> ChangePlan:
+        """Preview only explicitly requested, supported integrity repairs.
+
+        Audit without mutation and retain unsupported issues as blockers. The default
+        repairs cleanup triggers and ordering; removing orphans/unused values or rewriting
+        identity keys requires naming those actions. Repair never guesses new values."""
         supported = {
             "cleanup_trigger",
             "ordering",
@@ -571,6 +622,10 @@ class NativeMigrations:
             )
 
     def apply_repair(self: CustomFieldHost, plan: ChangePlan) -> None:
+        """Re-audit a fingerprinted repair under the writer lock and apply its named actions.
+
+        All repairs share one transaction. Update field revisions and queue a receipt
+        after success; neither planning nor ordinary reads perform these mutations."""
         with self.write() as conn:
             self._check_plan(conn, plan, "repair")
             verified = self.plan_repair(actions=tuple(plan.payload["actions"]))

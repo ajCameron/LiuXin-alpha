@@ -116,6 +116,7 @@ class PluginDeclaration:
 
 
 def _names(values: Iterable[str], kind: str) -> tuple[str, ...]:
+    """Materialize distinct, nonempty plugin names, rejecting strings and embedded NULs."""
     if isinstance(values, str):
         raise ValueError(f"Plugin {kind}s must be a collection, not a string")
     names = tuple(values)

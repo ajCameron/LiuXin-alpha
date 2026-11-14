@@ -87,6 +87,7 @@ class SQLiteProgressMixin(SQLDriverMixinState):
             return
 
         def dispatch() -> int:
+            """Ask configured callbacks in order; the first truthy result requests SQL interruption."""
             return int(any(callback() for callback in callbacks))
 
         connection.set_progress_handler(dispatch, self._progress_instruction_interval)

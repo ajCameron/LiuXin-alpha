@@ -14,6 +14,7 @@ from typing import Any, Literal, Protocol, Self, overload
 from weakref import WeakSet
 
 from LiuXin_alpha.databases.db_types.driver_types import QueryConnection
+from LiuXin_alpha.databases.sqlite_values import encode_sqlite_parameters
 
 
 class _IndexedParameters(Protocol):
@@ -90,12 +91,12 @@ class SQLiteCompletionCursor(sqlite3.Cursor):
     def execute(self, sql: str, parameters: SQLiteParameters = ()) -> Self:
         """Prepare the connection before one statement."""
         before_statement(self.connection, sql)
-        return super().execute(sql, parameters)
+        return super().execute(sql, encode_sqlite_parameters(parameters))
 
     def executemany(self, sql: str, parameters: Iterable[SQLiteParameters]) -> Self:
         """Prepare each supplied row batch before execution."""
         before_statement(self.connection, sql)
-        return super().executemany(sql, parameters)
+        return super().executemany(sql, (encode_sqlite_parameters(row) for row in parameters))
 
     def executescript(self, sql: str) -> Self:
         """Keep installed-maintenance scripts atomic without an implicit pre-commit."""
@@ -125,11 +126,16 @@ class SQLiteCompletionCursor(sqlite3.Cursor):
                     statements.append(sql[start:])
                 if any(
                     statement_keyword(statement)
-                    in {"BEGIN", "COMMIT", "END", "ROLLBACK", "SAVEPOINT", "RELEASE"}
+                    in {
+                        "BEGIN", "COMMIT", "END", "ROLLBACK", "SAVEPOINT", "RELEASE",
+                        "PRAGMA", "VACUUM", "ATTACH", "DETACH",
+                    }
                     for statement in statements
                 ):
                     raise RuntimeError(
-                        "Maintenance scripts cannot contain transaction controls"
+                        "Maintenance scripts cannot contain transaction controls or "
+                        "connection commands (PRAGMA, VACUUM, ATTACH, DETACH); "
+                        "run those explicitly outside the maintained script"
                     )
                 with transaction_scope(
                     self.connection,

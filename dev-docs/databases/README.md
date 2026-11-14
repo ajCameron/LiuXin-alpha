@@ -1,7 +1,13 @@
 # Databases
 
+- [November review repair contracts](review-repairs-2026-11-14.md): explicit identity
+  and preference migrations, versioned search indexes, write reservations and
+  physical-reference protection during pruning. Includes finding dispositions
+  and completed local validation.
+
 - [Module boundary and lifecycle review, 2026-11-13](module-boundary-and-lifecycle-review-2026-11-13.md):
-  SQL ownership preference, package assessment, repaired lifecycle contracts and validation.
+  SQL ownership, lifecycle repairs and the post-commit repair/reviewer handoff for
+  nested revision checks, migrated identities and failed connection closes.
 - [Custom-column ownership: LiuXin first](custom-column-ownership.md): native feature
   ownership, explicit Calibre adapters, and removed database compatibility APIs.
 
@@ -13,7 +19,7 @@ meaning belongs to metadata/Catalog; physical storage policy belongs to storage.
 ## Working guides and operational contracts
 
 - [Custom-column service contract](custom-columns.md): one native storage format,
-  Calibre compatibility facade, atomic publication and explicit retirement/purge.
+  explicit Calibre adapters, atomic publication and explicit retirement/purge.
   V1 format support has been removed.
 - [Custom-column follow-up review, 2026-11-12](custom-columns-followup-review-2026-11-12.md):
   six native/compatibility findings and their repairs, covering retirement,

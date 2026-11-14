@@ -2068,6 +2068,7 @@ class DatabaseDriver(
         table = self.direct_identify_table_from_row(row_dict)
         if table is False:
             raise InputIntegrityError("Cannot identify the row's target table")
+        conn.execute(f"LOCK TABLE {self._table_sql(table)} IN ROW EXCLUSIVE MODE").close()
         row_dict.pop("table", None)
         normalizer = None if normalizers is None else normalizers.get(table)
         if normalizer is None:
@@ -2140,12 +2141,16 @@ class DatabaseDriver(
                 f"Cannot update {table!r}: missing id column {id_column!r}"
             )
         row_id = row_dict.pop(id_column)
-        if not row_dict:
-            return True
         conn = self._primary_connection()
         try:
             with conn:
-                self._update_row_on_connection(conn, table, id_column, row_id, row_dict)
+                if not row_dict:
+                    if self._read_row_for_update(conn, table, id_column, row_id, lock_row=True) is None:
+                        raise InputIntegrityError(f"No row {row_id!r} in {table!r}")
+                else:
+                    self._update_row_on_connection(
+                        conn, table, id_column, row_id, row_dict, require_existing=True
+                    )
             self._zero_prop_cache()
             return True
         except Exception as exc:
@@ -2154,6 +2159,7 @@ class DatabaseDriver(
     def _update_row_on_connection(
         self, conn: SQLConnection, table: str, id_column: str, row_id: int,
         values: Mapping[str, Any],
+        *, require_existing: bool = False,
     ) -> None:
         """Derive keys and update a row without ending the caller's transaction.
 
@@ -2164,6 +2170,7 @@ class DatabaseDriver(
         :param values: Replacement columns; omitted values stay unchanged.
         :return: None after executing the update.
         """
+        conn.execute(f"LOCK TABLE {self._table_sql(table)} IN ROW EXCLUSIVE MODE").close()
         payload = prepare_normalized_values(
             self,
             table,
@@ -2173,10 +2180,13 @@ class DatabaseDriver(
             ),
         )
         assignments = ", ".join(f"{_q(column)} = %s" for column in payload)
-        conn.execute(
-            f"update {self._table_sql(table)} set {assignments} where {_q(id_column)} = %s",
+        with closing(conn.execute(
+            f"update {self._table_sql(table)} set {assignments} where {_q(id_column)} = %s returning {_q(id_column)}",
             (*payload.values(), row_id),
-        )
+        )) as cursor:
+            rows = cursor.fetchall()
+        if require_existing and len(rows) != 1:
+            raise InputIntegrityError(f"No row {row_id!r} in {table!r}")
 
     def direct_update_columns(
         self, id_values_map: Mapping[int, Any], field: str | None = None,

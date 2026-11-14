@@ -27,6 +27,7 @@ class DriverWrapperBase(DatabaseDriverWrapperAPI):
 
     @driver.setter
     def driver(self, driver: DatabaseDriverAPI) -> None:
+        """Bind wrapper assembly state; facade replacement must use Database.set_driver()."""
         self._driver = driver
 
     @abstractmethod

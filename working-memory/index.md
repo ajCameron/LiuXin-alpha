@@ -1,5 +1,33 @@
 # Working Memory Index
 
+Database review repairs, **2026-11-14**, complete:
+[handoff](database-review-fixes-2026-11-14.md). DBR01–DBR13 resolved at their documented
+boundaries; DBR14's concrete contract fixes are complete, with broad indexing and
+automatic dirty scheduling explicitly deferred. The local commit containing this
+note includes earlier DR01–DR03 work. Full gate: **2,425 passed**, including all
+**2,314 mandatory cases**; full quality and 96 auxiliary checks passed. PostgreSQL
+is stopped; the dirty data submodule is excluded; no push. This supersedes the
+older uncommitted statuses below.
+
+Database follow-up fixes and reviewer handoff, **2026-11-13**, complete:
+[active handoff](database-followup-fixes-2026-11-13.md). DR01–DR03 implemented:
+native nested writer reservations, identity-allocation preservation and retryable
+failed-handle ownership. Database implementation docstrings completed and native
+contracts expanded. Added 53 required cases (2,259 total); initial SQLite 34,
+PostgreSQL 23, tooling 134, documentation 22 and Core/Library eight passed.
+Full quality passed; final database gate **2,370 passed**, including **2,259/2,259
+mandatory cases**. Private PostgreSQL stopped; validation inputs, real index and
+pre-existing submodule status preserved. Ready for independent review. No commit.
+
+Database post-commit follow-up review, **2026-11-13**:
+[historical review](database-followup-review-2026-11-13.md). Reviewed `7780b7eb`.
+Three additional P2 findings: nested native writes bypass revision serialization,
+field rebuilds reuse deleted identities, and failed handle closes lose their
+facade cleanup owner. Existing focused suite: 150 passed; disposable probes
+reproduce the gaps. Review only; resolve DR01–DR03 before final sign-off.
+Documentation checks: 22 passed. PostgreSQL stopped; production code, index and
+pre-existing data-submodule changes preserved.
+
 Database/custom-column checkpoint, **2026-11-13**:
 The user authorized committing the completed native custom-column and database
 lifecycle work. This checkpoint includes the implementation, migrated callers,

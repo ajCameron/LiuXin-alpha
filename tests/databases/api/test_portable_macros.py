@@ -1271,7 +1271,7 @@ def test_temporary_value_and_id_tables_are_scoped_and_removed(macro_db):
     ).fetchone()[0] == 0
 
 
-def test_orphan_pruning_requires_real_links_and_honours_protected_ids(macro_db):
+def test_orphan_pruning_requires_real_links_and_honours_protected_ids(macro_db, monkeypatch):
     """
     Check orphan pruning requires a real link specification, preserves protected IDs, and removes eligible rows.
 
@@ -1286,8 +1286,12 @@ def test_orphan_pruning_requires_real_links_and_honours_protected_ids(macro_db):
     :return: None; failed expectations raise AssertionError.
     """
     macros, db = macro_db
+    # This harness executes SQLite, including for the PostgreSQL-shaped facade.
+    # Physical PostgreSQL locks require the separate live-backend regressions.
+    monkeypatch.delattr(db.driver, "schema", raising=False)
     spec = _strict_link_spec()
     macros.upsert_link(spec, 1, LinkValue(10, link_type="author", priority=1))
+    db.driver.conn.commit()
 
     deleted = macros.delete_unreferenced_rows(
         "left_rows",
@@ -1301,6 +1305,7 @@ def test_orphan_pruning_requires_real_links_and_honours_protected_ids(macro_db):
         macros.delete_unreferenced_rows("right_rows", ())
 
     db.driver.conn.execute("INSERT INTO left_rows(left_id, name) VALUES (4, 'four')")
+    db.driver.conn.commit()
     bulk = macros.delete_unreferenced_rows_bulk(
         (
             UnreferencedRowsSpec(

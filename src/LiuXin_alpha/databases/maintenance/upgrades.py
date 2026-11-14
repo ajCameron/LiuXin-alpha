@@ -38,6 +38,11 @@ def _plan(
     PluginDeclaration,
     PluginDeclaration,
 ]:
+    """Validate installed/attached plugin versions and derive an explicit upgrade intent.
+
+    Require an installed journal and the caller's expected prior version; reject
+    declarations changed since registration. Return the plan, optional migration
+    callback, and old/new declarations without applying the upgrade."""
     if not runtime._refresh(connection):
         raise MaintenanceFailure("Install maintenance before upgrading plugins")
     installed = runtime._installed.get(plugin_id)
@@ -274,6 +279,11 @@ def _migrate(
     previous: PluginDeclaration,
     callback: Callable[[MaintenancePluginContext, PluginDeclaration], object],
 ) -> None:
+    """Invoke an upgrade callback inside the caller's protected maintenance transaction.
+
+    Set target provenance, expose only a temporary row-SQL connection and require a
+    synchronous None result. Restore runtime state and invalidate the view even if
+    the callback fails; the owning upgrade transaction decides rollback."""
     bound = BoundConnection(connection, postgres=bool(runtime.schema))
     old = (
         getattr(runtime._local, "origin", ""),

@@ -31,6 +31,7 @@ from LiuXin_alpha.databases.db_types.macro_types import (
 from LiuXin_alpha.databases.schema_specs import StorageLinkSpec
 
 if TYPE_CHECKING:
+    from LiuXin_alpha.metadata.value_policies import ColumnNormalizationProfile
     from LiuXin_alpha.databases.api.database_api.database_api import DatabaseAPI
     from LiuXin_alpha.databases.db_types.repair_types import PhysicalReference
     from LiuXin_alpha.databases.db_types.query_types import RowPredicate
@@ -941,7 +942,7 @@ class PortableMacrosAPI(abc.ABC):
         """
 
     @abc.abstractmethod
-    def audit_normalized_identities(self) -> NormalizedIdentityMigrationReport:
+    def audit_normalized_identities(self, *, target_profiles: Mapping[tuple[str, str], ColumnNormalizationProfile] | None = None) -> NormalizedIdentityMigrationReport:
         """
         Inspect existing identity declarations for stale keys and scoped collisions.
 
@@ -963,7 +964,7 @@ class PortableMacrosAPI(abc.ABC):
         """
 
     @abc.abstractmethod
-    def migrate_normalized_identities(self) -> NormalizedIdentityMigrationReport:
+    def migrate_normalized_identities(self, *, target_profiles: Mapping[tuple[str, str], ColumnNormalizationProfile] | None = None) -> NormalizedIdentityMigrationReport:
         """
         Install identity metadata, backfill derived keys and request uniqueness indexes.
 

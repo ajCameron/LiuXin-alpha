@@ -30,6 +30,7 @@ from LiuXin_alpha.errors import DatabaseIntegrityError, InputIntegrityError
 
 
 def _q(identifier: str) -> str:
+    """Quote a validated physical identifier, escaping embedded double quotes."""
     return '"' + identifier.replace('"', '""') + '"'
 
 
@@ -71,6 +72,7 @@ def _stage(
 
 def _match(columns: Iterable[str], left: str, right: str) -> str:
     # Type-as-identity includes NULL. Endpoints on this path are integer IDs.
+    """Build NULL-safe equality for link identity columns on two trusted SQL aliases."""
     return " AND ".join(
         f"({left}.{_q(column)} = {right}.{_q(column)} OR "
         f"({left}.{_q(column)} IS NULL AND {right}.{_q(column)} IS NULL))"
@@ -279,6 +281,7 @@ def replace_links_batch(
     def payload(
         owner: int, link: LinkValue | LinkRow, *, keys_only: bool = False
     ) -> dict[str, Any]:
+        """Map a typed link into physical identity columns and, optionally, its update payload."""
         values: dict[str, Any] = {
             spec.primary_link_col: owner,
             spec.secondary_link_col: link.secondary_id,

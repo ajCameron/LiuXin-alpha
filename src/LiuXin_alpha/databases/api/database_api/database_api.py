@@ -106,6 +106,11 @@ class DatabaseAPI(
         and closed after publication; reinstalling the same driver retains its SQL
         connections. Pending primary work is never committed by replacement.
 
+        Failure before publication leaves the candidate caller-owned. Failure while
+        retiring the old driver occurs after the new binding is installed: both
+        lifetimes remain facade-owned, the concrete facade enters ``closing``, and
+        ``close()`` must be retried to finish cleanup. Do not retry replacement.
+
         Call while direct SQL users are quiescent. Managed macro transactions and
         drivers owned by another facade are rejected. Changing physical catalogues
         with owned or attached runtime services or queued work requires a separate Database.
@@ -187,7 +192,8 @@ class DatabaseAPI(
     def close(self) -> None:
         """Stop owned services before releasing their database dependencies.
 
-        Service shutdown failures propagate and retain ownership for retry. Injected
+        Service and connection shutdown failures propagate and retain ownership for
+        retry, including drivers retired by a published replacement. Injected
         storage managers remain caller-owned. Successful cleanup discards pending
         work without undoing earlier commits; repeat close is harmless.
         """
@@ -296,7 +302,9 @@ class DatabaseAPI(
 
     @abc.abstractmethod
     def __exit__(
-        self, exc_type: builtins.type[BaseException] | None, exc: BaseException | None,
+        self,
+        exc_type: builtins.type[BaseException] | None,
+        exc: BaseException | None,
         tb: TracebackType | None,
     ) -> bool:
         """

@@ -32,6 +32,12 @@ class NativeQueries:
         limit: int = 100,
         after_id: int = 0,
     ) -> Page:
+        """Return ascending owner IDs matching every supplied stored-field predicate.
+
+        Equality/membership use canonical identities; substring/prefix checks are literal
+        and case-sensitive. Collection all is non-vacuous: empty values do not match it.
+        Page limits are 1..1000 with an exclusive owner-ID cursor. Hold an outer read()
+        context when several pages must use one snapshot. Composites require Catalog."""
         if not 1 <= limit <= 1000 or after_id < 0:
             raise CustomFieldError("Page size must be 1..1000 and cursor nonnegative")
         with self.read() as conn:
@@ -138,6 +144,12 @@ class NativeQueries:
         after_id: int = 0,
         unused: bool = False,
     ) -> Page:
+        """Page distinct values with their distinct-owner counts, including retired fields.
+
+        Normalized fields use stable vocabulary IDs and can restrict results to unused
+        values. Inline fields group by canonical identity and use the smallest current
+        entry ID as the page key; unused=True is empty for those fields. A cursor is
+        exclusive and remains snapshot-relative when values change between pages."""
         if not 1 <= limit <= 1000 or after_id < 0:
             raise CustomFieldError("Page size must be 1..1000 and cursor nonnegative")
         with self.read() as conn:
@@ -166,6 +178,7 @@ class NativeQueries:
             )
 
     def usage_count(self: CustomFieldHost, field: FieldRef, value: Any) -> int:
+        """Count distinct owners using a canonical value, including a retired field's data."""
         with self.read() as conn:
             definition = self.repository.resolve(conn, field, retired=True)
             self.repository.require_native(conn, definition)
@@ -186,11 +199,16 @@ class NativeQueries:
             )
 
     def is_shared(self: CustomFieldHost, field: FieldRef, value: Any) -> bool:
+        """Report whether a canonical value is assigned to more than one owner."""
         return self.usage_count(field, value) > 1
 
     def next_series_position(
         self: CustomFieldHost, field: FieldRef, series: str
     ) -> float:
+        """Return the greatest position for a Series identity plus one, or one if absent.
+
+        This reads a suggestion, not a reservation; group dependent writes in a native
+        write context when the selection must remain stable until assignment."""
         with self.read() as conn:
             d = self.repository.resolve(conn, field)
             if d.datatype != "series":

@@ -837,7 +837,14 @@ class TestSQLiteDriverCRUD:
 
             row = conn.execute("SELECT s, l, d FROM test_adapters WHERE id=?;", (cur.lastrowid,)).fetchone()
             assert row is not None
-            s, l, d = row
+            # Raw SQL now returns JSON; explicit decoding avoids process-wide
+            # sqlite3 converter registration. Typed row APIs decode by declaration.
+            from LiuXin_alpha.databases.sqlite_values import decode_sqlite_value
+
+            s, l, d = (
+                decode_sqlite_value(value, kind)
+                for value, kind in zip(row, ("PYSET", "PYLIST", "PYDICT"), strict=True)
+            )
             assert isinstance(s, set)
             assert isinstance(l, list)
             assert isinstance(d, dict)

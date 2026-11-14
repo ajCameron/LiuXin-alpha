@@ -43,6 +43,7 @@ access; existing subsystem contracts continue to describe shipped behaviour.
 
 | Document | Latest interpretation |
 | --- | --- |
+| [Databases package review, 2026-11-14](databases-review-2026-11-14.md) | Fourteen findings, original reproductions and a dated review-of-review with corrections and repair evidence. Read the follow-up for current status; the original review did not run the test suite or live PostgreSQL. |
 | [Whole-codebase review, 2026-10-27](codebase-review-2026-10-27.md) | Assessment of the October 27 main revision, reproducible remaining defects, integration gaps and fresh validation. |
 | [CI and repository baseline, 2026-10-20](ci-baseline-2026-10-20.md) | A15 dependency/image repairs, generated scratch inventory, clean-environment verification and fresh branch-rule observations. |
 | [Whole-repository review, 2026-09-26](architecture-review-2026-09-26.md) | Original 68 findings preserved, with October 18 status tables and October 19–20 follow-ups. Read the latest note before using the original action list. |

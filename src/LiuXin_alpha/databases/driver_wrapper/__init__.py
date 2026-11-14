@@ -237,6 +237,7 @@ class DriverWrapper(
 
     @custom_tables.setter
     def custom_tables(self, value: set[str]) -> None:
+        """Attach the owning database's discovered custom-table category without changing storage."""
         self._custom_tables = value
 
     def _clear_derived_schema_caches(self) -> None:

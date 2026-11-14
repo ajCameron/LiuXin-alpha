@@ -193,8 +193,9 @@ class DatabaseDriverAPI(
     def _close_all_open_connections(self) -> None:
         """Close owned handles without committing, retaining failed closes for retry.
 
-        Built-in handles deregister on close. Detach the primary reference while
-        retaining any handle whose close raised in the driver's ownership registry.
+        Built-in handles deregister on success. Retain failed handles and the primary
+        alias if its close failed; report every error as an exception group. Returning
+        normally means there are no handles left in the ownership registry.
         """
 
     @abc.abstractmethod
@@ -418,6 +419,11 @@ class DatabaseDriverAPI(
     def close(self) -> None:
         """
         Close all known connections while retaining the driver object for reuse.
+
+        Discard pending work without committing. Attempt every owned handle, retain
+        failed ones and report incomplete shutdown; callers may retry. The shared
+        SQL implementation raises an exception group containing every close error.
+        A normal return guarantees that no owned handles remain.
 
         Abstract backend hook. The behavior below describes the shared SQL/SQLite
         implementation; this declaration itself has no operational body.

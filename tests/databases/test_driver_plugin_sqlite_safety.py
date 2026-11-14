@@ -809,7 +809,9 @@ def test_failed_close_remains_owned_for_retry(driver, monkeypatch):
         close()
 
     monkeypatch.setattr(connection, "close", fail_once)
-    driver.close()
+    with pytest.raises(ExceptionGroup, match="Failed to close") as caught:
+        driver.close()
+    assert str(caught.value.exceptions[0]) == "close interrupted"
     assert tuple(driver._open_connections) == (connection,)
     assert connection.execute("SELECT 1").fetchone() == (1,)
     driver.close()

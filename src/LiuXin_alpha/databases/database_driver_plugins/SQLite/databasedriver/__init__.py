@@ -22,7 +22,7 @@ import os
 import re
 import sqlite3
 
-from LiuXin_alpha.databases.search_functions import register_search_functions
+from LiuXin_alpha.databases.search_functions import register_search_functions, validate_search_index_semantics
 from LiuXin_alpha.databases.db_types.driver_types import SQLConnection, SQLParameters
 from LiuXin_alpha.databases.api.maintenance_api import MaintenanceCallbackSinkAPI
 from LiuXin_alpha.databases.connection_hooks import SQLiteCompletionConnection
@@ -54,7 +54,8 @@ from LiuXin_alpha.utils.logging import default_log
 from LiuXin_alpha.utils.ptempfiles import TemporaryFile
 from LiuXin_alpha.utils.localization import _
 from LiuXin_alpha.utils.libraries.liuxin_six import user_input
-from LiuXin_alpha.utils.storage.local.filenames import atomic_rename
+from LiuXin_alpha.databases.creation import replace_sqlite_file
+import shutil
 
 from LiuXin_alpha.databases.database_driver_plugins.SQL.utility_mixins import (
     SQLiteTableLinkingMixin,
@@ -77,13 +78,6 @@ from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.utils imp
     SqliteStupidConcatenate,
     register_sqlite_aggregate,
     icu_collator,
-    py_date_converter,
-    py_dict_adapter,
-    py_dict_converter,
-    py_list_adapter,
-    py_list_converter,
-    py_set_adapter,
-    py_set_converter,
     pynocase,
 )
 from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.utils import (
@@ -478,9 +472,9 @@ class DatabaseDriver(
         """
         Open, configure and track a fresh SQLite connection.
 
-        Register set/list/dict adapters and PYSET/PYLIST/PYDICT/DATE converters
-        globally, enable callback tracebacks, then open database_path with declared-type
-        parsing and check_same_thread=False. Every call opens a distinct connection,
+        Open database_path with check_same_thread=False and local JSON container
+        binding. Raw SQL returns serialized containers; schema-aware reads decode
+        their explicit declarations. Process-wide adapter/converter state is untouched. Every call opens a distinct connection,
         including an independent database for the literal :memory: path. Existing
         primary handles are not replaced.
 
@@ -525,31 +519,13 @@ class DatabaseDriver(
         it is supposed to validate. Ordinary connection setup retains its existing
         language bootstrap behavior.
         """
-        # Todo: Should only have to do all this once? Surely?
-        # Registering converter and adaptor to deal with columns containing sets
-        sqlite3.register_adapter(set, py_set_adapter)
-        sqlite3.register_converter("PYSET", py_set_converter)
-
-        # Registering converter and adaptor to deal with columns containing lists
-        sqlite3.register_adapter(list, py_list_adapter)
-        sqlite3.register_converter("PYLIST", py_list_converter)
-
-        # Registering converter and adapter to deal with columns containing dictionaries
-        sqlite3.register_adapter(dict, py_dict_adapter)
-        sqlite3.register_converter("PYDICT", py_dict_converter)
-
-        # The built in date adaptor chokes when passed a u'None' - replacing it with home brew until can properly
-        # sanitize database inputs
-        sqlite3.register_converter("DATE", py_date_converter)
-        # Enable callbacks in case of error within added functions
-        sqlite3.enable_callback_tracebacks(True)
-
         conn: SQLite_Connection | None = None
         try:
             try:
                 conn = SQLite_Connection(
                     self.database_path,
-                    detect_types=sqlite3.PARSE_DECLTYPES,
+                    timeout=5.0,
+                    detect_types=0,
                     check_same_thread=False,
                 )
 
@@ -601,6 +577,7 @@ class DatabaseDriver(
                 return reg.search(item) is not None
 
             register_search_functions(conn)
+            validate_search_index_semantics(conn)
             conn.create_function("REGEXP", 2, regexp)
 
             # Add the TREE_AGGREGATOR to the connection - allows for string representation of the position of a row in a
@@ -833,8 +810,10 @@ class DatabaseDriver(
         connections. Failed closes or surviving WAL/journal files refuse
         publication; the method never deletes a live journal to force replacement.
         The caller must coordinate exclusive access by other
-        database users. There is no automatic backup or rollback after replacement;
-        preparation and validation failures leave the original file in place.
+        database users. Before replacement, retain a verified sibling backup named
+        <database>.before-rebuild-<unique-id>.sqlite. Preparation and validation
+        failures leave the original file in place; directory-sync failures may
+        occur after publication. There is no automatic rollback after replacement.
         Temporary resources are cleaned up and rename failures attempt reopen.
 
         :param callback: Optional receiver of dumping/restoring progress messages.
@@ -941,6 +920,15 @@ class DatabaseDriver(
                     require_sqlite_replacement_ready(
                         self.database_path, self._open_connections
                     )
-                    atomic_rename(tmpdb, self.database_path)
+                    def copy_candidate(destination: os.PathLike[str]) -> None:
+                        """Copy the already validated candidate into the publication workspace."""
+                        shutil.copyfile(tmpdb, destination)
+
+                    backup = self.database_path + ".before-rebuild-" + uuid.uuid4().hex + ".sqlite"
+                    replace_sqlite_file(
+                        self.database_path, backup_path=backup,
+                        build=copy_candidate,
+                        backup_connection_factory=configured_sqlite_connection,
+                    )
                 finally:
                     self.reopen()
