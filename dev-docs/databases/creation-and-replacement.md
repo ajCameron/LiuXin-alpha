@@ -26,6 +26,8 @@ The file-driver entry point requires `set_conn=False` before
 `direct_create_new_database()`. Ordinary connections use SQLite `mode=rw`, so even
 a file disappearing after the facade's existence check cannot become an empty
 replacement. The private creation connection alone permits file creation.
+URI encoding preserves spaces, fragment characters and Windows UNC filenames;
+UNC server/share components belong to the filename, not SQLite's URI authority.
 The registry's path-level `create_new_database`
 now uses the same FRBR driver contract. Connection-level FRBR and Calibre schema
 builders remain lower-level mechanisms for caller-owned empty connections.

@@ -2499,6 +2499,10 @@
       "tests/databases/test_test_resources_manager.py::test_custom_columns_populated_db_1_provisions_series_and_scalar_variants"
     ],
     "review_closure_open_and_recovery": [
+      "tests/databases/database/database_contract/test_db_bootstrap_integrity_helpers.py::test_database_init_can_skip_bootstrap_repairs[apsw]",
+      "tests/databases/database/database_contract/test_db_bootstrap_integrity_helpers.py::test_database_init_can_skip_bootstrap_repairs[sqlite]",
+      "tests/databases/database/database_contract/test_db_bootstrap_integrity_helpers.py::test_fresh_database_bootstrap_creates_ratings_and_null_rows[apsw]",
+      "tests/databases/database/database_contract/test_db_bootstrap_integrity_helpers.py::test_fresh_database_bootstrap_creates_ratings_and_null_rows[sqlite]",
       "tests/databases/test_database_creation_safety.py::test_busy_database_backup_refuses_without_replacing_original",
       "tests/databases/test_database_creation_safety.py::test_closed_wal_database_replacement_and_backup[False]",
       "tests/databases/test_database_creation_safety.py::test_closed_wal_database_replacement_and_backup[True]",
@@ -2537,6 +2541,10 @@
       "tests/databases/test_database_creation_safety.py::test_replacement_refuses_unrecovered_sidecars[-journal]",
       "tests/databases/test_database_creation_safety.py::test_replacement_refuses_unrecovered_sidecars[-shm]",
       "tests/databases/test_database_creation_safety.py::test_replacement_refuses_unrecovered_sidecars[-wal]",
+      "tests/databases/test_database_creation_safety.py::test_sqlite_connection_uri_preserves_windows_filenames[windows-drive-False]",
+      "tests/databases/test_database_creation_safety.py::test_sqlite_connection_uri_preserves_windows_filenames[windows-drive-True]",
+      "tests/databases/test_database_creation_safety.py::test_sqlite_connection_uri_preserves_windows_filenames[windows-unc-False]",
+      "tests/databases/test_database_creation_safety.py::test_sqlite_connection_uri_preserves_windows_filenames[windows-unc-True]",
       "tests/databases/test_database_creation_safety.py::test_target_appearing_during_build_survives[apsw]",
       "tests/databases/test_database_creation_safety.py::test_target_appearing_during_build_survives[sqlite]",
       "tests/databases/test_database_creation_safety.py::test_terminal_wizard_applies_explicit_creation_policy[False]",

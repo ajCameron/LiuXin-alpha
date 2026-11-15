@@ -5,8 +5,9 @@ from __future__ import annotations
 import sqlite3
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import closing
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 from threading import Barrier
+from types import SimpleNamespace
 
 import pytest
 
@@ -116,6 +117,40 @@ def test_open_race_cannot_recreate_disappearing_file(
     with pytest.raises(DatabaseDriverError):
         _open(path, driver_spec)
     assert list(database_dir.iterdir()) == []
+
+
+@pytest.mark.parametrize("creating", [False, True])
+@pytest.mark.parametrize(
+    ("filename", "uri"),
+    [
+        (
+            r"C:\My Books\catalogue #1.sqlite",
+            "file:///C:/My%20Books/catalogue%20%231.sqlite",
+        ),
+        (
+            r"\\fileserver\My Books\catalogue #1.sqlite",
+            "file:////fileserver/My%20Books/catalogue%20%231.sqlite",
+        ),
+    ],
+    ids=["windows-drive", "windows-unc"],
+)
+def test_sqlite_connection_uri_preserves_windows_filenames(
+    filename, uri, creating, monkeypatch
+):
+    """SQLite must receive a UNC filename, not a forbidden hostname authority."""
+    from LiuXin_alpha.databases.database_driver_plugins.SQL import databasedriver
+
+    driver = databasedriver.SQLBaseDriver()
+    driver.database_path = filename
+    driver._creating_catalogue = creating
+    with monkeypatch.context() as patch:
+        patch.setattr(
+            databasedriver.pathlib,
+            "Path",
+            lambda value: SimpleNamespace(absolute=lambda: PureWindowsPath(value)),
+        )
+        actual = driver._sqlite_connection_uri()
+    assert actual == uri + ("?mode=rwc" if creating else "?mode=rw")
 
 
 def test_create_rejects_dangling_symlink(database_dir, driver_spec):

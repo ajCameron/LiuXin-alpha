@@ -80,7 +80,13 @@ class SQLBaseDriver(SQLDriverMixinState):
         if self.database_path == ":memory:":
             return self.database_path
         mode = "rwc" if self._creating_catalogue else "rw"
-        return f"{pathlib.Path(self.database_path).absolute().as_uri()}?mode={mode}"
+        uri = pathlib.Path(self.database_path).absolute().as_uri()
+        # Path.as_uri gives Windows UNC paths a hostname authority. SQLite
+        # normally rejects non-local authorities; retain //server/share as
+        # the filename instead, under an empty URI authority.
+        if not uri.startswith("file:///"):
+            uri = "file:////" + uri.removeprefix("file://")
+        return f"{uri}?mode={mode}"
 
     @property
     def macros(self) -> "DatabaseMacrosAPI":

@@ -1000,9 +1000,21 @@ with spaces, apostrophes and backslashes intact. This verifies Windows shell
 argument handling; the complete SQLite rebuild was executed on Linux, not in a
 native Windows Python environment.
 
-The complete database gate is running against a verified 4,637-file source
-snapshot with APSW and private live PostgreSQL. It requires **2,448 mandatory
-cases**, retaining all 2,401 from the preceding worktree and adding 47. It also
-preserves every requirement from the PR base `47156490`. The raw results of the
-earlier runs above remain historical evidence. PR/publication and final gate
-status will be recorded after verification; no merge is claimed.
+The final source audit also caught a Windows UNC-path issue introduced by the
+new existing-file connection mode: `Path.as_uri()` supplies a hostname authority
+that SQLite normally rejects. RR08 now encodes `//server/share` as the filename
+under an empty URI authority. Drive/UNC URI regressions cover opening and private
+creation, including escaped spaces and `#`; no live Windows network share was
+used. The 12 URI/missing-file/disappearance checks passed.
+
+The first complete-gate attempt was stopped for that correction. It had also
+identified four failures in two bootstrap tests that explicitly used
+`create=False` to create fresh catalogues. Their creation calls now use
+`create=True`; their reopening and bootstrap assertions remain intact. The
+interrupted run is diagnostic evidence, not a complete result.
+
+The corrected complete database gate will require **2,456 mandatory cases**,
+retaining all 2,401 from the preceding worktree and adding 55. It also preserves
+every requirement from the PR base `47156490`. The raw results of earlier runs
+remain historical evidence. PR/publication and final gate status will be
+recorded after verification; no merge is claimed.

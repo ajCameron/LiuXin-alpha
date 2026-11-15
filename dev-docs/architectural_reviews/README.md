@@ -43,7 +43,7 @@ access; existing subsystem contracts continue to describe shipped behaviour.
 
 | Document | Latest interpretation |
 | --- | --- |
-| [Databases package review, 2026-11-14](databases-review-2026-11-14.md) | Original findings and two independent re-reviews, followed by RR03–RR10 closure work. Recovery rendering, explicit creation, scratch isolation and generated-schema assertions are implemented; focused and quality checks pass, with the full 2,448-case mandatory gate in progress. Read the final closure follow-up for current evidence and limits. All unversioned pre-release libraries require regeneration. |
+| [Databases package review, 2026-11-14](databases-review-2026-11-14.md) | Original findings and two independent re-reviews, followed by RR03–RR10 closure work. Recovery rendering, explicit creation, scratch isolation and generated-schema assertions are implemented; focused and quality checks pass, with the full 2,456-case mandatory gate being verified. Read the final closure follow-up for current evidence and limits. All unversioned pre-release libraries require regeneration. |
 | [Whole-codebase review, 2026-10-27](codebase-review-2026-10-27.md) | Assessment of the October 27 main revision, reproducible remaining defects, integration gaps and fresh validation. |
 | [CI and repository baseline, 2026-10-20](ci-baseline-2026-10-20.md) | A15 dependency/image repairs, generated scratch inventory, clean-environment verification and fresh branch-rule observations. |
 | [Whole-repository review, 2026-09-26](architecture-review-2026-09-26.md) | Original 68 findings preserved, with October 18 status tables and October 19–20 follow-ups. Read the latest note before using the original action list. |
