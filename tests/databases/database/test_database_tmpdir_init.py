@@ -44,7 +44,7 @@ class TestDatabaseTmpDirInit:
             metadata = dict()
             metadata["database_path"] = test_db_path
 
-            with Database(metadata=metadata) as test_db:
+            with Database(metadata=metadata, create=True) as test_db:
 
                 assert test_db is not None
 
@@ -71,7 +71,7 @@ class TestDatabaseTmpDirInit:
             metadata = dict()
             metadata["database_path"] = test_db_path
 
-            with Database(metadata=metadata) as test_db:
+            with Database(metadata=metadata, create=True) as test_db:
 
                 assert test_db is not None
 

@@ -28,6 +28,7 @@ from LiuXin_alpha.databases.database_driver_plugins.PostgreSQL.databasedriver im
 from LiuXin_alpha.databases.driver_wrapper import DriverWrapper
 from LiuXin_alpha.databases.db_types.macro_types import LinkValue
 from LiuXin_alpha.databases.schema_specs import StorageColumnSpec, StorageLinkSpec
+from tests.databases.driver_fixture_schema import revision_statements
 
 
 def _live_postgres_url() -> str:
@@ -95,6 +96,9 @@ def test_portable_macros_against_live_postgres() -> None:
     try:
         with admin:
             admin.execute(f'CREATE SCHEMA "{schema}"')
+            admin.execute(f'SET search_path TO "{schema}"')
+            for statement in revision_statements():
+                admin.execute(statement)
     finally:
         admin.close()
 

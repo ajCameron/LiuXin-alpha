@@ -279,23 +279,26 @@ class DatabaseDriver(
 
     def get_connection(self) -> PostgresConnectionAdapter:
         """
-        Open, configure and register a new connection adapter.
+        Open, validate and register a connection to the configured native schema.
 
-        Set the quoted schema search_path and commit that setting before returning. The
-        caller owns closing the returned handle; registration also enables shared
-        cleanup.
+        Set the quoted schema search_path, validate its base revision, then commit this
+        connection's setup before returning. Unsupported formats fail before bootstrap.
+        The caller owns closing the returned handle; registration also enables shared
+        cleanup. Explicit schema creation owns a separate preparation connection.
 
         Example:
-            ``conn = driver.get_connection()`` returns an adapter using driver.schema.
-
+            conn = driver.get_connection() returns an admitted adapter using driver.schema.
 
         :return: New tracked PostgreSQL connection adapter.
         """
         raw = connect_postgres(self.db_metadata)
         conn = PostgresConnectionAdapter(raw)
         try:
+            from LiuXin_alpha.databases.schema_revision import validate_schema_revision
+
             with closing(conn.execute(f"set search_path to {_q(self.schema)}")):
                 pass
+            validate_schema_revision(conn, schema=self.schema)
             conn.commit()
             return self._register_open_connection(conn)
         except BaseException:
@@ -322,16 +325,17 @@ class DatabaseDriver(
 
     def exists(self) -> bool:
         """
-        Probe reachability with SELECT 1 and close the probe connection.
+        Probe admission of the configured catalogue and close the probe connection.
 
-        Return False and log redacted details on failure. This checks connectivity
-        rather than the existence or completeness of LiuXin schema tables.
+        Return False and log redacted details on connection or schema-revision failure.
+        This requires a supported catalogue; server reachability alone is insufficient.
+        It does not exhaustively validate every table, column or constraint.
 
         Example:
-            A reachable empty PostgreSQL database can return True from driver.exists().
+            A reachable but empty or unversioned schema returns False. Opening it directly
+            reports the schema-admission error; explicit creation uses its own boundary.
 
-
-        :return: Whether a new connection can execute the probe.
+        :return: Whether a new admitted connection can execute SELECT 1.
         """
         conn = None
         try:
@@ -386,8 +390,9 @@ class DatabaseDriver(
         """
         Create a new managed schema in the already configured server database.
 
-        Use the primary connection, then refresh shared property caches. This does not
-        create the server database or modify a populated schema.
+        Own a separate creation connection, then refresh shared property caches.
+        The builder checks that the schema is empty under its creation lock. Normal
+        connections require a supported revision and cannot initialize a catalogue.
 
         Example:
             Select an absent or empty dedicated schema before calling this operation.
@@ -395,8 +400,8 @@ class DatabaseDriver(
 
         :return: None; initializes schema objects and refreshes caches.
         """
-        conn = self._primary_connection()
-        create_postgres_schema(conn, schema=self.schema)
+        with closing(PostgresConnectionAdapter(connect_postgres(self.db_metadata))) as conn:
+            create_postgres_schema(conn, schema=self.schema)
         self._zero_prop_cache()
 
     def direct_replace_database(self, *, backup_path: str | PathLike[str]) -> Never:

@@ -10,15 +10,36 @@ from __future__ import annotations
 import json
 import unicodedata
 from collections.abc import Callable
+from contextlib import closing
 from typing import Protocol, runtime_checkable
+
 from LiuXin_alpha.databases.db_types.driver_types import RowSQLConnection
 from LiuXin_alpha.errors import DatabaseIntegrityError
-
 from LiuXin_alpha.metadata.identifiers import normalise_identifier_pair
 from LiuXin_alpha.metadata.text_identity import normalize_identity_text
 
 TEXT_KEY_FUNCTION = "liuxin_text_key_v1"
 IDENTIFIER_KEY_FUNCTION = "liuxin_identifier_key_v1"
+
+
+def _rebuild_command(connection: RowSQLConnection) -> str:
+    """Quote the interpreter and actual path for POSIX shells or Windows PowerShell."""
+    import os
+    import shlex
+    import sys
+
+    with closing(connection.execute("PRAGMA database_list")) as cursor:
+        path = next(
+            (row[2] for row in cursor if row[1] == "main" and row[2]),
+            "<catalogue-path>",
+        )
+    command = [
+        sys.executable, "-m", "LiuXin_alpha.databases.rebuild_search_indexes",
+        "--database-path", path,
+    ]
+    if os.name == "nt":
+        return "& " + " ".join("'" + part.replace("'", "''") + "'" for part in command)
+    return shlex.join(command)
 
 
 def search_index_semantics() -> str:
@@ -63,9 +84,14 @@ def validate_search_index_semantics(connection: RowSQLConnection) -> None:
         "SELECT search_index_metadata_version FROM search_index_metadata WHERE search_index_metadata_id=1"
     ).fetchone()
     if row is None or row[0] != search_index_semantics():
+        recorded = None if row is None else row[0]
         raise DatabaseIntegrityError(
-            "Search index semantics are unversioned or incompatible; explicitly run "
-            "rebuild_sqlite_search_indexes before opening this catalogue"
+            "Search index semantics are unversioned or incompatible: "
+            f"recorded={recorded!r}, current={search_index_semantics()!r}. "
+            "Stop all catalogue users and retain a backup, then run with the intended "
+            f"LiuXin interpreter:\n{_rebuild_command(connection)}\n"
+            "This runs rebuild_sqlite_search_indexes; "
+            "reopen only after it succeeds."
         )
 
 

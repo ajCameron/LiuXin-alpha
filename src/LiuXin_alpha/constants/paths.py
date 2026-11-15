@@ -121,7 +121,9 @@ LiuXin_calibre_config_folder = str(_CONFIG_DIR)
 config_dir = LiuXin_calibre_config_folder
 
 # Other operational folders
-LiuXin_scratch_folder = str(Path(LiuXin_base_folder) / "LiuXin_scratch")
+LiuXin_scratch_folder = str(
+    (_env_path("LIUXIN_SCRATCH_DIR") or (_BASE_DIR / "LiuXin_scratch")).resolve()
+)
 LiuXin_debug_folder = str(Path(LiuXin_base_folder) / "LiuXin_debug")
 
 # Resources folder

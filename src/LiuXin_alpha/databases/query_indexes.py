@@ -130,11 +130,13 @@ def rebuild_sqlite_search_indexes(path: str | os.PathLike[str]) -> None:
     from pathlib import Path
     from LiuXin_alpha.databases.search_functions import register_search_functions
     from LiuXin_alpha.databases.transactions import transaction_scope
+    from LiuXin_alpha.databases.schema_revision import validate_schema_revision
 
     uri = Path(path).resolve().as_uri() + "?mode=rw"
     with closing(sqlite3.connect(uri, uri=True)) as connection:
         register_search_functions(connection)
         with transaction_scope(connection, owns_transaction=True, immediate=True):
+            validate_schema_revision(connection)
             existing = connection.execute(
                 "SELECT name, sql FROM sqlite_master WHERE type='index' AND "
                 "(sql LIKE '%liuxin_text_key_%' OR sql LIKE '%liuxin_identifier_key_%')"

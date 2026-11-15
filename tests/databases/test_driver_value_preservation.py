@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 
+from tests.databases.driver_fixture_schema import revision_statements
 from tests.databases.test_driver_plugin_sqlite_safety import driver as driver
 
 TEXT_VALUES = [
@@ -72,6 +73,8 @@ def test_dump_preserves_text_across_database_encodings_and_factories(
     path = tmp_path / "encoded.sqlite"
     with closing(sqlite3.connect(path)) as source:
         source.execute(f"PRAGMA encoding='{source_encoding}'")
+        for statement in revision_statements():
+            source.execute(statement)
         source.execute('CREATE TABLE "名"(id INTEGER PRIMARY KEY,value TIMESTAMP)')
         source.execute('INSERT INTO "名" VALUES (1,?)', ("名\0📚'tail",))
         source.commit()

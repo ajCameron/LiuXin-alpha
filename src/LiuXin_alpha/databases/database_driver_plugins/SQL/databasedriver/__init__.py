@@ -69,6 +69,18 @@ class SQLBaseDriver(SQLDriverMixinState):
     _open_connections: list[SQLConnection]
     event_count: int
     _create_new_database: Callable[[SQLConnection], None]
+    _creating_catalogue: bool = False
+
+    def _sqlite_connection_uri(self) -> str:
+        """Allow file creation only for the private catalogue builder.
+
+        SQLite enforces mode=rw at open time, so a disappearing target cannot
+        become an empty file between the facade's existence check and connect.
+        """
+        if self.database_path == ":memory:":
+            return self.database_path
+        mode = "rwc" if self._creating_catalogue else "rw"
+        return f"{pathlib.Path(self.database_path).absolute().as_uri()}?mode={mode}"
 
     @property
     def macros(self) -> "DatabaseMacrosAPI":
@@ -629,8 +641,13 @@ class SQLBaseDriver(SQLDriverMixinState):
         # mixin deliberately has no constructor of its own.
         driver_type = cast("type[DatabaseDriverAPI]", type(self))
         builder = driver_type(metadata, db=None, set_conn=False)
+        builder_state = cast("SQLBaseDriver", builder)
         try:
-            conn = builder.get_connection()
+            builder_state._creating_catalogue = True
+            try:
+                conn = builder.get_connection()
+            finally:
+                builder_state._creating_catalogue = False
             self._create_new_database(conn)
             from LiuXin_alpha.utils.language_tools import (
                 ensure_languages_seeded_and_locked,

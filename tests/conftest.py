@@ -242,7 +242,7 @@ _TEST_PREFS_ROOT = Path(_TEST_PREFS_TEMP.name)
 
 def _install_test_runtime_env() -> None:
     """
-    Create process-scoped preference and configuration directories outside the checkout.
+    Create process-scoped preference, configuration and scratch directories outside the checkout.
 
     The environment defaults may still be overridden by tests that explicitly reload the
     affected configuration modules.
@@ -260,12 +260,14 @@ def _install_test_runtime_env() -> None:
     calibre_prefs_dir = prefs_dir / "calibre_prefs"
     config_dir = prefs_dir / "calibre_config"
     caches_dir = calibre_prefs_dir / "caches"
+    scratch_dir = _TEST_PREFS_ROOT / "LiuXin_scratch"
 
-    for path in (prefs_dir, calibre_prefs_dir, config_dir, caches_dir):
+    for path in (prefs_dir, calibre_prefs_dir, config_dir, caches_dir, scratch_dir):
         path.mkdir(parents=True, exist_ok=True)
 
     os.environ["LIUXIN_PREFS_DIR"] = str(prefs_dir)
     os.environ["LIUXIN_CONFIG_DIR"] = str(config_dir)
+    os.environ["LIUXIN_SCRATCH_DIR"] = str(scratch_dir)
 
 
 _install_test_runtime_env()
@@ -368,6 +370,7 @@ def _redirect_liuxin_runtime_dirs(monkeypatch: pytest.MonkeyPatch, tmp_path: Pat
 
     monkeypatch.setenv("LIUXIN_PREFS_DIR", str(prefs_dir))
     monkeypatch.setenv("LIUXIN_CONFIG_DIR", str(config_dir))
+    monkeypatch.setenv("LIUXIN_SCRATCH_DIR", str(scratch_dir))
 
     import LiuXin_alpha.constants.paths as paths_mod
     import LiuXin_alpha.startup_scripts.prefs_folder_manager as prefs_folder_manager_mod

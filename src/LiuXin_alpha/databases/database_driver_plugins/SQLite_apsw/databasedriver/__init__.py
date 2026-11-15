@@ -18,6 +18,7 @@ import sqlite3
 import re
 
 from LiuXin_alpha.databases.search_functions import register_search_functions, validate_search_index_semantics
+from LiuXin_alpha.databases.schema_revision import validate_schema_revision, validate_empty_creation_target
 from LiuXin_alpha.databases.db_types.driver_types import SQLParameters
 from LiuXin_alpha.databases.api.maintenance_api import MaintenanceCallbackSinkAPI
 from LiuXin_alpha.databases.connection_hooks import SQLiteCompletionConnection
@@ -692,45 +693,30 @@ class DatabaseDriver(
 
     def get_connection(self) -> sqlite3.Connection:
         """
-        Open, configure and track a fresh SQLite connection.
+        Open, configure and track a fresh connection to a supported native catalogue.
 
-        Open database_path with check_same_thread=False and local JSON container
-        binding. Raw SQL returns serialized containers; schema-aware reads decode
-        their explicit declarations. Process-wide adapter/converter state is untouched. Every call opens a distinct connection,
-        including an independent database for the literal :memory: path. Existing
-        primary handles are not replaced.
+        Validate the base schema revision and persisted search-index semantics before
+        language repair or maintenance setup. Unsupported or unversioned catalogues,
+        including empty files and independent :memory: databases, are refused. Creation
+        uses a separate private connection to an empty candidate.
 
-        Request foreign-key enforcement and warn if SQLite does not report it enabled.
-        Install aggregates, collations, regex/tree/sort/UUID helpers, an always-true
-        books_list_filter and maintenance callbacks. Progress callbacks are opt-in
-        through set_progress_callbacks and are installed after connection setup.
-        With no callbacks, SQLite has no Python progress handler. All three dirty
-        callbacks look up the current maintainer on each invocation, including
-        handles opened before the real maintainer replaces its startup placeholder.
-        Cross-thread access still requires caller coordination.
+        Use check_same_thread=False and local JSON container binding without changing
+        process-wide sqlite3 adapters or converters. Raw SQL returns serialized containers;
+        schema-aware reads decode explicit declarations. Install foreign-key enforcement,
+        aggregates, collations, scalar helpers and maintenance callbacks. Dirty callbacks
+        resolve the current maintainer on each invocation. Progress callbacks remain opt-in;
+        callers must still coordinate cross-thread access.
 
-        Best-effort LANGUAGE_ID registration may seed and lock an existing FRBR
-        languages table, committing changes; exceptions from that registration are
-        suppressed. Other setup failures close the new handle before propagating. The
-        opening OperationalError handler reports DatabaseDriverError with the original
-        SQLite diagnostic.
+        After admission, best-effort LANGUAGE_ID setup may seed and lock language rows.
+        Other setup failures close the new handle before propagating. Each successful call
+        returns a distinct tracked handle and leaves the primary connection unchanged.
 
         Example:
-            >>> driver = DatabaseDriver({"database_path": ":memory:"}, set_conn=False)
-            >>> conn = driver.get_connection()
-            >>> conn.get("PRAGMA foreign_keys", all=False)
-            1
-            >>> conn.get_row(
-            ...     "SELECT 'abc' REGEXP 'b', books_list_filter(999)", all=False
-            ... )
-            (1, 1)
-            >>> driver.conn is None and conn in driver._open_connections
-            True
-            >>> driver.close()
+            For a driver bound to an existing supported catalogue, get_connection() opens
+            another owned handle; close it explicitly or through the driver's cleanup.
 
-
-        :return: An open SQLite_Connection tracked for inherited driver.close; callers
-            may close it earlier and must manage their transactions.
+        :return: A configured SQLite_Connection; callers own transaction completion and
+            may close it before driver shutdown.
         """
         return self._open_connection(seed_languages=True)
 
@@ -745,7 +731,8 @@ class DatabaseDriver(
         try:
             try:
                 conn = SQLite_Connection(
-                    self.database_path,
+                    self._sqlite_connection_uri(),
+                    uri=True,
                     timeout=5.0,
                     detect_types=0,
                     check_same_thread=False,
@@ -799,6 +786,10 @@ class DatabaseDriver(
                 return reg.search(item) is not None
 
             register_search_functions(conn)
+            if getattr(self, "_creating_catalogue", False):
+                validate_empty_creation_target(conn)
+            else:
+                validate_schema_revision(conn)
             validate_search_index_semantics(conn)
             conn.create_function("REGEXP", 2, regexp)
 
@@ -1144,7 +1135,7 @@ class DatabaseDriver(
                     replace_sqlite_file(
                         self.database_path, backup_path=backup,
                         build=copy_candidate,
-                        backup_connection_factory=configured_sqlite_connection,
+                        backup_connection_factory=partial(configured_sqlite_connection, creating=True),
                     )
                 finally:
                     self.reopen()

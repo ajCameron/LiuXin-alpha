@@ -323,7 +323,7 @@ class Database(
             database when no driver is supplied.
         :param db_type: Backend registry name, default SQLite.
         :param create: Explicitly request new schema creation; existing targets are
-            rejected.
+            rejected. False requires an existing catalogue.
         :param backup: Retained compatibility argument; creation never replaces or backs
             up an existing target.
         :param existing_driver: Already constructed driver; requires metadata=None.
@@ -565,16 +565,16 @@ class Database(
         enable_maintenance: bool = False,
     ) -> None:
         """
-        Select a backend and create its schema when explicit or required for a new file.
+        Select a backend, creating its schema only when explicitly requested.
 
-        Capture path existence before opening a driver. Build missing files privately
+        Require an existing file for ordinary opens. Build new files privately
         and publish create-only, so a competing creation cannot be overwritten. Explicit
         server creation requires an absent or empty schema. Only after creation succeeds
         open the ordinary driver and attach its wrapper.
 
         Example:
-            The constructor calls this method for Database(metadata={"database_path":
-            new_path}); a missing file path triggers creation even with create=False.
+            Database(metadata={"database_path": new_path}, create=True) creates a
+            catalogue. Omitting create=True requires an existing catalogue.
 
 
         :param metadata: Connection hints, defaulting to the configured library path.
@@ -593,21 +593,21 @@ class Database(
         db_path = metadata.get("database_path")
         server_database = _metadata_uses_server_database(metadata, db_type)
         path_backed = not server_database
-        path_existed = (
-            db_path is not None
-            and bool(db_path)
+        if (
+            not create
             and path_backed
-            and db_path != ":memory:"
-            and os.path.lexists(db_path)
-        )
+            and db_path not in (None, ":memory:")
+            and not os.path.exists(db_path)
+        ):
+            raise FileNotFoundError(
+                f"Catalogue does not exist: {db_path!r}. Use create=True to create one."
+            )
 
         self.metadata = metadata
         self.type = db_type
         driver_type = load_database_driver(db_type)
 
-        if create or (
-            path_backed and not path_existed and db_path not in (None, ":memory:")
-        ):
+        if create:
             initializer = driver_type(self.metadata, self, set_conn=False)
             try:
                 initializer.direct_create_new_database()

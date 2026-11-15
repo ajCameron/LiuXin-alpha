@@ -5414,6 +5414,9 @@ class SQLPortableMacrosMixin(MacroHostState):
         :return: The initially selected candidate IDs, in ascending order.
         """
         self.lock_repair_references(table)
+        from .repair_storage import references
+
+        references(self, table, require_declared=True)
         ids = self._unreferenced_ids(
             conn,
             table,
@@ -5445,7 +5448,9 @@ class SQLPortableMacrosMixin(MacroHostState):
         membership. Require at least one supplied endpoint to reference the table.
         Protection is applied with SQL NOT IN and every discovered physical reference
         participates even when omitted from link_specs. Own a serialized outer unit;
-        nested or borrowed calls fail before effects. Delete candidates in chunks.
+        nested or borrowed calls fail before effects. Known undeclared references
+        refuse pruning until their foreign key and deletion policy are explicit.
+        Delete candidates in chunks.
 
         Example:
             ``macros.delete_unreferenced_rows("tags", (work_tag_spec,),

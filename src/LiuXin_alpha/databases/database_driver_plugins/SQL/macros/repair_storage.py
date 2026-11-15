@@ -26,6 +26,33 @@ from LiuXin_alpha.databases.db_types.repair_types import (
     repair_json_scalar,
     PhysicalReference,
 )
+from LiuXin_alpha.errors import InputIntegrityError
+
+# These live/provenance references have no declared deletion policy yet (RR05).
+# Refuse pruning their targets rather than guessing whether history can be erased.
+UNDECLARED_REFERENCE_CANDIDATES = (
+    ("annotations", "annotation_item_id", "items", "item_id"),
+    ("annotations", "annotation_device_id", "devices", "device_id"),
+    (
+        "backup_presence_links",
+        "backup_presence_link_source_file_id",
+        "files",
+        "file_id",
+    ),
+    ("backup_workflow_sources", "backup_workflow_source_file_id", "files", "file_id"),
+    (
+        "backup_workflow_sources",
+        "backup_workflow_source_store_id",
+        "stores",
+        "store_id",
+    ),
+    (
+        "backup_workflow_sources",
+        "backup_workflow_source_asset_replica_id",
+        "asset_replicas",
+        "asset_replica_id",
+    ),
+)
 
 
 def _q(name: str) -> str:
@@ -35,7 +62,9 @@ def _q(name: str) -> str:
     return '"' + name + '"'
 
 
-def references(macros: SQLPortableMacrosMixin, table: str) -> list[PhysicalReference]:
+def references(
+    macros: SQLPortableMacrosMixin, table: str, *, require_declared: bool = False
+) -> list[PhysicalReference]:
     """Inventory every physical inbound FK, including composite/external ones.
 
     Also report polymorphic entity references. Unknown polymorphic families are
@@ -134,6 +163,22 @@ def references(macros: SQLPortableMacrosMixin, table: str) -> list[PhysicalRefer
                         "target_columns": [macros._row_id_column(table, None)],
                         "external_schema": None,
                     }
+                )
+    if require_declared:
+        for source, column, target, target_column in UNDECLARED_REFERENCE_CANDIDATES:
+            if target != table or column not in columns.get(source, ()):
+                continue
+            if not any(
+                ref["kind"] == "foreign_key"
+                and not ref["external_schema"]
+                and ref["table"] == source
+                and ref["columns"] == [column]
+                and ref["target_columns"] == [target_column]
+                for ref in result
+            ):
+                raise InputIntegrityError(
+                    f"Cannot prune {table!r}: known undeclared reference "
+                    f"{source}.{column}. Declare its foreign key and deletion policy first."
                 )
     return sorted(
         result, key=lambda r: (r["external_schema"] or "", r["table"], r["columns"])

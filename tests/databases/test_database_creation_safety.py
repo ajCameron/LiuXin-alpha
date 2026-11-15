@@ -63,10 +63,9 @@ def test_core_create_rejects_existing_file(database_dir, driver_spec):
     assert path.read_bytes() == before
 
 
-@pytest.mark.parametrize("explicit", [False, True])
-def test_new_creation_and_reopen_work(database_dir, driver_spec, explicit):
+def test_new_creation_and_reopen_work(database_dir, driver_spec):
     path = database_dir / "nested" / "new.sqlite"
-    with _open(path, driver_spec, create=explicit) as database:
+    with _open(path, driver_spec, create=True) as database:
         database.driver.conn.execute("CREATE TABLE sentinel (value TEXT)")
         database.driver.conn.execute("INSERT INTO sentinel VALUES ('keep me')")
         database.driver.conn.commit()
@@ -79,6 +78,44 @@ def test_new_creation_and_reopen_work(database_dir, driver_spec, explicit):
         assert database.driver.conn.execute(
             "SELECT value FROM sentinel"
         ).fetchone() == ("keep me",)
+
+
+@pytest.mark.parametrize("route", ["database", "core", "driver"])
+def test_open_missing_catalogue_has_no_filesystem_effects(
+    database_dir, driver_spec, route
+):
+    from LiuXin_alpha.errors import DatabaseDriverError
+
+    path = database_dir / "missing.sqlite"
+    with pytest.raises((FileNotFoundError, DatabaseDriverError)):
+        if route == "database":
+            _open(path, driver_spec, create=False)
+        elif route == "core":
+            LibraryServices.open(database_path=path, db_type=driver_spec.db_type)
+        else:
+            load_database_driver(driver_spec.db_type)({"database_path": str(path)})
+    assert list(database_dir.iterdir()) == []
+
+
+def test_open_race_cannot_recreate_disappearing_file(
+    database_dir, driver_spec, monkeypatch
+):
+    from LiuXin_alpha.errors import DatabaseDriverError
+
+    path = database_dir / "disappearing.sqlite"
+    original = _sentinel(path)
+    driver_type = load_database_driver(driver_spec.db_type)
+    original_get_connection = driver_type.get_connection
+
+    def disappear(driver):
+        assert path.read_bytes() == original
+        path.unlink()
+        return original_get_connection(driver)
+
+    monkeypatch.setattr(driver_type, "get_connection", disappear)
+    with pytest.raises(DatabaseDriverError):
+        _open(path, driver_spec)
+    assert list(database_dir.iterdir()) == []
 
 
 def test_create_rejects_dangling_symlink(database_dir, driver_spec):

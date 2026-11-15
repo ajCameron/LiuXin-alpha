@@ -990,6 +990,10 @@ class _FakeDriverCursor:
         :return: Fresh list of simulated introspection rows; no result position is advanced.
         """
         lowered = self.sql.lower()
+        if "select schema_revision_id, schema_revision_revision" in lowered:
+            from LiuXin_alpha.databases.schema_revision import CURRENT_SCHEMA_REVISION
+
+            return [(1, CURRENT_SCHEMA_REVISION)]
         if "from pg_catalog.pg_index" in lowered:
             # Physical index facts: name, unique, primary, partial, predicate,
             # definition, valid, ordered key columns, ordered INCLUDE columns.

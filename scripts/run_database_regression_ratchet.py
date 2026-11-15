@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Run named database regressions; missing, skipped and xfailed cases fail the gate."""
+"""Run the whole database suite with mandatory named regression cases.
+
+Any suite failure fails the gate. Missing, skipped or xfailed mandatory cases
+also fail it, independently of the overall test count.
+"""
 
 from __future__ import annotations
 
@@ -142,13 +146,12 @@ def main(argv: list[str] | None = None) -> int:
         raise ValueError("Keep ratchet artifacts outside the checkout")
     artifacts.mkdir(parents=True, exist_ok=True)
     gate = RegressionGate(required)
-    paths = sorted({case.split("::", 1)[0] for case in required})
     # Tests already isolate preferences; scratch stays on the Linux filesystem.
     with tempfile.TemporaryDirectory(prefix="liuxin-db-ratchet-") as scratch:
         os.chdir(ROOT)
         status = pytest.main(
             [
-                *paths,
+                "tests/databases",
                 "-q",
                 "-n",
                 "0",

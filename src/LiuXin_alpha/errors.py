@@ -505,18 +505,17 @@ class DatabaseIntegrityError(LiuXinDatabaseException):
 
     def __str__(self) -> str:
         """
-        Perform the str operation under explicit file-format and conversion rules.
+        Display the message verbatim, preserving executable recovery commands.
 
         Example:
-            Exercise DatabaseIntegrityError.  str   through a consuming regression::
+            Exercise displayed recovery commands through a consuming regression::
 
-                python -m pytest -q tests/surfaces/test_surface_read_errors.py
+                python -m pytest -q tests/databases/test_database_rereview_contracts.py
 
 
-        :return: The normalized value, metadata record, path, stream result or collection
-            described above.
+        :return: Human-readable text without repr escaping.
         """
-        return repr(self.argument)  # Todo: Should be unicode
+        return str(self.argument)
 
 
 class DatabaseConstraintError(LiuXinDatabaseException):

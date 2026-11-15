@@ -94,8 +94,10 @@ def test_failed_preparation_preserves_previous_driver_and_candidate_ownership(
     )
     if failure == "schema":
         path = tmp_path / "invalid.sqlite"
+        shutil.copyfile(db.driver.database_path, path)
         with closing(sqlite3.connect(path)) as conn:
-            conn.execute("CREATE TABLE bogus (bogus_id INTEGER PRIMARY KEY)")
+            # Pass format admission, then exercise facade schema validation.
+            conn.execute("DROP TABLE database_metadata")
         new_driver = replacement(db, path)
         expected = DatabaseIntegrityError
     else:

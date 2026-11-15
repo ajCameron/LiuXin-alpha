@@ -13,6 +13,8 @@ from LiuXin_alpha.databases.creation import (
     require_no_sqlite_sidecars,
 )
 from LiuXin_alpha.databases.db_types.driver_types import SQLConnection
+from LiuXin_alpha.databases.schema_revision import validate_schema_revision
+from LiuXin_alpha.databases.search_functions import validate_search_index_semantics
 
 
 def require_idle_sqlite_connections(connections: Iterable[SQLConnection]) -> None:
@@ -62,12 +64,16 @@ def replay_sqlite_dump(connection: sqlite3.Connection, lines: Iterable[str]) -> 
 @contextmanager
 def configured_sqlite_connection(
     path: str | os.PathLike[str],
+    *,
+    creating: bool = False,
 ) -> Iterator[sqlite3.Connection]:
     """Own a configured, isolated connection for restore and integrity checking.
 
     Reuse the complete SQLite callback/collation registration rather than a
     subset that silently diverges from normal catalogue connections. This owner
     has no catalogue maintenance runtime and never borrows the caller's handle.
+    Private restore/backup targets must start empty and pass format admission
+    after population, before their caller can publish them.
     """
     from LiuXin_alpha.databases.database_driver_plugins.SQLite.databasedriver import (
         DatabaseDriver,
@@ -75,11 +81,16 @@ def configured_sqlite_connection(
 
     owner = DatabaseDriver({"database_path": str(path)}, set_conn=False)
     try:
+        owner._creating_catalogue = creating
         owner.conn = owner._open_connection(seed_languages=False)
+        owner._creating_catalogue = False
         connection = owner.conn
         if not isinstance(connection, sqlite3.Connection):
             raise TypeError("SQLite file operations require a native connection")
         yield connection
+        if creating:
+            validate_schema_revision(connection)
+            validate_search_index_semantics(connection)
     finally:
         owner.close()
 
@@ -137,7 +148,7 @@ def backup_sqlite_file(
                 reader.execute("SELECT count(*) FROM sqlite_schema")
             ) as cursor:
                 cursor.fetchone()
-            with configured_sqlite_connection(candidate) as output:
+            with configured_sqlite_connection(candidate, creating=True) as output:
                 reader.backup(output, pages=256)
                 validate_sqlite_connection(output)
 
