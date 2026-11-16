@@ -24,6 +24,8 @@ columns are open to change in review.
   A provider can import to an intermediate, export from one, or do a whole
   format-to-format job, and routes can chain.
 - **OEB and HTML are both intermediates.** More can be added by name.
+- **Routes have names**, such as `pdf.compress`. A route may start and end in
+  the same format, so compression, OCR and repair pipelines fit.
 - **Transforms** between import and export are their own capability and run in
   fixed, named stages.
 - Each run records **which provider ran on which file**, and each metadata
@@ -59,6 +61,9 @@ per call), belongs to execution and lifetime, which this proposal leaves to
 | Input and output providers chosen independently | Each with its own default settings | **Decided** |
 | Whole-conversion providers and chains | First-class, alongside import and export | **Decided** |
 | Intermediates | OEB and HTML to start; not OEB alone | **Decided** |
+| Named routes | Every route has a name; a format pair's default points at one | **Decided** |
+| Same-format routes (loop-backs) | Supported in all three forms | **Decided** |
+| Output of a same-format route | Another file for the same Manifestation, recorded as derived; the original stays | **Decided** |
 | Provenance of metadata claims | A new table | **Decided** |
 | Transforms | Own capability, run in fixed stages | **Leaning**; confirm in review |
 | calibre's newer transforms | Supported: port them into the stages | **Decided** |
@@ -169,15 +174,46 @@ Rules that keep this manageable:
 - **Intermediates are a short named list.** OEB and HTML to start. A provider
   cannot introduce one silently, so the data passed along each edge has a
   known type.
-- **Routes are curated before they are searched.** Settings hold a default
-  route per conversion. Automatic route-finding is a fallback, limited to short
-  routes, and the plan is shown before it runs.
+- **Routes are named and curated before they are searched.** A route is an
+  ordered list of providers with a name, for example `pdf.to-epub.via-html`.
+  Settings map each pair of formats to its default route. Automatic
+  route-finding is a fallback, limited to short routes, and the plan is shown
+  before it runs.
 - **Metadata travels outside the route.** It is read once from the source and
   written once to the result, so no hop in the middle has to preserve it.
 
 Later, each edge should declare what it preserves (structure, images, fixed
 layout) so that a fallback does not choose a lossy hop. That can wait until
 there are competing routes to choose between.
+
+### Same-format routes
+
+A route may end in the format it started from. Compression, OCR, repair and
+similar pipelines are routes of this kind, and all three forms are supported:
+
+| Form | Example |
+| --- | --- |
+| A `Converter` whose source and target are the same format | A PDF compressor: PDF to PDF |
+| A round trip through an intermediate | EPUB to OEB, `resources`-stage transforms such as image rescaling and font subsetting, then OEB to EPUB |
+| A chain out and back | PDF to page images, then images to PDF |
+
+Two formats no longer identify what is wanted, since PDF to PDF could mean
+compress, OCR or repair. That is why routes carry names: the request is for
+`pdf.compress`, not for a pair of formats.
+
+Rules:
+
+- **The planner never loops by itself.** Automatic route-finding skips
+  same-format edges and never revisits a format. A same-format route runs only
+  when it is requested by name.
+- **The result is a new file, never a replacement.** The original stays, in
+  line with the project's preservation principles.
+- **The new file belongs to the same Manifestation** and is recorded as
+  derived from the original through `digital_asset_derivations`. The schema's
+  comments already list derivation kinds such as `repacked` and `repaired`.
+
+OCR is a boundary case, because it adds text that was not in the source. It is
+listed under the questions for review.
 
 ## Transforms and stages
 
@@ -316,7 +352,7 @@ owners; the sketch above is input to them, not a finished design.
 | 1 | Capability base classes and a typed registry | The registry returns typed providers for a capability and format, with tests |
 | 2 | Adapter for today's plugins | Every bundled plugin is reachable through the registry and existing conversions give the same output |
 | 3 | Selection: settings default, per-run override, fallback | Two providers for one format can be chosen between, and the result names the one that ran |
-| 4 | `Converter` capability, HTML intermediate and route planning | A two-hop route runs end to end and is recorded |
+| 4 | `Converter` capability, HTML intermediate, named routes and route planning | A two-hop route and a same-format route each run by name and are recorded; automatic planning never selects a same-format edge |
 | 5 | `Transform` capability and stages, including the three calibre transforms | `Plumber.run` contains no direct transform calls, and output plugins declare their package transforms |
 | 6 | Provenance: runs written for conversions; claims tables | The run and file behind a stored author can be queried |
 
@@ -341,5 +377,8 @@ Steps 1 to 3 change no conversion behaviour. Step 5 is the largest.
 4. Should a claim be recorded for every value a reader returns, or only for
    values accepted into the catalogue?
 5. Should manual edits and online metadata sources write claims too?
+6. Is an OCR result another file for the same Manifestation, like a compressed
+   copy, or something the catalogue should distinguish?
+7. What naming scheme should routes follow?
 
 Return to the [plugins index](README.md).
