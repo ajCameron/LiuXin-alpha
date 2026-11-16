@@ -21,10 +21,18 @@ from LiuXin_alpha.databases.db_types.driver_types import QueryConnection
 # Todo: This should be more strictly typeable
 def transaction_active(connection: object) -> bool:
     """
-    Inspect supported connection state without starting or ending a transaction.
+    Inspect supported transaction state without starting or ending a SQL unit.
 
-    :param connection: SQLite, APSW or PostgreSQL handle exposing transaction state.
-    :return: Whether a transaction, including an aborted one, belongs to the caller.
+    Example:
+        >>> connection = sqlite3.connect(":memory:")  # doctest: +SKIP
+        >>> transaction_active(connection)  # doctest: +SKIP
+        False
+
+
+    :param connection: SQLite, APSW or PostgreSQL handle exposing transaction
+        state.
+    :return: True for an active or aborted unit that must remain under caller
+        control.
     :raises TypeError: The handle does not expose a supported state interface.
     """
     active = getattr(connection, "in_transaction", None)
@@ -43,21 +51,27 @@ def transaction_active(connection: object) -> bool:
 
 
 def lock_postgres_writer(connection: QueryConnection, schema: str) -> None:
-    """Reserve the cooperating writer boundary until the SQL unit completes.
+    """
+    Reserve the cooperating PostgreSQL writer boundary until its SQL unit ends.
 
-    Use the same database/schema key for outer serialized macro transactions and
-    native operations nested inside ordinary transactions. Acquire before reading
-    the revisions or schema fingerprints protected by the lock. It is reentrant
-    on the same transaction and never commits. A rollback to a savepoint may
-    release locks acquired within it, so each nested operation acquires its own
-    reservation instead of caching a Python flag.
+    Acquire the same database/schema advisory lock before reading protected
+    revisions or fingerprints. Repeated acquisition in one transaction is safe.
+    Rollback to a savepoint can release a lock acquired within that savepoint,
+    so nested operations reacquire it instead of caching a Python flag.
 
-    This is a PostgreSQL transaction advisory lock, not protection against raw SQL
-    writers that ignore the protocol. SQLite uses its native single-writer rules;
-    a stale read snapshot must fail its attempted write rather than be reused.
+    The caller supplies an active PostgreSQL transaction and owns its completion.
+    Writers issuing raw SQL outside this protocol are not serialized by it.
 
-    :param connection: Active PostgreSQL transaction owned by the calling scope.
+    Example:
+        >>> lock_postgres_writer(connection, "public")  # doctest: +SKIP
+
+
+    :param connection: Active PostgreSQL handle supporting the adapter qmark
+        syntax.
     :param schema: Physical schema shared by cooperating writers.
+    :return: None after acquiring the lock; no commit or connection close is
+        performed.
+    :raises RuntimeError: The supplied connection has no active transaction.
     """
     if not transaction_active(connection):
         raise RuntimeError("A writer reservation requires an active transaction")
@@ -72,19 +86,37 @@ def transaction_scope[ConnectionT: QueryConnection](
     connection: ConnectionT, *, owns_transaction: bool, immediate: bool = False
 ) -> Generator[ConnectionT, None, None]:
     """
-    Commit an owned unit, or isolate a nested/borrowed unit with a savepoint.
+    Commit an owned transaction or isolate a borrowed unit with a savepoint.
 
-    This never closes the connection. A connection owner must do so separately.
-    An owned unit starts BEGIN explicitly: releasing a root SQLite savepoint
-    would otherwise publish before the intended commit operation.
-    ``immediate`` reserves SQLite's writer before any read and requires ownership.
+    An owned unit requires an idle connection and explicitly starts BEGIN.
+    Successful exit flushes installed completion work and commits; body or
+    completion failure attempts rollback. immediate selects SQLite BEGIN
+    IMMEDIATE to reserve its writer before reading and requires ownership.
 
-    :param connection: Open handle whose lifetime remains with the caller.
-    :param owns_transaction: Begin and complete the whole unit when true; otherwise
-        create a savepoint inside the caller's active transaction.
-    :param immediate: Reserve SQLite's writer at BEGIN, before taking a snapshot.
-    :return: A context yielding the same connection. Successful exit commits or
-        releases its savepoint; exceptional exit rolls back its own unit.
+    A borrowed unit requires an existing transaction. It creates a savepoint,
+    flushes completion work before release, and rolls back to the savepoint on
+    failure. The outer transaction remains the caller's responsibility. Neither
+    mode closes the connection. Backend cleanup errors propagate.
+
+    Example:
+        >>> import sqlite3
+        >>> connection = sqlite3.connect(":memory:")
+        >>> with transaction_scope(connection, owns_transaction=True):
+        ...     connection.execute("CREATE TABLE example (id INTEGER)").close()
+        >>> transaction_active(connection)
+        False
+        >>> connection.close()
+
+
+    :param connection: Open handle whose lifetime remains with its supplying
+        owner.
+    :param owns_transaction: True begins/completes the whole unit; False creates
+        a savepoint in an active unit.
+    :param immediate: Use SQLite BEGIN IMMEDIATE for an owned transaction.
+    :return: A context yielding the supplied connection.
+    :raises ValueError: immediate is requested without transaction ownership.
+    :raises RuntimeError: Connection state disagrees with the requested
+        ownership.
     """
     if immediate and not owns_transaction:
         raise ValueError("An immediate unit must own its transaction")

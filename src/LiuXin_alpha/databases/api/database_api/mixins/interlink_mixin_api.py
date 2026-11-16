@@ -126,16 +126,16 @@ class DatabaseInterlinkRowsMixinAPI(abc.ABC):
 
         Example:
             For an existing agent Row, works =
-            db.get_interlinked_rows(primary_row=agent, secondary_table="works",
+            db.get_interlinked_rows(target_row=agent, secondary_table="works",
             type_filter="author") follows only author links.
 
 
-        :param primary_row: Primary endpoint; concrete Database accepts this as an alias
-            for target_row.
+        :param target_row: Primary endpoint Row; primary_row is also accepted as a
+            compatibility keyword alias.
         :param secondary_table: Required target main/helper table.
         :param type_filter: Optional exact relationship type.
-        :param kwargs: Extra implementation arguments; concrete Database also exposes
-            target_row and rejects unknown keywords.
+        :param kwargs: Optional primary_row alias, accepted only when target_row is
+            None; unknown keywords are rejected.
         :return: Endpoint Row list, descending by link priority when available; [] when
             no link table or matches exist. Missing endpoint records remain None.
         :raises TypeError: Keywords are unexpected or secondary_table is missing.

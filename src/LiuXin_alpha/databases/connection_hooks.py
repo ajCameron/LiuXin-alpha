@@ -20,9 +20,30 @@ from LiuXin_alpha.databases.sqlite_values import encode_sqlite_parameters
 class _IndexedParameters(Protocol):
     """Native SQLite also accepts indexed bindings without sequence inheritance."""
 
-    def __len__(self) -> int: ...
+    def __len__(self) -> int:
+        """
+        Report the number of indexed SQLite bindings.
 
-    def __getitem__(self, index: int, /) -> Any: ...
+        Example:
+            >>> count = len(parameters)  # doctest: +SKIP
+
+
+        :return: The binding count used by native SQLite sequence access.
+        """
+        ...
+
+    def __getitem__(self, index: int, /) -> Any:
+        """
+        Read one positional binding without requiring Sequence inheritance.
+
+        Example:
+            >>> first = parameters[0]  # doctest: +SKIP
+
+
+        :param index: Zero-based binding position.
+        :return: The parameter value at that position.
+        """
+        ...
 
 
 type SQLiteParameters = _IndexedParameters | Mapping[str, Any]
@@ -94,7 +115,20 @@ class SQLiteCompletionCursor(sqlite3.Cursor):
         return super().execute(sql, encode_sqlite_parameters(parameters))
 
     def executemany(self, sql: str, parameters: Iterable[SQLiteParameters]) -> Self:
-        """Prepare each supplied row batch before execution."""
+        """
+        Run the statement boundary hook once before executing the batch.
+
+        Encode each parameter set as it is consumed by SQLite. Transaction policy
+        belongs to the connection; this method does not create an atomic batch scope.
+
+        Example:
+            >>> cursor.executemany("INSERT INTO example(id) VALUES (?)", [(1,), (2,)])  # doctest: +SKIP
+
+
+        :param sql: Single statement accepted by sqlite3.executemany.
+        :param parameters: Iterable of indexed or named binding sets.
+        :return: This cursor after batch execution.
+        """
         before_statement(self.connection, sql)
         return super().executemany(sql, (encode_sqlite_parameters(row) for row in parameters))
 
@@ -210,7 +244,28 @@ class SQLiteCompletionConnection(sqlite3.Connection):
         factory: Callable[[sqlite3.Connection], sqlite3.Cursor]
         | None = SQLiteCompletionCursor,
     ) -> sqlite3.Cursor:
-        """Return a cursor that honors transaction completion and read boundaries."""
+        """
+        Allocate a cursor that honors statement and transaction-completion hooks.
+
+        A supplied factory must be a sqlite3.Cursor subclass, even though the native
+        signature also describes callable factories. Wrap that class when needed to
+        preserve its behavior behind the hooks. The caller closes the cursor; the
+        connection also tracks live cursors weakly for shutdown.
+
+        Example:
+            >>> connection = SQLiteCompletionConnection(":memory:")
+            >>> cursor = connection.cursor()
+            >>> isinstance(cursor, SQLiteCompletionCursor)
+            True
+            >>> cursor.close()
+            >>> connection.close()
+
+
+        :param factory: sqlite3.Cursor subclass, or None for the completion-aware
+            default.
+        :return: A new cursor owned by the caller.
+        :raises TypeError: factory is not a sqlite3.Cursor subclass.
+        """
         return super().cursor(
             _completion_cursor_factory(
                 SQLiteCompletionCursor if factory is None else factory
