@@ -18,6 +18,7 @@ import struct
 import typing as _typing
 
 from LiuXin_alpha.constants import iswindows
+from LiuXin_alpha.file_formats.archive_preflight import is_path_within
 from LiuXin_alpha.file_formats.toc import TOC
 from LiuXin_alpha.utils.calibre import guess_type as guess_mimetype
 from LiuXin_alpha.utils.libraries.calibre_chardet import xml_to_unicode
@@ -381,6 +382,17 @@ class CHMReader(CHMFile):
         for path in self.Contents():
             fpath = path.decode(enc, errors="replace") if isinstance(path, bytes) else path
             lpath = os.path.join(output_dir, fpath)
+            if ";" in lpath:
+                lpath = lpath.split(";", 1)[0]
+            if not is_path_within(output_dir, lpath):
+                # Entry names come from the CHM file. One that resolves outside the
+                # output folder would write wherever the file's author chose.
+                self._log_exception(
+                    message=f"Ignoring CHM entry {path!r}: it resolves outside the output folder",
+                    exception=ValueError("unsafe CHM entry path"),
+                    level="WARN",
+                )
+                continue
             self._ensure_dir(lpath)
 
             try:
@@ -392,9 +404,6 @@ class CHMReader(CHMFile):
                     level="WARN",
                 )
                 continue
-
-            if ";" in lpath:
-                lpath = lpath.split(";", 1)[0]
 
             try:
                 with open(lpath, "wb") as f:
