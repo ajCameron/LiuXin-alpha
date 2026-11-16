@@ -1,5 +1,9 @@
 #!/usr/bin/env python2
 # vim:fileencoding=utf-8
+# SPDX-License-Identifier: GPL-3.0-only
+# Derived from calibre (https://calibre-ebook.com): src/calibre/utils/img.py
+# Upstream: copyright 2015-2019, Kovid Goyal <kovid at kovidgoyal.net>; licence GPL v3, per calibre COPYRIGHT.
+
 # License: GPLv3 Copyright: 2015, Kovid Goyal <kovid at kovidgoyal.net>
 
 """

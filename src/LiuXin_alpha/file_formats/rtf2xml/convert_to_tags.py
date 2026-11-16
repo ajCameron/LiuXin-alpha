@@ -1,3 +1,6 @@
+# Derived from calibre (https://calibre-ebook.com): src/calibre/ebooks/rtf2xml/convert_to_tags.py
+# Upstream: copyright 2002 Paul Henry Tremblay; licence GPL (version not stated), per calibre COPYRIGHT.
+
 """
 Convert normalized RTF tokens into structured XML tags.
 

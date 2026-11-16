@@ -1,3 +1,6 @@
+# Derived from calibre (https://calibre-ebook.com): src/calibre/ebooks/rtf2xml/configure_txt.py
+# Upstream: copyright 2002 Paul Henry Tremblay; licence GPL (version not stated), per calibre COPYRIGHT.
+
 """
 Read retained RTF-to-XML configuration text.
 

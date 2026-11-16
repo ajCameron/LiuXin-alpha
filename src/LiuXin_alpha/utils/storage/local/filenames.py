@@ -1,3 +1,7 @@
+# SPDX-License-Identifier: GPL-3.0-only
+# Derived from calibre (https://calibre-ebook.com): src/calibre/utils/filenames.py
+# Upstream: copyright Kovid Goyal and calibre contributors; licence GPL v3, per calibre COPYRIGHT.
+
 """
 Normalize and validate local storage filenames and extensions.
 

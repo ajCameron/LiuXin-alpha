@@ -1,3 +1,7 @@
+# SPDX-License-Identifier: Apache-2.0
+# Derived from calibre (https://calibre-ebook.com): src/calibre/ebooks/readability/htmls.py
+# Upstream: copyright holder unknown; licence Apache 2.0, per calibre COPYRIGHT.
+
 """
 Score and normalize HTML fragments for readability extraction.
 

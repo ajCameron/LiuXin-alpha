@@ -1,3 +1,7 @@
+# SPDX-License-Identifier: GPL-3.0-only
+# Derived from calibre (https://calibre-ebook.com): src/calibre/ebooks/metadata/book/json_codec.py
+# Upstream: copyright Kovid Goyal and calibre contributors; licence GPL v3, per calibre COPYRIGHT.
+
 """
 Encode device book lists as JSON-compatible metadata and restore their typed fields.
 

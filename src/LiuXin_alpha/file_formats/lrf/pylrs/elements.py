@@ -1,3 +1,7 @@
+# SPDX-License-Identifier: GPL-3.0-only
+# Derived from calibre (https://calibre-ebook.com): src/calibre/ebooks/lrf/pylrs/elements.py
+# Upstream: copyright Kovid Goyal and calibre contributors; licence GPL v3, per calibre COPYRIGHT.
+
 """
 Define reusable XML element descriptors for LRS document construction.
 
