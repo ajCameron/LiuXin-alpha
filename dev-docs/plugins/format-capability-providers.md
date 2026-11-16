@@ -65,7 +65,11 @@ per call), belongs to execution and lifetime, which this proposal leaves to
 | Same-format routes (loop-backs) | Supported in all three forms | **Decided** |
 | Output of a same-format route | Another file for the same Manifestation, recorded as derived; the original stays | **Decided** |
 | Provenance of metadata claims | A new table | **Decided** |
-| Transforms | Own capability, run in fixed stages | **Leaning**; confirm in review |
+| Transforms | Own capability, run in fixed stages | **Decided**; how stages are added is still open |
+| Capability names; `CoverExtractor` separate from `MetadataReader` | As listed below | **Decided** |
+| Import and export classes | A separate class per intermediate | **Decided** |
+| OCR output | A separate Item of the same Manifestation | **Decided** |
+| Route names | Free-form | **Decided** |
 | calibre's newer transforms | Supported: port them into the stages | **Decided** |
 | Execution policy (in-process, worker, limits) | Decide after the architecture, possibly per plugin | **Parked** |
 
@@ -78,13 +82,19 @@ Each capability is one abstract base class with one typed entry point.
 | `MetadataReader` | a file into metadata claims | `MetadataReaderPlugin` |
 | `MetadataWriter` | metadata into a file | `MetadataWriterPlugin` |
 | `CoverExtractor` | a file into a cover image | cover logic inside readers |
-| `Importer` | a format into an intermediate | `InputFormatPlugin` |
-| `Exporter` | an intermediate into a format | `OutputFormatPlugin` |
+| `OEBImporter`, `HTMLImporter` | a format into that intermediate | `InputFormatPlugin` |
+| `OEBExporter`, `HTMLExporter` | that intermediate into a format | `OutputFormatPlugin` |
 | `Converter` | a format into a format, the whole job | nothing; new |
 | `Transform` | an intermediate into the same intermediate | calls inside `Plumber.run` and output plugins |
 
-More can be added when a real operation does not fit, for example text
-extraction for search or validation.
+Import and export have a separate class per intermediate, so a provider's
+base class states exactly what it produces or consumes. `Importer` and
+`Exporter` remain as abstract parents that carry the shared record and are
+never subclassed directly by a provider. Adding an intermediate means adding
+its pair of classes.
+
+More capabilities can be added when a real operation does not fit, for example
+text extraction for search or validation.
 
 ```python
 class Provider(ABC):
@@ -105,11 +115,19 @@ class MetadataReader(Provider):
 
 
 class Importer(Provider):
-    source_formats: ClassVar[frozenset[str]]
-    target: ClassVar[Intermediate]      # OEB or HTML
+    """Abstract parent; providers subclass one of the classes below."""
 
+    source_formats: ClassVar[frozenset[str]]
+
+
+class OEBImporter(Importer):
     @abstractmethod
-    def import_book(self, source: Path, options: Options) -> IntermediateBook: ...
+    def import_book(self, source: Path, options: Options) -> OEBBook: ...
+
+
+class HTMLImporter(Importer):
+    @abstractmethod
+    def import_book(self, source: Path, options: Options) -> HTMLBook: ...
 
 
 class Converter(Provider):
@@ -212,8 +230,10 @@ Rules:
   derived from the original through `digital_asset_derivations`. The schema's
   comments already list derivation kinds such as `repacked` and `repaired`.
 
-OCR is a boundary case, because it adds text that was not in the source. It is
-listed under the questions for review.
+OCR is different, because it adds text that was not in the source. An OCR
+result is recorded as a **separate Item of the same Manifestation**, still
+derived from the original file. Whether a compressed copy is also a separate
+Item, or a second file on the same Item, is a question for review.
 
 ## Transforms and stages
 
@@ -268,6 +288,21 @@ be ported with their upstream notices.
 
 HTML has one transform-like step today, the `HTMLPreProcessor` clean-up. Give
 HTML a single `normalise` stage and add others when something needs them.
+
+### Adding stages later
+
+Still under discussion. The aim is room to grow without building machinery
+nobody uses. Three options, from least to most flexible:
+
+| Option | How a stage is added | Trade-off |
+| --- | --- | --- |
+| A. Closed list | The stage list is one tuple per intermediate in the core; adding a stage is a reviewed core change | Simplest and fully predictable; a plugin cannot add a stage |
+| B. Closed list with slots | As A, and a transform also declares `early`, `normal` or `late` within its stage | Eighteen positions from six names, with no new concept for plugin authors |
+| C. Plugin-declared stages | A plugin registers a stage anchored before or after an existing one | Most flexible; two plugins can disagree about order, and the pipeline is harder to explain |
+
+Recommended: start with A, add B when a transform first needs to run before or
+after its stage-mates, and adopt C only if a real plugin cannot be expressed
+with B.
 
 ### Costs
 
@@ -327,9 +362,46 @@ CREATE TABLE metadata_claim_applications (
 );
 ```
 
-Manual edits and online sources can use the same tables, with a run that names
-the person or the web provider. That keeps one answer to "why does the
-catalogue say this". The schema change belongs to the
+### What a claim is, and the two open choices
+
+A **claim** is evidence: a named source said this value about this file. A
+**catalogue fact** is what the library currently holds to be true. Keeping the
+two apart is what allows the questions below to be answered:
+
+- Why does the catalogue say this? Follow the fact to its claims.
+- A reader had a bug. Which facts rest only on claims from that provider and
+  version?
+- The file, an online source and a person disagree. What did each say?
+- A better reader exists now. What would change if it were used?
+
+**Choice 1: how much to record.**
+
+| Option | Stored | Good for | Cost |
+| --- | --- | --- | --- |
+| Every value as a row | One row per field per read | Full evidence, queryable | About ten to twenty rows per file read; tens of millions of rows for a large archive |
+| Accepted values only | One row per value that reached the catalogue | Small | Rejected alternatives are lost; re-deciding means reading the files again, which is expensive when they are offline or on tape |
+| Reading kept whole, accepted values as rows | One JSON document per read, plus a row per accepted value | Full evidence kept cheaply; explanations for every stored fact | Rejected values are searchable only by opening the document |
+
+Recommended: the third. It keeps everything a reader said, at one row per
+read, and gives row-level links only where the catalogue needs them.
+
+**Choice 2: who writes claims.**
+
+If only file readers write claims, a fact with no claim is ambiguous: it could
+be a manual edit, an import or a legacy row. If manual edits and online
+sources write claims too, every fact has at least one, and a precedence rule
+becomes possible, for example a person's edit outranks an online source, which
+outranks the file. That rule is what stops a re-read from overwriting a manual
+correction.
+
+The cost is that every catalogue write path has to create a claim, which
+touches the [catalog write contract](../catalog/catalog-write-validation-contract.md).
+
+Recommended: design the tables for all three sources now, write claims from
+file readers first, and add manual edits and online sources afterwards. Until
+then a fact without a claim means "origin not recorded".
+
+The schema change belongs to the
 [databases](../databases/README.md) and [catalog](../catalog/README.md)
 owners; the sketch above is input to them, not a finished design.
 
@@ -368,17 +440,19 @@ Steps 1 to 3 change no conversion behaviour. Step 5 is the largest.
 
 ## Questions for review
 
-1. Are the seven capability names right, and is `CoverExtractor` worth
-   separating from `MetadataReader`?
-2. Are transforms confirmed as their own capability with fixed stages, and are
-   these six stage names acceptable?
-3. Should `Importer` and `Exporter` name their intermediate as a class
-   attribute, as sketched, or be separate classes per intermediate?
-4. Should a claim be recorded for every value a reader returns, or only for
-   values accepted into the catalogue?
-5. Should manual edits and online metadata sources write claims too?
-6. Is an OCR result another file for the same Manifestation, like a compressed
-   copy, or something the catalogue should distinguish?
-7. What naming scheme should routes follow?
+Answered on 2026-11-16 and folded into the text above: capability names, a
+separate class per intermediate, transforms as a staged capability, OCR output
+as a separate Item, and free-form route names.
+
+Still open:
+
+1. How are stages added later: option A, B or C under
+   [Adding stages later](#adding-stages-later)?
+2. How much of a read is recorded as claims: choice 1 under
+   [What a claim is](#what-a-claim-is-and-the-two-open-choices)?
+3. Do manual edits and online sources write claims: choice 2 in the same
+   section?
+4. Is a compressed copy a separate Item, like an OCR result, or a second file
+   on the same Item?
 
 Return to the [plugins index](README.md).
