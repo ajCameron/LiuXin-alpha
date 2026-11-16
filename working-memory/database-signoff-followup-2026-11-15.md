@@ -192,3 +192,84 @@ update PR body, preserve full gate then publish final evidence and stop own PG.
 format/lint/architecture/import/type/invalid-contract checks pass. Publishing
 consumer follow-up commit now, with112passing affected consumers. No native
 production code changed after e7b. Full7916 remains active, no failures yet.
+
+
+Published90f86685a56fcdffe33c4f959e2945e56494b24f to PR161. `gh pr edit`
+fails on retired projectCards API; body updated successfully via REST PATCH
+using /tmp/liuxin-database-signoff-pr-update.json (generated from body Markdown).
+PR remains draft. New PR run43777977612 (database133008516332,
+full133008516181); push43777974223 (confidence133008505489 alreadySUCCESS,
+database133008505313). Older e7b native CI jobs still running, not canceled.
+Private clean PR worktree advanced to90f; intentional data symlink shows type T.
+Main workspace only original user leftovers before this memory update.
+
+consumer-followup-audit.json records the ten files changed since e7b and proves
+only production change is catalog read_sources.py; tests/databases difference is
+optional PG import only. Progress monitor now counts mandatory fully passed
+setup/call/teardown separately and reports mandatory nonpass events. At1840
+completed:468/2456 mandatory passed, no violations or suite failures.
+
+
+## Native Windows follow-up — 2026-11-16, CURRENT WORK
+
+Further Windows verification found remaining UNC-authority URI constructions in
+query_indexes rebuild, creation replacement snapshot, and sqlite_files backup.
+New pure databases/sqlite_uri.py helper is now used by all four callers (including
+SQLBaseDriver existing helper). Native file access modes unchanged. Six new
+UNC-spelling/offline reader integration cases bridge to local SQLite files; they
+cover rebuild/backup/replacement under both driver names. Manifest now2462.
+No real Windows network share is claimed.
+
+Initial10-case probe99603:8passed,2failed due my test helper's positional build
+argument; fixed to build= before run finished, so trace source can show updated
+text despite old loaded code. Final owning modules now running4390,
+/tmp/liuxin-signoff-offline-operations-final.log. Quality96237 running,
+/tmp/liuxin-signoff-offline-quality.log. Collection26355 is6new cases, alladded
+to review_closure_open_and_recovery. New source helper added to format/lint scope;
+both type checkers already include databases package.
+
+Existing native Windows Python3.14.7 available via py.exe -3.14. Initial full
+creation23074 failed at creation._sync: os.fsync(rb descriptor) raisesEBADF on
+Windows. Corrected _sync to open owned temporary files r+b on Windows, rb on
+POSIX. Windows probe79816 then PASSED full creation, displayed PowerShell recovery
+on path containing spaces/apostrophe/#, reopened normalized search, and missing
+open no-effects. SQLite3.50.4, Unicode16.0.0. Artifacts are ignored
+.tmp/database-signoff-2026-11-15/windows-runtime/{probe.py,result.json}.
+Windows script-file policy remains unchanged; only inline PowerShell invokes
+Python. Isolated LIUXIN prefs/config/scratch env set per process.
+
+Additional native Windows backup/replacement probe12124 running against that
+same disposable catalogue; offline_probe.py will update result.json on success.
+
+IMPORTANT: native source now CHANGED after e7b/90f; previous claim of unchanged
+native source is historical only. Local frozen gate7916 has been interrupted,
+no full-pass claim. Confirm terminal status, then stop owned private PostgreSQL
+(only this old run still used it). New published commit needs fresh full CI gate
+requiring2462. Current old CI jobs remain running; have not canceled them.
+Need record these additional Windows findings in review/docs, finish focused and
+quality checks, commit/push new native fix, and use fresh complete CI evidence.
+
+
+Native Windows offline probe12124 completed0: standalone backup, replacement and
+reopening source/both backups preserve normalized metadata. result.json updated.
+Local gate7916 terminal1 after requested SIGINT (last preinterrupt2084completed,
+705mandatory, no failures). Private PostgreSQL stopped successfully; pg_ctl status
+exit3 confirms no server. No local PG callers remain.
+
+Review appended Native Windows closure follow-up, creation doc updated, README
+OWN database row now2462pending. Preserve unrelated user's file-formats row when
+staging README via index blob technique. PR-body /tmp Markdown updated for native
+Windows evidence and required fresh final CI, not yet published. Current source
+and docs are uncommitted above90f; new sqlite_uri.py is UNTRACKED and must be
+explicitly staged. 13 own paths expected incl README partial; old data/draft excluded.
+All2456 previous mandatory cases retained in same groups;6newofflinecases added.
+4390 and96237 still running; expected next complete focused/quality, commit/push,
+new2462-case CI gate. Earlier e7b/90f CI runs are outdated native snapshots.
+
+
+Final native Windows closure verification:4390 finished125passed in352.13s
+(exit result still to reap if necessary; log complete). Quality96237 terminal0,
+all gates passed (format381, mypy475, invalid contracts95/93). Native Windows
+probes79816/12124 terminal0. No active local PostgreSQL server. 13 ownpaths
+staged21783, README only own database row (userdraft rowunstaged). Publishing
+native URI/sync fix next; fresh fullCI2462 is still REQUIRED before sign-off.

@@ -197,6 +197,7 @@ RUFF_CMD=(
     "src/LiuXin_alpha/databases/creation.py"
     "src/LiuXin_alpha/databases/preferences.py"
     "src/LiuXin_alpha/databases/schema_revision.py"
+    "src/LiuXin_alpha/databases/sqlite_uri.py"
     "src/LiuXin_alpha/databases/rebuild_search_indexes.py"
     "tests/databases/test_database_rereview_contracts.py"
     "tests/databases/test_database_rereview_postgres_live.py"

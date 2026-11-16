@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import shutil
 import sqlite3
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import closing
@@ -151,6 +152,62 @@ def test_sqlite_connection_uri_preserves_windows_filenames(
         )
         actual = driver._sqlite_connection_uri()
     assert actual == uri + ("?mode=rwc" if creating else "?mode=rw")
+
+
+@pytest.mark.parametrize("operation", ["rebuild", "backup", "replacement"])
+def test_offline_file_operations_preserve_unc_filename(
+    database_dir, driver_spec, operation, monkeypatch
+):
+    """Exercise offline readers with UNC URI spelling and a local transport bridge."""
+    from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.sqlite_files import (
+        backup_sqlite_file,
+    )
+    from LiuXin_alpha.databases.query_indexes import rebuild_sqlite_search_indexes
+
+    source = database_dir / "catalogue #1.sqlite"
+    backup = database_dir / "backup.sqlite"
+    with _open(source, driver_spec, create=True) as database:
+        database.driver.conn.execute("CREATE TABLE sentinel (value TEXT)")
+        database.driver.conn.execute("INSERT INTO sentinel VALUES ('keep me')")
+        database.driver.conn.commit()
+
+    mode = "ro" if operation == "backup" else "rw"
+    expected = f"file:////fileserver/My%20Books/catalogue%20%231.sqlite?mode={mode}"
+    original_as_uri = Path.as_uri
+    original_connect = sqlite3.connect
+    opened = []
+
+    def as_uri(path):
+        if path == source:
+            return "file://fileserver/My%20Books/catalogue%20%231.sqlite"
+        return original_as_uri(path)
+
+    def connect(path, *args, **kwargs):
+        if path == expected:
+            opened.append(path)
+            path = f"{original_as_uri(source)}?mode={mode}"
+        return original_connect(path, *args, **kwargs)
+
+    with monkeypatch.context() as patch:
+        patch.setattr(Path, "as_uri", as_uri)
+        patch.setattr(sqlite3, "connect", connect)
+        if operation == "rebuild":
+            rebuild_sqlite_search_indexes(source)
+        elif operation == "backup":
+            backup_sqlite_file(source, backup)
+        else:
+            creation.replace_sqlite_file(
+                source,
+                build=lambda candidate: shutil.copyfile(source, candidate),
+                backup_path=backup,
+            )
+
+    assert opened == [expected]
+    for path in (source, backup) if operation != "rebuild" else (source,):
+        with _open(path, driver_spec) as database:
+            assert database.driver.conn.execute(
+                "SELECT value FROM sentinel"
+            ).fetchone() == ("keep me",)
 
 
 def test_create_rejects_dangling_symlink(database_dir, driver_spec):

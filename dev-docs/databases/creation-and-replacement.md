@@ -28,6 +28,9 @@ a file disappearing after the facade's existence check cannot become an empty
 replacement. The private creation connection alone permits file creation.
 URI encoding preserves spaces, fragment characters and Windows UNC filenames;
 UNC server/share components belong to the filename, not SQLite's URI authority.
+Normal opens, offline rebuilds, replacement snapshots and standalone backups share
+that URI encoder. Private completed files are synced through a writable descriptor
+on Windows, as required by its file-flush operation, before publication.
 The registry's path-level `create_new_database`
 now uses the same FRBR driver contract. Connection-level FRBR and Calibre schema
 builders remain lower-level mechanisms for caller-owned empty connections.

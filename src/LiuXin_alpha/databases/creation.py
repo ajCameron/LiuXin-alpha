@@ -18,6 +18,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from LiuXin_alpha.databases.search_functions import register_search_functions
+from LiuXin_alpha.databases.sqlite_uri import sqlite_file_uri
 
 
 # Todo: These could be public and - probably - in utils
@@ -53,8 +54,12 @@ def _identity(path: Path) -> tuple[int, int, int, int, int]:
 
 
 def _sync(path: Path) -> None:
-    """Flush completed file contents before publication."""
-    with path.open("rb") as stream:
+    """Flush completed file contents before publication.
+
+    Windows' CRT commit operation requires a writable descriptor. These are
+    private builder-owned files; opening read/write does not truncate them.
+    """
+    with path.open("r+b" if os.name == "nt" else "rb") as stream:
         os.fsync(stream.fileno())
 
 
@@ -152,7 +157,7 @@ def replace_sqlite_file(
             with closing(
                 # rw opens only an existing file and lets SQLite clean up its own
                 # empty WAL coordination files when this offline reader closes.
-                sqlite3.connect(f"{target.as_uri()}?mode=rw", uri=True, timeout=1)
+                sqlite3.connect(sqlite_file_uri(target, mode="rw"), uri=True, timeout=1)
             ) as source:
                 # Obtain a read lock with a bounded busy timeout before backup(),
                 # whose default busy retry loop would otherwise be unbounded.

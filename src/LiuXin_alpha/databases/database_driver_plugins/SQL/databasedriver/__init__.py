@@ -17,6 +17,7 @@ from threading import RLock
 from typing import TYPE_CHECKING, Any, Literal, TypeVar, cast
 
 from LiuXin_alpha.databases.db_types.driver_types import RowSQLConnection, SQLConnection
+from LiuXin_alpha.databases.sqlite_uri import sqlite_file_uri
 
 from LiuXin_alpha.utils.storage.local.file_backup import make_backup_path
 
@@ -79,14 +80,10 @@ class SQLBaseDriver(SQLDriverMixinState):
         """
         if self.database_path == ":memory:":
             return self.database_path
-        mode = "rwc" if self._creating_catalogue else "rw"
-        uri = pathlib.Path(self.database_path).absolute().as_uri()
-        # Path.as_uri gives Windows UNC paths a hostname authority. SQLite
-        # normally rejects non-local authorities; retain //server/share as
-        # the filename instead, under an empty URI authority.
-        if not uri.startswith("file:///"):
-            uri = "file:////" + uri.removeprefix("file://")
-        return f"{uri}?mode={mode}"
+        return sqlite_file_uri(
+            pathlib.Path(self.database_path).absolute(),
+            mode="rwc" if self._creating_catalogue else "rw",
+        )
 
     @property
     def macros(self) -> "DatabaseMacrosAPI":

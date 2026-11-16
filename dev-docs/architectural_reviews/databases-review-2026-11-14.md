@@ -1062,3 +1062,39 @@ including both type checkers and the 95/93 invalid-contract examples. This
 consumer correction is outside the frozen `e7b45407` database-run snapshot;
 the 112-test result above covers it separately. Published CI will exercise the
 combined PR tree.
+
+### Native Windows closure follow-up — 2026-11-16
+
+Actual Windows execution exposed two additional portability gaps beyond the
+independent review's probes:
+
+- The offline index rebuild, replacement snapshot and standalone backup readers
+  still used separate `Path.as_uri()` constructions. UNC filenames therefore
+  retained a hostname authority that SQLite rejects. All four URI consumers now
+  use `databases/sqlite_uri.py`, preserving their existing `ro`, `rw` and private
+  `rwc` modes. Six integration cases exercise the three offline operations under
+  both driver names, using UNC URI spelling with a local SQLite transport bridge.
+- Native Windows creation failed before publication: `os.fsync()` on the
+  read-only file descriptor raised `EBADF`. The private candidate's sync now
+  opens it read/write on Windows without truncation; POSIX retains its existing
+  read-only descriptor. The earlier Linux tests could not expose this failure.
+
+Native **Windows Python 3.14.7, SQLite 3.50.4, Unicode 16.0.0** now passes real
+catalogue creation, refusal of stale search semantics, the displayed PowerShell
+rebuild command, reopening and normalized search. The catalogue path contains
+spaces, an apostrophe and `#`. A missing-file open leaves no directories behind.
+Standalone backup and explicit replacement also pass, and both recovery backups
+reopen with the original metadata. Preferences, configuration and scratch were
+isolated under a disposable task directory. Windows execution policy was not
+changed. This supersedes the earlier shell-argument-only verification limit;
+no live Windows network share or native Windows APSW execution is claimed.
+
+These changes touch native code after `90f86685`. The earlier local full gate at
+`e7b45407` was stopped and remains diagnostic evidence, not final validation. Its
+private PostgreSQL server is stopped. The mandatory manifest now contains
+**2,462 cases**, preserving all previous requirements and adding the six offline
+URI cases. All **125 creation, recovery and restore tests** pass after these
+repairs, including the six new cases. The full quality runner also passes:
+381 formatted files, 475 files checked by mypy, both type checkers and the 95/93
+invalid-contract examples. A fresh complete gate for the updated commit remains
+required before sign-off; the focused results do not replace that result.

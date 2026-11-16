@@ -15,6 +15,7 @@ from LiuXin_alpha.databases.creation import (
 from LiuXin_alpha.databases.db_types.driver_types import SQLConnection
 from LiuXin_alpha.databases.schema_revision import validate_schema_revision
 from LiuXin_alpha.databases.search_functions import validate_search_index_semantics
+from LiuXin_alpha.databases.sqlite_uri import sqlite_file_uri
 
 
 def require_idle_sqlite_connections(connections: Iterable[SQLConnection]) -> None:
@@ -141,7 +142,7 @@ def backup_sqlite_file(
     def snapshot(candidate: Path) -> None:
         """Copy only a pinned committed snapshot and close both owned handles."""
         with closing(
-            sqlite3.connect(f"{source.as_uri()}?mode=ro", uri=True, timeout=5)
+            sqlite3.connect(sqlite_file_uri(source, mode="ro"), uri=True, timeout=5)
         ) as reader:
             reader.execute("BEGIN").close()
             with closing(

@@ -26,6 +26,7 @@ from LiuXin_alpha.databases.search_functions import (
     record_search_index_semantics,
 )
 from LiuXin_alpha.errors import DatabaseIntegrityError
+from LiuXin_alpha.databases.sqlite_uri import sqlite_file_uri
 
 
 @dataclass(frozen=True, slots=True)
@@ -132,7 +133,7 @@ def rebuild_sqlite_search_indexes(path: str | os.PathLike[str]) -> None:
     from LiuXin_alpha.databases.transactions import transaction_scope
     from LiuXin_alpha.databases.schema_revision import validate_schema_revision
 
-    uri = Path(path).resolve().as_uri() + "?mode=rw"
+    uri = sqlite_file_uri(Path(path).resolve(), mode="rw")
     with closing(sqlite3.connect(uri, uri=True)) as connection:
         register_search_functions(connection)
         with transaction_scope(connection, owns_transaction=True, immediate=True):
