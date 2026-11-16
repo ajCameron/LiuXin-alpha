@@ -1,3 +1,7 @@
+# SPDX-License-Identifier: GPL-3.0-only
+# Contains code derived from calibre (https://calibre-ebook.com): src/calibre/constants.py
+# Upstream: copyright 2015, Kovid Goyal <kovid at kovidgoyal.net>; licence GPL v3, per calibre COPYRIGHT.
+
 
 """
 Report normalized platform and operating-system capabilities.

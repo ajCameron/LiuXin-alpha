@@ -1,5 +1,9 @@
 #!/usr/bin/env python
 # vim:fileencoding=utf-8
+# SPDX-License-Identifier: GPL-3.0-only
+# Contains code derived from calibre (https://calibre-ebook.com): src/calibre/ebooks/pdf/html_writer.py
+# Upstream: copyright 2019, Kovid Goyal <kovid at kovidgoyal.net>; licence GPL v3, per calibre COPYRIGHT.
+
 
 """
 Render hierarchical book navigation as linked PDF outline entries.

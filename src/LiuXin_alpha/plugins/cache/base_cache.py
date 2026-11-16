@@ -1,3 +1,7 @@
+# SPDX-License-Identifier: GPL-3.0-only
+# Contains code derived from calibre (https://calibre-ebook.com): src/calibre/db/cache.py
+# Upstream: copyright 2011, Kovid Goyal <kovid@kovidgoyal.net>; licence GPL v3, per calibre COPYRIGHT.
+
 """
 Provide cached library metadata reads, writes and invalidation.
 
