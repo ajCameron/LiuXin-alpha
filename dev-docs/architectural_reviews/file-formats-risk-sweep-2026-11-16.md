@@ -2,11 +2,13 @@
 
 Date: 2026-11-16
 
-Status: **Open findings from a static sweep.** Nothing here is fixed.
+Status: **Open findings from a static sweep.** See the
+[follow-up](#follow-up-2026-11-16) for a correction to FFS06, three executed
+reproductions and the proposed fixes for FFS01 to FFS04.
 Source checkpoint: `main` at `2d612283`.
 
 This is the first of three passes over `src/LiuXin_alpha/file_formats` proposed
-in the global review of 2026-11-16 (task G-M4 and its follow-up): a pattern sweep for the
+in the [global review](global-review-2026-11-16.md): a pattern sweep for the
 ways a hostile input file can harm the host. Subpackage triage and deep review
 of individual formats are separate, later passes. The top-level review of
 2026-11-14 covers the sixteen top-level modules and is not repeated here.
@@ -43,7 +45,7 @@ anything private. P2 should be fixed before a release. P3 is hardening.
 | FFS03 | P2 | CHM extraction writes each entry to `output_dir` joined with the entry's own path. Only a leading `/` is removed, so `..` segments escape. Upstream: CVE-2026-25635. | Source-traced; depends on the CHM library returning such names. |
 | FFS04 | P2 | Stored conversion options are read back with `eval()`. A catalogue or defaults file from an untrusted source executes code when its options are loaded. Upstream switched to `ast.literal_eval`. | Source-traced. |
 | FFS05 | P3 | There is no shared safe XML parser. Fifteen `XMLParser` constructions and 33 default-parser calls rely on lxml 5's default to block external entities; five parsers also omit `no_network`. | Counted by AST. |
-| FFS06 | P3 | Archive extraction and ten raw `zlib`/`bz2` calls have no size limit, so a small file can exhaust scratch space or memory. | Counted by AST. |
+| FFS06 | P3 | Ten raw `zlib`/`bz2` calls and six extraction call sites have no size limit, so a small file can exhaust scratch space or memory. Corrected in the follow-up: several inputs already have a preflight. | Counted by AST. |
 | FFS07 | P2 (process) | Four of the findings above are fixed upstream. The fork has no routine for carrying calibre's security fixes forward. | Changelog comparison. |
 
 ### FFS01. Confine HTML input resources to the document root
@@ -128,17 +130,23 @@ parse of file content, and add a check that fails on a bare
 
 ### FFS06. Bound extraction and decompression
 
-`ZipFile.extractall` in `utils/libraries/calibre_zipfile.py` and
-`utils/decompression/localunzip.py` sanitise member names but place no limit on
-total size or member count. Fourteen call sites in `file_formats` extract whole
-archives. Ten call sites call `zlib.decompress` or `bz2.decompress` on data
+`file_formats/archive_preflight.py` already bounds member count, member size,
+total size and compression ratio, and the EPUB, HTMLZ, FB2, comic, DOCX and ODT
+inputs call it before extracting. The first version of this finding missed
+that module and overstated the gap.
+
+What remains: `ZipFile.extractall` itself places no limit, and six call sites
+extract without a preflight: `conversion/plugins/pml_input.py`,
+`conversion/plugins/txt_input.py`, `conversion/plugins/recipe_input.py`,
+`oeb/polish/container.py` (two calls), `tweak.py` and the developer tool
+`docx/dump.py`. Ten call sites call `zlib.decompress` or `bz2.decompress` on data
 from the file with no output limit: `lrf/meta.py:972`, `lrf/objects.py:488`,
 `mobi/utils.py:993`, `pdb/ereader/reader132.py:233`,
 `pdb/plucker/reader.py:921,1024`, `rb/reader.py:295` and
 `snb/snbfile.py:383,392,444`.
 
-The project goals call for bounded memory, scratch space and expansion. Give
-extraction a byte and member budget that fails closed, and replace one-shot
+The project goals call for bounded memory, scratch space and expansion. Route
+the remaining extraction sites through the existing preflight, and replace one-shot
 decompression with a `decompressobj` loop that stops at a limit.
 
 ### FFS07. Track upstream security fixes
@@ -201,5 +209,21 @@ fixtures. These belong to the deep pass.
    it, each with a regression test that uses a crafted input.
 3. **FFS05**, then **FFS06**, as mechanical changes behind a check.
 4. **FFS07** alongside, so the table exists before the next calibre release.
+
+## Follow-up, 2026-11-16
+
+Source checkpoint: `main` at `2d2a9cc3`.
+
+| Finding | Status | Evidence and remainder |
+| --- | --- | --- |
+| FFS01 | **open**, fix proposed in PR #168 | Reproduced: on unfixed `main`, `HTMLInput.link_to_local_path("../secret.txt")` returns the path of a file outside the document folder. |
+| FFS02 | **open**, fix proposed in PR #168 | Still source-traced. Its regression test needs `lxml` and had not been executed when this was written. |
+| FFS03 | **open**, fix proposed in PR #168 | Reproduced with a stand-in for the CHM library: entries named `../escaped.txt` and an absolute path are written outside the output folder on unfixed `main`. Whether the real library yields such names from a crafted file is not shown. |
+| FFS04 | **open**, fix proposed in PR #168 | Reproduced: on unfixed `main`, `GuiRecommendations.from_string` executes an expression that writes a file. |
+| FFS06 | **corrected** | The original text said extraction had no size limits. `archive_preflight.py` provides them for six inputs; the finding now covers only the call sites without it and the raw decompression calls. |
+
+The reproductions were run by calling the functions directly, because `pytest`
+could not be installed. They are the regression tests in
+`tests/file_formats/test_hostile_input_confinement.py` on the PR #168 branch.
 
 Return to the [architecture index](README.md).
