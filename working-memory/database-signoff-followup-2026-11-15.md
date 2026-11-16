@@ -362,3 +362,88 @@ Watcher85175 finished1 due that known failure; no longerlive. Databasejob
 Next publish test-only fixes, update PR body viaREST, inspect newfullsuite and
 2462-case nativegate. Do not signoff until those complete. User leftovers
 unchanged:dirtydata, untrackedfileformatsdraft, singleREADMEdraftrow.
+
+
+## Published consumer closure — CURRENT 2026-11-16 01:03 UTC
+
+Commit4d280147915a67fb633c89d7902512bb167fcf9e pushed to draftPR161.
+Only3testfiles+review+memory differ from native3a0e; no native/config changes.
+CurrentPRrun43783684897: fulljob133026443784, databasejob133026443867.
+Currentpushrun43783673615. Freshconfidence/quality packaging lanes starting/green.
+Previousnative3a0e PRrun43780999004 databasejob133017914846 stillrunning; keepit.
+PRbase remains47156490aa4c71fecc414f9bb237d977d5d6febc;mergeabletrue.
+PRbodyupdated viaREST with210passes and exactknown24failures beforethisrepair.
+CleanPRtreeadvanced4d280147; documentationcheck30849 terminal0,22passed20.52s,
+/tmp/liuxin-signoff-consumer-docs.log. All localtests complete; no privatePG.
+CurrentCIwatch46992 LIVE:ghpr checks161 --watch --interval45 --fail-fast,
+redirected /tmp/liuxin-signoff-final-ci-watch.log. Revalidatehandlebefore replacing.
+Only userleftovers dirty beforethismemoryappend; preserveallthreeasabove.
+
+Completion stillrequires finalnative2462-caseartifact and freshgeneral-suite
+result on4d280147. Newcurrentnativegate also running, no need torestart anything.
+Finalreview/index/PRstatus mustrecord exacttestedcommits and anydoc-onlyhead.
+Finalsourceaudit, markPRready afterevidence; no merge. Keepgoalactiveuntilthen.
+
+
+## Final native database gate PASSED — 2026-11-16 01:26 UTC
+
+3a0e22cb PRrun43780999004/job133017914846 completedSUCCESS01:24:03Z.
+Log /tmp/liuxin-signoff-ci-3a0e-database.log:5010passed104skipped26warnings
+in3034.50s. Downloaded /tmp/liuxin-ci-3a0e-native-2026-11-16/ratchet.json
+verifiedEXACT2462required/2462fullypassed, failures[], pytest_exit_code0.
+No mandatoryskip/xfail. Finalproduction source matches4d280147 (auditbelow).
+This IS final-native completeevidence; earlier e7b history no longerneeded
+to prove finalnativecoverage. Current4d general-suitejob133026443784 STILL
+running atlatestAPIread; must inspectresultbeforefinalsignoff. Current4d
+databasegate also continues, watcher46992 stilllive. Do NOT restart runs.
+
+Final-source-audit.json proves src treeaff35c7b59b0032dc7d9f8d00a2c0096583a8548
+unchanged3a0e->4d andworktree;104FRBR assertionsunchanged;2462requirements
+retained in samegroupsfrombase47156490. Whole4d delta is3testfiles+review+memory.
+Finalclosure draft /tmp/liuxin-database-final-closure-template.md and finalPR
+body /tmp/liuxin-database-final-pr-template.md exist with explicitplaceholders.
+DoNOTpublish placeholders. Filloncegeneralresultknown, thenfinalreview/index/
+memory docs-onlycommit, cleanPRdocchecks, push, RESTPRbody, markready, audit.
+Do notmerge; userdraft/data excluded. Goalactive pendinggeneralresult and
+finalpublication. Verification/completionaudit JSON updatedwithnativeevidence.
+
+
+At01:33UTC, only general-suitejob133026443784 remains required beforefinal
+review/signoff publication. API confirmedstillin_progress/fullteststep at01:32.
+Watcher46992 remainsLIVE (current4d checks; native4d also running). Final3a0e
+nativegate5010/2462alreadySUCCESSandartifactverified; do NOT waitforold e7b
+or rerun nativeimplementation merelyfordoc-onlycommit. Sourceequivalence
+3a0e->4d proven;FRBR assertionsunchangedandlocal210allpassed. Finaltemplates
+in/tmp nowcontainverified DBresult butstillgeneral/doc/source placeholders.
+Do notpublishunfilledtemplates. Allcompletedcurrent4dchecksgreen.
+No newimplementation changes; onlyownmemorydirty pluspreserveduserleftovers.
+Fullsuiteworkflow runs pytest-qtests-n0 withtelemetry; no explicitshorttimeout.
+It is stilllive, notblocked orabandoned. Keepgoalactive.
+
+
+## Both required CI results verified — CURRENT
+
+Immediately aftertheprecedingnote, APIreportedgeneraljob133026443784SUCCESS
+completed01:32:18Z. Log /tmp/liuxin-signoff-ci-4d-full.log verified9381passed,
+2199skipped,11xfail,693warningsin1870.42s. All24previousconsumerfailuresresolved.
+Finalnativegate verified5010passed and2462/2462mandatory asabove. Both required
+implementationresultspresent; no sourcechangesneeded. Reviewfinalclosure and
+OWNREADMErow nowupdated; cleanPRtreecandidate copiesexcludeuserdraftrow.
+Final22docchecks next, then docs-onlycommitreview/index/memory, push, update
+PRbodyfromtemplatewithverifiedresults andmarkready (notmerge). Finalsource
+auditmustproveonlydocsabove4d andexactnative3a0e. Thencompletegoalafter
+PRstate/evidence/preservedleftoversverified. Current4dCI database rerunmay
+stillrun; itdoesnotinvalidatecompletednativegateforidenticalsource.
+
+
+## Closing documentation validated — ready for final publication
+
+FinalcleanPRcandidate docchecks9159completed0:22passed11.86s,
+/tmp/liuxin-signoff-closing-docs.log. Review nowhascurrentstatuspointerand
+finalclosure withbothCIjoblinks/exactcounts/deferredscope. OWNindexrowupdated;
+userfileformatsdraftrowMUSTremainunstaged. ClosingcommitmustcontainONLY
+review,index(partial),thismemory. Nativeandtestcodeunchangedabove4d280147.
+Nextpush, RESTfinalPRbody, ghprready161, inspectremotehead/readiness+source
+audit+retaineduserleftovers, thencompletegoal. Current4dDBjobcontinueswhile
+the3a0ecompletegatealreadyprovesidenticalnativeimplementation; latestdoc-only
+CI mayrerunafterpublicationandisnotclaimedcomplete. No mergeauthorized.

@@ -43,7 +43,7 @@ access; existing subsystem contracts continue to describe shipped behaviour.
 
 | Document | Latest interpretation |
 | --- | --- |
-| [Databases package review, 2026-11-14](databases-review-2026-11-14.md) | RR03–RR10 closure and consumer repairs are published in draft PR #161. Native Windows execution additionally exposed offline UNC URI and file-sync gaps, now repaired and undergoing final validation. The full gate requires 2,462 mandatory cases. Read the latest follow-up for exact evidence and remaining limits. All unversioned pre-release libraries require regeneration. |
+| [Databases package review, 2026-11-14](databases-review-2026-11-14.md) | Ready for module sign-off at the documented boundaries in PR #161; not merged. The final native gate passed 5,010 tests and all 2,462 mandatory cases; the repaired general suite passed 9,381 tests. Read the final closure for skip counts, exact commits and remaining scope. Unsupported pre-release libraries require regeneration. |
 | [Whole-codebase review, 2026-10-27](codebase-review-2026-10-27.md) | Assessment of the October 27 main revision, reproducible remaining defects, integration gaps and fresh validation. |
 | [CI and repository baseline, 2026-10-20](ci-baseline-2026-10-20.md) | A15 dependency/image repairs, generated scratch inventory, clean-environment verification and fresh branch-rule observations. |
 | [Whole-repository review, 2026-09-26](architecture-review-2026-09-26.md) | Original 68 findings preserved, with October 18 status tables and October 19–20 follow-ups. Read the latest note before using the original action list. |

@@ -1,5 +1,9 @@
 # Databases package review — 2026-11-14
 
+Current status: the [final closure and module sign-off](#final-closure-and-module-sign-off--2026-11-16)
+records completed repairs, verified CI results and remaining scope. Earlier
+sections preserve the findings and evidence at their dated checkpoints.
+
 Reviewed checkpoint: the working tree on `main`, with `HEAD` at
 **`7780b7eb62020d8b1cf6891b3bb95a47d9f7fcfb`**. Uncommitted changes were not
 inspected, because no shell was available on the review machine. The top-level
@@ -1124,3 +1128,51 @@ and storage-consumer selection passed **210 tests** in 602.78 seconds. These are
 test-only repairs above `3a0e22cb`; the complete database gate for that native
 implementation continues separately. A clean general-suite result remains
 required before final sign-off.
+
+### Final closure and module sign-off — 2026-11-16
+
+The complete [native database CI gate](https://github.com/ajCameron/LiuXin-alpha/actions/runs/43780999004/job/133017914846)
+passed **5,010 tests**, with 104 nonmandatory skips and 26 warnings, in
+3,034.50 seconds. Its downloaded `ratchet.json` records **2,462 required cases,
+2,462 fully passed, no failures and pytest exit code 0**. This gate installs APSW
+and uses a live PostgreSQL 16 service. Mandatory cases passed setup, execution
+and teardown without skips or expected failures.
+
+The repaired [general PR suite](https://github.com/ajCameron/LiuXin-alpha/actions/runs/43783684897/job/133026443784)
+at `4d280147` also passed: **9,381 passes, 2,199 skips and 11 expected failures**,
+with 693 warnings, in 1,870.42 seconds. The 24 earlier consumer failures are
+resolved. This general dependency profile intentionally omits optional backends;
+it does not replace the installed-APSW/live-PostgreSQL mandatory gate above.
+The final affected FRBR/storage selection separately passed all **210 tests**
+with APSW installed. Counts from overlapping selections are not added together.
+
+The native implementation is `3a0e22cb`; `4d280147` changes only three consumer
+test files and review/memory notes. The source tree is identical. All 2,462
+mandatory cases remain assigned to their original invariants, including every
+requirement from PR base `47156490`. The FRBR assertions are unchanged.
+
+RR03–RR10 are resolved at the documented boundaries. RR01/RR02 are superseded
+by the explicit decision to regenerate unsupported pre-release catalogues; no
+conversion or old-format runtime support is promised. The original DBR repairs
+remain in force. DBR14 is still partial by design: its concrete contract defects
+are repaired, while broad comparison indexes and automatic dirty-queue scheduling
+remain separate work.
+
+The six undeclared annotation/backup references retain conservative pruning
+refusal until their owners decide deletion semantics. Broader Calibre cleanup
+outside the native custom-field feature remains in the architecture roadmap.
+Generic SQLite tools require the native custom SQL functions to maintain the
+expression indexes. Native Windows execution covered creation, recovery, backup
+and replacement; live UNC shares and native Windows APSW were not exercised.
+RR09's original remote scratch-leak caller remains unidentified; the repaired
+session/function/subprocess lifetime gap has direct regression coverage.
+
+**The module is ready for sign-off at these documented boundaries.**
+[PR #161](https://github.com/ajCameron/LiuXin-alpha/pull/161) contains the repairs
+and review record; no merge into `main` is claimed. The commit containing this
+final entry changes only review/index/memory documentation above `4d280147`.
+Any CI rerun triggered by that publication is distinct from the completed
+implementation evidence above. The full quality runner and current PR's
+architecture/type, packaging, file-format and confidence lanes also passed.
+The closing review/index candidate passed all **22 documentation navigation and
+boundary checks** in 11.86 seconds in the clean PR checkout.
