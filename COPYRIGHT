@@ -1,0 +1,85 @@
+LiuXin-alpha
+============
+
+Copyright (c) 2025-2026 ajCameron and LiuXin contributors.
+
+LiuXin-alpha as a whole is distributed under the GNU General Public License,
+version 3 (SPDX: GPL-3.0-only). The full text is in LICENSE and in
+LICENSES/GPL-3.0-only.txt. It comes with no warranty; see sections 15 and 16
+of the licence.
+
+Revisions published before 2026-11-16 carried an MIT licence file. That file
+did not reflect the GPL-licensed code already included; this notice replaces
+it from this revision onward.
+
+
+Code derived from calibre
+-------------------------
+
+A large part of src/LiuXin_alpha is derived from calibre
+(https://calibre-ebook.com), Copyright (c) 2008-2026 Kovid Goyal and the
+calibre contributors, licensed under the GNU General Public License version 3.
+
+Derived modules are identified in one of two ways:
+
+- a `__license__` / `__copyright__` pair retained from calibre, naming the
+  original author (Kovid Goyal, John Schember, Marshall T. Vandegrift and
+  others); or
+- a leading comment "Derived from calibre" or "Contains code derived from
+  calibre" naming the upstream file.
+
+dev-docs/architectural_reviews/licence-provenance-2026-11-16.csv records the
+origin of every file under src/ as assessed on that date.
+
+
+Components with their own notices
+---------------------------------
+
+These components came into the project through calibre or were bundled
+directly. Each keeps the copyright and licence stated in its own file
+headers, which take precedence over this summary.
+
+  src/LiuXin_alpha/file_formats/rtf2xml/
+      Copyright 2002 Paul Henry Tremblay. GPL (no version stated upstream).
+
+  src/LiuXin_alpha/file_formats/odf/
+      odfpy. Copyright 2006-2010 Søren Roug, European Environment Agency.
+      Licence as stated per file (GPL or LGPL).
+
+  src/LiuXin_alpha/file_formats/markdown/
+      Python-Markdown. Copyright the Python Markdown Project, Waylan Limberg
+      and others. BSD licence.
+
+  src/LiuXin_alpha/file_formats/readability/
+      Copyright holder unknown. Apache License 2.0
+      (LICENSES/Apache-2.0.txt).
+
+  src/LiuXin_alpha/file_formats/hyphenate.py
+      Ned Batchelder. Public domain.
+
+  src/LiuXin_alpha/file_formats/unihandecode/
+      Copyright 2010-2011 Hiroshi Miura. GPL version 3.
+
+  src/LiuXin_alpha/file_formats/lrf/pylrs/
+      Copyright 2007 Mike Higgins (Falstaff), with calibre modifications.
+
+  src/LiuXin_alpha/utils/libraries/liuxin_dateutil/
+      python-dateutil. Copyright 2003-2007 Gustavo Niemeyer. PSF licence.
+
+  src/LiuXin_alpha/utils/libraries/inflector/
+      Copyright 2006 Bermi Ferrer Martinez. BSD licence.
+
+  src/LiuXin_alpha/utils/decompression/rarfile/
+      Copyright 2005-2013 Marko Kreen. Licence as stated in the file headers.
+
+
+Not yet audited
+---------------
+
+The remaining bundled libraries under src/LiuXin_alpha/utils/libraries/, the
+assets under src/LiuXin_alpha/resources/calibre/ (fonts, dictionaries, images
+and templates), extensions_source.zip and the book files used as test
+fixtures each carry their own terms. They have not been individually audited;
+that work is tracked as G-L6 and G-L7 in
+dev-docs/architectural_reviews/global-review-2026-11-16.md. Until it is done,
+treat each such file as governed by its upstream licence.
