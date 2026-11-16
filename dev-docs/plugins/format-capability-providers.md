@@ -269,6 +269,30 @@ What a conversion writes, in one transaction owned by Catalog:
 4. the new Asset, with a derivation edge to the source Asset and the run that
    made it.
 
+### Consequence for calibre import
+
+The same policy gives the calibre import its default shape, as the maintainer
+noted: one calibre book becomes one Work and one Expression, and **each format
+file becomes a Manifestation of that Expression**, with its own Item and
+Asset. This may be wrong for individual books, and is acceptable as an import
+default that can be corrected afterwards.
+
+Points for the import design, which belongs with the
+[calibre mapping guide](<../calibre_compat/mapping calibre to LiuXin.md>):
+
+- calibre does not record whether a format was acquired or converted, so
+  imported Manifestations are not marked as derived. Their origin is the
+  import.
+- calibre keeps the pre-conversion file as an `ORIGINAL_<FORMAT>` entry when it
+  converts or polishes a book in place. Such a pair is the same format, so it
+  belongs to one Manifestation, with the plain entry derived from the
+  original.
+- Two formats of one calibre book can be different editions. Splitting them
+  into separate Expressions is a later, manual correction.
+- The rationale text for manifestation links in `intralink_table_requests.toml`
+  says the default is to assume everything is under one Manifestation. That
+  predates this policy and needs updating with it.
+
 The schema already has manifestation-to-manifestation links
 (`intralink_table_requests.toml`), with one type, `user_marked_different`.
 A `derived_from` type would be an addition to that declaration. Items have no
