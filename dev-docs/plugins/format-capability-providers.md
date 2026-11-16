@@ -5,6 +5,11 @@ Date: 2026-11-16
 Status: **Proposal for review. Nothing here is implemented.**
 Source checkpoint: `main` at `2d2a9cc3`.
 
+Revised later on 2026-11-16: the first draft overlooked the conversion edge
+registry, the conversion report and the planned conversion tasks that already
+exist. [What already exists](#what-already-exists) now records them, and the
+proposal is reworded to extend them instead of introducing parallel concepts.
+
 This briefing records an architecture discussion with the maintainer on
 2026-11-16. It proposes replacing the inherited one-plugin-per-format model in
 `file_formats` with typed capability providers, conversions built from
@@ -40,16 +45,40 @@ what the project can do without dropping formats.
    (`file_formats/plugin_runtime.py:756`) returns the first plugin whose
    `file_types` contains the extension. Two readers for one format cannot
    coexist as choices.
-2. **Conversion is one fixed box.** `Plumber.run`
+2. **Conversion runs as one fixed box.** `Plumber.run`
    (`file_formats/conversion/plumber.py:1549`) takes one input plugin and one
-   output plugin and always goes through OEB. A tool that performs a whole
-   conversion, or a route through HTML, has no place in it.
-3. **Nothing records what ran.** A converted file or an extracted author
-   carries no record of the plugin, version or options that produced it.
+   output plugin and always goes through OEB. The edge registry can describe a
+   whole-conversion tool or a direct edge, but nothing executes one.
+3. **Nothing durable records what ran.** A `ConversionReport` holds the edge
+   and any loss events in memory, but the conversion job does not return it
+   and nothing is stored. An extracted author carries no record of the reader
+   that produced it.
 
 A fourth, shared state on plugin instances (`site_customization` is assigned
 per call), belongs to execution and lifetime, which this proposal leaves to
 [PL-02](next_tasks.md).
+
+## What already exists
+
+The project has already started on parts of this, and the proposal builds on
+them.
+
+| Existing piece | What it does today | How this proposal uses it |
+| --- | --- | --- |
+| `ConversionEdge` and `ConversionEdgeRegistry` (`file_formats/conversion/edges.py`) | Describe a conversion from one format to another, with a kind (`oeb`, `direct` or `external`), a priority, an `intermediate_format`, an external tool name and version, and a `lossless` flag. `Plumber` records the edge for the path it runs. The [pipeline guide](<../conversion_pipeline/00 - Conversion Pipeline.md>) notes it is not yet a planner that selects and executes. | An edge is the description of one route step. The capability bases are what executes it. |
+| `ConversionReport` and `ConversionLossEvent` (`file_formats/conversion/report.py`) | Collect warnings and structured loss events for a conversion. PML, TXT, HTMLZ and comic code report through them. | The result of a route is a `ConversionReport`, extended to name the provider that ran each step. |
+| `archive_preflight.py` | Bounds member count, size and compression ratio, and rejects unsafe member names, for six inputs. | Packed intermediates are read through it. |
+| [CONV01](../conversion_pipeline/next_tasks.md) | Planned: carry the conversion report through jobs and Core, naming the selected provider and edge. | The same work as recording which provider ran. |
+| [CONV02](../conversion_pipeline/next_tasks.md) | Planned: isolate each conversion's directory. | Part of the parked execution policy. |
+| [CONV03](../conversion_pipeline/next_tasks.md) | Planned: give the edge registry one real consumer, with no empty planner abstraction. | The first `Converter` and the first named route are that consumer. The proving routes below follow the same rule. |
+
+How the pieces line up:
+
+- An `oeb` edge is an `OEBImporter`, the OEB transforms and an `OEBExporter`.
+- A `direct` or `external` edge is a `Converter`.
+- `intermediate_format` is `oeb` today and gains `html`.
+- A named route is an ordered list of edges. The registry describes one edge
+  per pair of formats now; routes extend that to sequences.
 
 ## Decisions so far
 
@@ -73,7 +102,7 @@ per call), belongs to execution and lifetime, which this proposal leaves to
 | OCR output | A separate Item of the same Manifestation | **Decided** |
 | Route names | Free-form | **Decided** |
 | Transform classes | One per intermediate: `OEBTransform`, `HTMLTransform` | **Decided** |
-| HTML intermediate | Defined as a concrete type, also usable to represent HTML documents | **Decided**; definition below is a proposal |
+| HTML intermediate | Defined as a concrete type, also usable to represent HTML documents, carrying page titles and a table of contents | **Decided**; the [specification](../file_formats/html-book-spec.md) is a draft for review |
 | Intermediates on disk | Each has a saved form with load and save; an intermediate is a valid start or end of a route | **Decided** |
 | calibre's newer transforms | Supported: port them into the stages | **Decided** |
 | Execution policy (in-process, worker, limits) | Decide after the architecture, possibly per plugin | **Parked** |
@@ -89,7 +118,7 @@ Each capability is one abstract base class with one typed entry point.
 | `CoverExtractor` | a file into a cover image | cover logic inside readers |
 | `OEBImporter`, `HTMLImporter` | a format into that intermediate | `InputFormatPlugin` |
 | `OEBExporter`, `HTMLExporter` | that intermediate into a format | `OutputFormatPlugin` |
-| `Converter` | a format into a format, the whole job | nothing; new |
+| `Converter` | a format into a format, the whole job | nothing executes one; `direct` and `external` edges describe it |
 | `OEBTransform`, `HTMLTransform` | that intermediate into itself | calls inside `Plumber.run` and output plugins |
 
 Import, export and transform have a separate class per intermediate, so a
@@ -175,74 +204,25 @@ file-based `Converter` can hand its output to an exporter:
 
 ### The HTML intermediate
 
-Proposed definition, checked against `html/input.py`, `html_input.py`,
-`htmlz_input.py`, `htmlz_output.py` and `html_output.py`. It is to be settled
-before `HTMLImporter` and `HTMLExporter` have real signatures.
+`HTMLBook` describes a set of HTML pages and their resources in one folder.
+The [HTMLBook specification](../file_formats/html-book-spec.md) is the full
+definition; this is a summary.
 
-```python
-@dataclass(frozen=True)
-class HTMLPage:
-    path: PurePosixPath     # relative to the book's root
-    encoding: str           # as declared or detected for this page
-
-
-@dataclass(frozen=True)
-class HTMLBook:
-    root: Path                              # folder that contains everything
-    entry: PurePosixPath                    # the page a reader opens first
-    pages: tuple[HTMLPage, ...]             # reading order, entry first
-    resources: tuple[PurePosixPath, ...]    # images, styles, fonts, scripts
-    cover: PurePosixPath | None = None      # one of the resources
-    metadata: PurePosixPath | None = None   # an OPF sidecar, if the source had one
-```
-
-Rules:
-
-- **It describes a folder and never changes it.** An `HTMLTransform` writes a
-  new folder and returns a new `HTMLBook`. This is what lets the same type
-  describe a document the library holds, where the original must not be
-  rewritten.
-- **Every path is relative to `root` and must resolve inside it.** This is the
-  confinement rule from the HTML input fix for finding FFS01 in the
-  `file_formats` risk sweep of 2026-11-16, applied to the type.
-- **Encoding is recorded per page.** Today each `HTMLFile` detects its own
-  encoding, and old HTML is often not UTF-8. Re-encoding to UTF-8 is a
-  `normalise`-stage transform; HTMLZ input already does it before handing the
-  page on.
-- **Reading order is a choice, and the rule is stated.** HTML has links, not a
-  sequence. `html_input` derives an order by following links from the entry
-  page, depth first by default and breadth first as an option, to a maximum
-  depth. `pages` holds the result of that rule.
-- **Loading needs an entry page.** It is given explicitly, or found by the
-  existing heuristic in `Plumber.find_html_index`: a page named `toc` or
-  `index`, otherwise the largest HTML file. A load reports when it guessed.
-- **Remote references are not part of the book.** A load reports them, so a
-  caller can tell whether the book is complete on disk.
-
-Two things are deliberately left out. Page titles and a table of contents are
-derived from the pages when needed, as `html_input` does now. Link case
-mismatches, which `html_input` tolerates on case-insensitive filesystems, are
-the importer's concern.
-
-**HTMLZ is a narrower profile, not the general packed form.** It holds one
-top-level HTML page with its resources, a cover and a `metadata.opf`; its input
-plugin warns and uses a single page if it finds more. A multi-page book packs
-as a plain ZIP. The `cover` and `metadata` fields exist so that an HTMLZ can be
-loaded and saved without losing those two files.
-
-**How it differs from OEB.** `OEBBook` is parsed content held in memory.
-`HTMLBook` is a description of files on disk. A file-based `Converter` can
-therefore use an `HTMLBook`'s folder directly, and loading or saving one is
-cheap. OEB is the intermediate for work on the book's structure; HTML is the
-one that external tools can read and write.
-
-**Holding HTML documents in the library.** The storage schema already has
-composite assets for multi-file assemblies, whose membership carries a
-sequence number, a required flag and a role. An HTML document maps onto that:
-pages are ordered, required members and resources are further members. An
-`HTMLBook` would then be the in-code description of such a composite, for
-example a page acquired by web ingest. This is a suggestion for the
-[storage](../storage_and_backup/README.md) owner, not a decided design.
+- It holds a root folder, an entry page, the pages in reading order (each with
+  its encoding and title), the resources, a table of contents, and an optional
+  cover and metadata sidecar.
+- It describes a folder and never changes it. An `HTMLTransform` writes a new
+  folder and returns a new `HTMLBook`.
+- Every path is relative to the root and must resolve inside it.
+- Its saved forms are a folder and a ZIP. HTMLZ is a narrower profile holding
+  a single page.
+- `OEBBook` is parsed content held in memory; `HTMLBook` is a description of
+  files on disk. A file-based `Converter` can therefore use its folder
+  directly.
+- The same type can describe an HTML document the library holds, for example
+  a page acquired by web ingest. The storage schema's composite assets are a
+  natural home for one; that is a suggestion for the
+  [storage](../storage_and_backup/README.md) owner, not a decided design.
 
 ## Registration
 
@@ -272,7 +252,9 @@ The result always states which provider ran and which were tried first.
 ## Conversion as a route
 
 Treat every format and every intermediate as a node, and every conversion
-provider as an edge between two nodes.
+provider as an edge between two nodes. This is the graph that
+`conversion/edges.py` already models; what is added is a provider that
+executes each edge, and routes made of more than one edge.
 
 ```mermaid
 flowchart LR
@@ -304,9 +286,10 @@ Rules that keep this manageable:
   `Converter` steps it is written to the result at the end by a
   `MetadataWriter`. No provider in the middle has to preserve it.
 
-Later, each edge should declare what it preserves (structure, images, fixed
-layout) so that a fallback does not choose a lossy hop. That can wait until
-there are competing routes to choose between.
+Edges already carry a `lossless` flag. Later, each edge should declare what
+it preserves (structure, images, fixed layout) so that a fallback does not
+choose a lossy hop. That can wait until there are competing routes to choose
+between.
 
 ### Same-format routes
 
@@ -593,8 +576,8 @@ owners; the sketch above is input to them, not a finished design.
 | --- | --- | --- |
 | 1 | Capability base classes and a typed registry | The registry returns typed providers for a capability and format, with tests |
 | 2 | Adapter for today's plugins | Every bundled plugin is reachable through the registry and existing conversions give the same output |
-| 3 | Selection: settings default, per-run override, fallback | Two providers for one format can be chosen between, and the result names the one that ran |
-| 4 | `Converter` capability, the `HTMLBook` type with load and save, named routes and route planning | A two-hop route and a same-format route each run by name and are recorded; automatic planning never selects a same-format edge |
+| 3 | Selection: settings default, per-run override, fallback; the report names the provider (CONV01) | Two providers for one format can be chosen between, and the result names the one that ran |
+| 4 | `Converter` capability on one real direct or external edge (CONV03), the `HTMLBook` type with load and save, named routes and route planning | A two-hop route and a same-format route each run by name and are recorded; automatic planning never selects a same-format edge |
 | 5 | `Transform` capability and stages, including the three calibre transforms | `Plumber.run` contains no direct transform calls, and output plugins declare their package transforms |
 | 6 | Provenance: runs written for conversions; claims tables | The run and file behind a stored author can be queried |
 
@@ -616,7 +599,9 @@ run without a special case, the bases are right:
   It may differ per plugin and may need more base classes.
 - **Typed options.** Replacing `OptionRecommendation` sets with a validated
   schema per provider, stored as JSON.
-- **Loss declarations** on conversion edges.
+- **Richer loss declarations.** Edges already carry a `lossless` flag and
+  reports already carry loss events. Declaring what each edge preserves
+  (structure, images, fixed layout) is later work.
 
 ## Questions for review
 
