@@ -1018,3 +1018,47 @@ retaining all 2,401 from the preceding worktree and adding 55. It also preserves
 every requirement from the PR base `47156490`. The raw results of earlier runs
 remain historical evidence. PR/publication and final gate status will be
 recorded after verification; no merge is claimed.
+
+### PR consumer follow-up — 2026-11-15
+
+Closure commits `1b4c450a` and `e7b45407` are published in
+[draft PR #161](https://github.com/ajCameron/LiuXin-alpha/pull/161), together with
+the three preceding database commits. They are not merged into `main`.
+The corrected bootstrap module passed all **34 tests**. The clean PR checkout,
+without the unrelated file-formats draft link, passed **92 documentation,
+tooling and scratch checks**. The full quality runner passed again after the
+UNC correction.
+
+CI exposed two consumer problems outside the original re-review probes: metadata
+test doubles inferred `items` for `item_identifiers`, and the general suite could
+not collect one PostgreSQL module without its optional driver. The doubles now
+identify declared schemas and explicitly declare their edge-case columns. The
+PostgreSQL module uses `pytest.importorskip`; the dedicated database ratchet still
+requires its cases to execute. The absent-dependency probe passed, and all **nine
+live PostgreSQL tests** passed with the driver installed. The local confidence
+stream passed **313 tests**, with three nonmandatory skips.
+
+The wider consumer check also exposed a real metadata adapter regression: cached
+association records were wrapped as `Row` objects, but the cache's advertised
+schema contains main tables. Strict row validation then rejected those records,
+and hydration lost their relationships. The adapter now preserves the immutable
+link mappings already permitted by `MetadataLinkRowSequence`. The regression
+uses physical association columns and disables database fallback. This repair
+belongs to the catalog adapter; native database validation remains strict.
+
+One integration test selected an old unversioned prebuilt fixture from the local
+data directory. It now generates its deterministic current-format fixture before
+opening it. No stored fixture or unsupported library is relabelled or upgraded.
+All **112 tests** in the four affected consumer modules now pass, including both
+real-backend parity/round-trip cases. One pre-existing unregistered `catalog`
+marker warning remains. The broader diagnostic run had 185 passes, three failures
+and one unavailable-Tkinter skip; the three failures are covered by the repaired
+selection, so that earlier run is not reported as green. The complete database
+gate is still running at this checkpoint; its final outcome must be recorded
+before claiming sign-off.
+
+The full quality runner also passed after the catalog adapter correction,
+including both type checkers and the 95/93 invalid-contract examples. This
+consumer correction is outside the frozen `e7b45407` database-run snapshot;
+the 112-test result above covers it separately. Published CI will exercise the
+combined PR tree.

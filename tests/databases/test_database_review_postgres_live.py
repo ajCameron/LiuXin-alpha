@@ -3,7 +3,6 @@
 from concurrent.futures import ThreadPoolExecutor, TimeoutError
 from contextlib import closing
 
-import psycopg2
 import pytest
 
 from LiuXin_alpha.databases.dbprefs import DBPrefs
@@ -12,6 +11,8 @@ from LiuXin_alpha.databases.transactions import transaction_scope
 from tests.databases.test_transaction_ownership_postgres_live import (
     pg_database as pg_database,
 )
+
+psycopg2 = pytest.importorskip("psycopg2")
 
 
 def test_owned_scope_cannot_commit_existing_postgres_work(pg_database):

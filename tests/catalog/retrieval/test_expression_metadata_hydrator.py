@@ -84,14 +84,14 @@ class FakeDriverWrapper:
         :return: The deterministic value, row, identity or collection described above.
         """
         keys = set(row_dict)
-        for table, singular in SINGULARS.items():
-            id_column = f"{singular}_id"
-            if id_column in keys:
-                return table
-            prefix = singular + "_"
-            if any(str(key).startswith(prefix) for key in keys):
-                return table
-        raise ValueError(f"Could not identify table from keys: {sorted(keys)}")
+        matches = [
+            table
+            for table, columns in self.tables_and_columns.items()
+            if keys and keys <= set(columns)
+        ]
+        if len(matches) == 1:
+            return matches[0]
+        raise ValueError(f"Could not identify one table from keys: {sorted(keys)}")
 
     def get_id_column(self, table: str) -> str:
         """

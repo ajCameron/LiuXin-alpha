@@ -105,3 +105,90 @@ verification is in working-memory/database-rereview-fixes-2026-11-14.md and
 
 Second full quality run session57877 completed exit0 after the URI correction;
 all format/lint/architecture/type checks and invalid-contract suites pass again.
+
+## PR opened and published head verified
+
+Draft PR161: https://github.com/ajCameron/LiuXin-alpha/pull/161, published head
+e7b45407fb4b8b80aa28006203acf8ec366df4e2. Both new commits1b4c450a/e7b45407
+are pushed, alongside the prior three local database commits. The43 changed
+implementation/test/config files exactly match the final gate snapshot bytes;
+evidence committed-input-audit.json. PR is DRAFT, not merged or signed off.
+
+Clean PR-tree docs/tooling/scratch checks session25581 running,
+/tmp/liuxin-signoff-pr-tree-checks.log. PRtree is detached e7b45407; .venv and
+LiuXin_alpha_data linked, its tracked LiuXin_data directory retained. User draft
+index row and file are absent from PR tree. Main workspace only user leftovers
+before this memory update.
+
+CI run43775314559 is the PR run, jobs include Database Regression Ratchet
+133000179110 and full suite133000178877. Push run43775198199 confidence
+job132999817727 failed; reason being fetched. gh run view --job --log-failed
+refuses logs while parent run active; use gh api repos/ajCameron/LiuXin-alpha/
+actions/jobs/132999817727/logs, saving /tmp/liuxin-signoff-ci-confidence.log.
+Other CI jobs running. Do not infer gate success from earlier job/check names.
+
+
+## CI consumer corrections in progress
+
+Clean PR-tree docs/tooling/scratch selection25581 finished:92passed in150.72s.
+Confidence22496 finished:313passed,3skipped in562.79s. Live PostgreSQL follow-up
+57517 finished:9passed in185.95s. No-psycopg collection probe92720 passed (1passed,
+1skipped), confirming pytest.importorskip permits optional general collection;
+mandatory database gate still requires all nine cases with the dependency installed.
+
+CI e7b failed confidence because hydrator fake identified item_identifiers as items;
+the full-suite collection also failed because review PG tests imported optional
+psycopg2 unconditionally. Fixes are test-only, production Row schema validation
+unchanged. Hydrator fakes now identify a unique declared schema, cache fake advertises
+link-table columns, edge cases explicitly declare additional fields. Expanded
+retrieval/metadata/Core/Tkinter selection98568 running; log
+/tmp/liuxin-signoff-hydrator-final.log. Some further failures pending inspection.
+No new lint diagnostics across five changed test files; existing item fake has nine
+baseline lint findings and existing formatting differences outside quality scope.
+Do not claim the entire file is lint/format clean or silently clean unrelated code.
+
+Full database7916 continues in frozen snapshot without failures at >1000 completed.
+No source code changed since e7b; only optional PG test import changed inside its
+suite and independently tested both dependency states. Snapshot remains unchanged.
+Do not stop private PG until7916 completes. PR161 remains draft and unmerged.
+
+
+Expanded retrieval98568 finished:185passed,3failed,1skipped in292.45s. One
+remaining edge fixture omitted file_folder_id (now declared). Two real-backend
+failures exposed (a) cached link records incorrectly wrapped as Row against a
+main-table-only cache schema; (b) local prebuilt metadata_rich_db_1 had no revision.
+
+Correction (a) is in catalog/retrieval/hydration/read_sources.py: return immutable
+CacheRecord mappings directly, as MetadataLinkRowSequence permits. Native Row
+validation and CacheAPI main-table schema remain unchanged. Strengthened existing
+read-source regression now uses real association columns with fallback disabled.
+The temporary fake link-schema additions were REMOVED; keep only schema-based
+identification in three doubles plus explicitly declared edge-case columns.
+Correction (b): integration test now calls deterministic populate_bundle(tmp_path)
+so it always generates the current format, without mutating/stamping old fixtures.
+
+Current checks:10999 /tmp/liuxin-signoff-hydrator-repaired.log (four impacted
+modules);61916 /tmp/liuxin-signoff-consumer-quality.log (quality after catalog
+change). Focused lint/format for four new/changed consumer files passed60831.
+Collection94031 complete0; redundant searches11720/57598 terminated/finished.
+
+Review appended PR consumer follow-up with implementation/existing evidence;
+final results still pending. This catalog source change is OUTSIDE frozen native
+full-gate snapshot. Record that distinction and final focused/CI evidence; do not
+claim full snapshot equals final PR source after this change.
+
+
+Consumer verification10999 completed0:112passed,1 pre-existing catalog marker
+warning in137.00s. All three failures from185-pass diagnostic run are covered by
+this clean selection, including actual database/cache/lazy parity and write-back.
+Review and PR body updated. Ten own files staged; README user's unrelated row,
+untracked file-formats draft, dirty data submodule remain excluded. Quality61916
+still running (format/architecture/import/lint done, types pending). Full7916
+continues clean at1534 cases; private PG in use. Next commit/push after quality,
+update PR body, preserve full gate then publish final evidence and stop own PG.
+
+
+2026-11-16 00:01: quality61916 completed0 after the catalog correction; all
+format/lint/architecture/import/type/invalid-contract checks pass. Publishing
+consumer follow-up commit now, with112passing affected consumers. No native
+production code changed after e7b. Full7916 remains active, no failures yet.

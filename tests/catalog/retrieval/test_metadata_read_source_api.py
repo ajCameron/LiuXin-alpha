@@ -1638,12 +1638,16 @@ def test_link_record_reads_distinguish_empty_unavailable_and_broken() -> None:
         CacheRecord(
             "tag_work_links",
             -1,
-            {"work_id": 1, "work_title": "Materialized link record"},
+            {"tag_work_link_work_id": 1, "tag_work_link_tag_id": 3},
         ),
     )
     rows = source.get_interlink_rows(primary, "tags")
-    assert [row["work_title"] for row in rows] == ["Materialized link record"]
-    assert rows[0].db is source
+    assert [row["tag_work_link_tag_id"] for row in rows] == [3]
+    assert rows[0] is cache.link_records.return_value[0]
+    no_fallback = CacheMetadataReadSource(cache, allow_database_fallback=False)
+    assert no_fallback.get_interlink_rows(primary, "tags") == rows
+    with pytest.raises(TypeError):
+        rows[0]["tag_work_link_tag_id"] = 99
     database_links.assert_not_called()
 
     cache.link_records.return_value = ()
