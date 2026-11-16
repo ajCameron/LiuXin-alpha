@@ -18,9 +18,6 @@ from queue import Queue
 from typing import TYPE_CHECKING, Any, Literal, Optional, Sequence, Union, TypeVar
 
 from LiuXin_alpha.databases.api.driver_api.mixins.add_mixin_api import DriverAddMixinAPI
-from LiuXin_alpha.databases.api.driver_api.mixins.custom_columns_mixin_api import (
-    DriverCustomColumnsMixinAPI,
-)
 from LiuXin_alpha.databases.api.driver_api.mixins.delete_mixin_api import (
     DriverDeleteMixinAPI,
 )
@@ -84,7 +81,6 @@ class DatabaseDriverAPI(
     DriverMetadataMixinAPI,
     DriverInterlinkMixinAPI,
     DriverIntralinkMixinAPI,
-    DriverCustomColumnsMixinAPI,
     DriverDatabasePropertiesMixinAPI,
     DriverNamesMixinAPI,
     DriverSearchMixinAPI,
@@ -197,14 +193,13 @@ class DatabaseDriverAPI(
     def _close_all_open_connections(self) -> None:
         """Close owned handles without committing, retaining failed closes for retry.
 
-        Built-in handles deregister on close. Detach the primary reference while
-        retaining any handle whose close raised in the driver's ownership registry.
+        Built-in handles deregister on success. Retain failed handles and the primary
+        alias if its close failed; report every error as an exception group. Returning
+        normally means there are no handles left in the ownership registry.
         """
 
     @abc.abstractmethod
-    def _coerce_db_value(
-        self, value: Any, declared_type: Any
-    ) -> Optional[Union[bool, int, float, str, bytes]]:
+    def _coerce_db_value(self, value: Any, declared_type: Any) -> Any:
         """
         Convert a database cell according to the declared type's conversion bucket.
 
@@ -422,6 +417,11 @@ class DatabaseDriverAPI(
     def close(self) -> None:
         """
         Close all known connections while retaining the driver object for reuse.
+
+        Discard pending work without committing. Attempt every owned handle, retain
+        failed ones and report incomplete shutdown; callers may retry. The shared
+        SQL implementation raises an exception group containing every close error.
+        A normal return guarantees that no owned handles remain.
 
         Abstract backend hook. The behavior below describes the shared SQL/SQLite
         implementation; this declaration itself has no operational body.
@@ -732,39 +732,23 @@ class DatabaseDriverAPI(
     @abc.abstractmethod
     def get_connection(self) -> SQLConnection:
         """
-        Open, configure and track a fresh SQLite connection.
+        Open, configure and track a distinct connection to a supported catalogue.
 
-        Abstract backend hook. The behavior below describes the shared SQL/SQLite
-        implementation; this declaration itself has no operational body.
+        Built-in drivers validate the base schema revision before bootstrap. SQLite
+        also checks persisted search-index semantics, binds containers locally and leaves
+        global sqlite3 adapter/converter state unchanged. Raw container values require
+        explicit decoding. PostgreSQL selects and validates the configured schema.
 
-        Register set/list/dict adapters and PYSET/PYLIST/PYDICT/DATE converters
-        globally, enable callback tracebacks, then open database_path with declared-type
-        parsing and check_same_thread=False. Every call opens a distinct connection,
-        including an independent database for the literal :memory: path. Existing
-        primary handles are not replaced.
-
-        Request foreign-key enforcement and warn if SQLite does not report it enabled.
-        Install aggregates, collations, regex/tree/sort/UUID helpers, an always-true
-        books_list_filter and maintenance callbacks. SQLite drivers can opt into
-        progress callbacks through set_progress_callbacks after connection setup;
-        no progress handler is installed by default. DIRTY_RECORD and NEW_DIRTY_RECORD
-        look up the current maintainer on each invocation; DIRTY_INTERLINK_RECORD
-        binds the maintainer method at connection creation. Cross-thread access still
-        requires caller coordination.
-
-        Best-effort LANGUAGE_ID registration may seed and lock an existing FRBR
-        languages table, committing changes; exceptions from that registration are
-        suppressed. Other setup failures close the new handle before propagating. The
-        opening OperationalError handler reads obsolete exception.message, so standard
-        Python 3 errors become AttributeError before its intended DatabaseDriverError
-        can be raised.
+        Unversioned or unsupported catalogues are refused. New catalogues are created
+        through explicit creation APIs using private preparation connections; an empty
+        :memory: database is not an admitted native catalogue. Existing primary handles
+        are not replaced, and callers retain transaction ownership.
 
         Example:
-            >>> driver.get_connection()  # doctest: +SKIP
+            Open an auxiliary handle with driver.get_connection(), finish its transaction,
+            and close it explicitly or through driver cleanup.
 
-
-        :return: An open SQLite_Connection tracked for inherited driver.close; callers
-            may close it earlier and must manage their transactions.
+        :return: A fresh configured connection tracked for driver cleanup.
         """
 
     @abc.abstractmethod

@@ -15,7 +15,6 @@ from typing import TYPE_CHECKING, Any
 from LiuXin_alpha.core.errors import CoreDispatchError
 from LiuXin_alpha.core.program_services.payloads import (
     _callable,
-    _database_callable,
     _mapping,
     _optional_int,
     _payload,
@@ -261,16 +260,34 @@ def custom_fields_list(
     return {"fields": fields, "count": len(fields)}
 
 
+def _compatibility_custom_fields(
+    runtime: CoreRuntime, *, num: int | None = None, table: str = "books"
+) -> Any:
+    """Resolve the explicit Calibre facade for the older Core command signatures."""
+    from LiuXin_alpha.databases.api.database_api.database_api import DatabaseAPI
+    from LiuXin_alpha.databases.custom_columns.native_service import CustomFieldService
+    from LiuXin_alpha.utils.calibre_compat.custom_columns.facade import CustomColumns
+
+    database = runtime.database
+    if not isinstance(database, DatabaseAPI):
+        return (
+            database  # An explicitly injected implementation of the command contract.
+        )
+    if num is not None:
+        table = CustomFieldService(database).get_field(num).attachment
+    return CustomColumns(database, table=table)
+
+
 def custom_fields_create(
     runtime: CoreRuntime,
     command: CoreCommand,
 ) -> dict[str, Any]:
     """
-    Create a custom field through database-first capability lookup, then refresh field metadata and reconcile.
+    Create a custom field through the explicit Calibre compatibility facade, then refresh field metadata and reconcile.
 
     Name is required/stripped; falsey datatype/table select text/books. Optional
     label remains unstripped, booleans are truth-tested, and make_category preserves
-    None. Display accepts verbatim text or a Mapping serialized as sorted-key JSON;
+    None. Display accepts verbatim text or a Mapping passed as structured metadata;
     backend policy owns its meaning. Refresh, ID conversion, or reconciliation can
     fail after creation without adapter rollback.
 
@@ -284,8 +301,10 @@ def custom_fields_create(
     :raises CoreDispatchError: If required text/display validation fails or creation capability is unavailable.
     """
     payload = _payload(command)
-    method = _database_callable(
-        runtime,
+    method = _callable(
+        _compatibility_custom_fields(
+            runtime, table=str(payload.get("table") or "books")
+        ),
         "create_custom_column",
         area="custom fields",
     )
@@ -298,15 +317,7 @@ def custom_fields_create(
         is_multiple=bool(payload.get("is_multiple", False)),
         label=(str(payload["label"]) if payload.get("label") is not None else None),
         editable=bool(payload.get("editable", True)),
-        display=(
-            str(display)
-            if isinstance(display, str)
-            else (
-                None
-                if display is None
-                else __import__("json").dumps(dict(display), sort_keys=True)
-            )
-        ),
+        display=dict(display) if isinstance(display, Mapping) else display,
         table=str(payload.get("table") or "books"),
         make_category=(
             bool(payload["make_category"])
@@ -358,8 +369,8 @@ def custom_fields_update(
         raise CoreDispatchError(
             "Unknown custom-field changes: {}.".format(", ".join(unknown))
         )
-    method = _database_callable(
-        runtime,
+    method = _callable(
+        _compatibility_custom_fields(runtime, num=num),
         "set_custom_column_metadata",
         area="custom fields",
     )
@@ -402,8 +413,8 @@ def custom_fields_delete(
     label = str(label_raw).strip() if label_raw is not None else None
     if num is None and not label:
         raise CoreDispatchError("Provide `num` or `label`.")
-    method = _database_callable(
-        runtime,
+    method = _callable(
+        _compatibility_custom_fields(runtime, num=num),
         "delete_custom_column",
         area="custom fields",
     )

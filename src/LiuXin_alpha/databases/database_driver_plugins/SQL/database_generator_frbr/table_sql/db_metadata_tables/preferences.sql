@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS `preferences` (
 
     `preference_id` INTEGER PRIMARY KEY,
 
-  `preference_key` TEXT NULL,
+  `preference_key` TEXT NOT NULL UNIQUE,
   `preference_value` TEXT NULL,
   `preference_value_type` TEXT NULL,
 

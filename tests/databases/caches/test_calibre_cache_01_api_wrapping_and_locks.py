@@ -14,6 +14,8 @@ Example:
 
 from __future__ import annotations
 
+from LiuXin_alpha.utils.calibre_compat.custom_columns.adapter import CustomColumnAdapter
+
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -291,7 +293,7 @@ def calibre_backend_db(tmp_path: Path, request):
     db.field_metadata = FieldMetadata()
 
     # Some codepaths call backend.custom_table_names(...)
-    db.custom_table_names = db.driver_wrapper.custom_table_names
+    db.custom_table_names = CustomColumnAdapter(db).custom_table_names
 
     return db
 

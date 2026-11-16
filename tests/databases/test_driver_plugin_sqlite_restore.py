@@ -1,6 +1,5 @@
 """Require validated round trips of populated WEMI and extension graphs."""
 
-import importlib
 import shutil
 import sqlite3
 from pathlib import Path
@@ -87,6 +86,25 @@ def test_restore_preserves_populated_wemi_cycles_extensions_and_callbacks(driver
     assert driver.conn.execute(
         "SELECT title_sort(value) FROM callback_values"
     ).fetchone()[0]
+    from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.sqlite_files import (
+        configured_sqlite_connection,
+    )
+
+    path = Path(driver.database_path)
+    backups = list(path.parent.glob(path.name + ".before-rebuild-*.sqlite"))
+    assert len(backups) == 1
+    with configured_sqlite_connection(backups[0]) as backup:
+        assert backup.execute("PRAGMA integrity_check").fetchall() == [("ok",)]
+        assert (
+            backup.execute("SELECT * FROM callback_values").fetchall()
+            == before["callback_values"]
+        )
+        assert (
+            backup.execute(
+                "SELECT name FROM sqlite_master WHERE name='restored_marker'"
+            ).fetchall()
+            == []
+        )
     with pytest.raises(sqlite3.IntegrityError):
         driver.conn.execute("INSERT INTO a_child VALUES (3,999)")
     driver.conn.rollback()
@@ -120,9 +138,9 @@ def test_restore_failure_preserves_the_original_database(driver, monkeypatch, fa
         def reject(*_):
             raise OSError("injected publication failure")
 
-        monkeypatch.setattr(
-            importlib.import_module(type(driver).__module__), "atomic_rename", reject
-        )
+        from LiuXin_alpha.databases import creation
+
+        monkeypatch.setattr(creation.os, "replace", reject)
     with pytest.raises(Exception) as error:
         driver.dump_and_restore(sql=prefix)
     if failure == "foreign_key":

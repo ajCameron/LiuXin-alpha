@@ -95,6 +95,18 @@ class MiniDriverWrapper:
         """
         return [str(row[1]) for row in self.conn.execute(f"PRAGMA table_info(`{table}`);").fetchall()]
 
+    def get_relation_type(self, name: str) -> str | None:
+        """Report real SQLite table/view identity for Row's insertion guard."""
+        cursor = self.conn.execute(
+            "SELECT type FROM sqlite_master WHERE name=? AND type IN ('table', 'view')",
+            (name,),
+        )
+        try:
+            row = cursor.fetchone()
+            return None if row is None else str(row[0])
+        finally:
+            cursor.close()
+
     def identify_table_from_row_dict(self, row_dict: dict[str, Any]):
         """
         Infer a table whose columns contain every supplied dictionary key. Prefer the candidate with
@@ -163,7 +175,7 @@ class MiniDriverWrapper:
 
     def add_row(self, row_dict: dict[str, Any]):
         """
-        Infer the table, insert dictionary columns in their iteration order, and commit. Values are
+        Honor an explicit table hint or infer the table, insert payload columns in order, and commit. Values are
         bound parameters; identifiers are trusted interpolated text. The commit applies to the whole
         connection, not just this insert. Empty columns receive no DEFAULT VALUES special case, and
         failures add no rollback.
@@ -175,7 +187,8 @@ class MiniDriverWrapper:
         :param row_dict: Column/value dictionary used both to infer the table and to build the insert.
         :return: Integer SQLite lastrowid after commit; table inference, SQL, commit, or conversion errors propagate.
         """
-        table = self.identify_table_from_row_dict(row_dict)
+        row_dict = dict(row_dict)
+        table = row_dict.pop("table", None) or self.identify_table_from_row_dict(row_dict)
         columns = list(row_dict.keys())
         placeholders = ", ".join(["?"] * len(columns))
         quoted_cols = ", ".join(f"`{col}`" for col in columns)
@@ -208,7 +221,7 @@ class MiniDriverWrapper:
 
     def update_row(self, row_dict: dict[str, Any]):
         """
-        Infer the table from all keys and update the non-ID fields where the selected primary key
+        Honor an explicit table hint or infer the table and update the non-ID fields where the selected primary key
         equals the supplied ID. Commit the whole connection even if no row matched. ID-only input
         produces no assignments and is not specially handled; failures add no rollback.
 
@@ -219,7 +232,8 @@ class MiniDriverWrapper:
         :param row_dict: Column/value dictionary containing the inferred table's primary key and fields to update.
         :return: None after executing and committing; no affected-row count or existence check is returned.
         """
-        table = self.identify_table_from_row_dict(row_dict)
+        row_dict = dict(row_dict)
+        table = row_dict.pop("table", None) or self.identify_table_from_row_dict(row_dict)
         id_col = self.get_id_column(table)
         row_id = row_dict[id_col]
         columns = [col for col in row_dict.keys() if col != id_col]

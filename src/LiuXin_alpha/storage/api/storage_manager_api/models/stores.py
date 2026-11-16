@@ -604,7 +604,7 @@ class StorageBootstrapReport:
     Summarize attempted Store-registry reconstruction using supplied counters and issues. Counter
     checks reject negativity and handled totals above discovered; they do not require every
     configuration to be handled or each issue to match a counter. ok describes only the absence of
-    counted failures.
+    counted failures and completion of enumeration.
 
     Example:
         >>> report = StorageBootstrapReport(
@@ -619,6 +619,7 @@ class StorageBootstrapReport:
     :ivar skipped_configurations: Number intentionally skipped, including existing or offline cases.
     :ivar failed_configurations: Number counted as failed by the producer.
     :ivar issues: Ordered explanations retained without count or type validation.
+    :ivar completed: False when bootstrap failed before reliable counts were available.
     """
 
     discovered_configurations: int = 0
@@ -626,6 +627,7 @@ class StorageBootstrapReport:
     skipped_configurations: int = 0
     failed_configurations: int = 0
     issues: tuple[StorageBootstrapIssue, ...] = ()
+    completed: bool = True
 
     def __post_init__(self) -> None:
         """
@@ -664,18 +666,18 @@ class StorageBootstrapReport:
     @property
     def ok(self) -> bool:
         """
-        Test only whether failed_configurations equals zero. Skips, unhandled discovered
-        configurations, and populated issues do not make this property false.
+        Require completed enumeration and no counted failures. Skips, unhandled
+        discovered configurations and populated issues alone do not make this false.
 
         Example:
             >>> StorageBootstrapReport(discovered_configurations=2, skipped_configurations=1).ok
             True
 
 
-        :return: True when no failures were counted, otherwise False.
+        :return: True when enumeration completed and no failures were counted.
         """
 
-        return self.failed_configurations == 0
+        return self.completed and self.failed_configurations == 0
 
 
 @dataclasses.dataclass(slots=True, frozen=True)

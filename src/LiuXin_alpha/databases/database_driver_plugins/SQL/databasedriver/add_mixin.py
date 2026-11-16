@@ -84,23 +84,23 @@ class AddingMixin(SQLDriverMixinState):
         target_table = driver_operations(self).direct_identify_table_from_row(row_dict)
         if target_table is False:
             raise InputIntegrityError("Cannot insert a row without an identified table")
-        row_dict = prepare_normalized_values(
-            driver_operations(self), target_table, row_dict
-        )
-        if target_table.startswith("custom_column_"):
-            self._sanitize_embedded_nul_text(
-                target_table=target_table, row_dict=row_dict
-            )
-        columns = tuple(row_dict)
-        if columns:
-            stmt = "INSERT INTO `{}` ({}) VALUES ({})".format(
-                target_table, ",".join(columns), ",".join("?" for _ in columns)
-            )
-        else:
-            stmt = f"INSERT INTO `{target_table}` DEFAULT VALUES"
         try:
             with closing(driver_operations(self).get_connection()) as conn:
-                with transaction_scope(conn, owns_transaction=True):
+                with transaction_scope(conn, owns_transaction=True, immediate=True):
+                    row_dict = prepare_normalized_values(
+                        driver_operations(self), target_table, row_dict
+                    )
+                    if target_table.startswith("custom_column_"):
+                        self._sanitize_embedded_nul_text(
+                            target_table=target_table, row_dict=row_dict
+                        )
+                    columns = tuple(row_dict)
+                    if columns:
+                        stmt = "INSERT INTO `{}` ({}) VALUES ({})".format(
+                            target_table, ",".join(columns), ",".join("?" for _ in columns)
+                        )
+                    else:
+                        stmt = f"INSERT INTO `{target_table}` DEFAULT VALUES"
                     cursor = conn.execute(
                         stmt, tuple(row_dict[column] for column in columns)
                     )
@@ -149,28 +149,28 @@ class AddingMixin(SQLDriverMixinState):
                 != target_table
             ):
                 raise InputIntegrityError("Rows from different tables.")
-        normalizer = NormalizedValuePreparer.from_source(
-            driver_operations(self), target_table
-        )
-        rows = [normalizer.prepare(row) for row in rows]
-        columns = tuple(rows[0])
-        id_column = driver_operations(self).direct_get_id_column(target_table)
-        for row in rows:
-            if set(row) != set(columns):
-                raise InputIntegrityError("Rows with different column names.")
-            if row.get(id_column) is not None:
-                raise InputIntegrityError("Cannot update a row using this method!")
-            if target_table.startswith("custom_column_"):
-                self._sanitize_embedded_nul_text(
-                    target_table=target_table, row_dict=row
-                )
-        stmt = "INSERT INTO `{}` ({}) VALUES ({})".format(
-            target_table, ",".join(columns), ",".join("?" for _ in columns)
-        )
-        values = [tuple(row[column] for column in columns) for row in rows]
         try:
             with closing(driver_operations(self).get_connection()) as conn:
-                with transaction_scope(conn, owns_transaction=True):
+                with transaction_scope(conn, owns_transaction=True, immediate=True):
+                    normalizer = NormalizedValuePreparer.from_source(
+                        driver_operations(self), target_table
+                    )
+                    rows = [normalizer.prepare(row) for row in rows]
+                    columns = tuple(rows[0])
+                    id_column = driver_operations(self).direct_get_id_column(target_table)
+                    for row in rows:
+                        if set(row) != set(columns):
+                            raise InputIntegrityError("Rows with different column names.")
+                        if row.get(id_column) is not None:
+                            raise InputIntegrityError("Cannot update a row using this method!")
+                        if target_table.startswith("custom_column_"):
+                            self._sanitize_embedded_nul_text(
+                                target_table=target_table, row_dict=row
+                            )
+                    stmt = "INSERT INTO `{}` ({}) VALUES ({})".format(
+                        target_table, ",".join(columns), ",".join("?" for _ in columns)
+                    )
+                    values = [tuple(row[column] for column in columns) for row in rows]
                     conn.executemany(stmt, values)
         except sqlite3.IntegrityError as exc:
             raise DatabaseIntegrityError(

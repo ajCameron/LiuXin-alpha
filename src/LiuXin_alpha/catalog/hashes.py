@@ -21,8 +21,8 @@ Observed limitations
     Projected book_id values such as "1:1:1" identify rays; book_work_id identifies
     their Work. The current fallback incorrectly looks up the ray ID in titles.
 
-    Title-family traversal expects endpoint Rows from get_intralinked_rows(), which
-    currently returns link Rows. Broad exception handlers also turn failed reads
+    Title-family traversal receives endpoint Rows from get_intralinked_rows()
+    following the database facade repair of 2026-11-11. Broad exception handlers turn failed reads
     into incomplete sets indistinguishable from successful empty results. Existing
     tests check set types, repeatability and duplicate-implementation parity without
     asserting the expected relationships. These are correctness issues to resolve

@@ -295,6 +295,16 @@ class ValueCastingMixin(SQLDriverMixinState):
             column_name,
             declared_type,
         )
+        identity_key = any(
+            spec.identity_column == column_name
+            for spec in self.direct_iter_normalized_identity_specs(table=table_name)
+        )
+        if identity_key:
+            fallback = replace(
+                fallback,
+                semantic_role=ColumnSemanticRole.NORMALIZED_KEY,
+                validation_profile=ColumnValidationProfile.NORMALIZED_KEY,
+            )
         if COLUMN_METADATA_TABLE not in set(
             driver_operations(self).direct_get_tables()
         ):
@@ -375,11 +385,16 @@ class ValueCastingMixin(SQLDriverMixinState):
                 formatting_options=fallback.formatting_options,
                 display_options=fallback.display_options,
             )
-        return self._column_metadata_from_values(
+        metadata = self._column_metadata_from_values(
             table_name,
             column_name,
             *row,
         )
+        return replace(
+            metadata,
+            semantic_role=ColumnSemanticRole.NORMALIZED_KEY,
+            validation_profile=ColumnValidationProfile.NORMALIZED_KEY,
+        ) if identity_key else metadata
 
     def direct_set_column_metadata(self, metadata: ColumnMetadata) -> None:
         """
@@ -1659,7 +1674,8 @@ class ValueCastingMixin(SQLDriverMixinState):
         Select this mixin's conversion bucket from the normalized first type token.
 
         Check substrings in order: INT, then CHAR/CLOB/TEXT, then BLOB, then
-        REAL/FLOA/DOUB. Empty and unrecognized tokens fall through to NUMERIC.
+        REAL/FLOA/DOUB. Empty declarations select BLOB (no conversion), while
+        unrecognized nonempty tokens fall through to NUMERIC.
         The preceding normalization discards size suffixes and later tokens;
         this is a simplified classification, not a complete SQL type parser.
 
@@ -1669,14 +1685,16 @@ class ValueCastingMixin(SQLDriverMixinState):
             >>> ValueCastingMixin._sqlite_affinity("INTTEXT")
             'INTEGER'
             >>> ValueCastingMixin._sqlite_affinity(None)
-            'NUMERIC'
+            'BLOB'
 
 
         :param declared_type: Type declaration passed to _normalize_declared_type;
-            None or blank text produces the NUMERIC fallback.
+            None or blank text produces the BLOB fallback.
         :return: One of INTEGER, TEXT, BLOB, REAL or NUMERIC.
         """
         dt = cls._normalize_declared_type(declared_type)
+        if not dt:
+            return "BLOB"
 
         # SQLite affinity rules (simplified)
         if "INT" in dt:
@@ -1692,7 +1710,7 @@ class ValueCastingMixin(SQLDriverMixinState):
     # Todo: We can... possibly make this better with some protocol work
     def _coerce_db_value(
         self, value: Any, declared_type: Any
-    ) -> Optional[Union[bool, int, float, str, bytes]]:
+    ) -> Any:
         """
         Convert a database cell according to the declared type's conversion bucket.
 
@@ -1737,11 +1755,20 @@ class ValueCastingMixin(SQLDriverMixinState):
         :param value: Database cell to convert; no container or text decoding
             protocol is imposed on fallback objects.
         :param declared_type: Backend declaration used by _sqlite_affinity; an
-            empty or unknown declaration still selects NUMERIC conversion.
+            empty declaration preserves the native value; unfamiliar nonempty
+            declarations follow SQLite's NUMERIC fallback.
         :return: None, an int or float, bytes for byte-like BLOB input, or text.
         """
         if value is None:
             return None
+
+        if self._normalize_declared_type(declared_type) in {"PYSET", "PYLIST", "PYDICT"}:
+            from LiuXin_alpha.databases.sqlite_values import decode_sqlite_value
+
+            return decode_sqlite_value(value, declared_type)
+
+        if not self._normalize_declared_type(declared_type):
+            return bytes(value) if isinstance(value, (bytearray, memoryview)) else value
 
         affinity = self._sqlite_affinity(declared_type)
 

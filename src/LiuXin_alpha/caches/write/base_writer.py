@@ -11,6 +11,9 @@ modern Cache facade's lifecycle or transaction/reconciliation boundary.
 
 from __future__ import division, absolute_import, print_function, unicode_literals, annotations
 
+from LiuXin_alpha.utils.calibre_compat.custom_columns.macros import CustomColumnMacros
+from LiuXin_alpha.databases.api.database_api import DatabaseAPI
+
 from LiuXin_alpha.databases.database_driver_plugins._macro_state import require_legacy_macros
 
 import pprint
@@ -35,6 +38,15 @@ if TYPE_CHECKING:
     from LiuXin_alpha.caches.api.storage_cache_api import FieldBasicInterfaceAPI
     from LiuXin_alpha.caches.api.storage_cache_api import StorageCacheBaseTableAPI
     from LiuXin_alpha.catalog.api.field_metadata_api import FieldMetadataAPI
+
+
+def custom_column_macros(host: CatalogAPI | DatabaseAPI) -> CustomColumnMacros:
+    """Select the explicit compatibility adapter for a writer's borrowed database.
+
+    Legacy caches pass a Database directly; Catalog callers expose it as ``db``.
+    Keep that host selection here instead of adding forwarding APIs to either owner.
+    """
+    return CustomColumnMacros(host if isinstance(host, DatabaseAPI) else host.db)
 
 
 # Todo: Writer is, explicitely, doing two jobs. Updating the cache and updatiung the db. These should be different.
@@ -262,7 +274,7 @@ class BaseWriter:
 
             elif m_table in db.custom_tables:
 
-                item_id = require_legacy_macros(db.macros).ensure_custom_column_value(m_table, val)
+                item_id = custom_column_macros(db).ensure_custom_column_value(m_table, val)
 
             else:
 
@@ -333,14 +345,14 @@ class BaseWriter:
             Entries [(7,), (8,)] are forwarded as book_id=(7, 8).
 
 
-        :param db: Database adapter exposing macros.break_cc_links_by_book_id.
+        :param db: Database or Catalog host for the explicit custom-column adapter.
         :param field: Field whose metadata table identifies the custom-column link target.
         :param deleted: Deletion entries indexed at position zero.
         :return: None; calls the custom-column macro with the extracted ID tuple.
         """
         deleted_ids = tuple(de[0] for de in deleted)
 
-        require_legacy_macros(db.macros).break_cc_links_by_book_id(lt=field.metadata["table"], book_id=deleted_ids)
+        custom_column_macros(db).break_cc_links_by_book_id(lt=field.metadata["table"], book_id=deleted_ids)
 
     # Todo: Check that dirtied has an update method
     @staticmethod

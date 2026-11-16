@@ -1,75 +1,21 @@
-# TEMP triggers for custom-column cleanup
+# Custom-column cleanup triggers
 
-Reviewed **2026-10-20**. Scope: the [custom-column initializer](../../src/LiuXin_alpha/databases/custom_columns/custom_columns.py). Permanent generated integrity triggers have a different lifecycle.
+Custom fields now have one native storage format. V1 readers, writers and upgrade
+support have been removed. See the [service contract](custom-columns.md) and
+[native API](native-custom-fields.md) for current ownership.
 
-When a normalized custom column exists, its values are typically stored in a link table, for example:
+SQLite and APSW install durable triggers for owner deletion and owner/value
+reference integrity when native storage is created. These triggers work on every
+connection, including when SQLite foreign-key enforcement is disabled. PostgreSQL
+uses real foreign keys. No TEMP trigger installation or legacy reconciliation runs
+when a facade is loaded.
 
-- `<in_table>_custom_column_<num>` (items)
-- `<in_table>_custom_column_<num>_link` (links)
+Native audit checks the complete set of required SQLite triggers against canonical
+DDL, including missing, renamed and altered triggers. Repair requires an explicit
+`plan_repair(actions=("cleanup_trigger",))` followed by `apply_repair(plan)`.
+Retirement retains cleanup constraints and values; only explicit purge removes them.
 
-On deletion of a row in the base table (`in_table`, usually `books`), the link-table rows must be deleted as well.
-
-Calibre solves this by creating a **TEMP trigger** per base table that deletes from *all* known custom-column link
-tables for that base table.
-
-LiuXin follows the same approach.
-
-## Why TEMP (not permanent)
-
-Treat these triggers as **derived, runtime state**.
-
-A permanent trigger in `sqlite_master` is a long-lived schema object with a migration/upgrade burden:
-
-- You must remember to update it when custom columns change.
-- Older databases can retain stale trigger bodies.
-- External tools that open the database can be surprised by side effects.
-- Debugging is harder because schema objects are “invisible” in the normal application code paths.
-
-By making the trigger TEMP:
-
-- It is scoped to the application connection (and disappears when that connection closes or is replaced).
-- The trigger body can be regenerated freely based on the current metadata.
-- It avoids schema drift.
-
-## Correct idempotence: drop + recreate
-
-Because the trigger body depends on *the current set* of custom columns for a table, idempotence must be implemented as:
-
-- `DROP TRIGGER IF EXISTS temp.custom_<table>_delete_trg;`
-- `CREATE TEMP TRIGGER custom_<table>_delete_trg ...;`
-
-Do **not** use `CREATE TRIGGER IF NOT EXISTS ...`.
-
-`IF NOT EXISTS` would keep the old trigger body and fail to incorporate newly created link tables, causing orphan rows
-in those link tables.
-
-## Naming and scoping
-
-Use a per-base-table trigger name to avoid collisions and to support “custom columns can attach to any table”:
-
-- Trigger name: `custom_<in_table>_delete_trg`
-- Event: `AFTER DELETE ON <in_table>`
-
-When generating the SQL, use:
-
-- the correct primary key column for `<in_table>` (do not hardcode `OLD.id`)
-- the correct foreign key column name in the link table (calibre-style singularization is often used)
-
-## Connection ownership matters
-
-TEMP triggers are per-connection. If code creates the TEMP trigger on one connection but later executes deletes using a
-different connection, the trigger will not fire.
-
-Therefore:
-
-- Create TEMP triggers on `db.driver.conn`.
-- Avoid creating “one-off” connections for direct SQL execution.
-- Helper objects should not hold stale `self.conn` references.
-
-## Tests
-
-Tests should ensure:
-
-- the trigger is TEMP (exists in `sqlite_temp_master` and not `sqlite_master`)
-- creating multiple custom columns does not raise “trigger already exists”
-- the trigger body is updated when new columns are added (drop/recreate semantics)
+The [earlier review](custom-columns-review-2026-11-12.md) records the historical
+TEMP-trigger and connection defects. Its v1 repair workflow has been superseded
+by removal of that format. Current regression tests cover independent connections,
+owner-deletion rollback, invalid references, explicit repairs and retirement.

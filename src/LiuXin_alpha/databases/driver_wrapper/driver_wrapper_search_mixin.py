@@ -83,7 +83,8 @@ class DriverWrapperSearchMixin(DriverWrapperBase):
         backend details describe the shared SQL/SQLite implementation; backend errors
         propagate.
 
-        Multiple matches raise DatabaseIntegrityError; SQLite InterfaceError becomes
+        An active macro transaction supplies its own reads without being completed.
+        Otherwise, multiple matches raise DatabaseIntegrityError; SQLite InterfaceError becomes
         DatabaseDriverError. Normal found/missing results close the connection.
 
         Example:
@@ -94,6 +95,9 @@ class DriverWrapperSearchMixin(DriverWrapperBase):
         :param row_id: ID converted to Unicode before binding to the query.
         :return: The converted row dictionary, or ``False`` if absent.
         """
+        if self.macros.current_transaction_connection() is not None:
+            row = self.macros.get_row(table, row_id)
+            return dict(row) if row is not None else False
         return self.driver.direct_get_row_dict_from_id(table, row_id)
 
     @observed("get_all_rows", count="all")
@@ -146,7 +150,7 @@ class DriverWrapperSearchMixin(DriverWrapperBase):
     @observed("search", count="all")
     def search(self, table: str, column: str, search_term: Any) -> list[dict[str, Any]]:
         """
-        Find exact matches for a bound text search term in a validated column.
+        Find exact matches or SQL NULL in a validated column.
 
         Delegates to the driver's direct_search_table hook. The following backend
         details describe the shared SQL/SQLite implementation; backend errors propagate.
@@ -154,6 +158,7 @@ class DriverWrapperSearchMixin(DriverWrapperBase):
         The table must validate and the column must be a known simple identifier. The
         wrapper requires table explicitly, and the shared backend does not infer it.
         Malformed requests and SQLite operational errors raise InputIntegrityError.
+        Reads join an active macro transaction without ending it.
 
         Example:
             >>> wrapper.search("works", "work_title", "Example")  # doctest: +SKIP
@@ -161,8 +166,8 @@ class DriverWrapperSearchMixin(DriverWrapperBase):
 
         :param table: Table name resolved by the host driver.
         :param column: Column name to read or match.
-        :param search_term: Non-null value coerced to text; byte-like inputs must be
-            UTF-8.
+        :param search_term: None selects SQL NULL. Other values use equality; the
+            shared SQLite backend coerces them to text and requires UTF-8 bytes.
         :return: Converted matching rows, or an empty list.
         """
         return self.driver.direct_search_table(table, column, search_term)

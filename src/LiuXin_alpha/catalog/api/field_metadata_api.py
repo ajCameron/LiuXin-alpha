@@ -9,7 +9,7 @@ documents their supported mapping surface and compatibility limitations.
 from __future__ import annotations
 
 from collections.abc import Iterable, Iterator, KeysView, Mapping, MutableMapping, ValuesView
-from typing import Literal, NotRequired, Protocol, TypeAlias, TypedDict, TypeVar, overload, runtime_checkable
+from typing import Any, Callable, Literal, NotRequired, Protocol, TypeAlias, TypedDict, TypeVar, overload, runtime_checkable
 
 
 KnownFieldMetadataDataType: TypeAlias = Literal[
@@ -482,6 +482,12 @@ class FieldMetadataAPI(Protocol):
         :param include_composites: True returns the live custom map; false builds a filtered main-map selection.
         :return: Live custom map when unfiltered, otherwise a new dictionary sharing records.
         """
+
+    def prepare_custom_fields(
+        self, in_table: str, definitions: Iterable[Mapping[str, Any]]
+    ) -> Callable[[], None]:
+        """Validate one attachment's descriptors and return their publication step."""
+        ...
 
     def add_custom_field(
         self,

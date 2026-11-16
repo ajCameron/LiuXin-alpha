@@ -129,6 +129,7 @@ def test_owner_batches_scope_identifiers_and_bound_queries(db, monkeypatch):
     with db.macros.transaction():
         ids = []
         for owner, level in ((10000, "work"), (11000, "work"), (10000, "expression")):
+            db.macros.insert_row(f"{level}s", {f"{level}_id": owner})
             ids.append(
                 db.macros.insert_row(
                     "entity_identifiers",

@@ -1,26 +1,39 @@
-"""
-Export custom-column contracts, the legacy facade and the per-table manager.
+"""Native custom-field storage and typed operations."""
 
-The package exposes CustomColumnDataAdapter, CustomColumnMetadata, CustomColumnsAPI,
-CustomColumns and CustomColumnsManager. Importing these definitions does not create a
-facade or load database rows; constructing the facade can perform schema cleanup and
-trigger installation.
-"""
-
-from LiuXin_alpha.databases.api.custom_columns_api import (
-    CustomColumnDataAdapter,
-    CustomColumnMetadata,
-    CustomColumnsAPI,
-)
-from LiuXin_alpha.databases.custom_columns.custom_columns import CustomColumns
-from LiuXin_alpha.databases.custom_columns.custom_columns_manager import (
-    CustomColumnsManager,
+from .native_service import CustomFieldService
+from .native_types import (
+    ChangePlan,
+    CollectionMode,
+    CustomFieldError,
+    FieldDefinition,
+    FieldPatch,
+    FieldRef,
+    OwnerRef,
+    Page,
+    Predicate,
+    Scalar,
+    SeriesValue,
+    StalePlan,
+    UnsupportedStorage,
+    ValueEntry,
+    WriteReceipt,
 )
 
 __all__ = [
-    "CustomColumnDataAdapter",
-    "CustomColumnMetadata",
-    "CustomColumns",
-    "CustomColumnsAPI",
-    "CustomColumnsManager",
+    "CustomFieldService",
+    "ChangePlan",
+    "CollectionMode",
+    "FieldRef",
+    "Scalar",
+    "CustomFieldError",
+    "FieldDefinition",
+    "FieldPatch",
+    "OwnerRef",
+    "Page",
+    "Predicate",
+    "SeriesValue",
+    "StalePlan",
+    "UnsupportedStorage",
+    "ValueEntry",
+    "WriteReceipt",
 ]

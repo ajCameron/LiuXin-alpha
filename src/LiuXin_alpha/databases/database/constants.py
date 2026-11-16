@@ -1,11 +1,11 @@
 
 """
-Define immutable helper-table names and the compatibility subset allowed to be absent.
+Define immutable helper-table names and capabilities allowed to be absent.
 
 Database schema refresh uses HELPER_TABLES for classification and requires all names
-outside OPTIONAL_HELPER_TABLES. The optional subset permits older catalogs to open with
-inferred read behavior; it does not create or migrate missing tables. Storage bootstrap
-owns its journal/ledger migration.
+outside OPTIONAL_HELPER_TABLES. Capability readers may infer defaults for optional
+tables; this classification never bypasses the base schema-revision admission check.
+Storage bootstrap owns its journal/ledger migration.
 """
 
 
@@ -20,6 +20,8 @@ HELPER_TABLES = frozenset(
         "custom_columns",
         "database_metadata",
         "database_version",
+        "schema_revision",
+        "search_index_metadata",
         "feeds",
         "hashes",
         "last_read_positions",
@@ -55,12 +57,12 @@ HELPER_TABLES = frozenset(
     }
 )
 
-# Compatibility catalogs are part of the current schema and remain classified
-# as helper tables, but older databases may legitimately predate them.  Their
-# read APIs must be allowed to supply inferred defaults until the database is
-# migrated; write APIs can still require the physical catalog.
+# Optional capability readers may supply inferred defaults when their physical
+# catalogue is absent. Unsupported base formats still fail the revision check.
 OPTIONAL_HELPER_TABLES = frozenset(
     {
+        # PostgreSQL has no SQLite expression indexes.
+        "search_index_metadata",
         "maintenance_metadata",
         "maintenance_plugins",
         "maintenance_subscriptions",

@@ -11,12 +11,20 @@ Example:
 """
 from __future__ import annotations
 
+from LiuXin_alpha.utils.calibre_compat.custom_columns.adapter import CustomColumnAdapter
+
 import re
 import sqlite3
+from types import SimpleNamespace
+
+from LiuXin_alpha.databases.custom_columns.native_repository import CustomFieldRepository, names
+from LiuXin_alpha.databases.custom_columns.native_values import decode
 
 from pathlib import Path
 
-from LiuXin_alpha.databases.custom_columns import CustomColumns
+from LiuXin_alpha.utils.calibre_compat.custom_columns import (
+    CustomColumns,
+)
 from LiuXin_alpha.databases.database import Database
 from LiuXin_alpha.catalog.field_metadata import FieldMetadata
 from tests.support._surface_storage_tables import ensure_surface_asset_tables_sqlite
@@ -242,7 +250,7 @@ def create_custom_column(
     )
     db.refresh_db_metadata()
 
-    cc_table, link_table = db.driver_wrapper.custom_table_names(num, in_table=table)
+    cc_table, link_table = CustomColumnAdapter(db).custom_table_names(num, in_table=table)
     tables = set(db.get_tables(force_refresh=True))
     if link_table not in tables:
         link_table = None
@@ -321,35 +329,17 @@ def insert_custom_normalized_value(
     :return: The deterministic fixture value, path, bytes, record or collection
         described above.
     """
-    value_column = next(column for column in table_columns(conn, cc_table) if column.endswith("_value"))
-    id_column = next(column for column in table_columns(conn, cc_table) if column.endswith("_id"))
-    existing = conn.execute(
-        f"SELECT {id_column} FROM {cc_table} WHERE {value_column} = ? LIMIT 1;",
-        (value,),
-    ).fetchone()
-    if existing is None:
-        value_id = insert_row(conn, cc_table, {value_column: value})
-    else:
-        value_id = int(existing[0])
-
-    link_columns = table_columns(conn, link_table)
-    link_value_column = next(column for column in link_columns if column.endswith("_value"))
-    target_column = next(
-        column
-        for column in link_columns
-        if column not in {link_value_column}
-        and not column.endswith("_id")
-        and not column.endswith("_extra")
-    )
-    payload: dict[str, object] = {
-        target_column: int(target_id),
-        link_value_column: int(value_id),
-    }
-    extra_column = next((column for column in link_columns if column.endswith("_extra")), None)
-    if extra_column is not None and extra is not None:
-        payload[extra_column] = extra
-    insert_row(conn, link_table, payload)
-    return int(value_id)
+    repository = CustomFieldRepository(SimpleNamespace(driver=None))
+    definition = repository.resolve(conn, int(cc_table.removeprefix("custom_column_")))
+    assert names(definition) == (cc_table, link_table)
+    previous = repository.read_entries(conn, definition, [target_id]).get(target_id, [])
+    values = [(entry.value, entry.position, entry.id) for entry in previous]
+    position = (1.0 if extra is None else float(extra)) if definition.datatype == "series" else None
+    values.append((decode(value, definition), position, None))
+    repository.write_entries(conn, definition, target_id, values)
+    inserted = repository.read_entries(conn, definition, [target_id])[target_id][-1]
+    assert inserted.value_id is not None
+    return inserted.value_id
 
 
 def insert_custom_scalar_value(
@@ -377,16 +367,10 @@ def insert_custom_scalar_value(
     :return: The deterministic fixture value, path, bytes, record or collection
         described above.
     """
-    columns = table_columns(conn, cc_table)
-    target_column = next(
-        column
-        for column in columns
-        if column not in {f"{cc_table}_id"}
-        and not column.endswith("_id")
-        and not column.endswith("_value")
-    )
-    value_column = next(column for column in columns if column.endswith("_value"))
-    return insert_row(conn, cc_table, {target_column: int(target_id), value_column: value})
+    repository = CustomFieldRepository(SimpleNamespace(driver=None))
+    definition = repository.resolve(conn, int(cc_table.removeprefix("custom_column_")))
+    repository.write_entries(conn, definition, target_id, [(decode(value, definition), None, None)])
+    return repository.read_entries(conn, definition, [target_id])[target_id][0].id
 
 
 def finalize_fixture(conn: sqlite3.Connection, *, db_name: str) -> None:

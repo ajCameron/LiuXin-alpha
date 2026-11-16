@@ -4,10 +4,9 @@ Write legacy one-to-many fields across unique/non-unique, typed and priority sha
 
 from __future__ import division, absolute_import, print_function, unicode_literals
 
-from LiuXin_alpha.databases.database_driver_plugins._macro_state import require_legacy_macros
-
 from collections import defaultdict
 
+from LiuXin_alpha.caches.write.base_writer import custom_column_macros
 from LiuXin_alpha.caches.write.generic_writers.many_to_one_writer import ManyToOneWriter
 from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems, six_string_types, basestring, \
     dict_iterkeys as iterkeys
@@ -1215,7 +1214,7 @@ class OneToManyWriter(ManyToOneWriter):
                 cc_table = table.link_table
             except AttributeError:
                 cc_table = table.metadata["table"]
-            require_legacy_macros(db.macros).break_cc_links_by_book_id(lt=cc_table, book_id=((k,) for k in deleted))
+            custom_column_macros(db).break_cc_links_by_book_id(lt=cc_table, book_id=((k,) for k in deleted))
 
         if updated:
 
@@ -1229,11 +1228,11 @@ class OneToManyWriter(ManyToOneWriter):
                 # Lock the database to stop anything else from writing to it while doing the update
                 with db.lock:
 
-                    require_legacy_macros(db.macros).break_cc_links_by_book_id(
+                    custom_column_macros(db).break_cc_links_by_book_id(
                         lt=cc_table,
                         book_id=((book_id,) for book_id in iterkeys(updated)),
                     )
-                    require_legacy_macros(db.macros).add_cc_link_with_extra_multi(
+                    custom_column_macros(db).add_cc_link_with_extra_multi(
                         lt=cc_table,
                         sequence=((book_id, item_id, 1.0) for book_id, item_id in iteritems(updated)),
                         extra=True,
@@ -1249,11 +1248,11 @@ class OneToManyWriter(ManyToOneWriter):
                 # Lock the database to stop anything else from writing to it while doing the update
                 with db.lock:
 
-                    require_legacy_macros(db.macros).break_cc_links_by_book_id(
+                    custom_column_macros(db).break_cc_links_by_book_id(
                         lt=cc_table,
                         book_id=((book_id,) for book_id in iterkeys(updated)),
                     )
-                    require_legacy_macros(db.macros).add_cc_link_with_extra_multi(
+                    custom_column_macros(db).add_cc_link_with_extra_multi(
                         lt=cc_table,
                         sequence=(
                             (

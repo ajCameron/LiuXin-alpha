@@ -233,6 +233,9 @@ def build_schema_statements(*, schema: str = "public") -> tuple[str, ...]:
     statements.extend(hierarchy_guard_statements())
     statements.extend(_column_metadata_seed_statements())
     statements.extend(_normalized_identity_seed_statements())
+    from LiuXin_alpha.databases.schema_revision import CURRENT_SCHEMA_REVISION
+
+    statements.append(f"INSERT INTO schema_revision VALUES (1, {CURRENT_SCHEMA_REVISION})")
     return tuple(statements)
 
 

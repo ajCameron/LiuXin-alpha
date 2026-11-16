@@ -35,27 +35,19 @@ from LiuXin_alpha.core.program_services.evacuation_planning import build_evacuat
 from LiuXin_alpha.core.queries import CoreQuery
 from LiuXin_alpha.core.readonly import CoreReadClientAPI, ReadOnlyCoreClient
 from LiuXin_alpha.core.runtime import CoreRuntime
-from LiuXin_alpha.databases.api.driver_wrapper_api import DatabaseDriverWrapperAPI
-from LiuXin_alpha.databases.api.custom_columns_api import (
-    CustomColumnCache,
-    CustomColumnsAPI,
-)
 from LiuXin_alpha.databases.api import (
     DatabaseAPI,
     DatabaseGeneratorAPI,
-    RowAPI,
     MacrosAPI,
+    RowAPI,
 )
-from LiuXin_alpha.databases.db_types.macro_types import LegacyLinkData
-from LiuXin_alpha.databases.db_types.repair_types import PhysicalReference
-from LiuXin_alpha.databases.database import Database
-from LiuXin_alpha.databases.database.dirtied_mixin import ObservedDirtyRecordsQueue
-from LiuXin_alpha.databases.row import Row
-from LiuXin_alpha.databases.db_types.row_types import RowPayload
 from LiuXin_alpha.databases.api.driver_api import DatabaseDriverAPI
-from LiuXin_alpha.databases.api.portable_macros_api import PortableMacrosAPI
+from LiuXin_alpha.databases.api.driver_wrapper_api import DatabaseDriverWrapperAPI
 from LiuXin_alpha.databases.api.maintenance_api import MaintenancePluginAPI
 from LiuXin_alpha.databases.api.metadata_sql_api import MetadataSQLAPI
+from LiuXin_alpha.databases.api.portable_macros_api import PortableMacrosAPI
+from LiuXin_alpha.databases.database import Database
+from LiuXin_alpha.databases.database.dirtied_mixin import ObservedDirtyRecordsQueue
 from LiuXin_alpha.databases.database_driver_plugins.PostgreSQL.connection import (
     PostgresConnectionAdapter,
 )
@@ -73,17 +65,21 @@ from LiuXin_alpha.databases.db_types.driver_types import (
     SQLiteFunctionConnection,
     SQLRow,
 )
+from LiuXin_alpha.databases.db_types.macro_types import LegacyLinkData
 from LiuXin_alpha.databases.db_types.query_observation import QueryObservation
 from LiuXin_alpha.databases.db_types.query_types import TextMatch
+from LiuXin_alpha.databases.db_types.repair_types import PhysicalReference
+from LiuXin_alpha.databases.db_types.row_types import RowPayload
 from LiuXin_alpha.databases.driver_wrapper import DriverWrapper
+from LiuXin_alpha.databases.maintenance.bound_connection import BoundConnection
+from LiuXin_alpha.databases.maintenance.builtin_plugins import NullMaintenancePlugin
 from LiuXin_alpha.databases.maintenance.plugins import (
     MaintenancePluginContext,
     MaintenancePluginUpgrade,
 )
-from LiuXin_alpha.databases.maintenance.builtin_plugins import NullMaintenancePlugin
-from LiuXin_alpha.databases.maintenance.bound_connection import BoundConnection
-from LiuXin_alpha.databases.maintenance.runtime import MaintenanceRuntime
 from LiuXin_alpha.databases.maintenance.rebuild import RebuildDefinition, rebuild_page
+from LiuXin_alpha.databases.maintenance.runtime import MaintenanceRuntime
+from LiuXin_alpha.databases.row import Row
 from LiuXin_alpha.databases.transactions import transaction_scope
 from LiuXin_alpha.storage.storage_manager.manager import TransientStorageManager
 from LiuXin_alpha.storage.storage_manager.mixins._state import _StorageManagerState
@@ -102,11 +98,18 @@ from LiuXin_alpha.surfaces.terminal.commands.base import TerminalCommandAPI
 from LiuXin_alpha.surfaces.terminal.plugins.base import TerminalLifecyclePluginAPI
 from LiuXin_alpha.surfaces.terminal.windowed_components.models import CursesWindow
 from LiuXin_alpha.surfaces.terminal.windowed_ui import _CursesUiDriver
+from LiuXin_alpha.utils.calibre_compat.custom_columns.adapter import CustomColumnAdapter
+from LiuXin_alpha.utils.calibre_compat.custom_columns.api import (
+    CustomColumnCache,
+    CustomColumnsAPI,
+)
+from LiuXin_alpha.utils.calibre_compat.custom_columns.macros import CustomColumnMacros
 
 
 def driver_wrapper_contracts(
     wrapper: DatabaseDriverWrapperAPI,
     implementation: DriverWrapper,
+    custom: CustomColumnAdapter[SQLConnection],
     sqlite_connection: sqlite3.Connection,
     postgres_connection: PostgresConnectionAdapter,
 ) -> None:
@@ -128,13 +131,13 @@ def driver_wrapper_contracts(
     assert_type(wrapper.delete_by_id("works", [1, 2]), bool)
     assert_type(wrapper.update_row({"work_id": 1}), bool | None)
     assert_type(wrapper.execute("SELECT ?", (1,)), QueryCursor)
-    wrapper.set_custom_column_metadata(1, display={"heading": "Shelf"})
+    custom.set_custom_column_metadata(1, display={"heading": "Shelf"})
     wrapper.delete_by_id("works", "one")  # expect-error: reportArgumentType arg-type
-    wrapper.set_custom_column_metadata(
+    custom.set_custom_column_metadata(
         1,
         is_editable="yes",  # expect-error: reportArgumentType arg-type
     )
-    wrapper.set_custom_column_metadata(
+    custom.set_custom_column_metadata(
         1,
         display="{}",  # expect-error: reportArgumentType arg-type
     )
@@ -823,9 +826,6 @@ def physical_driver_contracts(
     assert_type(driver.direct_delete_many("works", "work_id", [1]), bool | None)
     assert_type(driver.user_version, int | str | None)
     assert_type(driver.direct_get_schema_version(), int | str | None)
-    assert_type(
-        driver.direct_create_custom_column("works", "note", multi="many_one"), str
-    )
     assert_type(cursor.execute("SELECT 1"), SQLCursor)
     driver.direct_add_multiple_simple_row_dicts(
         ["invalid row"],  # expect-error: reportArgumentType list-item
@@ -871,7 +871,9 @@ def sql_callback_contracts(
     )
 
 
-def macro_service_contracts(macros: MacrosAPI, sqlite: sqlite3.Connection) -> None:
+def macro_service_contracts(
+    macros: MacrosAPI, sqlite: sqlite3.Connection, custom: CustomColumnMacros
+) -> None:
     """Keep transaction handles, query containers and legacy ID modes precise."""
     with macros.transaction() as connection:
         assert_type(connection, SQLConnection)
@@ -886,14 +888,14 @@ def macro_service_contracts(macros: MacrosAPI, sqlite: sqlite3.Connection) -> No
     )
     assert_type(macros.get_link_data("works", "agents", 1), LegacyLinkData)
     assert_type(
-        macros.get_cc_id_from_value("custom_column_1", "A", conn=sqlite), int | None
+        custom.get_cc_id_from_value("custom_column_1", "A", conn=sqlite), int | None
     )
     assert_type(
-        macros.get_cc_id_from_value("custom_column_1", "A", all=True, conn=sqlite),
+        custom.get_cc_id_from_value("custom_column_1", "A", all=True, conn=sqlite),
         list[Sequence[Any]],
     )
-    macros.break_cc_links_by_book_id("links", (owner for owner in (1, 2)), conn=sqlite)
-    macros.insert_multiple_values_into_cc_table(
+    custom.break_cc_links_by_book_id("links", (owner for owner in (1, 2)), conn=sqlite)
+    custom.insert_multiple_values_into_cc_table(
         "custom_column_1",
         ["A"],
         conn=object(),  # expect-error: reportArgumentType arg-type
@@ -925,11 +927,11 @@ def schema_builder_and_helper_contracts(
         SQLiteDatabaseGenerator,
     )
     from LiuXin_alpha.databases.dbprefs import DBPrefs
-    from LiuXin_alpha.databases.notify import dummy_notify
     from LiuXin_alpha.databases.utils import (
         _get_next_series_num_for_list,
         get_data_as_dict,
     )
+    from LiuXin_alpha.utils.calibre_compat.custom_columns.notify import dummy_notify
 
     SQLiteDatabaseGenerator(sqlite)
     assert_type(
@@ -985,7 +987,9 @@ def custom_column_service_contracts(
     """Require real cache operations and preserve ID/row/definition result shapes."""
     from LiuXin_alpha.catalog.api.field_metadata_api import FieldMetadataAPI
     from LiuXin_alpha.catalog.field_metadata import FieldMetadata
-    from LiuXin_alpha.databases.custom_columns import CustomColumns
+    from LiuXin_alpha.utils.calibre_compat.custom_columns import (
+        CustomColumns,
+    )
 
     metadata: FieldMetadataAPI = FieldMetadata()
     facade = CustomColumns(
@@ -1052,7 +1056,7 @@ def backend_macro_and_cursor_contracts(
     assert_type(provider.get_link_data("works", "agents", 7), LegacyLinkData)
     legacy = require_legacy_macros(db.macros)
     assert_type(legacy, MacrosAPI)
-    legacy.mark_custom_column_for_delete(num=3)
+    CustomColumnMacros(db).mark_custom_column_for_delete(num=3)
     db.macros.mark_custom_column_for_delete(  # expect-error: reportAttributeAccessIssue attr-defined
         num=3
     )
@@ -1069,7 +1073,7 @@ def backend_macro_and_cursor_contracts(
     )
     positional.fetchmany("10")  # expect-error: reportArgumentType arg-type
     adapter.execute("SELECT 1", object())  # expect-error: reportArgumentType arg-type
-    db.set_macros(object())  # expect-error: reportArgumentType arg-type
+    db.set_macros(object())  # expect-error: reportAttributeAccessIssue attr-defined
 
 
 def search_registration_contracts(connection: sqlite3.Connection) -> None:

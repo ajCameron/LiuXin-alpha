@@ -1,6 +1,7 @@
 """Keep portable value and transaction behavior aligned across all driver names."""
 
 import os
+import sqlite3
 from contextlib import closing
 from uuid import uuid4
 
@@ -10,6 +11,7 @@ from LiuXin_alpha.databases.database_driver_plugins.PostgreSQL.connection import
     connect_postgres,
 )
 from LiuXin_alpha.databases.database_driver_plugins.registry import load_database_driver
+from tests.databases.driver_fixture_schema import revision_statements
 
 
 @pytest.fixture(params=["SQLite", "SQLite_apsw", "PostgreSQL"])
@@ -26,6 +28,9 @@ def driver(request, tmp_path):
             with cleanup:
                 with cleanup.cursor() as cursor:
                     cursor.execute(f'CREATE SCHEMA "{metadata["schema"]}"')
+                    cursor.execute(f'SET search_path TO "{metadata["schema"]}"')
+                    for statement in revision_statements():
+                        cursor.execute(statement)
             try:
                 with closing(load_database_driver(backend)(metadata)) as instance:
                     yield instance
@@ -34,6 +39,10 @@ def driver(request, tmp_path):
                     with cleanup.cursor() as cursor:
                         cursor.execute(f'DROP SCHEMA "{metadata["schema"]}" CASCADE')
     else:
+        with closing(sqlite3.connect(tmp_path / "parity.sqlite")) as conn:
+            for statement in revision_statements():
+                conn.execute(statement)
+            conn.commit()
         with closing(
             load_database_driver(backend)(
                 {"database_path": str(tmp_path / "parity.sqlite")}

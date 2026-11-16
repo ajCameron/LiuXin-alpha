@@ -18,6 +18,7 @@ from LiuXin_alpha.core.program_services import (
     backup,
     catalog,
     conversion,
+    custom_fields,
     database,
     discovery,
     ingest,
@@ -89,6 +90,9 @@ class CoreProgramAPI:
     schema_column = staticmethod(schema.schema_column)
     schema_link = staticmethod(schema.schema_link)
     schema_column_update = staticmethod(schema.schema_column_update)
+    native_fields_query = staticmethod(custom_fields.native_fields_query)
+    native_fields_command = staticmethod(custom_fields.native_fields_command)
+
     custom_fields_list = staticmethod(schema.custom_fields_list)
     custom_fields_create = staticmethod(schema.custom_fields_create)
     custom_fields_update = staticmethod(schema.custom_fields_update)

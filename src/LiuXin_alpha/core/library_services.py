@@ -187,7 +187,8 @@ class LibraryServices:
     ) -> Self:
         """Open one library graph and unwind its resources on failure.
 
-        ``create=True`` requires an absent file or empty server schema. Replacement
+        ``create=False`` requires an existing catalogue. ``create=True`` requires
+        an absent file or empty server schema. Replacement
         is a separate offline operation with a mandatory recovery backup.
         """
 

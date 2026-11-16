@@ -87,10 +87,13 @@ def bootstrap_storage_manager(
     Create or refresh the storage manager and retain its bootstrap report.
 
     If storage is absent, construct StorageManager before the guarded load; construction
-    errors propagate even in non-strict mode. Otherwise atomically rebind the manager
+    errors propagate even in non-strict mode. The database owns managers created
+    here and closes them before releasing its handles; injected managers remain
+    caller-owned. Closing/closed databases reject bootstrap. Otherwise rebind the manager
     and its durable repository views before applying the startup policy. Non-strict
-    loading exceptions are logged and converted to one discovered/failed configuration
-    with the error text; partial load effects remain. Strict loading exceptions
+    loading exceptions are logged and reported as incomplete with unknown counts
+    represented by zero; partial load effects remain. Failed loading restores an
+    existing manager's startup_on_add setting. Strict loading exceptions
     propagate before a new report is stored. A returned failed report is stored before
     strict mode raises StorageManagementError. Skips alone do not make report.ok false.
 
@@ -115,9 +118,12 @@ def bootstrap_storage_manager(
         or manager construction rejects its configuration.
     """
 
+    db._require_runtime_mutable()
     storage = db.storage
+    previous_startup = None if storage is None else storage.startup_on_add
     if storage is None:
         storage = StorageManager(db=db, startup_on_add=startup_on_add)
+        db._owned_storage_managers.append(storage)
         db.storage = storage
     else:
         bind_database = getattr(storage, "bind_database", None)
@@ -136,6 +142,8 @@ def bootstrap_storage_manager(
             startup=startup_on_add,
         )
     except Exception as exc:
+        if previous_startup is not None:
+            storage.startup_on_add = previous_startup
         if strict:
             raise
         metadata = db.metadata
@@ -146,10 +154,11 @@ def bootstrap_storage_manager(
             ("database_path", metadata.get("database_path") if metadata else None),
         )
         report = StorageBootstrapReport(
-            discovered_configurations=1,
+            discovered_configurations=0,
             loaded_stores=0,
             skipped_configurations=0,
-            failed_configurations=1,
+            failed_configurations=0,
+            completed=False,
             issues=(
                 StorageBootstrapIssue(
                     None,
@@ -160,6 +169,8 @@ def bootstrap_storage_manager(
         )
 
     db.storage_bootstrap_report = report
+    if not report.ok and previous_startup is not None:
+        storage.startup_on_add = previous_startup
     if strict and not report.ok:
         issue_summary = "; ".join(
             "{}: {}".format(

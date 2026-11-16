@@ -5,11 +5,9 @@ Write legacy custom-series indexes to link columns and cached book values.
 
 from __future__ import division, absolute_import, print_function, unicode_literals, annotations
 
-from LiuXin_alpha.databases.database_driver_plugins._macro_state import require_legacy_macros
-
 from typing import TYPE_CHECKING
 
-from LiuXin_alpha.caches.write.base_writer import BaseWriter
+from LiuXin_alpha.caches.write.base_writer import BaseWriter, custom_column_macros
 from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems
 
 if TYPE_CHECKING:
@@ -72,7 +70,7 @@ class CustomSeriesIndexWriter(BaseWriter):
             field.table.book_col_map[book_id] = sidx
 
         if sequence:
-            require_legacy_macros(db.macros).update_custom_column_additional_column_many(
+            custom_column_macros(db).update_custom_column_additional_column_many(
                 table=field.metadata["table"],
                 column=field.metadata["column"],
                 sequence=sequence,

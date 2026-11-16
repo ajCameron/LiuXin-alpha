@@ -1,5 +1,5 @@
 """
-Maintain the legacy custom-column bulk-edit temporary ID tables.
+Maintain temporary ID tables for SQL bulk operations.
 
 These helpers use SQLite-style temp-schema SQL to create, populate and explicitly
 destroy named one-column tables on a caller-selected connection. They validate simple
@@ -23,7 +23,7 @@ from LiuXin_alpha.databases.database_driver_plugins.SQL.macros.portable_macros_m
 
 class TempTablesMacrosMixin(MacroHostState):
     """
-    Supply the legacy temporary-table lifecycle used by custom-column bulk edits.
+    Supply explicit temporary-table lifecycle operations for SQL clients.
 
     A host normally provides db.driver.conn; passing conn explicitly lets each method
     operate without that host attribute. Creation replaces existing temporary tables
@@ -37,11 +37,11 @@ class TempTablesMacrosMixin(MacroHostState):
         >>> conn = sqlite3.connect(":memory:")
         >>> macros = TempTablesMacrosMixin()
         >>> macros.db = SimpleNamespace(driver=SimpleNamespace(conn=conn))
-        >>> macros.create_cc_temp_tables(("selected_ids",))
+        >>> macros.create_temp_id_tables(("selected_ids",))
         >>> macros.insert_values_into_temp_table("selected_ids", (7, 9))
         >>> conn.execute('SELECT id FROM temp."selected_ids" ORDER BY id').fetchall()
         [(7,), (9,)]
-        >>> macros.destroy_cc_temp_tables(("selected_ids",))
+        >>> macros.destroy_temp_tables(("selected_ids",))
         >>> conn.close()
     """
 
@@ -53,7 +53,7 @@ class TempTablesMacrosMixin(MacroHostState):
     # Todo: Should not be possible to accidentally drop a temp table
     # Todo: Also can forsee a problem where the temp tables can be used to drop main tables if their names clash
     # Todo: conn can be protocoled?
-    def create_cc_temp_tables(
+    def create_temp_id_tables(
         self, temp_tables: Iterable[str], conn: SQLConnection | None = None
     ) -> None:
         """
@@ -74,9 +74,9 @@ class TempTablesMacrosMixin(MacroHostState):
             >>> import sqlite3
             >>> conn = sqlite3.connect(":memory:")
             >>> macros = TempTablesMacrosMixin()
-            >>> macros.create_cc_temp_tables(("selected_ids",), conn=conn)
+            >>> macros.create_temp_id_tables(("selected_ids",), conn=conn)
             >>> macros.insert_values_into_temp_table("selected_ids", (7,), conn=conn)
-            >>> macros.create_cc_temp_tables(("selected_ids",), conn=conn)
+            >>> macros.create_temp_id_tables(("selected_ids",), conn=conn)
             >>> conn.execute('SELECT COUNT(*) FROM temp."selected_ids"').fetchone()[0]
             0
             >>> conn.close()
@@ -104,7 +104,7 @@ class TempTablesMacrosMixin(MacroHostState):
                 f"CREATE TEMP TABLE {_quoted(table)}(id INTEGER PRIMARY KEY)"
             ).close()
 
-    def destroy_cc_temp_tables(
+    def destroy_temp_tables(
         self, temp_tables: Iterable[str], conn: SQLConnection | None = None
     ) -> None:
         """
@@ -122,8 +122,8 @@ class TempTablesMacrosMixin(MacroHostState):
             >>> conn = sqlite3.connect(":memory:")
             >>> _ = conn.execute("CREATE TABLE selected_ids (id INTEGER PRIMARY KEY)")
             >>> macros = TempTablesMacrosMixin()
-            >>> macros.create_cc_temp_tables(("selected_ids",), conn=conn)
-            >>> macros.destroy_cc_temp_tables(
+            >>> macros.create_temp_id_tables(("selected_ids",), conn=conn)
+            >>> macros.destroy_temp_tables(
             ...     ("selected_ids", "selected_ids"), conn=conn
             ... )
             >>> conn.execute(
@@ -164,7 +164,7 @@ class TempTablesMacrosMixin(MacroHostState):
         bindings before executing SQL. The table is addressed through temp and must
         already exist on the chosen connection. No Python integer conversion or
         deduplication occurs; the backend applies the table's constraints. For SQLite
-        tables created by create_cc_temp_tables, None requests an automatically assigned
+        tables created by create_temp_id_tables, None requests an automatically assigned
         INTEGER PRIMARY KEY and repeated IDs raise an integrity error.
 
         A failing input iterable prevents executemany from starting. A binding or
@@ -176,7 +176,7 @@ class TempTablesMacrosMixin(MacroHostState):
             >>> import sqlite3
             >>> conn = sqlite3.connect(":memory:")
             >>> macros = TempTablesMacrosMixin()
-            >>> macros.create_cc_temp_tables(("selected_ids",), conn=conn)
+            >>> macros.create_temp_id_tables(("selected_ids",), conn=conn)
             >>> macros.insert_values_into_temp_table(
             ...     "selected_ids", (1, 2, None), conn=conn
             ... )

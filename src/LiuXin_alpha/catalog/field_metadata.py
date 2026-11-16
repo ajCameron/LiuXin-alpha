@@ -10,6 +10,7 @@ with callers; they are not general-purpose dict replacements.
 
 
 import traceback
+from typing import Any, Callable, Iterable, Mapping
 from collections import OrderedDict
 
 from LiuXin_alpha.utils.libraries.liuxin_six import iterkeys
@@ -674,7 +675,88 @@ def _builtin_field_metadata():
 # }}}
 
 
-class FieldMetadata(dict):
+class _CustomFieldRefresh:
+    """Prepare one attachment's descriptors without exposing a partial refresh."""
+
+    def prepare_custom_fields(
+        self: Any, in_table: str, definitions: Iterable[Mapping[str, Any]],
+        *, series_companions: bool = True,
+    ) -> Callable[[], None]:
+        """Validate a replacement and return its in-memory publication operation.
+
+        Keep other attachments, builtins and category aliases intact. Match old
+        custom fields by attachment and preserve result slots by column number,
+        so renaming a Series also moves its companion field and aliases.
+        LiuXin projections disable synthetic Series companions; positions belong
+        to Series values. Publication cannot perform SQL or call user hooks.
+        """
+        candidate: Any = dict.__new__(type(self))
+        candidate.__dict__.update(vars(self))
+        registries = ('_tb_cats', '_tb_custom_fields', '_search_term_map', 'custom_label_to_key_map')
+        for name in registries:
+            setattr(candidate, name, getattr(self, name).copy())
+        previous = {}
+        removed = set()
+        definitions = tuple(definitions)
+        labels = {definition['colnum']: definition['label'] for definition in definitions}
+        renamed = {}
+        for key, data in self._tb_custom_fields.items():
+            if in_table != '*' and data.get('in_table', 'books') != in_table:
+                continue
+            previous[data['colnum']] = (data, self._tb_cats.get(key + '_index'))
+            removed.add(key)
+            if data['colnum'] in labels:
+                renamed[key] = self.custom_field_prefix + labels[data['colnum']]
+            if data['datatype'] == 'series' and data.get('series_companion', True):
+                removed.add(key + '_index')
+                if key in renamed:
+                    renamed[key + '_index'] = renamed[key] + '_index'
+        for key in removed:
+            candidate._tb_cats.pop(key, None)
+            candidate._tb_custom_fields.pop(key, None)
+        for key, target in list(candidate._search_term_map.items()):
+            if key in removed:
+                del candidate._search_term_map[key]
+            elif isinstance(target, str) and target in removed:
+                if target in renamed:
+                    candidate._search_term_map[key] = renamed[target]
+                else:
+                    del candidate._search_term_map[key]
+            elif isinstance(target, list):
+                retained = [renamed.get(item, item) for item in target if item not in removed or item in renamed]
+                if retained:
+                    candidate._search_term_map[key] = retained
+                else:
+                    del candidate._search_term_map[key]
+        for label, key in list(candidate.custom_label_to_key_map.items()):
+            if key in removed:
+                del candidate.custom_label_to_key_map[label]
+        for definition in definitions:
+            values = dict(definition)
+            native_series = values['datatype'] == 'series' and not series_companions
+            if native_series:
+                values['datatype'] = 'text'
+            candidate.add_custom_field(**values)
+            key = candidate.custom_field_prefix + definition['label']
+            if native_series:
+                candidate._tb_cats[key]['datatype'] = 'series'
+                candidate._tb_cats[key]['series_companion'] = False
+            old, old_index = previous.get(definition['colnum'], ({}, None))
+            if 'rec_index' in old:
+                candidate._tb_cats[key]['rec_index'] = old['rec_index']
+            if series_companions and definition['datatype'] == 'series' and old_index and 'rec_index' in old_index:
+                candidate._tb_cats[key + '_index']['rec_index'] = old_index['rec_index']
+
+        def publish() -> None:
+            for name in registries:
+                target = getattr(self, name)
+                target.clear()
+                target.update(getattr(candidate, name))
+
+        return publish
+
+
+class FieldMetadata(_CustomFieldRefresh, dict):
     """
     Manage mutable field descriptors in ordered internal registries.
 
@@ -2066,7 +2148,7 @@ def _calibre_builtin_field_metadata():
 # }}}
 
 
-class CalibreFieldMetadata(dict):
+class CalibreFieldMetadata(_CustomFieldRefresh, dict):
     """
     Expose the field registry with Calibre tuple-index assignment support.
 

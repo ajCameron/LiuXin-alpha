@@ -14,7 +14,7 @@ from __future__ import annotations, unicode_literals
 import os
 import pprint
 import pathlib
-import re
+from contextlib import nullcontext
 from copy import deepcopy
 from collections.abc import Callable, Iterable, Mapping, Set
 from types import TracebackType
@@ -40,8 +40,12 @@ from LiuXin_alpha.databases.database.constants import (
     HELPER_TABLES,
     OPTIONAL_HELPER_TABLES,
 )
-from LiuXin_alpha.databases.database.custom_columns_mixin import (
-    CustomColumnDatabaseMixin,
+from LiuXin_alpha.databases.database._driver_binding import (
+    close_driver,
+    connection_metadata,
+    same_catalogue,
+    schema_bindings,
+    table_category,
 )
 from LiuXin_alpha.databases.database.dirtied_mixin import (
     DatabaseDirtiedRecordsMixin,
@@ -213,7 +217,6 @@ def _metadata_uses_server_database(
 
 
 class Database(
-    CustomColumnDatabaseMixin,
     DatabaseRatingMixin,
     DatabaseNullRowsMixin,
     DatabaseMetadataMixin,
@@ -280,7 +283,12 @@ class Database(
     maintenance: Maintainer | None
     maintainer: Maintainer | None
     _failed_runtime_maintainers: list[Maintainer]
+    _retired_drivers: list[DatabaseDriverAPI]
     _link_has_priority: dict[str, bool] | None
+    _lifecycle_state: Literal["initializing", "open", "closing", "closed"] = (
+        "initializing"
+    )
+    _owned_storage_managers: list[StorageManager]
 
     def __init__(
         self,
@@ -299,10 +307,10 @@ class Database(
         """
         Open or create a backend and attach the shared queues and runtime services.
 
-        The existing-driver branch leaves facade metadata and type as None and assumes
+        The existing-driver branch copies connection metadata/type and assumes
         the database exists. The standard branch records metadata/type and checks
-        backend existence. Storage initialization follows queue wiring; a failure can
-        leave earlier resources initialized.
+        backend existence. Failed construction closes acquired resources and preserves
+        the original exception, with notes for any cleanup failure.
 
         Example:
             Given an existing SQLite library path, db =
@@ -315,7 +323,7 @@ class Database(
             database when no driver is supplied.
         :param db_type: Backend registry name, default SQLite.
         :param create: Explicitly request new schema creation; existing targets are
-            rejected.
+            rejected. False requires an existing catalogue.
         :param backup: Retained compatibility argument; creation never replaces or backs
             up an existing target.
         :param existing_driver: Already constructed driver; requires metadata=None.
@@ -341,7 +349,13 @@ class Database(
         self.metadata = None
         self.type = None
 
+        self._driver = None
+        self._driver_wrapper = None
         self._macros = None
+        self.storage = None
+        self.storage_bootstrap_report = None
+        self._owned_storage_managers = []
+        self._lifecycle_state = "initializing"
         self._metadata_sql = None
         self.write_telemetry = DatabaseWriteTelemetry()
         self.dirty_records_queue = ObservedDirtyRecordsQueue[tuple[str, int, str]](
@@ -350,44 +364,53 @@ class Database(
         self._maintainer_callback_proxy = None
         self.maintenance = self.maintainer = None
         self._failed_runtime_maintainers = []
+        self._retired_drivers = []
         self.clean = lambda *args, **kwargs: None
 
-        # Fundamental constants for this database
-        if existing_driver is None:
-            self.standard_init(
-                metadata=metadata,
-                db_type=db_type,
-                create=create,
-                backup=backup,
-                repair_bootstrap_rows=repair_bootstrap_rows,
-                enable_maintenance=enable_maintenance,
-            )
-        else:
-            assert metadata is None, (
-                "driver is provided - it's assumed that the db metadata is contained within"
-            )
-            self.existing_driver_init(
-                existing_driver,
-                repair_bootstrap_rows=repair_bootstrap_rows,
-                enable_maintenance=enable_maintenance,
-            )
-        # Used as a lookup cache for if the link table in question has a priority column
-        # Keyed with the table, value with True or False
-        self._link_has_priority = dict()
+        try:
+            # Fundamental constants for this database
+            if existing_driver is None:
+                self.standard_init(
+                    metadata=metadata,
+                    db_type=db_type,
+                    create=create,
+                    backup=backup,
+                    repair_bootstrap_rows=repair_bootstrap_rows,
+                    enable_maintenance=enable_maintenance,
+                )
+            else:
+                assert metadata is None, (
+                    "driver is provided - it's assumed that the db metadata is contained within"
+                )
+                self.existing_driver_init(
+                    existing_driver,
+                    repair_bootstrap_rows=repair_bootstrap_rows,
+                    enable_maintenance=enable_maintenance,
+                )
+            # Used as a lookup cache for if the link table in question has a priority column
+            # Keyed with the table, value with True or False
+            self._link_has_priority = dict()
 
-        # Persistent helper table for metadata sidecar write-out (historic name: metadata_dirtied_books)
-        self._metadata_dirtied_table = "metadata_dirtied_books"
+            # Persistent helper table for metadata sidecar write-out (historic name: metadata_dirtied_books)
+            self._metadata_dirtied_table = "metadata_dirtied_books"
 
-        self.driver.dirty_records_queue = self.dirty_records_queue
-        self.driver_wrapper.dirty_records_queue = self.dirty_records_queue
+            self.driver.dirty_records_queue = self.dirty_records_queue
+            self.driver_wrapper.dirty_records_queue = self.dirty_records_queue
 
-        self.storage = None
-        self.storage_bootstrap_report = None
-        if enable_storage_manager:
-            self.bootstrap_storage_manager(
-                startup_on_add=storage_startup_on_add,
-                strict=strict_storage_manager_bootstrap,
-            )
+            if enable_storage_manager:
+                self.bootstrap_storage_manager(
+                    startup_on_add=storage_startup_on_add,
+                    strict=strict_storage_manager_bootstrap,
+                )
+            self._lifecycle_state = "open"
+        except BaseException as error:
+            try:
+                self.close()
+            except BaseException as cleanup_error:
+                error.add_note(
+                    f"Database construction cleanup failed: {cleanup_error!r}"
+                )
+            raise
 
     @property
     def driver(self) -> DatabaseDriverAPI:
@@ -440,24 +463,6 @@ class Database(
             raise DatabaseIntegrityError("Database macros are not bound or are closed")
         return self._macros
 
-    def set_macros(self, new_macros: DatabaseMacrosAPI) -> None:
-        """
-        Replace the facade macros reference after rejecting None.
-
-        This does not update the driver, wrapper or collaborator back-references.
-
-        Example:
-            When assembling a compatible facade, db.set_macros(macros) stores that
-            object without rebuilding other collaborators.
-
-
-        :param new_macros: Macros object to retain directly.
-        :return: None.
-        :raises AssertionError: new_macros is None.
-        """
-        assert new_macros is not None, "Need to set macros to something that exists"
-        self._macros = new_macros
-
     @property
     def metadata_sql(self) -> MetadataSQLAPI | None:
         """Return physical-table SQL helpers, or None before binding/after cleanup.
@@ -466,14 +471,6 @@ class Database(
         these helpers operate on actual stored rows using portable transactions.
         """
         return self._metadata_sql
-
-    def set_metadata_sql(self, new_metadata_sql: MetadataSQLAPI) -> None:
-        """Retain a non-None table-query helper without rebinding its owner.
-
-        Normal construction and runtime rebinding arrange its db reference.
-        """
-        assert new_metadata_sql is not None, "Need an existing table-query helper"
-        self._metadata_sql = new_metadata_sql
 
     def existing_driver_init(
         self,
@@ -486,8 +483,8 @@ class Database(
         Bind an existing driver, classify its schema and initialize runtime helpers.
 
         This internal constructor path assumes existence and binds the driver/macros
-        before schema discovery and transactional bootstrap repairs. It does not
-        copy the driver metadata or backend type to the facade. Constructor
+        before schema discovery and transactional bootstrap repairs. It copies
+        the driver metadata and recognized backend type to the facade. Constructor
         telemetry and queue setup must already exist.
 
         Example:
@@ -502,7 +499,6 @@ class Database(
         """
         # Load the driver constructor - use this to make the driver instance for this database
         self.set_driver(existing_driver)
-        self.set_macros(existing_driver.macros)
         # A standalone driver's macros have no facade yet. Bootstrap repair uses
         # the facade's transaction owner, so bind it before any repair can run.
         self.driver.db = self
@@ -569,16 +565,16 @@ class Database(
         enable_maintenance: bool = False,
     ) -> None:
         """
-        Select a backend and create its schema when explicit or required for a new file.
+        Select a backend, creating its schema only when explicitly requested.
 
-        Capture path existence before opening a driver. Build missing files privately
+        Require an existing file for ordinary opens. Build new files privately
         and publish create-only, so a competing creation cannot be overwritten. Explicit
         server creation requires an absent or empty schema. Only after creation succeeds
         open the ordinary driver and attach its wrapper.
 
         Example:
-            The constructor calls this method for Database(metadata={"database_path":
-            new_path}); a missing file path triggers creation even with create=False.
+            Database(metadata={"database_path": new_path}, create=True) creates a
+            catalogue. Omitting create=True requires an existing catalogue.
 
 
         :param metadata: Connection hints, defaulting to the configured library path.
@@ -597,28 +593,41 @@ class Database(
         db_path = metadata.get("database_path")
         server_database = _metadata_uses_server_database(metadata, db_type)
         path_backed = not server_database
-        path_existed = (
-            db_path is not None
-            and bool(db_path)
+        if (
+            not create
             and path_backed
-            and db_path != ":memory:"
-            and os.path.lexists(db_path)
-        )
+            and db_path not in (None, ":memory:")
+            and not os.path.exists(db_path)
+        ):
+            raise FileNotFoundError(
+                f"Catalogue does not exist: {db_path!r}. Use create=True to create one."
+            )
 
         self.metadata = metadata
         self.type = db_type
         driver_type = load_database_driver(db_type)
 
-        if create or (
-            path_backed and not path_existed and db_path not in (None, ":memory:")
-        ):
+        if create:
             initializer = driver_type(self.metadata, self, set_conn=False)
             try:
                 initializer.direct_create_new_database()
             finally:
                 initializer.close()
 
-        self.set_driver(driver_type(self.metadata, self))
+        candidate = driver_type(self.metadata, self)
+        try:
+            self.set_driver(candidate)
+        except BaseException as error:
+            # set_driver leaves rejected candidates with their caller. Here the
+            # constructor created that candidate, so it must release it itself.
+            if self._driver is not candidate:
+                try:
+                    candidate.close()
+                except BaseException as cleanup_error:
+                    error.add_note(
+                        f"Candidate driver cleanup failed: {cleanup_error!r}"
+                    )
+            raise
 
         # Check to see if the database currently exists
         self._exists = self.check_exists()
@@ -692,6 +701,7 @@ class Database(
         :param callback_proxy_cls: Factory for the maintenance callback sink.
         :return: None.
         """
+        self._require_runtime_mutable()
         # Resolve required owners before starting a background service. Public
         # collaborator access rejects use before binding or after cleanup.
         driver, wrapper, macros = self.driver, self.driver_wrapper, self.macros
@@ -760,7 +770,9 @@ class Database(
         """
         Delegate Store loading and retain the resulting manager and report.
 
-        The runtime helper creates a manager if needed or rebinds the existing one.
+        The runtime helper creates an owned manager if needed or rebinds the existing
+        attachment without taking ownership. Close shuts down every created manager,
+        including those subsequently replaced by a caller-owned attachment.
         Non-strict loading errors become failed reports, but manager construction errors
         propagate. Partial loading effects are not rolled back.
 
@@ -790,118 +802,150 @@ class Database(
         )
 
     def set_driver(self, new_driver: DatabaseDriverAPI) -> None:
-        """
-        Replace the driver and rebuild wrapper, macros and metadata SQL bindings.
+        """Prepare and install a complete driver binding before retiring old resources.
 
-        Close the old wrapper first. For a different driver, discard pending primary
-        work with rollback, then close it and call the driver's close method to release
-        its other connections. Auxiliary transactions are not committed. Cleanup errors
-        are suppressed. Install the new wrapper and convenience aliases, including
-        storage aliases, which may become None. This does not rerun schema discovery,
-        queue wiring or all runtime back-references; failures during new setup leave
-        partial state.
+        Validate replacement schema, refresh categories and identity caches, and
+        bind owners, aliases and the dirty queue. Preserve same-catalogue maintenance
+        and storage services. Preparation failure leaves the old facade usable and
+        the candidate owned by its caller. A different old driver is rolled back
+        and closed after publication; reinstalling the same driver retains its SQL
+        connections. Pending primary work is never committed by replacement.
 
-        Example:
-            For a compatible open replacement driver, db.set_driver(replacement)
-            releases the previous database connections before constructing its new
-            wrapper.
+        If retiring old handles fails, the new binding is already installed. Keep
+        the retired driver owned, report the error and enter ``closing``; call
+        ``close()`` to finish shutdown of both drivers. Do not retry the replacement
+        or assume the candidate is still caller-owned after publication.
 
+        Call while direct SQL users are quiescent. Managed macro transactions and
+        drivers owned by another facade are rejected. Changing physical catalogues
+        with owned or attached runtime services or queued work requires a separate Database.
 
-        :param new_driver: Driver to install; supplying the current driver retains its
-            primary connection.
+        :param new_driver: Compatible open driver to install.
         :return: None.
         """
-        # Release the old wrapper and mutex references without committing SQL.
-        old_wrapper = getattr(self, "_driver_wrapper", None)
-        if old_wrapper is not None:
-            try:
-                old_wrapper.close()
-            except Exception:
-                pass
-
-        # Close any existing driver connection
+        self._require_runtime_mutable()
         old_driver = getattr(self, "_driver", None)
-        if old_driver is not None and old_driver is not new_driver:
-            try:
-                conn = getattr(old_driver, "conn", None)
-                if conn is not None:
-                    try:
-                        conn.rollback()
-                    except Exception:
-                        pass
-                    try:
-                        conn.close()
-                    except Exception:
-                        pass
-            except Exception:
-                pass
-            try:
-                old_driver.conn = None
-            except Exception:
-                pass
-            try:
-                old_driver.close()
-            except Exception:
-                pass
+        old_wrapper = getattr(self, "_driver_wrapper", None)
+        queue = self.dirty_records_queue
+        old_lock = getattr(self, "lock", None)
+        if queue is None or (old_driver is not None and old_lock is None):
+            raise DatabaseIntegrityError(
+                "Cannot replace the driver of a closed database"
+            )
+        for owner in (new_driver.db, new_driver.macros.db):
+            if owner is not None and owner is not self:
+                raise InputIntegrityError(
+                    "Replacement driver belongs to another database"
+                )
+        for driver in (old_driver, new_driver):
+            if (
+                driver is not None
+                and driver.macros.current_transaction_connection() is not None
+            ):
+                raise InputIntegrityError(
+                    "Cannot replace a driver during a macro transaction"
+                )
+        if old_driver is not None and not same_catalogue(old_driver, new_driver):
+            if (
+                self.maintenance is not None
+                or self._failed_runtime_maintainers
+                or self._owned_storage_managers
+                or getattr(self, "storage", None) is not None
+                or not queue.empty()
+            ):
+                raise InputIntegrityError(
+                    "Open a separate Database to change catalogues with runtime services or queued work"
+                )
 
-        self._driver = new_driver
-        # The wrapper is coupled to the driver and provides a reentrant mutex.
-        self._driver_wrapper = DriverWrapper(self._driver)
-        self.set_macros(self._driver.macros)
-        self.set_metadata_sql(MetadataSQL(self))
-
-        # Convenience lock handle
+        # Preparation reads only the candidate. Failed validation leaves the old
+        # owner graph, SQL connections and services intact; the candidate stays owned
+        # by its caller. Callers must quiesce direct SQL users before replacing drivers.
+        wrapper = DriverWrapper(new_driver, db=self)
         try:
-            self.lock = self._driver_wrapper.lock
-        except Exception:
-            pass
-
-        # Legacy convenience aliases used across the codebase and relied upon by tests.
-        # NOTE: these are intentionally attribute bindings to the wrapper/driver so they can
-        # be cleared on close() to help break reference cycles and release SQLite file locks.
-        try:
-            self.conn = getattr(self._driver, "conn", None)
-        except Exception:
-            self.conn = None
-
-        for name in (
-            "execute",
-            "executemany",
-            "executescript",
-            "get",
-            "shell",
-            "get_connection",
-            "storage_bootstrap_report",
-            "storage",
-        ):
-            try:
-                setattr(self, name, getattr(self._driver_wrapper, name))
-            except Exception:
+            bindings = (
+                schema_bindings(wrapper, self.helper_tables)
+                if old_driver is not None
+                else {}
+            )
+            bindings.update(connection_metadata(new_driver))
+            bindings.update(
+                {
+                    "_driver": new_driver,
+                    "_driver_wrapper": wrapper,
+                    "_macros": new_driver.macros,
+                    "_metadata_sql": MetadataSQL(self),
+                    "lock": wrapper.lock,
+                    "conn": new_driver.conn,
+                }
+            )
+            for name in (
+                "execute",
+                "executemany",
+                "executescript",
+                "get",
+                "shell",
+                "get_connection",
+            ):
+                bindings[name] = getattr(wrapper, name, None)
+            wrapper.dirty_records_queue = queue
+            # Preserve the existing service and its queues; its context resolves this
+            # facade on each dispatch. Storage repositories likewise resolve live macros.
+            callback = self._maintainer_callback_proxy or _NoopMaintainerCallback()
+            previous = (
+                new_driver.db,
+                new_driver.macros.db,
+                new_driver.dirty_records_queue,
+                new_driver.maintainer_callback,
+            )
+            with old_lock if old_lock is not None else nullcontext():
                 try:
-                    setattr(self, name, None)
-                except Exception:
-                    pass
+                    new_driver.db = self
+                    new_driver.macros.db = self
+                    new_driver.dirty_records_queue = queue
+                    new_driver.maintainer_callback = callback
+                except BaseException:
+                    (
+                        new_driver.db,
+                        new_driver.macros.db,
+                        new_driver.dirty_records_queue,
+                        new_driver.maintainer_callback,
+                    ) = previous
+                    raise
+                vars(self).update(bindings)
+                if old_driver is not None and old_driver is not new_driver:
+                    self._retired_drivers.append(old_driver)
+                try:
+                    if old_wrapper is not None:
+                        old_wrapper.close()
+                    self._close_retired_drivers()
+                except BaseException as error:
+                    self._lifecycle_state = "closing"
+                    error.add_note(
+                        "Replacement binding is installed; retired cleanup failed. "
+                        "Call Database.close() to finish both driver lifetimes."
+                    )
+                    raise
+        except BaseException:
+            if getattr(self, "_driver_wrapper", None) is not wrapper:
+                wrapper.close()
+            raise
 
-    def set_driver_wrapper(self, new_driver_wrapper: DatabaseDriverWrapperAPI) -> None:
+    def _close_retired_drivers(self) -> None:
+        """Release replaced owners only after every one of their handles closes.
+
+        Failed cleanup leaves the driver and its ownership back-references intact.
+        Successful cleanup detaches it and removes the retry obligation. The active
+        binding is separate and remains available to outstanding owned services
+        until Database.close reaches it.
         """
-        Assign a wrapper and replace its macros reference with the facade macros.
-
-        Assignment precedes validation. This neither closes the previous wrapper nor
-        refreshes convenience aliases, locks or back-references.
-
-        Example:
-            During controlled assembly, db.set_driver_wrapper(wrapper) requires
-            wrapper.macros already set before copying db.macros.
-
-
-        :param new_driver_wrapper: Wrapper whose existing macros attribute must be
-            non-None.
-        :return: None.
-        :raises AssertionError: The newly assigned wrapper has macros=None.
-        """
-        self._driver_wrapper = new_driver_wrapper
-        assert self._driver_wrapper.macros is not None
-        self._driver_wrapper.set_macros(self.macros)
+        while self._retired_drivers:
+            retired = self._retired_drivers[-1]
+            close_driver(retired)
+            retired.db = None
+            retired.macros.db = None
+            retired.dirty_records_queue = None
+            retired.maintainer_callback = _NoopMaintainerCallback()
+            self._retired_drivers.pop()
 
     def __del__(self) -> None:
         """
@@ -922,106 +966,62 @@ class Database(
             # Never raise from __del__
             pass
 
+    @property
+    def lifecycle_state(self) -> Literal["initializing", "open", "closing", "closed"]:
+        """Report whether construction, normal use or resource shutdown owns the facade.
+
+        A failed close leaves ``closing`` until a retry succeeds. Dependencies remain
+        available to outstanding owned work; callers must not begin new operations.
+        """
+        return self._lifecycle_state
+
+    def _require_runtime_mutable(self) -> None:
+        """Reject service startup and rebinding once shutdown has been requested."""
+        if self._lifecycle_state in {"closing", "closed"}:
+            raise DatabaseIntegrityError("Database is closing or closed")
+
     def close(self) -> None:
+        """Stop owned services before releasing their database dependencies.
+
+        Maintenance must finish before owned storage managers close. Injected managers
+        remain caller-owned. A service failure propagates and leaves dependencies and
+        ownership intact for another close attempt. Rebinding and service startup are
+        refused once closing begins; callers must quiesce their own operations.
+
+        After services stop, retry retired drivers, then release active driver handles.
+        A handle failure also leaves ``closing`` and retains its owner for retry;
+        some other handles may already be closed, so this is not a usable database.
+        Discard pending primary work without committing during cleanup.
+        Previously committed writes remain durable. Repeated successful close is safe;
+        finalization is best effort, whereas explicit close reports failures.
         """
-        Stop maintenance and release database connections with best-effort cleanup.
+        if self._lifecycle_state == "closed":
+            return
+        self._lifecycle_state = "closing"
 
-        Stop maintenance, release the wrapper, and roll back pending primary work
-        before closing connections. Cleanup never requests a commit. Auxiliary
-        connections belong to the driver and are closed through it. Ordinary cleanup
-        errors are suppressed so later resources still receive cleanup attempts.
-        Callers must finish active operations before closing the facade.
-
-        Example:
-            Use db.close() in a finally block; commit intended writes explicitly first.
-
-
-        :return: None; connection aliases and selected collaborator references are
-            cleared.
-        """
-        # Capture references early so break_cycles() can't erase them before we close.
-        driver = getattr(self, "_driver", None)
-        wrapper = getattr(self, "_driver_wrapper", None)
-        maintenance = getattr(self, "maintenance", None)
-
-        # Retain ownership of candidates whose failed startup cleanup timed out.
+        # A failed startup may also have left a worker awaiting shutdown. Keep
+        # every reference until all workers have stopped; retries are idempotent.
         pending = list(getattr(self, "_failed_runtime_maintainers", ()))
-        if maintenance is not None:
+        maintenance = getattr(self, "maintenance", None)
+        if maintenance is not None and maintenance not in pending:
             pending.append(maintenance)
-        self._failed_runtime_maintainers = []
         for worker in pending:
-            try:
-                worker.close()
-            except Exception:
-                self._failed_runtime_maintainers.append(worker)
+            worker.close()
+        self._failed_runtime_maintainers = []
 
-        # Release the wrapper. The current lock is a mutex, not a connection.
-        try:
-            if wrapper is not None and hasattr(wrapper, "close"):
-                wrapper.close()
-            else:
-                lock = getattr(self, "lock", None)
-                if lock is not None:
-                    try:
-                        lock.rollback()
-                    except Exception:
-                        pass
-                    try:
-                        lock.close()
-                    except Exception:
-                        pass
-        except Exception:
-            pass
+        owned_storage = getattr(self, "_owned_storage_managers", [])
+        while owned_storage:
+            owned_storage[-1].close()
+            owned_storage.pop()
 
-        # Close the driver's primary connection
-        try:
-            if driver is not None:
-                conn = getattr(driver, "conn", None)
-                if conn is not None:
-                    try:
-                        conn.rollback()
-                    except Exception:
-                        pass
-                    try:
-                        conn.close()
-                    except Exception:
-                        pass
-                try:
-                    driver.conn = None
-                except Exception:
-                    pass
-        except Exception:
-            pass
-
-        # The driver also owns connections opened for helper operations. Closing
-        # only conn leaves those handles holding files even after scratch unlink.
+        self._close_retired_drivers()
+        driver, wrapper = self._driver, self._driver_wrapper
         if driver is not None:
-            try:
-                driver.close()
-            except Exception:
-                pass
-
-        # Remove convenience aliases that can keep connections alive
-        for attr in (
-            "conn",
-            "lock",
-            "execute",
-            "executemany",
-            "executescript",
-            "get",
-            "shell",
-            "get_connection",
-        ):
-            try:
-                setattr(self, attr, None)
-            except Exception:
-                pass
-
-        # Break reference cycles last
-        try:
-            self.break_cycles()
-        except Exception:
-            pass
+            close_driver(driver)
+        if wrapper is not None:
+            wrapper.close()
+        self.break_cycles()
+        self._lifecycle_state = "closed"
 
     def __enter__(self) -> "Database":
         """
@@ -1049,7 +1049,8 @@ class Database(
         Close the facade and allow a context-body exception to propagate.
 
         Both normal and exceptional exits discard pending work. Already committed
-        operations remain durable; this resource context does not group writes.
+        operations remain durable; this resource context does not group writes. If the
+        body already raised, cleanup failure is added as a note on that exception.
 
         Example:
             An exception inside with db: propagates after rollback and cleanup;
@@ -1062,7 +1063,12 @@ class Database(
         :return: False, so exceptions are not suppressed.
         """
 
-        self.close()
+        try:
+            self.close()
+        except BaseException as cleanup_error:
+            if exc is None:
+                raise
+            exc.add_note(f"Database context cleanup failed: {cleanup_error!r}")
         return False
 
     # Todo: Might actually want to delete these objects - and this might be an internal method
@@ -1170,8 +1176,8 @@ class Database(
         after category state has been reset, with close-name suggestions. Classification
         is name-based. A missing UUID requests set_uuid without re-reading it.
         sqlite_sequence is removed from main_tables after forming dirtiable_tables, so
-        it can remain in that union. Wrapper category aliases are not refreshed by this
-        method itself.
+        it can remain in that union. Wrapper category aliases are refreshed together
+        with the database categories.
 
         Example:
             During initialization, db.refresh_db_metadata() classifies the discovered
@@ -1256,6 +1262,16 @@ class Database(
 
         # Remove SQLite sequence from the main tables - if present - this is for internal use only
         self._main_tables.discard("sqlite_sequence")
+
+        # This owner refreshes registries after committed schema changes, including
+        # native custom-field DDL. Keep the wrapper on the current category sets.
+        self.driver_wrapper.all_tables = self.all_tables
+        self.driver_wrapper.custom_tables = self.custom_tables
+        self.driver_wrapper.main_tables = self.main_tables
+        self.driver_wrapper.interlink_tables = self.interlink_tables
+        self.driver_wrapper.intralink_tables = self.intralink_tables
+        self.driver_wrapper.helper_tables = self.helper_tables
+        self.driver_wrapper.dirtiable_tables = self.dirtiable_tables
 
     # Todo: Backup is somewhat useless if there is no way to restore
     def backup(self) -> None:
@@ -1448,29 +1464,7 @@ class Database(
             )
             raise InputIntegrityError(err_str)
 
-        if table_name.startswith("allowed_types__"):
-            return "allowed_types"
-
-        # Helper tables should have been specified before this function is first called
-        if table_name in self.helper_tables:
-            return "helper"
-
-        cc_pattern = re.compile(r"[a-zA-Z0-9_]+_custom_column_[0-9]+_link")
-        cc_match = cc_pattern.match(table_name)
-        if table_name.startswith("custom_column_") or cc_match is not None:
-            return "custom"
-
-        interlink_pattern = re.compile(r"[\sa-zA-Z0-9_]+_links")
-        interlink_match = interlink_pattern.match(table_name)
-        if interlink_match is not None:
-            return "interlink"
-
-        intralink_pattern = re.compile(r"[\sa-zA-Z0-9_]+_intralink")
-        intralink_match = intralink_pattern.match(table_name)
-        if intralink_match is not None:
-            return "intralink"
-
-        return "main"
+        return table_category(table_name, self.helper_tables)
 
     #
     # ----------------------------------------------------------------------------------------------------------------------

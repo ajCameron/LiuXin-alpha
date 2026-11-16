@@ -87,7 +87,8 @@ The tables below summarize the required v2 program boundary.
 | Schema and identity | `schema.tables`, `schema.table`, `schema.column`, `schema.link`, `schema.column.update`, `schema.identities.list`, `schema.identity.get`, `schema.identity.derive`, `schema.identity.resolve`, `schema.identities.audit`, `schema.identities.migrate` |
 | Trees | `tree.root`, `tree.children`, `tree.lineage`, `tree.walk`, `tree.search`, `tree.nest`, `tree.delete` |
 | Preferences | `preferences.list`, `preferences.get`, `preferences.set`, `preferences.delete` |
-| Custom fields | `custom-fields.list`, `custom-fields.create`, `custom-fields.update`, `custom-fields.delete` |
+| Native custom fields | `custom-fields.native.*`; native definitions, values, queries and reviewed migrations |
+| Calibre custom-field signatures | `custom-fields.list`, `custom-fields.create`, `custom-fields.update`, `custom-fields.delete`; explicit compatibility facade |
 | Catalog | entity CRUD, hierarchy, Identifier replacement, Agent listing/linking, field metadata, matching, bundles, WEMI creation, and semantic metadata writes under `catalog.*` |
 | Search and relations | `rows.get`, `rows.query`, `relations.list`, `search.global` |
 | Browse | `browse.categories`, `browse.category.items`, `browse.works`, `browse.work` |

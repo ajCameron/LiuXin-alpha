@@ -1,6 +1,8 @@
 """Build the legacy custom-column fixture through its live database owner."""
 
-from LiuXin_alpha.databases.custom_columns import CustomColumns
+from LiuXin_alpha.utils.calibre_compat.custom_columns import (
+    CustomColumns,
+)
 from tests.support.test_databases.test_db_6 import (
     TestDBCustomColumns as CustomColumnFixture,
 )

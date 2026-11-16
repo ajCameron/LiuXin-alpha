@@ -310,7 +310,16 @@ class CoreServices:
         if self._field_metadata is None:
             from LiuXin_alpha.catalog.field_metadata import FieldMetadata
 
-            self._field_metadata = FieldMetadata()
+            candidate_metadata = FieldMetadata()
+            if hasattr(self.database, "driver_wrapper") and hasattr(self.database, "driver"):
+                from LiuXin_alpha.databases.custom_columns.native_service import CustomFieldService
+                from LiuXin_alpha.caches.custom_fields import CustomFieldCache
+
+                service = CustomFieldService(self.database)
+                CustomFieldCache(service, candidate_metadata).refresh()
+                self._field_metadata = candidate_metadata
+                return self._field_metadata
+            self._field_metadata = candidate_metadata
             custom_metadata = getattr(
                 self.database,
                 "custom_column_label_map",

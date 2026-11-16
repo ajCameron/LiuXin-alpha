@@ -188,7 +188,7 @@ def test_direct_search_table_injection_shaped_value_is_inert(
 
 def test_direct_search_table_rejects_malformed_requests(driver, query_table: str, query_cols: Dict[str, str], pick_payload):
     """
-    Require InputIntegrityError when the table, column, or search value is None.
+    Require InputIntegrityError for missing table/column names; None is a valid value.
 
     Example:
         Run the owning tests with pytest::
@@ -210,8 +210,7 @@ def test_direct_search_table_rejects_malformed_requests(driver, query_table: str
     with pytest.raises(InputIntegrityError):
         driver.direct_search_table(None, query_cols["text"], pick_payload(0))
 
-    with pytest.raises(InputIntegrityError):
-        driver.direct_search_table(query_table, query_cols["text"], None)
+    assert driver.direct_search_table(query_table, query_cols["text"], None) == []
 
 
 def test_unique_values_set_and_iterator_are_consistent(

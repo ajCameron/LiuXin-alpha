@@ -29,7 +29,7 @@ from LiuXin_alpha.databases.db_types.driver_types import (
 
 class MacrosAPI(DatabaseMacrosAPI, abc.ABC):
     """
-    Specify database-bound SQL shortcuts and custom-column compatibility operations.
+    Specify database-bound SQL convenience operations.
 
     Inherit portable link/identity/transaction operations and declare the older macro
     methods expected by SQLiteDatabaseMacros. Implementations must provide abstract
@@ -42,205 +42,14 @@ class MacrosAPI(DatabaseMacrosAPI, abc.ABC):
         linked = macros.get_link_data("works", "agents", work_id)
     """
 
-    @staticmethod
-    @abc.abstractmethod
-    def _cc_table_col_mapper(table: str) -> str:
-        """
-        Derive the conventional singular column stem for a custom table.
-
-        This is a naming transformation, not schema introspection or identifier
-        validation.
-
-        Example:
-            stem = macros._cc_table_col_mapper(custom_table)
 
 
-        :param table: Custom value or link table name passed to the project inflector.
-        :return: Singularized table name used as a column prefix.
-        """
-
-        ...
-
-    @staticmethod
-    @abc.abstractmethod
-    def _get_cc_id_val(custom_column: str) -> tuple[str, str]:
-        """
-        Derive conventional custom-column ID and value column names.
-
-        Example:
-            id_column, value_column = macros._get_cc_id_val(custom_table)
 
 
-        :param custom_column: Custom value-table name passed through the singular-name
-            mapper.
-        :return: A (stem_id, stem_value) pair; columns are not checked for existence.
-        """
-
-        ...
-
-    @abc.abstractmethod
-    def add_cc_link_with_extra(
-        self,
-        lt: str,
-        book_id: int,
-        value_id: int,
-        extra: Any = None,
-        conn: SQLConnection | None = None,
-        target_column: str = "value",
-    ) -> None:
-        """
-        Insert one conventional owner/value link with an optional extra value.
-
-        Use the supplied connection without an explicit commit. When conn is omitted,
-        write through db.driver.conn and commit it. A non-None extra requires an extra
-        column; duplicate or invalid links propagate database errors.
-
-        Example:
-            macros.add_cc_link_with_extra(link_table, book_id, series_id, extra=2.5,
-            conn=conn)
 
 
-        :param lt: Custom link table whose singular stem names its columns.
-        :param book_id: Owner ID bound to the stem_book column.
-        :param value_id: Target ID bound to stem_target_column.
-        :param extra: Optional value for stem_extra; None omits that column.
-        :param conn: Optional project SQLite-compatible connection; None selects the
-            implementation’s default connection.
-        :param target_column: Suffix of the target column, normally value.
-        :return: None; the abstract method supplies no implementation.
-        """
-
-        ...
-
-    @abc.abstractmethod
-    def add_cc_link_with_extra_multi(
-        self,
-        lt: str,
-        sequence: Iterable[SQLParameters],
-        extra: bool = False,
-        conn: SQLConnection | None = None,
-        target_column: str = "value",
-    ) -> None:
-        """
-        Insert owner/value pairs or owner/value/extra triples in bulk.
-
-        Commit the default driver connection when conn is omitted; do not explicitly
-        commit a supplied connection. extra is a shape switch rather than a value
-        applied to every row.
-
-        Example:
-            macros.add_cc_link_with_extra_multi(link_table, [(book_id, series_id, 2.5)],
-            extra=True, conn=conn)
 
 
-        :param lt: Custom link table with conventional prefixed columns.
-        :param sequence: Iterable of two-item bindings, or three-item bindings when
-            extra is true.
-        :param extra: Whether each binding includes the stem_extra value.
-        :param conn: Optional project SQLite-compatible connection; None selects the
-            implementation’s default connection.
-        :param target_column: Target-column suffix, normally value.
-        :return: None; the abstract method supplies no implementation.
-        """
-
-        ...
-
-    @abc.abstractmethod
-    def add_cc_table_value(
-        self, table: str, value: Any, conn: SQLConnection | None = None
-    ) -> int | None:
-        """
-        Insert one value into a conventional custom value table.
-
-        With conn, return its cursor.lastrowid without explicitly committing. Otherwise
-        call driver.direct_execute_sql, which obtains a connection and commits the
-        insert. This does not reuse an existing value on uniqueness conflict.
-
-        Example:
-            value_id = macros.add_cc_table_value(custom_table, "Finished", conn=conn)
-
-
-        :param table: Custom table whose value column is singular_stem_value.
-        :param value: Value bound to the insert.
-        :param conn: Optional project SQLite-compatible connection; None selects the
-            implementation’s default connection.
-        :return: Inserted row ID reported by the execution path.
-        """
-
-        ...
-
-    @abc.abstractmethod
-    def break_cc_links_by_book_id(
-        self,
-        lt: str,
-        book_id: str | int | Iterable[str | int | tuple[str | int]],
-        conn: SQLConnection | None = None,
-    ) -> None:
-        """
-        Delete conventional custom links for one owner or a supported owner collection.
-
-        Single IDs use execute. Bulk inputs may contain scalar IDs or one-cell
-        parameter tuples; both connection paths submit one binding per owner.
-        No explicit commit or rollback occurs here.
-
-        Example:
-            macros.break_cc_links_by_book_id(link_table, [1, 2], conn=conn)
-
-
-        :param lt: Custom link table.
-        :param book_id: A string/integer owner ID, or tuple/list/set/generator of owner
-            IDs.
-        :param conn: Optional project SQLite-compatible connection; None selects the
-            implementation’s default connection.
-        :return: None; the abstract method supplies no implementation.
-        :raises NotImplementedError: book_id has an unsupported input shape.
-        """
-
-        ...
-
-    @abc.abstractmethod
-    def break_cc_links_by_book_id_and_value(
-        self, lt: str, book_id: int, value_id: int, conn: SQLConnection | None = None
-    ) -> None:
-        """
-        Delete one owner/value pair through the default driver connection.
-
-        The default path executes the deletion without an explicit commit.
-
-        Example:
-            macros.break_cc_links_by_book_id_and_value(link_table, book_id, value_id)
-
-
-        :param lt: Custom link table.
-        :param book_id: Owner ID matching stem_book.
-        :param value_id: Value ID matching stem_value.
-        :param conn: Must be None in the current SQLite implementation.
-        :return: None; the abstract method supplies no implementation.
-        :raises NotImplementedError: A connection is explicitly supplied.
-        """
-
-        ...
-
-    @abc.abstractmethod
-    def break_cc_lt_link(self, lt: str, book: int, value: int | None = None) -> None:
-        """
-        Delete all owner links or restrict deletion to a truthy value ID.
-
-        The value branch uses truth testing, so 0 behaves like None. Delegate execution
-        to the macro’s execute property without an additional commit here.
-
-        Example:
-            macros.break_cc_lt_link(link_table, book_id, value=value_id)
-
-
-        :param lt: Custom link table.
-        :param book: Owner ID bound to the conventional book column.
-        :param value: Truthy value ID to match; any false value removes every link for
-            this owner.
-        :return: None; the abstract method supplies no implementation.
-        """
-
-        ...
 
     @abc.abstractmethod
     def bulk_add_links(
@@ -321,138 +130,13 @@ class MacrosAPI(DatabaseMacrosAPI, abc.ABC):
 
         ...
 
-    @abc.abstractmethod
-    def check_for_cc_link(
-        self,
-        link_table: str,
-        book_id: int,
-        value_id: int,
-        conn: QueryConnection | None = None,
-    ) -> int | None:
-        """
-        Look up the owner ID for a conventional custom owner/value link.
-
-        The implementation returns get(..., all=False) directly without bool conversion.
-        Use an explicit None check if zero could be a valid owner.
-
-        Example:
-            exists = macros.check_for_cc_link(link_table, book_id, value_id, conn=conn)
-            is not None
 
 
-        :param link_table: Custom link table.
-        :param book_id: Owner ID to match.
-        :param value_id: Value ID to match.
-        :param conn: Optional project connection with get(sql, parameters, all=...);
-            plain sqlite3.Connection lacks that helper.
-        :return: Matching owner scalar or None under the project connection.get
-            contract, despite the bool annotation.
-        """
 
-        ...
+
 
     @abc.abstractmethod
-    def clean_custom(
-        self,
-        cc_num_map: Mapping[int, Mapping[str, Any]],
-        cc_table_name_factory: Callable[[int], tuple[str, str]] | None = None,
-        conn: SQLConnection | None = None,
-    ) -> None:
-        """
-        Prune unlinked values from every normalized custom column in a metadata map.
-
-        Build one deletion per normalized entry and execute the script only when there
-        are statements. Commit even a supplied connection. Non-normalized entries are
-        ignored; this neither updates the metadata map nor returns deleted IDs.
-
-        Example:
-            macros.clean_custom(column_metadata, cc_table_name_factory=table_names,
-            conn=conn)
-
-
-        :param cc_num_map: Mapping whose values contain normalized and num fields.
-        :param cc_table_name_factory: Callable mapping a column number to (value_table,
-            link_table); required when a normalized entry exists.
-        :param conn: Optional project SQLite-compatible connection; None selects the
-            implementation’s default connection.
-        :return: None; the abstract method supplies no implementation.
-        """
-
-        ...
-
-    @abc.abstractmethod
-    def clear_cc_entries_from_table(
-        self, table: str, book_id: int, conn: SQLConnection | None = None
-    ) -> None:
-        """
-        Delete custom-table entries belonging to one conventional book owner.
-
-        Execute directly on the supplied or default driver connection without an
-        explicit commit.
-
-        Example:
-            macros.clear_cc_entries_from_table(custom_table, book_id, conn=conn)
-
-
-        :param table: Custom table containing a singular_stem_book column.
-        :param book_id: Owner ID to remove.
-        :param conn: Optional project SQLite-compatible connection; None selects the
-            implementation’s default connection.
-        :return: None; the abstract method supplies no implementation.
-        """
-
-        ...
-
-    @abc.abstractmethod
-    def clear_cc_unused_table_entries(
-        self, table: str, lt: str, conn: SQLConnection | None = None
-    ) -> None:
-        """
-        Attempt to prune values with no matching row in a custom link table.
-
-        The legacy SQL uses the raw link-table name in its value-column token while
-        using the singular stem for other columns. Schemas where those names differ can
-        fail; this contract does not imply that the generated cleanup SQL works for
-        every conventional table. No explicit commit is performed.
-
-        Example:
-            macros.clear_cc_unused_table_entries(custom_table, link_table, conn=conn)
-
-
-        :param table: Custom value table.
-        :param lt: Related custom link table.
-        :param conn: Optional project SQLite-compatible connection; None selects the
-            implementation’s default connection.
-        :return: None; the abstract method supplies no implementation.
-        """
-
-        ...
-
-    @abc.abstractmethod
-    def create_cc_table(
-        self,
-        normalized: bool,
-        datatype: str,
-        dt: str,
-        table: str,
-        link_table: str,
-        collate: str,
-        in_table: str = "books",
-        ordered: bool = False,
-        conn: SQLConnection | None = None,
-    ) -> None:
-        """Create SQLite custom-column storage in one owned or borrowed unit.
-
-        Execute complete DDL statements individually. A supplied active connection
-        is borrowed through a savepoint; failure rolls back this call's DDL.
-        The caller must register its definition in the same outer transaction.
-        Without conn, the macro transaction owner supplies the connection.
-        """
-
-        ...
-
-    @abc.abstractmethod
-    def create_cc_temp_tables(
+    def create_temp_id_tables(
         self, temp_tables: Iterable[str], conn: SQLConnection | None = None
     ) -> None:
         """
@@ -463,7 +147,7 @@ class MacrosAPI(DatabaseMacrosAPI, abc.ABC):
         do not assume it joins a caller transaction unchanged.
 
         Example:
-            macros.create_cc_temp_tables(("selected_ids",), conn=conn)
+            macros.create_temp_id_tables(("selected_ids",), conn=conn)
 
 
         :param temp_tables: Iterable of temporary table identifiers validated before
@@ -475,71 +159,8 @@ class MacrosAPI(DatabaseMacrosAPI, abc.ABC):
 
         ...
 
-    @abc.abstractmethod
-    def delete_cc_item(
-        self, table: str, lt: str, target_id: int, conn: SQLConnection | None = None
-    ) -> None:
-        """
-        Delete links and their value atomically.
-
-        Own an idle connection's transaction; preserve an active caller transaction
-        through a savepoint. Failure restores both deletions. Never close the handle.
-
-        Example:
-            macros.delete_cc_item(custom_table, link_table, value_id, conn=conn)
 
 
-        :param table: Custom value table.
-        :param lt: Related custom link table.
-        :param target_id: Value row ID matched by both deletions.
-        :param conn: Optional project SQLite-compatible connection; None selects the
-            implementation’s default connection.
-        :return: None; the abstract method supplies no implementation.
-        """
-
-        ...
-
-    @abc.abstractmethod
-    def delete_from_cc_table_by_id(
-        self, table: str, target_id: int, conn: SQLConnection | None = None
-    ) -> None:
-        """
-        Delete custom value rows matching the conventional ID column.
-
-        Use the supplied connection or macro execute property. Link cleanup depends on
-        schema triggers; this method contains no separate link deletion or commit.
-
-        Example:
-            macros.delete_from_cc_table_by_id(custom_table, value_id, conn=conn)
-
-
-        :param table: Custom value table.
-        :param target_id: Row ID bound to singular_stem_id.
-        :param conn: Optional project SQLite-compatible connection; None selects the
-            implementation’s default connection.
-        :return: None; the abstract method supplies no implementation.
-        """
-
-        ...
-
-    @abc.abstractmethod
-    def delete_from_cc_table_by_value(
-        self, table: str, target_id: Any, conn: SQLConnection | None = None
-    ) -> None:
-        """
-        Delete custom rows by stored value rather than row ID.
-
-        Example:
-            macros.delete_from_cc_table_by_value(custom_table, "Obsolete")
-
-
-        :param table: Custom value table.
-        :param target_id: Stored value compared with singular_stem_value, despite this
-            parameter’s name.
-        :return: None; the abstract method supplies no implementation.
-        """
-
-        ...
 
     @abc.abstractmethod
     def delete_in_table(self, table: str, column: str, value: Any) -> None:
@@ -551,7 +172,7 @@ class MacrosAPI(DatabaseMacrosAPI, abc.ABC):
         ...
 
     @abc.abstractmethod
-    def destroy_cc_temp_tables(
+    def destroy_temp_tables(
         self, temp_tables: Iterable[str], conn: SQLConnection | None = None
     ) -> None:
         """
@@ -561,7 +182,7 @@ class MacrosAPI(DatabaseMacrosAPI, abc.ABC):
         close the connection.
 
         Example:
-            macros.destroy_cc_temp_tables(("selected_ids",), conn=conn)
+            macros.destroy_temp_tables(("selected_ids",), conn=conn)
 
 
         :param temp_tables: Iterable of validated temporary table identifiers.
@@ -572,147 +193,11 @@ class MacrosAPI(DatabaseMacrosAPI, abc.ABC):
 
         ...
 
-    @abc.abstractmethod
-    def direct_get_custom_and_extra(
-        self, link_table: str, index: int, conn: QueryConnection | None = None
-    ) -> Any:
-        """
-        Read only the extra scalar for the first custom link owned by a book.
-
-        The legacy method name is broader than its SELECT. Multiple matches are not
-        ordered.
-
-        Example:
-            series_index = macros.direct_get_custom_and_extra(link_table, book_id,
-            conn=conn)
 
 
-        :param link_table: Custom link table with a conventional extra column.
-        :param index: Owner/book ID, not a positional row index.
-        :param conn: Optional project connection with get(sql, parameters, all=...);
-            plain sqlite3.Connection lacks that helper.
-        :return: First extra value or None; no custom value or two-item pair is
-            returned.
-        """
-
-        ...
-
-    @abc.abstractmethod
-    def direct_get_custom_tables(self, conn: QueryConnection | None = None) -> set[str]:
-        """
-        Discover custom value/link table names from SQLite schema metadata.
-
-        Query sqlite_master for tables only; views, indexes and temporary tables are not
-        included.
-
-        Example:
-            custom_tables = macros.direct_get_custom_tables(conn=conn)
 
 
-        :param conn: Optional project connection with get(sql, parameters, all=...);
-            plain sqlite3.Connection lacks that helper.
-        :return: Set of table names matching custom_column_* or *_custom_column_*_link.
-        """
 
-        ...
-
-    @abc.abstractmethod
-    def do_cc_db_bulk_addition(
-        self,
-        temp_tables: tuple[str, str, str],
-        custom_table: str,
-        link_table: str,
-        add: Sequence[Any],
-        remove: Sequence[Any],
-        conn: SQLConnection | None = None,
-    ) -> None:
-        """
-        Add and remove existing custom values for owner IDs staged in temporary tables.
-
-        Resolve each requested value to the first matching ID, stage those IDs, remove
-        matching owner/value pairs, then insert-or-replace the owner/addition Cartesian
-        product. Addition wins over removal for a value in both groups. Temporary tables
-        must already exist and be suitably cleared; the method neither clears nor drops
-        them and makes no explicit commit.
-
-        Example:
-            macros.do_cc_db_bulk_addition(temp_tables, custom_table, link_table,
-            ["New"], ["Old"], conn=conn)
-
-
-        :param temp_tables: Three table names: selected owners, addition IDs and removal
-            IDs.
-        :param custom_table: Custom value table searched by value with PYNOCASE.
-        :param link_table: Custom link table.
-        :param add: Values to resolve and add; absent values are not created.
-        :param remove: Values to resolve and remove.
-        :param conn: Optional project SQLite-compatible connection; None selects the
-            implementation’s default connection.
-        :return: None; the abstract method supplies no implementation.
-        """
-
-        ...
-
-    @abc.abstractmethod
-    def do_custom_column_delete_by_id(self, cc_id: int) -> None:
-        """
-        Delete a custom_columns metadata row through driver_wrapper.
-
-        Does not drop physical tables or mark deferred cleanup. Scalar-binding support
-        depends on driver_wrapper; do_custom_column_delete_by_num supplies a
-        conventional one-item tuple instead.
-
-        Example:
-            macros.do_custom_column_delete_by_id(column_id)
-
-
-        :param cc_id: custom_column_id value; forwarded as a scalar binding by the
-            legacy implementation.
-        :return: None; the abstract method supplies no implementation.
-        """
-
-        ...
-
-    @abc.abstractmethod
-    def do_custom_column_delete_by_num(self, num: int) -> None:
-        """
-        Delete one custom_columns metadata row using a one-item binding tuple.
-
-        This immediate metadata deletion does not itself drop value/link tables or
-        update loaded custom-column maps.
-
-        Example:
-            macros.do_custom_column_delete_by_num(column_id)
-
-
-        :param num: custom_column_id to remove.
-        :return: None; the abstract method supplies no implementation.
-        """
-
-        ...
-
-    @abc.abstractmethod
-    def ensure_custom_column_value(self, cc_table: str, value: Any) -> Any:
-        """
-        Attempt a value insert, then retrieve the earliest matching custom-row ID.
-
-        Suppress DatabaseDriverError from insertion, then query for a matching row. This
-        can tolerate a uniqueness conflict but also hides other insertion failures until
-        lookup. No result causes IndexError; this is not an atomic backend-neutral
-        upsert.
-
-        Example:
-            value_id = macros.ensure_custom_column_value(custom_table, "Finished")
-
-
-        :param cc_table: Custom table whose display and ID columns are discovered
-            through driver_wrapper.
-        :param value: Value to insert or resolve by SQL equality.
-        :return: First matching ID in ascending ID order.
-        :raises IndexError: No matching row is available after the insert attempt.
-        """
-
-        ...
 
     @abc.abstractmethod
     def generic_clean_update(
@@ -741,68 +226,8 @@ class MacrosAPI(DatabaseMacrosAPI, abc.ABC):
 
         ...
 
-    @abc.abstractmethod
-    def get_all_cc_custom_values(
-        self, cc_table: str, distinct: bool = False, conn: QueryConnection | None = None
-    ) -> list[Sequence[Any]]:
-        """
-        Select every stored custom value, optionally with SQL DISTINCT.
-
-        No result ordering or flattening is applied. The non-distinct path requests
-        all=True; the distinct path relies on get’s default.
-
-        Example:
-            rows = macros.get_all_cc_custom_values(custom_table, distinct=True,
-            conn=conn)
 
 
-        :param cc_table: Custom value-table name.
-        :param distinct: Whether to remove duplicate result values through SQL DISTINCT.
-        :param conn: Optional project connection with get(sql, parameters, all=...);
-            plain sqlite3.Connection lacks that helper.
-        :return: Connection.get result: normally a list of one-column rows, despite the
-            scalar-iterable annotation.
-        """
-
-        ...
-
-    @abc.abstractmethod
-    def get_all_cc_id_val_pairs(
-        self, table: str, conn: QueryConnection | None = None
-    ) -> list[tuple[int, Any]]:
-        """
-        Read ID/value rows from a conventional custom value table.
-
-        Example:
-            pairs = macros.get_all_cc_id_val_pairs(custom_table, conn=conn)
-
-
-        :param table: Custom value-table name.
-        :param conn: Optional project connection with get(sql, parameters, all=...);
-            plain sqlite3.Connection lacks that helper.
-        :return: All (id, value) rows returned by connection.get, without explicit
-            ordering.
-        """
-
-        ...
-
-    @abc.abstractmethod
-    def get_all_cc_ids_marked_for_delete(
-        self, conn: QueryConnection | None = None
-    ) -> list[int]:
-        """
-        Collect metadata IDs whose deferred-delete flag equals one.
-
-        Example:
-            marked_ids = macros.get_all_cc_ids_marked_for_delete(conn=conn)
-
-
-        :param conn: Optional project connection with get(sql, parameters, all=...);
-            plain sqlite3.Connection lacks that helper.
-        :return: List of custom_column_id values; no deletion or flag reset occurs.
-        """
-
-        ...
 
     @abc.abstractmethod
     def get_all_table_link_data(
@@ -830,227 +255,17 @@ class MacrosAPI(DatabaseMacrosAPI, abc.ABC):
 
         ...
 
-    @abc.abstractmethod
-    def get_cc_books_for_dirtying(
-        self, table: str, link: str, id: int, conn: QueryConnection | None = None
-    ) -> list[Sequence[Any]]:
-        """
-        Read owner rows linked to a custom value through a conventional books link
-        table.
-
-        This reads candidate owners only; it does not mark a dirty cache or metadata
-        queue. The link table name is fixed to books_table_link by the implementation.
-
-        Example:
-            owner_rows = macros.get_cc_books_for_dirtying(custom_table, "value",
-            value_id, conn=conn)
 
 
-        :param table: Custom value-table name used to construct books_table_link.
-        :param link: Suffix of the linked-value column to filter.
-        :param id: Value bound to that link column.
-        :param conn: Optional project connection with get(sql, parameters, all=...);
-            plain sqlite3.Connection lacks that helper.
-        :return: Connection.get rows containing owner IDs, despite the Iterable[str]
-            annotation.
-        """
-
-        ...
-
-    @abc.abstractmethod
-    def get_cc_books_from_link_table(
-        self, lt: str, lt_value: Any, conn: QueryConnection | None = None
-    ) -> list[Sequence[Any]]:
-        """
-        Read owner rows whose conventional custom-link value matches an ID.
-
-        Use the supplied or default driver connection without ordering or deduplication.
-
-        Example:
-            owner_rows = macros.get_cc_books_from_link_table(link_table, value_id)
 
 
-        :param lt: Custom link table.
-        :param lt_value: Stored target ID matched in singular_stem_value.
-        :return: Project connection.get rows of owner IDs, not a flattened integer
-            sequence.
-        """
-
-        ...
-
-    @abc.abstractmethod
-    def get_cc_id_and_value_from_id(
-        self, custom_column: str, target_id: int, conn: QueryConnection | None = None
-    ) -> tuple[int, Any]:
-        """
-        Read the first ID/value row for a conventional custom-row ID.
-
-        Example:
-            row_id, value = macros.get_cc_id_and_value_from_id(custom_table, value_id,
-            conn=conn)
 
 
-        :param custom_column: Custom value-table name.
-        :param target_id: ID matched in the derived stem_id column.
-        :param conn: Optional project connection with get(sql, parameters, all=...);
-            plain sqlite3.Connection lacks that helper.
-        :return: First (id, value) row; actual values are not restricted to str.
-        :raises IndexError: The result contains no matching row.
-        """
 
-        ...
-
-    @overload
-    @abc.abstractmethod
-    def get_cc_id_from_value(
-        self,
-        target_table: str,
-        cc_value: Any,
-        all: Literal[False] = False,
-        conn: QueryConnection | None = None,
-    ) -> int | None: ...
-
-    @overload
-    @abc.abstractmethod
-    def get_cc_id_from_value(
-        self,
-        target_table: str,
-        cc_value: Any,
-        all: Literal[True],
-        conn: QueryConnection | None = None,
-    ) -> list[Sequence[Any]]: ...
-
-    @overload
-    @abc.abstractmethod
-    def get_cc_id_from_value(
-        self,
-        target_table: str,
-        cc_value: Any,
-        all: bool,
-        conn: QueryConnection | None = None,
-    ) -> int | None | list[Sequence[Any]]: ...
-
-    @abc.abstractmethod
-    def get_cc_id_from_value(
-        self,
-        target_table: str,
-        cc_value: Any,
-        all: bool = False,
-        conn: QueryConnection | None = None,
-    ) -> int | None | list[Sequence[Any]]:
-        """
-        Resolve custom-row IDs by SQL equality against the stored value.
-
-        No explicit ordering, normalization or insertion occurs. None is compared using
-        SQL equality and therefore does not select a NULL value.
-
-        Example:
-            value_id = macros.get_cc_id_from_value(custom_table, "Finished", conn=conn)
-
-
-        :param target_table: Custom value-table name.
-        :param cc_value: Value bound to the derived stem_value column.
-        :param all: True to return all one-column rows; False for the first scalar or
-            None.
-        :param conn: Optional project connection with get(sql, parameters, all=...);
-            plain sqlite3.Connection lacks that helper.
-        :return: Connection.get result selected by all; broader than the int annotation.
-        """
-
-        ...
-
-    @abc.abstractmethod
-    def get_cc_id_value_from_cc_id(
-        self, table: str, old_id: int, conn: QueryConnection | None = None
-    ) -> tuple[int, Any]:
-        """
-        Read an existing custom ID/value row through the default connection.
-
-        Example:
-            row_id, value = macros.get_cc_id_value_from_cc_id(custom_table, value_id)
-
-
-        :param table: Custom value-table name.
-        :param old_id: ID bound to the derived stem_id column.
-        :return: First (id, value) row, with no string conversion of the value.
-        :raises IndexError: No row matches old_id.
-        """
-
-        ...
 
     # Todo: This seems to be an interface weirdness
-    @abc.abstractmethod
-    def get_cc_lt_books_from_lt_value(
-        self, lt: str, value: Any, conn: QueryConnection | None = None
-    ) -> list[Sequence[Any]]:
-        """
-        Read owner rows for a stored custom-link value.
-
-        Example:
-            owner_rows = macros.get_cc_lt_books_from_lt_value(link_table, value_id,
-            conn=conn)
 
 
-        :param lt: Custom link table.
-        :param value: Stored target ID compared with stem_value; the broad annotation
-            does not imply a display-value lookup.
-        :param conn: Optional project connection with get(sql, parameters, all=...);
-            plain sqlite3.Connection lacks that helper.
-        :return: Connection.get rows of owner IDs, despite the scalar-iterable
-            annotation.
-        """
-
-        ...
-
-    @abc.abstractmethod
-    def get_cc_series_index_indices(
-        self,
-        cc_series_link_table: str,
-        series_id: int,
-        conn: QueryConnection | None = None,
-    ) -> list[Sequence[Any]]:
-        """
-        Read ordered extras for owners linked to the selected custom series.
-
-        The outer query selects every link belonging to those owners, not only links
-        whose value equals series_id. An owner with multiple values can therefore
-        contribute extras from other links.
-
-        Example:
-            index_rows = macros.get_cc_series_index_indices(series_link_table,
-            series_id, conn=conn)
-
-
-        :param cc_series_link_table: Custom link table containing conventional book,
-            value and extra columns.
-        :param series_id: Series value ID used to select the owner set.
-        :param conn: Optional project connection with get(sql, parameters, all=...);
-            plain sqlite3.Connection lacks that helper.
-        :return: One-column rows of extra values in ascending extra order, despite the
-            flat-tuple annotation.
-        """
-
-        ...
-
-    @abc.abstractmethod
-    def get_dirtied_cache(self) -> dict[Any, int]:
-        """
-        Build a legacy owner-to-position map from metadata dirtiness rows.
-
-        Probe schema columns to support metadata_dirtied_book or the newer
-        table/table_id shape. The newer form excludes NULL IDs and filters books when a
-        table column exists. Missing/unrecognized schema returns an empty dict; later
-        query failures propagate. No ORDER BY or queue clearing is performed.
-
-        Example:
-            dirty_positions = macros.get_dirtied_cache()
-
-
-        :return: Dictionary mapping each retrieved owner ID to its last enumeration
-            position.
-        """
-
-        ...
 
     @abc.abstractmethod
     def get_foreign_key_replacement_trigger(
@@ -1183,29 +398,6 @@ class MacrosAPI(DatabaseMacrosAPI, abc.ABC):
 
         ...
 
-    @abc.abstractmethod
-    def insert_multiple_values_into_cc_table(
-        self, table: str, values: Iterable[Any], conn: SQLConnection | None = None
-    ) -> None:
-        """
-        Insert each supplied scalar into a conventional custom value column.
-
-        No deduplication, row-ID result or explicit commit is provided. Database
-        constraints apply to each insert.
-
-        Example:
-            macros.insert_multiple_values_into_cc_table(custom_table, ["New",
-            "Finished"], conn=conn)
-
-
-        :param table: Custom value-table name.
-        :param values: Iterable of scalar values wrapped into one-item bindings.
-        :param conn: Optional project SQLite-compatible connection; None selects the
-            implementation’s default connection.
-        :return: None; the abstract method supplies no implementation.
-        """
-
-        ...
 
     @abc.abstractmethod
     def insert_values_into_temp_table(
@@ -1300,87 +492,10 @@ class MacrosAPI(DatabaseMacrosAPI, abc.ABC):
 
         ...
 
-    @abc.abstractmethod
-    def mark_cc_for_delete(self, cc_column_id: int) -> None:
-        """
-        Set one custom-column metadata row’s deferred-delete flag.
-
-        Update the flag only. Physical cleanup and loaded metadata-map changes occur
-        elsewhere. Preserve an active macro or primary transaction through a
-        savepoint; commit only when the operation owns its transaction.
-
-        Example:
-            macros.mark_cc_for_delete(column_id)
 
 
-        :param cc_column_id: custom_column_id to mark.
-        :return: None; the abstract method supplies no implementation.
-        """
-
-        ...
-
-    @abc.abstractmethod
-    def mark_custom_column_for_delete(self, num: int) -> None:
-        """
-        Mark a custom-column metadata row for later cleanup.
-
-        Compatibility spelling of mark_cc_for_delete, with the same transaction
-        ownership. It does not immediately drop tables or remove metadata.
-
-        Example:
-            macros.mark_custom_column_for_delete(column_id)
 
 
-        :param num: custom_column_id matched by the update.
-        :return: None; the abstract method supplies no implementation.
-        """
-
-        ...
-
-    @abc.abstractmethod
-    def delete_marked_custom_columns(self, conn: SQLConnection | None = None) -> None:
-        """Select and remove marked definitions/storage in one SQLite transaction.
-
-        Use the macro transaction connection when present, otherwise the primary
-        connection. A borrowed transaction remains open and can undo the cleanup.
-        """
-
-    @abc.abstractmethod
-    def preform_cc_column_delete_from_map(
-        self,
-        num_table_lt_map: dict[int, tuple[str, str]],
-        conn: SQLConnection | None = None,
-    ) -> None:
-        """Atomically drop mapped SQLite objects and their marked definitions.
-
-        IDs restrict the definition DELETE. Empty mappings do nothing; unmarked
-        definitions are rejected before any DDL. Complete statements execute
-        individually, so no executescript can commit a borrowed transaction.
-        """
-
-    @abc.abstractmethod
-    def read_cc_value_from_meta_2(
-        self, num: int, book_id: int, conn: QueryConnection | None = None
-    ) -> Any:
-        """
-        Read one custom_N projection value from the legacy meta2 view.
-
-        The meta2 view and the requested custom_N column must already exist. This does
-        not construct the view or resolve a custom-column label.
-
-        Example:
-            value = macros.read_cc_value_from_meta_2(column_id, book_id, conn=conn)
-
-
-        :param num: Column number interpolated into the projection column name.
-        :param book_id: Owner ID matched against meta2.id.
-        :param conn: Optional project connection with get(sql, parameters, all=...);
-            plain sqlite3.Connection lacks that helper.
-        :return: First projected scalar or None under get(all=False), despite the
-            iterable annotation.
-        """
-
-        ...
 
     @abc.abstractmethod
     def read_link_property_trios(
@@ -1469,25 +584,6 @@ class MacrosAPI(DatabaseMacrosAPI, abc.ABC):
 
         ...
 
-    @abc.abstractmethod
-    def repoint_cc_lt_values(self, lt: str, new_id: int, old_id: int) -> None:
-        """
-        Replace one conventional custom-link target ID everywhere it occurs.
-
-        Use the macro execute helper; owner IDs and extras are unchanged. Conflicting
-        links are not merged automatically.
-
-        Example:
-            macros.repoint_cc_lt_values(link_table, surviving_id, removed_id)
-
-
-        :param lt: Custom link table.
-        :param new_id: Replacement target ID.
-        :param old_id: Existing target ID matched in stem_value.
-        :return: None; the abstract method supplies no implementation.
-        """
-
-        ...
 
     @abc.abstractmethod
     def reprioritize_link(
@@ -1525,24 +621,6 @@ class MacrosAPI(DatabaseMacrosAPI, abc.ABC):
 
         ...
 
-    @abc.abstractmethod
-    def set_custom_column_metadata(
-        self,
-        num: int,
-        name: str | None = None,
-        label: str | None = None,
-        is_editable: bool | None = None,
-        display: Mapping[str, Any] | None = None,
-        in_table: str | None = None,
-        conn: SQLConnection | None = None,
-    ) -> bool:
-        """Update definition fields in one owned transaction or borrowed savepoint.
-
-        Omitted fields retain their values. The attachment table may be checked
-        but cannot be changed without migrating physical storage. Prepare JSON
-        and normalized names before issuing one UPDATE. A failure preserves the
-        previous definition and any caller-owned writes.
-        """
 
     @abc.abstractmethod
     def set_database_version(self, new_val: str) -> None:
@@ -1580,62 +658,7 @@ class MacrosAPI(DatabaseMacrosAPI, abc.ABC):
 
         ...
 
-    @abc.abstractmethod
-    def update_cc_lt_value_by_value(
-        self,
-        lt: str,
-        new_value_id: int,
-        old_value_id: int,
-        conn: SQLConnection | None = None,
-    ) -> None:
-        """
-        Replace every occurrence of one custom-link target ID.
 
-        Use the supplied or default driver connection directly, without an explicit
-        commit or conflict merge.
-
-        Example:
-            macros.update_cc_lt_value_by_value(link_table, surviving_id, removed_id,
-            conn=conn)
-
-
-        :param lt: Custom link table.
-        :param new_value_id: Replacement stem_value ID.
-        :param old_value_id: Existing stem_value ID to match.
-        :param conn: Optional project SQLite-compatible connection; None selects the
-            implementation’s default connection.
-        :return: None; the abstract method supplies no implementation.
-        """
-
-        ...
-
-    @abc.abstractmethod
-    def update_cc_value(
-        self,
-        cc_column: str,
-        cc_id: int,
-        cc_value: Any,
-        conn: SQLConnection | None = None,
-    ) -> SQLCursor | None:
-        """
-        Replace a custom row’s stored value by conventional row ID.
-
-        The default path discards the macro execute result. No uniqueness reconciliation
-        or explicit commit occurs in this method.
-
-        Example:
-            macros.update_cc_value(custom_table, value_id, "Finished", conn=conn)
-
-
-        :param cc_column: Custom value-table name.
-        :param cc_id: ID matched in singular_stem_id.
-        :param cc_value: Replacement value bound to singular_stem_value.
-        :param conn: Optional project SQLite-compatible connection; None selects the
-            implementation’s default connection.
-        :return: Supplied connection.execute result when conn is given; otherwise None.
-        """
-
-        ...
 
     @abc.abstractmethod
     def update_column_in_table(
@@ -1657,29 +680,6 @@ class MacrosAPI(DatabaseMacrosAPI, abc.ABC):
         :param table_id_col: Retained argument; current implementation does not use it.
         :param item_id: ID passed to db.get_row_from_id.
         :param new_value: Replacement value assigned to the row.
-        :return: None; the abstract method supplies no implementation.
-        """
-
-        ...
-
-    @abc.abstractmethod
-    def update_custom_column_additional_column_many(
-        self, table: str, column: str, sequence: Iterable[SQLParameters]
-    ) -> None:
-        """
-        Update an additional custom-link field for owner/value pairs in bulk.
-
-        Forward bindings to db.executemany without conversion. The owner and value
-        columns are always stem_book and stem_value.
-
-        Example:
-            macros.update_custom_column_additional_column_many(link_table, "extra",
-            [(2.5, book_id, series_id)])
-
-
-        :param table: Custom link table with conventional prefixed columns.
-        :param column: Suffix appended to the singular table stem.
-        :param sequence: Iterable of (new_field_value, owner_id, value_id) triples.
         :return: None; the abstract method supplies no implementation.
         """
 

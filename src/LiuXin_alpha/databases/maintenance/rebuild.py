@@ -35,12 +35,14 @@ class RebuildDefinition:
 
 
 def _placeholders(values: Iterable[object]) -> str:
+    """Produce one bound-parameter marker per supplied value without embedding values in SQL."""
     return ",".join("?" for _ in values)
 
 
 def _pending_count(
     runtime: MaintenanceRuntime, connection: RowSQLConnection, state: RebuildCheckpoint
 ) -> int:
+    """Count unfinished plugin obligations through this rebuild's recorded change boundary."""
     row = connection.execute(
         f"SELECT COUNT(*) FROM {runtime.table('maintenance_obligations')} "
         f"WHERE plugin_id IN ({_placeholders(state['plugins'])}) "
@@ -90,7 +92,6 @@ def rebuild_status(
     return [describe_rebuild(runtime, connection, json.loads(row[0])) for row in states]
 
 
-# Todo: Docstring
 def _projection_page(
     runtime: MaintenanceRuntime,
     connection: RowSQLConnection,
@@ -98,6 +99,10 @@ def _projection_page(
     state: RebuildCheckpoint,
     limit: int,
 ) -> list[Sequence[Any]]:
+    """Read distinct projection keys after the cursor and at or below the captured bound.
+
+    The caller owns the connection, checkpoint update and transaction. This only
+    selects a bounded page; it neither delivers effects nor advances the checkpoint."""
     conditions = [f"plugin_id IN ({_placeholders(definition.plugins)})"]
     parameters: list[Any] = list(definition.plugins)
     if state["projection_cursor"] is not None:

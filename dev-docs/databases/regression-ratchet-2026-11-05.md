@@ -82,6 +82,36 @@ routine “accept lower baseline” switch. This is a ratchet for demonstrated
 behavior, not a claim of complete line/branch coverage. Review must still check
 that assertions meaningfully test the invariant.
 
+## Whole-package review extension — 2026-11-14
+
+The [November repair contracts](review-repairs-2026-11-14.md) add **55 required
+cases**, retaining all earlier **2,259**, for **2,314 required cases**. The new
+`database_review_write_and_value_contracts` invariant covers 46 SQLite cases
+(including four two-process write tests) and nine live PostgreSQL cases.
+Coverage includes explicit identity/profile and preference-key migrations,
+pruning with omitted or concurrently inserted references, value preservation,
+transaction ownership, search-index semantics, startup failure reporting and
+cache publication. Existing restore regressions also verify the retained backup.
+These modules join the formatting/lint scope. The final full gate passed
+**2,425 tests**, including **2,314/2,314 mandatory cases**, with no skips, failures
+or xfails. All earlier requirements and invariant memberships remain intact.
+
+## Database follow-up repair extension — 2026-11-13
+
+The [post-commit repairs](module-boundary-and-lifecycle-review-2026-11-13.md#follow-up-repairs-and-reviewer-handoff)
+add **53 required cases**, bringing the manifest from **2,206 to 2,259** without
+removing or moving any earlier case. These requirements cover:
+
+| Invariant | Added cases | Observable contract |
+| --- | ---: | --- |
+| `native-custom-field-writer-reservations` | 8 | Real PostgreSQL competitors wait before revision/plan reads; stale edits cannot commit or publish, including ordinary composition and savepoint rollback. |
+| `native-custom-field-identity-lifetimes` | 24 | Deleted identities never become handles for new data after metadata edits, shape changes, empty storage or failed rebuilds; both SQLite names and PostgreSQL. |
+| `database-handle-shutdown-ownership` | 21 | Failed primary/auxiliary closes propagate, retain their cleanup owner and retry; published replacement, construction and context errors preserve their respective ownership contracts on every backend. |
+
+The existing driver close/rebuild regressions retain their node identities and
+now require the reported exception group for incomplete shutdown. The new test
+modules are included in formatting/lint checks as well as the mandatory gate.
+
 ## Eighth driver review extension — 2026-11-11
 
 The [eighth review repairs](database-driver-plugins-eighth-review-2026-11-11.md)
@@ -216,11 +246,12 @@ adaptation failures. Final validation is recorded in the third review.
 ## Compatibility and remaining limits
 
 The legacy cached custom-column facade now rejects an active transaction before
-mutation. Its `set_custom(..., commit=False)` raises `ValueError`; use explicit
-SQL macros for caller-managed transactions without this cache. This deliberate
+mutation. Its `set_custom(..., commit=False)` raises `ValueError`; use native service
+operations or explicit compatibility macros for managed composition. This deliberate
 restriction prevents a cache from appearing committed while the caller can
-still roll back. The modern WEMI definition-storage path remains separate.
-`delete_cc_item` at the SQL layer preserves a caller transaction with a savepoint.
+still roll back. Both APIs use the sole native storage format. The compatibility
+macros' `delete_cc_item` preserves a caller transaction with a savepoint; it is no
+longer a method on the generic SQL macro provider.
 
 Cache-aware calls must be serialized with their cache readers. Rollback restores
 touched row values and enumeration lists in place. Host dirty hooks must honor
@@ -231,8 +262,9 @@ retry the write. Durable/retriable listener delivery is future work.
 
 Maintenance initialization likewise requires the caller to serialize it with
 normal database use. A shutdown timeout is reported and ownership retained;
-it does not force-kill a worker. `Database.close()` retains its best-effort
-cleanup contract. `RowState.IDENTIFIED` means the local payload has an identity,
+it does not force-kill a worker. The [2026-11-13 lifecycle repairs](module-boundary-and-lifecycle-review-2026-11-13.md#implemented-lifecycle-contract)
+extend that contract to `Database.close()`: shutdown failures retain dependencies
+and propagate for retry. Only finalization remains best effort. `RowState.IDENTIFIED` means the local payload has an identity,
 not that a concurrent database deletion is impossible. Existing missing-load
 sentinels and writable `deepcopy(Row)` behavior are preserved and tested.
 

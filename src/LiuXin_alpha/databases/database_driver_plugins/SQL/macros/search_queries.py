@@ -34,6 +34,7 @@ from LiuXin_alpha.errors import InputIntegrityError
 
 
 def _q(name: str) -> str:
+    """Quote a physical identifier without interpreting it as a SQL expression."""
     return '"' + name.replace('"', '""') + '"'
 
 
@@ -41,17 +42,21 @@ class PredicateCompiler:
     """Compile one query, retaining guards for dangling traversed references."""
 
     def __init__(self, macros: SQLPortableMacrosMixin) -> None:
+        """Bind the macro host and start a fresh per-query alias namespace."""
         self.macros = macros
         self.counter = 0
 
     def alias(self) -> str:
+        """Allocate a distinct trusted SQL alias for one traversed relation."""
         self.counter += 1
         return f"r{self.counter}"
 
     def columns(self, table: str, names: Iterable[str]) -> tuple[str, ...]:
+        """Validate predicate columns against the selected physical table before compiling SQL."""
         return self.macros._validate_columns(table, names)
 
     def table(self, table: str) -> str:
+        """Resolve a validated physical table to the macro backend's qualified SQL name."""
         return self.macros._macro_table_sql(self.macros._physical_table(table))
 
     def compile(
@@ -262,6 +267,7 @@ def find_rows(
         aliases: dict[str, str] = {}
 
         def canonical_alias(match: re.Match[str]) -> str:
+            """Normalize generated aliases so equivalent dangling-reference guards are checked once."""
             return aliases.setdefault(match[0], f"a{len(aliases)}")
 
         canonical = re.sub(r"\br\d+(?=\.|\s|$)", canonical_alias, guard)

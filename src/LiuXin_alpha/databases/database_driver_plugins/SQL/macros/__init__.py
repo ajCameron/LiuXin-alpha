@@ -4,7 +4,7 @@
 Compose SQLite macro services and retain legacy SQL convenience operations.
 
 SQLiteDatabaseMacros combines portable link, identity and fingerprint operations with
-custom-column, temporary-table and hash aliases. The methods defined here cover links,
+temporary-table and hash aliases. The methods defined here cover links,
 scalar reads/writes and legacy metadata/path updates. Most legacy helpers interpolate
 trusted identifiers and bind data values. They delegate execution to the database
 wrapper without adding an explicit transaction, commit or connection lifecycle of their
@@ -17,7 +17,6 @@ own.
 # Macros should be shortcuts to preform useful operatios on the tables - but ones which can be all replicated using
 # objects from the database
 # If it's a fundamental operation, then it should be done in the driver
-# Todo: In line with this, move the create custom columns logic down into the driver
 
 from __future__ import annotations
 
@@ -35,9 +34,6 @@ from LiuXin_alpha.databases.db_types.driver_types import (
 )
 from typing import TYPE_CHECKING, Any, Literal
 
-from LiuXin_alpha.databases.database_driver_plugins.SQL.macros.cc_macros_mixin import (
-    SQLiteDatabaseCustomColumnMacros,
-)
 from LiuXin_alpha.databases.api import MacrosAPI
 
 # Todo: This needs to be replaced with a column name factory
@@ -64,7 +60,6 @@ if TYPE_CHECKING:
 class SQLiteDatabaseMacros(
     MacrosBase,
     SQLPortableMacrosMixin,
-    SQLiteDatabaseCustomColumnMacros,
     TempTablesMacrosMixin,
     HashTablesMacrosMixin,
     # Todo: We're gonna need to re-write this API some

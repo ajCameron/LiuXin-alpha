@@ -19,6 +19,7 @@ from LiuXin_alpha.databases.database_driver_plugins.PostgreSQL.databasedriver im
 )
 from LiuXin_alpha.databases.driver_wrapper import DriverWrapper
 from LiuXin_alpha.errors import DatabaseDriverError
+from tests.databases.driver_fixture_schema import revision_statements
 
 UNICODE_NAMES = [
     "plain",
@@ -462,6 +463,9 @@ def driver():
         with cleanup:
             with cleanup.cursor() as cursor:
                 cursor.execute(f'CREATE SCHEMA "{metadata["schema"]}"')
+                cursor.execute(f'SET search_path TO "{metadata["schema"]}"')
+                for statement in revision_statements():
+                    cursor.execute(statement)
         instance = DatabaseDriver(metadata)
         try:
             instance.conn.execute("CREATE TABLE pending (value INTEGER)").close()

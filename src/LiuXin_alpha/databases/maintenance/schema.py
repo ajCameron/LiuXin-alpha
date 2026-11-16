@@ -91,6 +91,7 @@ def migrate(connection: RowSQLConnection, schema: str | None = None) -> dict[str
         return current
 
     def q(name: str) -> str:
+        """Qualify maintenance tables in the selected backend schema during explicit migration."""
         return table_sql(name, schema)
 
     identity = (

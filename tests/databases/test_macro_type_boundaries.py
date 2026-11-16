@@ -2,11 +2,16 @@
 
 from __future__ import annotations
 
+from LiuXin_alpha.utils.calibre_compat.custom_columns.macros import CustomColumnMacros
+
 from contextlib import closing
 
 import pytest
 
-from tests.databases.test_row_write_safety import db as db, template as template
+from tests.databases.custom_field_fixtures import sqlite_db as sqlite_db
+from tests.databases.custom_field_fixtures import sqlite_template as sqlite_template
+from tests.databases.test_row_write_safety import db as db
+from tests.databases.test_row_write_safety import template as template
 
 
 @pytest.mark.parametrize("payload", ["[]", "null", "7", '"receipt"'])
@@ -26,98 +31,85 @@ def test_repair_receipt_requires_a_json_object(db, payload):
 
 
 @pytest.mark.parametrize("project_connection", [False, True])
-def test_custom_column_readers_accept_query_connections(project_connection):
-    import sqlite3
-    from LiuXin_alpha.databases.database_driver_plugins.SQLite.databasedriver import (
-        SQLite_Connection,
-    )
-    from LiuXin_alpha.databases.database_driver_plugins.SQL.macros.cc_macros_mixin import (
-        SQLiteDatabaseCustomColumnMacros,
-    )
+def test_custom_column_readers_accept_query_connections(sqlite_db, project_connection):
+    db = sqlite_db
+    from LiuXin_alpha.databases.custom_columns import CustomFieldService
 
-    factory = SQLite_Connection if project_connection else sqlite3.Connection
-    with closing(sqlite3.connect(":memory:", factory=factory)) as connection:
-        connection.executescript(
-            "CREATE TABLE custom_column_1 (custom_column_1_id INTEGER PRIMARY KEY, custom_column_1_value TEXT);"
-            'INSERT INTO custom_column_1 VALUES (1, "A"), (2, "A"), (3, NULL);'
+    service = CustomFieldService(db)
+    field = service.create_field("works", "readers")
+    first = service.ensure_value(field.id, "A")
+    second = service.ensure_value(field.id, "B")
+    table = f"custom_column_{field.id}"
+    with db.macros.transaction() as connection:
+        kwargs = {"conn": connection} if project_connection else {}
+        assert CustomColumnMacros(db).get_cc_id_and_value_from_id(table, first, **kwargs) == (
+            first,
+            "A",
         )
-        macros = SQLiteDatabaseCustomColumnMacros()
-        assert macros.get_cc_id_and_value_from_id(
-            "custom_column_1", 1, conn=connection
-        ) == (1, "A")
-        assert macros.get_cc_id_from_value("custom_column_1", "A", conn=connection) == 1
-        assert (
-            macros.get_cc_id_from_value("custom_column_1", "missing", conn=connection)
-            is None
-        )
-        assert macros.get_cc_id_from_value(
-            "custom_column_1", "A", all=True, conn=connection
-        ) == [(1,), (2,)]
-        assert macros.get_all_cc_id_val_pairs("custom_column_1", conn=connection) == [
-            (1, "A"),
-            (2, "A"),
-            (3, None),
+        assert CustomColumnMacros(db).get_cc_id_from_value(table, "a", **kwargs) == first
+        assert CustomColumnMacros(db).get_cc_id_from_value(table, "missing", **kwargs) is None
+        assert CustomColumnMacros(db).get_cc_id_from_value(table, "A", all=True, **kwargs) == [
+            (first,)
         ]
-        assert macros.get_all_cc_custom_values(
-            "custom_column_1", distinct=True, conn=connection
-        ) == [("A",), (None,)]
-        assert macros.direct_get_custom_tables(conn=connection) == {"custom_column_1"}
+        assert CustomColumnMacros(db).get_all_cc_id_val_pairs(table, **kwargs) == [
+            (first, "A"),
+            (second, "B"),
+        ]
+        assert CustomColumnMacros(db).get_all_cc_custom_values(table, distinct=True, **kwargs) == [
+            ("A",),
+            ("B",),
+        ]
+        assert table in CustomColumnMacros(db).direct_get_custom_tables(**kwargs)
         with pytest.raises(IndexError):
-            macros.get_cc_id_and_value_from_id("custom_column_1", 99, conn=connection)
-        # A read neither commits nor rolls back the caller's pending changes.
-        connection.execute('INSERT INTO custom_column_1 VALUES (4, "pending")')
-        assert (
-            macros.get_cc_id_from_value("custom_column_1", "pending", conn=connection)
-            == 4
-        )
-        assert connection.in_transaction
-        connection.rollback()
-        assert (
-            macros.get_cc_id_from_value("custom_column_1", "pending", conn=connection)
-            is None
-        )
+            CustomColumnMacros(db).get_cc_id_and_value_from_id(table, 99, **kwargs)
+    with pytest.raises(RuntimeError, match="rollback"):
+        with db.macros.transaction() as connection:
+            pending = service.ensure_value(field.id, "pending")
+            assert (
+                CustomColumnMacros(db).get_cc_id_from_value(table, "pending", conn=connection)
+                == pending
+            )
+            raise RuntimeError("rollback")
+    assert CustomColumnMacros(db).get_cc_id_from_value(table, "pending") is None
 
 
 @pytest.mark.parametrize("explicit", [False, True])
 @pytest.mark.parametrize("nested", [False, True])
-def test_legacy_owner_batch_delete_accepts_scalar_and_parameter_rows(explicit, nested):
-    import sqlite3
-    from types import SimpleNamespace
-    from LiuXin_alpha.databases.database_driver_plugins.SQL.macros import (
-        SQLiteDatabaseMacros,
-    )
+def test_legacy_owner_batch_delete_accepts_scalar_and_parameter_rows(
+    sqlite_db, explicit, nested
+):
+    db = sqlite_db
+    from LiuXin_alpha.databases.custom_columns import CustomFieldService, OwnerRef
 
-    with closing(sqlite3.connect(":memory:")) as connection:
-        connection.execute("CREATE TABLE links (link_book INTEGER, link_value INTEGER)")
-        connection.executemany(
-            "INSERT INTO links VALUES (?, ?)", [(1, 10), (2, 20), (3, 30)]
-        )
-        connection.commit()
-        host = SimpleNamespace(
-            driver=SimpleNamespace(
-                conn=connection, direct_executemany=connection.executemany
+    service = CustomFieldService(db)
+    field = service.create_field("works", "batch", mode="set")
+    owners = [db.macros.insert_row("works", {"work_title": str(i)}) for i in range(3)]
+    for owner in owners:
+        service.set_value(OwnerRef("works", owner), field.id, ["kept"])
+    with pytest.raises(RuntimeError, match="rollback"):
+        with db.macros.transaction() as connection:
+            selected = ((owner,) if nested else owner for owner in owners[:2])
+            CustomColumnMacros(db).break_cc_links_by_book_id(
+                f"works_custom_column_{field.id}_link",
+                selected,
+                conn=connection if explicit else None,
             )
-        )
-        macros = SQLiteDatabaseMacros(host)
-        ids = iter([(1,), (2,)] if nested else [1, 2])
-        macros.break_cc_links_by_book_id(
-            "links", (value for value in ids), conn=connection if explicit else None
-        )
-        assert connection.execute("SELECT link_book FROM links").fetchall() == [(3,)]
-        assert connection.in_transaction
-        connection.rollback()
-        assert connection.execute("SELECT link_book FROM links").fetchall() == [
-            (1,),
-            (2,),
-            (3,),
-        ]
+            assert connection.in_transaction
+            assert not service.get_value(OwnerRef("works", owners[0]), field.id)
+            assert not service.get_value(OwnerRef("works", owners[1]), field.id)
+            assert service.get_value(OwnerRef("works", owners[2]), field.id)
+            raise RuntimeError("rollback")
+    assert all(
+        service.get_value(OwnerRef("works", owner), field.id) for owner in owners
+    )
 
 
 @pytest.mark.parametrize("scalar", [False, True])
 @pytest.mark.parametrize("fail", [False, True])
 def test_native_custom_read_closes_only_its_cursor(scalar, fail):
     from types import SimpleNamespace
-    from LiuXin_alpha.databases.database_driver_plugins.SQL.macros.cc_macros_mixin._reads import (
+
+    from LiuXin_alpha.utils.calibre_compat.custom_columns.reads import (
         read_rows,
         read_scalar,
     )
@@ -152,6 +144,7 @@ def test_concurrent_macro_transactions_keep_thread_connections_separate():
     from concurrent.futures import ThreadPoolExecutor
     from threading import Barrier
     from types import SimpleNamespace
+
     from LiuXin_alpha.databases.database_driver_plugins.SQL.macros import (
         SQLiteDatabaseMacros,
     )

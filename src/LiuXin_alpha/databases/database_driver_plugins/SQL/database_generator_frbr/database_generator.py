@@ -522,6 +522,13 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
         # 12) Lock constant tables so they are stable reference data.
         self.lock_constant_tables()
 
+        from LiuXin_alpha.databases.schema_revision import CURRENT_SCHEMA_REVISION
+
+        self.conn.execute(
+            "INSERT INTO schema_revision VALUES (1, ?)", (CURRENT_SCHEMA_REVISION,)
+        ).close()
+        self.conn.commit()
+
     def build_link_plan(self) -> tuple[LinkBuildStep, ...]:
         """Parse and validate both TOML documents, then freeze emitted link DDL.
 

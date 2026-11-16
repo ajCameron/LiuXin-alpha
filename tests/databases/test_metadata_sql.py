@@ -185,9 +185,8 @@ def test_helpers_target_physical_tables_and_current_columns(db):
 
 def test_metadata_sql_rebinds_and_is_cleared_on_close(db):
     file_id = db.macros.insert_row("files", {"file_name": "before.epub"})
-    before = MetadataSQL(None)
-    db.set_metadata_sql(before)
-    assert before.db is None
+    before = db.metadata_sql
+    assert before.db is db
     db._initialise_runtime_collaborators(enable_maintenance=False)
     assert before.db is db
     db.set_driver(db.driver)

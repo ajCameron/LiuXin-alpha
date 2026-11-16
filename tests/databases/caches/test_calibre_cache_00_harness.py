@@ -11,6 +11,8 @@ Example:
 
         python -m pytest -q tests/databases/caches/test_calibre_cache_00_harness.py
 """
+
+from LiuXin_alpha.utils.calibre_compat.custom_columns.adapter import CustomColumnAdapter
 import sys
 from pathlib import Path
 import pytest
@@ -272,7 +274,7 @@ def calibre_backend_db(tmp_path, provision_named_test_database, request):
     db.field_metadata = FieldMetadata()
 
     # Some codepaths call backend.custom_table_names(...)
-    db.custom_table_names = db.driver_wrapper.custom_table_names
+    db.custom_table_names = CustomColumnAdapter(db).custom_table_names
 
     return db
 

@@ -22,7 +22,8 @@ import os
 import re
 import sqlite3
 
-from LiuXin_alpha.databases.search_functions import register_search_functions
+from LiuXin_alpha.databases.search_functions import register_search_functions, validate_search_index_semantics
+from LiuXin_alpha.databases.schema_revision import validate_schema_revision, validate_empty_creation_target
 from LiuXin_alpha.databases.db_types.driver_types import SQLConnection, SQLParameters
 from LiuXin_alpha.databases.api.maintenance_api import MaintenanceCallbackSinkAPI
 from LiuXin_alpha.databases.connection_hooks import SQLiteCompletionConnection
@@ -42,9 +43,6 @@ from LiuXin_alpha.utils.logging import LiuXin_print, LiuXin_warning_print
 from LiuXin_alpha.databases.database_driver_plugins.SQL.macros import (
     SQLiteDatabaseMacros,
 )
-from LiuXin_alpha.databases.database_driver_plugins.SQL.custom_columns import (
-    SQLiteCustomColumnsDriverMixin,
-)
 
 from LiuXin_alpha.errors import DatabaseDriverError
 
@@ -57,7 +55,8 @@ from LiuXin_alpha.utils.logging import default_log
 from LiuXin_alpha.utils.ptempfiles import TemporaryFile
 from LiuXin_alpha.utils.localization import _
 from LiuXin_alpha.utils.libraries.liuxin_six import user_input
-from LiuXin_alpha.utils.storage.local.filenames import atomic_rename
+from LiuXin_alpha.databases.creation import replace_sqlite_file
+import shutil
 
 from LiuXin_alpha.databases.database_driver_plugins.SQL.utility_mixins import (
     SQLiteTableLinkingMixin,
@@ -80,13 +79,6 @@ from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.utils imp
     SqliteStupidConcatenate,
     register_sqlite_aggregate,
     icu_collator,
-    py_date_converter,
-    py_dict_adapter,
-    py_dict_converter,
-    py_list_adapter,
-    py_list_converter,
-    py_set_adapter,
-    py_set_converter,
     pynocase,
 )
 from LiuXin_alpha.databases.database_driver_plugins.SQL.databasedriver.utils import (
@@ -339,7 +331,6 @@ class SQLite_Connection(SQLiteCompletionConnection):
 class DatabaseDriver(
     SQLiteProgressMixin,
     SQLBaseDriver,
-    SQLiteCustomColumnsDriverMixin,
     SQLiteTableLinkingMixin,
     ValueCastingMixin,
     CalibreEmulationMixin,
@@ -480,45 +471,30 @@ class DatabaseDriver(
 
     def get_connection(self) -> sqlite3.Connection:
         """
-        Open, configure and track a fresh SQLite connection.
+        Open, configure and track a fresh connection to a supported native catalogue.
 
-        Register set/list/dict adapters and PYSET/PYLIST/PYDICT/DATE converters
-        globally, enable callback tracebacks, then open database_path with declared-type
-        parsing and check_same_thread=False. Every call opens a distinct connection,
-        including an independent database for the literal :memory: path. Existing
-        primary handles are not replaced.
+        Validate the base schema revision and persisted search-index semantics before
+        language repair or maintenance setup. Unsupported or unversioned catalogues,
+        including empty files and independent :memory: databases, are refused. Creation
+        uses a separate private connection to an empty candidate.
 
-        Request foreign-key enforcement and warn if SQLite does not report it enabled.
-        Install aggregates, collations, regex/tree/sort/UUID helpers, an always-true
-        books_list_filter and maintenance callbacks. Progress callbacks are opt-in
-        through set_progress_callbacks and are installed after connection setup.
-        With no callbacks, SQLite has no Python progress handler. All three dirty
-        callbacks look up the current maintainer on each invocation, including
-        handles opened before the real maintainer replaces its startup placeholder.
-        Cross-thread access still requires caller coordination.
+        Use check_same_thread=False and local JSON container binding without changing
+        process-wide sqlite3 adapters or converters. Raw SQL returns serialized containers;
+        schema-aware reads decode explicit declarations. Install foreign-key enforcement,
+        aggregates, collations, scalar helpers and maintenance callbacks. Dirty callbacks
+        resolve the current maintainer on each invocation. Progress callbacks remain opt-in;
+        callers must still coordinate cross-thread access.
 
-        Best-effort LANGUAGE_ID registration may seed and lock an existing FRBR
-        languages table, committing changes; exceptions from that registration are
-        suppressed. Other setup failures close the new handle before propagating. The
-        opening OperationalError handler reports DatabaseDriverError with the original
-        SQLite diagnostic.
+        After admission, best-effort LANGUAGE_ID setup may seed and lock language rows.
+        Other setup failures close the new handle before propagating. Each successful call
+        returns a distinct tracked handle and leaves the primary connection unchanged.
 
         Example:
-            >>> driver = DatabaseDriver({"database_path": ":memory:"}, set_conn=False)
-            >>> conn = driver.get_connection()
-            >>> conn.get("PRAGMA foreign_keys", all=False)
-            1
-            >>> conn.get_row(
-            ...     "SELECT 'abc' REGEXP 'b', books_list_filter(999)", all=False
-            ... )
-            (1, 1)
-            >>> driver.conn is None and conn in driver._open_connections
-            True
-            >>> driver.close()
+            For a driver bound to an existing supported catalogue, get_connection() opens
+            another owned handle; close it explicitly or through the driver's cleanup.
 
-
-        :return: An open SQLite_Connection tracked for inherited driver.close; callers
-            may close it earlier and must manage their transactions.
+        :return: A configured SQLite_Connection; callers own transaction completion and
+            may close it before driver shutdown.
         """
         return self._open_connection(seed_languages=True)
 
@@ -529,31 +505,14 @@ class DatabaseDriver(
         it is supposed to validate. Ordinary connection setup retains its existing
         language bootstrap behavior.
         """
-        # Todo: Should only have to do all this once? Surely?
-        # Registering converter and adaptor to deal with columns containing sets
-        sqlite3.register_adapter(set, py_set_adapter)
-        sqlite3.register_converter("PYSET", py_set_converter)
-
-        # Registering converter and adaptor to deal with columns containing lists
-        sqlite3.register_adapter(list, py_list_adapter)
-        sqlite3.register_converter("PYLIST", py_list_converter)
-
-        # Registering converter and adapter to deal with columns containing dictionaries
-        sqlite3.register_adapter(dict, py_dict_adapter)
-        sqlite3.register_converter("PYDICT", py_dict_converter)
-
-        # The built in date adaptor chokes when passed a u'None' - replacing it with home brew until can properly
-        # sanitize database inputs
-        sqlite3.register_converter("DATE", py_date_converter)
-        # Enable callbacks in case of error within added functions
-        sqlite3.enable_callback_tracebacks(True)
-
         conn: SQLite_Connection | None = None
         try:
             try:
                 conn = SQLite_Connection(
-                    self.database_path,
-                    detect_types=sqlite3.PARSE_DECLTYPES,
+                    self._sqlite_connection_uri(),
+                    uri=True,
+                    timeout=5.0,
+                    detect_types=0,
                     check_same_thread=False,
                 )
 
@@ -605,6 +564,11 @@ class DatabaseDriver(
                 return reg.search(item) is not None
 
             register_search_functions(conn)
+            if getattr(self, "_creating_catalogue", False):
+                validate_empty_creation_target(conn)
+            else:
+                validate_schema_revision(conn)
+            validate_search_index_semantics(conn)
             conn.create_function("REGEXP", 2, regexp)
 
             # Add the TREE_AGGREGATOR to the connection - allows for string representation of the position of a row in a
@@ -837,8 +801,10 @@ class DatabaseDriver(
         connections. Failed closes or surviving WAL/journal files refuse
         publication; the method never deletes a live journal to force replacement.
         The caller must coordinate exclusive access by other
-        database users. There is no automatic backup or rollback after replacement;
-        preparation and validation failures leave the original file in place.
+        database users. Before replacement, retain a verified sibling backup named
+        <database>.before-rebuild-<unique-id>.sqlite. Preparation and validation
+        failures leave the original file in place; directory-sync failures may
+        occur after publication. There is no automatic rollback after replacement.
         Temporary resources are cleaned up and rename failures attempt reopen.
 
         :param callback: Optional receiver of dumping/restoring progress messages.
@@ -928,7 +894,7 @@ class DatabaseDriver(
             ) as tmpdb:
                 callback(_("Restoring database from SQL") + "...")
 
-                with configured_sqlite_connection(tmpdb) as restore_conn:
+                with configured_sqlite_connection(tmpdb, creating=True) as restore_conn:
                     # The dump is not in foreign-key dependency order. Validate the
                     # completed graph before publishing rather than checking partial DDL.
                     restore_conn.isolation_level = None
@@ -945,6 +911,15 @@ class DatabaseDriver(
                     require_sqlite_replacement_ready(
                         self.database_path, self._open_connections
                     )
-                    atomic_rename(tmpdb, self.database_path)
+                    def copy_candidate(destination: os.PathLike[str]) -> None:
+                        """Copy the already validated candidate into the publication workspace."""
+                        shutil.copyfile(tmpdb, destination)
+
+                    backup = self.database_path + ".before-rebuild-" + uuid.uuid4().hex + ".sqlite"
+                    replace_sqlite_file(
+                        self.database_path, backup_path=backup,
+                        build=copy_candidate,
+                        backup_connection_factory=partial(configured_sqlite_connection, creating=True),
+                    )
                 finally:
                     self.reopen()

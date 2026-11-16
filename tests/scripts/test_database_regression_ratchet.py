@@ -121,3 +121,52 @@ raise SystemExit(pytest.main(['-q', 'tests/databases/test_probe.py'], plugins=[g
         capture_output=True,
     )
     assert result.returncode == expected, result.stdout + result.stderr
+
+
+def test_runner_collects_failures_outside_the_required_manifest(tmp_path):
+    """An unlisted regression must fail the real runner even when mandatory cases pass."""
+    import json
+    import os
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    checkout = tmp_path / "checkout"
+    source = checkout / "tests" / "databases"
+    source.mkdir(parents=True)
+    (source / "test_required.py").write_text("def test_required():\n    assert True\n")
+    (source / "test_unlisted.py").write_text("def test_unlisted():\n    assert False\n")
+    case = "tests/databases/test_required.py::test_required"
+    (source / "regression_ratchet.json").write_text(json.dumps(manifest([case])))
+    root = Path(__file__).resolve().parents[2]
+    artifacts = tmp_path / "artifacts"
+    code = """
+import sys
+from pathlib import Path
+from scripts import run_database_regression_ratchet as runner
+runner.ROOT = Path.cwd()
+run_pytest = runner.pytest.main
+def local_pytest(args, **kwargs):
+    # Preserve the runner's complete selection and plugin, omitting this repo's
+    # scratch/telemetry/xdist flags from the intentionally empty mini-checkout.
+    return run_pytest([*args[:args.index('-q')], '-q'], **kwargs)
+runner.pytest.main = local_pytest
+raise SystemExit(runner.main(['--artifacts', sys.argv[1]]))
+"""
+    result = subprocess.run(
+        [sys.executable, "-c", code, str(artifacts)],
+        cwd=checkout,
+        env={
+            **os.environ,
+            "PYTHONPATH": str(root),
+            "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1",
+            "PYTEST_ADDOPTS": "",
+        },
+        text=True,
+        capture_output=True,
+    )
+    assert result.returncode == 1, result.stdout + result.stderr
+    report = json.loads((artifacts / "ratchet.json").read_text())
+    assert report["fully_passed"] == 1
+    assert report["failures"] == []
+    assert report["pytest_exit_code"] == 1

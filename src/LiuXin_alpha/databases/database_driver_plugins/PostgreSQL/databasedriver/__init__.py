@@ -279,23 +279,26 @@ class DatabaseDriver(
 
     def get_connection(self) -> PostgresConnectionAdapter:
         """
-        Open, configure and register a new connection adapter.
+        Open, validate and register a connection to the configured native schema.
 
-        Set the quoted schema search_path and commit that setting before returning. The
-        caller owns closing the returned handle; registration also enables shared
-        cleanup.
+        Set the quoted schema search_path, validate its base revision, then commit this
+        connection's setup before returning. Unsupported formats fail before bootstrap.
+        The caller owns closing the returned handle; registration also enables shared
+        cleanup. Explicit schema creation owns a separate preparation connection.
 
         Example:
-            ``conn = driver.get_connection()`` returns an adapter using driver.schema.
-
+            conn = driver.get_connection() returns an admitted adapter using driver.schema.
 
         :return: New tracked PostgreSQL connection adapter.
         """
         raw = connect_postgres(self.db_metadata)
         conn = PostgresConnectionAdapter(raw)
         try:
+            from LiuXin_alpha.databases.schema_revision import validate_schema_revision
+
             with closing(conn.execute(f"set search_path to {_q(self.schema)}")):
                 pass
+            validate_schema_revision(conn, schema=self.schema)
             conn.commit()
             return self._register_open_connection(conn)
         except BaseException:
@@ -322,16 +325,17 @@ class DatabaseDriver(
 
     def exists(self) -> bool:
         """
-        Probe reachability with SELECT 1 and close the probe connection.
+        Probe admission of the configured catalogue and close the probe connection.
 
-        Return False and log redacted details on failure. This checks connectivity
-        rather than the existence or completeness of LiuXin schema tables.
+        Return False and log redacted details on connection or schema-revision failure.
+        This requires a supported catalogue; server reachability alone is insufficient.
+        It does not exhaustively validate every table, column or constraint.
 
         Example:
-            A reachable empty PostgreSQL database can return True from driver.exists().
+            A reachable but empty or unversioned schema returns False. Opening it directly
+            reports the schema-admission error; explicit creation uses its own boundary.
 
-
-        :return: Whether a new connection can execute the probe.
+        :return: Whether a new admitted connection can execute SELECT 1.
         """
         conn = None
         try:
@@ -386,8 +390,9 @@ class DatabaseDriver(
         """
         Create a new managed schema in the already configured server database.
 
-        Use the primary connection, then refresh shared property caches. This does not
-        create the server database or modify a populated schema.
+        Own a separate creation connection, then refresh shared property caches.
+        The builder checks that the schema is empty under its creation lock. Normal
+        connections require a supported revision and cannot initialize a catalogue.
 
         Example:
             Select an absent or empty dedicated schema before calling this operation.
@@ -395,8 +400,8 @@ class DatabaseDriver(
 
         :return: None; initializes schema objects and refreshes caches.
         """
-        conn = self._primary_connection()
-        create_postgres_schema(conn, schema=self.schema)
+        with closing(PostgresConnectionAdapter(connect_postgres(self.db_metadata))) as conn:
+            create_postgres_schema(conn, schema=self.schema)
         self._zero_prop_cache()
 
     def direct_replace_database(self, *, backup_path: str | PathLike[str]) -> Never:
@@ -1756,9 +1761,9 @@ class DatabaseDriver(
         """
         Perform a bound equality search on one validated column.
 
-        Reject a None search term rather than translating it to IS NULL. Equality
-        follows the database column semantics; this method does not apply column-policy
-        folding.
+        None selects SQL NULL through IS NULL. Other values use bound equality
+        following database column semantics, without column-policy folding.
+        Reads join an active macro transaction without ending it.
 
         Example:
             ``driver.direct_search_table("works", "work_title", "Example")`` returns
@@ -1767,24 +1772,26 @@ class DatabaseDriver(
 
         :param table: Table name resolved within the configured driver schema.
         :param column: Column name belonging to the selected table.
-        :param search_term: Non-None value bound to the equality predicate.
+        :param search_term: Bound equality value, or None to select SQL NULL.
         :return: List of converted matching rows without an explicit ordering.
         """
         table = self._canonicalise_table_name_for_cache(table)
         headings = self.direct_get_column_headings(table)
         if column not in headings:
             raise InputIntegrityError(f"column {column!r} not found in table {table!r}")
-        if search_term is None:
-            raise InputIntegrityError("PostgreSQL direct_search_table requires a non-None search term.")
+        predicate = f"{_q(column)} IS NULL" if search_term is None else f"{_q(column)} = %s"
+        stmt = f"select * from {self._table_sql(table)} where {predicate}"
+        values = () if search_term is None else (search_term,)
 
-        stmt = f"select * from {self._table_sql(table)} where {_q(column)} = %s"
-        values = (search_term,)
-
+        if self.db is not None and self.db.macros.current_transaction_connection() is not None:
+            return [dict(row) for row in self.db.macros.get_rows(table, where={column: search_term})]
         conn = self._short_connection()
+        cur = conn.cursor()
         try:
-            cur = conn.execute(stmt, values)
+            cur.execute(stmt, values)
             return [self._row_to_dict_from_db_row(table=table, headings=headings, row=row) for row in cur.fetchall()]
         finally:
+            cur.close()
             conn.close()
 
     def direct_multi_column_search(
@@ -2066,6 +2073,7 @@ class DatabaseDriver(
         table = self.direct_identify_table_from_row(row_dict)
         if table is False:
             raise InputIntegrityError("Cannot identify the row's target table")
+        conn.execute(f"LOCK TABLE {self._table_sql(table)} IN ROW EXCLUSIVE MODE").close()
         row_dict.pop("table", None)
         normalizer = None if normalizers is None else normalizers.get(table)
         if normalizer is None:
@@ -2138,12 +2146,16 @@ class DatabaseDriver(
                 f"Cannot update {table!r}: missing id column {id_column!r}"
             )
         row_id = row_dict.pop(id_column)
-        if not row_dict:
-            return True
         conn = self._primary_connection()
         try:
             with conn:
-                self._update_row_on_connection(conn, table, id_column, row_id, row_dict)
+                if not row_dict:
+                    if self._read_row_for_update(conn, table, id_column, row_id, lock_row=True) is None:
+                        raise InputIntegrityError(f"No row {row_id!r} in {table!r}")
+                else:
+                    self._update_row_on_connection(
+                        conn, table, id_column, row_id, row_dict, require_existing=True
+                    )
             self._zero_prop_cache()
             return True
         except Exception as exc:
@@ -2152,6 +2164,7 @@ class DatabaseDriver(
     def _update_row_on_connection(
         self, conn: SQLConnection, table: str, id_column: str, row_id: int,
         values: Mapping[str, Any],
+        *, require_existing: bool = False,
     ) -> None:
         """Derive keys and update a row without ending the caller's transaction.
 
@@ -2162,6 +2175,7 @@ class DatabaseDriver(
         :param values: Replacement columns; omitted values stay unchanged.
         :return: None after executing the update.
         """
+        conn.execute(f"LOCK TABLE {self._table_sql(table)} IN ROW EXCLUSIVE MODE").close()
         payload = prepare_normalized_values(
             self,
             table,
@@ -2171,10 +2185,13 @@ class DatabaseDriver(
             ),
         )
         assignments = ", ".join(f"{_q(column)} = %s" for column in payload)
-        conn.execute(
-            f"update {self._table_sql(table)} set {assignments} where {_q(id_column)} = %s",
+        with closing(conn.execute(
+            f"update {self._table_sql(table)} set {assignments} where {_q(id_column)} = %s returning {_q(id_column)}",
             (*payload.values(), row_id),
-        )
+        )) as cursor:
+            rows = cursor.fetchall()
+        if require_existing and len(rows) != 1:
+            raise InputIntegrityError(f"No row {row_id!r} in {table!r}")
 
     def direct_update_columns(
         self, id_values_map: Mapping[int, Any], field: str | None = None,

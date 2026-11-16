@@ -22,6 +22,11 @@ Those pointers remain user-wide so that changing deployment does not hide them.
 A manifest may specify `preferences_directory` and `config_directory`; relative
 paths resolve against the final manifest, including through a named-profile pointer.
 For each path, an explicit manifest/API value wins over environment overrides.
+`LIUXIN_SCRATCH_DIR` overrides the native temporary-file directory. The test
+harness supplies it for the session and each test, including child processes;
+without it the existing `<base>/LiuXin_scratch` default applies. The directory is
+created on use, not by importing path constants.
+
 `LIUXIN_PREFS_DIR` overrides the default preference directory. `LIUXIN_CONFIG_DIR`
 wins over `CALIBRE_CONFIG_DIRECTORY` for independent component configuration.
 

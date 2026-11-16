@@ -22,6 +22,7 @@ class MissingSearchReference(DatabaseIntegrityError):
     """A traversed physical relationship refers to a missing endpoint."""
 
     def __init__(self, table: str) -> None:
+        """Record the missing endpoint table so callers can report a dangling relationship."""
         self.table = table
         super().__init__(f"Missing linked {table} row during predicate search")
 

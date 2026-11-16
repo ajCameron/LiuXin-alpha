@@ -939,6 +939,14 @@ def test_item_hydrator_resolves_folders_and_stores_from_files_and_work_links() -
     :return: None; the function records state or raises through its assertions.
     """
     db = _build_item_db()
+    for table, extra_columns in {
+        "files": ["file_folder_id"],
+        "images": ["image_folder_id"],
+        "asset_replicas": ["asset_replica_folder_id", "asset_replica_store_id"],
+    }.items():
+        columns = [*db.tables_and_columns[table], *extra_columns]
+        db.tables_and_columns[table] = columns
+        db.driver_wrapper.tables_and_columns[table] = columns
     db.tables_and_columns["folders"] = ["folder_id", "folder_store_id", "folder_path"]
     db.driver_wrapper.tables_and_columns["folders"] = [
         "folder_id",
@@ -1913,6 +1921,9 @@ def test_work_hydrator_item_identifier_and_folder_resolution_paths() -> None:
 
     db = _build_work_db()
     db.tables_and_columns["folders"] = ["folder_id", "folder_store_id", "folder_path"]
+    file_columns = [*db.tables_and_columns["files"], "file_folder_id"]
+    db.tables_and_columns["files"] = file_columns
+    db.driver_wrapper.tables_and_columns["files"] = file_columns
     db.driver_wrapper.tables_and_columns["folders"] = [
         "folder_id",
         "folder_store_id",
@@ -2027,6 +2038,13 @@ def test_lazy_hydrator_aliases_and_source_row_paths() -> None:
     :return: None; the function records state or raises through its assertions.
     """
     db = _build_item_db()
+    for table, relationship_column in {
+        "manifestations": "manifestation_expression_id",
+        "expressions": "expression_work_id",
+    }.items():
+        columns = [*db.tables_and_columns[table], relationship_column]
+        db.tables_and_columns[table] = columns
+        db.driver_wrapper.tables_and_columns[table] = columns
     hydrator = LazyLiuXinWEMIMetadataHydrator(db)
 
     with pytest.raises(ValueError, match="Provide either item_id or source_row"):

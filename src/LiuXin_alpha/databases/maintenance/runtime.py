@@ -160,6 +160,10 @@ class MaintenanceRuntime:
         )
 
     def _refresh(self, connection: SQLConnection) -> bool:
+        """Refresh installed plugin declarations on the supplied connection.
+
+        Record whether maintenance exists without implicitly installing it. Reject an
+        outdated or unidentified journal before treating its declarations as current."""
         state = migration_status(connection, self.schema)
         vars(connection)["_liuxin_maintenance_installed"] = bool(state["installed"])
         if not state["installed"]:
@@ -263,6 +267,7 @@ class MaintenanceRuntime:
 
     @contextmanager
     def _internal(self) -> Iterator[None]:
+        """Temporarily suppress recursive statement hooks while runtime-owned SQL executes."""
         previous = getattr(self._local, "internal", False)
         self._local.internal = True
         try:
@@ -271,6 +276,10 @@ class MaintenanceRuntime:
             self._local.internal = previous
 
     def _set_provenance(self, connection: SQLConnection) -> None:
+        """Publish PostgreSQL readiness, origin and ancestry as transaction-local settings.
+
+        SQLite reads the corresponding runtime callbacks instead. The caller's source
+        transaction owns these values; this helper neither commits nor changes plugins."""
         if self.schema:
             ready = {
                 name: dec.version
@@ -448,6 +457,13 @@ class MaintenanceRuntime:
         declaration: PluginDeclaration,
         records: list[MaintenanceObligation],
     ) -> MaintenancePluginResult:
+        """Deliver a validated batch and acknowledge it on the same supplied transaction.
+
+        Check implementation/version, declaration stability and bounded acyclic ancestry.
+        Give the synchronous handler a temporary row-SQL-only connection, coalesce
+        eligible events, and require a fully handled result before acknowledging anything.
+        Always invalidate the borrowed view and restore prior provenance; caller rollback
+        owns failures of either the handler or acknowledgement."""
         if not self.ready(declaration.name, declaration.version):
             raise MaintenanceFailure(
                 f"Required maintenance implementation unavailable: {declaration.name}@{declaration.version}"
@@ -641,6 +657,7 @@ class MaintenanceRuntime:
 
     @contextmanager
     def _temporarily_external(self) -> Iterator[None]:
+        """Allow handler SQL through normal capture hooks, then restore the prior internal flag."""
         previous = getattr(self._local, "internal", False)
         self._local.internal = False
         try:
@@ -657,6 +674,11 @@ class MaintenanceRuntime:
         job_run_id: int | None = None,
         job_ledger_uuid: str | None = None,
     ) -> None:
+        """Persist lazy-delivery diagnostics/backoff in a separate owned transaction.
+
+        Fence updates by plugin version and job ledger/run, ignoring stale workers and
+        duplicate failure receipts. Bound diagnostic text and retry delay without
+        acknowledging the failed obligation."""
         with self.unit() as connection, self._internal():
             self._refresh(connection)
             declaration = self._declarations.get(name)

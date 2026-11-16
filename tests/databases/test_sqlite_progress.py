@@ -4,8 +4,11 @@ from __future__ import annotations
 
 import importlib
 import sqlite3
+from contextlib import closing
 
 import pytest
+
+from tests.databases.driver_fixture_schema import revision_statements
 
 QUERY = """WITH RECURSIVE numbers(n) AS (
     VALUES(1) UNION ALL SELECT n + 1 FROM numbers WHERE n < 1000
@@ -23,16 +26,29 @@ def driver_module(request):
 
 
 @pytest.fixture
-def driver(driver_module):
-    """Own an in-memory driver and every connection it creates."""
-    value = driver_module.DatabaseDriver({"database_path": ":memory:"})
+def catalogue_path(tmp_path):
+    """Admit the minimal SQL fixture independently on every opened handle."""
+    path = tmp_path / "progress.sqlite"
+    with closing(sqlite3.connect(path)) as connection:
+        for statement in revision_statements():
+            connection.execute(statement)
+        connection.commit()
+    return str(path)
+
+
+@pytest.fixture
+def driver(driver_module, catalogue_path):
+    """Own a driver and every connection it creates for the admitted SQL fixture."""
+    value = driver_module.DatabaseDriver({"database_path": catalogue_path})
     try:
         yield value
     finally:
         value.close()
 
 
-def test_default_does_not_install_any_progress_handler(driver_module, monkeypatch):
+def test_default_does_not_install_any_progress_handler(
+    driver_module, monkeypatch, catalogue_path
+):
     """Default queries cannot dispatch even an empty Python callback wrapper."""
     installed = []
 
@@ -42,7 +58,7 @@ def test_default_does_not_install_any_progress_handler(driver_module, monkeypatc
             return super().set_progress_handler(callback, n)
 
     monkeypatch.setattr(driver_module, "SQLite_Connection", Connection)
-    driver = driver_module.DatabaseDriver({"database_path": ":memory:"})
+    driver = driver_module.DatabaseDriver({"database_path": catalogue_path})
     try:
         assert driver.conn.execute(QUERY).fetchone()[0] == 500500
         assert driver.get_connection().execute(QUERY).fetchone()[0] == 500500
@@ -92,7 +108,7 @@ def test_callback_cancellation_and_invalid_replacement(driver):
 def test_callbacks_do_not_leak_to_another_driver(driver, driver_module):
     """A callback belongs to its driver rather than a shared class registry."""
     driver.set_progress_callbacks((lambda: True,), instruction_interval=1)
-    other = driver_module.DatabaseDriver({"database_path": ":memory:"})
+    other = driver_module.DatabaseDriver({"database_path": driver.database_path})
     try:
         assert other.conn.execute(QUERY).fetchone()[0] == 500500
     finally:

@@ -692,7 +692,8 @@ class CacheMetadataReadSource:
         Fetch cached link records for a primary row, returning immediately when its ID is None.
 
         Only KeyError marks the link lookup unavailable and permits fallback. An empty
-        successful lookup remains empty; nonempty results are wrapped as read-only Rows.
+        successful lookup remains empty. Preserve immutable link records as mappings;
+        the cache's main-table schema does not describe physical association rows.
 
         Example:
             Exercise the owning behavior with pytest::
@@ -703,7 +704,7 @@ class CacheMetadataReadSource:
         :param primary_row: Row-like object exposing table and row_id for the primary link
             endpoint.
         :param secondary_table: Target table whose links or related rows are requested.
-        :return: Cached Row tuple, database link rows on eligible fallback, or an empty
+        :return: Cached link records, database link rows on eligible fallback, or an empty
             tuple.
         """
         primary_table = str(primary_row.table)
@@ -724,7 +725,7 @@ class CacheMetadataReadSource:
             unavailable = False
 
         if records:
-            return tuple(self._row_from_mapping(record) for record in records)
+            return records
         if unavailable and self.allow_database_fallback:
             return self.database.get_interlink_rows(
                 primary_row=primary_row,

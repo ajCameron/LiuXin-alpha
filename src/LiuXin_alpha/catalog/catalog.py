@@ -62,6 +62,8 @@ from LiuXin_alpha.catalog.write import (
 from LiuXin_alpha.catalog.write.host_api import CatalogWriterHostAPI
 
 if TYPE_CHECKING:
+    from LiuXin_alpha.databases.custom_columns.native_service import CustomFieldService
+    from LiuXin_alpha.catalog.custom_fields import CustomFieldEvaluator
     from LiuXin_alpha.databases.db_types.database_types import SrcTableID
     from LiuXin_alpha.databases.db_types.macro_types import LinkRow
 
@@ -100,6 +102,21 @@ class Catalog:
     :ivar apply: Legacy metadata application helpers sharing add and ensure.
     :ivar intralink: Legacy same-table relationship helpers using the borrowed database.
     """
+
+    @property
+    def custom_fields(self) -> CustomFieldService:
+        """Native field writes and queries over this Catalog's borrowed database."""
+        from LiuXin_alpha.databases.api.database_api.database_api import DatabaseAPI
+        from LiuXin_alpha.databases.custom_columns.native_service import CustomFieldService
+        if not hasattr(self, "_custom_fields"):
+            self._custom_fields = CustomFieldService(cast(DatabaseAPI, self.db))
+        return self._custom_fields
+
+    @property
+    def computed_fields(self) -> CustomFieldEvaluator:
+        """Calibre template evaluation with explicit owner/path selection."""
+        from LiuXin_alpha.catalog.custom_fields import CustomFieldEvaluator
+        return CustomFieldEvaluator(self.custom_fields)
 
     def __init__(
         self,

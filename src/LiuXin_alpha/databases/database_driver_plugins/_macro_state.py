@@ -70,6 +70,8 @@ def macro_operations(host: object) -> DatabaseMacrosAPI:
 
 
 class _MacroConnectionHost(Protocol):
+    """Describe the private active-connection hook needed by composed macro helpers."""
+
     def _macro_connection(self) -> SQLConnection: ...
 
 

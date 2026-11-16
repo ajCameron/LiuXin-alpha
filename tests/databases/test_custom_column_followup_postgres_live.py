@@ -1,0 +1,43 @@
+"""Run portable native metadata and retirement repairs on real PostgreSQL."""
+
+from tests.databases.test_custom_column_followup_repairs import (
+    test_native_metadata_routes_preserve_composite_dependencies as test_native_metadata_routes_preserve_composite_dependencies,
+)
+from tests.databases.test_custom_column_followup_repairs import (
+    test_native_metadata_routes_preserve_enum_values_and_revisions as test_native_metadata_routes_preserve_enum_values_and_revisions,
+)
+from tests.databases.test_custom_column_followup_repairs import (
+    test_native_retirement_requires_version_two as test_native_retirement_requires_version_two,
+)
+from tests.databases.test_custom_column_followup_repairs import (
+    test_native_wrapper_metadata_joins_managed_transaction as test_native_wrapper_metadata_joins_managed_transaction,
+)
+from tests.databases.test_custom_column_followup_repairs import (
+    test_native_wrapper_metadata_refuses_unmanaged_transaction as test_native_wrapper_metadata_refuses_unmanaged_transaction,
+)
+from tests.databases.test_custom_column_unification import (
+    test_compatibility_macros_use_native_identity_ordering_and_rollback as test_compatibility_macros_use_native_identity_ordering_and_rollback,
+)
+from tests.databases.test_custom_column_unification import (
+    test_database_row_projection_follows_native_entry_order as test_database_row_projection_follows_native_entry_order,
+)
+from tests.databases.test_custom_column_unification import (
+    test_empty_old_definition_schema_is_rejected_without_changes as test_empty_old_definition_schema_is_rejected_without_changes,
+)
+from tests.databases.test_custom_column_unification import (
+    test_every_compatibility_creation_route_uses_native_storage as test_every_compatibility_creation_route_uses_native_storage,
+)
+from tests.databases.test_custom_column_unification import (
+    test_nonrepresentable_compatibility_creation_has_no_effects as test_nonrepresentable_compatibility_creation_has_no_effects,
+)
+from tests.databases.test_custom_column_unification import (
+    test_series_bulk_positions_keep_legacy_positional_mapping as test_series_bulk_positions_keep_legacy_positional_mapping,
+)
+from tests.databases.test_custom_column_unification import (
+    test_storage_registry_publishes_schema_changes_only_after_commit as test_storage_registry_publishes_schema_changes_only_after_commit,
+)
+from tests.databases.test_native_custom_fields import native as native
+from tests.databases.test_native_custom_fields_postgres_live import db as db
+from tests.databases.test_transaction_ownership_postgres_live import (
+    pg_database as pg_database,
+)

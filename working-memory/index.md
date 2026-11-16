@@ -1,5 +1,150 @@
 # Working Memory Index
 
+Database review repairs, **2026-11-14**, complete:
+[handoff](database-review-fixes-2026-11-14.md). DBR01–DBR13 resolved at their documented
+boundaries; DBR14's concrete contract fixes are complete, with broad indexing and
+automatic dirty scheduling explicitly deferred. The local commit containing this
+note includes earlier DR01–DR03 work. Full gate: **2,425 passed**, including all
+**2,314 mandatory cases**; full quality and 96 auxiliary checks passed. PostgreSQL
+is stopped; the dirty data submodule is excluded; no push. This supersedes the
+older uncommitted statuses below.
+
+Database follow-up fixes and reviewer handoff, **2026-11-13**, complete:
+[active handoff](database-followup-fixes-2026-11-13.md). DR01–DR03 implemented:
+native nested writer reservations, identity-allocation preservation and retryable
+failed-handle ownership. Database implementation docstrings completed and native
+contracts expanded. Added 53 required cases (2,259 total); initial SQLite 34,
+PostgreSQL 23, tooling 134, documentation 22 and Core/Library eight passed.
+Full quality passed; final database gate **2,370 passed**, including **2,259/2,259
+mandatory cases**. Private PostgreSQL stopped; validation inputs, real index and
+pre-existing submodule status preserved. Ready for independent review. No commit.
+
+Database post-commit follow-up review, **2026-11-13**:
+[historical review](database-followup-review-2026-11-13.md). Reviewed `7780b7eb`.
+Three additional P2 findings: nested native writes bypass revision serialization,
+field rebuilds reuse deleted identities, and failed handle closes lose their
+facade cleanup owner. Existing focused suite: 150 passed; disposable probes
+reproduce the gaps. Review only; resolve DR01–DR03 before final sign-off.
+Documentation checks: 22 passed. PostgreSQL stopped; production code, index and
+pre-existing data-submodule changes preserved.
+
+Database/custom-column checkpoint, **2026-11-13**:
+The user authorized committing the completed native custom-column and database
+lifecycle work. This checkpoint includes the implementation, migrated callers,
+regressions, dev-docs and working-memory handoffs. The existing dirty data
+submodule is outside the commit. Validation details remain in the two handoffs
+below; their earlier uncommitted/index-preservation notes describe pre-commit
+checkpoints. No push was requested.
+
+Database lifecycle repairs, **2026-11-13**, complete:
+[active handoff](database-lifecycle-fixes-2026-11-13.md). LC01–LC04 resolved:
+constructor unwind, retryable dependency-preserving shutdown, owned/injected
+storage lifetimes and removal of shallow collaborator setters. Added 44 mandatory
+regressions across both SQLite names and PostgreSQL. Final affected integrations,
+full quality and docs pass; the handoff records counts and overlap. PostgreSQL is
+stopped; real index and data-submodule status preserved. Uncommitted.
+
+Database boundary and lifecycle review, **2026-11-13**, complete:
+[active handoff](database-lifecycle-review-2026-11-13.md). The slight preference for
+database-owned efficient SQL is recorded. Four open P2 findings cover failed
+construction, worker-timeout shutdown, Database-created storage ownership and
+unsafe public collaborator setters. All ten probe observations reproduced on both
+SQLite driver names; 114 existing and 22 documentation checks passed. Production
+code, real index and dirty submodule preserved. Fix LC01–LC04 before lifecycle
+sign-off; the review does not implement those repairs. Uncommitted.
+
+LiuXin-first custom-column ownership, **2026-11-13**, complete:
+[active handoff](custom-columns-liuxin-first-2026-11-12.md). Database/wrapper/macro
+compatibility methods and forwarding paths are removed; explicit adapters own
+Calibre contracts, notifications and optional SQL views. Native Series and attachment
+rules are independent; cache writers explicitly select their database host. Dev-docs
+updated. Full database gate: 2,273 passed, all 2,162 required; final affected callers
+310, ownership 7 and writer integration/imports 28 passed; full quality and docs pass.
+See the handoff for combined validation details. Private PostgreSQL stopped; real
+index and dirty submodule preserved. Uncommitted.
+
+Native custom-field cache ownership, **2026-11-12**, complete:
+[active handoff](custom-columns-cache-ownership-2026-11-12.md). Native services no
+longer own metadata projections or table registries. `caches.custom_fields` owns
+transactional metadata publication; Core uses it, and Database owns registry
+refresh. The Calibre facade is unchanged. Validation: 246 focused cases verified,
+330 caller/tooling tests, 69 live PostgreSQL tests, 22 documentation tests, full
+quality. All 2,153 required cases collect, retaining the previous 2,131. Private
+PostgreSQL stopped; real index and dirty submodule preserved. Uncommitted.
+
+Native custom-column package boundary, **2026-11-12**, complete:
+[active handoff](custom-columns-native-boundary-2026-11-12.md). Native package
+compatibility exports and eight old module paths are removed. Manager and
+compatibility errors live in the explicit Calibre package; callers are updated.
+589 affected database cases have passing evidence across focused/corrective runs;
+full quality, 50 tooling and 22 docs tests passed. All 2,131 required cases still
+collect; manifest and storage implementation unchanged. Real index, pre-existing
+work and dirty submodule preserved. Uncommitted; PostgreSQL stayed stopped.
+
+Custom-column storage consolidation, **2026-11-12**, complete:
+[active handoff](custom-columns-unified-2026-11-12.md). V1 format support is removed
+entirely, including conversion/import/upgrade; Calibre calling compatibility lives
+in a facade over the sole native format. Full gate: **2,242 passed**, including
+**2,131/2,131 required** and **117 live PostgreSQL cases**, no skips/failures.
+Full quality passed; Core/tooling 141 passed; final documentation 22 passed.
+All prior regression requirements retained. Private PostgreSQL stopped. Earlier
+repairs, the real index and dirty data submodule are preserved. Uncommitted;
+no publication or production migration performed.
+
+Custom-column follow-up repairs, **2026-11-12**, complete:
+[active handoff](custom-columns-followup-review-2026-11-12.md). All six findings
+CC07–CC12 are fixed. One complete database gate passed **2,101 tests**, including
+**1,990/1,990 required cases** with zero skips/failures. The 128 new cases retain
+all prior 1,862 requirements. Full quality passed; Core/tooling: 93 passed;
+documentation: 16 passed. The first gate's temporary PostgreSQL ASCII encoding
+was corrected to UTF-8 before the successful complete rerun. All source/test
+data and evidence are preserved locally. Uncommitted on `main` at `a88a5230`;
+no commit, push, PR or production migration requested. Preserve the real index
+and dirty data submodule.
+
+Native custom fields, **2026-11-12**, recovered after the Windows crash:
+[active handoff](native-custom-fields-2026-11-12.md). Implementation and local
+validation are complete. All 63 saved file fingerprints matched on restart.
+Saved full-run and corrective-rerun evidence covers all **1,862 required cases**;
+the final targeted gate passed 145 cases, including all 134 native cases across
+SQLite, APSW and PostgreSQL. Full quality passed. Fresh recovery contracts:
+127 passed; tooling/documentation: 100 passed. Read the handoff for evidence and
+the distinction between combined validation and a single green full-suite run.
+Uncommitted on `main` at `a88a5230`; preserve the real index and dirty data
+submodule. No publication or production upgrade requested.
+
+Custom-column service repairs, **2026-11-12**:
+[active handoff](custom-columns-review-2026-11-12.md). All six review findings
+have local fixes and 106 new mandatory database cases. Direct database values
+are explicitly approved; optional cache integration remains. Broad integration:
+585 passed/one legacy module skip; final contracts: 121 passed. Final full quality
+and all 79 docs/tooling checks passed. Manifest: 1,728, preserving
+all prior 1,622 cases. Not committed or published. Baseline remains `a88a5230`
+on `main`; preserve the dirty data submodule and real Git index.
+
+Database facade consistency follow-up is complete and committed on 2026-11-12.
+See [the active review handoff](database-facade-review-2026-11-11.md) and
+`.tmp/database-facade-followup-2026-11-11/`. Atomic compound helpers, NULL-query
+contracts and defensive tree traversal are repaired. All 93 added regression
+requirements passed; 1,103 distinct database checks passed across validation
+runs and corrected-contract reruns. Quality components and 37 docs/gate checks
+passed; the mypy contracts used an isolated cache. Full 1,622-case ratchet not
+rerun. Temporary PostgreSQL stopped; preserve the dirty data submodule.
+
+
+Database facade review and repairs, **2026-11-11**:
+[review handoff](database-facade-review-2026-11-11.md).
+The user merged PR #160; the original checkout is `main` at `47156490`.
+All seven P2 findings have implementations and deterministic regressions:
+priority swaps, failed intralink cleanup, driver replacement, typed unlinking,
+intralink endpoint results, subtree deletion and iterable tree search.
+Focused repairs/lifecycle: 110 passed; live PostgreSQL: 7 passed. Broader
+contracts: 832 passed, 40 skipped, 6 existing xfailed. Quality components,
+isolated static contracts and all 16 documentation checks passed.
+85 new mandatory cases retain all prior regression requirements. No commit,
+push or PR requested. Preserve the dirty data submodule and original Git index.
+This entry supersedes the older checkout instructions.
+
 PR #160 reconciliation, **2026-11-11**:
 [database review/main remediation](database-review-main-remediation-2026-11-11.md).
 PRs #158 and #159 merged into different target branches. The resulting 81

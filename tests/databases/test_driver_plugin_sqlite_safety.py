@@ -8,6 +8,7 @@ import pytest
 
 from LiuXin_alpha.databases.database_driver_plugins.registry import load_database_driver
 from LiuXin_alpha.errors import DatabaseDriverError
+from tests.databases.driver_fixture_schema import revision_statements
 
 CTE_NAMES = ["source", "名", '"名"', "e\u0301", "x$y", "📚", "\u00a0"]
 CTE_IDS = ["ascii", "unicode", "quoted", "combining", "dollar", "emoji", "nbsp"]
@@ -395,6 +396,10 @@ def driver(request, tmp_path):
     """Use real connections without paying for an unrelated catalogue schema."""
     if request.param == "SQLite_apsw":
         pytest.importorskip("apsw")
+    with closing(sqlite3.connect(tmp_path / "source.sqlite")) as conn:
+        for statement in revision_statements():
+            conn.execute(statement)
+        conn.commit()
     instance = load_database_driver(request.param)(
         {"database_path": str(tmp_path / "source.sqlite")}
     )
@@ -809,7 +814,9 @@ def test_failed_close_remains_owned_for_retry(driver, monkeypatch):
         close()
 
     monkeypatch.setattr(connection, "close", fail_once)
-    driver.close()
+    with pytest.raises(ExceptionGroup, match="Failed to close") as caught:
+        driver.close()
+    assert str(caught.value.exceptions[0]) == "close interrupted"
     assert tuple(driver._open_connections) == (connection,)
     assert connection.execute("SELECT 1").fetchone() == (1,)
     driver.close()

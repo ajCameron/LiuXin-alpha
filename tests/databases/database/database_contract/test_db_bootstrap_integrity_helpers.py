@@ -107,7 +107,7 @@ def test_fresh_database_bootstrap_creates_ratings_and_null_rows(tmp_path: Path, 
     db_path = tmp_path / f"fresh_bootstrap_{driver_spec.id}.db"
     meta = {"database_path": str(db_path)}
 
-    db = Database(metadata=meta, db_type=driver_spec.db_type, create=False, backup=False)
+    db = Database(metadata=meta, db_type=driver_spec.db_type, create=True, backup=False)
     try:
         # Ratings table should have 11 rows with expected values.
         ratings = _fetch_ratings(db)
@@ -154,7 +154,7 @@ def test_database_init_can_skip_bootstrap_repairs(tmp_path: Path, driver_spec):
     db = Database(
         metadata=meta,
         db_type=driver_spec.db_type,
-        create=False,
+        create=True,
         backup=False,
         enable_storage_manager=False,
     )

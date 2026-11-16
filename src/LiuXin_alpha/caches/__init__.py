@@ -11,6 +11,9 @@ in ``LiuXin_alpha.caches.cache``; bundled backends and registration helpers live
 import does not initialize every bundled backend or pull database implementations into
 the caller.
 
+``LiuXin_alpha.caches.custom_fields`` coordinates native custom-field writes with
+FieldMetadata publication. The native database service has no cache dependency.
+
 See ``dev-docs/04 - Seperation of Concerns.md`` and
 ``dev-docs/catalog/catalog-cache-boundary.md``.
 """

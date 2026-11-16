@@ -299,3 +299,51 @@ def test_outcomes(case, lifecycle):
         and json.loads(line).get("outcome") == "failed"
     ]
     assert failures == ["setup", "teardown", "call"]
+
+
+def test_native_scratch_is_contained_during_collection_session_and_child_processes(
+    tmp_path: Path,
+) -> None:
+    """RR09: native helpers must remain isolated outside function monkeypatches."""
+    result, records = run_probe(
+        tmp_path / "probe",
+        PRELUDE
+        + """
+import subprocess
+import sys
+from LiuXin_alpha.utils import ptempfiles
+
+def session_path(phase):
+    path = Path(ptempfiles.base_dir())
+    assert path.is_relative_to(harness._TEST_PREFS_ROOT), (phase, path)
+    record(phase=phase, scratch=str(path))
+
+session_path('collection')
+
+@pytest.fixture(scope='session', autouse=True)
+def native_session():
+    session_path('session_setup')
+    yield
+    session_path('session_teardown')
+
+@pytest.mark.parametrize('case', range(2))
+def test_native(case, tmp_path):
+    path = Path(ptempfiles.base_dir())
+    assert path.is_relative_to(tmp_path)
+    record(phase='test', scratch=str(path))
+    # A new interpreter cannot see monkeypatched module attributes.
+    env = {**os.environ, 'LIUXIN_BASE_DIR': str(tmp_path / 'checkout')}
+    child = subprocess.run(
+        [sys.executable, '-c', 'from LiuXin_alpha.utils.ptempfiles import base_dir; print(base_dir())'],
+        env=env, check=True, capture_output=True, text=True,
+    )
+    assert Path(child.stdout.strip()) == path
+    assert not (tmp_path / 'checkout').exists()
+""",
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    phases = [item["phase"] for item in records if "phase" in item]
+    assert phases == ["collection", "session_setup", "test", "test", "session_teardown"]
+    assert all(
+        not Path(item["scratch"]).exists() for item in records if "scratch" in item
+    )

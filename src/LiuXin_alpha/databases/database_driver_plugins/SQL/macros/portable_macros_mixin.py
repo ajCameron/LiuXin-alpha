@@ -72,6 +72,8 @@ from LiuXin_alpha.errors import DatabaseIntegrityError, InputIntegrityError
 from LiuXin_alpha.metadata.value_policies import (
     ColumnEmptyValuePolicy,
     ColumnNormalizationProfile,
+    ColumnSemanticRole,
+    ColumnValidationProfile,
 )
 
 type FingerprintValue = str | bool | None | Sequence[FingerprintValue]
@@ -453,7 +455,34 @@ class SQLPortableMacrosMixin(MacroHostState):
 
     @contextmanager
     def _macro_transaction(
-        self, *, serialized: bool = False, require_outermost: bool = False
+        self, *, serialized: bool = False, require_outermost: bool = False,
+        write: bool = True,
+    ) -> Iterator[SQLConnection]:
+        """Keep projection completion frames aligned with SQL savepoints."""
+        from LiuXin_alpha.databases.transaction_participants import completion_frame
+
+        state = macro_transaction_state(self, create=True)
+        driver = self._macro_driver()
+        owned = state.depth == 0 and (
+            callable(getattr(driver, "get_connection", None))
+            or not transaction_active(driver.conn)
+        )
+        lock = getattr(self._macro_database, "lock", None)
+        boundary = (
+            cast(AbstractContextManager[object], lock)
+            if lock is not None and callable(getattr(lock, "acquire", None))
+            else nullcontext()
+        )
+        with boundary, completion_frame(self, owned=owned):
+            with self._macro_transaction_body(
+                serialized=serialized, require_outermost=require_outermost, write=write
+            ) as connection:
+                yield connection
+
+    @contextmanager
+    def _macro_transaction_body(
+        self, *, serialized: bool = False, require_outermost: bool = False,
+        write: bool = True,
     ) -> Iterator[SQLConnection]:
         """Own one write unit while preserving nested and caller-owned transactions.
 
@@ -524,13 +553,14 @@ class SQLPortableMacrosMixin(MacroHostState):
                 with transaction_scope(
                     conn,
                     owns_transaction=owns_transaction,
-                    immediate=serialized and not postgres,
+                    immediate=owns_transaction and (write or serialized) and not postgres,
                 ):
                     if serialized and postgres:
-                        conn.execute(
-                            "SELECT pg_advisory_xact_lock(hashtext(current_database()), hashtext(?))",
-                            (f"liuxin.serialized:{getattr(driver, 'schema')}",),
+                        from LiuXin_alpha.databases.transactions import (
+                            lock_postgres_writer,
                         )
+
+                        lock_postgres_writer(conn, getattr(driver, "schema"))
                     yield conn
             finally:
                 state.depth = 0
@@ -553,8 +583,8 @@ class SQLPortableMacrosMixin(MacroHostState):
         rolls back that inner unit only. Borrowed transactions remain pending for
         their caller; connections are closed only when acquired for this operation.
 
-        A serialized outer unit takes SQLite's writer reservation at BEGIN or a
-        PostgreSQL advisory transaction lock shared by cooperating serialized
+        Every owned SQLite write unit reserves its writer before reads. A serialized
+        PostgreSQL unit additionally takes an advisory lock shared by cooperating serialized
         callers in this schema. It cannot upgrade an ordinary or borrowed unit.
         require_outermost refuses nested or borrowed units before effects so a
         successful exit guarantees an actual commit, not merely a savepoint release.
@@ -612,7 +642,7 @@ class SQLPortableMacrosMixin(MacroHostState):
         driver = self._macro_driver()
         restore = None
         try:
-            with self._macro_transaction(require_outermost=True) as connection:
+            with self._macro_transaction(require_outermost=True, write=False) as connection:
                 if hasattr(driver, "schema"):
                     connection.execute(
                         "SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY"
@@ -3173,6 +3203,14 @@ class SQLPortableMacrosMixin(MacroHostState):
             value policy.
         :return: None when the raw value is permitted.
         """
+        if metadata.comparison_column is not None and metadata.normalization_profile in {
+            ColumnNormalizationProfile.TITLE_SEARCH_TERM,
+            ColumnNormalizationProfile.TAG_SEARCH_TERM,
+        }:
+            raise InputIntegrityError(
+                "Lossy identity profile; audit and migrate_normalized_identities"
+                "(target_profiles=...) before ensuring values"
+            )
         if (
             metadata.empty_value_policy is ColumnEmptyValuePolicy.NULL_IS_MISSING
             and value is None
@@ -3641,6 +3679,7 @@ class SQLPortableMacrosMixin(MacroHostState):
                     )
 
                 def read_existing(row_id: int = row_id) -> Mapping[str, Any] | None:
+                    """Read this row in the active batch transaction only if normalization needs omitted values."""
                     return self.get_row(table, row_id)
 
                 payload = normalizer.prepare(values, read_existing=read_existing)
@@ -4563,7 +4602,9 @@ class SQLPortableMacrosMixin(MacroHostState):
             tuple(updates),
         )
 
-    def audit_normalized_identities(self) -> NormalizedIdentityMigrationReport:
+    def audit_normalized_identities(
+        self, *, target_profiles: Mapping[tuple[str, str], ColumnNormalizationProfile] | None = None
+    ) -> NormalizedIdentityMigrationReport:
         """
         Report current derived-key drift and collisions without changing schema or rows.
 
@@ -4583,12 +4624,33 @@ class SQLPortableMacrosMixin(MacroHostState):
         """
 
         specs, columns_by_table = self._existing_normalized_identity_specs()
+        specs = self._target_identity_profiles(specs, target_profiles)
         report, _updates = self._inspect_normalized_identities(
             self._macro_connection(),
             specs,
             columns_by_table,
         )
         return report
+
+    @staticmethod
+    def _target_identity_profiles(
+        specs: tuple[NormalizedIdentitySpec, ...],
+        profiles: Mapping[tuple[str, str], ColumnNormalizationProfile] | None,
+    ) -> tuple[NormalizedIdentitySpec, ...]:
+        """Validate explicit profile changes without altering identity shape or scope."""
+        profiles = dict(profiles or {})
+        if set(profiles) - {(spec.table, spec.value_column) for spec in specs}:
+            raise InputIntegrityError("Target profile names an undeclared identity")
+        if any(
+            not isinstance(profile, ColumnNormalizationProfile)
+            or profile in {ColumnNormalizationProfile.TITLE_SEARCH_TERM, ColumnNormalizationProfile.TAG_SEARCH_TERM}
+            for profile in profiles.values()
+        ):
+            raise InputIntegrityError("Target identity profiles must be supported non-lossy profiles")
+        return tuple(
+            replace(spec, normalization_profile=profiles.get((spec.table, spec.value_column), spec.normalization_profile))
+            for spec in specs
+        )
 
     @staticmethod
     def _normalized_identity_index_name(
@@ -4862,10 +4924,10 @@ class SQLPortableMacrosMixin(MacroHostState):
                 self._column_metadata_values(display_metadata),
             )
 
-            identity_metadata = infer_column_metadata(
-                spec.table,
-                spec.identity_column,
-                "TEXT",
+            identity_metadata = replace(
+                infer_column_metadata(spec.table, spec.identity_column, "TEXT"),
+                semantic_role=ColumnSemanticRole.NORMALIZED_KEY,
+                validation_profile=ColumnValidationProfile.NORMALIZED_KEY,
             )
             conn.execute(
                 f"""
@@ -4883,7 +4945,9 @@ class SQLPortableMacrosMixin(MacroHostState):
                 ON CONFLICT (
                   column_metadata_table_name,
                   column_metadata_column_name
-                ) DO NOTHING
+                ) DO UPDATE SET
+                  column_metadata_semantic_role = excluded.column_metadata_semantic_role,
+                  column_metadata_validation_profile = excluded.column_metadata_validation_profile
                 """,
                 self._column_metadata_values(identity_metadata),
             )
@@ -4920,7 +4984,9 @@ class SQLPortableMacrosMixin(MacroHostState):
                 self._column_metadata_values(catalog_metadata),
             )
 
-    def migrate_normalized_identities(self) -> NormalizedIdentityMigrationReport:
+    def migrate_normalized_identities(
+        self, *, target_profiles: Mapping[tuple[str, str], ColumnNormalizationProfile] | None = None
+    ) -> NormalizedIdentityMigrationReport:
         """
         Install identity declarations, backfill derived keys and request scoped unique
         indexes.
@@ -4939,6 +5005,11 @@ class SQLPortableMacrosMixin(MacroHostState):
         index, including one that already existed; rows_updated counts planned update
         statements, not measured affected rows.
 
+        With target_profiles, stop other catalogue writers first. The explicit
+        profile migration owns a serialized outer transaction; it keeps the physical
+        identity columns and scope and changes declarations and keys atomically.
+        No target mapping retains ordinary backfill/savepoint behavior.
+
         Example:
             After resolving report.collisions from
             ``macros.audit_normalized_identities()``,
@@ -4950,10 +5021,16 @@ class SQLPortableMacrosMixin(MacroHostState):
             counts, added columns and requested index names.
         """
 
-        specs, columns_by_table = self._existing_normalized_identity_specs()
         columns_added: list[str] = []
         indexes_created: list[str] = []
-        with self._macro_transaction() as conn:
+        with self._macro_transaction(
+            serialized=bool(target_profiles), require_outermost=bool(target_profiles)
+        ) as conn:
+            specs, columns_by_table = self._existing_normalized_identity_specs()
+            specs = self._target_identity_profiles(specs, target_profiles)
+            if target_profiles and hasattr(self._macro_driver(), "schema"):
+                for table in sorted({spec.table for spec in specs} | ({NORMALIZED_IDENTITIES_TABLE} if NORMALIZED_IDENTITIES_TABLE in columns_by_table else set())):
+                    conn.execute(f"LOCK TABLE {self._macro_table_sql(table)} IN SHARE ROW EXCLUSIVE MODE").close()
             if (
                 not hasattr(self._macro_driver(), "schema")
                 and hasattr(conn, "in_transaction")
@@ -5229,10 +5306,10 @@ class SQLPortableMacrosMixin(MacroHostState):
         Validate each link spec and include every endpoint that names the target table,
         including both sides of self-links. Refuse pruning with InputIntegrityError when
         no supplied spec references the table. Combine correlated NOT EXISTS predicates
-        and optional NOT IN protection, then order by target ID. Only supplied links are
-        considered; this does not discover every foreign key or prove global
-        unreferenced status. The protection predicate is not chunked for backend
-        parameter limits.
+        and optional NOT IN protection, then order by target ID. Physical inbound
+        foreign keys are always included, and polymorphic IDs conservatively protect
+        every matching target. External-schema references cause refusal. The caller
+        must hold the repair locks. Protection is not chunked for parameter limits.
 
         Example:
             With ID 1 linked and ID 3 protected, a target table containing IDs 1, 2, 3
@@ -5275,6 +5352,21 @@ class SQLPortableMacrosMixin(MacroHostState):
             )
             for link_table, link_column in reference_columns
         ]
+        # The deletion boundary has already reserved the target and every
+        # referencing table. Include actual constraints, not just caller hints.
+        for reference in self.inspect_repair_references(table):
+            if reference["external_schema"]:
+                raise InputIntegrityError("Cannot prune a table referenced from an external schema")
+            comparisons = " AND ".join(
+                f"link_row.{_quoted(source)} = target.{_quoted(target)}"
+                for source, target in zip(
+                    reference["columns"], reference["target_columns"], strict=True
+                )
+            )
+            conditions.append(
+                f"NOT EXISTS (SELECT 1 FROM {self._macro_table_sql(reference['table'])} "
+                f"AS link_row WHERE {comparisons})"
+            )
         values: list[Any] = []
         if protected_ids:
             conditions.append(
@@ -5301,10 +5393,10 @@ class SQLPortableMacrosMixin(MacroHostState):
         """
         Select orphan candidates, then delete them in batches of up to 500 IDs.
 
-        Use _unreferenced_ids for supplied-link and protection checks. Delete each
-        selected chunk by ID without rechecking references or measuring affected-row
-        counts. The result is the initial candidate tuple; concurrent changes, triggers
-        and constraints remain backend concerns. The caller supplies the transaction.
+        Reserve the target and referencing tables before selecting candidates.
+        PostgreSQL physical locks exclude competing writes; SQLite holds the outer
+        writer reservation. Check physical references plus supplied links before
+        deleting each bounded chunk. The caller owns the serialized transaction.
 
         Example:
             ``macros._delete_unreferenced_rows(conn, "tags", specs,
@@ -5321,6 +5413,10 @@ class SQLPortableMacrosMixin(MacroHostState):
             element suppresses all candidates under SQL NULL semantics.
         :return: The initially selected candidate IDs, in ascending order.
         """
+        self.lock_repair_references(table)
+        from .repair_storage import references
+
+        references(self, table, require_declared=True)
         ids = self._unreferenced_ids(
             conn,
             table,
@@ -5350,13 +5446,16 @@ class SQLPortableMacrosMixin(MacroHostState):
 
         Materialize link specs and protected IDs, resolve the ID column and validate its
         membership. Require at least one supplied endpoint to reference the table.
-        Protection is applied with SQL NOT IN; include every relevant link declaration
-        to avoid considering referenced rows as candidates. Delete selected IDs in
-        chunks; failures roll back when they escape the outer macro boundary.
+        Protection is applied with SQL NOT IN and every discovered physical reference
+        participates even when omitted from link_specs. Own a serialized outer unit;
+        nested or borrowed calls fail before effects. Known undeclared references
+        refuse pruning until their foreign key and deletion policy are explicit.
+        Delete candidates in chunks.
 
         Example:
             ``macros.delete_unreferenced_rows("tags", (work_tag_spec,),
-            protected_ids=(1,))`` retains tag 1 and every tag referenced by that spec.
+            protected_ids=(1,))`` retains tag 1 and tags referenced through any
+            physical FK, including item links omitted from work_tag_spec.
 
 
         :param table: Physical table name resolved through the driver wrapper.
@@ -5377,7 +5476,7 @@ class SQLPortableMacrosMixin(MacroHostState):
         self._validate_columns(table, (id_column,))
         link_specs = tuple(link_specs)
         protected_ids = tuple(protected_ids)
-        with self._macro_transaction() as conn:
+        with self._macro_transaction(serialized=True, require_outermost=True) as conn:
             return self._delete_unreferenced_rows(
                 conn,
                 table,
@@ -5432,7 +5531,7 @@ class SQLPortableMacrosMixin(MacroHostState):
             prepared.append(
                 (table, id_column, tuple(spec.link_specs), tuple(spec.protected_ids))
             )
-        with self._macro_transaction() as conn:
+        with self._macro_transaction(serialized=True, require_outermost=True) as conn:
             return {
                 table: self._delete_unreferenced_rows(
                     conn,

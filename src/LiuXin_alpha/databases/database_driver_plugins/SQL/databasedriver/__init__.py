@@ -17,6 +17,7 @@ from threading import RLock
 from typing import TYPE_CHECKING, Any, Literal, TypeVar, cast
 
 from LiuXin_alpha.databases.db_types.driver_types import RowSQLConnection, SQLConnection
+from LiuXin_alpha.databases.sqlite_uri import sqlite_file_uri
 
 from LiuXin_alpha.utils.storage.local.file_backup import make_backup_path
 
@@ -69,6 +70,20 @@ class SQLBaseDriver(SQLDriverMixinState):
     _open_connections: list[SQLConnection]
     event_count: int
     _create_new_database: Callable[[SQLConnection], None]
+    _creating_catalogue: bool = False
+
+    def _sqlite_connection_uri(self) -> str:
+        """Allow file creation only for the private catalogue builder.
+
+        SQLite enforces mode=rw at open time, so a disappearing target cannot
+        become an empty file between the facade's existence check and connect.
+        """
+        if self.database_path == ":memory:":
+            return self.database_path
+        return sqlite_file_uri(
+            pathlib.Path(self.database_path).absolute(),
+            mode="rwc" if self._creating_catalogue else "rw",
+        )
 
     @property
     def macros(self) -> "DatabaseMacrosAPI":
@@ -259,26 +274,38 @@ class SQLBaseDriver(SQLDriverMixinState):
     def _close_all_open_connections(self) -> None:
         """Close owned handles, retaining failed closes for a subsequent attempt.
 
-        Closing never commits. Built-in handles remove themselves from tracking;
-        foreign raw handles are removed after successful close. A failed close
-        remains owned even though the primary reference is detached.
+        Attempt every handle without committing. Successful handles leave tracking;
+        failures remain owned and are reported together. Retain the primary alias
+        only when its close failed. Call close again to retry; a normal return means
+        there are no owned handles left, not merely that cleanup was attempted.
         """
         connections = list(self._open_connections)
         primary = self.conn
         if primary is not None and not any(conn is primary for conn in connections):
             connections.append(primary)
         failed = []
+        errors: list[BaseException] = []
         for connection in connections:
             try:
                 connection.close()
-            except Exception:
+            except BaseException as error:
                 failed.append(connection)
+                errors.append(error)
         self._open_connections[:] = failed
-        self.conn = None
+        self.conn = primary if any(conn is primary for conn in failed) else None
+        if errors:
+            raise BaseExceptionGroup(
+                "Failed to close owned database connections", errors
+            )
 
     def close(self) -> None:
         """
         Close all known connections while retaining the driver object for reuse.
+
+        Pending writes are discarded by connection close. Attempt every owned
+        handle, retain failures and raise an exception group if cleanup is incomplete.
+        Retry close after resolving the cause; only successful cleanup permits the
+        facade to discard this driver. Reopening is a separate operation.
 
         Example:
             ``driver.close(); driver.reopen()`` replaces the primary connection.
@@ -450,9 +477,10 @@ class SQLBaseDriver(SQLDriverMixinState):
         """
         Find the first table whose columns contain every supplied row key.
 
-        Remove a ``table`` key from the input. An empty remaining mapping returns False;
-        no match raises DatabaseIntegrityError with partial-match diagnostics. Values do
-        not participate in matching.
+        Remove and honor a supplied ``table`` hint after validating all columns.
+        Without a hint, an empty mapping returns False; no match raises
+        DatabaseIntegrityError with partial-match diagnostics. Values do not
+        participate in matching.
 
         Example:
             ``driver.direct_identify_table_from_row({"book_id": 3})`` matches by column
@@ -463,10 +491,12 @@ class SQLBaseDriver(SQLDriverMixinState):
             key in place.
         :return: The first matching table name, or ``False`` for an empty mapping.
         """
-        if "table" in row_dict.keys():
-            del row_dict["table"]
-
+        hint = row_dict.pop("table", None)
         tables_and_columns = driver_operations(self).direct_get_tables_and_columns()
+        if hint is not None:
+            if hint not in tables_and_columns or not set(row_dict) <= set(tables_and_columns[hint]):
+                raise InputIntegrityError(f"Row columns do not belong to hinted table {hint!r}")
+            return str(hint)
         table_names = tables_and_columns.keys()
         row_columns_set = set(key for key in row_dict.keys())
 
@@ -614,8 +644,13 @@ class SQLBaseDriver(SQLDriverMixinState):
         # mixin deliberately has no constructor of its own.
         driver_type = cast("type[DatabaseDriverAPI]", type(self))
         builder = driver_type(metadata, db=None, set_conn=False)
+        builder_state = cast("SQLBaseDriver", builder)
         try:
-            conn = builder.get_connection()
+            builder_state._creating_catalogue = True
+            try:
+                conn = builder.get_connection()
+            finally:
+                builder_state._creating_catalogue = False
             self._create_new_database(conn)
             from LiuXin_alpha.utils.language_tools import (
                 ensure_languages_seeded_and_locked,

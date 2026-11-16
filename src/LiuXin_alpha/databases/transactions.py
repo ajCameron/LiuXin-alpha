@@ -1,7 +1,8 @@
-# Todo: This feels like it's a driver thing - not this high level
-
 """
-SQL transaction ownership independent of connection and facade lifetime.
+SQL transaction ownership and cooperating writer locks.
+
+These helpers operate on supplied connections. They neither open handles nor
+own facade lifetimes; callers choose transaction, savepoint and cleanup scopes.
 """
 
 from __future__ import annotations
@@ -22,8 +23,9 @@ def transaction_active(connection: object) -> bool:
     """
     Inspect supported connection state without starting or ending a transaction.
 
-    :param connection:
-    :return:
+    :param connection: SQLite, APSW or PostgreSQL handle exposing transaction state.
+    :return: Whether a transaction, including an aborted one, belongs to the caller.
+    :raises TypeError: The handle does not expose a supported state interface.
     """
     active = getattr(connection, "in_transaction", None)
     if isinstance(active, bool):
@@ -40,6 +42,31 @@ def transaction_active(connection: object) -> bool:
     raise TypeError("Connection must expose its transaction state before borrowing it")
 
 
+def lock_postgres_writer(connection: QueryConnection, schema: str) -> None:
+    """Reserve the cooperating writer boundary until the SQL unit completes.
+
+    Use the same database/schema key for outer serialized macro transactions and
+    native operations nested inside ordinary transactions. Acquire before reading
+    the revisions or schema fingerprints protected by the lock. It is reentrant
+    on the same transaction and never commits. A rollback to a savepoint may
+    release locks acquired within it, so each nested operation acquires its own
+    reservation instead of caching a Python flag.
+
+    This is a PostgreSQL transaction advisory lock, not protection against raw SQL
+    writers that ignore the protocol. SQLite uses its native single-writer rules;
+    a stale read snapshot must fail its attempted write rather than be reused.
+
+    :param connection: Active PostgreSQL transaction owned by the calling scope.
+    :param schema: Physical schema shared by cooperating writers.
+    """
+    if not transaction_active(connection):
+        raise RuntimeError("A writer reservation requires an active transaction")
+    connection.execute(
+        "SELECT pg_advisory_xact_lock(hashtext(current_database()), hashtext(?))",
+        (f"liuxin.serialized:{schema}",),
+    ).close()
+
+
 @contextmanager
 def transaction_scope[ConnectionT: QueryConnection](
     connection: ConnectionT, *, owns_transaction: bool, immediate: bool = False
@@ -52,14 +79,18 @@ def transaction_scope[ConnectionT: QueryConnection](
     would otherwise publish before the intended commit operation.
     ``immediate`` reserves SQLite's writer before any read and requires ownership.
 
-    :param connection:
-    :param owns_transaction:
-    :param immediate:
-    :return:
+    :param connection: Open handle whose lifetime remains with the caller.
+    :param owns_transaction: Begin and complete the whole unit when true; otherwise
+        create a savepoint inside the caller's active transaction.
+    :param immediate: Reserve SQLite's writer at BEGIN, before taking a snapshot.
+    :return: A context yielding the same connection. Successful exit commits or
+        releases its savepoint; exceptional exit rolls back its own unit.
     """
     if immediate and not owns_transaction:
         raise ValueError("An immediate unit must own its transaction")
     if owns_transaction:
+        if transaction_active(connection):
+            raise RuntimeError("An owned unit requires an idle connection")
         execute_transaction_control(
             connection, "BEGIN IMMEDIATE" if immediate else "BEGIN"
         )

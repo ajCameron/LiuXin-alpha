@@ -1,9 +1,9 @@
 """
 Adapt SQL values and provide aggregate, collation and Calibre sorting callbacks.
 
-SQLite driver connection setup registers these helpers; importing this module does not
-register them. JSON adapters preserve supported JSON values, while the legacy set format
-has limited quoting and round-trip behavior. Aggregate classes own their state; legacy
+SQLite drivers use these callbacks without registering global adapters. JSON codecs
+preserve supported values; PYSET uses a sorted JSON string array, including empty and
+quoted strings. Aggregate classes own their state; legacy
 factory functions return explicit state/step/finalize triples.
 """
 
@@ -13,7 +13,6 @@ from __future__ import print_function, annotations
 
 import json
 
-from copy import deepcopy
 
 from typing import Any, Optional, Callable, TypeVar, cast, Protocol
 from collections.abc import Hashable, Iterable
@@ -22,7 +21,6 @@ import sqlite3
 
 from LiuXin_alpha.utils.libraries.liuxin_six import (
     iterkeys,
-    force_unicode,
     six_unicode,
     force_cmp,
 )
@@ -76,105 +74,19 @@ def py_date_converter(date_string: ValueT) -> ValueT:
     return date_string
 
 
-# Todo: wwwhhhyyyyyyyy
-# Todo: Replace with enhanced json?
 def py_set_converter(py_set_string: bytes) -> set[str]:
-    """
-    Parse the legacy comma-separated, single-quoted set format from bytes.
+    """Decode a JSON string array, retaining empty strings and quoted text."""
+    from LiuXin_alpha.databases.sqlite_values import decode_sqlite_value
 
-    Decode bytes as UTF-8 with replacement, collapse doubled apostrophes and scan quoted
-    fragments. Empty elements disappear and duplicates collapse. The
-    input must be encoded bytes. Unexpected unquoted characters or escaped apostrophes outside an
-    element raise DatabaseDriverError, but unmatched trailing quotes are not fully
-    validated. Apostrophes in values do not reliably round-trip.
-
-    Example:
-        >>> py_set_converter(b"'a','b','a'") == {"a", "b"}
-        True
-        >>> py_set_converter(b"''")
-        set()
-
-
-    :param py_set_string: Legacy serialized set, normally the bytes supplied by an
-        SQLite converter.
-    :return: A set of nonempty decoded string fragments.
-    """
-    from LiuXin_alpha.errors import DatabaseDriverError
-
-    text = bytes(py_set_string).decode("utf-8", errors="replace")
-    # Accounting for the way SQL escapes quotes
-    text = text.replace("''", "'")
-
-    py_set = set()
-    last_char = " "
-    current_string = ""
-    accumulation_mode = False
-    for char in text:
-        if char == "'" and last_char != "\\":
-            accumulation_mode = not accumulation_mode
-            if current_string:
-                py_set.add(current_string)
-                current_string = ""
-        elif char == "'" and last_char == "\\":
-            # The SQL \ used to escape a quote is no longer needed
-            if accumulation_mode:
-                current_string = current_string[:-1]
-                current_string += char
-            else:
-                err_str = "parsing a string into a python set has gone wrong.\n"
-                err_str += "py_set_string: " + repr(py_set_string) + "\n"
-                raise DatabaseDriverError(err_str)
-
-        elif char == '"' and last_char == "\\":
-            # The SQL \ used to escape a double quote is no longer needed
-            if accumulation_mode:
-                current_string = current_string[:-1]
-                current_string += char
-            else:
-                err_str = "parsing a string into a python set has gone wrong.\n"
-                err_str += "py_set_string: " + repr(py_set_string) + "\n"
-
-        elif accumulation_mode:
-            current_string += char
-
-        else:
-            if char != ",":
-                err_str = "parsing a string into a python set has gone wrong.\n"
-                err_str += "py_set_string: " + repr(py_set_string) + "\n"
-                raise DatabaseDriverError(err_str)
-        last_char = char
-
-    return py_set
+    return cast(set[str], decode_sqlite_value(py_set_string, "PYSET"))
 
 
 def py_set_adapter(py_set: Iterable[object]) -> str:
-    """
-    Serialize copied set elements as quoted, comma-separated text.
-
-    Coerce values to Unicode, double apostrophes and backslash-escape double quotes.
-    Iteration order is unspecified; an empty set produces two apostrophes. This legacy
-    format is lossy for empty elements and some quoted values; use bound parameters when
-    storing it.
-
-    Example:
-        >>> py_set_converter(py_set_adapter({"a", "b"}).encode("utf-8")) == {"a", "b"}
-        True
-
-
-    :param py_set: Iterable of values, conventionally a set, copied before
-        serialization.
-    :return: Legacy serialized text, without surrounding set braces.
-    """
-
-    py_set = deepcopy(py_set)
-    py_list = []
-    for element in py_set:
-        # Coerce to unicode, escape any SQL special characters, then add to the list of elements
-        element = force_unicode(element)
-        element = element.replace("'", "''")
-        element = element.replace('"', '\\"')
-        py_list.append(element)
-    return "'" + "','".join(py_list) + "'"
+    """Encode a set of strings as a deterministic JSON array."""
+    values = set(py_set)
+    if any(not isinstance(value, str) for value in values):
+        raise TypeError("PYSET values must be strings")
+    return json.dumps(sorted(cast(set[str], values)), ensure_ascii=False)
 
 
 # Todo: Make safe - can currently be used to execute arbitrary code
@@ -314,16 +226,15 @@ class PyListAggregate:
 
 class PySetAggregate:
     """
-    Deduplicate values and join them in the unescaped legacy set format.
+    Deduplicate strings and serialize them as a deterministic JSON array.
 
-    Steps require hashable values, but finalization requires strings. Ordering is
-    unspecified and quoting is not escaped.
+    Steps require hashable values; finalization validates strings and sorts them.
 
     Example:
         >>> aggregate = PySetAggregate()
         >>> aggregate.step("a")
         >>> aggregate.step("a")
-        >>> aggregate.finalize() == "'a'"
+        >>> aggregate.finalize() == '["a"]'
         True
     """
 
@@ -356,19 +267,18 @@ class PySetAggregate:
         """
         self.py_set.add(value)
 
-    # Todo: replace with json
     def finalize(self) -> str:
         """
-        Join stored strings between apostrophes without escaping or clearing them.
+        Encode the accumulated strings without clearing them.
 
         Example:
-            >>> PySetAggregate().finalize() == "''"
+            >>> PySetAggregate().finalize() == "[]"
             True
 
 
-        :return: Quoted comma-separated text; empty state yields two apostrophes.
+        :return: JSON array text; empty state yields an empty array.
         """
-        return "'" + "','".join(self.py_set) + "'"
+        return py_set_adapter(self.py_set)
 
 
 # Helper functions used to make aggregate short strings (for example makes the creators_sort field for a title.
@@ -1108,12 +1018,15 @@ class SqliteConcatenate:
     """Adapt the legacy concatenation callbacks to stdlib SQLite methods."""
 
     def __init__(self, sep: str = ",") -> None:
+        """Create the legacy aggregate's state/callbacks for one SQLite aggregation group."""
         self._state, self._step, self._finish = Concatenate(sep)
 
     def step(self, value: str | None) -> None:
+        """Pass one nullable input cell to the existing concatenation policy."""
         self._step(self._state, value)
 
     def finalize(self) -> str | None:
+        """Return the accumulated result using the legacy aggregate's completion policy."""
         return self._finish(self._state)
 
 
@@ -1121,4 +1034,5 @@ class SqliteStupidConcatenate(SqliteConcatenate):
     """Keep the deliberately failing diagnostic aggregate available to SQLite."""
 
     def __init__(self, sep: str = ",") -> None:
+        """Bind the deliberately failing aggregate callbacks used to diagnose SQLite errors."""
         self._state, self._step, self._finish = StupidConcatenate(sep)

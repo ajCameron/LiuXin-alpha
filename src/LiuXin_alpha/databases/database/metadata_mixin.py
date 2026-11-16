@@ -725,7 +725,7 @@ class DatabaseMetadataMixin(DatabaseMixinState):
         )
 
     def audit_normalized_identities(
-        self,
+        self, *, target_profiles: Mapping[tuple[str, str], ColumnNormalizationProfile] | None = None,
     ) -> NormalizedIdentityMigrationReport:
         """
         Delegate inspection of stale identity keys and collisions without migration
@@ -740,10 +740,10 @@ class DatabaseMetadataMixin(DatabaseMixinState):
             rows.
         """
 
-        return self._database.macros.audit_normalized_identities()
+        return self._database.macros.audit_normalized_identities(target_profiles=target_profiles)
 
     def migrate_normalized_identities(
-        self,
+        self, *, target_profiles: Mapping[tuple[str, str], ColumnNormalizationProfile] | None = None,
     ) -> NormalizedIdentityMigrationReport:
         """
         Delegate transactional identity-catalog installation, backfill and indexing.
@@ -761,7 +761,7 @@ class DatabaseMetadataMixin(DatabaseMixinState):
         :return: NormalizedIdentityMigrationReport describing completed changes.
         """
 
-        return self._database.macros.migrate_normalized_identities()
+        return self._database.macros.migrate_normalized_identities(target_profiles=target_profiles)
 
     def audit_query_indexes(self) -> QueryIndexReport:
         """Inspect physical query-index definitions without changing the database."""

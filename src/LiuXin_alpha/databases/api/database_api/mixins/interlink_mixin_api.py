@@ -175,15 +175,13 @@ class DatabaseInterlinkRowsMixinAPI(abc.ABC):
         **col_value_pairs: Any,
     ) -> "RowAPI":
         """
-        Allocate a relationship record, populate endpoint fields and synchronize it.
+        Create and read back a relationship within one macro transaction.
 
-        Abstract hook; subclasses supply the operation. Concrete Database behavior:
         Check link-table existence and endpoint IDs before allocation. Highest/lowest
         use whole-column integer extrema plus/minus one, with an empty-table fallback of
         one. For not_set, a colliding non-null default may be replaced by the next
-        priority for this primary/type. On sync DatabaseIntegrityError delete the
-        allocated row and reraise; other failures can leave partial state. Reload
-        failures are suppressed.
+        priority for this primary/type. Default allocation, population and readback
+        share the caller's transaction; any failure rolls back the whole operation.
 
         Example:
             For a compatible writable schema, link = db.interlink_rows(agent, work,
@@ -197,12 +195,11 @@ class DatabaseInterlinkRowsMixinAPI(abc.ABC):
             sentinel.
         :param type: Optional type value stored unchanged when non-None.
         :param col_value_pairs: Additional relationship columns resolved by the wrapper.
-        :return: Persisted generic Row for the relationship, with defaults reloaded when
-            possible.
+        :return: Persisted generic Row including database defaults.
         :raises InputIntegrityError: No relationship table, a missing endpoint ID, or an
             unsupported active priority value.
         :raises DatabaseIntegrityError: Nonempty-table extrema cannot be converted, or
-            synchronization violates a constraint.
+            insertion or population violates a constraint.
         """
 
     @abc.abstractmethod
@@ -218,10 +215,9 @@ class DatabaseInterlinkRowsMixinAPI(abc.ABC):
         Recreate a source row relationships on a destination using the normal link
         writer.
 
-        Abstract hook; subclasses supply the operation. Concrete Database behavior:
         Reverse each target list before creation. Original type and extra relationship
-        attributes are not copied. Writes are incremental and not rolled back as a
-        group; duplicate relationships and the legacy swap limitation still apply.
+        attributes are not copied. Creation and optional priority swaps share one
+        macro transaction; failures roll back the complete operation.
 
         Example:
             For compatible rows in the same table, db.dupe_interlinks(source,
@@ -231,7 +227,7 @@ class DatabaseInterlinkRowsMixinAPI(abc.ABC):
 
         :param src_row: Row whose linked endpoints are read.
         :param dst_row: Row that will acquire new relationships.
-        :param swap_priorities: Invoke the legacy priority-swap helper after each
+        :param swap_priorities: Exchange source/destination priorities after each
             creation.
         :param restrict_to_tables: Target table iterable, or all main tables except the
             source table.
@@ -244,25 +240,17 @@ class DatabaseInterlinkRowsMixinAPI(abc.ABC):
     def swap_priorities(
         self, src_row: "RowAPI", dst_row_1: "RowAPI", dst_row_2: "RowAPI"
     ) -> None:
-        """
-        Apply the legacy two-link priority update sequence.
+        """Exchange two existing relationship priorities atomically.
 
-        Abstract hook; subclasses supply the operation. Concrete Database behavior: Read
-        both priorities, then overwrite the first link priority with None and sync it
-        twice. The second link receives the original first priority; the intended first
-        replacement is never restored. This is not currently a correct two-way swap and
-        has no grouped rollback.
+        Both destination Rows must belong to the same table. Resolve each unique
+        relationship, use a temporary NULL or unused integer priority, and restore both final
+        values in one macro transaction. Failures roll back the entire exchange;
+        nested calls join the caller's transaction through a savepoint.
 
-        Example:
-            Inspect and correct priorities explicitly when a true exchange is needed;
-            db.swap_priorities(seed, first, second) retains the legacy
-            first-priority-to-None behavior.
-
-
-        :param src_row: Common endpoint.
+        :param src_row: Common persisted endpoint.
         :param dst_row_1: First linked endpoint.
         :param dst_row_2: Second linked endpoint in the same target table.
-        :return: None.
+        :return: None; swapping a link with itself is a no-op.
         """
 
     @abc.abstractmethod
@@ -357,24 +345,14 @@ class DatabaseInterlinkRowsMixinAPI(abc.ABC):
         secondary_table: str,
         type_filter: Optional[str] = None,
     ) -> None:
-        """
-        Delete relationships from a seed to a target table, optionally by type.
+        """Delete every matching relationship while retaining both endpoint tables.
 
-        Abstract hook; subclasses supply the operation. Concrete Database behavior:
-        Initially fetch endpoints without filtering. The typed path retries ambiguous
-        single-link lookups in multi-link mode; the unfiltered path does not. Repeated
-        endpoints can revisit already deleted links; absent links are skipped. Partial
-        deletion remains possible. No group transaction or endpoint deletion is
-        performed.
+        Delete link records directly, including multiple types between the same pair.
+        A type filter selects an exact stored value. All deletions form one macro
+        transaction and nested calls respect the caller's transaction ownership.
 
-        Example:
-            For a schema with suitable relationship multiplicity, db.unlink_all(agent,
-            "works", type_filter="author") removes author links while retaining endpoint
-            Rows.
-
-
-        :param primary_row: Primary endpoint.
-        :param secondary_table: Target endpoint table.
-        :param type_filter: Exact type value to remove, or None for unfiltered deletion.
-        :return: None.
+        :param primary_row: Persisted seed endpoint.
+        :param secondary_table: Different endpoint table.
+        :param type_filter: Exact type to remove, or None for every type.
+        :return: None; an empty match is harmless.
         """

@@ -2,6 +2,19 @@
 
 Decision: **2026-10-29**. Physical-table SQL boundary clarified: **2026-10-30**.
 
+Ownership preference reaffirmed **2026-11-13**: efficient low-level SQL can
+reasonably live with either Catalog or databases. We slightly prefer databases,
+where backend adaptation, batching and transaction mechanics already live.
+This is a practical placement preference; it does not make every operation
+containing SQL a database-owned feature. Catalog still owns bibliographic
+decisions, validation, selection and the intended unit of change.
+
+The current implementation and executable-SQL checks enforce the database-owned
+placement convention. A future exception should be justified by a concrete
+ownership or efficiency benefit and reconcile those checks and documentation.
+See the [database boundary and lifecycle review](../databases/module-boundary-and-lifecycle-review-2026-11-13.md)
+for the wider assessment and sign-off criteria.
+
 Consolidate bibliographic behaviour under Catalog while keeping executable SQL
 in `databases`. These are complementary ownership rules:
 
@@ -16,9 +29,10 @@ bindings, schema checks, backend differences, joins and bulk persistence.
 Pure value rules shared by these layers belong in `metadata`.
 
 A database helper must not import Catalog to forward a semantic operation
-upwards. Migrate its caller to the Catalog owner instead. Catalog must not gain
-embedded SQL when a legacy helper is moved. Concrete table queries, joins and
-SQL accelerators belong in databases.
+upwards. Migrate its caller to the Catalog owner instead. Under the current
+placement convention, keep executable SQL in databases when moving legacy
+behaviour into Catalog. Concrete table queries, joins and SQL accelerators are
+appropriate database responsibilities even when they serve one Catalog feature.
 `metadata_sql` can expose table-scoped routines, using portable macros where
 applicable; specialized SQL must use real columns, bound inputs, shared
 transactions and the supported backend contract. The singular title/book facade

@@ -2,7 +2,7 @@
 
 These tests use values and field descriptors without database fixtures. Generic
 and custom-field adapters retain different missing-value and whitespace rules;
-custom boolean tests also document the existing datetime-class failure paths.
+custom boolean tests cover native, encoded and rejected inputs.
 """
 
 from __future__ import annotations
@@ -779,49 +779,19 @@ class TestCcAdaptBool:
         with pytest.raises(InvalidUpdate):
             cc_adapt_bool("not_a_bool", {})
 
-    def test_none_input_raises_attribute_error(self) -> None:
-        # Pre-existing bug: field_adaptors.py binds datetime to the class rather than
-        # `datetime` module, so `isinstance(x, datetime.datetime)` fails with
-        # AttributeError for any non-string, non-float input (including None, bool).
-        """
-        Preserve the existing AttributeError for a None custom Boolean input.
+    @pytest.mark.parametrize("value,expected", [
+        (None, None), (True, True), (False, False), (0, False), (1, True),
+        (b"true", True), (b"false", False), (b"none", None),
+    ])
+    def test_native_and_encoded_boolean_inputs(self, value, expected) -> None:
+        """Nullable native values and decoded text share the boolean domain."""
+        assert cc_adapt_bool(value, {}) is expected
 
-        Example:
-            >>> TestCcAdaptBool().test_none_input_raises_attribute_error()
-
-
-        :return: None; raises AssertionError if the stated contract regresses.
-        """
-        with pytest.raises(AttributeError):
-            cc_adapt_bool(None, {})
-
-    def test_bool_true_input_raises_attribute_error(self) -> None:
-        # Pre-existing bug: same shadowed import causes AttributeError for bool inputs.
-        """
-        Preserve the existing AttributeError for a True custom Boolean input.
-
-        Example:
-            >>> TestCcAdaptBool().test_bool_true_input_raises_attribute_error()
-
-
-        :return: None; raises AssertionError if the stated contract regresses.
-        """
-        with pytest.raises(AttributeError):
-            cc_adapt_bool(True, {})
-
-    def test_bool_false_input_raises_attribute_error(self) -> None:
-        # Pre-existing bug: same shadowed import causes AttributeError for bool inputs.
-        """
-        Preserve the existing AttributeError for a False custom Boolean input.
-
-        Example:
-            >>> TestCcAdaptBool().test_bool_false_input_raises_attribute_error()
-
-
-        :return: None; raises AssertionError if the stated contract regresses.
-        """
-        with pytest.raises(AttributeError):
-            cc_adapt_bool(False, {})
+    @pytest.mark.parametrize("value", [datetime.datetime(2020, 1, 1), [], {}, object()])
+    def test_non_boolean_objects_are_rejected(self, value) -> None:
+        """Unsupported inputs raise the adapter's public validation error."""
+        with pytest.raises(InvalidUpdate):
+            cc_adapt_bool(value, {})
 
 
 class TestCcAdaptEnum:

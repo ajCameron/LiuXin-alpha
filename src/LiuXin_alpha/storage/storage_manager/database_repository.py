@@ -199,7 +199,6 @@ class DatabaseStorageMetadataRepository:
                 "database does not expose the portable storage metadata schema."
             )
         self.db = db
-        self.macros = db.macros
         self._types = _storage_value_types(additional_types)
         self._transaction_reads = local()
         self.cache: Any | None = None
@@ -208,6 +207,14 @@ class DatabaseStorageMetadataRepository:
         self.has_ingest_journal = "storage_ingest_operations" in set(db.get_tables())
         if cache is not None:
             self.set_cache(cache)
+
+    @property
+    def macros(self) -> Any:
+        """Resolve the current provider after a same-catalogue driver replacement.
+
+        :return: The database's currently bound portable macro provider.
+        """
+        return self.db.macros
 
     @classmethod
     def supports(cls, db: Any) -> bool:

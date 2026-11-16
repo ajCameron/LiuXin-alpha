@@ -7,7 +7,10 @@ Implemented for PR review **2026-10-20**, architecture A03 / database DB01.
 `Database(..., create=True)`, Core library creation and the terminal creation
 wizard now reject an existing SQLite/APSW file with `FileExistsError`. The legacy
 `blank` and `backup` arguments do not authorize deletion or replacement.
-`create=False` still opens an existing library, or initializes a missing file.
+`create=False` requires an existing catalogue. A missing file raises
+`FileNotFoundError` before creating directories or opening a driver. Callers that
+intend a new library must pass `create=True`; this is an intentional API change
+from the earlier automatic creation behavior (RR08, 2026-11-15).
 Normal opening can perform the separately configured bootstrap repairs.
 
 Creation constructs and checks the complete FRBR schema in a private sibling
@@ -20,8 +23,15 @@ fallback. This is an atomic publication contract, not a cross-filesystem operati
 or a guarantee against loss of the final directory entry after sudden power failure.
 
 The file-driver entry point requires `set_conn=False` before
-`direct_create_new_database()`: constructing an ordinary connected SQLite driver
-can itself create an empty file. The registry's path-level `create_new_database`
+`direct_create_new_database()`. Ordinary connections use SQLite `mode=rw`, so even
+a file disappearing after the facade's existence check cannot become an empty
+replacement. The private creation connection alone permits file creation.
+URI encoding preserves spaces, fragment characters and Windows UNC filenames;
+UNC server/share components belong to the filename, not SQLite's URI authority.
+Normal opens, offline rebuilds, replacement snapshots and standalone backups share
+that URI encoder. Private completed files are synced through a writable descriptor
+on Windows, as required by its file-flush operation, before publication.
+The registry's path-level `create_new_database`
 now uses the same FRBR driver contract. Connection-level FRBR and Calibre schema
 builders remain lower-level mechanisms for caller-owned empty connections.
 

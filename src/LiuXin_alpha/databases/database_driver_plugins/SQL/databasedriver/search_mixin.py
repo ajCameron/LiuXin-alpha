@@ -606,12 +606,12 @@ class SearchMixin(SQLDriverMixinState):
         search_term: Any = None,
     ) -> list[dict[str, Any]]:
         """
-        Find exact matches for a bound text search term in a validated column.
+        Find exact matches or SQL NULL in a validated column.
 
         The table must validate and the column must be a known simple identifier.
         Although table defaults to None, this implementation never infers it; callers
         should supply it. Malformed requests and SQLite operational errors raise
-        InputIntegrityError.
+        InputIntegrityError. Reads join an active macro transaction without ending it.
 
         Example:
             ``driver.direct_search_table("books", "book_title", "Example")`` performs
@@ -620,49 +620,19 @@ class SearchMixin(SQLDriverMixinState):
 
         :param table: Table name resolved by the host driver.
         :param column: Column name to read or match.
-        :param search_term: Non-null value coerced to text; byte-like inputs must be
-            UTF-8.
+        :param search_term: None selects SQL NULL. Other values use equality; the
+            shared SQLite backend coerces them to text and requires UTF-8 bytes.
         :return: Converted matching rows, or an empty list.
         """
-        if (table is not None) and (column is not None) and (search_term is not None):
-            try:
-                table = force_unicode(table)
-                column = force_unicode(column)
+        if table is None or column is None:
+            raise InputIntegrityError("Search requires a table and column")
+        try:
+            table = force_unicode(table)
+            column = force_unicode(column)
+            if search_term is not None:
                 search_term = self._coerce_search_text(search_term)
-            except UnicodeDecodeError:
-                err_str = (
-                    "search_table was passed something it couldn't coerce to unicode?\n"
-                )
-                err_str += "table: " + repr(table) + "\n"
-                err_str += "column: " + repr(column) + "\n"
-                err_str += "search_term: " + repr(search_term) + "\n"
-                default_log.error(err_str)
-                raise InputIntegrityError(err_str)
-
-        elif (table is None) and (column is not None) and (search_term is not None):
-            try:
-                column = force_unicode(column)
-                search_term = self._coerce_search_text(search_term)
-            except UnicodeDecodeError:
-                err_str = (
-                    "search_table was passed something it couldn't coerce to unicode?\n"
-                )
-                err_str += "table: " + repr(table) + "\n"
-                err_str += "column: " + repr(column) + "\n"
-                err_str += "search_term: " + repr(search_term) + "\n"
-                default_log.error(err_str)
-                raise InputIntegrityError(err_str)
-
-        else:
-            err_str = "Request to search table was not properly formatted.\n"
-            err_str += "table: " + repr(table) + "\n"
-            err_str += "column: " + repr(column) + "\n"
-            err_str += "search_term: " + repr(search_term) + "\n"
-            default_log.error(err_str)
-            raise InputIntegrityError(err_str)
-
-        conn = driver_operations(self).get_connection()
-        c = conn.cursor()
+        except UnicodeDecodeError as error:
+            raise InputIntegrityError("Search values must be valid UTF-8") from error
 
         results = []
         if table is None or not driver_operations(
@@ -670,7 +640,6 @@ class SearchMixin(SQLDriverMixinState):
         ).direct_validate_existing_table_name(table):
             err_str = "table name passed into direct_search_table failed validation.\n"
             err_str = default_log.log_variables(err_str, "ERROR", ("table", table))
-            conn.close()
             raise InputIntegrityError(err_str)
 
         headings = driver_operations(self).direct_get_column_headings(table)
@@ -682,12 +651,24 @@ class SearchMixin(SQLDriverMixinState):
             err_str = default_log.log_variables(
                 err_str, "ERROR", ("table", table), ("column", column)
             )
-            conn.close()
             raise InputIntegrityError(err_str)
 
-        stmt = "SELECT * FROM {} WHERE {} = ?;".format(table, column)
+        predicate = f"{column} IS NULL" if search_term is None else f"{column} = ?"
+        stmt = f"SELECT * FROM {table} WHERE {predicate};"
+        values = () if search_term is None else (search_term,)
+        database = getattr(self, "db", None)
+        if (
+            database is not None
+            and database.macros.current_transaction_connection() is not None
+        ):
+            return [
+                dict(row)
+                for row in database.macros.get_rows(table, where={column: search_term})
+            ]
+        conn = driver_operations(self).get_connection()
+        c = conn.cursor()
         try:
-            for row in c.execute(stmt, (search_term,)):
+            for row in c.execute(stmt, values):
                 this_row = driver_operations(self)._row_to_dict(
                     table=table, headings=headings, row=row
                 )
@@ -700,10 +681,11 @@ class SearchMixin(SQLDriverMixinState):
             err_str = default_log.log_exception(
                 err_str, e, "ERROR", ("stmt", stmt), ("search_term", search_term)
             )
-            conn.close()
             raise InputIntegrityError(err_str)
 
-        conn.close()
+        finally:
+            c.close()
+            conn.close()
         return results
 
     # Todo: Paused while adding a method to import metadata from a csv file - so I can test something fancy with a join

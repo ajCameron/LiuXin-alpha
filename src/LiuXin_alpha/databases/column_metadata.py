@@ -24,6 +24,7 @@ from types import MappingProxyType
 from typing import cast
 
 from LiuXin_alpha.databases.db_types.column_types import ColumnOptionValue, ColumnOptions
+from LiuXin_alpha.databases.normalized_identities import NORMALIZED_IDENTITY_DEFAULTS
 
 # Re-export the historical enum names; their definitions belong to metadata.
 from LiuXin_alpha.metadata.value_policies import (
@@ -497,42 +498,8 @@ APPEND_DISPLAY_COLUMNS = frozenset(
 )
 
 COMPARISON_COLUMNS: dict[tuple[str, str], tuple[str, ColumnNormalizationProfile]] = {
-    ("backup_policies", "backup_policy_name"): (
-        "backup_policy_name_norm",
-        ColumnNormalizationProfile.UNICODE_NFC_TRIM_CASEFOLD,
-    ),
-    ("custom_columns", "custom_column_label"): (
-        "custom_column_label_norm",
-        ColumnNormalizationProfile.UNICODE_NFC_TRIM_CASEFOLD,
-    ),
-    ("custom_columns", "custom_column_name"): (
-        "custom_column_name_norm",
-        ColumnNormalizationProfile.UNICODE_NFC_TRIM_CASEFOLD,
-    ),
-    ("tags", "tag"): (
-        "tag_phash",
-        ColumnNormalizationProfile.UNICODE_NFKC_WHITESPACE_CASEFOLD,
-    ),
-    ("labels", "label_text"): (
-        "label_text_norm",
-        ColumnNormalizationProfile.UNICODE_NFKC_WHITESPACE_CASEFOLD,
-    ),
-    ("genres", "genre"): (
-        "genre_phash",
-        ColumnNormalizationProfile.UNICODE_NFKC_WHITESPACE_CASEFOLD,
-    ),
-    ("subjects", "subject"): (
-        "subject_phash",
-        ColumnNormalizationProfile.UNICODE_NFKC_WHITESPACE_CASEFOLD,
-    ),
-    ("series", "series"): (
-        "series_name_norm",
-        ColumnNormalizationProfile.UNICODE_NFKC_WHITESPACE_CASEFOLD,
-    ),
-    ("replication_policies", "replication_policy_name"): (
-        "replication_policy_name_norm",
-        ColumnNormalizationProfile.UNICODE_NFC_TRIM_CASEFOLD,
-    ),
+    (spec.table, spec.value_column): (spec.identity_column, spec.normalization_profile)
+    for spec in NORMALIZED_IDENTITY_DEFAULTS
 }
 
 
@@ -739,6 +706,11 @@ def _machine_role(
     """
 
     lowered = column.casefold()
+    if any(
+        spec.table == table and spec.identity_column == column
+        for spec in NORMALIZED_IDENTITY_DEFAULTS
+    ):
+        return ColumnSemanticRole.NORMALIZED_KEY
     tokens = set(lowered.split("_"))
     declared_family = _declared_type_family(declared_type)
 

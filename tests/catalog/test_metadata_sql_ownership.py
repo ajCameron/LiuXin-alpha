@@ -240,7 +240,7 @@ def test_legacy_identifier_cache_uses_catalog_and_rolls_back(catalog):
 
 def test_upward_dependency_boundary():
     root = Path(__file__).resolve().parents[2] / "src" / "LiuXin_alpha"
-    # Existing version metadata and custom-column dependencies are separate debt.
+    # Existing version metadata dependencies are separate debt.
     allowed = {
         (
             "database_driver_plugins/SQLite/__init__.py",
@@ -250,8 +250,6 @@ def test_upward_dependency_boundary():
             "database_driver_plugins/SQLite_apsw/__init__.py",
             "LiuXin_alpha.catalog.legacy_versions",
         ),
-        ("api/custom_columns_api.py", "LiuXin_alpha.catalog.api.field_metadata_api"),
-        ("custom_columns/custom_columns.py", "LiuXin_alpha.catalog.field_metadata"),
     }
     for path in (root / "databases").rglob("*.py"):
         for node in ast.walk(ast.parse(path.read_text())):

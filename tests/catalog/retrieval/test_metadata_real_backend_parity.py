@@ -517,7 +517,7 @@ def test_isfdb_backed_metadata_database_cache_lazy_parity_and_write_back(
 
 @pytest.mark.catalog
 def test_metadata_rich_fixture_operational_round_trip_contract(
-    provision_test_database,
+    tmp_path: Path,
 ) -> None:
     """
     Verify metadata rich fixture operational round trip contract.
@@ -528,15 +528,18 @@ def test_metadata_rich_fixture_operational_round_trip_contract(
             python -m pytest -q tests/catalog/retrieval/test_metadata_real_backend_parity.py
 
 
-    :param provision_test_database: Value supplied for provision test database in the
-        focused test operation.
+    :param tmp_path: Temporary bundle generated with the current catalogue schema.
     :return: None; the function records state or raises through its assertions.
     """
-    provisioned = provision_test_database("metadata_rich_db_1")
+    from tests.support.test_databases.metadata_rich_db_1 import DB_NAME, populate_bundle
+
+    populate_bundle(tmp_path)
     item_id = 1
 
     with Database(
-        metadata={"database_path": str(provisioned.db_path)}, create=False, backup=False
+        metadata={"database_path": str(tmp_path / f"{DB_NAME}.test_db")},
+        create=False,
+        backup=False,
     ) as db:
         database_metadata = _facade_metadata(db, item_id, source="database")
         lazy_database_metadata = _facade_metadata(

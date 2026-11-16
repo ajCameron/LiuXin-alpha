@@ -347,6 +347,14 @@ def add_derived_identity_values(
             continue
         if spec.value_column not in prepared and spec.identity_column not in prepared:
             continue
+        if spec.normalization_profile in {
+            ColumnNormalizationProfile.TITLE_SEARCH_TERM,
+            ColumnNormalizationProfile.TAG_SEARCH_TERM,
+        }:
+            raise InputIntegrityError(
+                f"Lossy identity profile on {table}.{spec.value_column}; "
+                "audit and migrate_normalized_identities(target_profiles=...) before writing"
+            )
         if (
             available_columns is not None
             and spec.identity_column not in available_columns

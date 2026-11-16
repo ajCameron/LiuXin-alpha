@@ -2,8 +2,7 @@
 Check self-links and parent-column tree traversal on dynamically selected database tables.
 
 Tests write scratch payloads, register types when a registry is available, and skip
-absent schema capabilities. The remaining expected-failure marker retains the
-desired endpoint result for get_intralinked_rows.
+absent schema capabilities. Endpoint queries must return the opposite table Rows.
 
 Example:
     Run with pytest::
@@ -652,10 +651,9 @@ def test_get_intralinked_rows_argument_validation(open_db, pick_payload):
         open_db.get_intralinked_rows(primary_row=None, secondary_row=None)
 
 
-@pytest.mark.xfail(reason="Bug: get_intralinked_rows returns link rows, not intralinked rows")
 def test_get_intralinked_rows_primary_returns_secondary_rows(open_db, pick_payload):
     """
-    Express the expected secondary-table Row and ID set under the existing linked-row xfail marker.
+    Require the expected secondary-table Row and ID set.
 
     Example:
         Run the owning tests with pytest::

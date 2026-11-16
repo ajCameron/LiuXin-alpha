@@ -28,6 +28,12 @@ from LiuXin_alpha.core.program_endpoints.content_workflows import (
 from LiuXin_alpha.core.program_endpoints.content_workflows import (
     install_queries as install_content_workflows_queries,
 )
+from LiuXin_alpha.core.program_endpoints.custom_fields import (
+    install_commands as install_native_field_commands,
+)
+from LiuXin_alpha.core.program_endpoints.custom_fields import (
+    install_queries as install_native_field_queries,
+)
 from LiuXin_alpha.core.program_endpoints.database_schema import (
     install_commands as install_database_schema_commands,
 )
@@ -51,6 +57,7 @@ from LiuXin_alpha.core.program_endpoints.system_jobs import (
 _QUERY_PROVIDERS = (
     install_system_jobs_queries,
     install_database_schema_queries,
+    install_native_field_queries,
     install_catalog_search_queries,
     install_storage_queries,
     install_content_workflows_queries,
@@ -59,6 +66,7 @@ _QUERY_PROVIDERS = (
 _COMMAND_PROVIDERS = (
     install_system_jobs_commands,
     install_database_schema_commands,
+    install_native_field_commands,
     install_catalog_search_commands,
     install_storage_commands,
     install_content_workflows_commands,
