@@ -160,7 +160,7 @@ one function to load it and one to save it.
 | Intermediate | In memory | Saved form | Code that already does this |
 | --- | --- | --- | --- |
 | OEB | `OEBBook` (`file_formats/oeb/base.py`) | A folder holding an OPF file and the book's files | `oeb_output.py` writes it; HTML input reads an `opf` |
-| HTML | `HTMLBook`, proposed below | A folder holding an entry page and its resources; HTMLZ is the same thing zipped | `html_input.py` reads it; `htmlz_input.py` and `htmlz_output.py` handle the zipped form |
+| HTML | `HTMLBook`, proposed below | A folder holding an entry page and its resources, or that folder as a ZIP | `html_input.py` reads the folder; `html_output.py` writes the ZIP; `Plumber.unarchive` reads it |
 
 Because every intermediate can be saved and loaded, it is also a valid place
 for a route to start or end. A route may stop at OEB and leave the folder as
@@ -175,25 +175,74 @@ file-based `Converter` can hand its output to an exporter:
 
 ### The HTML intermediate
 
-Proposed definition, to be settled before `HTMLImporter` and `HTMLExporter`
-have real signatures:
+Proposed definition, checked against `html/input.py`, `html_input.py`,
+`htmlz_input.py`, `htmlz_output.py` and `html_output.py`. It is to be settled
+before `HTMLImporter` and `HTMLExporter` have real signatures.
 
 ```python
 @dataclass(frozen=True)
+class HTMLPage:
+    path: PurePosixPath     # relative to the book's root
+    encoding: str           # as declared or detected for this page
+
+
+@dataclass(frozen=True)
 class HTMLBook:
-    root: Path                    # folder that contains everything
-    entry: PurePosixPath          # the first page, relative to root
-    pages: tuple[PurePosixPath, ...]      # reading order, entry first
-    resources: tuple[PurePosixPath, ...]  # images, styles, fonts, scripts
+    root: Path                              # folder that contains everything
+    entry: PurePosixPath                    # the page a reader opens first
+    pages: tuple[HTMLPage, ...]             # reading order, entry first
+    resources: tuple[PurePosixPath, ...]    # images, styles, fonts, scripts
+    cover: PurePosixPath | None = None      # one of the resources
+    metadata: PurePosixPath | None = None   # an OPF sidecar, if the source had one
 ```
 
-Every path is relative to `root` and must resolve inside it. That is the same
-confinement rule as the HTML input fix for finding FFS01 in the
-`file_formats` risk sweep of 2026-11-16, applied to the type instead of to one
-plugin.
+Rules:
 
-The same type can represent an HTML document held in the library, for example
-a page acquired by web ingest, without converting it to anything.
+- **It describes a folder and never changes it.** An `HTMLTransform` writes a
+  new folder and returns a new `HTMLBook`. This is what lets the same type
+  describe a document the library holds, where the original must not be
+  rewritten.
+- **Every path is relative to `root` and must resolve inside it.** This is the
+  confinement rule from the HTML input fix for finding FFS01 in the
+  `file_formats` risk sweep of 2026-11-16, applied to the type.
+- **Encoding is recorded per page.** Today each `HTMLFile` detects its own
+  encoding, and old HTML is often not UTF-8. Re-encoding to UTF-8 is a
+  `normalise`-stage transform; HTMLZ input already does it before handing the
+  page on.
+- **Reading order is a choice, and the rule is stated.** HTML has links, not a
+  sequence. `html_input` derives an order by following links from the entry
+  page, depth first by default and breadth first as an option, to a maximum
+  depth. `pages` holds the result of that rule.
+- **Loading needs an entry page.** It is given explicitly, or found by the
+  existing heuristic in `Plumber.find_html_index`: a page named `toc` or
+  `index`, otherwise the largest HTML file. A load reports when it guessed.
+- **Remote references are not part of the book.** A load reports them, so a
+  caller can tell whether the book is complete on disk.
+
+Two things are deliberately left out. Page titles and a table of contents are
+derived from the pages when needed, as `html_input` does now. Link case
+mismatches, which `html_input` tolerates on case-insensitive filesystems, are
+the importer's concern.
+
+**HTMLZ is a narrower profile, not the general packed form.** It holds one
+top-level HTML page with its resources, a cover and a `metadata.opf`; its input
+plugin warns and uses a single page if it finds more. A multi-page book packs
+as a plain ZIP. The `cover` and `metadata` fields exist so that an HTMLZ can be
+loaded and saved without losing those two files.
+
+**How it differs from OEB.** `OEBBook` is parsed content held in memory.
+`HTMLBook` is a description of files on disk. A file-based `Converter` can
+therefore use an `HTMLBook`'s folder directly, and loading or saving one is
+cheap. OEB is the intermediate for work on the book's structure; HTML is the
+one that external tools can read and write.
+
+**Holding HTML documents in the library.** The storage schema already has
+composite assets for multi-file assemblies, whose membership carries a
+sequence number, a required flag and a role. An HTML document maps onto that:
+pages are ordered, required members and resources are further members. An
+`HTMLBook` would then be the in-code description of such a composite, for
+example a page acquired by web ingest. This is a suggestion for the
+[storage](../storage_and_backup/README.md) owner, not a decided design.
 
 ## Registration
 
