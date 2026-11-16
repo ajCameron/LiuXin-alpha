@@ -63,7 +63,9 @@ per call), belongs to execution and lifetime, which this proposal leaves to
 | Intermediates | OEB and HTML to start; not OEB alone | **Decided** |
 | Named routes | Every route has a name; a format pair's default points at one | **Decided** |
 | Same-format routes (loop-backs) | Supported in all three forms | **Decided** |
-| Output of a same-format route | Another file for the same Manifestation, recorded as derived; the original stays | **Decided** |
+| Output of a same-format route | Stays within the same Manifestation, recorded as derived; the original stays | **Decided** |
+| Strict WEMI for derived files | No project-specific exceptions | **Decided** |
+| Output of a format conversion | A derived Manifestation, linked to its source | **Decided** |
 | Provenance of metadata claims | A new table | **Decided** |
 | Transforms | Own capability, run in fixed stages | **Decided**; how stages are added is still open |
 | Capability names; `CoverExtractor` separate from `MetadataReader` | As listed below | **Decided** |
@@ -230,10 +232,48 @@ Rules:
   derived from the original through `digital_asset_derivations`. The schema's
   comments already list derivation kinds such as `repacked` and `repaired`.
 
-OCR is different, because it adds text that was not in the source. An OCR
-result is recorded as a **separate Item of the same Manifestation**, still
-derived from the original file. Whether a compressed copy is also a separate
-Item, or a second file on the same Item, is a question for review.
+Whether the result is a new Asset or a new Item follows the policy in the
+next section.
+
+## Where derived files sit in WEMI
+
+The maintainer's decision is to follow WEMI strictly, with no project-specific
+exceptions. Format is a Manifestation attribute, both in WEMI and in this
+schema, whose guide describes a Manifestation as carrying edition and format.
+An EPUB and a MOBI of one book are therefore different Manifestations, and a
+local conversion creates one.
+
+The level of a new record is decided by what changed:
+
+| What happened | New record | Example | Status |
+| --- | --- | --- | --- |
+| Same bytes, another place | Replica | A backup copy | Existing behaviour |
+| Different bytes, same content and format | Asset on the same Item | Lossless recompression, repack, repair, rewritten metadata | Proposed |
+| Content changed, same format | Item of the same Manifestation | OCR text added | **Decided** for OCR |
+| Content changed, same format | Item of the same Manifestation | Lossy compression that reduces image quality | Proposed |
+| Format changed | Manifestation, marked as derived and linked to its source | A local EPUB to MOBI conversion | **Decided** |
+
+Two rules stop the catalogue filling with records:
+
+- **An Item is created only by acquiring a copy or by a derivation that changes
+  content.** Copying and lossless re-encoding never create one.
+- **A derived Manifestation is marked as derived** and linked to the
+  Manifestation it was made from, so it never reads as something a publisher
+  issued. Their number is bounded by formats, not by files.
+
+What a conversion writes, in one transaction owned by Catalog:
+
+1. a derived Manifestation under the same Expression;
+2. a link from it to the source Manifestation;
+3. an Item for the new copy;
+4. the new Asset, with a derivation edge to the source Asset and the run that
+   made it.
+
+The schema already has manifestation-to-manifestation links
+(`intralink_table_requests.toml`), with one type, `user_marked_different`.
+A `derived_from` type would be an addition to that declaration. Items have no
+field marking a copy as locally made; the per-copy provenance columns in
+`4-items.sql` are the place to look first.
 
 ## Transforms and stages
 
@@ -452,7 +492,7 @@ Still open:
    [What a claim is](#what-a-claim-is-and-the-two-open-choices)?
 3. Do manual edits and online sources write claims: choice 2 in the same
    section?
-4. Is a compressed copy a separate Item, like an OCR result, or a second file
-   on the same Item?
+4. Is the split for compression right: a lossless result is a new Asset on the
+   same Item, and a lossy result is a new Item?
 
 Return to the [plugins index](README.md).
