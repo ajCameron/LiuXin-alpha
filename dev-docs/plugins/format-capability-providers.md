@@ -72,6 +72,9 @@ per call), belongs to execution and lifetime, which this proposal leaves to
 | Import and export classes | A separate class per intermediate | **Decided** |
 | OCR output | A separate Item of the same Manifestation | **Decided** |
 | Route names | Free-form | **Decided** |
+| Transform classes | One per intermediate: `OEBTransform`, `HTMLTransform` | **Decided** |
+| HTML intermediate | Defined as a concrete type, also usable to represent HTML documents | **Decided**; definition below is a proposal |
+| Intermediates on disk | Each has a saved form with load and save; an intermediate is a valid start or end of a route | **Decided** |
 | calibre's newer transforms | Supported: port them into the stages | **Decided** |
 | Execution policy (in-process, worker, limits) | Decide after the architecture, possibly per plugin | **Parked** |
 
@@ -87,13 +90,16 @@ Each capability is one abstract base class with one typed entry point.
 | `OEBImporter`, `HTMLImporter` | a format into that intermediate | `InputFormatPlugin` |
 | `OEBExporter`, `HTMLExporter` | that intermediate into a format | `OutputFormatPlugin` |
 | `Converter` | a format into a format, the whole job | nothing; new |
-| `Transform` | an intermediate into the same intermediate | calls inside `Plumber.run` and output plugins |
+| `OEBTransform`, `HTMLTransform` | that intermediate into itself | calls inside `Plumber.run` and output plugins |
 
-Import and export have a separate class per intermediate, so a provider's
-base class states exactly what it produces or consumes. `Importer` and
-`Exporter` remain as abstract parents that carry the shared record and are
-never subclassed directly by a provider. Adding an intermediate means adding
-its pair of classes.
+Import, export and transform have a separate class per intermediate, so a
+provider's base class states exactly what it produces or consumes. `Importer`,
+`Exporter` and `Transform` remain as abstract parents that carry the shared
+record and are never subclassed directly by a provider. Adding an intermediate
+means adding its three classes.
+
+An exporter also declares the package-stage transforms it needs, as a class
+attribute, so the pipeline runs them instead of the exporter calling them.
 
 More capabilities can be added when a real operation does not fit, for example
 text extraction for search or validation.
@@ -144,6 +150,50 @@ One class can provide several capabilities by inheriting several bases. The
 registry files it under each. A provider that needs something missing reports
 itself unavailable with the reason, which is the outcome
 [PL-01](next_tasks.md) asks for.
+
+## Intermediates
+
+An intermediate is a book held in a form that providers pass between them. Two
+are defined to start. Each has an in-memory type and a saved form on disk, with
+one function to load it and one to save it.
+
+| Intermediate | In memory | Saved form | Code that already does this |
+| --- | --- | --- | --- |
+| OEB | `OEBBook` (`file_formats/oeb/base.py`) | A folder holding an OPF file and the book's files | `oeb_output.py` writes it; HTML input reads an `opf` |
+| HTML | `HTMLBook`, proposed below | A folder holding an entry page and its resources; HTMLZ is the same thing zipped | `html_input.py` reads it; `htmlz_input.py` and `htmlz_output.py` handle the zipped form |
+
+Because every intermediate can be saved and loaded, it is also a valid place
+for a route to start or end. A route may stop at OEB and leave the folder as
+its result, which the inherited "OEB Output" plugin already does today, and a
+file-based `Converter` can hand its output to an exporter:
+
+- a `Converter` produces or consumes **files**;
+- an importer, exporter or transform produces or consumes the **in-memory**
+  form;
+- where a route joins the two, the runner loads or saves the intermediate.
+  Providers never do this themselves.
+
+### The HTML intermediate
+
+Proposed definition, to be settled before `HTMLImporter` and `HTMLExporter`
+have real signatures:
+
+```python
+@dataclass(frozen=True)
+class HTMLBook:
+    root: Path                    # folder that contains everything
+    entry: PurePosixPath          # the first page, relative to root
+    pages: tuple[PurePosixPath, ...]      # reading order, entry first
+    resources: tuple[PurePosixPath, ...]  # images, styles, fonts, scripts
+```
+
+Every path is relative to `root` and must resolve inside it. That is the same
+confinement rule as the HTML input fix for finding FFS01 in the
+`file_formats` risk sweep of 2026-11-16, applied to the type instead of to one
+plugin.
+
+The same type can represent an HTML document held in the library, for example
+a page acquired by web ingest, without converting it to anything.
 
 ## Registration
 
@@ -199,8 +249,11 @@ Rules that keep this manageable:
   Settings map each pair of formats to its default route. Automatic
   route-finding is a fallback, limited to short routes, and the plan is shown
   before it runs.
-- **Metadata travels outside the route.** It is read once from the source and
-  written once to the result, so no hop in the middle has to preserve it.
+- **Metadata is not a provider's job to carry.** It is read once from the
+  source. On a leg that passes through OEB it is merged into the book at the
+  `structure` stage, as `MergeMetadata` does today. On a route made only of
+  `Converter` steps it is written to the result at the end by a
+  `MetadataWriter`. No provider in the middle has to preserve it.
 
 Later, each edge should declare what it preserves (structure, images, fixed
 layout) so that a fallback does not choose a lossy hop. That can wait until
@@ -303,7 +356,8 @@ field marking a copy as locally made; the per-copy provenance columns in
 
 ## Transforms and stages
 
-A `Transform` takes an intermediate and returns the same kind. Transforms are
+An `OEBTransform` or `HTMLTransform` takes its intermediate and returns the
+same kind. Transforms are
 not routing choices, so they are not edges: a route decides how to get from
 one format to another, and transforms decide what happens to the book on the
 way.
@@ -353,7 +407,8 @@ be ported with their upstream notices.
 ### Stages for HTML
 
 HTML has one transform-like step today, the `HTMLPreProcessor` clean-up. Give
-HTML a single `normalise` stage and add others when something needs them.
+`HTMLTransform` a single `normalise` stage and add others when something needs
+them.
 
 ### Adding stages later
 
@@ -490,11 +545,21 @@ owners; the sketch above is input to them, not a finished design.
 | 1 | Capability base classes and a typed registry | The registry returns typed providers for a capability and format, with tests |
 | 2 | Adapter for today's plugins | Every bundled plugin is reachable through the registry and existing conversions give the same output |
 | 3 | Selection: settings default, per-run override, fallback | Two providers for one format can be chosen between, and the result names the one that ran |
-| 4 | `Converter` capability, HTML intermediate, named routes and route planning | A two-hop route and a same-format route each run by name and are recorded; automatic planning never selects a same-format edge |
+| 4 | `Converter` capability, the `HTMLBook` type with load and save, named routes and route planning | A two-hop route and a same-format route each run by name and are recorded; automatic planning never selects a same-format edge |
 | 5 | `Transform` capability and stages, including the three calibre transforms | `Plumber.run` contains no direct transform calls, and output plugins declare their package transforms |
 | 6 | Provenance: runs written for conversions; claims tables | The run and file behind a stored author can be queried |
 
 Steps 1 to 3 change no conversion behaviour. Step 5 is the largest.
+
+### Proving the bases before freezing names
+
+Three routes exercise every base and every join between them. If all three
+run without a special case, the bases are right:
+
+1. a round trip: EPUB to OEB and back to EPUB;
+2. a chain through HTML: a file-based `Converter` produces HTML, and an
+   `HTMLExporter` or a second `Converter` produces the final format;
+3. a single `Converter` wrapping one external tool.
 
 ## Parked
 
