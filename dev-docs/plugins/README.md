@@ -67,4 +67,9 @@ For resource telemetry and broader lanes, see [test streams](../hacking/test-str
 [Next tasks](next_tasks.md) records proposed changes, dependencies and completion
 checks. No runtime change is implied by this documentation review.
 
+The [capability providers proposal](format-capability-providers.md) of 2026-11-16
+sets out a replacement for the one-plugin-per-format model: typed capability
+base classes, conversions as routes through providers, staged transforms and
+recorded provenance. It is under review and not implemented.
+
 Return to the [developer index](../README.md).
