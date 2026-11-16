@@ -240,3 +240,10 @@ backup-MySQL-*.zip
 /.tmp/google-images-rendered-browser/
 
 LiuXin_scratch/*
+
+# Local artefacts that were once tracked (global review 2026-11-16, G-H1/G-H2)
+/.idea/
+/src/wget-log
+/fadedpage-ebooks.json
+/fadedpage-wget-discovery.sqlite3*
+/dev-docs/calibre-master.zip

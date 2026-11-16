@@ -43,6 +43,7 @@ access; existing subsystem contracts continue to describe shipped behaviour.
 
 | Document | Latest interpretation |
 | --- | --- |
+| [Global review and task list, 2026-11-16](global-review-2026-11-16.md) | Open. Static review of maintainability, documentation and goals; no tests run. Proposes prioritized tasks G-L1 to G-C5. Same-day follow-up: GPL-3.0 chosen for the whole project, licence provenance inventory added, tracked local artefacts removed. |
 | [Databases package review, 2026-11-14](databases-review-2026-11-14.md) | Ready for module sign-off at the documented boundaries in PR #161; not merged. The final native gate passed 5,010 tests and all 2,462 mandatory cases; the repaired general suite passed 9,381 tests. Read the final closure for skip counts, exact commits and remaining scope. Unsupported pre-release libraries require regeneration. |
 | [Whole-codebase review, 2026-10-27](codebase-review-2026-10-27.md) | Assessment of the October 27 main revision, reproducible remaining defects, integration gaps and fresh validation. |
 | [CI and repository baseline, 2026-10-20](ci-baseline-2026-10-20.md) | A15 dependency/image repairs, generated scratch inventory, clean-environment verification and fresh branch-rule observations. |
