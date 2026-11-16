@@ -1,3 +1,6 @@
+# Derived from calibre (https://calibre-ebook.com): src/calibre/ebooks/rtf2xml/inline.py
+# Upstream: copyright 2002 Paul Henry Tremblay; licence GPL (version not stated), per calibre COPYRIGHT.
+
 """
 Group inline RTF formatting and emit normalized inline elements.
 

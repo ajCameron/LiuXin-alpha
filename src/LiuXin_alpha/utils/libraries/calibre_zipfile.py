@@ -1,3 +1,7 @@
+# SPDX-License-Identifier: GPL-3.0-only
+# Derived from calibre (https://calibre-ebook.com): src/calibre/utils/zipfile.py
+# Upstream: copyright Kovid Goyal and calibre contributors; licence GPL v3, per calibre COPYRIGHT. Based in turn on the Python standard library zipfile module.
+
 
 """
 Read and write ZIP archives through the retained Calibre compatibility implementation.

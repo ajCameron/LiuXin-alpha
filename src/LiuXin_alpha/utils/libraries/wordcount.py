@@ -1,4 +1,8 @@
 #!/usr/bin/env python
+# SPDX-License-Identifier: GPL-3.0-only
+# Derived from calibre (https://calibre-ebook.com): src/calibre/utils/wordcount.py
+# Upstream: copyright Kovid Goyal and calibre contributors; licence GPL v3, per calibre COPYRIGHT.
+
 
 """
 Count normalized words in plain or markup-derived text.

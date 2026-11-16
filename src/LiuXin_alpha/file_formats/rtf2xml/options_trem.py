@@ -1,3 +1,6 @@
+# Derived from calibre (https://calibre-ebook.com): src/calibre/ebooks/rtf2xml/options_trem.py
+# Upstream: copyright 2002 Paul Henry Tremblay; licence GPL (version not stated), per calibre COPYRIGHT.
+
 """
 Trim unsupported retained RTF conversion options.
 

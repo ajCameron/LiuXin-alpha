@@ -1,3 +1,6 @@
+# Derived from calibre (https://calibre-ebook.com): src/calibre/ebooks/hyphenate.py
+# Upstream: Ned Batchelder; public domain, per calibre COPYRIGHT.
+
 """
 Insert language-aware soft hyphens into words and document text.
 

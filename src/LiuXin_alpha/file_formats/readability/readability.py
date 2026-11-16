@@ -1,5 +1,9 @@
 #!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
+# SPDX-License-Identifier: Apache-2.0
+# Derived from calibre (https://calibre-ebook.com): src/calibre/ebooks/readability/readability.py
+# Upstream: copyright holder unknown; licence Apache 2.0, per calibre COPYRIGHT.
+
 
 """
 Extract the principal readable article from arbitrary HTML.

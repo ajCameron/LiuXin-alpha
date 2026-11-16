@@ -1,3 +1,7 @@
+# SPDX-License-Identifier: GPL-3.0-only
+# Derived from calibre (https://calibre-ebook.com): src/calibre/utils/config.py
+# Upstream: copyright 2008, Kovid Goyal kovid@kovidgoyal.net; licence GPL v3, per calibre COPYRIGHT.
+
 """
 Expose the supported config compatibility surface.
 
