@@ -12,6 +12,14 @@ from LiuXin_alpha.databases.database_driver_plugins.SQL.database_generator_frbr 
 )
 
 
+@pytest.fixture
+def backend(request):
+    """Keep optional APSW cases collectable in the general dependency profile."""
+    if request.param == "SQLite_apsw":
+        pytest.importorskip("apsw")
+    return request.param
+
+
 @pytest.fixture(scope="module")
 def schema_template(tmp_path_factory):
     path = tmp_path_factory.mktemp("frbr_integrity") / "template.db"
@@ -132,7 +140,7 @@ def test_identifier_primary_flag_domain_is_structural(schema, flag, operation):
     identifier(schema, value="unspecified", primary=None)
 
 
-@pytest.mark.parametrize("backend", ["SQLite", "SQLite_apsw"])
+@pytest.mark.parametrize("backend", ["SQLite", "SQLite_apsw"], indirect=True)
 def test_catalog_primary_flag_validation_preserves_readable_identifiers(
     schema_template, tmp_path, backend
 ):
@@ -311,7 +319,7 @@ def test_folder_paths_reject_noncanonical_separators(schema, path, operation):
     schema.execute("UPDATE folders SET folder_relpath='a/c' WHERE folder_id=?", (row,))
 
 
-@pytest.mark.parametrize("backend", ["SQLite", "SQLite_apsw"])
+@pytest.mark.parametrize("backend", ["SQLite", "SQLite_apsw"], indirect=True)
 @pytest.mark.parametrize(
     "kind,field",
     [
@@ -422,7 +430,7 @@ def test_unassigned_identifier_can_be_attached_without_half_filled_references(sc
     assert schema.execute("SELECT count(*) FROM entity_identifiers").fetchone() == (0,)
 
 
-@pytest.mark.parametrize("backend", ["SQLite", "SQLite_apsw"])
+@pytest.mark.parametrize("backend", ["SQLite", "SQLite_apsw"], indirect=True)
 def test_catalog_identifier_replacement_preserves_primary_uniqueness_and_rollback(
     tmp_path, monkeypatch, backend
 ):

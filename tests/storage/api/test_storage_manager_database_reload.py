@@ -1891,8 +1891,8 @@ def test_database_constructor_honours_strict_row_failure_policy(
 def test_non_strict_database_bootstrap_returns_a_structured_failure() -> None:
     """
     Check conversion of an injected catalogue-enumeration failure into a bootstrap report. A minimal
-    database double raises from get_tables. Non-strict bootstrap records one discovered/failed
-    configuration and the original reason on the host; strict bootstrap propagates RuntimeError. No
+    database double raises from get_tables. Non-strict bootstrap records incomplete enumeration
+    with no invented configuration counts and the original reason; strict bootstrap propagates RuntimeError. No
     database or Store is opened.
 
     Example:
@@ -1938,8 +1938,9 @@ def test_non_strict_database_bootstrap_returns_a_structured_failure() -> None:
     )
 
     assert not report.ok
-    assert report.discovered_configurations == 1
-    assert report.failed_configurations == 1
+    assert not report.completed
+    assert report.discovered_configurations == 0
+    assert report.failed_configurations == 0
     assert report.issues[0].reason == "database catalogue unavailable"
     assert database.storage_bootstrap_report is report
 

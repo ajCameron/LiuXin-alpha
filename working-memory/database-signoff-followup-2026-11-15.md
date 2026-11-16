@@ -273,3 +273,92 @@ all gates passed (format381, mypy475, invalid contracts95/93). Native Windows
 probes79816/12124 terminal0. No active local PostgreSQL server. 13 ownpaths
 staged21783, README only own database row (userdraft rowunstaged). Publishing
 native URI/sync fix next; fresh fullCI2462 is still REQUIRED before sign-off.
+
+
+## Published final native fix and fresh CI — CURRENT
+
+3a0e22cb63c0f385aa01f584c0753ec8848d28c0 pushed to draftPR161. Windows closure
+native code/test/config (9inputs) matches committed bytes; windows-closure-inputs.json.
+Fresh PRrun43780999004: databasejob133017914846; fullsuite133017914595.
+Fresh pushrun43780992646. PRbody successfully patched viaREST (ghpr editbroken).
+All local checks terminal0; no local test/PG process remains (4390exit0 reaped).
+Native Windows actual and125Linux focused tests+fullquality passed. Only pending
+validation is complete CI on3a0e22cb (2462mandatory) and relevant full-suite results.
+
+Older e7b full DATABASE CI succeeded! PRrun43775314559/job133000179110:
+5004passed,104skipped,26warnings in3279.27s. Downloaded artifact
+/tmp/liuxin-ci-e7b-native-2026-11-16/ratchet.json confirms2456required/2456fullypassed,
+no failures,pytest0. Log /tmp/liuxin-signoff-ci-e7b-database.log. The workflow overall
+failed due already-repaired full-suite collection; do not confuse with green DBjob.
+Push e7b databasejob132999817987 alsoSUCCESS. This is clean historical gate evidence,
+NOT final3a0e22cb. Preserve both chronology and final-source distinction.
+
+Next: monitor freshCI, inspect failures if any. Update final review/index/body with
+exact source/results once2462gatecomplete. Do not mark goalcomplete yet. PR still
+DRAFT/unmerged. Native source frozen at3a0e22cb; avoid new changes without evidence.
+Current READMEworktree has only userdraftrow beyondcommit; own memory update isdirty.
+Original dirtydata submodule/untracked file-formats draft stay excluded. Private
+PRworktree still90f; advance to3a0e22cb/final docs before final doc-link check.
+
+
+Final clean PRtree now3a0e22cb (intentional data symlink T). Doc checks32058
+completed0:22passed in11.22s, /tmp/liuxin-signoff-final-docs.log. CI watcher85175
+active: gh pr checks161 --watch --interval45 --fail-fast; revalidate live session
+before replacing. Current3a0e CI packaging, confidence, typing/architecture,
+file-formats and TruffleHog allSUCCESS; fullsuite/database remainIN_PROGRESS.
+Canceled only superseded duplicate90f PUSHrun43777974223 (after verifying branch,
+event andSHA); earlier PRrun43777977612 remains for full-suite evidence. E7b
+runsalreadycomplete withsuccessfulDBgate described above.
+
+No further implementation work planned absent new test evidence. Native source
+frozen3a0e22cb. Continue monitoring CI, fetch any failed job logs directly viaAPI,
+then final review/index/body + draft-to-ready step once required gatecomplete.
+Do not merge. Do not mark goalcomplete while final2462gate stillpending.
+
+
+## Full-project consumer fixes — CURRENT
+
+Goal continuation inspected older90f fullsuite job133008516181 (finished00:23:58).
+Log /tmp/liuxin-signoff-ci-90f-full.log:24failed,9361passed,2192skipped,11xfail,
+693warnings in1278.92s. All24 failures group into7APSW-unavailable FRBR cases,
+1outdated bootstrap-failure assertion,16storage MiniDriverWrapper missing
+get_relation_type (and subsequent Row table-hint support absent by source trace).
+
+Three TEST-ONLY files now changed above3a0e:
+- test_frbr_generator_integrity.py: indirect backend fixture importorskipAPS W only
+  forSQLite_apsw. Original nodeIDs preserved; no assertions removed. Dedicated
+  gate still installsAPSW and requires all cases, so skips stillfailthere.
+- tests/storage/_mini_db.py: real parameterized SQLite table/view introspection;
+  add_row/update_row honor and remove explicit table hints supplied by Row.
+- tests/storage/api/test_storage_manager_database_reload.py: assert completedFalse
+  andzero counts after enumeration fails; retainreason/strictpropagation checks.
+Native production code remains frozen3a0e22cb; do NOT stop its full databasegate.
+
+No-APSW probe72028 completed:7passed,7skipped,90deselected in61.52s,
+/tmp/liuxin-signoff-no-apsw.log. FRBR collection47133 retains required nodeIDs.
+FRBR directlint/formatpass; the two storagefiles have unchanged baseline Ruff
+issues(1/5), no introduced diagnostics. Do not cleanup unrelated style.
+Combined FRBR+all MiniDB consumers+storage bootstrap owner run95637 ACTIVE,
+/tmp/liuxin-signoff-final-storage-consumers.log. Need inspect results and fix any
+further incomplete fixture contracts, then update review and commit/push testonly
+followup so full-suite CI becomesgreen. Current fresh3a0e fullsuite may repeat24
+failures; do not mistake expected stale-consumer failures for new native regressions.
+
+Goal completion-audit.json prepared in ignored artifactroot with requirement
+mapping, deferredscope andpendinggates. Current scope confirmedcustomfields no
+v1support orcache ownership; broadCalibre cleanup remains separate architecturework.
+
+
+## Consumer repairs validated and ready to publish — CURRENT
+
+Session95637 completed0:210passed in602.78s, all7selected FRBR/storage modules.
+No-APSW probe remains7passed7skipped90deselected;104FRBR mandatory IDs retained.
+Three test files + review follow-up + this memory are the only own commit paths.
+Production source remains3a0e22cb. Direct FRBR lint/format and diffcheck passed.
+Current3a0e full CI job133017914595 repeated the same24consumer failures
+(9364passed2192skipped11xfail); log /tmp/liuxin-signoff-ci-3a0e-full.log.
+Watcher85175 finished1 due that known failure; no longerlive. Databasejob
+133017914846 stillrunning. Keep that final-native gate running.
+Next publish test-only fixes, update PR body viaREST, inspect newfullsuite and
+2462-case nativegate. Do not signoff until those complete. User leftovers
+unchanged:dirtydata, untrackedfileformatsdraft, singleREADMEdraftrow.

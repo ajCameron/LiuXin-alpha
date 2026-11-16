@@ -1098,3 +1098,29 @@ repairs, including the six new cases. The full quality runner also passes:
 381 formatted files, 475 files checked by mypy, both type checkers and the 95/93
 invalid-contract examples. A fresh complete gate for the updated commit remains
 required before sign-off; the focused results do not replace that result.
+
+### Remaining full-suite consumers — 2026-11-16
+
+The general PR suite at `3a0e22cb` completed with **24 failures, 9,364 passes,
+2,192 skips and 11 expected failures**. All failures belong to three test
+contracts; none requires relaxing the native database API:
+
+- Seven FRBR cases selected APSW in the general dependency profile, where that
+  optional driver is absent. Their backend fixture now skips only when APSW is
+  unavailable. The dedicated database gate installs APSW and still requires
+  these cases to pass; their identifiers and assertions are unchanged.
+- One storage bootstrap assertion expected a failed catalogue enumeration to
+  invent one discovered and one failed configuration. It now checks incomplete
+  enumeration and zero counts, retaining the issue and strict-error assertions.
+- Sixteen storage cases share `MiniDriverWrapper`, which lacked the relation
+  introspection required by `Row`. The double now queries actual SQLite table
+  and view identity and consumes the explicit table hints used by row writes.
+  Production schema validation and transaction rules remain unchanged.
+
+The absent-APSW probe passed **seven tests**, skipped the seven optional cases
+and deselected 90 unrelated cases. All **104 FRBR node identifiers** remain
+collectable and present in the mandatory manifest. The combined installed-APSW
+and storage-consumer selection passed **210 tests** in 602.78 seconds. These are
+test-only repairs above `3a0e22cb`; the complete database gate for that native
+implementation continues separately. A clean general-suite result remains
+required before final sign-off.
