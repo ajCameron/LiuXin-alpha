@@ -175,15 +175,15 @@ provider as an edge between two nodes.
 
 ```mermaid
 flowchart LR
-    PDF -->|Importer| OEB
-    OEB -->|Exporter| EPUB
+    PDF -->|OEBImporter| OEB
+    OEB -->|OEBExporter| EPUB
     PDF -->|Converter| HTML
     HTML -->|Converter| EPUB
     PDF -->|Converter, whole job| EPUB
 ```
 
-calibre's pipeline is one route in this picture: an `Importer` into OEB, then
-an `Exporter` out. A `Converter` is a direct edge. A chain is a longer route.
+calibre's pipeline is one route in this picture: an `OEBImporter` in, then
+an `OEBExporter` out. A `Converter` is a direct edge. A chain is a longer route.
 Choosing the input and output providers independently means choosing the edge
 used at each step.
 
@@ -408,7 +408,7 @@ owners; the sketch above is input to them, not a finished design.
 ## Compatibility and migration
 
 - **Existing plugins keep working through an adapter.** `InputFormatPlugin`
-  becomes an `Importer` to OEB, `OutputFormatPlugin` an `Exporter` from OEB,
+  becomes an `OEBImporter`, `OutputFormatPlugin` an `OEBExporter`,
   and the metadata plugins their matching capabilities. Nothing is rewritten
   up front, and formats move to native providers one at a time.
 - **Third-party calibre plugins** are not promised to load unchanged, as the
