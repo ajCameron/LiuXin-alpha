@@ -110,11 +110,11 @@ def bootstrap_storage_manager(
         configurations.
     :param clear_existing: Forward whether loading replaces live facades and removes
         absent configurations.
-    :param strict: Reraise loading exceptions and reject reports with counted failures
-        when True.
+    :param strict: Reraise loading exceptions and reject incomplete reports or reports
+        with counted failures when True.
     :return: StorageBootstrapReport also assigned to db.storage_bootstrap_report on
         completed reporting paths.
-    :raises StorageManagementError: Strict mode receives a report with counted failures,
+    :raises StorageManagementError: Strict mode receives an incomplete or failed report,
         or manager construction rejects its configuration.
     """
 

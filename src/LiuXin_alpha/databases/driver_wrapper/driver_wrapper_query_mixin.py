@@ -34,16 +34,39 @@ class _ScanPlan:
 
 
 class DriverWrapperQueryMixin(DriverWrapperBase):
-    """Fetch through borrowed handles and share the existing pagination primitive."""
+    """
+    Read results, page physical tables and observe wrapper queries.
+
+    Prefer an explicit connection, then the active macro connection, then the
+    primary handle. Open a temporary handle only when none is available. Close
+    all owned cursors and temporary handles; borrowed handles are neither
+    committed nor closed. Fetch SQL is trusted and is not screened for writes.
+    Use macros.read_transaction() for a backend-enforced read-only snapshot.
+
+    Example:
+        >>> row = wrapper.fetch_one("SELECT 1, 2")  # doctest: +SKIP
+    """
 
     _query_observers: tuple[QueryObserver, ...] = ()
 
     def set_query_observers(self, observers: Iterable[QueryObserver] = ()) -> None:
-        """Replace this wrapper's synchronous observers, or clear them by default.
+        """
+        Replace the synchronous observers for subsequent wrapper operations.
 
-        No timer, event construction or observer dispatch occurs when empty.
-        Observer errors are logged and do not change query results. Nested calls
-        contribute to their outer observation rather than duplicating events.
+        An empty collection disables timing, event construction and dispatch.
+        Nested observed calls contribute to the outer event. Observer exceptions
+        are logged and do not replace query results or failures. Materialize and
+        validate the iterable before replacing the existing registrations.
+
+        Example:
+            >>> wrapper.set_query_observers()  # doctest: +SKIP
+
+
+        :param observers: Synchronous callable listeners in dispatch order; empty
+            clears registrations.
+        :return: None; affects future observations on this wrapper.
+        :raises TypeError: An observer is non-callable or an async
+            function/callable.
         """
         callbacks = tuple(observers)
         for callback in callbacks:
@@ -82,11 +105,25 @@ class DriverWrapperQueryMixin(DriverWrapperBase):
         *,
         connection: QueryConnection | None = None,
     ) -> SQLRow | None:
-        """Fetch one complete row or None; close its cursor without committing.
+        """
+        Fetch the first complete row and release the temporary cursor.
 
-        Prefer an explicit connection, otherwise the active macro or primary
-        handle. SQL is trusted caller input; use macros.read_transaction() when
-        backend-enforced read-only access and a consistent snapshot are needed.
+        Additional rows are ignored. Prefer explicit, active macro, then primary
+        handles; close a fresh fallback handle only. The method does not commit.
+        SQL may perform writes unless the caller supplies a read-only transaction.
+
+        Example:
+            >>> row = wrapper.fetch_one("SELECT 1, NULL")  # doctest: +SKIP
+
+
+        :param sql: Trusted SQL accepted by the backend; use separate bindings for
+            values.
+        :param values: Positional or named bindings, or None for execution without
+            bindings.
+        :param connection: Borrowed handle; None prefers the active macro, then
+            primary, then a fresh handle.
+        :return: One backend row, positional or mapping, or None when no row is
+            returned.
         """
         with self._read_connection(connection) as active:
             cursor = (
@@ -105,7 +142,24 @@ class DriverWrapperQueryMixin(DriverWrapperBase):
         *,
         connection: QueryConnection | None = None,
     ) -> list[SQLRow]:
-        """Fetch all result rows and close the cursor; use scans for large tables."""
+        """
+        Materialize every result row and close the temporary cursor.
+
+        Connection selection and ownership follow fetch_one. This reads an
+        unbounded result into memory; use physical-table pages for bounded scans.
+
+        Example:
+            >>> rows = wrapper.fetch_all("SELECT 1 UNION ALL SELECT 2")  # doctest: +SKIP
+
+
+        :param sql: Trusted SQL accepted by the backend; use separate bindings for
+            values.
+        :param values: Positional or named bindings, or None for execution without
+            bindings.
+        :param connection: Borrowed handle; None prefers the active macro, then
+            primary, then a fresh handle.
+        :return: A list of backend rows, empty when the result is empty.
+        """
         with self._read_connection(connection) as active:
             cursor = (
                 active.execute(sql) if values is None else active.execute(sql, values)
@@ -124,10 +178,25 @@ class DriverWrapperQueryMixin(DriverWrapperBase):
         *,
         connection: QueryConnection | None = None,
     ) -> Any:
-        """Return a single-column first row, or None for no row/SQL NULL.
+        """
+        Extract the sole cell of the first row, or return None for no row.
 
-        Multiple projected columns are rejected. Its scalar result does not
-        distinguish an empty result from NULL, so diagnostics leave rows unknown.
+        An SQL NULL also returns None. Reject multiple projected columns when a
+        row exists; an empty result returns None without a column-count check.
+        Additional rows are ignored. Ownership and cleanup follow fetch_one.
+
+        Example:
+            >>> count = wrapper.fetch_scalar("SELECT count(*) FROM works")  # doctest: +SKIP
+
+
+        :param sql: Trusted SQL accepted by the backend; use separate bindings for
+            values.
+        :param values: Positional or named bindings, or None for execution without
+            bindings.
+        :param connection: Borrowed handle; None prefers the active macro, then
+            primary, then a fresh handle.
+        :return: The first row cell, or None for SQL NULL or an empty result.
+        :raises InputIntegrityError: The fetched row contains other than one column.
         """
         row = self.fetch_one(sql, values, connection=connection)
         if row is None:
@@ -140,7 +209,20 @@ class DriverWrapperQueryMixin(DriverWrapperBase):
     def get_backend_capabilities(
         self, *, connection: QueryConnection | None = None
     ) -> BackendCapabilities:
-        """Read current adapter capabilities/limits on the selected connection."""
+        """
+        Inspect adapter facilities and current connection limits.
+
+        Use the normal read-handle selection and release only an owned fallback
+        connection; no transaction completion is requested.
+
+        Example:
+            >>> capabilities = wrapper.get_backend_capabilities()  # doctest: +SKIP
+
+
+        :param connection: Borrowed handle; None prefers the active macro, then
+            primary, then a fresh handle.
+        :return: A capability snapshot for the selected backend and handle.
+        """
         with self._read_connection(connection) as active:
             return self.driver.direct_get_backend_capabilities(connection=active)
 
@@ -247,12 +329,37 @@ class DriverWrapperQueryMixin(DriverWrapperBase):
         after_id: int | None = None,
         connection: QueryConnection | None = None,
     ) -> RowPage:
-        """Read a bounded physical-table page with a resumable last-ID marker.
+        """
+        Read one bounded physical-table page in ascending primary-key order.
 
-        Select optional columns and equality/NULL filters. Each page closes its
-        cursor before returning. A continuation is exclusive; changed/deleted
-        earlier IDs are not revisited and later inserts can appear. Borrow a
-        macros.read_transaction() connection to pin a backend-enforced snapshot.
+        Require a physical table with one non-null integer primary key and stored
+        integer keys. Keep its continuation ID even when columns omits that key.
+        Resolve schema for this call and close the cursor before returning.
+
+        The continuation is exclusive: earlier IDs are not revisited, and later
+        inserts can appear without a shared snapshot. Borrow a connection from
+        macros.read_transaction() when successive pages must see the same state.
+
+        Example:
+            >>> page = wrapper.scan_page("works", columns=("work_title",), batch_size=100)  # doctest: +SKIP
+            >>> next_id = page.next_after_id  # doctest: +SKIP
+
+
+        :param table: Physical table with one non-null integer primary key.
+        :param columns: Distinct existing column names; None selects all non-hidden
+            columns.
+        :param where: Column/value equality filters combined with AND; None values
+            match SQL NULL.
+        :param batch_size: Positive integer maximum number of rows returned in each
+            page.
+        :param after_id: Exclusive primary-key lower bound, or None to start at the
+            beginning.
+        :param connection: Borrowed handle; None prefers the active macro, then
+            primary, then a fresh handle.
+        :return: RowPage with dictionary rows, the last visited ID, and current
+            lookahead completeness.
+        :raises InputIntegrityError: The table, projection, batch size or stored key
+            cannot support the scan.
         """
         plan = self._scan_plan(table, columns, where, connection)
         return self._read_scan_page(plan, batch_size, after_id, connection)
@@ -267,11 +374,32 @@ class DriverWrapperQueryMixin(DriverWrapperBase):
         after_id: int | None = None,
         connection: QueryConnection | None = None,
     ) -> Iterator[RowPage]:
-        """Yield bounded pages, resolving schema once and owning no handle at yield.
+        """
+        Yield bounded nonempty pages, resolving schema once for the whole scan.
 
-        Empty tables yield no batches. The caller controls any borrowed snapshot
-        lifetime, including early exit. Concurrent schema changes may fail the
-        next page; no hidden retry or inconsistent restart is attempted.
+        No owned cursor or temporary connection survives a yield. Borrowed
+        connections and snapshot lifetime remain with the caller, including early
+        exit. Empty tables yield nothing. Concurrent schema changes can fail a
+        later page; the iterator does not silently restart or retry the scan.
+
+        Example:
+            >>> for page in wrapper.iter_row_batches("works", batch_size=100):  # doctest: +SKIP
+            ...     consume(page.rows)
+
+
+        :param table: Physical table with one non-null integer primary key.
+        :param columns: Distinct existing column names; None selects all non-hidden
+            columns.
+        :param where: Column/value equality filters combined with AND; None values
+            match SQL NULL.
+        :param batch_size: Positive integer maximum number of rows returned in each
+            page.
+        :param after_id: Exclusive primary-key lower bound, or None to start at the
+            beginning.
+        :param connection: Borrowed handle; None prefers the active macro, then
+            primary, then a fresh handle.
+        :return: An iterator of RowPage records using the same key and projection as
+            scan_page.
         """
         plan = self._scan_plan(table, columns, where, connection)
         while True:

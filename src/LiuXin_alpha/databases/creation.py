@@ -83,17 +83,37 @@ def create_sqlite_file(
     path: str | os.PathLike[str], build: Callable[[Path], None]
 ) -> None:
     """
-    Build privately and publish only if the target is still absent.
+    Build a SQLite file privately and publish only while the target is absent.
 
-    The builder must close its connections before returning. A failed build or
-    publication removes only private scratch; a competing target is never opened
-    or deleted. Filesystems without hard-link support fail rather than falling back
-    to a check followed by an overwriting rename.
+    The builder must finish a standalone database and close its handles before
+    returning. A hard link publishes the candidate without overwriting a
+    competing target. Unsupported hard links fail without a rename fallback.
+    Private scratch is removed on exit; newly created parent directories remain.
 
-    :param path:
-    :param build:
+    After publication, a directory-sync failure can raise while leaving the new
+    target in place. Inspect that target before retrying. This helper checks for
+    sidecars but does not independently validate the builder's schema or data.
 
-    :return:
+    Example:
+        >>> def build_empty(path):
+        ...     with closing(sqlite3.connect(path)) as connection:
+        ...         connection.execute("CREATE TABLE example (id INTEGER PRIMARY KEY)").close()
+        >>> with TemporaryDirectory() as directory:
+        ...     target = Path(directory) / "new.sqlite"
+        ...     create_sqlite_file(target, build_empty)
+        ...     print(target.is_file())
+        True
+
+
+    :param path: Destination filesystem path; existing entries, including
+        symlinks, are rejected.
+    :param build: Callback receiving a private candidate Path; create and close
+        the complete file there.
+    :return: None after publication and the platform-supported durability flush.
+    :raises FileExistsError: The destination exists initially or another creator
+        wins publication.
+    :raises RuntimeError: SQLite journal or WAL sidecars are present at a
+        checked path.
     """
     target = _path(path)
     _require_absent(target)
@@ -119,16 +139,32 @@ def replace_sqlite_file(
     ]
     | None = None,
 ) -> Path:
-    """Replace an offline database only after preparing a new schema and backup.
+    """
+    Replace an offline SQLite file after preparing a new schema and recovery backup.
 
-    The backup is a verified SQLite snapshot published create-only. Preparation,
-    backup or final-rename failure leaves the original target in place. Once the
-    backup is published it is retained even if replacement fails. Restore it with
-    database users stopped; this operation never automatically overwrites a backup.
+    The caller must exclude every other database user for the entire operation.
+    File identity checks detect observed changes but do not acquire a process
+    lease. The target must be a regular file without SQLite journal/WAL sidecars.
 
-    The caller must exclude other database users for the entire operation.
-    Identity checks detect observed changes but are not a cross-process lease.
-    SQLite journals/sidecars and symlink targets are rejected before effects.
+    Build and flush the candidate first, then publish an integrity-checked SQLite
+    snapshot of the original at a separate, absent backup path. Preparation,
+    backup and final-rename failures leave the original target in place. Once
+    published, the backup remains available even if later steps fail. A directory
+    sync can fail after replacement has already succeeded; inspect both paths
+    before retrying. Restoration is a separate offline operation.
+
+    Example:
+        >>> backup = replace_sqlite_file(path, backup_path=recovery, build=build_schema)  # doctest: +SKIP
+
+
+    :param path: Existing database file whose users have been stopped.
+    :param backup_path: Absent recovery path, separate from the target and its
+        sidecars.
+    :param build: Callback creating a closed, standalone replacement at the
+        supplied private Path.
+    :param backup_connection_factory: Optional context factory opening the
+        backup destination; it must close its handle on exit.
+    :return: The resolved backup Path, retained for caller-directed recovery.
     """
     target, backup = _path(path), _path(backup_path)
     if backup == target or backup in {

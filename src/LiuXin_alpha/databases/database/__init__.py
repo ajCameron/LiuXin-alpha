@@ -785,11 +785,11 @@ class Database(
         :param include_offline: Include offline configurations in loading.
         :param clear_existing: Replace existing registered facades and remove absent
             configurations when True.
-        :param strict: Propagate loading exceptions and reject reports with counted
-            failures.
+        :param strict: Propagate loading exceptions and reject incomplete reports or
+            reports with counted failures.
         :return: StorageBootstrapReport also retained on the facade.
-        :raises StorageManagementError: Strict loading reports failures, or manager
-            construction rejects configuration.
+        :raises StorageManagementError: Strict loading returns an incomplete or failed
+            report, or manager construction rejects configuration.
         """
         from LiuXin_alpha.databases.runtime import bootstrap_storage_manager
 
