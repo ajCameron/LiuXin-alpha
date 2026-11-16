@@ -2,6 +2,9 @@
 
 Public, development fork of LiuXin. Alpha. DO NOT USE IN PROD.
 
+Licensed under the GNU General Public License version 3; see [LICENSE](LICENSE)
+and [COPYRIGHT](COPYRIGHT). Much of the code is derived from calibre.
+
 Start with the [user guides and manual pages](docs/README.md) for installed
 commands, including [web registration and downloads](docs/web-ingest.md).
 Use the [developer documentation index](dev-docs/README.md) for
