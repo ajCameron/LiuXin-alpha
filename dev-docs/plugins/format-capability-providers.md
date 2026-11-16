@@ -290,8 +290,10 @@ Points for the import design, which belongs with the
 - Two formats of one calibre book can be different editions. Splitting them
   into separate Expressions is a later, manual correction.
 - The rationale text for manifestation links in `intralink_table_requests.toml`
-  says the default is to assume everything is under one Manifestation. That
-  predates this policy and needs updating with it.
+  used to say only that everything is assumed to be under one Manifestation.
+  It now states that this matching default applies within one edition and
+  format, and that different formats are separate Manifestations. The text is
+  documentation; the generator does not read it.
 
 The schema already has manifestation-to-manifestation links
 (`intralink_table_requests.toml`), with one type, `user_marked_different`.
