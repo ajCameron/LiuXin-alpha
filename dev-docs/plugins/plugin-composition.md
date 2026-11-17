@@ -39,7 +39,7 @@ owners:
 | `file_formats.providers.fork_metadata` | The project's own metadata readers as providers: the fork's calibre path (calibre model) and every reader as the application runs it (WEMI model) |
 | `file_formats.providers.wemi_mapping` | The provisional mapping that places calibre fields at WEMI levels |
 | `file_formats.providers.ported_calibre` | Providers for the metadata readers ported from upstream calibre, run in process |
-| `metadata.upstream_calibre` | calibre 9.18's metadata reader modules, ported with only their imports changed, and the helpers they need (`_compat`) |
+| `metadata.upstream_calibre` | calibre 9.18's metadata reader modules, ported with only their imports changed apart from marked fixes for damaged files, and the helpers they need (`_compat`) |
 | `file_formats.calibre_metadata_probe` | The script those providers run inside calibre; imports calibre only when run there |
 | `file_formats.html.book` | The `HTMLBook` description of the HTML intermediate and its structural checks; no loading or saving yet |
 | `plugins.application` | Application registry lifecycle, lookups and installed-plugin management |
