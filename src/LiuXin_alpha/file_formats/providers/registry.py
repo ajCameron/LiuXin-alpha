@@ -36,6 +36,11 @@ from LiuXin_alpha.file_formats.providers.conversion import (
     OEBImporter,
     OEBTransform,
 )
+from LiuXin_alpha.file_formats.providers.metadata import (
+    CoverExtractor,
+    MetadataReader,
+    MetadataWriter,
+)
 from LiuXin_alpha.file_formats.providers.stages import (
     HTMLStage,
     OEBStage,
@@ -50,6 +55,9 @@ CAPABILITIES: tuple[type[Provider], ...] = (
     OEBTransform,
     HTMLTransform,
     Converter,
+    MetadataReader,
+    MetadataWriter,
+    CoverExtractor,
 )
 """Every capability base class a provider may offer."""
 
@@ -392,6 +400,75 @@ class ProviderRegistry:
             and (stage is None or transform.html_stage is stage)
         )
         return tuple(sorted(found, key=lambda item: stage_position(item.html_stage)))
+
+    def metadata_readers(
+        self: Self, source_format: str
+    ) -> tuple[type[MetadataReader], ...]:
+        """
+        Find the providers that can read metadata from a format.
+
+        Example:
+            >>> ProviderRegistry().metadata_readers("epub")
+            ()
+
+
+        :param source_format: The format to read; case and a leading dot are
+            ignored.
+        :return: The matching providers, best first.
+        """
+        wanted = normalize_format_name(source_format)
+        return _best_first(
+            found
+            for found in self._providers.values()
+            if issubclass(found, MetadataReader)
+            and wanted in found.metadata_read_formats
+        )
+
+    def metadata_writers(
+        self: Self, target_format: str
+    ) -> tuple[type[MetadataWriter], ...]:
+        """
+        Find the providers that can write metadata into a format.
+
+        Example:
+            >>> ProviderRegistry().metadata_writers("epub")
+            ()
+
+
+        :param target_format: The format to write into; case and a leading dot
+            are ignored.
+        :return: The matching providers, best first.
+        """
+        wanted = normalize_format_name(target_format)
+        return _best_first(
+            found
+            for found in self._providers.values()
+            if issubclass(found, MetadataWriter)
+            and wanted in found.metadata_write_formats
+        )
+
+    def cover_extractors(
+        self: Self, source_format: str
+    ) -> tuple[type[CoverExtractor], ...]:
+        """
+        Find the providers that can extract a cover from a format.
+
+        Example:
+            >>> ProviderRegistry().cover_extractors("cbz")
+            ()
+
+
+        :param source_format: The format to read; case and a leading dot are
+            ignored.
+        :return: The matching providers, best first.
+        """
+        wanted = normalize_format_name(source_format)
+        return _best_first(
+            found
+            for found in self._providers.values()
+            if issubclass(found, CoverExtractor)
+            and wanted in found.cover_source_formats
+        )
 
     def converter_edges(self: Self) -> tuple[ConversionEdge, ...]:
         """

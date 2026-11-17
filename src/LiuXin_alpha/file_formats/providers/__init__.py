@@ -16,6 +16,8 @@ Import names from the module that defines them:
 - :mod:`.base`: the shared provider record, availability and call context;
 - :mod:`.stages`: the fixed stages that transforms run in;
 - :mod:`.conversion`: the conversion capabilities;
+- :mod:`.metadata`: the metadata and cover capabilities, and the form a
+  metadata reading takes;
 - :mod:`.registry`: a registry that files provider classes by capability;
 - :mod:`.legacy_conversion`: adapters that run the bundled conversion plugins
   as importers and exporters.

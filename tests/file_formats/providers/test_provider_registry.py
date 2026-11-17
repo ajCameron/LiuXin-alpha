@@ -35,6 +35,11 @@ from LiuXin_alpha.file_formats.providers.conversion import (
     OEBImporter,
     OEBTransform,
 )
+from LiuXin_alpha.file_formats.providers.metadata import (
+    CoverExtractor,
+    MetadataReader,
+    MetadataWriter,
+)
 from LiuXin_alpha.file_formats.providers.registry import (
     CAPABILITIES,
     ProviderRegistry,
@@ -279,6 +284,9 @@ def test_capability_list_covers_every_concrete_base() -> None:
         OEBTransform,
         HTMLTransform,
         Converter,
+        MetadataReader,
+        MetadataWriter,
+        CoverExtractor,
     )
     assert capabilities_of(HTMLRoundTrip) == (
         HTMLImporter,

@@ -39,6 +39,11 @@ from LiuXin_alpha.file_formats.providers.conversion import (
     OEBTransform,
     Transform,
 )
+from LiuXin_alpha.file_formats.providers.metadata import (
+    CoverExtractor,
+    MetadataReader,
+    MetadataWriter,
+)
 from LiuXin_alpha.file_formats.providers.stages import (
     HTMLStage,
     OEBStage,
@@ -58,6 +63,9 @@ CAPABILITY_BASES: tuple[type[Provider], ...] = (
     OEBTransform,
     HTMLTransform,
     Converter,
+    MetadataReader,
+    MetadataWriter,
+    CoverExtractor,
 )
 
 
@@ -606,6 +614,7 @@ def test_stages_run_in_definition_order() -> None:
         "LiuXin_alpha.file_formats.providers.base",
         "LiuXin_alpha.file_formats.providers.stages",
         "LiuXin_alpha.file_formats.providers.conversion",
+        "LiuXin_alpha.file_formats.providers.metadata",
         "LiuXin_alpha.file_formats.providers.registry",
     ],
 )
