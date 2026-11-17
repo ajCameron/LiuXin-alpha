@@ -53,8 +53,8 @@ Options:
 
 Examples:
   scripts/run_full_test_suite.sh
-  scripts/run_full_test_suite.sh --new-venv --python python3.12
-  scripts/run_full_test_suite.sh --new-venv --python python3.12 --only-tk-smoke
+  scripts/run_full_test_suite.sh --new-venv --python python3.14
+  scripts/run_full_test_suite.sh --new-venv --python python3.14 --only-tk-smoke
   scripts/run_full_test_suite.sh --workers 8
   scripts/run_full_test_suite.sh -- --maxfail=1 -k sync_store
 EOF

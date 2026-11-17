@@ -13,10 +13,10 @@ Example:
 
 from __future__ import annotations
 
-from typing import ByteString
+from collections.abc import Buffer
 
 
-def decompress(data: ByteString) -> bytes:
+def decompress(data: Buffer) -> bytes:
     """
     Perform the decompress utility operation under explicit compatibility rules.
 
@@ -113,7 +113,7 @@ def _rfind(data: bytes, pos: int, chunk_len: int) -> int:
     return pos
 
 
-def compress(data: ByteString) -> bytes:
+def compress(data: Buffer) -> bytes:
     """
     Perform the compress utility operation under explicit compatibility rules.
 

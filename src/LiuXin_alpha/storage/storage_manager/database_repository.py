@@ -2359,7 +2359,7 @@ class DatabaseStorageMetadataRepository:
                         str(row.get("replication_policy_mode") or "active")
                     ),
                 )
-            except (TypeError, ValueError):
+            except TypeError, ValueError:
                 continue
             records[identifier] = manager_api.ReplicationPolicyRecord(
                 identifier, policy, f"db-{identifier}"
@@ -2442,7 +2442,7 @@ class DatabaseStorageMetadataRepository:
                         str(row.get("backup_policy_mode") or "backup")
                     ),
                 )
-            except (TypeError, ValueError):
+            except TypeError, ValueError:
                 continue
             records[identifier] = manager_api.BackupPolicyRecord(
                 identifier, policy, f"db-{identifier}"
@@ -2799,7 +2799,7 @@ class DatabaseStorageMetadataRepository:
             return None
         try:
             envelope = json.loads(str(raw))
-        except (TypeError, ValueError, json.JSONDecodeError):
+        except TypeError, ValueError, json.JSONDecodeError:
             # Scratch columns predate this repository and may contain plain
             # application notes. Only our marked envelope is authoritative.
             return None
@@ -2835,7 +2835,7 @@ class DatabaseStorageMetadataRepository:
             return None
         try:
             envelope = json.loads(str(raw))
-        except (TypeError, ValueError, json.JSONDecodeError):
+        except TypeError, ValueError, json.JSONDecodeError:
             return None
         if not isinstance(envelope, dict) or envelope.get("format") != _FORMAT:
             return None

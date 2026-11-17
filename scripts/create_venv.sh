@@ -29,7 +29,7 @@ Environment:
 
 Examples:
   bash scripts/create_venv.sh
-  bash scripts/create_venv.sh --python python3.12
+  bash scripts/create_venv.sh --python python3.14
   bash scripts/create_venv.sh --extras none
 EOF
 }
@@ -85,7 +85,7 @@ fi
 VERSION_CHECK_CMD=(
     "${PYTHON_BIN}"
     -c
-    'import sys; raise SystemExit(0 if sys.version_info >= (3, 12) else "LiuXin-alpha requires Python >= 3.12")'
+    'import sys; raise SystemExit(0 if sys.version_info >= (3, 14) else "LiuXin-alpha requires Python >= 3.14")'
 )
 CREATE_VENV_CMD=("${PYTHON_BIN}" -m venv "${VENV_DIR}")
 VENV_PYTHON="${VENV_DIR}/bin/python"

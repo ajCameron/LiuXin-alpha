@@ -275,7 +275,7 @@ def _literal_exports(tree: ast.Module) -> tuple[str, ...]:
             continue
         try:
             value = ast.literal_eval(node.value)
-        except (TypeError, ValueError):
+        except TypeError, ValueError:
             return ()
         if isinstance(value, (list, tuple)):
             return tuple(name for name in value if isinstance(name, str))

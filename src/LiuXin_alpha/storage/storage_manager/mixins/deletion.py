@@ -23,7 +23,7 @@ class StorageDeletionMixin(_StorageManagerState):
     """
 
     @contextmanager
-    def _deletion_transaction(self) -> Generator[None, None, None]:
+    def _deletion_transaction(self) -> Generator[None]:
         """Commit a durable phase independently, or use transient metadata hooks."""
         factory: persistence_api.StorageUnitOfWorkFactoryAPI | None = getattr(
             self, "_metadata_unit_of_work_factory", None

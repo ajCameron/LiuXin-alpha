@@ -336,7 +336,7 @@ def _acquire_run_lock(
     *,
     run_id: UUID,
     args: argparse.Namespace,
-) -> Generator[object, None, None]:
+) -> Generator[object]:
     """
     Hold an advisory file lock while recording this run's identity and yielding its handle.
 

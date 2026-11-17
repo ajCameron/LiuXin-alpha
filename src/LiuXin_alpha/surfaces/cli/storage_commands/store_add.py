@@ -46,7 +46,7 @@ def _refresh_failure_count(value: object) -> int:
     raw = report.get("failed_configurations", report.get("failed_stores", 0))
     try:
         return int(str(raw or 0))
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return 0
 
 

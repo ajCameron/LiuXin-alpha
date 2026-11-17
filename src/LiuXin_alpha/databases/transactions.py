@@ -84,7 +84,7 @@ def lock_postgres_writer(connection: QueryConnection, schema: str) -> None:
 @contextmanager
 def transaction_scope[ConnectionT: QueryConnection](
     connection: ConnectionT, *, owns_transaction: bool, immediate: bool = False
-) -> Generator[ConnectionT, None, None]:
+) -> Generator[ConnectionT]:
     """
     Commit an owned transaction or isolate a borrowed unit with a savepoint.
 
