@@ -1618,7 +1618,9 @@ class OPF(object):  # {{{
     xpn.pop(None)
     xpn["re"] = "http://exslt.org/regular-expressions"
 
-    XPath = functools.partial(etree.XPath, namespaces=xpn)
+    # A partial stored on a class binds like a method from Python 3.14, so
+    # keep it static; staticmethod objects are callable in the class body.
+    XPath = staticmethod(functools.partial(etree.XPath, namespaces=xpn))
 
     # XPath statements for the positions of the commonly used metadata objects
     # - Setup the tools needed to read/write the metadata - {{{
