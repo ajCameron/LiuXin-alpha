@@ -27,6 +27,22 @@ def test_plugin_namespace_boundaries_are_budgeted() -> None:
     assert "LiuXin_alpha.plugins.loading" in modules
 
 
+def test_format_provider_contracts_are_budgeted() -> None:
+    """Keep format-provider contracts free of format implementations and hosts."""
+
+    budgets = {budget.module: budget for budget in IMPORT_BUDGETS}
+
+    for module in (
+        "LiuXin_alpha.file_formats.providers.registry",
+        "LiuXin_alpha.file_formats.html.book",
+    ):
+        budget = budgets[module]
+        assert "LiuXin_alpha.file_formats.oeb" in budget.forbidden_modules
+        assert "LiuXin_alpha.file_formats.conversion.plugin" in budget.forbidden_modules
+        assert "metadata" in budget.forbidden_domains
+        assert "databases" in budget.forbidden_domains
+
+
 def test_plugin_contract_boundaries_are_budgeted() -> None:
     """Keep reusable plugin contracts below composition and application domains."""
     budgets = {budget.module: budget for budget in IMPORT_BUDGETS}
