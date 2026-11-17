@@ -158,6 +158,12 @@ IMPORT_BUDGETS = (
         FORMAT_PROVIDER_FORBIDDEN_MODULES,
     ),
     ImportBudget(
+        "LiuXin_alpha.file_formats.providers.fork_metadata",
+        25,
+        CONVERSION_CONTRACT_FORBIDDEN_DOMAINS,
+        FORMAT_PROVIDER_FORBIDDEN_MODULES,
+    ),
+    ImportBudget(
         "LiuXin_alpha.file_formats.html.book",
         17,
         CONVERSION_CONTRACT_FORBIDDEN_DOMAINS,

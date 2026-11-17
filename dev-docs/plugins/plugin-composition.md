@@ -36,6 +36,8 @@ owners:
 | `file_formats.providers` | Capability base classes (conversion, metadata and covers), transform stages and the registry for format providers; contracts only, not yet called by conversion or metadata reading |
 | `file_formats.providers.legacy_conversion` | Adapters that run each bundled conversion plugin as an OEB importer or exporter, with `Plumber`'s option resolution; not yet used by `Plumber` |
 | `file_formats.providers.upstream_calibre` | Providers that read metadata and covers with an installed calibre through `calibre-debug`, one per calibre 9.18 reader plugin |
+| `file_formats.providers.fork_metadata` | The project's own metadata readers as providers: the fork's calibre path (calibre model) and every reader as the application runs it (WEMI model) |
+| `file_formats.providers.wemi_mapping` | The provisional mapping that places calibre fields at WEMI levels |
 | `file_formats.calibre_metadata_probe` | The script those providers run inside calibre; imports calibre only when run there |
 | `file_formats.html.book` | The `HTMLBook` description of the HTML intermediate and its structural checks; no loading or saving yet |
 | `plugins.application` | Application registry lifecycle, lookups and installed-plugin management |
@@ -141,6 +143,7 @@ Fresh-process budgets cover the passive boundaries:
 | `file_formats.providers.registry` | 23 |
 | `file_formats.providers.legacy_conversion` | 22 |
 | `file_formats.providers.upstream_calibre` | 21 |
+| `file_formats.providers.fork_metadata` | 25 |
 | `file_formats.html.book` | 17 |
 | `plugins.contracts` | 35 |
 | `plugins.builtins` | 3 |
