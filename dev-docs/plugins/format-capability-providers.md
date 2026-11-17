@@ -7,8 +7,8 @@ requests #171 and #172; nothing here is merged.
 Source checkpoint: `main` at `2d2a9cc3`.
 
 Revised on 2026-11-17: the maintainer accepted the recommendations on metadata
-readings and claims. [Readings and claims](#readings-and-claims) now records
-them as decisions.
+readings and claims, and then split metadata providers by model, calibre or
+WEMI. [Readings and claims](#readings-and-claims) records both.
 
 Revised later on 2026-11-16: the first draft overlooked the conversion edge
 registry, the conversion report and the planned conversion tasks that already
@@ -103,12 +103,14 @@ How the pieces line up:
 | Output of a format conversion | A derived Manifestation, linked to its source | **Decided** |
 | Provenance of metadata claims | New tables: one for readings, one for accepted claims | **Decided** |
 | How much of a read is recorded | The whole reading as one JSON document per read, plus a row for each value the catalogue accepts | **Decided** 2026-11-17 |
-| Vocabulary of a reading | calibre's `Metadata` field names, recorded against the file; one mapping assigns each field to a WEMI level when a value is accepted | **Decided** 2026-11-17 |
+| Vocabulary of a reading | Depends on the model. A calibre reading uses calibre's field names and value shapes, and one mapping assigns each field to a WEMI level when a value is accepted. A WEMI reading is already placed by level. Each stored reading records its model | **Decided** 2026-11-17 |
+| Metadata models | Two, calibre and WEMI, each with its own reader and writer classes under a family parent: `CalibreMetadataReader`, `WEMIMetadataReader`, `CalibreMetadataWriter`, `WEMIMetadataWriter`. Named for the model, not the project | **Decided** 2026-11-17 |
+| Two models, same file | A WEMI reading outranks a calibre reading of the same file | **Decided** 2026-11-17 |
 | Who writes readings | Tables designed for file readers, online sources and manual edits; file readers wired first | **Decided** 2026-11-17 |
 | Precedence between sources | A manual edit outranks an online source, which outranks the file | **Decided** 2026-11-17 |
 | Keeping readings | Every reading is kept | **Decided** 2026-11-17 |
 | Transforms | Own capability, run in fixed stages | **Decided**; how stages are added is still open |
-| Capability names; `CoverExtractor` separate from `MetadataReader` | As listed below | **Decided** |
+| Capability names; `CoverExtractor` separate from the metadata readers | As listed below | **Decided** |
 | Import and export classes | A separate class per intermediate | **Decided** |
 | OCR output | A separate Item of the same Manifestation | **Decided** |
 | Route names | Free-form | **Decided** |
@@ -124,8 +126,8 @@ Each capability is one abstract base class with one typed entry point.
 
 | Base class | Turns | Replaces today |
 | --- | --- | --- |
-| `MetadataReader` | a file into a metadata reading | `MetadataReaderPlugin` |
-| `MetadataWriter` | metadata into a file | `MetadataWriterPlugin` |
+| `CalibreMetadataReader`, `WEMIMetadataReader` | a file into a metadata reading in that model | `MetadataReaderPlugin` |
+| `CalibreMetadataWriter`, `WEMIMetadataWriter` | metadata in that model into a file | `MetadataWriterPlugin` |
 | `CoverExtractor` | a file into a cover image | cover logic inside readers |
 | `OEBImporter`, `HTMLImporter` | a format into that intermediate | `InputFormatPlugin` |
 | `OEBExporter`, `HTMLExporter` | that intermediate into a format | `OutputFormatPlugin` |
@@ -156,12 +158,25 @@ class Provider(ABC):
 
 
 class MetadataReader(Provider):
-    metadata_read_formats: ClassVar[frozenset[str]]
+    """Family parent; providers subclass the class for their model."""
+
+
+class CalibreMetadataReader(MetadataReader):
+    calibre_read_formats: ClassVar[frozenset[str]]
 
     @abstractmethod
-    def read_metadata(
+    def read_calibre_metadata(
         self, source: Path, source_format: str, context: ProviderContext
-    ) -> MetadataFields: ...   # calibre field names, JSON-compatible values
+    ) -> CalibreFields: ...   # calibre names and shapes, as JSON values
+
+
+class WEMIMetadataReader(MetadataReader):
+    wemi_read_formats: ClassVar[frozenset[str]]
+
+    @abstractmethod
+    def read_wemi_metadata(
+        self, source: Path, source_format: str, context: ProviderContext
+    ) -> WEMIFields: ...      # values placed at work, expression, ...
 
 
 class Importer(Provider):
@@ -266,8 +281,8 @@ the class attributes above, so there is no separate manifest to keep in step.
   habit.
 - **Third-party providers** register through a Python entry-point group, in
   addition to the existing ZIP loader.
-- The registry answers typed queries, for example every `MetadataReader` for
-  `pdf`, in selection order.
+- The registry answers typed queries, for example every
+  `CalibreMetadataReader` for `pdf`, in selection order.
 
 ## Selection
 
@@ -314,8 +329,8 @@ Rules that keep this manageable:
 - **Metadata is not a provider's job to carry.** It is read once from the
   source. On a leg that passes through OEB it is merged into the book at the
   `structure` stage, as `MergeMetadata` does today. On a route made only of
-  `Converter` steps it is written to the result at the end by a
-  `MetadataWriter`. No provider in the middle has to preserve it.
+  `Converter` steps it is written to the result at the end by a metadata
+  writer. No provider in the middle has to preserve it.
 
 Edges already carry a `lossless` flag. Later, each edge should declare what
 it preserves (structure, images, fixed layout) so that a fallback does not
@@ -535,9 +550,9 @@ Keeping the three apart is what lets these questions be answered:
 - The file, an online source and a person disagree. What did each say?
 - A better reader exists now. What would change if it were used?
 
-The maintainer decided the following on 2026-11-17. In code, a reader
-returns `MetadataFields`, and the stored document is its `to_document()`
-output.
+The maintainer decided the following on 2026-11-17. In code, a calibre reader
+returns `CalibreFields` and a WEMI reader returns `WEMIFields`; the stored
+document is the `to_document()` output of either.
 
 1. **The whole reading is kept, and accepted values get rows.** Each read
    stores one JSON document holding every field and value the source gave.
@@ -546,13 +561,26 @@ output.
    so re-deciding never means reading the file again, which matters when the
    file is offline or on tape. The cost is one row per read, rather than ten
    to twenty.
-2. **Readings use calibre's field names.** Every existing reader already
-   returns calibre's `Metadata` fields (title, authors, series, identifiers,
-   publication date and so on), so no reader has to be rewritten. A reading
-   is recorded against the file it came from. One mapping, kept in code,
-   decides which WEMI level and table each field lands on when a value is
-   accepted: for example authors to the Work and publisher to the
-   Manifestation. The full mapping is drafted with the metadata reader work.
+2. **There are two metadata models, each with its own classes.**
+   - A **calibre** reading uses calibre's field names and value shapes:
+     authors as a list of names, identifiers as a mapping of scheme to
+     value, dates as ISO 8601 text. Most existing readers produce calibre
+     metadata, so they do not have to be rewritten. One mapping, kept in
+     code, decides which WEMI level and table each field lands on when a
+     value is accepted: for example authors to the Work and publisher to
+     the Manifestation. The full mapping is drafted with the reader
+     adapters.
+   - A **WEMI** reading is already placed at the Work, Expression,
+     Manifestation or Item it describes, with creators by role and
+     identifiers by scheme at the right level. It needs no mapping. No
+     reader produces one yet; the field names within each level are fixed
+     with the first WEMI reader, following the WEMI metadata bundles.
+
+   Readers and writers are separate classes per model, under the family
+   parents `MetadataReader` and `MetadataWriter`: `CalibreMetadataReader`,
+   `WEMIMetadataReader`, `CalibreMetadataWriter` and `WEMIMetadataWriter`.
+   The classes are named for the model, not the project. Every reading is
+   recorded against the file it came from, together with its model.
 3. **The tables serve all three sources; file readers come first.** File
    readers, online sources and manual edits all produce readings. File
    readers are wired first. Until the other two are, a fact with no claim
@@ -560,7 +588,9 @@ output.
 4. **A manual edit outranks an online source, which outranks the file.** A
    reading that disagrees with a fact held by a higher-ranked claim is kept,
    and the fact does not change. A re-read therefore never overwrites a
-   person's correction.
+   person's correction. **Within the file rank, a WEMI reading outranks a
+   calibre reading of the same file**, because it is the richer source; the
+   registry lists WEMI readers before calibre readers for this reason.
 5. **Every reading is kept.** Reading a file again adds a reading; it does not
    replace the earlier one. A claim that a higher-ranked one replaces is
    marked as superseded, not deleted.
@@ -574,6 +604,7 @@ manual edit is not a run; its reading names the person instead.
 CREATE TABLE metadata_readings (
   metadata_reading_id               INTEGER PRIMARY KEY,
   metadata_reading_source_kind      TEXT NOT NULL,  -- 'file', 'online', 'manual'
+  metadata_reading_model            TEXT NOT NULL,  -- 'calibre' or 'wemi'
   metadata_reading_run_id           INTEGER,        -- transform_runs; file and online
   metadata_reading_digital_asset_id INTEGER,        -- the file read; file only
   metadata_reading_source           TEXT NOT NULL,  -- provider id and version, service, or person
@@ -585,7 +616,7 @@ CREATE TABLE metadata_readings (
 CREATE TABLE metadata_claims (
   metadata_claim_id            INTEGER PRIMARY KEY,
   metadata_claim_reading_id    INTEGER NOT NULL,  -- metadata_readings
-  metadata_claim_field         TEXT NOT NULL,     -- calibre field name, as in the reading
+  metadata_claim_field         TEXT NOT NULL,     -- field as in the reading; level-qualified for WEMI
   metadata_claim_value         TEXT NOT NULL,     -- JSON
   metadata_claim_target_table  TEXT NOT NULL,     -- where the fact is stored
   metadata_claim_target_row_id INTEGER NOT NULL,
@@ -597,10 +628,29 @@ CREATE TABLE metadata_claims (
 One accepted value can support several facts. An authors field naming two
 people becomes two creator links, so it gets two claim rows.
 
-Still open: which claim wins between two readings of the **same** rank, for
-example two file readers, or two files of the same Work that disagree. The
-proposal is that the newer accepted reading wins, but this has not been
-reviewed.
+Still open: which claim wins between two readings of the same rank **and**
+the same model, for example two calibre readers of one file, or two files of
+the same Work that disagree. The proposal is that the newer accepted reading
+wins, but this has not been reviewed.
+
+#### Three kinds of metadata object in today's code
+
+Splitting by model came from what the existing readers return. The code holds
+three kinds of metadata object, not two:
+
+| Object | Shape | Produced by |
+| --- | --- | --- |
+| calibre's `Metadata` (`metadata/book/base.py`) | calibre's own | Most format readers, natively |
+| `CalibreLikeLiuXinBookMetaData` | calibre's interface over LiuXin internals: creators by role in ordered dictionaries, placeholder entries such as `{None: None}` | The EPUB and LRF reader plugins, which ask for it, and the PDF, PML and HTMLZ/TXTZ readers, through `finalize()` |
+| `LiuXinWEMIMetadata` | Four WEMI bundles with identities, relation links and provenance | The catalogue, when it loads a book; no file reader |
+
+The middle object is a migration midpoint, not a model. Providers never
+return it. Adapters for today's readers take the calibre path instead (the
+EPUB reader with `calibre_metadata=True`, LRF with `calibre_md=True`) and
+serialise with calibre's own `metadata_as_dict` in
+`metadata/book/serialize.py`. The readers that only return the middle object
+are changed at source, one at a time. Existing callers of the middle object
+keep using it until they move.
 
 Writing claims for manual edits touches every catalogue write path and the
 [catalog write contract](../catalog/catalog-write-validation-contract.md).
@@ -661,7 +711,8 @@ Answered on 2026-11-16 and folded into the text above: capability names, a
 separate class per intermediate, transforms as a staged capability, OCR output
 as a separate Item, and free-form route names. Answered on 2026-11-17: how
 much of a read is recorded, the vocabulary of readings, who writes readings,
-precedence between sources, and keeping every reading (see
+precedence between sources, keeping every reading, separate calibre and WEMI
+metadata classes, and WEMI over calibre for the same file (see
 [Readings and claims](#readings-and-claims)).
 
 Still open:
@@ -670,7 +721,7 @@ Still open:
    [Adding stages later](#adding-stages-later)?
 2. Is the split for compression right: a lossless result is a new Asset on the
    same Item, and a lossy result is a new Item?
-3. Between two readings of the same rank, which claim wins? See the end of
-   [Readings and claims](#readings-and-claims).
+3. Between two readings of the same rank and model, which claim wins? See
+   the end of [Readings and claims](#readings-and-claims).
 
 Return to the [plugins index](README.md).
