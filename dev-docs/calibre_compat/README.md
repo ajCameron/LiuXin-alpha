@@ -21,6 +21,12 @@ it does not reinterpret existing SQL, source or web IDs.
 - [Mapping guide](<mapping calibre to LiuXin.md>): source IDs, SQL ray IDs and web
   Work IDs, including a novel and introduction sharing one owned volume.
 
+## Upstream calibre
+
+- [Bugs to report upstream](upstream-calibre-bugs.md): three ways a damaged file
+  keeps a calibre metadata reader busy for minutes or for ever (Topaz and RTF),
+  with reproducers, measurements and suggested fixes. Not yet reported.
+
 ## Proposed canonical import
 
 - [Import-policy draft](<00 - Calibre Compatibility Policy.md>): proposed
