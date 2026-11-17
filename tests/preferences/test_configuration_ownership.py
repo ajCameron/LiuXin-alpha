@@ -256,20 +256,15 @@ def test_profile_reaches_real_core_database_and_remote_preferences(
             session.close()
 
 
-@pytest.mark.parametrize("backend", ["serial", "process", "spawn"])
-def test_managed_workers_keep_submitting_profile(tmp_path, monkeypatch, backend):
-    import multiprocessing
-
+@pytest.mark.parametrize("backend", ["serial", "process"])
+def test_managed_workers_keep_submitting_profile(tmp_path, backend):
     from LiuXin_alpha.utils.jobs import api
     from LiuXin_alpha.utils.jobs.manager import InMemoryJobManager
 
-    if backend == "spawn":
-        monkeypatch.setattr(
-            api, "Process", multiprocessing.get_context("spawn").Process
-        )
-    manager = InMemoryJobManager(
-        max_workers=1, default_backend="process" if backend == "spawn" else backend
-    )
+    # The process backend always spawns its workers, so the profile must travel
+    # with the request rather than be inherited from the submitting process.
+    assert api.PROCESS_CONTEXT.get_start_method() == "spawn"
+    manager = InMemoryJobManager(max_workers=1, default_backend=backend)
     request = api.JobRequest(
         module_name="def read():\n from LiuXin_alpha.preferences import preferences\n return preferences['network_timeout']\n",
         function_name="read",
