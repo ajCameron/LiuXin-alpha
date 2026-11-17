@@ -3,7 +3,9 @@
 Date: 2026-11-16
 
 Status: **Proposal for review.** Build steps 1 and 2 are in draft pull
-requests #171 and #172; nothing here is merged.
+requests #171 and #172, the metadata capabilities in #173, and the metadata
+reader pool in #175 to #177; nothing here is merged. The move to Python 3.14
+is #174.
 Source checkpoint: `main` at `2d2a9cc3`.
 
 Revised on 2026-11-17: the maintainer accepted the recommendations on metadata
@@ -106,6 +108,9 @@ How the pieces line up:
 | Vocabulary of a reading | Depends on the model. A calibre reading uses calibre's field names and value shapes, and one mapping assigns each field to a WEMI level when a value is accepted. A WEMI reading is already placed by level. Each stored reading records its model | **Decided** 2026-11-17 |
 | Metadata models | Two, calibre and WEMI, each with its own reader and writer classes under a family parent: `CalibreMetadataReader`, `WEMIMetadataReader`, `CalibreMetadataWriter`, `WEMIMetadataWriter`. Named for the model, not the project | **Decided** 2026-11-17 |
 | Two models, same file | A WEMI reading outranks a calibre reading of the same file | **Decided** 2026-11-17 |
+| Metadata reader pool | Keep the fork's readers and the LiuXin readers, and add current upstream calibre: ported where practical, through an installed calibre's `calibre-debug` otherwise | **Decided** 2026-11-17 |
+| Model of the LiuXin readers | WEMI: each reader plugin as the application runs it, placed by level | **Decided** 2026-11-17 |
+| Python version | The project moves to Python 3.14, which upstream calibre already requires | **Decided** 2026-11-17 |
 | Who writes readings | Tables designed for file readers, online sources and manual edits; file readers wired first | **Decided** 2026-11-17 |
 | Precedence between sources | A manual edit outranks an online source, which outranks the file | **Decided** 2026-11-17 |
 | Keeping readings | Every reading is kept | **Decided** 2026-11-17 |
@@ -644,13 +649,57 @@ three kinds of metadata object, not two:
 | `CalibreLikeLiuXinBookMetaData` | calibre's interface over LiuXin internals: creators by role in ordered dictionaries, placeholder entries such as `{None: None}` | The EPUB and LRF reader plugins, which ask for it, and the PDF, PML and HTMLZ/TXTZ readers, through `finalize()` |
 | `LiuXinWEMIMetadata` | Four WEMI bundles with identities, relation links and provenance | The catalogue, when it loads a book; no file reader |
 
-The middle object is a migration midpoint, not a model. Providers never
-return it. Adapters for today's readers take the calibre path instead (the
-EPUB reader with `calibre_metadata=True`, LRF with `calibre_md=True`) and
-serialise with calibre's own `metadata_as_dict` in
-`metadata/book/serialize.py`. The readers that only return the middle object
-are changed at source, one at a time. Existing callers of the middle object
-keep using it until they move.
+The middle object is a migration midpoint, not a model, and no provider
+returns it. Running the plugins on sample files showed that most of them
+return it today: EPUB, LRF, HTML, RTF, FB2, HTMLZ, TXTZ, PML, PDF and IMP. TXT,
+OPF, MOBI, LIT, LRX, RB, SNB, Topaz, comic and ODT return calibre's
+`Metadata`, and ZIP and RAR return whatever the book inside produces.
+Existing callers of the middle object keep using it until they move.
+
+#### The metadata reader pool
+
+On 2026-11-17 the maintainer decided to keep both existing sets of readers
+and to add current upstream calibre, giving a pool to compare. Each set is a
+group of providers; all of them also extract covers.
+
+| Set | Provider ids | Model | What runs | Priority |
+| --- | --- | --- | --- | --- |
+| LiuXin | `liuxin.read-…` (25) | WEMI | Each reader plugin as the application runs it. The middle object is placed by level from its own calibre conversion, with its creators by role and its identifier lists laid over, because that conversion drops them | −100 |
+| Upstream, ported | `calibre-port.read-…` (TXT, IMP, RB and LRX so far) | calibre | calibre 9.18's reader modules, copied with only their imports changed, in process | −50 |
+| Upstream, installed | `calibre.read-…` (25) | calibre | calibre's own reader plugin inside the user's installed calibre, through `calibre-debug`; unavailable where calibre is not installed | −60 |
+| Fork | `fork.read-…` (12) | calibre | The fork's calibre path: the plugins that return calibre's `Metadata`, and EPUB and LRF with their calibre switches on | −100 |
+
+For one format the registry lists WEMI readers first, because a WEMI reading
+outranks a calibre reading of the same file, and then calibre readers by
+priority: port, installed calibre, fork. All calibre readings are serialised
+the same way, with calibre's `metadata_as_dict`, dates as ISO 8601 text and
+anything without a JSON form kept as text and reported, so the sets compare
+like for like.
+
+The LiuXin readers use a **provisional** calibre-to-WEMI mapping in
+`file_formats/providers/wemi_mapping.py`, which is also the mapping for
+accepting calibre readings:
+
+- **Work:** titles, title sort, author sort, series with its index, subjects
+  (calibre's tags), and creators in the authors and composers roles.
+- **Expression:** languages, description (calibre's comments), and creators
+  in the editor, translator, illustrator, artist, colourist and director
+  roles; a role the mapping does not know also goes here.
+- **Manifestation:** publishers, publication date, identifiers, rights, and
+  creators in the producer, book-producer and cover-artist roles.
+- **Any other field** is kept under `unplaced` at the Manifestation, so no
+  reading loses what its source said.
+
+Porting continues reader by reader, cheapest first. SNB, RTF, Topaz and PML
+each need one more calibre subsystem; ZIP and RAR need calibre's reader
+dispatch; EPUB, MOBI, FB2, PDF and ODT need OPF, XMP or MOBI internals and are
+projects of their own. Until a reader is ported, the installed-calibre
+provider covers its format wherever calibre is installed.
+
+The pool's first comparisons already found differences: the fork's EPUB
+calibre path and the LiuXin EPUB and HTMLZ readers drop publisher, language
+and subjects that the files carry, and the fork's TXT reader no longer splits
+authors on commas as upstream does.
 
 Writing claims for manual edits touches every catalogue write path and the
 [catalog write contract](../catalog/catalog-write-validation-contract.md).
