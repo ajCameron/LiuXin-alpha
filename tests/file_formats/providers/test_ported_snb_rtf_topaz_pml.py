@@ -15,6 +15,10 @@ import ast
 import doctest
 import io
 import logging
+import os
+import re
+import subprocess
+import sys
 import zipfile
 from pathlib import Path
 from typing import Any
@@ -355,6 +359,86 @@ def test_rtf_with_an_unclosed_info_group_stops_at_the_end() -> None:
     book = rtf.get_metadata(stream)
 
     assert book.title == "Unknown"
+
+
+@pytest.mark.parametrize(
+    "block",
+    [
+        rb"{\info{\title A}{\author B}}",
+        rb"{\info{\title A \} still A}}",
+        rb"{\info{\title A \\}}",
+        rb"{\info{\titlepg}{\title Real}}",
+        rb"{\title Outside}{\info{\title Inside}}",
+        rb"{\info{\author A}{\title never closed",
+        rb"{\info{\info{\title X}",
+        b"",
+    ],
+)
+def test_rtf_field_stand_ins_match_calibre_patterns(block: bytes) -> None:
+    """
+    Find and replace the same fields calibre's RTF patterns do.
+
+    Example:
+        >>> test_rtf_field_stand_ins_match_calibre_patterns(rb"{\\info{\\title A}}")
+
+
+    :param block: An info block, well formed or not.
+    :return: None; the assertions are the check.
+    """
+    text = block.decode("ascii")
+    for name in ("title", "author", "subject", "category", "manager"):
+        pattern = re.compile(
+            rb"\{\\info.*?\{\\" + name.encode() + rb"(.*?)(?<!\\)\}", re.DOTALL
+        )
+        expected = pattern.search(block)
+        found = _compat.InfoFieldPattern(name.encode()).search(block)
+        assert (None if found is None else found.group(1)) == (
+            None if expected is None else expected.group(1)
+        )
+        template = r"{\\" + name + " " + r"a\\b\\u1234?" + "}"
+        writer = re.compile(r"\{\\" + name + r"(.*?)(?<!\\)\}", re.DOTALL)
+        assert _compat.FieldPattern(name).subn(template, text) == writer.subn(
+            template, text
+        )
+
+
+def test_rtf_many_unclosed_info_groups_are_read_in_linear_time() -> None:
+    """
+    Read and rewrite repeated, never-closed info groups quickly.
+
+    calibre's patterns backtrack in cubic time here: 15 kB took nearly a minute
+    to read. The 1.5 MB file runs in a child process with a time limit, so a
+    regression fails rather than hanging the suite.
+
+    Example:
+        >>> test_rtf_many_unclosed_info_groups_are_read_in_linear_time()  # doctest: +SKIP
+
+
+    :return: None; the assertions are the check.
+    """
+    script = (
+        "import io\n"
+        "from LiuXin_alpha.metadata.upstream_calibre import _compat, rtf\n"
+        "data = b'{\\\\rtf1' + b'{\\\\info{\\\\title x' * 100000\n"
+        "assert rtf.get_metadata(io.BytesIO(data)).title == 'Unknown'\n"
+        "try:\n"
+        "    rtf.set_metadata(io.BytesIO(data), _compat.Metadata('New', ['A']))\n"
+        "except ValueError:\n"
+        "    pass\n"
+        "print('done')\n"
+    )
+    env = {**os.environ, "PYTHONPATH": os.pathsep.join(p for p in sys.path if p)}
+    result = subprocess.run(
+        [sys.executable, "-c", script],
+        capture_output=True,
+        text=True,
+        timeout=60,
+        env=env,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == "done"
 
 
 def test_topaz_reads_title_and_authors(tmp_path: Path) -> None:

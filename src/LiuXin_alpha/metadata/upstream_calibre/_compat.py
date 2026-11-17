@@ -23,6 +23,10 @@ Some names map to the standard library: ``TemporaryDirectory`` to
 readers only look up common image extensions). ``load_defaults`` returns no
 saved conversion settings, so calibre's defaults apply.
 
+``InfoFieldPattern`` and ``FieldPattern`` stand in for the RTF reader's and
+writer's field patterns, which backtrack for minutes on damaged files; they
+find the same values in linear time.
+
 Example:
     >>> string_to_authors("Ann Smith and Bob Jones & Cy")
     ['Ann Smith', 'Bob Jones', 'Cy']
@@ -47,6 +51,9 @@ from lxml import etree
 from LiuXin_alpha.metadata.book.base import calibreMetadata as Metadata
 
 __all__ = [
+    "FieldMatch",
+    "FieldPattern",
+    "InfoFieldPattern",
     "MetaInformation",
     "Metadata",
     "StreamOrPath",
@@ -520,3 +527,183 @@ def load_defaults(name: str) -> dict[str, Any]:
     :return: An empty mapping.
     """
     return {}
+
+
+def _closing_brace(text: Any, start: int) -> int:
+    r"""
+    Find the first ``}`` at or after ``start`` that no backslash precedes.
+
+    This is where an RTF field's value ends, as the pattern ``(?<!\\)\}`` found it.
+
+    Example:
+        >>> _closing_brace(rb"a\}b}", 0), _closing_brace("x", 0)
+        (4, -1)
+
+
+    :param text: The RTF, as bytes or text.
+    :param start: Where the field's value starts.
+    :return: The brace's index, or ``-1`` when there is none.
+    """
+    brace, backslash = ("}", "\\") if isinstance(text, str) else (b"}", b"\\")
+    end: int = text.find(brace, start)
+    while end > 0 and text[end - 1 : end] == backslash:
+        end = text.find(brace, end + 1)
+    return end
+
+
+class FieldMatch:
+    r"""
+    The one group a field pattern's match has: the field's value.
+
+    Example:
+        >>> FieldMatch(b" A").group(1)
+        b' A'
+    """
+
+    def __init__(self, value: Any) -> None:
+        """
+        Hold the value.
+
+        Example:
+            >>> FieldMatch("x").group(1)
+            'x'
+
+
+        :param value: The field's raw value.
+        :return: None.
+        """
+        self._value = value
+
+    def group(self, index: int) -> Any:
+        """
+        Return the value, as ``match.group(1)`` did.
+
+        Example:
+            >>> FieldMatch("x").group(1)
+            'x'
+
+
+        :param index: Must be 1.
+        :return: The value.
+        :raises IndexError: For any other group.
+        """
+        if index != 1:
+            raise IndexError("no such group")
+        return self._value
+
+
+class InfoFieldPattern:
+    r"""
+    A linear-time stand-in for calibre's RTF info-field patterns.
+
+    calibre compiles ``rb'\{\\info.*?\{\\NAME(.*?)(?<!\\)\}'`` with ``re.DOTALL``
+    for each field. On repeated, never-closed ``{\info{\title`` groups those
+    patterns backtrack in cubic time: 15 kB took nearly a minute. ``search``
+    returns what the pattern's search did, found with ``find``: the first
+    ``{\NAME`` after the first ``{\info``, up to the first brace no backslash
+    precedes.
+
+    Example:
+        >>> InfoFieldPattern(b"title").search(rb"{\info{\title A \} B}}").group(1)
+        b' A \\} B'
+        >>> InfoFieldPattern(b"title").search(rb"{\info{\title never closed") is None
+        True
+    """
+
+    def __init__(self, name: bytes) -> None:
+        r"""
+        Remember the field's control word.
+
+        Example:
+            >>> InfoFieldPattern(b"author").opening
+            b'{\\author'
+
+
+        :param name: The control word, such as ``b"title"``.
+        :return: None.
+        """
+        self.opening = b"{\\" + name
+
+    def search(self, block: bytes) -> FieldMatch | None:
+        r"""
+        Find the field's value as the pattern's ``search`` did.
+
+        Example:
+            >>> InfoFieldPattern(b"title").search(b"no info") is None
+            True
+
+
+        :param block: The info block, as ``get_document_info`` returns it.
+        :return: A match whose group 1 is the raw value, or ``None``.
+        """
+        info = block.find(b"{\\info")
+        if info < 0:
+            return None
+        field = block.find(self.opening, info + len(b"{\\info"))
+        if field < 0:
+            return None
+        start = field + len(self.opening)
+        end = _closing_brace(block, start)
+        return None if end < 0 else FieldMatch(block[start:end])
+
+
+class FieldPattern:
+    r"""
+    A linear-time stand-in for ``re.compile(r'\{\\NAME(.*?)(?<!\\)\}', re.DOTALL)``.
+
+    calibre's RTF writer only calls ``subn`` on it, which with that pattern took
+    quadratic time on repeated never-closed fields: 150 kB took 15 seconds.
+
+    Example:
+        >>> FieldPattern("title").subn(r"{\\title N}", r"{\title A}{\title B")
+        ('{\\title N}{\\title B', 1)
+    """
+
+    def __init__(self, name: str) -> None:
+        """
+        Remember the field's control word.
+
+        Example:
+            >>> FieldPattern("title").opening
+            '{\\\\title'
+
+
+        :param name: The control word, such as ``"title"``.
+        :return: None.
+        """
+        self.opening = "{\\" + name
+
+    def subn(self, template: str, string: str) -> tuple[str, int]:
+        """
+        Replace every closed field, left to right, as ``re.subn`` did.
+
+        The template's escapes are expanded by ``re`` itself, as ``subn`` would;
+        a field with no closing brace ends the search, since no later field can
+        have one either.
+
+        Example:
+            >>> FieldPattern("title").subn("N", "no fields")
+            ('no fields', 0)
+
+
+        :param template: The replacement, escaped for ``re`` as calibre builds it.
+        :param string: The info block as text.
+        :return: The new text and how many fields were replaced.
+        """
+        empty = re.match("", "")
+        assert empty is not None
+        replacement = empty.expand(template)
+        parts: list[str] = []
+        count = position = 0
+        while True:
+            field = string.find(self.opening, position)
+            if field < 0:
+                break
+            end = _closing_brace(string, field + len(self.opening))
+            if end < 0:
+                break
+            parts.extend((string[position:field], replacement))
+            position = end + 1
+            count += 1
+        parts.append(string[position:])
+        return "".join(parts), count

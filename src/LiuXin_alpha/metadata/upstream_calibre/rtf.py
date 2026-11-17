@@ -4,7 +4,9 @@
 # Changes from upstream: calibre imports point at upstream_calibre._compat, and
 # 'from __future__ import annotations' is added.
 # get_document_info stops at the end of the file: upstream loops forever when
-# the {\info group is never closed. Marked '# LiuXin:' where it is.
+# the {\info group is never closed. The field patterns are linear-time stand-ins
+# from _compat: upstream's backtrack in cubic time on repeated never-closed
+# groups (15 kB took 53 s to read). Each change is marked '# LiuXin:'.
 # SPDX-License-Identifier: GPL-3.0-only
 
 """
@@ -21,17 +23,18 @@ from LiuXin_alpha.metadata.upstream_calibre._compat import force_unicode
 from LiuXin_alpha.metadata.upstream_calibre._compat import MetaInformation
 from LiuXin_alpha.metadata.upstream_calibre._compat import _
 from LiuXin_alpha.metadata.upstream_calibre._compat import int_to_byte
+from LiuXin_alpha.metadata.upstream_calibre._compat import FieldPattern, InfoFieldPattern  # LiuXin: stand-ins below
 
 if TYPE_CHECKING:
     import unittest
 
     from LiuXin_alpha.metadata.upstream_calibre._compat import Metadata
 
-title_pat = re.compile(rb'\{\\info.*?\{\\title(.*?)(?<!\\)\}', re.DOTALL)
-author_pat = re.compile(rb'\{\\info.*?\{\\author(.*?)(?<!\\)\}', re.DOTALL)
-comment_pat = re.compile(rb'\{\\info.*?\{\\subject(.*?)(?<!\\)\}', re.DOTALL)
-tags_pat = re.compile(rb'\{\\info.*?\{\\category(.*?)(?<!\\)\}', re.DOTALL)
-publisher_pat = re.compile(rb'\{\\info.*?\{\\manager(.*?)(?<!\\)\}', re.DOTALL)
+title_pat = InfoFieldPattern(b'title')  # LiuXin: linear-time stand-in
+author_pat = InfoFieldPattern(b'author')  # LiuXin: linear-time stand-in
+comment_pat = InfoFieldPattern(b'subject')  # LiuXin: linear-time stand-in
+tags_pat = InfoFieldPattern(b'category')  # LiuXin: linear-time stand-in
+publisher_pat = InfoFieldPattern(b'manager')  # LiuXin: linear-time stand-in
 
 
 def get_document_info(stream: IO[bytes]) -> tuple[bytes, int] | tuple[None, int]:
@@ -225,7 +228,7 @@ def set_metadata(stream: IO[bytes], options: Metadata) -> None:
 
         def replace_or_create(src: str, name: str, val: str) -> str:
             val = encode(val)
-            pat = re.compile(base_pat.replace('name', name), re.DOTALL)
+            pat = FieldPattern(name)  # LiuXin: linear-time stand-in for base_pat
             src, num = pat.subn(r'{\\' + name.replace('\\', r'\\') + ' ' + val.replace('\\', r'\\') + '}', src)
             if num == 0:
                 src = add_metadata_item(src, name, val)
