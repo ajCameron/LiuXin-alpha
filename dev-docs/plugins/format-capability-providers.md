@@ -150,41 +150,61 @@ class Provider(ABC):
 
     provider_id: ClassVar[str]          # stable, for example "pdf.reader.builtin"
     version: ClassVar[str]
-    priority: ClassVar[int] = 0
-    requires: ClassVar[tuple[str, ...]] = ()   # extras or external tools
     licence: ClassVar[str]
+    priority: ClassVar[int] = 0         # higher is preferred
+    requires: ClassVar[tuple[str, ...]] = ()   # extras or external tools
 
 
 class MetadataReader(Provider):
-    formats: ClassVar[frozenset[str]]
+    metadata_read_formats: ClassVar[frozenset[str]]
 
     @abstractmethod
-    def read_metadata(self, source: BinaryIO, fmt: str) -> MetadataReading: ...
+    def read_metadata(
+        self, source: Path, source_format: str, context: ProviderContext
+    ) -> MetadataFields: ...   # calibre field names, JSON-compatible values
 
 
 class Importer(Provider):
-    """Abstract parent; providers subclass one of the classes below."""
-
-    source_formats: ClassVar[frozenset[str]]
+    """Family parent; providers subclass one of the classes below."""
 
 
 class OEBImporter(Importer):
+    oeb_source_formats: ClassVar[frozenset[str]]
+
     @abstractmethod
-    def import_book(self, source: Path, options: Options) -> OEBBook: ...
+    def import_oeb(
+        self, source: Path, source_format: str, context: ProviderContext
+    ) -> OEBBook: ...
 
 
 class HTMLImporter(Importer):
+    html_source_formats: ClassVar[frozenset[str]]
+
     @abstractmethod
-    def import_book(self, source: Path, options: Options) -> HTMLBook: ...
+    def import_html(
+        self, source: Path, source_format: str, context: ProviderContext
+    ) -> HTMLBook: ...
 
 
 class Converter(Provider):
-    source_formats: ClassVar[frozenset[str]]
-    target_formats: ClassVar[frozenset[str]]
+    conversions: ClassVar[frozenset[tuple[str, str]]]   # explicit pairs
 
     @abstractmethod
-    def convert(self, source: Path, target: Path, options: Options) -> None: ...
+    def convert(
+        self,
+        source: Path,
+        source_format: str,
+        target: Path,
+        target_format: str,
+        context: ProviderContext,
+    ) -> None: ...
 ```
+
+Each capability uses its own attribute and method names (`oeb_source_formats`
+and `import_oeb`, `html_target_formats` and `export_html`, and so on), so a
+class that inherits several never has two members with the same name.
+`ProviderContext` carries the call's options, log, report and work folder.
+The full set is in `file_formats/providers/` on the build-step pull requests.
 
 One class can provide several capabilities by inheriting several bases. The
 registry files it under each. A provider that needs something missing reports
@@ -515,7 +535,9 @@ Keeping the three apart is what lets these questions be answered:
 - The file, an online source and a person disagree. What did each say?
 - A better reader exists now. What would change if it were used?
 
-The maintainer decided the following on 2026-11-17.
+The maintainer decided the following on 2026-11-17. In code, a reader
+returns `MetadataFields`, and the stored document is its `to_document()`
+output.
 
 1. **The whole reading is kept, and accepted values get rows.** Each read
    stores one JSON document holding every field and value the source gave.
