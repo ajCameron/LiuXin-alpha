@@ -37,9 +37,12 @@ from LiuXin_alpha.file_formats.providers.conversion import (
     OEBTransform,
 )
 from LiuXin_alpha.file_formats.providers.metadata import (
+    CalibreMetadataReader,
+    CalibreMetadataWriter,
     CoverExtractor,
     MetadataReader,
-    MetadataWriter,
+    WEMIMetadataReader,
+    WEMIMetadataWriter,
 )
 from LiuXin_alpha.file_formats.providers.stages import (
     HTMLStage,
@@ -55,8 +58,10 @@ CAPABILITIES: tuple[type[Provider], ...] = (
     OEBTransform,
     HTMLTransform,
     Converter,
-    MetadataReader,
-    MetadataWriter,
+    CalibreMetadataReader,
+    WEMIMetadataReader,
+    CalibreMetadataWriter,
+    WEMIMetadataWriter,
     CoverExtractor,
 )
 """Every capability base class a provider may offer."""
@@ -401,14 +406,14 @@ class ProviderRegistry:
         )
         return tuple(sorted(found, key=lambda item: stage_position(item.html_stage)))
 
-    def metadata_readers(
+    def calibre_metadata_readers(
         self: Self, source_format: str
-    ) -> tuple[type[MetadataReader], ...]:
+    ) -> tuple[type[CalibreMetadataReader], ...]:
         """
-        Find the providers that can read metadata from a format.
+        Find the providers that can read calibre metadata from a format.
 
         Example:
-            >>> ProviderRegistry().metadata_readers("epub")
+            >>> ProviderRegistry().calibre_metadata_readers("epub")
             ()
 
 
@@ -420,18 +425,69 @@ class ProviderRegistry:
         return _best_first(
             found
             for found in self._providers.values()
-            if issubclass(found, MetadataReader)
-            and wanted in found.metadata_read_formats
+            if issubclass(found, CalibreMetadataReader)
+            and wanted in found.calibre_read_formats
         )
 
-    def metadata_writers(
-        self: Self, target_format: str
-    ) -> tuple[type[MetadataWriter], ...]:
+    def wemi_metadata_readers(
+        self: Self, source_format: str
+    ) -> tuple[type[WEMIMetadataReader], ...]:
         """
-        Find the providers that can write metadata into a format.
+        Find the providers that can read WEMI-placed metadata from a format.
 
         Example:
-            >>> ProviderRegistry().metadata_writers("epub")
+            >>> ProviderRegistry().wemi_metadata_readers("epub")
+            ()
+
+
+        :param source_format: The format to read; case and a leading dot are
+            ignored.
+        :return: The matching providers, best first.
+        """
+        wanted = normalize_format_name(source_format)
+        return _best_first(
+            found
+            for found in self._providers.values()
+            if issubclass(found, WEMIMetadataReader)
+            and wanted in found.wemi_read_formats
+        )
+
+    def metadata_readers(
+        self: Self, source_format: str
+    ) -> tuple[type[MetadataReader], ...]:
+        """
+        Find every metadata reader for a format, WEMI readers first.
+
+        A WEMI reading of a file outranks a calibre reading of the same file,
+        so WEMI readers come before calibre readers, each kind best first. A
+        provider offering both kinds appears once, with the WEMI readers.
+
+        Example:
+            >>> ProviderRegistry().metadata_readers("epub")
+            ()
+
+
+        :param source_format: The format to read; case and a leading dot are
+            ignored.
+        :return: The matching providers.
+        """
+        wemi = self.wemi_metadata_readers(source_format)
+        listed: set[type[Provider]] = set(wemi)
+        calibre = tuple(
+            found
+            for found in self.calibre_metadata_readers(source_format)
+            if found not in listed
+        )
+        return (*wemi, *calibre)
+
+    def calibre_metadata_writers(
+        self: Self, target_format: str
+    ) -> tuple[type[CalibreMetadataWriter], ...]:
+        """
+        Find the providers that can write calibre metadata into a format.
+
+        Example:
+            >>> ProviderRegistry().calibre_metadata_writers("epub")
             ()
 
 
@@ -443,8 +499,31 @@ class ProviderRegistry:
         return _best_first(
             found
             for found in self._providers.values()
-            if issubclass(found, MetadataWriter)
-            and wanted in found.metadata_write_formats
+            if issubclass(found, CalibreMetadataWriter)
+            and wanted in found.calibre_write_formats
+        )
+
+    def wemi_metadata_writers(
+        self: Self, target_format: str
+    ) -> tuple[type[WEMIMetadataWriter], ...]:
+        """
+        Find the providers that can write WEMI-placed metadata into a format.
+
+        Example:
+            >>> ProviderRegistry().wemi_metadata_writers("opf")
+            ()
+
+
+        :param target_format: The format to write into; case and a leading dot
+            are ignored.
+        :return: The matching providers, best first.
+        """
+        wanted = normalize_format_name(target_format)
+        return _best_first(
+            found
+            for found in self._providers.values()
+            if issubclass(found, WEMIMetadataWriter)
+            and wanted in found.wemi_write_formats
         )
 
     def cover_extractors(

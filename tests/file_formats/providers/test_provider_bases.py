@@ -40,9 +40,11 @@ from LiuXin_alpha.file_formats.providers.conversion import (
     Transform,
 )
 from LiuXin_alpha.file_formats.providers.metadata import (
+    CalibreMetadataReader,
+    CalibreMetadataWriter,
     CoverExtractor,
-    MetadataReader,
-    MetadataWriter,
+    WEMIMetadataReader,
+    WEMIMetadataWriter,
 )
 from LiuXin_alpha.file_formats.providers.stages import (
     HTMLStage,
@@ -63,8 +65,10 @@ CAPABILITY_BASES: tuple[type[Provider], ...] = (
     OEBTransform,
     HTMLTransform,
     Converter,
-    MetadataReader,
-    MetadataWriter,
+    CalibreMetadataReader,
+    WEMIMetadataReader,
+    CalibreMetadataWriter,
+    WEMIMetadataWriter,
     CoverExtractor,
 )
 

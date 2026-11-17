@@ -1,10 +1,12 @@
 """
 Check the metadata capabilities and the form a metadata reading takes.
 
-A reading is calibre-named fields with JSON-compatible values, stored whole as
-one document. These tests cover what a reading may hold, that it cannot
-change once made, that its document round-trips exactly, and that metadata
-providers are declared and found like every other provider.
+There are two models. Calibre fields use calibre's names and shapes; WEMI
+fields are already placed by level. Each has its own reader and writer
+classes under a family parent. These tests cover what each kind of reading
+may hold, that it cannot change once made, that its document round-trips
+exactly, that a WEMI reader is preferred over a calibre reader, and that
+metadata providers are declared and found like every other provider.
 """
 
 from __future__ import annotations
@@ -23,12 +25,18 @@ from LiuXin_alpha.file_formats.providers.base import (
     ProviderDefinitionError,
 )
 from LiuXin_alpha.file_formats.providers.metadata import (
+    WEMI_LEVELS,
+    CalibreFields,
+    CalibreMetadataReader,
+    CalibreMetadataWriter,
     CoverExtractor,
     CoverImage,
-    MetadataFields,
     MetadataFieldsError,
     MetadataReader,
     MetadataWriter,
+    WEMIFields,
+    WEMIMetadataReader,
+    WEMIMetadataWriter,
 )
 from LiuXin_alpha.file_formats.providers.registry import (
     ProviderRegistry,
@@ -48,28 +56,40 @@ READING: dict[str, object] = {
     "user_metadata": {"#genre": {"value": ["novel"], "datatype": "text"}},
 }
 
+WEMI_READING: dict[str, object] = {
+    "work": {
+        "titles": ["EPUB Καλημέρα 世界"],
+        "creators": [
+            {"name": "José", "role": "authors"},
+            {"name": "Иван", "role": "translators"},
+        ],
+    },
+    "expression": {"languages": ["ell", "zho"]},
+    "manifestation": {"identifiers": {"isbn": ["9780000000002"]}},
+}
 
-class EpubMetadata(Recorded, MetadataReader, CoverExtractor):
+
+class EpubMetadata(Recorded, CalibreMetadataReader, CoverExtractor):
     """
-    Read EPUB metadata and its cover, as one provider offering both.
+    Read calibre metadata and the cover from EPUB, as one provider.
 
     Example:
-        >>> sorted(EpubMetadata.metadata_read_formats)
+        >>> sorted(EpubMetadata.calibre_read_formats)
         ['epub']
     """
 
     provider_id = "epub.metadata.test"
-    metadata_read_formats = frozenset({"epub"})
+    calibre_read_formats = frozenset({"epub"})
     cover_source_formats = frozenset({"epub"})
 
-    def read_metadata(
+    def read_calibre_metadata(
         self, source: Path, source_format: str, context: ProviderContext
-    ) -> MetadataFields:
+    ) -> CalibreFields:
         """
-        Return a fixed reading.
+        Return a fixed calibre reading.
 
         Example:
-            >>> "read_metadata" in vars(EpubMetadata)
+            >>> "read_calibre_metadata" in vars(EpubMetadata)
             True
 
 
@@ -78,7 +98,7 @@ class EpubMetadata(Recorded, MetadataReader, CoverExtractor):
         :param context: Unused.
         :return: The reading in :data:`READING`.
         """
-        return MetadataFields(READING)
+        return CalibreFields(READING)
 
     def extract_cover(
         self, source: Path, source_format: str, context: ProviderContext
@@ -99,30 +119,84 @@ class EpubMetadata(Recorded, MetadataReader, CoverExtractor):
         return CoverImage(b"\x89", "png")
 
 
-class EpubWriter(Recorded, MetadataWriter):
+class EpubWEMIMetadata(Recorded, WEMIMetadataReader):
     """
-    Accept EPUB metadata writes without doing anything.
+    Read WEMI-placed metadata from EPUB.
 
     Example:
-        >>> sorted(EpubWriter.metadata_write_formats)
+        >>> sorted(EpubWEMIMetadata.wemi_read_formats)
         ['epub']
     """
 
-    provider_id = "epub.metadata-writer.test"
-    metadata_write_formats = frozenset({"epub"})
+    provider_id = "epub.wemi-metadata.test"
+    wemi_read_formats = frozenset({"epub"})
 
-    def write_metadata(
+    def read_wemi_metadata(
+        self, source: Path, source_format: str, context: ProviderContext
+    ) -> WEMIFields:
+        """
+        Return a fixed WEMI reading.
+
+        Example:
+            >>> "read_wemi_metadata" in vars(EpubWEMIMetadata)
+            True
+
+
+        :param source: Unused.
+        :param source_format: Unused.
+        :param context: Unused.
+        :return: The reading in :data:`WEMI_READING`.
+        """
+        return WEMIFields(WEMI_READING)
+
+
+class EpubWriters(Recorded, CalibreMetadataWriter, WEMIMetadataWriter):
+    """
+    Accept both kinds of EPUB metadata write without doing anything.
+
+    Example:
+        >>> sorted(EpubWriters.calibre_write_formats)
+        ['epub']
+    """
+
+    provider_id = "epub.metadata-writers.test"
+    calibre_write_formats = frozenset({"epub"})
+    wemi_write_formats = frozenset({"epub"})
+
+    def write_calibre_metadata(
         self,
         target: Path,
         target_format: str,
-        fields: MetadataFields,
+        fields: CalibreFields,
         context: ProviderContext,
     ) -> None:
         """
         Do nothing.
 
         Example:
-            >>> "write_metadata" in vars(EpubWriter)
+            >>> "write_calibre_metadata" in vars(EpubWriters)
+            True
+
+
+        :param target: Unused.
+        :param target_format: Unused.
+        :param fields: Unused.
+        :param context: Unused.
+        :return: None.
+        """
+
+    def write_wemi_metadata(
+        self,
+        target: Path,
+        target_format: str,
+        fields: WEMIFields,
+        context: ProviderContext,
+    ) -> None:
+        """
+        Do nothing.
+
+        Example:
+            >>> "write_wemi_metadata" in vars(EpubWriters)
             True
 
 
@@ -134,17 +208,18 @@ class EpubWriter(Recorded, MetadataWriter):
         """
 
 
-def test_a_reading_holds_calibre_fields_as_frozen_json() -> None:
+def test_calibre_fields_hold_frozen_json() -> None:
     """
     Store lists as tuples and objects as read-only mappings.
 
     Example:
-        >>> test_a_reading_holds_calibre_fields_as_frozen_json()
+        >>> test_calibre_fields_hold_frozen_json()
 
 
     :return: None after each kind of value is checked.
     """
-    fields = MetadataFields(READING)
+    fields = CalibreFields(READING)
+    assert CalibreFields.model == "calibre"
     assert fields.values["authors"] == ("José", "Иван")
     assert fields.values["languages"] == ()
     assert fields.values["comments"] is None
@@ -156,21 +231,21 @@ def test_a_reading_holds_calibre_fields_as_frozen_json() -> None:
     assert genre["#genre"] == {"value": ("novel",), "datatype": "text"}
 
 
-def test_a_reading_cannot_change_after_it_is_made() -> None:
+def test_fields_cannot_change_after_they_are_made() -> None:
     """
-    Refuse changes to the reading, its mapping and the values inside it.
+    Refuse changes to either kind of fields and the values inside them.
 
-    A change to the dictionary the reading was made from does not reach it
+    A change to the dictionary the fields were made from does not reach them
     either.
 
     Example:
-        >>> test_a_reading_cannot_change_after_it_is_made()
+        >>> test_fields_cannot_change_after_they_are_made()
 
 
     :return: None after each kind of change is refused.
     """
     source: dict[str, object] = {"tags": ["a"], "identifiers": {"isbn": "1"}}
-    fields = MetadataFields(source)
+    fields = CalibreFields(source)
     source["tags"] = ["changed"]
     assert fields.values["tags"] == ("a",)
     with pytest.raises(dataclasses.FrozenInstanceError):
@@ -182,23 +257,37 @@ def test_a_reading_cannot_change_after_it_is_made() -> None:
     with pytest.raises(TypeError):
         identifiers["isbn"] = "2"
 
+    wemi = WEMIFields(WEMI_READING)
+    with pytest.raises(TypeError):
+        wemi.levels["item"] = {}
+    with pytest.raises(TypeError):
+        wemi.levels["work"]["titles"] = ()
 
-def test_the_document_round_trips_exactly() -> None:
+
+@pytest.mark.parametrize(
+    ("kind", "values"),
+    [(CalibreFields, READING), (WEMIFields, WEMI_READING)],
+)
+def test_the_document_round_trips_exactly(
+    kind: type[CalibreFields] | type[WEMIFields], values: dict[str, object]
+) -> None:
     """
     Write a reading as JSON and read the same reading back.
 
     Example:
-        >>> test_the_document_round_trips_exactly()
+        >>> test_the_document_round_trips_exactly(CalibreFields, READING)
 
 
+    :param kind: The fields class.
+    :param values: What to build it from.
     :return: None after the document and the round trip are checked.
     """
-    fields = MetadataFields(READING)
+    fields = kind(values)
     document = fields.to_document()
     assert "Καλημέρα" in document and "\\u" not in document
-    assert list(json.loads(document)) == sorted(READING)
-    assert MetadataFields.from_document(document) == fields
-    assert MetadataFields.from_document(document).to_document() == document
+    assert list(json.loads(document)) == sorted(values)
+    assert kind.from_document(document) == fields
+    assert kind.from_document(document).to_document() == document
 
 
 @pytest.mark.parametrize(
@@ -216,14 +305,14 @@ def test_the_document_round_trips_exactly() -> None:
         ({"authors": ["a", object()]}, r"authors\[1\] holds an object"),
     ],
 )
-def test_a_reading_refuses_what_json_cannot_hold(
+def test_calibre_fields_refuse_what_json_cannot_hold(
     values: dict[object, object], message: str
 ) -> None:
     """
     Refuse names and values a JSON document could not store faithfully.
 
     Example:
-        >>> test_a_reading_refuses_what_json_cannot_hold({"": 1}, "non-empty")  # doctest: +SKIP
+        >>> test_calibre_fields_refuse_what_json_cannot_hold({"": 1}, "non-empty")  # doctest: +SKIP
 
 
     :param values: A mapping with one unacceptable name or value.
@@ -231,7 +320,54 @@ def test_a_reading_refuses_what_json_cannot_hold(
     :return: None after the mapping is refused.
     """
     with pytest.raises(MetadataFieldsError, match=message):
-        MetadataFields(values)
+        CalibreFields(values)
+
+
+@pytest.mark.parametrize(
+    ("levels", "message"),
+    [
+        ({"edition": {"title": "x"}}, "'edition' is not a WEMI level"),
+        ({"Work": {"title": "x"}}, "'Work' is not a WEMI level"),
+        ({"work": ["A Book"]}, "work fields must be a mapping"),
+        ({"item": {"": 1}}, "a field name in item fields"),
+        ({"manifestation": {"pubdate": datetime(2026, 1, 1)}}, "pubdate holds"),
+        (["work"], "levels must be a mapping"),
+    ],
+)
+def test_wemi_fields_take_only_the_four_levels(levels: object, message: str) -> None:
+    """
+    Refuse unknown levels and malformed fields within a level.
+
+    Example:
+        >>> test_wemi_fields_take_only_the_four_levels({"edition": {}}, "edition")  # doctest: +SKIP
+
+
+    :param levels: Something that is not a valid WEMI reading.
+    :param message: Part of the expected error message.
+    :return: None after it is refused.
+    """
+    with pytest.raises(MetadataFieldsError, match=message):
+        WEMIFields(levels)
+
+
+def test_wemi_fields_keep_levels_apart() -> None:
+    """
+    Hold each level's fields separately, and allow levels to be absent.
+
+    Example:
+        >>> test_wemi_fields_keep_levels_apart()
+
+
+    :return: None after the levels are read back.
+    """
+    fields = WEMIFields(WEMI_READING)
+    assert WEMIFields.model == "wemi"
+    assert WEMI_LEVELS == ("work", "expression", "manifestation", "item")
+    assert set(fields.levels) == {"work", "expression", "manifestation"}
+    creators = fields.levels["work"]["creators"]
+    assert isinstance(creators, tuple)
+    assert creators[1] == {"name": "Иван", "role": "translators"}
+    assert WEMIFields({}).to_document() == "{}"
 
 
 def test_a_stored_document_must_be_an_object() -> None:
@@ -244,10 +380,11 @@ def test_a_stored_document_must_be_an_object() -> None:
 
     :return: None after an array and broken JSON are refused.
     """
-    with pytest.raises(MetadataFieldsError, match="JSON object"):
-        MetadataFields.from_document('["title"]')
-    with pytest.raises(json.JSONDecodeError):
-        MetadataFields.from_document("{title")
+    for kind in (CalibreFields, WEMIFields):
+        with pytest.raises(MetadataFieldsError, match="JSON object"):
+            kind.from_document('["title"]')
+        with pytest.raises(json.JSONDecodeError):
+            kind.from_document("{title")
 
 
 def test_a_cover_needs_bytes_and_a_format_name() -> None:
@@ -269,8 +406,10 @@ def test_a_cover_needs_bytes_and_a_format_name() -> None:
 @pytest.mark.parametrize(
     ("base", "attribute"),
     [
-        (MetadataReader, "metadata_read_formats"),
-        (MetadataWriter, "metadata_write_formats"),
+        (CalibreMetadataReader, "calibre_read_formats"),
+        (WEMIMetadataReader, "wemi_read_formats"),
+        (CalibreMetadataWriter, "calibre_write_formats"),
+        (WEMIMetadataWriter, "wemi_write_formats"),
         (CoverExtractor, "cover_source_formats"),
     ],
 )
@@ -279,7 +418,7 @@ def test_metadata_providers_declare_their_formats(base: type, attribute: str) ->
     Require each metadata capability to declare normalised formats.
 
     Example:
-        >>> test_metadata_providers_declare_their_formats(MetadataReader, "metadata_read_formats")  # doctest: +SKIP
+        >>> test_metadata_providers_declare_their_formats(CoverExtractor, "cover_source_formats")  # doctest: +SKIP
 
 
     :param base: The capability class.
@@ -297,9 +436,25 @@ def test_metadata_providers_declare_their_formats(base: type, attribute: str) ->
     ).validate_declaration()
 
 
+def test_family_parents_are_not_capabilities() -> None:
+    """
+    Refuse a provider that subclasses only a family parent.
+
+    Example:
+        >>> test_family_parents_are_not_capabilities()
+
+
+    :return: None after both family parents are refused.
+    """
+    registry = ProviderRegistry()
+    for family in (MetadataReader, MetadataWriter):
+        with pytest.raises(ProviderDefinitionError, match="offers no capability"):
+            registry.register(declare(f"Only{family.__name__}", Recorded, family))
+
+
 def test_the_registry_finds_metadata_providers_by_capability() -> None:
     """
-    File a reader that also extracts covers under both capabilities.
+    File each provider under every capability it offers.
 
     Example:
         >>> test_the_registry_finds_metadata_providers_by_capability()
@@ -308,31 +463,70 @@ def test_the_registry_finds_metadata_providers_by_capability() -> None:
     :return: None after each metadata query is run.
     """
     registry = ProviderRegistry()
-    registry.register(EpubMetadata)
-    registry.register(EpubWriter)
+    for provider in (EpubMetadata, EpubWEMIMetadata, EpubWriters):
+        registry.register(provider)
 
-    assert capabilities_of(EpubMetadata) == (MetadataReader, CoverExtractor)
-    assert registry.metadata_readers(".EPUB") == (EpubMetadata,)
+    assert capabilities_of(EpubMetadata) == (CalibreMetadataReader, CoverExtractor)
+    assert capabilities_of(EpubWriters) == (CalibreMetadataWriter, WEMIMetadataWriter)
+    assert registry.calibre_metadata_readers(".EPUB") == (EpubMetadata,)
+    assert registry.wemi_metadata_readers("epub") == (EpubWEMIMetadata,)
     assert registry.cover_extractors("epub") == (EpubMetadata,)
-    assert registry.metadata_writers("epub") == (EpubWriter,)
-    assert registry.metadata_readers("pdf") == ()
+    assert registry.calibre_metadata_writers("epub") == (EpubWriters,)
+    assert registry.wemi_metadata_writers("epub") == (EpubWriters,)
+    assert registry.calibre_metadata_readers("pdf") == ()
     assert registry.oeb_importers("epub") == ()
 
 
-def test_a_reader_returns_a_reading_and_an_extractor_a_cover(tmp_path: Path) -> None:
+def test_wemi_readers_come_before_calibre_readers() -> None:
     """
-    Call both capabilities of one provider.
+    List WEMI readers first, whatever the priorities and registration order.
+
+    A WEMI reading of a file outranks a calibre reading of the same file.
 
     Example:
-        >>> test_a_reader_returns_a_reading_and_an_extractor_a_cover(Path.cwd())  # doctest: +SKIP
+        >>> test_wemi_readers_come_before_calibre_readers()
+
+
+    :return: None after mixed readers are listed.
+    """
+    favoured_calibre = declare(
+        "FavouredCalibre", EpubMetadata, provider_id="epub.favoured", priority=50
+    )
+    both = declare(
+        "Both",
+        EpubWEMIMetadata,
+        CalibreMetadataReader,
+        provider_id="epub.both",
+        calibre_read_formats=frozenset({"epub"}),
+        read_calibre_metadata=EpubMetadata.read_calibre_metadata,
+    )
+    registry = ProviderRegistry()
+    for provider in (favoured_calibre, EpubMetadata, EpubWEMIMetadata, both):
+        registry.register(provider)
+
+    assert [found.provider_id for found in registry.metadata_readers("epub")] == [
+        "epub.wemi-metadata.test",
+        "epub.both",
+        "epub.favoured",
+        "epub.metadata.test",
+    ]
+
+
+def test_readers_return_their_model_and_extractors_a_cover(tmp_path: Path) -> None:
+    """
+    Call each capability of the test providers.
+
+    Example:
+        >>> test_readers_return_their_model_and_extractors_a_cover(Path.cwd())  # doctest: +SKIP
 
 
     :param tmp_path: Pytest scratch folder standing in for the file.
-    :return: None after both results are checked.
+    :return: None after each result is checked.
     """
-    provider = EpubMetadata()
     book = tmp_path / "book.epub"
-    reading = provider.read_metadata(book, "epub", None)
-    cover = provider.extract_cover(book, "epub", None)
-    assert reading.values["title"] == READING["title"]
+    calibre = EpubMetadata().read_calibre_metadata(book, "epub", None)
+    wemi = EpubWEMIMetadata().read_wemi_metadata(book, "epub", None)
+    cover = EpubMetadata().extract_cover(book, "epub", None)
+    assert calibre.values["title"] == READING["title"]
+    assert wemi.levels["expression"]["languages"] == ("ell", "zho")
     assert cover == CoverImage(b"\x89", "png")
