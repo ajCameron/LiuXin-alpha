@@ -2,8 +2,13 @@
 
 Date: 2026-11-16
 
-Status: **Proposal for review. Nothing here is implemented.**
+Status: **Proposal for review.** Build steps 1 and 2 are in draft pull
+requests #171 and #172; nothing here is merged.
 Source checkpoint: `main` at `2d2a9cc3`.
+
+Revised on 2026-11-17: the maintainer accepted the recommendations on metadata
+readings and claims. [Readings and claims](#readings-and-claims) now records
+them as decisions.
 
 Revised later on 2026-11-16: the first draft overlooked the conversion edge
 registry, the conversion report and the planned conversion tasks that already
@@ -33,8 +38,9 @@ columns are open to change in review.
   the same format, so compression, OCR and repair pipelines fit.
 - **Transforms** between import and export are their own capability and run in
   fixed, named stages.
-- Each run records **which provider ran on which file**, and each metadata
-  value records **which run claimed it**.
+- Each run records **which provider ran on which file**. Everything a
+  metadata source says is kept as a **reading**, and each value the catalogue
+  accepts records **which reading it came from**.
 
 ## Why change
 
@@ -95,7 +101,12 @@ How the pieces line up:
 | Output of a same-format route | Stays within the same Manifestation, recorded as derived; the original stays | **Decided** |
 | Strict WEMI for derived files | No project-specific exceptions | **Decided** |
 | Output of a format conversion | A derived Manifestation, linked to its source | **Decided** |
-| Provenance of metadata claims | A new table | **Decided** |
+| Provenance of metadata claims | New tables: one for readings, one for accepted claims | **Decided** |
+| How much of a read is recorded | The whole reading as one JSON document per read, plus a row for each value the catalogue accepts | **Decided** 2026-11-17 |
+| Vocabulary of a reading | calibre's `Metadata` field names, recorded against the file; one mapping assigns each field to a WEMI level when a value is accepted | **Decided** 2026-11-17 |
+| Who writes readings | Tables designed for file readers, online sources and manual edits; file readers wired first | **Decided** 2026-11-17 |
+| Precedence between sources | A manual edit outranks an online source, which outranks the file | **Decided** 2026-11-17 |
+| Keeping readings | Every reading is kept | **Decided** 2026-11-17 |
 | Transforms | Own capability, run in fixed stages | **Decided**; how stages are added is still open |
 | Capability names; `CoverExtractor` separate from `MetadataReader` | As listed below | **Decided** |
 | Import and export classes | A separate class per intermediate | **Decided** |
@@ -113,7 +124,7 @@ Each capability is one abstract base class with one typed entry point.
 
 | Base class | Turns | Replaces today |
 | --- | --- | --- |
-| `MetadataReader` | a file into metadata claims | `MetadataReaderPlugin` |
+| `MetadataReader` | a file into a metadata reading | `MetadataReaderPlugin` |
 | `MetadataWriter` | metadata into a file | `MetadataWriterPlugin` |
 | `CoverExtractor` | a file into a cover image | cover logic inside readers |
 | `OEBImporter`, `HTMLImporter` | a format into that intermediate | `InputFormatPlugin` |
@@ -148,7 +159,7 @@ class MetadataReader(Provider):
     formats: ClassVar[frozenset[str]]
 
     @abstractmethod
-    def read_metadata(self, source: BinaryIO, fmt: str) -> MetadataClaims: ...
+    def read_metadata(self, source: BinaryIO, fmt: str) -> MetadataReading: ...
 
 
 class Importer(Provider):
@@ -489,70 +500,89 @@ Nothing records where a metadata value came from. Identifiers have a free-text
 source. The question "which plugin run, on which file, said this PDF has this
 author" cannot be answered.
 
-### Proposed
+### Readings and claims
 
-A metadata read is a run with an input asset and no output asset, so it can
-reuse `transform_runs`. Two new tables hold the claims and tie catalogue facts
-to them.
+A **reading** is everything one source said about a book at one time: a
+metadata reader's output for one file, the result of one online lookup, or one
+manual edit. A **claim** is one value from a reading that the catalogue
+accepted. A **catalogue fact** is what the library currently holds to be true.
+Keeping the three apart is what lets these questions be answered:
 
-```sql
--- One row per assertion a provider made about a file.
-CREATE TABLE metadata_claims (
-  metadata_claim_id               INTEGER PRIMARY KEY,
-  metadata_claim_run_id           INTEGER NOT NULL,  -- transform_runs
-  metadata_claim_digital_asset_id INTEGER NOT NULL,  -- the file read
-  metadata_claim_field            TEXT NOT NULL,     -- 'creator', 'title', ...
-  metadata_claim_value            TEXT NOT NULL,     -- JSON
-  metadata_claim_status           TEXT NOT NULL      -- 'proposed','accepted','rejected'
-);
-
--- Which claims support a fact stored in the catalogue.
-CREATE TABLE metadata_claim_applications (
-  metadata_claim_application_id       INTEGER PRIMARY KEY,
-  metadata_claim_application_claim_id INTEGER NOT NULL,
-  metadata_claim_application_table    TEXT NOT NULL,
-  metadata_claim_application_row_id   INTEGER NOT NULL
-);
-```
-
-### What a claim is, and the two open choices
-
-A **claim** is evidence: a named source said this value about this file. A
-**catalogue fact** is what the library currently holds to be true. Keeping the
-two apart is what allows the questions below to be answered:
-
-- Why does the catalogue say this? Follow the fact to its claims.
+- Why does the catalogue say this? Follow the fact to its claim, and the claim
+  to its reading.
 - A reader had a bug. Which facts rest only on claims from that provider and
   version?
 - The file, an online source and a person disagree. What did each say?
 - A better reader exists now. What would change if it were used?
 
-**Choice 1: how much to record.**
+The maintainer decided the following on 2026-11-17.
 
-| Option | Stored | Good for | Cost |
-| --- | --- | --- | --- |
-| Every value as a row | One row per field per read | Full evidence, queryable | About ten to twenty rows per file read; tens of millions of rows for a large archive |
-| Accepted values only | One row per value that reached the catalogue | Small | Rejected alternatives are lost; re-deciding means reading the files again, which is expensive when they are offline or on tape |
-| Reading kept whole, accepted values as rows | One JSON document per read, plus a row per accepted value | Full evidence kept cheaply; explanations for every stored fact | Rejected values are searchable only by opening the document |
+1. **The whole reading is kept, and accepted values get rows.** Each read
+   stores one JSON document holding every field and value the source gave.
+   Each value the catalogue accepts gets one claim row that points at the
+   reading and at the fact it supports. Rejected values stay in the document,
+   so re-deciding never means reading the file again, which matters when the
+   file is offline or on tape. The cost is one row per read, rather than ten
+   to twenty.
+2. **Readings use calibre's field names.** Every existing reader already
+   returns calibre's `Metadata` fields (title, authors, series, identifiers,
+   publication date and so on), so no reader has to be rewritten. A reading
+   is recorded against the file it came from. One mapping, kept in code,
+   decides which WEMI level and table each field lands on when a value is
+   accepted: for example authors to the Work and publisher to the
+   Manifestation. The full mapping is drafted with the metadata reader work.
+3. **The tables serve all three sources; file readers come first.** File
+   readers, online sources and manual edits all produce readings. File
+   readers are wired first. Until the other two are, a fact with no claim
+   means "origin not recorded"; it does not mean "came from a file".
+4. **A manual edit outranks an online source, which outranks the file.** A
+   reading that disagrees with a fact held by a higher-ranked claim is kept,
+   and the fact does not change. A re-read therefore never overwrites a
+   person's correction.
+5. **Every reading is kept.** Reading a file again adds a reading; it does not
+   replace the earlier one. A claim that a higher-ranked one replaces is
+   marked as superseded, not deleted.
 
-Recommended: the third. It keeps everything a reader said, at one row per
-read, and gives row-level links only where the catalogue needs them.
+A metadata read is a run with an input asset and no output asset, so it can
+reuse `transform_runs`. An online lookup is a run with no input asset. A
+manual edit is not a run; its reading names the person instead.
 
-**Choice 2: who writes claims.**
+```sql
+-- One row per reading: everything one source said, kept whole.
+CREATE TABLE metadata_readings (
+  metadata_reading_id               INTEGER PRIMARY KEY,
+  metadata_reading_source_kind      TEXT NOT NULL,  -- 'file', 'online', 'manual'
+  metadata_reading_run_id           INTEGER,        -- transform_runs; file and online
+  metadata_reading_digital_asset_id INTEGER,        -- the file read; file only
+  metadata_reading_source           TEXT NOT NULL,  -- provider id and version, service, or person
+  metadata_reading_document         TEXT NOT NULL,  -- JSON: every field and value given
+  metadata_reading_recorded_at      TEXT NOT NULL
+);
 
-If only file readers write claims, a fact with no claim is ambiguous: it could
-be a manual edit, an import or a legacy row. If manual edits and online
-sources write claims too, every fact has at least one, and a precedence rule
-becomes possible, for example a person's edit outranks an online source, which
-outranks the file. That rule is what stops a re-read from overwriting a manual
-correction.
+-- One row per catalogue fact a reading supports.
+CREATE TABLE metadata_claims (
+  metadata_claim_id            INTEGER PRIMARY KEY,
+  metadata_claim_reading_id    INTEGER NOT NULL,  -- metadata_readings
+  metadata_claim_field         TEXT NOT NULL,     -- calibre field name, as in the reading
+  metadata_claim_value         TEXT NOT NULL,     -- JSON
+  metadata_claim_target_table  TEXT NOT NULL,     -- where the fact is stored
+  metadata_claim_target_row_id INTEGER NOT NULL,
+  metadata_claim_accepted_at   TEXT NOT NULL,
+  metadata_claim_superseded_at TEXT               -- set when a higher-ranked claim replaces it
+);
+```
 
-The cost is that every catalogue write path has to create a claim, which
-touches the [catalog write contract](../catalog/catalog-write-validation-contract.md).
+One accepted value can support several facts. An authors field naming two
+people becomes two creator links, so it gets two claim rows.
 
-Recommended: design the tables for all three sources now, write claims from
-file readers first, and add manual edits and online sources afterwards. Until
-then a fact without a claim means "origin not recorded".
+Still open: which claim wins between two readings of the **same** rank, for
+example two file readers, or two files of the same Work that disagree. The
+proposal is that the newer accepted reading wins, but this has not been
+reviewed.
+
+Writing claims for manual edits touches every catalogue write path and the
+[catalog write contract](../catalog/catalog-write-validation-contract.md).
+That is why manual edits and online sources are wired after file readers.
 
 The schema change belongs to the
 [databases](../databases/README.md) and [catalog](../catalog/README.md)
@@ -579,7 +609,7 @@ owners; the sketch above is input to them, not a finished design.
 | 3 | Selection: settings default, per-run override, fallback; the report names the provider (CONV01) | Two providers for one format can be chosen between, and the result names the one that ran |
 | 4 | `Converter` capability on one real direct or external edge (CONV03), the `HTMLBook` type with load and save, named routes and route planning | A two-hop route and a same-format route each run by name and are recorded; automatic planning never selects a same-format edge |
 | 5 | `Transform` capability and stages, including the three calibre transforms | `Plumber.run` contains no direct transform calls, and output plugins declare their package transforms |
-| 6 | Provenance: runs written for conversions; claims tables | The run and file behind a stored author can be queried |
+| 6 | Provenance: runs written for conversions; readings and claims tables | The run and file behind a stored author can be queried |
 
 Steps 1 to 3 change no conversion behaviour. Step 5 is the largest.
 
@@ -607,17 +637,18 @@ run without a special case, the bases are right:
 
 Answered on 2026-11-16 and folded into the text above: capability names, a
 separate class per intermediate, transforms as a staged capability, OCR output
-as a separate Item, and free-form route names.
+as a separate Item, and free-form route names. Answered on 2026-11-17: how
+much of a read is recorded, the vocabulary of readings, who writes readings,
+precedence between sources, and keeping every reading (see
+[Readings and claims](#readings-and-claims)).
 
 Still open:
 
 1. How are stages added later: option A, B or C under
    [Adding stages later](#adding-stages-later)?
-2. How much of a read is recorded as claims: choice 1 under
-   [What a claim is](#what-a-claim-is-and-the-two-open-choices)?
-3. Do manual edits and online sources write claims: choice 2 in the same
-   section?
-4. Is the split for compression right: a lossless result is a new Asset on the
+2. Is the split for compression right: a lossless result is a new Asset on the
    same Item, and a lossy result is a new Item?
+3. Between two readings of the same rank, which claim wins? See the end of
+   [Readings and claims](#readings-and-claims).
 
 Return to the [plugins index](README.md).
