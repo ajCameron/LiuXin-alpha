@@ -1,0 +1,71 @@
+name: Cache Long Tests
+
+on:
+  workflow_dispatch:
+    inputs:
+      lane:
+        description: Workload to execute (all requires every backend to pass)
+        type: choice
+        options: [all, synthetic, sqlite, postgres]
+        default: all
+      size:
+        description: Full soak or reduced harness validation
+        type: choice
+        options: [full, smoke]
+        default: full
+      cprofile:
+        description: Profile measured operations (adds timing overhead)
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  cache-long:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: liuxin_test
+          POSTGRES_PASSWORD: liuxin_test
+          POSTGRES_DB: liuxin_test
+        ports: [5432:5432]
+        options: >-
+          --health-cmd "pg_isready -U liuxin_test -d liuxin_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - name: Install cache test dependencies
+        run: python -m pip install ".[test,postgres]" apsw
+      - name: Run selected long lane
+        env:
+          PYTHONPATH: src
+          LIUXIN_TEST_POSTGRES_URL: postgresql://liuxin_test:liuxin_test@localhost:5432/liuxin_test
+          CACHE_LANE: ${{ inputs.lane }}
+          CACHE_SIZE: ${{ inputs.size }}
+          CACHE_CPROFILE: ${{ inputs.cprofile }}
+          CACHE_ARTIFACTS: ${{ runner.temp }}/cache-long
+        shell: bash
+        run: |
+          args=()
+          if [[ "$CACHE_CPROFILE" == true ]]; then
+            args+=(--cprofile)
+          fi
+          python scripts/run_cache_long_tests.py --lane "$CACHE_LANE" --size "$CACHE_SIZE" \
+            --artifacts "$CACHE_ARTIFACTS" "${args[@]}"
+      - name: Preserve long-run evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cache-long-${{ inputs.lane }}-${{ inputs.size }}
+          path: ${{ runner.temp }}/cache-long
+          retention-days: 14
+          if-no-files-found: warn

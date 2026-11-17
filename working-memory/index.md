@@ -1,5 +1,25 @@
 # Working Memory Index
 
+Cache commit batch, **2026-11-17**: the accumulated work is recorded locally on
+`caches-calibre-compat-boundary` in three commits: `b0a27bd7` for the compatibility
+migration, native metadata search and stress repairs; `f412808a` for bounded
+PostgreSQL schema discovery; and the following commit, **Add gated long-running
+cache regressions and manual CI**, for the opt-in longer tests. No push or PR.
+The final tooling selection passed **65 tests**; saved full-lane audits confirm
+all 13 long cases passed. Each commit's staged documentation links, mandatory
+test paths, format scope and whitespace were checked. Unrelated review drafts,
+their existing index entry, the data submodule and stashes remain untouched.
+Earlier “no commit/staging” statements below and in handoffs describe their
+historical checkpoints and are superseded by this publication record.
+
+Gated longer cache tests, **2026-11-17**, complete:
+[handoff](cache-long-tests-2026-11-17.md). Dedicated opt-in runner and manual CI;
+13 native/Calibre and real database cases, full versus smoke workloads, mandatory
+pass auditing, operation timings and optional profiles. **All 13 full cases passed**;
+188 supporting regressions/tooling checks, final runner8, docs22 and format409
+passed. Ordinary pytest skips the long lane. Production code unchanged; private
+PostgreSQL stopped. No staging, commit or remote workflow dispatch.
+
 PostgreSQL schema discovery optimization, **2026-11-17**, complete:
 [handoff](schema-discovery-optimization-2026-11-17.md). Scoped fingerprint reuse
 reduces a complete native schema rebuild from 8,492 probes to two; external

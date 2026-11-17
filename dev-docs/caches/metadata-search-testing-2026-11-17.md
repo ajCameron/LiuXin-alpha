@@ -68,6 +68,10 @@ pinned Calibre files and their existing GPL notices/provenance are unchanged.
 The seeds are fixed so failures reproduce in CI. This is broad deterministic
 sampling, not an exhaustive proof over all expressions or all Unicode locales.
 
+The subsequent [long-running lane](long-running-tests.md) adds opt-in larger
+mutation/query workloads and repeated full database captures. Its dedicated gate
+and evidence distinguish reduced harness validation from full soak completion.
+
 ```sh
 .venv/bin/python -m pytest -q \
   tests/databases/caches/test_search_stress.py \

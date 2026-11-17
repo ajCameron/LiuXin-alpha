@@ -95,6 +95,7 @@ jobs:
             tests/scripts/test_docstring_migration.py \
             tests/scripts/test_developer_documentation_links.py \
             tests/scripts/test_ci_workflow_contracts.py tests/scripts/test_database_regression_ratchet.py \
+            tests/scripts/test_cache_long_runner.py \
             tests/scripts/test_repository_hygiene.py \
             tests/scripts/test_run_type_checks.py \
             tests/scripts/test_run_format_checks.py \

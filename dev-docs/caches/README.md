@@ -69,6 +69,10 @@ priorities and remaining whole-cache sign-off work.
 
 ## Validation
 
+The [long-running cache lane](long-running-tests.md) adds opt-in mutation/query
+soaks and repeated real database captures, with mandatory pass auditing, timings
+and optional call profiles. It has a separate manual CI workflow.
+
 Check lookup completeness, known misses, dirty/read failures, targeted refresh
 and mutation receipts with small fixtures. The
 [storage benchmark](../storage_and_backup/storage_cache_benchmark.md) provides

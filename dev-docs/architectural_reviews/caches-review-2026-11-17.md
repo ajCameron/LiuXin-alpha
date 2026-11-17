@@ -140,5 +140,11 @@ final focused gate passed all 14 new mandatory regressions.
 Candidate/projection work, sorting/pagination and small-invalidation costs remain
 the subsequent optimization targets; the sign-off gaps above remain open.
 
+The subsequent [long-running test lane](../caches/long-running-tests.md) now
+provides opt-in native/Calibre soaks and repeated real database captures, with
+timings, optional call profiles and a manual CI workflow. All 13 full-size cases
+passed their mandatory phase audits. These tests extend the evidence without
+closing the broader lifecycle and registry review items above.
+
 Return to the [cache guide](../caches/README.md) or
 [architecture review index](README.md).
