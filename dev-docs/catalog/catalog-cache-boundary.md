@@ -202,22 +202,28 @@ portable database path.
 The following compatibility areas are not evidence for the modern ownership
 model:
 
-- the older dual-purpose writers under `caches.write`, which still combine
+- dual-purpose writers under `utils.calibre_compat.caches.write`, which combine
   database and Calibre-style map updates;
-- Calibre search-result caching currently located under `catalog.search`;
-- the older cache implementations under `library.caches` and
-  `plugins.cache` (moved from `customize.cache` on 2026-10-19).
+- legacy search-result caching and typed operators under
+  `utils.calibre_compat.caches.search`;
+- retained caches, base contracts, categories and lazy metadata under
+  `utils.calibre_compat.caches`;
+- legacy field descriptor containers under `utils.calibre_compat.metadata`.
+
+Native `database_search.CatalogSearch` and `physical_plan` remain Catalog semantic
+search responsibilities. Native descriptor snapshots and custom-field publication
+belong to caches. The old paths have been removed without forwarding facades;
+see the [implemented structure](../caches/structure.md).
 
 The unused `catalog_macros` facade was removed on 2026-10-30.
 `databases.metadata_sql` retains physical-table helpers without book/title
 projections. Cover-flag writes and legacy format removal refuse effects
 until explicit asset/replica policies are available.
 
-No new modern feature should depend on those shapes. Their long-term owners
-remain a [Catalog roadmap](catalog-roadmap.md) decision; the earlier `utils`
-relocation proposal has not been implemented. Modern cache behaviour remains
-behind its contracts. Any compatibility move must preserve the read/write split
-and must not move reconciliation into Catalog mutations.
+No new modern feature should depend on compatibility shapes. Preserve the
+read/write cache split and keep reconciliation outside Catalog mutations.
+`library.library_metadata`, wider book metadata and Catalog conversion policy
+remain separate review subjects.
 
 ## Enforcement
 

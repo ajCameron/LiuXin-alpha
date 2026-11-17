@@ -12,7 +12,7 @@ import datetime
 import pytest
 
 from LiuXin_alpha.errors import InvalidUpdate
-from LiuXin_alpha.metadata.field_adaptors import (
+from LiuXin_alpha.utils.calibre_compat.metadata.field_adaptors import (
     adapt_identifiers,
     adapt_languages,
     cc_adapt_bool,

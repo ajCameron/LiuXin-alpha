@@ -23,6 +23,11 @@ import tempfile
 import zipfile
 from pathlib import Path, PurePosixPath
 
+try:
+    from scripts.verify_wheel import REQUIRED_MEMBERS, RETIRED_CACHE_PATHS
+except ModuleNotFoundError:
+    from verify_wheel import REQUIRED_MEMBERS, RETIRED_CACHE_PATHS
+
 REPO_ROOT = Path(__file__).resolve().parents[1]
 PACKAGE_ROOT = PurePosixPath("LiuXin_alpha")
 SCHEMA_PACKAGE = PACKAGE_ROOT.joinpath(
@@ -63,12 +68,11 @@ REQUIRED_SCHEMA_SPECS = (
 )
 REQUIRED_MAN_PAGES = ("liuxin.1", "liuxin-ingest.1", "liuxin-ingest-web.1")
 EXCLUDED_PACKAGE_PREFIXES = (
+    *RETIRED_CACHE_PATHS,
     "LiuXin_alpha/customize/",
     "LiuXin_alpha/plugin_system/",
     "LiuXin_tests/",
     "LiuXin_alpha/library/api/",
-    "LiuXin_alpha/library/caches/memory_sqlite/",
-    "LiuXin_alpha/library/caches/numpy/",
     "LiuXin_alpha/library/backup.py",
     "LiuXin_alpha/library/restore.py",
     "LiuXin_alpha/library/legacy.py",
@@ -119,6 +123,10 @@ def _origin_check_program(install_root: Path) -> str:
                 "'LiuXin_alpha.plugins.contracts', 'chardet', 'cssselect', 'cssutils', "
                 "'lxml', 'numpy', 'PIL', 'regex', 'past', 'past.builtins', "
                 "'LiuXin_alpha.utils.image_tools.img', "
+                "'LiuXin_alpha.caches.field_metadata', "
+                "'LiuXin_alpha.utils.calibre_compat.caches.calibre.cache', "
+                "'LiuXin_alpha.utils.calibre_compat.caches.search', "
+                "'LiuXin_alpha.utils.calibre_compat.metadata.field_metadata', "
                 "'LiuXin_alpha.utils.calibre_compat.database_generator', "
                 "'LiuXin_alpha.utils.calibre_compat.database_generator.database_generator', "
                 "'LiuXin_alpha.utils.calibre_compat.database_generator.library_builder')"
@@ -139,6 +147,11 @@ def _origin_check_program(install_root: Path) -> str:
             "    cal_gen.validate_metadata_database(connection)",
             "assert importlib.util.find_spec('LiuXin_alpha.customize') is None",
             "assert importlib.util.find_spec('LiuXin_alpha.plugin_system') is None",
+            f"retired = {tuple(path.removesuffix('/').removesuffix('.py').replace('/', '.') for path in RETIRED_CACHE_PATHS)!r}",
+            "for name in retired:",
+            "    try: spec = importlib.util.find_spec(name)",
+            "    except ModuleNotFoundError: spec = None",
+            "    assert spec is None, name",
             "host = importlib.import_module('LiuXin_alpha.plugins.application')",
             "assert host._initialized_plugins is None",
             "from LiuXin_alpha.utils.image_tools import img",
@@ -171,7 +184,7 @@ def expected_runtime_assets(repo_root: Path = REPO_ROOT) -> frozenset[str]:
 
     schema_source = repo_root / SCHEMA_SOURCE.relative_to(REPO_ROOT)
     schema_package = SCHEMA_PACKAGE
-    expected = {path.as_posix() for path in REQUIRED_MODULE_ASSETS}
+    expected = {path.as_posix() for path in REQUIRED_MODULE_ASSETS} | REQUIRED_MEMBERS
     expected.update(
         (schema_package / filename).as_posix() for filename in REQUIRED_SCHEMA_SPECS
     )

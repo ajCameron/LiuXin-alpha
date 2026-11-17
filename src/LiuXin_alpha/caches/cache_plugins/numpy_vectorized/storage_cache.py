@@ -620,8 +620,8 @@ class NumpyVectorizedMainTableCache(StorageCacheSingleTableAPI):
         """
         Attach the selected database and replace table arrays from all physical rows.
 
-        Fetch get_all_rows(iterator_return=False) and require each returned row to
-        expose row_dict. Set the database reference before fetching. Read/conversion
+        Prefer physical driver row dictionaries; fall back to Row.row_dict for
+        adapters without a physical reader. Set the database reference before fetching. Read/conversion
         failures propagate and do not restore prior attachment or partial cache state.
 
         Example:
@@ -636,8 +636,13 @@ class NumpyVectorizedMainTableCache(StorageCacheSingleTableAPI):
 
         db = _ensure_db(self.db, db)
         self.db = db
-        rows = db.get_all_rows(self.table, iterator_return=False)
-        self._replace_rows(row.row_dict for row in rows)
+        # Physical views can share columns, so do not ask Row to infer their table.
+        reader = getattr(getattr(db, "driver_wrapper", None), "get_all_rows", None)
+        if callable(reader):
+            row_dicts = reader(self.table)
+        else:
+            row_dicts = (row.row_dict for row in db.get_all_rows(self.table, iterator_return=False))
+        self._replace_rows(row_dicts)
 
     def reload(self, db: Any) -> None:
         """
@@ -4845,7 +4850,7 @@ class NumpyVectorizedStorageCache(StorageCacheAPI):
         Force schema discovery and construct unloaded main and directed link tables.
 
         Call get_schema_spec(force_refresh=True). Include every spec flagged as a
-        main table without an additional ID-column check. For interlinks and intralinks,
+        main table with an ID column. Views without an identity are excluded. For interlinks and intralinks,
         skip routes whose endpoints are not included. Build a forward view and, for
         different endpoint names, a reverse view with swapped tables and columns.
         Both retain the same link specification, including its declared cardinality;
@@ -4867,7 +4872,7 @@ class NumpyVectorizedStorageCache(StorageCacheAPI):
         self.main_tables = {
             table_name: NumpyVectorizedMainTableCache(spec, db)
             for table_name, spec in schema.tables.items()
-            if spec.is_main_table
+            if spec.is_main_table and spec.id_column is not None
         }
 
         link_tables: dict[tuple[str, str], NumpyVectorizedLinkTable] = {}

@@ -8,7 +8,7 @@ set, or a calculated projection. A title field, an author list and a format
 summary therefore need different read and write contracts.
 
 [Column metadata](column-metadata.md) declares policies for physical columns.
-[Catalog field metadata](../../src/LiuXin_alpha/catalog/field_metadata.py)
+[Catalog field metadata](../../src/LiuXin_alpha/utils/calibre_compat/metadata/field_metadata.py)
 describes inherited display/search fields and custom fields. These records are
 not interchangeable, and declaring a validator or formatter does not execute it.
 

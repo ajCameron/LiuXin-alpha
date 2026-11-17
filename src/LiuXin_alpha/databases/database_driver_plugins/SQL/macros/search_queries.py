@@ -8,22 +8,17 @@ import re
 from collections.abc import Iterable, Mapping
 from typing import TYPE_CHECKING, Any
 
-if TYPE_CHECKING:
-    from .portable_macros_mixin import SQLPortableMacrosMixin
-
-type SearchGuard = tuple[str, str, tuple[Any, ...]]
-type CompiledPredicate = tuple[str, tuple[Any, ...], list[SearchGuard]]
-
 from LiuXin_alpha.databases.db_types.macro_types import LINK_TYPE_UNSET
 from LiuXin_alpha.databases.db_types.query_types import (
     BooleanMatch,
+    ComparisonMatch,
     ForeignMatch,
     IdentifierMatch,
     LinkedMatch,
     MissingSearchReference,
+    RowPredicate,
     TextMatch,
     ValueMatch,
-    RowPredicate,
 )
 from LiuXin_alpha.databases.search_functions import (
     IDENTIFIER_KEY_FUNCTION,
@@ -31,6 +26,12 @@ from LiuXin_alpha.databases.search_functions import (
     normalized_identifier_key,
 )
 from LiuXin_alpha.errors import InputIntegrityError
+
+if TYPE_CHECKING:
+    from .portable_macros_mixin import SQLPortableMacrosMixin
+
+type SearchGuard = tuple[str, str, tuple[Any, ...]]
+type CompiledPredicate = tuple[str, tuple[Any, ...], list[SearchGuard]]
 
 
 def _q(name: str) -> str:
@@ -105,6 +106,40 @@ class PredicateCompiler:
                     [],
                 )
             )
+        if isinstance(predicate, ComparisonMatch):
+            self.columns(table, (predicate.column,))
+            column = f"{alias}.{_q(predicate.column)}"
+            op, value = predicate.operator, predicate.value
+            if op == "eq":
+                return self.compile(table, alias, ValueMatch(predicate.column, value))
+            if op == "ne":
+                sql, values, guards = self.compile(
+                    table, alias, ValueMatch(predicate.column, value)
+                )
+                return f"NOT ({sql})", values, guards
+            if op == "is_null":
+                return f"{column} IS {'NOT ' if value is False else ''}NULL", (), []
+            operators = {"lt": "<", "lte": "<=", "gt": ">", "gte": ">="}
+            if op in operators:
+                return f"COALESCE({column} {operators[op]} ?, 0)", (value,), []
+            if op == "in":
+                return self.compile(
+                    table,
+                    alias,
+                    BooleanMatch(
+                        "or",
+                        tuple(ValueMatch(predicate.column, item) for item in value),
+                    ),
+                )
+            if op == "contains":
+                return f"COALESCE(instr({column}, ?) > 0, 0)", (value,), []
+            if op == "prefix":
+                return (
+                    f"COALESCE(substr({column}, 1, length(?)) = ?, 0)",
+                    (value, value),
+                    [],
+                )
+            raise InputIntegrityError("Comparison requires cache execution")
         if isinstance(predicate, BooleanMatch):
             if predicate.operator not in {"and", "or", "not"}:
                 raise InputIntegrityError("Unknown predicate operator")
@@ -266,7 +301,9 @@ def find_rows(
     for name, guard, args in guards:
         aliases: dict[str, str] = {}
 
-        def canonical_alias(match: re.Match[str]) -> str:
+        def canonical_alias(
+            match: re.Match[str], aliases: dict[str, str] = aliases
+        ) -> str:
             """Normalize generated aliases so equivalent dangling-reference guards are checked once."""
             return aliases.setdefault(match[0], f"a{len(aliases)}")
 

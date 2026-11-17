@@ -445,5 +445,6 @@ responsibilities, used nullable table/column strings instead of a stable link
 specification, and had no live consumers or direct tests.
 
 It is intentionally removed rather than retained as a template. The live
-`caches.write` hierarchy is outside this decision and remains in place until
-its callers are migrated deliberately.
+writer hierarchy was outside that removal. It now lives under
+`utils.calibre_compat.caches.write`, with callers migrated and old imports removed;
+see the [cache structure](../caches/structure.md).

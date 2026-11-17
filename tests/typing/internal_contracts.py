@@ -985,10 +985,12 @@ def custom_column_service_contracts(
     db: DatabaseAPI, cache: CustomColumnCache, connection: SQLConnection
 ) -> None:
     """Require real cache operations and preserve ID/row/definition result shapes."""
-    from LiuXin_alpha.catalog.api.field_metadata_api import FieldMetadataAPI
-    from LiuXin_alpha.catalog.field_metadata import FieldMetadata
     from LiuXin_alpha.utils.calibre_compat.custom_columns import (
         CustomColumns,
+    )
+    from LiuXin_alpha.utils.calibre_compat.metadata.field_metadata import FieldMetadata
+    from LiuXin_alpha.utils.calibre_compat.metadata.field_metadata_api import (
+        FieldMetadataAPI,
     )
 
     metadata: FieldMetadataAPI = FieldMetadata()

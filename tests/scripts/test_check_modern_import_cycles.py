@@ -452,15 +452,19 @@ def test_gate_rejects_every_cycle_context(
 @pytest.mark.parametrize(
     ("owner", "statement", "reason"),
     [
-        ("caches/write/child.py", "from . import BaseWriter", "assembling package"),
         (
-            "caches/write/generic/child.py",
+            "utils/calibre_compat/caches/write/child.py",
+            "from . import BaseWriter",
+            "assembling package",
+        ),
+        (
+            "utils/calibre_compat/caches/write/generic/child.py",
             "from .. import BaseWriter",
             "assembling package",
         ),
         (
-            "caches/write/child.py",
-            "import LiuXin_alpha.caches.write as writers",
+            "utils/calibre_compat/caches/write/child.py",
+            "import LiuXin_alpha.utils.calibre_compat.caches.write as writers",
             "assembling package",
         ),
         (
@@ -561,6 +565,26 @@ def test_gate_rejects_every_cycle_context(
             "from LiuXin_alpha.core import CoreClientAPI",
             "independent leaves",
         ),
+        (
+            "caches/cache_plugins/example.py",
+            "from LiuXin_alpha.utils.calibre_compat.caches.base import BaseCache",
+            "legacy cache contracts",
+        ),
+        (
+            "caches/field_metadata.py",
+            "from LiuXin_alpha.utils.calibre_compat.metadata.field_metadata import FieldMetadata",
+            "legacy cache contracts",
+        ),
+        (
+            "catalog/search/database_search.py",
+            "from LiuXin_alpha.utils.calibre_compat.caches.search import Search",
+            "legacy cache contracts",
+        ),
+        (
+            "core/services.py",
+            "from LiuXin_alpha.utils.calibre_compat.metadata.field_adaptors import get_adapter",
+            "legacy cache contracts",
+        ),
     ],
 )
 @pytest.mark.parametrize("context", tuple(ImportKind))
@@ -621,7 +645,7 @@ def test_direction_rules_allow_owner_imports_and_application_composition(
         place.
     """
     _write(
-        tmp_path / "LiuXin_alpha/caches/write/child.py",
+        tmp_path / "LiuXin_alpha/utils/calibre_compat/caches/write/child.py",
         "from .base_writer import BaseWriter\n",
     )
     _write(

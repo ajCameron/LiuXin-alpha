@@ -119,6 +119,15 @@ class StorageCacheAPI(abc.ABC):
     #: Storage-facing fields, keyed by field name.
     fields: Mapping[FieldKey, FieldBasicInterfaceAPI[Any]]
 
+    def query_view(self) -> StorageCacheAPI:
+        """Return the read view for one composed query.
+
+        Snapshot plugins reuse themselves. A live plugin may capture an ephemeral
+        view to avoid rebuilding state for every field read. This method adds no
+        transaction, and the caller must not close the returned borrowed view.
+        """
+        return self
+
     def __init__(self, db: Optional["DatabaseAPI"]) -> None:
         """
         Retain the optional database reference for later backend initialization.

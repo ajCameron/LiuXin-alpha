@@ -29,7 +29,7 @@ class TestCacheImportAPIs:
 
         :return: None; failed expectations raise AssertionError.
         """
-        from LiuXin_alpha.library.caches.base_calibre.fields import BaseField
+        from LiuXin_alpha.utils.calibre_compat.caches.base_calibre.fields import BaseField
 
         assert BaseField is not None
 

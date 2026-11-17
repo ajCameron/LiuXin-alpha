@@ -16,6 +16,7 @@ from collections.abc import Iterable, Iterator, KeysView, Mapping
 from dataclasses import dataclass, field
 from types import MappingProxyType
 from typing import Any, Generic, Optional, TypeVar
+from LiuXin_alpha.databases.db_types.query_types import RowPredicate
 
 from LiuXin_alpha.caches.api.storage_cache_api.storage_cache_api import (
     StorageCacheAPI,
@@ -414,6 +415,7 @@ class CacheQuery:
     by precedence; an empty sort uses row IDs. projection selects result fields,
     with an empty projection requesting full rows. offset and limit control
     paging; None means no limit and zero returns no visible rows.
+    where adds a physical Boolean predicate tree, intersected with these filters.
 
     Construction converts predicates, text_fields, sort and projection to tuples
     and rejects negative paging values. Elements remain shared. Type annotations
@@ -434,6 +436,8 @@ class CacheQuery:
     projection: tuple[str, ...] = ()
     offset: int = 0
     limit: Optional[int] = None
+    # Physical Boolean tree, composed with the other filters by intersection.
+    where: RowPredicate | None = None
 
     def __post_init__(self) -> None:
         """

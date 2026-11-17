@@ -219,6 +219,8 @@ class ReadCache(CacheAPI):
         storage: StorageCacheAPI | None = None,
         storage_type: str = "schema_backed",
         storage_kwargs: Mapping[str, Any] | None = None,
+        plan_cache_size: int = 100,
+        result_cache_size: int = 50,
     ) -> None:
         """
         Attach a backend and initialize an empty facade without loading data.
@@ -255,11 +257,15 @@ class ReadCache(CacheAPI):
         self._lock = threading.RLock()
         self._state = CacheState.EMPTY
         self._generation = 0
+        self._pending_query_results: list[tuple[CacheQuery, frozenset[int]]] | None = None
+        self._full_reload_required = False
         self._dirty_tables: set[str] = set()
         self._dirty_ids: dict[str, set[int]] = {}
         self._dirty_links: set[tuple[str, str]] = set()
         self._dirty_fields: set[str] = set()
-        self._query_engine = CacheQueryEngine(self.storage)
+        self._query_engine = CacheQueryEngine(
+            self.storage, plan_cache_size=plan_cache_size, result_cache_size=result_cache_size,
+        )
 
     @classmethod
     def from_storage(cls, storage: StorageCacheAPI) -> ReadCache:
@@ -372,11 +378,15 @@ class ReadCache(CacheAPI):
 
         :return: None when basic readiness holds; DIRTY is allowed for later refresh.
         :raises CacheClosedError: The facade is closed.
-        :raises CacheNotReadyError: The facade is EMPTY or storage reports that it is uninitialized.
+        :raises CacheNotReadyError: The facade is EMPTY, or storage is uninitialized
+            outside a pending full recovery.
         """
 
         self._assert_open()
-        if self._state == CacheState.EMPTY or not self.storage.is_initialized:
+        recovering = self._state == CacheState.DIRTY and self._full_reload_required
+        if self._state == CacheState.EMPTY or (
+            not self.storage.is_initialized and not recovering
+        ):
             raise CacheNotReadyError("Cache has not been loaded")
 
     def _advance_generation(self) -> None:
@@ -395,6 +405,27 @@ class ReadCache(CacheAPI):
 
         self._generation += 1
         self._query_engine.reset()
+
+    def _run_full_refresh(
+        self, operation: Any, *, final_state: CacheState = CacheState.READY
+    ) -> None:
+        """Publish a complete lifecycle operation, or require recovery after failure."""
+        self._pending_query_results = None
+        self._state = CacheState.DIRTY
+        self._full_reload_required = True
+        self._query_engine.reset()
+        try:
+            operation()
+        except Exception:
+            self._advance_generation()
+            raise
+        self._dirty_tables.clear()
+        self._dirty_ids.clear()
+        self._dirty_links.clear()
+        self._dirty_fields.clear()
+        self._full_reload_required = False
+        self._state = final_state
+        self._advance_generation()
 
     def load(self) -> None:
         """
@@ -415,13 +446,7 @@ class ReadCache(CacheAPI):
 
         with self._lock:
             self._assert_open()
-            self.storage.read()
-            self._dirty_tables.clear()
-            self._dirty_ids.clear()
-            self._dirty_links.clear()
-            self._dirty_fields.clear()
-            self._state = CacheState.READY
-            self._advance_generation()
+            self._run_full_refresh(self.storage.read)
 
     def reload(self) -> None:
         """
@@ -442,13 +467,7 @@ class ReadCache(CacheAPI):
 
         with self._lock:
             self._assert_open()
-            self.storage.reload()
-            self._dirty_tables.clear()
-            self._dirty_ids.clear()
-            self._dirty_links.clear()
-            self._dirty_fields.clear()
-            self._state = CacheState.READY
-            self._advance_generation()
+            self._run_full_refresh(self.storage.reload)
 
     def reload_data(self) -> None:
         """
@@ -456,7 +475,8 @@ class ReadCache(CacheAPI):
 
         Under the lock, call storage.reload_data when callable; otherwise call
         storage.reload. This wrapper does not promise that the optional method avoids
-        schema discovery. Backend failures propagate before the facade state reset.
+        schema discovery. A failed refresh leaves the facade DIRTY and requires
+        a full reload before another read.
 
         Example:
             ``cache.reload_data()`` uses the backend's data-refresh method when supplied.
@@ -469,24 +489,18 @@ class ReadCache(CacheAPI):
         with self._lock:
             self._assert_open()
             reload_data = getattr(self.storage, "reload_data", None)
-            if callable(reload_data):
-                reload_data()
-            else:
-                self.storage.reload()
-            self._dirty_tables.clear()
-            self._dirty_ids.clear()
-            self._dirty_links.clear()
-            self._dirty_fields.clear()
-            self._state = CacheState.READY
-            self._advance_generation()
+            self._run_full_refresh(
+                reload_data if callable(reload_data) else self.storage.reload
+            )
 
     def clear(self) -> None:
         """
         Discard cached state while leaving the facade available for loading.
 
-        Under the lock, call storage.clear before clearing dirty dependencies,
-        setting EMPTY and advancing generation. Retain the facade database reference.
-        Backend failures propagate before the facade state reset.
+        Under the lock, evict query state before calling storage.clear. Success
+        clears dirty dependencies, sets EMPTY and advances generation. A partial
+        backend failure leaves DIRTY state requiring full recovery. Retain the
+        facade database reference.
 
         Example:
             Call ``cache.load()`` after ``cache.clear()`` before reading again.
@@ -498,22 +512,18 @@ class ReadCache(CacheAPI):
 
         with self._lock:
             self._assert_open()
-            self.storage.clear()
-            self._dirty_tables.clear()
-            self._dirty_ids.clear()
-            self._dirty_links.clear()
-            self._dirty_fields.clear()
-            self._state = CacheState.EMPTY
-            self._advance_generation()
+            self._run_full_refresh(self.storage.clear, final_state=CacheState.EMPTY)
 
     def close(self) -> None:
         """
         Release storage resources and end the facade lifecycle.
 
         Under the lock, return immediately if already CLOSED. Otherwise call
-        storage.close, clear dirty dependencies, set CLOSED and advance generation.
+        storage.close after evicting query state, clear dirty dependencies, set
+        CLOSED and advance generation.
         Storage owns resource-release policy; this wrapper does not call database.close.
-        A storage failure propagates before the lifecycle state changes.
+        A storage failure leaves DIRTY state and permits retrying close. Reads
+        require a successful full recovery before returning any data.
 
         Example:
             A second ``cache.close()`` is harmless in the concrete Cache implementation.
@@ -525,13 +535,7 @@ class ReadCache(CacheAPI):
         with self._lock:
             if self._state == CacheState.CLOSED:
                 return
-            self.storage.close()
-            self._dirty_tables.clear()
-            self._dirty_ids.clear()
-            self._dirty_links.clear()
-            self._dirty_fields.clear()
-            self._state = CacheState.CLOSED
-            self._advance_generation()
+            self._run_full_refresh(self.storage.close, final_state=CacheState.CLOSED)
 
     def table_columns(self) -> Mapping[str, tuple[str, ...]]:
         """
@@ -612,6 +616,9 @@ class ReadCache(CacheAPI):
             )
 
         try:
+            if getattr(self, "_full_reload_required", False):
+                self._run_full_refresh(self.storage.reload)
+                return
             for table in sorted(self._dirty_tables):
                 self.storage.reload_main_table(table)
             for table in sorted(self._dirty_ids):
@@ -622,14 +629,24 @@ class ReadCache(CacheAPI):
             for field in sorted(self._dirty_fields):
                 self.storage.reload_field(field)
         except Exception as exc:
+            self._full_reload_required = True
+            self._advance_generation()
             raise CacheDirtyError("Failed to refresh dirty cache dependencies") from exc
 
+        saved, self._pending_query_results = self._pending_query_results, None
+        changes = self._dirty_ids.copy()
         self._dirty_tables.clear()
         self._dirty_ids.clear()
         self._dirty_links.clear()
         self._dirty_fields.clear()
         self._state = CacheState.READY
         self._advance_generation()
+        if saved:
+            try:
+                self._query_engine.repair_results(saved, changes, generation=self._generation)
+            except Exception:
+                # Derived optimization failures cannot poison successfully refreshed data.
+                self._query_engine.reset()
 
     def get(self, table: str, row_id: int) -> CacheLookup[CacheRecord]:
         """
@@ -655,7 +672,7 @@ class ReadCache(CacheAPI):
             self._assert_ready()
             self._refresh_dirty()
             if self.capabilities.consistency == CacheConsistency.LIVE:
-                self._query_engine.reset()
+                self._query_engine.reset(keep_plans=True)
             record = self._query_engine.get(str(table), int(row_id))
             return CacheLookup(
                 status=(
@@ -690,7 +707,12 @@ class ReadCache(CacheAPI):
             self._assert_ready()
             self._refresh_dirty()
             if self.capabilities.consistency == CacheConsistency.LIVE:
-                self._query_engine.reset()
+                capture = getattr(self.storage, "query_view", None)
+                if callable(capture):
+                    view = cast(StorageCacheAPI, capture())
+                    engine = CacheQueryEngine(view, result_cache_size=0)
+                    return engine.query(query, generation=self._generation)
+                self._query_engine.reset(keep_plans=True)
             return self._query_engine.query(query, generation=self._generation)
 
     def related(
@@ -826,8 +848,8 @@ class ReadCache(CacheAPI):
         Empty ID groups are dropped. LIVE consistency only advances generation for
         nonempty input. SNAPSHOT consistency calls backend invalidators, accumulates
         dependencies, sets DIRTY and advances generation. Whole-table changes subsume
-        existing bounded ID changes. Backend invalidation failures propagate before
-        the facade dependency update and may leave partial backend work applied.
+        existing bounded ID changes. Validate all dependencies before changing state.
+        Backend invalidation failures retain DIRTY state and require full recovery.
 
         Example:
             Use ``cache.invalidate(ids={"books": [7]})`` after changing book 7
@@ -854,21 +876,24 @@ class ReadCache(CacheAPI):
             link_names = {(str(source), str(target)) for source, target in links}
             field_names = {str(field) for field in fields}
 
+            # Resolve the entire request before any backend invalidation can act.
+            for table in table_names | row_ids.keys():
+                if not self.storage.has_main_table(table):
+                    raise KeyError(table)
+            for field in field_names:
+                self.storage.get_field(field)
+            for source, target in link_names:
+                self.storage.get_link_table(source, target)
+
             if self.capabilities.consistency == CacheConsistency.LIVE:
                 if table_names or row_ids or link_names or field_names:
                     self._advance_generation()
                 return
 
-            for table in table_names:
-                self.storage.invalidate_table(table)
-            for table, table_ids in row_ids.items():
-                if table not in table_names:
-                    self.storage.invalidate_ids(table, table_ids)
-            for source, target in link_names:
-                self.storage.invalidate_link_table(source, target)
-            for field in field_names:
-                self.storage.invalidate_field(field)
-
+            if table_names or link_names or field_names:
+                self._pending_query_results = None
+            elif row_ids and self._state == CacheState.READY:
+                self._pending_query_results = self._query_engine.row_local_results()
             self._dirty_tables.update(table_names)
             for table in table_names:
                 self._dirty_ids.pop(table, None)
@@ -880,6 +905,20 @@ class ReadCache(CacheAPI):
             if table_names or row_ids or link_names or field_names:
                 self._state = CacheState.DIRTY
                 self._advance_generation()
+            try:
+                for table in table_names:
+                    self.storage.invalidate_table(table)
+                for table, table_ids in row_ids.items():
+                    if table not in table_names:
+                        self.storage.invalidate_ids(table, table_ids)
+                for source, target in link_names:
+                    self.storage.invalidate_link_table(source, target)
+                for field in field_names:
+                    self.storage.invalidate_field(field)
+            except Exception:
+                self._full_reload_required = True
+                self._pending_query_results = None
+                raise
 
     @staticmethod
     def _update_dependencies(
@@ -933,6 +972,7 @@ class ReadCache(CacheAPI):
         :return: None; accumulates dependencies, sets DIRTY and advances generation once.
         """
 
+        self._pending_query_results = None
         table_names = {str(table) for table in tables}
         link_names = {(str(source), str(target)) for source, target in links}
         field_names = {str(field) for field in fields}
@@ -941,17 +981,17 @@ class ReadCache(CacheAPI):
             try:
                 self.storage.invalidate_table(table)
             except Exception:
-                pass
+                self._full_reload_required = True
         for source, target in link_names:
             try:
                 self.storage.invalidate_link_table(source, target)
             except Exception:
-                pass
+                self._full_reload_required = True
         for field in field_names:
             try:
                 self.storage.invalidate_field(field)
             except Exception:
-                pass
+                self._full_reload_required = True
 
         self._dirty_tables.update(table_names)
         for table in table_names:
@@ -1011,6 +1051,7 @@ class ReadCache(CacheAPI):
                     if self.storage.has_field(field):
                         self.storage.reload_field(field)
             except Exception as exc:
+                self._full_reload_required = True
                 self._mark_dependencies_dirty(tables, links, fields)
                 dependencies = set(tables)
                 dependencies.update(f"{source}->{target}" for source, target in links)

@@ -1,4 +1,4 @@
-# D051 — src/LiuXin_alpha/caches/write — custom_columns_writers, identifiers_writer, languages_writer, title_writer, 2026-09-14
+# D051 — src/LiuXin_alpha/utils/calibre_compat/caches/write — custom_columns_writers, identifiers_writer, languages_writer, title_writer, 2026-09-14
 
 Specialized writers and utility containers source-reviewed; 22 focused regressions passed, including real identifier rejection/success and UpdateDict snapshot consumers. Pure utility examples passed. Documentation preserves custom-series cache-before-write, identifier storage-before-cache, title follow-up sort and UUID cache-before-write ordering; no broad mutation coverage claim for untested legacy hooks.
 

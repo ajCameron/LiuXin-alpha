@@ -465,7 +465,7 @@ def test_native_schema_failure_is_atomic(native, monkeypatch):
     service, _ = native
 
     from LiuXin_alpha.caches.custom_fields import CustomFieldCache
-    from LiuXin_alpha.catalog.field_metadata import FieldMetadata
+    from LiuXin_alpha.caches.field_metadata import FieldMetadata
 
     projection = CustomFieldCache(service, FieldMetadata())
 
@@ -516,8 +516,8 @@ def test_composite_relationship_paths_require_aggregation(native):
 
 
 def test_scoped_metadata_aliases_and_dependencies(native):
+    from LiuXin_alpha.caches.field_metadata import FieldMetadata
     from LiuXin_alpha.catalog.catalog import Catalog
-    from LiuXin_alpha.catalog.field_metadata import FieldMetadata
 
     service, (owner, _) = native
     metadata = FieldMetadata()
@@ -529,7 +529,7 @@ def test_scoped_metadata_aliases_and_dependencies(native):
     assert metadata.search_term_to_field_key("#status") == "#works.status"
     with projection.write():
         service.create_field("manifestations", "status")
-    assert "#status" not in metadata._search_term_map
+    assert metadata.search_term_to_field_key("#status") is None
     assert metadata.search_term_to_field_key("#works.status") == "#works.status"
     assert (
         metadata.search_term_to_field_key("#manifestations.status")

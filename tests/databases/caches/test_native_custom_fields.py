@@ -3,7 +3,7 @@
 import pytest
 
 from LiuXin_alpha.caches.custom_fields import CustomFieldCache
-from LiuXin_alpha.catalog.field_metadata import FieldMetadata
+from LiuXin_alpha.caches.field_metadata import FieldMetadata
 from tests.databases.test_native_custom_fields import native as native
 from tests.databases.test_row_write_safety import db as db
 from tests.databases.test_row_write_safety import template as template
@@ -127,3 +127,59 @@ def test_failed_receipt_listener_does_not_skip_cache_publication(projection):
         with projection.write() as service:
             field = service.create_field("works", "published")
     assert field.key in projection.field_metadata
+
+
+@pytest.mark.parametrize("shared_coordinator", [True, False])
+def test_reentrant_receipt_preserves_newer_publication(projection, shared_coordinator):
+    """Nested committed writes win even when Core creates a fresh coordinator."""
+    service = projection.service
+    created = []
+    entered = False
+
+    def listener(receipt):
+        nonlocal entered
+        if entered:
+            return
+        entered = True
+        coordinator = (
+            projection
+            if shared_coordinator
+            else CustomFieldCache(service, projection.field_metadata)
+        )
+        with coordinator.write():
+            created.append(service.create_field("works", "from_listener"))
+
+    unsubscribe = service.subscribe(listener)
+    try:
+        with projection.write():
+            first = service.create_field("works", "outer")
+    finally:
+        unsubscribe()
+    assert set(projection.field_metadata.custom_field_keys()) == {
+        first.key,
+        created[0].key,
+    }
+    assert {field.key for field in service.list_fields()} == {first.key, created[0].key}
+
+
+def test_core_uses_native_schema_and_custom_descriptors(native):
+    """Core field queries expose physical keys and native custom identity."""
+    from types import SimpleNamespace
+    from LiuXin_alpha.core.services import CoreServices
+    from LiuXin_alpha.core.program_services.catalog import (
+        catalog_fields_list,
+        catalog_fields_get,
+    )
+
+    service, _ = native
+    services = CoreServices(library=SimpleNamespace(database=service.db))
+    runtime = SimpleNamespace(services=services)
+    metadata = services.field_metadata
+    assert isinstance(metadata, FieldMetadata)
+    assert "works.work_title" in metadata and "title" not in metadata
+    with CustomFieldCache(service, metadata).write():
+        field = service.create_field("works", "core_native", mode="list")
+    result = catalog_fields_get(runtime, SimpleNamespace(payload={"key": field.key}))
+    assert result["exists"] and result["metadata"]["collection_mode"] == "list"
+    listed = catalog_fields_list(runtime, SimpleNamespace(payload={"kind": "custom"}))
+    assert [item["key"] for item in listed["fields"]] == [field.key]

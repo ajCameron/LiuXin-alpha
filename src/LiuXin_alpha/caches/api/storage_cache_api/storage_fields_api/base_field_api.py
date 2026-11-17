@@ -10,6 +10,7 @@ Owner-row creation/deletion belongs to table/database APIs.
 from __future__ import annotations
 
 import abc
+from collections.abc import Mapping
 from typing import (
     TYPE_CHECKING,
     ClassVar,
@@ -27,7 +28,6 @@ if TYPE_CHECKING:
     from LiuXin_alpha.caches.api.storage_cache_api.storage_tables_api.single_table_api import (
         StorageCacheSingleTableAPI,
     )
-    from LiuXin_alpha.catalog.api.field_metadata_api import FieldMetadataAPI
     from LiuXin_alpha.databases.db_types.database_types import MainTableID, MainTableName
 
 T = TypeVar("T")
@@ -48,7 +48,7 @@ class FieldBasicInterfaceAPI(abc.ABC, Generic[T]):
         False
     """
 
-    metadata: "FieldMetadataAPI"
+    metadata: Mapping[str, object]
 
     name: Union[Literal["text"],
                 Literal["series"],

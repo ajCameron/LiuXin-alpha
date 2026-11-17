@@ -695,31 +695,23 @@ are intentionally absent from `CatalogAPI`.
 
 ## Field metadata containers
 
-Field metadata describes fields themselves—storage mapping, datatype,
-multiplicity, display hints, categories, and search aliases. It does not hold
-the metadata values for one Work or Item.
+Native field metadata is cache-owned derived state, not a Catalog API export.
+Core builds it from physical schema and native custom-field definitions:
 
 ```python
-from LiuXin_alpha.catalog.field_metadata import FieldMetadata
+from LiuXin_alpha.caches.field_metadata import FieldMetadata
 
-field_metadata = FieldMetadata()
-title_description = field_metadata["title"]
-sortable = field_metadata.sortable_field_keys()
-search_target = field_metadata.search_term_to_field_key("authors")
+field_metadata = FieldMetadata(database.driver_wrapper.get_schema_spec())
+title_description = field_metadata["works.work_title"]
 ```
 
-Custom keys normally use `#label`; dynamic user/search categories use their
-configured category keys. Convert user-facing labels explicitly:
+Use `CustomFieldCache` to coordinate custom-field publication after commit. Native
+keys and descriptors are documented in the [cache structure](../caches/structure.md).
 
-```python
-internal_key = field_metadata.label_to_key("mood", prefer_custom=True)
-label = field_metadata.key_to_label(internal_key)
-custom = field_metadata.custom_field_metadata(include_composites=False)
-```
-
-`CalibreFieldMetadata` adds result-record index assignment for
-Calibre-compatible query rows. `fm_from_dict` reconstructs serialized
-custom/dynamic state over the built-in standard field definitions.
+Legacy descriptor containers and protocols now live explicitly under
+`LiuXin_alpha.utils.calibre_compat.metadata`. They retain book-field aliases,
+category maps, synthetic Series companions, result slots and serialized custom
+state. Native consumers must not use these as their default descriptor registry.
 
 ## Row-oriented compatibility helpers
 

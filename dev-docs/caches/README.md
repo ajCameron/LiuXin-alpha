@@ -4,6 +4,11 @@ Reviewed **2026-10-20**. This folder owns derived catalogue-cache guidance.
 Persistent bibliographic truth remains in the database, through Catalog writes.
 See [next tasks](next_tasks.md).
 
+The [2026-11-16 publication and lifecycle review](../architectural_reviews/caches-review-2026-11-16.md)
+retains these ownership boundaries. CR01 is repaired by native snapshot publication;
+CR02/CR03 are repaired by the metadata-search lifecycle work, with regression
+coverage for partial failure, recovery and invalidation validation. It is an initial focused review, not module sign-off.
+
 ## Current composition
 
 [ReadCache](../../src/LiuXin_alpha/caches/read_cache.py) owns lifecycle, structured
@@ -44,9 +49,23 @@ Replica**, however, is retained physical data with storage lifecycle requirement
 it is not a row in this in-memory catalogue cache. Mixed ingest still needs a
 live pin/lease contract before such bytes can be evicted during active work.
 
-Older Calibre-oriented caches under `library.caches` and `plugins.cache` remain
-compatibility areas. Their names alone are not evidence that they can be removed
-or substituted for this facade.
+The retained Calibre cache, its base family, writers, categories, lazy metadata
+and search engine now live under `utils.calibre_compat.caches`. Native field
+metadata is separate from legacy descriptor containers. Old imports have been
+removed without forwarding facades.
+
+See the [implemented structure](structure.md) for package contents, native field
+keys, publication behavior and remaining boundaries. The
+[compatibility review](calibre-compatibility-review-2026-11-16.md) records the caller
+evidence and original migration outline.
+
+See [metadata search](metadata-search.md) for native predicates, the explicit
+Calibre adapter, template permission and the staged parity ledger.
+The [2026-11-17 stress-test report](metadata-search-testing-2026-11-17.md) records
+the correctness regressions and repeatable baseline for subsequent optimization.
+The [subsequent architecture assessment](../architectural_reviews/caches-review-2026-11-17.md)
+finds the metadata-search core ready for measured optimization and records the
+priorities and remaining whole-cache sign-off work.
 
 ## Validation
 

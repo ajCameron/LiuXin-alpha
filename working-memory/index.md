@@ -1,5 +1,44 @@
 # Working Memory Index
 
+Cache architecture assessment, **2026-11-17**, documented at the user's request:
+[review](../dev-docs/architectural_reviews/caches-review-2026-11-17.md). Metadata-search
+core ready for measured optimization; whole-cache sign-off remains open. Preserve
+ownership boundaries; prioritize repeated PostgreSQL schema discovery, candidate
+and projection work, sorting/pagination, then whole-table work during small
+invalidations. The review distinguishes existing validation from a fresh audit
+and routes remaining work to CACHE01–CACHE03 and SEARCH02–SEARCH05. Documentation
+only; no new runtime changes, staging, commit or PR.
+
+Metadata search stress testing, **2026-11-17**, complete:
+[current handoff](cache-search-stress-2026-11-17.md). Aggressive deterministic
+differential, fault-injection and concurrency coverage before optimization;
+[test report](../dev-docs/caches/metadata-search-testing-2026-11-17.md). Lifecycle,
+null-membership, snapshot, alias and zero-index sorting defects repaired. The
+full database gate passed **5,121 tests/94 skips**, including all **2,534 original
+mandatory cases**. The corrected cache/Catalog run passed 459 with 16 skips; all
+89 new mandatory cases and 12 SQLite differential cases passed across focused runs.
+Quality, packaging and docs passed; the 100k-record baseline is recorded. Private
+PostgreSQL is stopped. No commit/PR or real-index changes; preserve prior dirt.
+
+Metadata search implementation, **2026-11-17**:
+[active handoff](cache-metadata-search-2026-11-17.md). Native predicates and explicit
+Calibre projection search, current pinned templates with one-use trusted permission,
+CR02/CR03 repairs and bounded result repair are implemented. The
+[contract and parity ledger](../dev-docs/caches/metadata-search.md) records the
+metadata milestone and remaining content/application work. The older CR02/CR03
+open status below is superseded. No commit/PR for this work yet.
+
+Cache compatibility migration, **2026-11-16**, implemented and verified:
+[active handoff](caches-review-2026-11-16.md). All 61 source relocations and the
+native descriptor split are on `caches-calibre-compat-boundary`; CR01 is repaired,
+CR02/CR03 remain open. See [current structure](../dev-docs/caches/structure.md).
+Full cache directory: 220 passed/20 skips; compatibility/search: 291 passed;
+final guards: 159 passed; full quality and installed-wheel checks pass. Broader
+run corrections and all limits are recorded in the handoff. No cache commit/PR
+or staging yet. Preserve user drafts, the data submodule and pre-pull stash.
+Database close-out PR #170 remains separate. Build outside the repo while tests
+are running: root-artifact cleanup otherwise removes newly created build output.
+
 Database review repairs, **2026-11-14**, complete:
 [handoff](database-review-fixes-2026-11-14.md). DBR01–DBR13 resolved at their documented
 boundaries; DBR14's concrete contract fixes are complete, with broad indexing and

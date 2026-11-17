@@ -46,9 +46,9 @@ _LIBS = _PROJECT_ROOT / "src" / "LiuXin_alpha" / "utils" / "libraries"
 if _LIBS.exists() and str(_LIBS) not in sys.path:
     sys.path.insert(0, str(_LIBS))
 
-from LiuXin_alpha.library.caches.calibre.cache import CalibreCache
+from LiuXin_alpha.utils.calibre_compat.caches.calibre.cache import CalibreCache
 from LiuXin_alpha.databases.database import Database
-from LiuXin_alpha.catalog.field_metadata import FieldMetadata
+from LiuXin_alpha.utils.calibre_compat.metadata.field_metadata import FieldMetadata
 from LiuXin_alpha.utils.locking import DowngradeLockError
 
 
@@ -422,7 +422,7 @@ def cache_with_spy_locks(monkeypatch, calibre_backend_db) -> Tuple[CalibreCache,
     :return: Tuple of (uninitialized cache, read spy, write spy); monkeypatch restores
         the lock factory.
     """
-    import LiuXin_alpha.plugins.cache.base_cache as base_cache
+    import LiuXin_alpha.utils.calibre_compat.caches.base.base_cache as base_cache
 
     spy_read = SpyLock("read")
     spy_write = SpyLock("write")
