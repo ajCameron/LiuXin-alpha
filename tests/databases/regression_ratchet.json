@@ -2725,6 +2725,22 @@
       "tests/databases/caches/test_search_differential_postgres_live.py::test_wemi_boolean_graph_queries_match_sql_at_every_level[schema_backed]",
       "tests/databases/caches/test_search_differential_postgres_live.py::test_wemi_boolean_graph_queries_match_sql_at_every_level[database_backed]",
       "tests/databases/caches/test_search_differential_postgres_live.py::test_wemi_boolean_graph_queries_match_sql_at_every_level[numpy_vectorized]"
+    ],
+    "bounded-schema-discovery-preserves-freshness-and-transactions": [
+      "tests/databases/test_driver_wrapper_review.py::test_schema_inspection_preserves_pending_writes[SQLite-schema_spec]",
+      "tests/databases/test_driver_wrapper_review.py::test_schema_inspection_preserves_pending_writes[SQLite_apsw-schema_spec]",
+      "tests/databases/test_schema_discovery_postgres_live.py::test_complete_schema_uses_bounded_probes_and_preserves_specs[0]",
+      "tests/databases/test_schema_discovery_postgres_live.py::test_complete_schema_uses_bounded_probes_and_preserves_specs[6]",
+      "tests/databases/test_schema_discovery_postgres_live.py::test_external_ddl_is_visible_on_next_discovery",
+      "tests/databases/test_schema_discovery_postgres_live.py::test_failed_discovery_preserves_pending_writes_and_recovers[body]",
+      "tests/databases/test_schema_discovery_postgres_live.py::test_failed_discovery_preserves_pending_writes_and_recovers[cancel]",
+      "tests/databases/test_schema_discovery_postgres_live.py::test_failed_discovery_preserves_pending_writes_and_recovers[entry]",
+      "tests/databases/test_schema_discovery_postgres_live.py::test_failed_discovery_preserves_pending_writes_and_recovers[exit]",
+      "tests/databases/test_schema_discovery_postgres_live.py::test_nested_scope_reuses_version_but_independent_reads_probe",
+      "tests/databases/test_schema_discovery_postgres_live.py::test_other_thread_does_not_inherit_scoped_fingerprint",
+      "tests/databases/test_schema_discovery_postgres_live.py::test_schema_change_during_discovery_rejects_partial_result",
+      "tests/databases/test_schema_discovery_postgres_live.py::test_standalone_link_lookup_detects_ddl_after_scope",
+      "tests/databases/test_schema_discovery_postgres_live.py::test_successful_discovery_preserves_pending_writes"
     ]
   }
 }

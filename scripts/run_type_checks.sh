@@ -146,6 +146,8 @@ RUFF_CMD=(
     "tests/databases/caches/test_calibre_search_stress.py"
     "tests/databases/caches/test_search_differential_postgres_live.py"
     "scripts/benchmark_metadata_search_matrix.py"
+    "scripts/benchmark_schema_discovery.py"
+    "tests/databases/test_schema_discovery_postgres_live.py"
     "src/LiuXin_alpha/catalog/custom_fields.py"
     "src/LiuXin_alpha/caches/custom_fields.py"
     "src/LiuXin_alpha/caches/field_metadata.py"

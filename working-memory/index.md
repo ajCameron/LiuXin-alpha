@@ -1,5 +1,15 @@
 # Working Memory Index
 
+PostgreSQL schema discovery optimization, **2026-11-17**, complete:
+[handoff](schema-discovery-optimization-2026-11-17.md). Scoped fingerprint reuse
+reduces a complete native schema rebuild from 8,492 probes to two; external
+freshness and transaction/failure contracts have new regressions. Selected
+integration: **312 passed/four capability skips**. Final new mandatory gate:
+**14/14 passed**; current manifest has 2,637 cases. Quality, docs16 and tooling57
+passed; workflow35 passed after adding the new lint entries. Recorded timing:
+201.30 s before, optimized median 4.90 s; final-source repeat 4.21 s. Private
+PostgreSQL is stopped. No staging, commit or PR.
+
 Cache architecture assessment, **2026-11-17**, documented at the user's request:
 [review](../dev-docs/architectural_reviews/caches-review-2026-11-17.md). Metadata-search
 core ready for measured optimization; whole-cache sign-off remains open. Preserve

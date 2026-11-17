@@ -1,0 +1,90 @@
+{
+  "date": "2026-11-17",
+  "base_commit": "2d2a9cc304b5394ab90003b0567c4d06130337f1",
+  "conditions": "Local Linux/WSL PostgreSQL 16; other validation active during parts of the session. Timings are directional; before has one sample, after three. Setup and teardown excluded.",
+  "before": {
+    "platform": "Linux-6.18.33.1-microsoft-standard-WSL2-x86_64-with-glibc2.39",
+    "python": "3.12.3",
+    "workload": "full generated native schema; forced wrapper rebuild; driver caches warm",
+    "samples": [
+      {
+        "seconds": 201.3027655549813,
+        "connections": 8667,
+        "statements": 35168,
+        "fingerprints": 8492,
+        "tables": 125,
+        "interlinks": 44,
+        "intralinks": 4
+      }
+    ]
+  },
+  "after": {
+    "platform": "Linux-6.18.33.1-microsoft-standard-WSL2-x86_64-with-glibc2.39",
+    "python": "3.12.3",
+    "workload": "full generated native schema; forced wrapper rebuild; driver caches warm",
+    "samples": [
+      {
+        "seconds": 4.900809542974457,
+        "connections": 177,
+        "statements": 1208,
+        "fingerprints": 2,
+        "tables": 125,
+        "interlinks": 44,
+        "intralinks": 4
+      },
+      {
+        "seconds": 5.410470895003527,
+        "connections": 176,
+        "statements": 1204,
+        "fingerprints": 2,
+        "tables": 125,
+        "interlinks": 44,
+        "intralinks": 4
+      },
+      {
+        "seconds": 4.83545613696333,
+        "connections": 176,
+        "statements": 1204,
+        "fingerprints": 2,
+        "tables": 125,
+        "interlinks": 44,
+        "intralinks": 4
+      }
+    ]
+  },
+  "source_sha256": {
+    "src/LiuXin_alpha/databases/api/driver_api/mixins/metadata_mixin_api.py": {
+      "before": "34cea4019de9a138791e29b3769c05521607ea3f0b7aacc700ed6e7e52e95fde",
+      "after": "d7c054912f91c04479e67b677a30cc22ce16993b7ced163435c2628161ceb80e"
+    },
+    "src/LiuXin_alpha/databases/database_driver_plugins/SQL/databasedriver/__init__.py": {
+      "before": "1114ad27f333a082a631de44b9ddbce13c507ad997bf6ea7da86518156c7d5fc",
+      "after": "10b3fca21e64ce65cd658eb0f130e5fca5c84df269ee3fc629a19e8866fa9dd3"
+    },
+    "src/LiuXin_alpha/databases/database_driver_plugins/PostgreSQL/databasedriver/__init__.py": {
+      "before": "b78f0f8fd0a286f7c6f610d0cb23abde0c0c123ac58412d3d86046e6d21331af",
+      "after": "5e0489cebbc5d4391f79e5f3d9d25681a82b2999a24eea3fa3fc619d1175e0d5"
+    },
+    "src/LiuXin_alpha/databases/driver_wrapper/__init__.py": {
+      "before": "f74fadc2979706dbd4b2b13ddfac75dac4d2d53fea8d1a91d7c6b9df8abf0fbc",
+      "after": "2f2abb71a29c144b6393ec145c3ed5b4b2edfdda623bdb702942ff8184ef8b54"
+    }
+  },
+  "benchmark_sha256": "00853c533d1fa10c4ac52685a6579306d3da7a7a62a8a6c6e70afae40cc77e17",
+  "final_source_verification": {
+    "platform": "Linux-6.18.33.1-microsoft-standard-WSL2-x86_64-with-glibc2.39",
+    "python": "3.12.3",
+    "workload": "full generated native schema; forced wrapper rebuild; driver caches warm",
+    "samples": [
+      {
+        "seconds": 4.205309023032896,
+        "connections": 177,
+        "statements": 1208,
+        "fingerprints": 2,
+        "tables": 125,
+        "interlinks": 44,
+        "intralinks": 4
+      }
+    ]
+  }
+}

@@ -129,5 +129,16 @@ Recommendation: proceed with measured optimization of the metadata-search core,
 preserve the current ownership boundaries, and keep whole-cache sign-off open
 until the remaining lifecycle and registry contracts have been reviewed.
 
+## Implementation follow-up — 2026-11-17
+
+The first performance target is implemented in databases through
+[scoped PostgreSQL schema discovery](../databases/schema-discovery-optimization-2026-11-17.md).
+The measured 125-table rebuild now issues two fingerprint queries instead of
+8,492. The linked implementation record owns validation results and limits.
+Selected integration checks passed 312 tests with four capability skips; the
+final focused gate passed all 14 new mandatory regressions.
+Candidate/projection work, sorting/pagination and small-invalidation costs remain
+the subsequent optimization targets; the sign-off gaps above remain open.
+
 Return to the [cache guide](../caches/README.md) or
 [architecture review index](README.md).
