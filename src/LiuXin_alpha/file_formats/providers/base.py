@@ -253,6 +253,29 @@ class Provider(ABC):
             )
 
 
+def provider_id_from_name(name: str, prefix: str) -> str:
+    """
+    Make a provider id from a human-readable name.
+
+    Example:
+        >>> provider_id_from_name("Read EPUB metadata", "calibre")
+        'calibre.read-epub-metadata'
+
+
+    :param name: The name, for example a plugin's.
+    :param prefix: The first segment of the id.
+    :return: ``prefix``, a dot, and the name in lower case with each run of
+        other characters replaced by one hyphen.
+    :raises ProviderDefinitionError: If the name has no letters or digits.
+    """
+    slug = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
+    if not slug:
+        raise ProviderDefinitionError(
+            f"{name!r} has no letters or digits to make a provider id from"
+        )
+    return f"{prefix}.{slug}"
+
+
 def declared(provider: type[Provider], name: str) -> object:
     """
     Read a record attribute from a provider class, insisting that it is set.

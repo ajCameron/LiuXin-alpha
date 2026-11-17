@@ -35,6 +35,7 @@ def test_format_provider_contracts_are_budgeted() -> None:
     for module in (
         "LiuXin_alpha.file_formats.providers.registry",
         "LiuXin_alpha.file_formats.providers.legacy_conversion",
+        "LiuXin_alpha.file_formats.providers.upstream_calibre",
         "LiuXin_alpha.file_formats.html.book",
     ):
         budget = budgets[module]

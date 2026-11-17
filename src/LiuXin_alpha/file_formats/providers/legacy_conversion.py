@@ -30,7 +30,6 @@ imported when :func:`register_bundled_conversion_plugins` is called.
 from __future__ import annotations
 
 import logging
-import re
 import tempfile
 import threading
 import types
@@ -43,6 +42,7 @@ from LiuXin_alpha.file_formats.providers.base import (
     ProviderContext,
     ProviderDefinitionError,
     declared,
+    provider_id_from_name,
 )
 from LiuXin_alpha.file_formats.providers.conversion import OEBExporter, OEBImporter
 from LiuXin_alpha.utils.logging import CompatLogger
@@ -610,13 +610,7 @@ def legacy_provider_id(plugin: type[Any], *, prefix: str = "legacy") -> str:
         other characters replaced by one hyphen.
     :raises ProviderDefinitionError: If the name has no letters or digits.
     """
-    name = str(getattr(plugin, "name", ""))
-    slug = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
-    if not slug:
-        raise ProviderDefinitionError(
-            f"{plugin!r} has no name to make a provider id from"
-        )
-    return f"{prefix}.{slug}"
+    return provider_id_from_name(str(getattr(plugin, "name", "")), prefix)
 
 
 def _legacy_version(plugin: type[Any]) -> str:
