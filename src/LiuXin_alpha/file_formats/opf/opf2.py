@@ -1950,12 +1950,18 @@ class OPF(object):  # {{{
             else:
                 return read_metadata(self.root, calibre_md_rtn=False)
 
-        if calibre:
-            # Build metadata explicitly; passing the OPF object itself here causes
-            # legacy wrappers to treat it as the title payload.
-            ans = calibreMetaInformation(self.title, list(self.authors or []))
-        else:
-            ans = MetaData.from_calibre(calibreMetaInformation(self.title, list(self.authors or [])))
+        # Copy every standard field from this OPF, as upstream calibre does.  The
+        # compatibility MetaInformation is the Metadata class rather than calibre's
+        # factory function, so pass the OPF as ``other`` instead of as the title.
+        # The manifest, spine, guide and TOC are not metadata; keep them out of the
+        # copy.
+        manifest, spine, guide, toc = self.manifest, self.spine, self.guide, self.toc
+        self.manifest = self.spine = self.guide = self.toc = None
+        try:
+            book_metadata = calibreMetadata(None, other=self)
+        finally:
+            self.manifest, self.spine, self.guide, self.toc = manifest, spine, guide, toc
+        ans = book_metadata if calibre else MetaData.from_calibre(book_metadata)
 
         for n, v in self._user_metadata_.items():
             ans.set_user_metadata(n, v)
