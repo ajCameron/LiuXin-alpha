@@ -33,6 +33,7 @@ The current checked-in tests live in:
 - `tests/file_formats/mobi/test_mobi_exth_unicode_torture.py`
 - `tests/file_formats/mobi/test_mobi_end_to_end_and_unicode_torture.py`
 - `tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py`
+- `tests/file_formats/mobi/test_mobi6_linear_time.py`
 - `tests/metadata/file_sources/test_mobi_metadata_source.py`
 - `tests/metadata/file_sources/test_mobi_edge_cases.py`
 
@@ -161,6 +162,17 @@ The checked-in hostile coverage currently includes:
 - HUFF/CDIC phrase expansion beyond the per-record budget
 - direct and contained CRES image resources written as concrete KF8 extraction
   products
+- MOBI 6 markup that made the reader's clean-up and anchor passes take minutes to
+  hours: runs of spaces after `<` and in page breaks, `filepos=` links and
+  `<p`, `</p`, `<?xml` or `<o:p` tags that never close, `&` with no `;`, long
+  runs of style tags, many differently styled tags, and many svg images or
+  page-break anchors among siblings. Each 1 MB crafted book is now read in
+  under a second, with the reader's old results; see
+  [backtracking patterns](../../hacking/backtracking-patterns.md)
+- guide toc and cover hrefs holding quotes, which were pasted into XPath and now
+  pass as values
+- metadata reads of HUFF/CDIC books whose thousands of tiny records unpack past
+  32 MiB, the metadata reader's text limit (conversion keeps 128 MiB)
 
 Missing hostile coverage is now concentrated in syntactically valid but
 pathological conversion products: real thumbnail/font/container resource

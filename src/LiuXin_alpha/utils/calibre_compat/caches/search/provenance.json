@@ -1,0 +1,40 @@
+{
+  "upstream": "https://github.com/kovidgoyal/calibre",
+  "revision": "5f53fce641f180cfaf0e976e703302d596e4fb2a",
+  "source_archive": "dev-docs/calibre-master.zip",
+  "adapted_on": "2026-11-17",
+  "licence": "GPL-3.0-only",
+  "copyright": "Kovid Goyal and the calibre contributors; original per-file notices retained",
+  "licence_text": "Distribution LICENSE and LICENSES/GPL-3.0-only.txt; installed wheel .dist-info/licenses/",
+  "distribution": "These adapted Python sources are included in wheels and source distributions. Preserve the original notices, this modification record and the GPL licence when redistributing.",
+  "files": [
+    {
+      "local_file": "upstream.py",
+      "upstream_file": "src/calibre/db/search.py",
+      "upstream_sha256": "0200327d020c7316f56ae80cc246997ef3bfe5aac64b83cbcc203a4573859696",
+      "changes": "Matcher classes through Parser; omit upstream orchestration; adapt imports, Python 3.12 exception syntax and request settings/clock. Repository formatting applied."
+    },
+    {
+      "local_file": "upstream_parser.py",
+      "upstream_file": "src/calibre/utils/search_query_parser.py",
+      "upstream_sha256": "a1d55f6d7310e8773490398f410a9b486cdff24928526d774b9a233641712a04",
+      "changes": "Adapt imports and Unicode hex helpers; retain parser implementation. Repository formatting applied."
+    },
+    {
+      "local_file": "upstream_formatter.py",
+      "upstream_file": "src/calibre/utils/formatter.py",
+      "upstream_sha256": "426ca82e6d727c8f83619cbc02121626e61d231817ff5bdbd1af273c5d6c33ae",
+      "changes": "Adapt imports, type references and function-registry/database bridges; Python 3.12 exception syntax. Repository formatting applied."
+    },
+    {
+      "local_file": "upstream_functions.py",
+      "upstream_file": "src/calibre/utils/formatter_functions.py",
+      "upstream_sha256": "4268b3334a451a863f36c516b8126d1450a55971aeed1cfcecf381373fc6f41e",
+      "changes": "Extract builtin evaluators; omit UI documentation and global registration; explicitly reject application-only functions unless replaced by injected providers; adapt imports and type references. Repository formatting applied."
+    }
+  ],
+  "supporting_sources": [
+    "src/calibre/ebooks/metadata/__init__.py: rating_to_stars rendering convention"
+  ],
+  "bridge_notes": "upstream_support uses LiuXin ICU facilities with a Unicode punctuation fallback. adapter, predicates and projection define LiuXin orchestration; application services are injected explicitly."
+}

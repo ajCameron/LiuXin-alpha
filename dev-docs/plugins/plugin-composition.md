@@ -33,6 +33,15 @@ owners:
 | `file_formats.plugin_runtime` | Selection, file hooks, metadata dispatch and host binding |
 | `file_formats.rendering` | Headless rendering hooks |
 | `file_formats.html.comments` | Plain-text and HTML comment formatting |
+| `file_formats.providers` | Capability base classes (conversion, metadata and covers), transform stages and the registry for format providers; contracts only, not yet called by conversion or metadata reading |
+| `file_formats.providers.legacy_conversion` | Adapters that run each bundled conversion plugin as an OEB importer or exporter, with `Plumber`'s option resolution; not yet used by `Plumber` |
+| `file_formats.providers.upstream_calibre` | Providers that read metadata and covers with an installed calibre through `calibre-debug`, one per calibre 9.18 reader plugin |
+| `file_formats.providers.fork_metadata` | The project's own metadata readers as providers: the fork's calibre path (calibre model) and every reader as the application runs it (WEMI model) |
+| `file_formats.providers.wemi_mapping` | The provisional mapping that places calibre fields at WEMI levels |
+| `file_formats.providers.ported_calibre` | Providers for the metadata readers ported from upstream calibre, run in process |
+| `metadata.upstream_calibre` | calibre 9.18's metadata reader modules and the calibre code they use (its `Metadata` class, dates, OPF 2 and 3, EPUB containers), ported with only their imports changed apart from marked fixes for damaged and hostile files; small helpers in `_compat`, C functions in `_speedups`. See [porting calibre's readers](upstream-calibre-port.md) |
+| `file_formats.calibre_metadata_probe` | The script those providers run inside calibre; imports calibre only when run there |
+| `file_formats.html.book` | The `HTMLBook` description of the HTML intermediate and its structural checks; no loading or saving yet |
 | `plugins.application` | Application registry lifecycle, lookups and installed-plugin management |
 | `plugins.contracts` | Application plugin families formerly defined in the customization root |
 | `plugins.builtins` | Application catalogue and bundled application families |
@@ -133,6 +142,12 @@ Fresh-process budgets cover the passive boundaries:
 | `file_formats.conversion.plugin`, `file_formats.conversion.profiles` | 31 each |
 | `file_formats.plugin_runtime` | 37 |
 | `file_formats.rendering` | 16 |
+| `file_formats.providers.registry` | 23 |
+| `file_formats.providers.legacy_conversion` | 22 |
+| `file_formats.providers.upstream_calibre` | 21 |
+| `file_formats.providers.fork_metadata` | 25 |
+| `file_formats.providers.ported_calibre` | 27 |
+| `file_formats.html.book` | 17 |
 | `plugins.contracts` | 35 |
 | `plugins.builtins` | 3 |
 | `plugins.application` | 44 |

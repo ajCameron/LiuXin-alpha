@@ -26,7 +26,7 @@ from LiuXin_alpha.utils.calibre_compat.metadata.calibre_metadata_constants impor
     ALL_METADATA_FIELDS,
 )
 
-from LiuXin_alpha.catalog.field_metadata import FieldMetadata
+from LiuXin_alpha.utils.calibre_compat.metadata.field_metadata import FieldMetadata
 from LiuXin_alpha.metadata.identifiers import clean_identifier_key as ck
 from LiuXin_alpha.metadata.identifiers import clean_identifier_value as cv
 

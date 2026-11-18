@@ -178,6 +178,815 @@ class CompositeProgressReporter(object):
 ARCHIVE_FMTS = ("zip", "rar", "oebzip")
 
 
+def pipeline_option_recommendations() -> list[OptionRecommendation]:
+    """
+    Build the conversion options that apply whatever the input and output formats.
+
+    Each call returns new recommendation objects, so a caller may change their
+    recommended values and levels without affecting anyone else. The input and
+    output plugins can still change these options through their recommendations.
+
+    Example:
+        >>> names = [rec.option.name for rec in pipeline_option_recommendations()]
+        >>> "verbose" in names and "search_replace" in names
+        True
+
+
+    :return: One recommendation per pipeline option, in the order Plumber has
+        always listed them.
+    """
+    from LiuXin_alpha.file_formats.plugin_runtime import input_profiles, output_profiles
+
+    return [
+        OptionRecommendation(
+            name="verbose",
+            recommended_value=0,
+            level=OptionRecommendation.LOW,
+            short_switch="v",
+            option_help=_(
+                "Level of verbosity. Specify multiple times for greater "
+                "verbosity. Specifying it twice will result in full "
+                "verbosity, once medium verbosity and zero times least verbosity."
+            ),
+        ),
+        OptionRecommendation(
+            name="debug_pipeline",
+            recommended_value=None,
+            level=OptionRecommendation.LOW,
+            short_switch="d",
+            option_help=_(
+                "Save the output from different stages of the conversion "
+                "pipeline to the specified "
+                "directory. Useful if you are unsure at which stage "
+                "of the conversion process a bug is occurring."
+            ),
+        ),
+        OptionRecommendation(
+            name="input_profile",
+            recommended_value="default",
+            level=OptionRecommendation.LOW,
+            choices=[x.short_name for x in input_profiles()],
+            option_help=_(
+                "Specify the input profile. The input profile gives the "
+                "conversion system information on how to interpret "
+                "various information in the input document. For "
+                "example resolution dependent lengths (i.e. lengths in "
+                "pixels). Choices are:"
+            )
+            + ", ".join([x.short_name for x in input_profiles()]),
+        ),
+        OptionRecommendation(
+            name="output_profile",
+            recommended_value="default",
+            level=OptionRecommendation.LOW,
+            choices=[x.short_name for x in output_profiles()],
+            option_help=_(
+                "Specify the output profile. The output profile "
+                "tells the conversion system how to optimize the "
+                "created document for the specified device. In some cases, "
+                "an output profile can be used to optimize the output for a particular device, "
+                "but this is rarely necessary. "
+                "Choices are:"
+            )
+            + ", ".join([x.short_name for x in output_profiles()]),
+        ),
+        OptionRecommendation(
+            name="base_font_size",
+            recommended_value=0,
+            level=OptionRecommendation.LOW,
+            option_help=_(
+                "The base font size in pts. All font sizes in the produced book "
+                "will be rescaled based on this size. By choosing a larger "
+                "size you can make the fonts in the output bigger and vice "
+                "versa. By default, the base font size is chosen based on "
+                "the output profile you chose."
+            ),
+        ),
+        OptionRecommendation(
+            name="font_size_mapping",
+            recommended_value=None,
+            level=OptionRecommendation.LOW,
+            option_help=_(
+                "Mapping from CSS font names to font sizes in pts. "
+                "An example setting is 12,12,14,16,18,20,22,24. "
+                "These are the mappings for the sizes xx-small to xx-large, "
+                "with the final size being for huge fonts. The font "
+                "rescaling algorithm uses these sizes to intelligently "
+                "rescale fonts. The default is to use a mapping based on "
+                "the output profile you chose."
+            ),
+        ),
+        OptionRecommendation(
+            name="disable_font_rescaling",
+            recommended_value=False,
+            level=OptionRecommendation.LOW,
+            option_help=_("Disable all rescaling of font sizes."),
+        ),
+        OptionRecommendation(
+            name="minimum_line_height",
+            recommended_value=120.0,
+            level=OptionRecommendation.LOW,
+            option_help=_(
+                "The minimum line height, as a percentage of the element's "
+                "calculated font size. calibre will ensure that every element "
+                "has a line height of at least this setting, irrespective of "
+                "what the input document specifies. Set to zero to disable. "
+                "Default is 120%. Use this setting in preference to "
+                "the direct line height specification, unless you know what "
+                'you are doing. For example, you can achieve "double spaced" '
+                "text by setting this to 240."
+            ),
+        ),
+        OptionRecommendation(
+            name="line_height",
+            recommended_value=0,
+            level=OptionRecommendation.LOW,
+            option_help=_(
+                "The line height in pts. Controls spacing between consecutive "
+                "lines of text. Only applies to elements that do not define "
+                "their own line height. In most cases, the minimum line height "
+                "option is more useful. "
+                "By default no line height manipulation is performed."
+            ),
+        ),
+        OptionRecommendation(
+            name="embed_font_family",
+            recommended_value=None,
+            level=OptionRecommendation.LOW,
+            option_help=_(
+                "Embed the specified font family into the book. This specifies "
+                'the "base" font used for the book. If the input document '
+                "specifies its own fonts, they may override this base font. "
+                "You can use the filter style information option to remove fonts from the "
+                "input document. Note that font embedding only works "
+                "with some output formats, principally EPUB and AZW3."
+            ),
+        ),
+        OptionRecommendation(
+            name="embed_all_fonts",
+            recommended_value=False,
+            level=OptionRecommendation.LOW,
+            option_help=_(
+                "Embed every font that is referenced in the input document "
+                "but not already embedded. This will search your system for the "
+                "fonts, and if found, they will be embedded. Embedding will only work "
+                "if the format you are converting to supports embedded fonts, such as "
+                "EPUB, AZW3 or PDF. Please ensure that you have the proper license for "
+                "embedding the fonts used in this document."
+            ),
+        ),
+        OptionRecommendation(
+            name="subset_embedded_fonts",
+            recommended_value=False,
+            level=OptionRecommendation.LOW,
+            option_help=_(
+                "Subset all embedded fonts. Every embedded font is reduced "
+                "to contain only the glyphs used in this document. This decreases "
+                "the size of the font files. Useful if you are embedding a "
+                "particularly large font with lots of unused glyphs."
+            ),
+        ),
+        OptionRecommendation(
+            name="linearize_tables",
+            recommended_value=False,
+            level=OptionRecommendation.LOW,
+            option_help=_(
+                "Some badly designed documents use tables to control the "
+                "layout of text on the page. When converted these documents "
+                "often have text that runs off the page and other artifacts. "
+                "This option will extract the content from the tables and "
+                "present it in a linear fashion."
+            ),
+        ),
+        OptionRecommendation(
+            name="level1_toc",
+            recommended_value=None,
+            level=OptionRecommendation.LOW,
+            option_help=_(
+                "XPath expression that specifies all tags that "
+                "should be added to the Table of Contents at level one. If "
+                "this is specified, it takes precedence over other forms "
+                "of auto-detection."
+                " See the XPath Tutorial in the calibre User Manual for examples."
+            ),
+        ),
+        OptionRecommendation(
+            name="level2_toc",
+            recommended_value=None,
+            level=OptionRecommendation.LOW,
+            option_help=_(
+                "XPath expression that specifies all tags that should be "
+                "added to the Table of Contents at level two. Each entry is added "
+                "under the previous level one entry."
+                " See the XPath Tutorial in the calibre User Manual for examples."
+            ),
+        ),
+        OptionRecommendation(
+            name="level3_toc",
+            recommended_value=None,
+            level=OptionRecommendation.LOW,
+            option_help=_(
+                "XPath expression that specifies all tags that should be "
+                "added to the Table of Contents at level three. Each entry "
+                "is added under the previous level two entry."
+                " See the XPath Tutorial in the calibre User Manual for examples."
+            ),
+        ),
+        OptionRecommendation(
+            name="use_auto_toc",
+            recommended_value=False,
+            level=OptionRecommendation.LOW,
+            option_help=_(
+                "Normally, if the source file already has a Table of "
+                "Contents, it is used in preference to the auto-generated one. "
+                "With this option, the auto-generated one is always used."
+            ),
+        ),
+        OptionRecommendation(
+            name="no_chapters_in_toc",
+            recommended_value=False,
+            level=OptionRecommendation.LOW,
+            option_help=_("Don't add auto-detected chapters to the Table of " "Contents."),
+        ),
+        OptionRecommendation(
+            name="toc_threshold",
+            recommended_value=6,
+            level=OptionRecommendation.LOW,
+            option_help=_(
+                "If fewer than this number of chapters is detected, then links "
+                "are added to the Table of Contents. Default: %default"
+            ),
+        ),
+        OptionRecommendation(
+            name="max_toc_links",
+            recommended_value=50,
+            level=OptionRecommendation.LOW,
+            option_help=_(
+                "Maximum number of links to insert into the TOC. Set to 0 "
+                "to disable. Default is: %default. Links are only added to the "
+                "TOC if less than the threshold number of chapters were detected."
+            ),
+        ),
+        OptionRecommendation(
+            name="toc_filter",
+            recommended_value=None,
+            level=OptionRecommendation.LOW,
+            option_help=_(
+                "Remove entries from the Table of Contents whose titles "
+                "match the specified regular expression. Matching entries and all "
+                "their children are removed."
+            ),
+        ),
+        OptionRecommendation(
+            name="duplicate_links_in_toc",
+            recommended_value=False,
+            level=OptionRecommendation.LOW,
+            option_help=_(
+                "When creating a TOC from links in the input document, "
+                "allow duplicate entries, i.e. allow more than one entry "
+                "with the same text, provided that they point to a "
+                "different location."
+            ),
+        ),
+        OptionRecommendation(
+            name="chapter",
+            recommended_value="//*[((name()='h1' or name()='h2') and "
+            r"re:test(., '\s*((chapter|book|section|part)\s+)|"
+            r"((prolog|prologue|epilogue)(\s+|$))', 'i')) or @class "
+            "= 'chapter']",
+            level=OptionRecommendation.LOW,
+            option_help=_(
+                "An XPath expression to detect chapter titles. The default "
+                "is to consider <h1> or <h2> tags that contain the words "
+                '"chapter","book","section", "prologue", "epilogue", or "part" '
+                "as chapter titles as "
+                'well as any tags that have class="chapter". The expression '
+                "used must evaluate to a list of elements. To disable chapter "
+                'detection, use the expression "/". See the XPath Tutorial '
+                "in the calibre User Manual for further help on using this "
+                "feature."
+            ),
+        ),
+        OptionRecommendation(
+            name="chapter_mark",
+            recommended_value="pagebreak",
+            level=OptionRecommendation.LOW,
+            choices=["pagebreak", "rule", "both", "none"],
+            option_help=_(
+                "Specify how to mark detected chapters. A value of "
+                '"pagebreak" will insert page breaks before chapters. '
+                'A value of "rule" will insert a line before chapters. '
+                'A value of "none" will disable chapter marking and a '
+                'value of "both" will use both page breaks and lines '
+                "to mark chapters."
+            ),
+        ),
+        OptionRecommendation(
+            name="start_reading_at",
+            recommended_value=None,
+            level=OptionRecommendation.LOW,
+            option_help=_(
+                "An XPath expression to detect the location in the document"
+                " at which to start reading. Some ebook reading programs"
+                " (most prominently the Kindle) use this location as the"
+                " position at which to open the book. See the XPath tutorial"
+                " in the calibre User Manual for further help using this"
+                " feature."
+            ),
+        ),
+        OptionRecommendation(
+            name="extra_css",
+            recommended_value=None,
+            level=OptionRecommendation.LOW,
+            option_help=_(
+                "Either the path to a CSS stylesheet or raw CSS. "
+                "This CSS will be appended to the style rules from "
+                "the source file, so it can be used to override those "
+                "rules."
+            ),
+        ),
+        OptionRecommendation(
+            name="filter_css",
+            recommended_value=None,
+            level=OptionRecommendation.LOW,
+            option_help=_(
+                "A comma separated list of CSS properties that "
+                "will be removed from all CSS style rules. This is useful "
+                "if the presence of some style information prevents it "
+                "from being overridden on your device. "
+                "For example: "
+                "font-family,color,margin-left,margin-right"
+            ),
+        ),
+        OptionRecommendation(
+            name="expand_css",
+            recommended_value=False,
+            level=OptionRecommendation.LOW,
+            option_help=_(
+                "By default, calibre will use the shorthand form for various"
+                " css properties such as margin, padding, border, etc. This"
+                " option will cause it to use the full expanded form instead."
+                " Note that CSS is always expanded when generating EPUB files"
+                " with the output profile set to one of the Nook profiles"
+                " as the Nook cannot handle shorthand CSS."
+            ),
+        ),
+        OptionRecommendation(
+            name="page_breaks_before",
+            recommended_value="//*[name()='h1' or name()='h2']",
+            level=OptionRecommendation.LOW,
+            option_help=_(
+                "An XPath expression. Page breaks are inserted "
+                "before the specified elements. To disable use the expression: /"
+            ),
+        ),
+        OptionRecommendation(
+            name="remove_fake_margins",
+            recommended_value=True,
+            level=OptionRecommendation.LOW,
+            option_help=_(
+                "Some documents specify page margins by "
+                "specifying a left and right margin on each individual "
+                "paragraph. calibre will try to detect and remove these "
+                "margins. Sometimes, this can cause the removal of "
+                "margins that should not have been removed. In this "
+                "case you can disable the removal."
+            ),
+        ),
+        OptionRecommendation(
+            name="margin_top",
+            recommended_value=5.0,
+            level=OptionRecommendation.LOW,
+            option_help=_(
+                "Set the top margin in pts. Default is %default. "
+                "Setting this to less than zero will cause no margin to be set "
+                "(the margin setting in the original document will be preserved). "
+                "Note: 72 pts equals 1 inch"
+            ),
+        ),
+        OptionRecommendation(
+            name="margin_bottom",
+            recommended_value=5.0,
+            level=OptionRecommendation.LOW,
+            option_help=_(
+                "Set the bottom margin in pts. Default is %default. "
+                "Setting this to less than zero will cause no margin to be set "
+                "(the margin setting in the original document will be preserved). "
+                "Note: 72 pts equals 1 inch"
+            ),
+        ),
+        OptionRecommendation(
+            name="margin_left",
+            recommended_value=5.0,
+            level=OptionRecommendation.LOW,
+            option_help=_(
+                "Set the left margin in pts. Default is %default. "
+                "Setting this to less than zero will cause no margin to be set "
+                "(the margin setting in the original document will be preserved). "
+                "Note: 72 pts equals 1 inch"
+            ),
+        ),
+        OptionRecommendation(
+            name="margin_right",
+            recommended_value=5.0,
+            level=OptionRecommendation.LOW,
+            option_help=_(
+                "Set the right margin in pts. Default is %default. "
+                "Setting this to less than zero will cause no margin to be set "
+                "(the margin setting in the original document will be preserved). "
+                "Note: 72 pts equals 1 inch"
+            ),
+        ),
+        OptionRecommendation(
+            name="change_justification",
+            recommended_value="original",
+            level=OptionRecommendation.LOW,
+            choices=["left", "justify", "original"],
+            option_help=_(
+                'Change text justification. A value of "left" converts all'
+                " justified text in the source to left aligned (i.e. "
+                'unjustified) text. A value of "justify" converts all '
+                'unjustified text to justified. A value of "original" '
+                "(the default) does not change justification in the "
+                "source file. Note that only some output formats support "
+                "justification."
+            ),
+        ),
+        OptionRecommendation(
+            name="remove_paragraph_spacing",
+            recommended_value=False,
+            level=OptionRecommendation.LOW,
+            option_help=_(
+                "Remove spacing between paragraphs. Also sets an indent on "
+                "paragraphs of 1.5em. Spacing removal will not work "
+                "if the source file does not use paragraphs (<p> or <div> tags)."
+            ),
+        ),
+        OptionRecommendation(
+            name="remove_paragraph_spacing_indent_size",
+            recommended_value=1.5,
+            level=OptionRecommendation.LOW,
+            option_help=_(
+                "When calibre removes blank lines between paragraphs, it automatically "
+                "sets a paragraph indent, to ensure that paragraphs can be easily "
+                "distinguished. This option controls the width of that indent (in em). "
+                "If you set this value negative, then the indent specified in the input "
+                "document is used, that is, calibre does not change the indentation."
+            ),
+        ),
+        OptionRecommendation(
+            name="prefer_metadata_cover",
+            recommended_value=False,
+            level=OptionRecommendation.LOW,
+            option_help=_("Use the cover detected from the source file in preference " "to the specified cover."),
+        ),
+        OptionRecommendation(
+            name="insert_blank_line",
+            recommended_value=False,
+            level=OptionRecommendation.LOW,
+            option_help=_(
+                "Insert a blank line between paragraphs. Will not work "
+                "if the source file does not use paragraphs (<p> or <div> tags)."
+            ),
+        ),
+        OptionRecommendation(
+            name="insert_blank_line_size",
+            recommended_value=0.5,
+            level=OptionRecommendation.LOW,
+            option_help=_(
+                "Set the height of the inserted blank lines (in em)."
+                " The height of the lines between paragraphs will be twice the value"
+                " set here."
+            ),
+        ),
+        OptionRecommendation(
+            name="remove_first_image",
+            recommended_value=False,
+            level=OptionRecommendation.LOW,
+            option_help=_(
+                "Remove the first image from the input ebook. Useful if the "
+                "input document has a cover image that is not identified as a cover. "
+                "In this case, if you set a cover in calibre, the output document will "
+                "end up with two cover images if you do not specify this option."
+            ),
+        ),
+        OptionRecommendation(
+            name="insert_metadata",
+            recommended_value=False,
+            level=OptionRecommendation.LOW,
+            option_help=_(
+                "Insert the book metadata at the start of "
+                "the book. This is useful if your ebook reader does not support "
+                "displaying/searching metadata directly."
+            ),
+        ),
+        OptionRecommendation(
+            name="smarten_punctuation",
+            recommended_value=False,
+            level=OptionRecommendation.LOW,
+            option_help=_(
+                "Convert plain quotes, dashes and ellipsis to their "
+                "typographically correct equivalents. For details, see "
+                "http://daringfireball.net/projects/smartypants"
+            ),
+        ),
+        OptionRecommendation(
+            name="unsmarten_punctuation",
+            recommended_value=False,
+            level=OptionRecommendation.LOW,
+            option_help=_("Convert fancy quotes, dashes and ellipsis to their " "plain equivalents."),
+        ),
+        OptionRecommendation(
+            name="read_metadata_from_opf",
+            recommended_value=None,
+            level=OptionRecommendation.LOW,
+            short_switch="m",
+            option_help=_(
+                "Read metadata from the specified OPF file. Metadata read "
+                "from this file will override any metadata in the source "
+                "file."
+            ),
+        ),
+        OptionRecommendation(
+            name="asciiize",
+            recommended_value=False,
+            level=OptionRecommendation.LOW,
+            option_help=(
+                _(
+                    "Transliterate unicode characters to an ASCII "
+                    "representation. Use with care because this will replace "
+                    'unicode characters with ASCII. For instance it will replace "%s" '
+                    'with "Mikhail Gorbachiov". Also, note that in '
+                    "cases where there are multiple representations of a character "
+                    "(characters shared by Chinese and Japanese for instance) the "
+                    "representation based on the current calibre interface language will be "
+                    "used."
+                )
+                % "\u041c\u0438\u0445\u0430\u0438\u043b "
+                "\u0413\u043e\u0440\u0431\u0430\u0447\u0451\u0432"
+            ),
+        ),
+        OptionRecommendation(
+            name="keep_ligatures",
+            recommended_value=False,
+            level=OptionRecommendation.LOW,
+            option_help=_(
+                "Preserve ligatures present in the input document. "
+                "A ligature is a special rendering of a pair of "
+                "characters like ff, fi, fl et cetera. "
+                "Most readers do not have support for "
+                "ligatures in their default fonts, so they are "
+                "unlikely to render correctly. By default, calibre "
+                "will turn a ligature into the corresponding pair of normal "
+                "characters. This option will preserve them instead."
+            ),
+        ),
+        OptionRecommendation(
+            name="title",
+            recommended_value=None,
+            level=OptionRecommendation.LOW,
+            option_help=_("Set the title."),
+        ),
+        OptionRecommendation(
+            name="authors",
+            recommended_value=None,
+            level=OptionRecommendation.LOW,
+            option_help=_("Set the authors. Multiple authors should be separated by " "ampersands."),
+        ),
+        OptionRecommendation(
+            name="title_sort",
+            recommended_value=None,
+            level=OptionRecommendation.LOW,
+            option_help=_("The version of the title to be used for sorting. "),
+        ),
+        OptionRecommendation(
+            name="author_sort",
+            recommended_value=None,
+            level=OptionRecommendation.LOW,
+            option_help=_("String to be used when sorting by author. "),
+        ),
+        OptionRecommendation(
+            name="cover",
+            recommended_value=None,
+            level=OptionRecommendation.LOW,
+            option_help=_("Set the cover to the specified file or URL"),
+        ),
+        OptionRecommendation(
+            name="comments",
+            recommended_value=None,
+            level=OptionRecommendation.LOW,
+            option_help=_("Set the ebook description."),
+        ),
+        OptionRecommendation(
+            name="publisher",
+            recommended_value=None,
+            level=OptionRecommendation.LOW,
+            option_help=_("Set the ebook publisher."),
+        ),
+        OptionRecommendation(
+            name="series",
+            recommended_value=None,
+            level=OptionRecommendation.LOW,
+            option_help=_("Set the series this ebook belongs to."),
+        ),
+        OptionRecommendation(
+            name="series_index",
+            recommended_value=None,
+            level=OptionRecommendation.LOW,
+            option_help=_("Set the index of the book in this series."),
+        ),
+        OptionRecommendation(
+            name="rating",
+            recommended_value=None,
+            level=OptionRecommendation.LOW,
+            option_help=_("Set the rating. Should be a number between 1 and 5."),
+        ),
+        OptionRecommendation(
+            name="isbn",
+            recommended_value=None,
+            level=OptionRecommendation.LOW,
+            option_help=_("Set the ISBN of the book."),
+        ),
+        OptionRecommendation(
+            name="tags",
+            recommended_value=None,
+            level=OptionRecommendation.LOW,
+            option_help=_("Set the tags for the book. Should be a comma separated list."),
+        ),
+        OptionRecommendation(
+            name="book_producer",
+            recommended_value=None,
+            level=OptionRecommendation.LOW,
+            option_help=_("Set the book producer."),
+        ),
+        OptionRecommendation(
+            name="language",
+            recommended_value=None,
+            level=OptionRecommendation.LOW,
+            option_help=_("Set the language."),
+        ),
+        OptionRecommendation(
+            name="pubdate",
+            recommended_value=None,
+            level=OptionRecommendation.LOW,
+            option_help=_("Set the publication date."),
+        ),
+        OptionRecommendation(
+            name="timestamp",
+            recommended_value=None,
+            level=OptionRecommendation.LOW,
+            option_help=_("Set the book timestamp (no longer used anywhere)"),
+        ),
+        OptionRecommendation(
+            name="enable_heuristics",
+            recommended_value=False,
+            level=OptionRecommendation.LOW,
+            option_help=_(
+                "Enable heuristic processing. This option must be set for any "
+                "heuristic processing to take place."
+            ),
+        ),
+        OptionRecommendation(
+            name="markup_chapter_headings",
+            recommended_value=True,
+            level=OptionRecommendation.LOW,
+            option_help=_(
+                "Detect unformatted chapter headings and sub headings. Change "
+                "them to h2 and h3 tags.  This setting will not create a TOC, "
+                "but can be used in conjunction with structure detection to create "
+                "one."
+            ),
+        ),
+        OptionRecommendation(
+            name="italicize_common_cases",
+            recommended_value=True,
+            level=OptionRecommendation.LOW,
+            option_help=_("Look for common words and patterns that denote " "italics and italicize them."),
+        ),
+        OptionRecommendation(
+            name="fix_indents",
+            recommended_value=True,
+            level=OptionRecommendation.LOW,
+            option_help=_(
+                "Turn indentation created from multiple non-breaking space entities " "into CSS indents."
+            ),
+        ),
+        OptionRecommendation(
+            name="html_unwrap_factor",
+            recommended_value=0.40,
+            level=OptionRecommendation.LOW,
+            option_help=_(
+                "Scale used to determine the length at which a line should "
+                "be unwrapped. Valid values are a decimal between 0 and 1. The "
+                "default is 0.4, just below the median line length.  If only a "
+                "few lines in the document require unwrapping this value should "
+                "be reduced"
+            ),
+        ),
+        OptionRecommendation(
+            name="unwrap_lines",
+            recommended_value=True,
+            level=OptionRecommendation.LOW,
+            option_help=_("Unwrap lines using punctuation and other formatting clues."),
+        ),
+        OptionRecommendation(
+            name="delete_blank_paragraphs",
+            recommended_value=True,
+            level=OptionRecommendation.LOW,
+            option_help=_(
+                "Remove empty paragraphs from the document when they exist between " "every other paragraph"
+            ),
+        ),
+        OptionRecommendation(
+            name="format_scene_breaks",
+            recommended_value=True,
+            level=OptionRecommendation.LOW,
+            option_help=_(
+                "Left aligned scene break markers are center aligned. "
+                "Replace soft scene breaks that use multiple blank lines with "
+                "horizontal rules."
+            ),
+        ),
+        OptionRecommendation(
+            name="replace_scene_breaks",
+            recommended_value="",
+            level=OptionRecommendation.LOW,
+            option_help=_(
+                "Replace scene breaks with the specified text. By default, the "
+                "text from the input document is used."
+            ),
+        ),
+        OptionRecommendation(
+            name="dehyphenate",
+            recommended_value=True,
+            level=OptionRecommendation.LOW,
+            option_help=_(
+                "Analyze hyphenated words throughout the document.  The "
+                "document itself is used as a dictionary to determine whether hyphens "
+                "should be retained or removed."
+            ),
+        ),
+        OptionRecommendation(
+            name="renumber_headings",
+            recommended_value=True,
+            level=OptionRecommendation.LOW,
+            option_help=_(
+                "Looks for occurrences of sequential <h1> or <h2> tags. "
+                "The tags are renumbered to prevent splitting in the middle "
+                "of chapter headings."
+            ),
+        ),
+        OptionRecommendation(
+            name="sr1_search",
+            recommended_value="",
+            level=OptionRecommendation.LOW,
+            option_help=_("Search pattern (regular expression) to be replaced with " "sr1-replace."),
+        ),
+        OptionRecommendation(
+            name="sr1_replace",
+            recommended_value="",
+            level=OptionRecommendation.LOW,
+            option_help=_("Replacement to replace the text found with sr1-search."),
+        ),
+        OptionRecommendation(
+            name="sr2_search",
+            recommended_value="",
+            level=OptionRecommendation.LOW,
+            option_help=_("Search pattern (regular expression) to be replaced with " "sr2-replace."),
+        ),
+        OptionRecommendation(
+            name="sr2_replace",
+            recommended_value="",
+            level=OptionRecommendation.LOW,
+            option_help=_("Replacement to replace the text found with sr2-search."),
+        ),
+        OptionRecommendation(
+            name="sr3_search",
+            recommended_value="",
+            level=OptionRecommendation.LOW,
+            option_help=_("Search pattern (regular expression) to be replaced with " "sr3-replace."),
+        ),
+        OptionRecommendation(
+            name="sr3_replace",
+            recommended_value="",
+            level=OptionRecommendation.LOW,
+            option_help=_("Replacement to replace the text found with sr3-search."),
+        ),
+        OptionRecommendation(
+            name="search_replace",
+            recommended_value=None,
+            level=OptionRecommendation.LOW,
+            option_help=_(
+                "Path to a file containing search and replace regular expressions. "
+                "The file must contain alternating lines of regular expression "
+                "followed by replacement pattern (which can be an empty line). "
+                "The regular expression must be in the python regex syntax and "
+                "the file must be UTF-8 encoded."
+            ),
+        ),
+    ]
+
+
 class Plumber(object):
     """
     The `Plumber` manages the conversion pipeline. An UI should call the methods
@@ -274,794 +1083,7 @@ class Plumber(object):
         # Initialize the conversion options that are independent of input and
         # output formats. The input and output plugins can still disable these
         # options via recommendations.
-        self.pipeline_options = [
-            OptionRecommendation(
-                name="verbose",
-                recommended_value=0,
-                level=OptionRecommendation.LOW,
-                short_switch="v",
-                option_help=_(
-                    "Level of verbosity. Specify multiple times for greater "
-                    "verbosity. Specifying it twice will result in full "
-                    "verbosity, once medium verbosity and zero times least verbosity."
-                ),
-            ),
-            OptionRecommendation(
-                name="debug_pipeline",
-                recommended_value=None,
-                level=OptionRecommendation.LOW,
-                short_switch="d",
-                option_help=_(
-                    "Save the output from different stages of the conversion "
-                    "pipeline to the specified "
-                    "directory. Useful if you are unsure at which stage "
-                    "of the conversion process a bug is occurring."
-                ),
-            ),
-            OptionRecommendation(
-                name="input_profile",
-                recommended_value="default",
-                level=OptionRecommendation.LOW,
-                choices=[x.short_name for x in input_profiles()],
-                option_help=_(
-                    "Specify the input profile. The input profile gives the "
-                    "conversion system information on how to interpret "
-                    "various information in the input document. For "
-                    "example resolution dependent lengths (i.e. lengths in "
-                    "pixels). Choices are:"
-                )
-                + ", ".join([x.short_name for x in input_profiles()]),
-            ),
-            OptionRecommendation(
-                name="output_profile",
-                recommended_value="default",
-                level=OptionRecommendation.LOW,
-                choices=[x.short_name for x in output_profiles()],
-                option_help=_(
-                    "Specify the output profile. The output profile "
-                    "tells the conversion system how to optimize the "
-                    "created document for the specified device. In some cases, "
-                    "an output profile can be used to optimize the output for a particular device, "
-                    "but this is rarely necessary. "
-                    "Choices are:"
-                )
-                + ", ".join([x.short_name for x in output_profiles()]),
-            ),
-            OptionRecommendation(
-                name="base_font_size",
-                recommended_value=0,
-                level=OptionRecommendation.LOW,
-                option_help=_(
-                    "The base font size in pts. All font sizes in the produced book "
-                    "will be rescaled based on this size. By choosing a larger "
-                    "size you can make the fonts in the output bigger and vice "
-                    "versa. By default, the base font size is chosen based on "
-                    "the output profile you chose."
-                ),
-            ),
-            OptionRecommendation(
-                name="font_size_mapping",
-                recommended_value=None,
-                level=OptionRecommendation.LOW,
-                option_help=_(
-                    "Mapping from CSS font names to font sizes in pts. "
-                    "An example setting is 12,12,14,16,18,20,22,24. "
-                    "These are the mappings for the sizes xx-small to xx-large, "
-                    "with the final size being for huge fonts. The font "
-                    "rescaling algorithm uses these sizes to intelligently "
-                    "rescale fonts. The default is to use a mapping based on "
-                    "the output profile you chose."
-                ),
-            ),
-            OptionRecommendation(
-                name="disable_font_rescaling",
-                recommended_value=False,
-                level=OptionRecommendation.LOW,
-                option_help=_("Disable all rescaling of font sizes."),
-            ),
-            OptionRecommendation(
-                name="minimum_line_height",
-                recommended_value=120.0,
-                level=OptionRecommendation.LOW,
-                option_help=_(
-                    "The minimum line height, as a percentage of the element's "
-                    "calculated font size. calibre will ensure that every element "
-                    "has a line height of at least this setting, irrespective of "
-                    "what the input document specifies. Set to zero to disable. "
-                    "Default is 120%. Use this setting in preference to "
-                    "the direct line height specification, unless you know what "
-                    'you are doing. For example, you can achieve "double spaced" '
-                    "text by setting this to 240."
-                ),
-            ),
-            OptionRecommendation(
-                name="line_height",
-                recommended_value=0,
-                level=OptionRecommendation.LOW,
-                option_help=_(
-                    "The line height in pts. Controls spacing between consecutive "
-                    "lines of text. Only applies to elements that do not define "
-                    "their own line height. In most cases, the minimum line height "
-                    "option is more useful. "
-                    "By default no line height manipulation is performed."
-                ),
-            ),
-            OptionRecommendation(
-                name="embed_font_family",
-                recommended_value=None,
-                level=OptionRecommendation.LOW,
-                option_help=_(
-                    "Embed the specified font family into the book. This specifies "
-                    'the "base" font used for the book. If the input document '
-                    "specifies its own fonts, they may override this base font. "
-                    "You can use the filter style information option to remove fonts from the "
-                    "input document. Note that font embedding only works "
-                    "with some output formats, principally EPUB and AZW3."
-                ),
-            ),
-            OptionRecommendation(
-                name="embed_all_fonts",
-                recommended_value=False,
-                level=OptionRecommendation.LOW,
-                option_help=_(
-                    "Embed every font that is referenced in the input document "
-                    "but not already embedded. This will search your system for the "
-                    "fonts, and if found, they will be embedded. Embedding will only work "
-                    "if the format you are converting to supports embedded fonts, such as "
-                    "EPUB, AZW3 or PDF. Please ensure that you have the proper license for "
-                    "embedding the fonts used in this document."
-                ),
-            ),
-            OptionRecommendation(
-                name="subset_embedded_fonts",
-                recommended_value=False,
-                level=OptionRecommendation.LOW,
-                option_help=_(
-                    "Subset all embedded fonts. Every embedded font is reduced "
-                    "to contain only the glyphs used in this document. This decreases "
-                    "the size of the font files. Useful if you are embedding a "
-                    "particularly large font with lots of unused glyphs."
-                ),
-            ),
-            OptionRecommendation(
-                name="linearize_tables",
-                recommended_value=False,
-                level=OptionRecommendation.LOW,
-                option_help=_(
-                    "Some badly designed documents use tables to control the "
-                    "layout of text on the page. When converted these documents "
-                    "often have text that runs off the page and other artifacts. "
-                    "This option will extract the content from the tables and "
-                    "present it in a linear fashion."
-                ),
-            ),
-            OptionRecommendation(
-                name="level1_toc",
-                recommended_value=None,
-                level=OptionRecommendation.LOW,
-                option_help=_(
-                    "XPath expression that specifies all tags that "
-                    "should be added to the Table of Contents at level one. If "
-                    "this is specified, it takes precedence over other forms "
-                    "of auto-detection."
-                    " See the XPath Tutorial in the calibre User Manual for examples."
-                ),
-            ),
-            OptionRecommendation(
-                name="level2_toc",
-                recommended_value=None,
-                level=OptionRecommendation.LOW,
-                option_help=_(
-                    "XPath expression that specifies all tags that should be "
-                    "added to the Table of Contents at level two. Each entry is added "
-                    "under the previous level one entry."
-                    " See the XPath Tutorial in the calibre User Manual for examples."
-                ),
-            ),
-            OptionRecommendation(
-                name="level3_toc",
-                recommended_value=None,
-                level=OptionRecommendation.LOW,
-                option_help=_(
-                    "XPath expression that specifies all tags that should be "
-                    "added to the Table of Contents at level three. Each entry "
-                    "is added under the previous level two entry."
-                    " See the XPath Tutorial in the calibre User Manual for examples."
-                ),
-            ),
-            OptionRecommendation(
-                name="use_auto_toc",
-                recommended_value=False,
-                level=OptionRecommendation.LOW,
-                option_help=_(
-                    "Normally, if the source file already has a Table of "
-                    "Contents, it is used in preference to the auto-generated one. "
-                    "With this option, the auto-generated one is always used."
-                ),
-            ),
-            OptionRecommendation(
-                name="no_chapters_in_toc",
-                recommended_value=False,
-                level=OptionRecommendation.LOW,
-                option_help=_("Don't add auto-detected chapters to the Table of " "Contents."),
-            ),
-            OptionRecommendation(
-                name="toc_threshold",
-                recommended_value=6,
-                level=OptionRecommendation.LOW,
-                option_help=_(
-                    "If fewer than this number of chapters is detected, then links "
-                    "are added to the Table of Contents. Default: %default"
-                ),
-            ),
-            OptionRecommendation(
-                name="max_toc_links",
-                recommended_value=50,
-                level=OptionRecommendation.LOW,
-                option_help=_(
-                    "Maximum number of links to insert into the TOC. Set to 0 "
-                    "to disable. Default is: %default. Links are only added to the "
-                    "TOC if less than the threshold number of chapters were detected."
-                ),
-            ),
-            OptionRecommendation(
-                name="toc_filter",
-                recommended_value=None,
-                level=OptionRecommendation.LOW,
-                option_help=_(
-                    "Remove entries from the Table of Contents whose titles "
-                    "match the specified regular expression. Matching entries and all "
-                    "their children are removed."
-                ),
-            ),
-            OptionRecommendation(
-                name="duplicate_links_in_toc",
-                recommended_value=False,
-                level=OptionRecommendation.LOW,
-                option_help=_(
-                    "When creating a TOC from links in the input document, "
-                    "allow duplicate entries, i.e. allow more than one entry "
-                    "with the same text, provided that they point to a "
-                    "different location."
-                ),
-            ),
-            OptionRecommendation(
-                name="chapter",
-                recommended_value="//*[((name()='h1' or name()='h2') and "
-                r"re:test(., '\s*((chapter|book|section|part)\s+)|"
-                r"((prolog|prologue|epilogue)(\s+|$))', 'i')) or @class "
-                "= 'chapter']",
-                level=OptionRecommendation.LOW,
-                option_help=_(
-                    "An XPath expression to detect chapter titles. The default "
-                    "is to consider <h1> or <h2> tags that contain the words "
-                    '"chapter","book","section", "prologue", "epilogue", or "part" '
-                    "as chapter titles as "
-                    'well as any tags that have class="chapter". The expression '
-                    "used must evaluate to a list of elements. To disable chapter "
-                    'detection, use the expression "/". See the XPath Tutorial '
-                    "in the calibre User Manual for further help on using this "
-                    "feature."
-                ),
-            ),
-            OptionRecommendation(
-                name="chapter_mark",
-                recommended_value="pagebreak",
-                level=OptionRecommendation.LOW,
-                choices=["pagebreak", "rule", "both", "none"],
-                option_help=_(
-                    "Specify how to mark detected chapters. A value of "
-                    '"pagebreak" will insert page breaks before chapters. '
-                    'A value of "rule" will insert a line before chapters. '
-                    'A value of "none" will disable chapter marking and a '
-                    'value of "both" will use both page breaks and lines '
-                    "to mark chapters."
-                ),
-            ),
-            OptionRecommendation(
-                name="start_reading_at",
-                recommended_value=None,
-                level=OptionRecommendation.LOW,
-                option_help=_(
-                    "An XPath expression to detect the location in the document"
-                    " at which to start reading. Some ebook reading programs"
-                    " (most prominently the Kindle) use this location as the"
-                    " position at which to open the book. See the XPath tutorial"
-                    " in the calibre User Manual for further help using this"
-                    " feature."
-                ),
-            ),
-            OptionRecommendation(
-                name="extra_css",
-                recommended_value=None,
-                level=OptionRecommendation.LOW,
-                option_help=_(
-                    "Either the path to a CSS stylesheet or raw CSS. "
-                    "This CSS will be appended to the style rules from "
-                    "the source file, so it can be used to override those "
-                    "rules."
-                ),
-            ),
-            OptionRecommendation(
-                name="filter_css",
-                recommended_value=None,
-                level=OptionRecommendation.LOW,
-                option_help=_(
-                    "A comma separated list of CSS properties that "
-                    "will be removed from all CSS style rules. This is useful "
-                    "if the presence of some style information prevents it "
-                    "from being overridden on your device. "
-                    "For example: "
-                    "font-family,color,margin-left,margin-right"
-                ),
-            ),
-            OptionRecommendation(
-                name="expand_css",
-                recommended_value=False,
-                level=OptionRecommendation.LOW,
-                option_help=_(
-                    "By default, calibre will use the shorthand form for various"
-                    " css properties such as margin, padding, border, etc. This"
-                    " option will cause it to use the full expanded form instead."
-                    " Note that CSS is always expanded when generating EPUB files"
-                    " with the output profile set to one of the Nook profiles"
-                    " as the Nook cannot handle shorthand CSS."
-                ),
-            ),
-            OptionRecommendation(
-                name="page_breaks_before",
-                recommended_value="//*[name()='h1' or name()='h2']",
-                level=OptionRecommendation.LOW,
-                option_help=_(
-                    "An XPath expression. Page breaks are inserted "
-                    "before the specified elements. To disable use the expression: /"
-                ),
-            ),
-            OptionRecommendation(
-                name="remove_fake_margins",
-                recommended_value=True,
-                level=OptionRecommendation.LOW,
-                option_help=_(
-                    "Some documents specify page margins by "
-                    "specifying a left and right margin on each individual "
-                    "paragraph. calibre will try to detect and remove these "
-                    "margins. Sometimes, this can cause the removal of "
-                    "margins that should not have been removed. In this "
-                    "case you can disable the removal."
-                ),
-            ),
-            OptionRecommendation(
-                name="margin_top",
-                recommended_value=5.0,
-                level=OptionRecommendation.LOW,
-                option_help=_(
-                    "Set the top margin in pts. Default is %default. "
-                    "Setting this to less than zero will cause no margin to be set "
-                    "(the margin setting in the original document will be preserved). "
-                    "Note: 72 pts equals 1 inch"
-                ),
-            ),
-            OptionRecommendation(
-                name="margin_bottom",
-                recommended_value=5.0,
-                level=OptionRecommendation.LOW,
-                option_help=_(
-                    "Set the bottom margin in pts. Default is %default. "
-                    "Setting this to less than zero will cause no margin to be set "
-                    "(the margin setting in the original document will be preserved). "
-                    "Note: 72 pts equals 1 inch"
-                ),
-            ),
-            OptionRecommendation(
-                name="margin_left",
-                recommended_value=5.0,
-                level=OptionRecommendation.LOW,
-                option_help=_(
-                    "Set the left margin in pts. Default is %default. "
-                    "Setting this to less than zero will cause no margin to be set "
-                    "(the margin setting in the original document will be preserved). "
-                    "Note: 72 pts equals 1 inch"
-                ),
-            ),
-            OptionRecommendation(
-                name="margin_right",
-                recommended_value=5.0,
-                level=OptionRecommendation.LOW,
-                option_help=_(
-                    "Set the right margin in pts. Default is %default. "
-                    "Setting this to less than zero will cause no margin to be set "
-                    "(the margin setting in the original document will be preserved). "
-                    "Note: 72 pts equals 1 inch"
-                ),
-            ),
-            OptionRecommendation(
-                name="change_justification",
-                recommended_value="original",
-                level=OptionRecommendation.LOW,
-                choices=["left", "justify", "original"],
-                option_help=_(
-                    'Change text justification. A value of "left" converts all'
-                    " justified text in the source to left aligned (i.e. "
-                    'unjustified) text. A value of "justify" converts all '
-                    'unjustified text to justified. A value of "original" '
-                    "(the default) does not change justification in the "
-                    "source file. Note that only some output formats support "
-                    "justification."
-                ),
-            ),
-            OptionRecommendation(
-                name="remove_paragraph_spacing",
-                recommended_value=False,
-                level=OptionRecommendation.LOW,
-                option_help=_(
-                    "Remove spacing between paragraphs. Also sets an indent on "
-                    "paragraphs of 1.5em. Spacing removal will not work "
-                    "if the source file does not use paragraphs (<p> or <div> tags)."
-                ),
-            ),
-            OptionRecommendation(
-                name="remove_paragraph_spacing_indent_size",
-                recommended_value=1.5,
-                level=OptionRecommendation.LOW,
-                option_help=_(
-                    "When calibre removes blank lines between paragraphs, it automatically "
-                    "sets a paragraph indent, to ensure that paragraphs can be easily "
-                    "distinguished. This option controls the width of that indent (in em). "
-                    "If you set this value negative, then the indent specified in the input "
-                    "document is used, that is, calibre does not change the indentation."
-                ),
-            ),
-            OptionRecommendation(
-                name="prefer_metadata_cover",
-                recommended_value=False,
-                level=OptionRecommendation.LOW,
-                option_help=_("Use the cover detected from the source file in preference " "to the specified cover."),
-            ),
-            OptionRecommendation(
-                name="insert_blank_line",
-                recommended_value=False,
-                level=OptionRecommendation.LOW,
-                option_help=_(
-                    "Insert a blank line between paragraphs. Will not work "
-                    "if the source file does not use paragraphs (<p> or <div> tags)."
-                ),
-            ),
-            OptionRecommendation(
-                name="insert_blank_line_size",
-                recommended_value=0.5,
-                level=OptionRecommendation.LOW,
-                option_help=_(
-                    "Set the height of the inserted blank lines (in em)."
-                    " The height of the lines between paragraphs will be twice the value"
-                    " set here."
-                ),
-            ),
-            OptionRecommendation(
-                name="remove_first_image",
-                recommended_value=False,
-                level=OptionRecommendation.LOW,
-                option_help=_(
-                    "Remove the first image from the input ebook. Useful if the "
-                    "input document has a cover image that is not identified as a cover. "
-                    "In this case, if you set a cover in calibre, the output document will "
-                    "end up with two cover images if you do not specify this option."
-                ),
-            ),
-            OptionRecommendation(
-                name="insert_metadata",
-                recommended_value=False,
-                level=OptionRecommendation.LOW,
-                option_help=_(
-                    "Insert the book metadata at the start of "
-                    "the book. This is useful if your ebook reader does not support "
-                    "displaying/searching metadata directly."
-                ),
-            ),
-            OptionRecommendation(
-                name="smarten_punctuation",
-                recommended_value=False,
-                level=OptionRecommendation.LOW,
-                option_help=_(
-                    "Convert plain quotes, dashes and ellipsis to their "
-                    "typographically correct equivalents. For details, see "
-                    "http://daringfireball.net/projects/smartypants"
-                ),
-            ),
-            OptionRecommendation(
-                name="unsmarten_punctuation",
-                recommended_value=False,
-                level=OptionRecommendation.LOW,
-                option_help=_("Convert fancy quotes, dashes and ellipsis to their " "plain equivalents."),
-            ),
-            OptionRecommendation(
-                name="read_metadata_from_opf",
-                recommended_value=None,
-                level=OptionRecommendation.LOW,
-                short_switch="m",
-                option_help=_(
-                    "Read metadata from the specified OPF file. Metadata read "
-                    "from this file will override any metadata in the source "
-                    "file."
-                ),
-            ),
-            OptionRecommendation(
-                name="asciiize",
-                recommended_value=False,
-                level=OptionRecommendation.LOW,
-                option_help=(
-                    _(
-                        "Transliterate unicode characters to an ASCII "
-                        "representation. Use with care because this will replace "
-                        'unicode characters with ASCII. For instance it will replace "%s" '
-                        'with "Mikhail Gorbachiov". Also, note that in '
-                        "cases where there are multiple representations of a character "
-                        "(characters shared by Chinese and Japanese for instance) the "
-                        "representation based on the current calibre interface language will be "
-                        "used."
-                    )
-                    % "\u041c\u0438\u0445\u0430\u0438\u043b "
-                    "\u0413\u043e\u0440\u0431\u0430\u0447\u0451\u0432"
-                ),
-            ),
-            OptionRecommendation(
-                name="keep_ligatures",
-                recommended_value=False,
-                level=OptionRecommendation.LOW,
-                option_help=_(
-                    "Preserve ligatures present in the input document. "
-                    "A ligature is a special rendering of a pair of "
-                    "characters like ff, fi, fl et cetera. "
-                    "Most readers do not have support for "
-                    "ligatures in their default fonts, so they are "
-                    "unlikely to render correctly. By default, calibre "
-                    "will turn a ligature into the corresponding pair of normal "
-                    "characters. This option will preserve them instead."
-                ),
-            ),
-            OptionRecommendation(
-                name="title",
-                recommended_value=None,
-                level=OptionRecommendation.LOW,
-                option_help=_("Set the title."),
-            ),
-            OptionRecommendation(
-                name="authors",
-                recommended_value=None,
-                level=OptionRecommendation.LOW,
-                option_help=_("Set the authors. Multiple authors should be separated by " "ampersands."),
-            ),
-            OptionRecommendation(
-                name="title_sort",
-                recommended_value=None,
-                level=OptionRecommendation.LOW,
-                option_help=_("The version of the title to be used for sorting. "),
-            ),
-            OptionRecommendation(
-                name="author_sort",
-                recommended_value=None,
-                level=OptionRecommendation.LOW,
-                option_help=_("String to be used when sorting by author. "),
-            ),
-            OptionRecommendation(
-                name="cover",
-                recommended_value=None,
-                level=OptionRecommendation.LOW,
-                option_help=_("Set the cover to the specified file or URL"),
-            ),
-            OptionRecommendation(
-                name="comments",
-                recommended_value=None,
-                level=OptionRecommendation.LOW,
-                option_help=_("Set the ebook description."),
-            ),
-            OptionRecommendation(
-                name="publisher",
-                recommended_value=None,
-                level=OptionRecommendation.LOW,
-                option_help=_("Set the ebook publisher."),
-            ),
-            OptionRecommendation(
-                name="series",
-                recommended_value=None,
-                level=OptionRecommendation.LOW,
-                option_help=_("Set the series this ebook belongs to."),
-            ),
-            OptionRecommendation(
-                name="series_index",
-                recommended_value=None,
-                level=OptionRecommendation.LOW,
-                option_help=_("Set the index of the book in this series."),
-            ),
-            OptionRecommendation(
-                name="rating",
-                recommended_value=None,
-                level=OptionRecommendation.LOW,
-                option_help=_("Set the rating. Should be a number between 1 and 5."),
-            ),
-            OptionRecommendation(
-                name="isbn",
-                recommended_value=None,
-                level=OptionRecommendation.LOW,
-                option_help=_("Set the ISBN of the book."),
-            ),
-            OptionRecommendation(
-                name="tags",
-                recommended_value=None,
-                level=OptionRecommendation.LOW,
-                option_help=_("Set the tags for the book. Should be a comma separated list."),
-            ),
-            OptionRecommendation(
-                name="book_producer",
-                recommended_value=None,
-                level=OptionRecommendation.LOW,
-                option_help=_("Set the book producer."),
-            ),
-            OptionRecommendation(
-                name="language",
-                recommended_value=None,
-                level=OptionRecommendation.LOW,
-                option_help=_("Set the language."),
-            ),
-            OptionRecommendation(
-                name="pubdate",
-                recommended_value=None,
-                level=OptionRecommendation.LOW,
-                option_help=_("Set the publication date."),
-            ),
-            OptionRecommendation(
-                name="timestamp",
-                recommended_value=None,
-                level=OptionRecommendation.LOW,
-                option_help=_("Set the book timestamp (no longer used anywhere)"),
-            ),
-            OptionRecommendation(
-                name="enable_heuristics",
-                recommended_value=False,
-                level=OptionRecommendation.LOW,
-                option_help=_(
-                    "Enable heuristic processing. This option must be set for any "
-                    "heuristic processing to take place."
-                ),
-            ),
-            OptionRecommendation(
-                name="markup_chapter_headings",
-                recommended_value=True,
-                level=OptionRecommendation.LOW,
-                option_help=_(
-                    "Detect unformatted chapter headings and sub headings. Change "
-                    "them to h2 and h3 tags.  This setting will not create a TOC, "
-                    "but can be used in conjunction with structure detection to create "
-                    "one."
-                ),
-            ),
-            OptionRecommendation(
-                name="italicize_common_cases",
-                recommended_value=True,
-                level=OptionRecommendation.LOW,
-                option_help=_("Look for common words and patterns that denote " "italics and italicize them."),
-            ),
-            OptionRecommendation(
-                name="fix_indents",
-                recommended_value=True,
-                level=OptionRecommendation.LOW,
-                option_help=_(
-                    "Turn indentation created from multiple non-breaking space entities " "into CSS indents."
-                ),
-            ),
-            OptionRecommendation(
-                name="html_unwrap_factor",
-                recommended_value=0.40,
-                level=OptionRecommendation.LOW,
-                option_help=_(
-                    "Scale used to determine the length at which a line should "
-                    "be unwrapped. Valid values are a decimal between 0 and 1. The "
-                    "default is 0.4, just below the median line length.  If only a "
-                    "few lines in the document require unwrapping this value should "
-                    "be reduced"
-                ),
-            ),
-            OptionRecommendation(
-                name="unwrap_lines",
-                recommended_value=True,
-                level=OptionRecommendation.LOW,
-                option_help=_("Unwrap lines using punctuation and other formatting clues."),
-            ),
-            OptionRecommendation(
-                name="delete_blank_paragraphs",
-                recommended_value=True,
-                level=OptionRecommendation.LOW,
-                option_help=_(
-                    "Remove empty paragraphs from the document when they exist between " "every other paragraph"
-                ),
-            ),
-            OptionRecommendation(
-                name="format_scene_breaks",
-                recommended_value=True,
-                level=OptionRecommendation.LOW,
-                option_help=_(
-                    "Left aligned scene break markers are center aligned. "
-                    "Replace soft scene breaks that use multiple blank lines with "
-                    "horizontal rules."
-                ),
-            ),
-            OptionRecommendation(
-                name="replace_scene_breaks",
-                recommended_value="",
-                level=OptionRecommendation.LOW,
-                option_help=_(
-                    "Replace scene breaks with the specified text. By default, the "
-                    "text from the input document is used."
-                ),
-            ),
-            OptionRecommendation(
-                name="dehyphenate",
-                recommended_value=True,
-                level=OptionRecommendation.LOW,
-                option_help=_(
-                    "Analyze hyphenated words throughout the document.  The "
-                    "document itself is used as a dictionary to determine whether hyphens "
-                    "should be retained or removed."
-                ),
-            ),
-            OptionRecommendation(
-                name="renumber_headings",
-                recommended_value=True,
-                level=OptionRecommendation.LOW,
-                option_help=_(
-                    "Looks for occurrences of sequential <h1> or <h2> tags. "
-                    "The tags are renumbered to prevent splitting in the middle "
-                    "of chapter headings."
-                ),
-            ),
-            OptionRecommendation(
-                name="sr1_search",
-                recommended_value="",
-                level=OptionRecommendation.LOW,
-                option_help=_("Search pattern (regular expression) to be replaced with " "sr1-replace."),
-            ),
-            OptionRecommendation(
-                name="sr1_replace",
-                recommended_value="",
-                level=OptionRecommendation.LOW,
-                option_help=_("Replacement to replace the text found with sr1-search."),
-            ),
-            OptionRecommendation(
-                name="sr2_search",
-                recommended_value="",
-                level=OptionRecommendation.LOW,
-                option_help=_("Search pattern (regular expression) to be replaced with " "sr2-replace."),
-            ),
-            OptionRecommendation(
-                name="sr2_replace",
-                recommended_value="",
-                level=OptionRecommendation.LOW,
-                option_help=_("Replacement to replace the text found with sr2-search."),
-            ),
-            OptionRecommendation(
-                name="sr3_search",
-                recommended_value="",
-                level=OptionRecommendation.LOW,
-                option_help=_("Search pattern (regular expression) to be replaced with " "sr3-replace."),
-            ),
-            OptionRecommendation(
-                name="sr3_replace",
-                recommended_value="",
-                level=OptionRecommendation.LOW,
-                option_help=_("Replacement to replace the text found with sr3-search."),
-            ),
-            OptionRecommendation(
-                name="search_replace",
-                recommended_value=None,
-                level=OptionRecommendation.LOW,
-                option_help=_(
-                    "Path to a file containing search and replace regular expressions. "
-                    "The file must contain alternating lines of regular expression "
-                    "followed by replacement pattern (which can be an empty line). "
-                    "The regular expression must be in the python regex syntax and "
-                    "the file must be UTF-8 encoded."
-                ),
-            ),
-        ]
+        self.pipeline_options = pipeline_option_recommendations()
         # }}}
 
         input_fmt = os.path.splitext(self.input)[1]

@@ -28,6 +28,7 @@ except ModuleNotFoundError:
 
 from LiuXin_alpha.utils.which_os import islinux, isbsd
 
+from LiuXin_alpha.file_formats.archive_preflight import is_path_within
 from LiuXin_alpha.file_formats.conversion.plugin import InputFormatPlugin, OptionRecommendation
 
 from LiuXin_alpha.metadata.book.base import calibreMetadata as MetaData
@@ -88,7 +89,66 @@ class HTMLInput(InputFormatPlugin):
                 "nasty side effects in the rest of the conversion pipeline."
             ),
         ),
+        OptionRecommendation(
+            name="allow_local_files_outside_root",
+            recommended_value=False,
+            level=OptionRecommendation.LOW,
+            option_help=_(
+                "Normally, files linked to by the HTML file or its children are "
+                "only included if they are in the folder of the original HTML file "
+                "or a sub-folder of it. This option allows including local files "
+                "from any location on your computer. That is a security risk if "
+                "you convert untrusted HTML and distribute the result."
+            ),
+        ),
     }
+
+    #: Folder that linked local files must resolve inside; set per conversion.
+    root_dir_of_input: str | None = None
+    #: Whether this conversion may include local files outside that folder.
+    allow_files_outside_root: bool = False
+
+    def set_root_dir_of_input(self: _typing.Self, basedir: _typing.Any, opts: _typing.Any = None) -> None:
+        """
+        Record the folder that linked local files have to stay inside.
+
+        HTML input follows links to local files and copies what it finds into the
+        book. Without a boundary, a document can name any readable file on the host
+        and have it included in the output. The boundary is the folder holding the
+        input document. Options objects built without the
+        ``allow_local_files_outside_root`` option are treated as not allowing it.
+
+        Example:
+            >>> plugin.set_root_dir_of_input('/books/incoming', options)  # doctest: +SKIP
+
+
+        :param basedir: Folder containing the document being converted.
+        :param opts: Conversion options; consulted for the opt-out, may be ``None``.
+        :return: ``None``; the boundary and the opt-out are stored on the plugin.
+        """
+        self.root_dir_of_input = os.path.realpath(os.path.abspath(basedir or os.getcwd()))
+        self.allow_files_outside_root = bool(getattr(opts, "allow_local_files_outside_root", False))
+
+    def is_allowed_local_path(self: _typing.Self, path: _typing.Any) -> bool:
+        """
+        Decide whether a linked local file may be read into the book.
+
+        A path is allowed when it resolves inside the recorded input folder, or
+        when the conversion opted out of the restriction. If no folder has been
+        recorded the current working directory is used, so the check never
+        silently allows everything.
+
+        Example:
+            >>> plugin.is_allowed_local_path('/etc/passwd')  # doctest: +SKIP
+            False
+
+
+        :param path: Local filesystem path produced from a link in the input.
+        :return: ``True`` if the file may be included, otherwise ``False``.
+        """
+        if self.allow_files_outside_root:
+            return True
+        return is_path_within(self.root_dir_of_input or os.getcwd(), path)
 
     def convert(self: _typing.Self, stream: _typing.Any, options: _typing.Any, file_ext: _typing.Any, log: _typing.Any, accelerators: _typing.Any) -> _typing.Any:
         """
@@ -265,8 +325,13 @@ class HTMLInput(InputFormatPlugin):
                 self.oeb.uid = metadata.identifier[0]
                 break
 
+        self.set_root_dir_of_input(basedir, opts)
         filelist = get_filelist(htmlpath, basedir, opts, log)
         filelist = [f for f in filelist if not f.is_binary]
+        outside_root = [f for f in filelist if not self.is_allowed_local_path(f.path)]
+        for f in outside_root:
+            log.warn("Not adding %s as it is outside the document root: %s" % (f.path, self.root_dir_of_input))
+        filelist = [f for f in filelist if f not in outside_root]
         htmlfile_map = {}
         for f in filelist:
             path = f.path
@@ -375,6 +440,10 @@ class HTMLInput(InputFormatPlugin):
         link = l.path.replace("/", os.sep).strip()
         frag = l.fragment
         if not link:
+            return None, None
+        if not self.is_allowed_local_path(link):
+            if os.path.exists(link):
+                self.log.warn("Not adding %s as it is outside the document root: %s" % (link, self.root_dir_of_input))
             return None, None
         return link, frag
 

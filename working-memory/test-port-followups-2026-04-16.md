@@ -18,7 +18,7 @@ Still-live follow-ups from the original port:
 
    - `src/LiuXin_alpha/customize/cache/base_tables.py`
    - `src/LiuXin_alpha/library/backend.py`
-   - `src/LiuXin_alpha/library/caches/calibre/tables/base.py`
+   - `src/LiuXin_alpha/utils/calibre_compat/caches/calibre/tables/base.py`
    - `src/LiuXin_alpha/metadata/book/base.py`
    - `src/LiuXin_alpha/metadata/book/json_codec.py`
 

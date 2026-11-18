@@ -128,19 +128,17 @@ def core_error_details(exc: BaseException) -> tuple[str, dict[str, Any]]:
     try:
         from LiuXin_alpha.caches.api import CacheReconciliationError
     except Exception:
-        CacheReconciliationError = ()
-    if CacheReconciliationError and isinstance(
-        exc,
-        CacheReconciliationError,
-    ):
-        return (
-            "cache_reconciliation_failed",
-            {
-                "receipt": dict(exc.receipt),
-                "dependencies": sorted(exc.dependencies),
-                "canonical_write_committed": True,
-            },
-        )
+        pass
+    else:
+        if isinstance(exc, CacheReconciliationError):
+            return (
+                "cache_reconciliation_failed",
+                {
+                    "receipt": dict(exc.receipt),
+                    "dependencies": sorted(exc.dependencies),
+                    "canonical_write_committed": True,
+                },
+            )
     if isinstance(exc, CoreError):
         return exc.code, dict(exc.details)
     return (

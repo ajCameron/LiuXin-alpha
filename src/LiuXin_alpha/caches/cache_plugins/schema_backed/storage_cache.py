@@ -10,8 +10,18 @@ subclasses this implementation with separate freshness/proxy behavior.
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from LiuXin_alpha.databases.api.database_api.database_api import DatabaseAPI
+    from LiuXin_alpha.databases.schema_specs import StorageSchemaSpec
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from LiuXin_alpha.databases.api import DatabaseAPI
+
 from collections import defaultdict
-from typing import Any, Iterable, Optional, Sequence, Union, cast
+from typing import Any, Iterable, Optional, Sequence, Union
 
 from LiuXin_alpha.caches.api.storage_cache_api.storage_cache_api import (
     FieldKey,
@@ -91,7 +101,7 @@ class SchemaBackedStorageCache(StorageCacheAPI):
         requires_reload_for_external_changes=True,
     )
 
-    def __init__(self, db: Any) -> None:
+    def __init__(self, db: DatabaseAPI | None) -> None:
         """
         Retain the database and initialize empty schema-cache registries.
 
@@ -105,11 +115,11 @@ class SchemaBackedStorageCache(StorageCacheAPI):
         """
 
         super().__init__(db)
-        self.main_tables: dict[str, SchemaBackedMainTableCache] = {}
-        self.link_tables: dict[tuple[str, str], SchemaBackedLinkTable] = {}
-        self.fields: dict[str, FieldBasicInterfaceAPI[Any]] = {}
+        self._main_tables: dict[str, SchemaBackedMainTableCache] = {}
+        self._link_tables: dict[tuple[str, str], SchemaBackedLinkTable] = {}
+        self._fields: dict[str, FieldBasicInterfaceAPI[Any]] = {}
         self._field_objects: dict[str, FieldBasicInterfaceAPI[Any]] = {}
-        self._schema = None
+        self._schema: StorageSchemaSpec | None = None
         self._is_loaded = False
         self._is_initialized = False
         self._stale_main_tables: set[str] = set()
@@ -145,7 +155,7 @@ class SchemaBackedStorageCache(StorageCacheAPI):
 
         return self._is_initialized
 
-    def _require_db(self, db: Any = None):
+    def _require_db(self, db: DatabaseAPI | None = None) -> DatabaseAPI:
         """
         Resolve an explicit/current database and retain it on the root cache.
 
@@ -163,7 +173,7 @@ class SchemaBackedStorageCache(StorageCacheAPI):
         self.db = resolved
         return resolved
 
-    def read(self, db: Any = None) -> None:
+    def read(self, db: DatabaseAPI | None = None) -> None:
         """
         Rebuild schema-derived table and field snapshots against the selected database.
 
@@ -191,7 +201,7 @@ class SchemaBackedStorageCache(StorageCacheAPI):
         self._is_loaded = True
         self._is_initialized = True
 
-    def reload(self, db: Any = None) -> None:
+    def reload(self, db: DatabaseAPI | None = None) -> None:
         """
         Delegate a full schema/data/projection rebuild to read.
 
@@ -206,7 +216,7 @@ class SchemaBackedStorageCache(StorageCacheAPI):
 
         self.read(db=db)
 
-    def reload_data(self, db: Any = None) -> None:
+    def reload_data(self, db: DatabaseAPI | None = None) -> None:
         """
         Refresh existing table/field objects or fall back to a full read when absent.
 
@@ -226,7 +236,7 @@ class SchemaBackedStorageCache(StorageCacheAPI):
         """
 
         db = self._require_db(db)
-        if not self.main_tables or not self._field_objects:
+        if not self._main_tables or not self._field_objects:
             self.read(db=db)
             return
         self.initialize_tables(db)
@@ -254,9 +264,9 @@ class SchemaBackedStorageCache(StorageCacheAPI):
         :return: None; leaves the root unloaded while retaining its database reference.
         """
 
-        self.main_tables = {}
-        self.link_tables = {}
-        self.fields = {}
+        self._main_tables = {}
+        self._link_tables = {}
+        self._fields = {}
         self._field_objects = {}
         self._schema = None
         self._is_loaded = False
@@ -284,10 +294,10 @@ class SchemaBackedStorageCache(StorageCacheAPI):
 
         old_db = self.db
         self.db = None
-        for table in self.main_tables.values():
+        for table in self._main_tables.values():
             table.db = None
-        for table in self.link_tables.values():
-            table.db = None
+        for link_table in self._link_tables.values():
+            link_table.db = None
         for field in self._field_objects.values():
             field._db = None
         return old_db
@@ -309,7 +319,7 @@ class SchemaBackedStorageCache(StorageCacheAPI):
         self.clear()
         self.detach_db()
 
-    def read_tables(self, db: Any = None) -> None:
+    def read_tables(self, db: DatabaseAPI | None = None) -> None:
         """
         Construct unloaded table views from driver-cached schema discovery.
 
@@ -338,7 +348,7 @@ class SchemaBackedStorageCache(StorageCacheAPI):
         # reconciliation is both redundant and extremely expensive.
         schema = db.driver_wrapper.get_schema_spec(force_refresh=False)
         self._schema = schema
-        self.main_tables = {
+        self._main_tables = {
             table_name: SchemaBackedMainTableCache(spec, db)
             for table_name, spec in schema.tables.items()
             if spec.is_main_table and spec.id_column is not None
@@ -346,8 +356,8 @@ class SchemaBackedStorageCache(StorageCacheAPI):
 
         link_tables: dict[tuple[str, str], SchemaBackedLinkTable] = {}
         for link_spec in schema.interlinks + schema.intralinks:
-            src_table = self.main_tables.get(link_spec.primary_table)
-            dst_table = self.main_tables.get(link_spec.secondary_table)
+            src_table = self._main_tables.get(link_spec.primary_table)
+            dst_table = self._main_tables.get(link_spec.secondary_table)
             if src_table is None or dst_table is None:
                 continue
 
@@ -374,11 +384,13 @@ class SchemaBackedStorageCache(StorageCacheAPI):
                     src_link_col=link_spec.secondary_link_col,
                     dst_link_col=link_spec.primary_link_col,
                 )
-                link_tables[(link_spec.secondary_table, link_spec.primary_table)] = reverse
+                link_tables[(link_spec.secondary_table, link_spec.primary_table)] = (
+                    reverse
+                )
 
-        self.link_tables = link_tables
+        self._link_tables = link_tables
 
-    def initialize_tables(self, db: Any = None) -> None:
+    def initialize_tables(self, db: DatabaseAPI | None = None) -> None:
         """
         Read registered main tables before reading directed link-table snapshots.
 
@@ -396,12 +408,12 @@ class SchemaBackedStorageCache(StorageCacheAPI):
         """
 
         db = self._require_db(db)
-        for table in self.main_tables.values():
+        for table in self._main_tables.values():
             table.read(db)
-        for table in self.link_tables.values():
-            table.read(db)
+        for link_table in self._link_tables.values():
+            link_table.read(db)
 
-    def read_fields(self, db: Any = None) -> None:
+    def read_fields(self, db: DatabaseAPI | None = None) -> None:
         """
         Construct canonical scalar/relation fields and unique scalar column aliases.
 
@@ -426,14 +438,17 @@ class SchemaBackedStorageCache(StorageCacheAPI):
         db = self._require_db(db)
         field_objects: dict[str, FieldBasicInterfaceAPI[Any]] = {}
         raw_name_counts: dict[str, int] = defaultdict(int)
-        for table_name, table in self.main_tables.items():
+        field: FieldBasicInterfaceAPI[Any]
+        for table_name, table in self._main_tables.items():
             for column in table.column_headings:
                 field = SchemaBackedSameTableField(self, table_name, column, db)
                 field_objects[field.field_key] = field
                 raw_name_counts[column] += 1
 
-        for (src_table_name, dst_table_name), link_table in sorted(self.link_tables.items()):
-            dst_table = self.main_tables[dst_table_name]
+        for (src_table_name, dst_table_name), link_table in sorted(
+            self._link_tables.items()
+        ):
+            dst_table = self._main_tables[dst_table_name]
             dst_columns = [
                 column
                 for column in dst_table.column_headings
@@ -441,10 +456,10 @@ class SchemaBackedStorageCache(StorageCacheAPI):
             ]
             for column in dst_columns:
                 if link_table.table_type == TableTypes.ONE_ONE:
-                    field: FieldBasicInterfaceAPI[Any] = SchemaBackedTwoTableOneOneField(
+                    field = SchemaBackedTwoTableOneOneField(
                         self,
                         src_table_name,
-                        self.main_tables[src_table_name].id_column,
+                        self._main_tables[src_table_name].id_column,
                         dst_table_name,
                         column,
                         db,
@@ -453,7 +468,7 @@ class SchemaBackedStorageCache(StorageCacheAPI):
                     field = SchemaBackedOneManyField(
                         self,
                         src_table_name,
-                        self.main_tables[src_table_name].id_column,
+                        self._main_tables[src_table_name].id_column,
                         dst_table_name,
                         column,
                         db,
@@ -462,7 +477,7 @@ class SchemaBackedStorageCache(StorageCacheAPI):
                     field = SchemaBackedManyOneField(
                         self,
                         src_table_name,
-                        self.main_tables[src_table_name].id_column,
+                        self._main_tables[src_table_name].id_column,
                         dst_table_name,
                         column,
                         db,
@@ -471,7 +486,7 @@ class SchemaBackedStorageCache(StorageCacheAPI):
                     field = SchemaBackedManyManyField(
                         self,
                         src_table_name,
-                        self.main_tables[src_table_name].id_column,
+                        self._main_tables[src_table_name].id_column,
                         dst_table_name,
                         column,
                         db,
@@ -488,9 +503,9 @@ class SchemaBackedStorageCache(StorageCacheAPI):
             ):
                 fields[str(column_name)] = field
         self._field_objects = field_objects
-        self.fields = fields
+        self._fields = fields
 
-    def initialize_fields(self, db: Any = None) -> None:
+    def initialize_fields(self, db: DatabaseAPI | None = None) -> None:
         """
         Populate each canonical field snapshot once from initialized table/link data.
 
@@ -509,7 +524,9 @@ class SchemaBackedStorageCache(StorageCacheAPI):
         for field in self._field_objects.values():
             field.read(db)
 
-    def _resolve_field_name(self, name: Union[FieldKey, FieldBasicInterfaceAPI[Any]]) -> str:
+    def _resolve_field_name(
+        self, name: Union[FieldKey, FieldBasicInterfaceAPI[Any]]
+    ) -> str:
         """
         Resolve a field reference, existing public key or unique bare column match.
 
@@ -531,7 +548,7 @@ class SchemaBackedStorageCache(StorageCacheAPI):
         if hasattr(name, "field_key"):
             return str(getattr(name, "field_key"))
         requested = str(name)
-        if requested in self.fields:
+        if requested in self._fields:
             return requested
         if "." not in requested:
             matches = [
@@ -586,7 +603,9 @@ class SchemaBackedStorageCache(StorageCacheAPI):
                 tables.add(str(table_name))
         return tables
 
-    def _field_link_key(self, field: FieldBasicInterfaceAPI[Any]) -> Optional[tuple[str, str]]:
+    def _field_link_key(
+        self, field: FieldBasicInterfaceAPI[Any]
+    ) -> Optional[tuple[str, str]]:
         """
         Extract a directed endpoint key when a field declares both endpoint names.
 
@@ -664,7 +683,7 @@ class SchemaBackedStorageCache(StorageCacheAPI):
         :return: None; applies table/ID/link/field refresh in dependency order.
         """
 
-        field = self.fields[field_name]
+        field = self._fields[field_name]
         for table_name in sorted(self._field_tables(field)):
             self._ensure_main_table_fresh(table_name)
         link_key = self._field_link_key(field)
@@ -685,7 +704,7 @@ class SchemaBackedStorageCache(StorageCacheAPI):
         :return: Whether the current main_tables dictionary contains the key.
         """
 
-        return str(name) in self.main_tables
+        return str(name) in self._main_tables
 
     def get_main_table(
         self,
@@ -707,9 +726,11 @@ class SchemaBackedStorageCache(StorageCacheAPI):
         :raises KeyError: The resolved main-table name is absent.
         """
 
-        table_name = name.table if isinstance(name, StorageCacheSingleTableAPI) else str(name)
+        table_name = (
+            name.table if isinstance(name, StorageCacheSingleTableAPI) else str(name)
+        )
         self._ensure_main_table_fresh(table_name)
-        return self.main_tables[table_name]
+        return self._main_tables[table_name]
 
     def iter_main_tables(self) -> Iterable[SchemaBackedMainTableCache]:
         """
@@ -726,7 +747,7 @@ class SchemaBackedStorageCache(StorageCacheAPI):
         :return: Generator whose table refreshes occur as iteration advances.
         """
 
-        for table_name in sorted(self.main_tables):
+        for table_name in sorted(self._main_tables):
             yield self.get_main_table(table_name)
 
     def get_table(self, name: str) -> StorageCacheBaseTableAPI:
@@ -747,9 +768,9 @@ class SchemaBackedStorageCache(StorageCacheAPI):
         :raises KeyError: Neither a main key nor a physical link-table name matches.
         """
 
-        if name in self.main_tables:
+        if name in self._main_tables:
             return self.get_main_table(name)
-        for key, table in self.link_tables.items():
+        for key, table in self._link_tables.items():
             if table.table == name:
                 self._ensure_link_table_fresh(key)
                 return table
@@ -774,12 +795,12 @@ class SchemaBackedStorageCache(StorageCacheAPI):
         for table in self.iter_main_tables():
             yielded.add(id(table))
             yield table
-        for key in sorted(self.link_tables):
-            table = self.get_link_table(*key)
-            if id(table) in yielded:
+        for key in sorted(self._link_tables):
+            link_table = self.get_link_table(*key)
+            if id(link_table) in yielded:
                 continue
-            yielded.add(id(table))
-            yield table
+            yielded.add(id(link_table))
+            yield link_table
 
     def has_link_table(
         self,
@@ -808,7 +829,7 @@ class SchemaBackedStorageCache(StorageCacheAPI):
 
         src_name = self.get_main_table(src_table).table
         dst_name = self.get_main_table(dst_table).table
-        table = self.link_tables.get((src_name, dst_name))
+        table = self._link_tables.get((src_name, dst_name))
         if table is None:
             return False
         self._ensure_link_table_fresh((src_name, dst_name))
@@ -842,9 +863,11 @@ class SchemaBackedStorageCache(StorageCacheAPI):
         dst_name = self.get_main_table(dst_table).table
         key = (src_name, dst_name)
         self._ensure_link_table_fresh(key)
-        table = self.link_tables[key]
+        table = self._link_tables[key]
         if table_type is not None and table.table_type != table_type:
-            raise KeyError(f"Link table {src_name!r}->{dst_name!r} is {table.table_type}, not {table_type}")
+            raise KeyError(
+                f"Link table {src_name!r}->{dst_name!r} is {table.table_type}, not {table_type}"
+            )
         return table
 
     def get_one_one_link_table(
@@ -941,7 +964,9 @@ class SchemaBackedStorageCache(StorageCacheAPI):
         :raises KeyError: An endpoint/route is absent or its current type differs from MANY_MANY.
         """
 
-        return self.get_link_table(src_table, dst_table, table_type=TableTypes.MANY_MANY)
+        return self.get_link_table(
+            src_table, dst_table, table_type=TableTypes.MANY_MANY
+        )
 
     def iter_link_tables(self) -> Iterable[SchemaBackedLinkTable]:
         """
@@ -957,7 +982,7 @@ class SchemaBackedStorageCache(StorageCacheAPI):
         :return: Generator over registered views, without deduplication by physical table.
         """
 
-        for key in sorted(self.link_tables):
+        for key in sorted(self._link_tables):
             yield self.get_link_table(*key)
 
     def has_field(self, name: FieldKey) -> bool:
@@ -1005,7 +1030,7 @@ class SchemaBackedStorageCache(StorageCacheAPI):
 
         field_name = self._resolve_field_name(name)
         self._ensure_field_fresh(field_name)
-        return self.fields[field_name]
+        return self._fields[field_name]
 
     def iter_fields(self) -> Iterable[FieldBasicInterfaceAPI[Any]]:
         """
@@ -1043,13 +1068,15 @@ class SchemaBackedStorageCache(StorageCacheAPI):
 
         table_name = self.get_main_table(table).table
         return tuple(
-            field for field in self.iter_fields() if self._field_owner_table(field) == table_name
+            field
+            for field in self.iter_fields()
+            if self._field_owner_table(field) == table_name
         )
 
     def reload_main_table(
         self,
         name: Union[str, StorageCacheSingleTableAPI],
-        db: Any = None,
+        db: DatabaseAPI | None = None,
     ) -> None:
         """
         Reload a complete main-table snapshot and repopulate its dependent fields.
@@ -1072,24 +1099,22 @@ class SchemaBackedStorageCache(StorageCacheAPI):
         """
 
         table_name = (
-            name.table
-            if isinstance(name, StorageCacheSingleTableAPI)
-            else str(name)
+            name.table if isinstance(name, StorageCacheSingleTableAPI) else str(name)
         )
-        table = self.main_tables[table_name]
+        table = self._main_tables[table_name]
         table.reload(self._require_db(db))
         self._stale_main_tables.discard(table.table)
         self._stale_ids.pop(table.table, None)
         for field in self._field_objects.values():
             if table.table in self._field_tables(field):
-                field.read(self.db)
+                field.read(self._require_db())
                 self._stale_fields.discard(field.field_key)
 
     def reload_ids(
         self,
         table: Union[str, StorageCacheSingleTableAPI],
         ids: Iterable[int],
-        db: Any = None,
+        db: DatabaseAPI | None = None,
     ) -> None:
         """
         Repair selected main-table rows and compatible field projections without a full scan.
@@ -1118,14 +1143,12 @@ class SchemaBackedStorageCache(StorageCacheAPI):
         """
 
         table_name = (
-            table.table
-            if isinstance(table, StorageCacheSingleTableAPI)
-            else str(table)
+            table.table if isinstance(table, StorageCacheSingleTableAPI) else str(table)
         )
         if table_name in self._stale_main_tables:
             self.reload_main_table(table_name, db=db)
             return
-        table_cache = self.main_tables[table_name]
+        table_cache = self._main_tables[table_name]
         changed_ids = {int(row_id) for row_id in ids}
         if not changed_ids:
             return
@@ -1135,7 +1158,10 @@ class SchemaBackedStorageCache(StorageCacheAPI):
             if table_name not in self._field_tables(field):
                 continue
             refresh_from_table = getattr(field, "refresh_from_table", None)
-            if callable(refresh_from_table) and self._field_owner_table(field) == table_name:
+            if (
+                callable(refresh_from_table)
+                and self._field_owner_table(field) == table_name
+            ):
                 refresh_from_table(changed_ids)
                 continue
             refresh_table_ids = getattr(field, "refresh_table_ids", None)
@@ -1151,7 +1177,7 @@ class SchemaBackedStorageCache(StorageCacheAPI):
         self,
         src_table: Union[str, StorageCacheSingleTableAPI],
         dst_table: Union[str, StorageCacheSingleTableAPI],
-        db: Any = None,
+        db: DatabaseAPI | None = None,
         table_type: Optional[TableTypes] = None,
     ) -> None:
         """
@@ -1185,7 +1211,7 @@ class SchemaBackedStorageCache(StorageCacheAPI):
             if isinstance(dst_table, StorageCacheSingleTableAPI)
             else str(dst_table)
         )
-        table = self.link_tables[(src_name, dst_name)]
+        table = self._link_tables[(src_name, dst_name)]
         if table_type is not None and table.table_type != table_type:
             raise KeyError(
                 f"Link table {src_name!r}->{dst_name!r} is "
@@ -1196,13 +1222,13 @@ class SchemaBackedStorageCache(StorageCacheAPI):
         self._stale_link_tables.discard(key)
         for field in self._field_objects.values():
             if self._field_link_key(field) == key:
-                field.read(self.db)
+                field.read(self._require_db())
                 self._stale_fields.discard(field.field_key)
 
     def reload_field(
         self,
         name: Union[FieldKey, FieldBasicInterfaceAPI[Any]],
-        db: Any = None,
+        db: DatabaseAPI | None = None,
     ) -> None:
         """
         Rebind one canonical field from current table/link state and clear its marker.
@@ -1248,11 +1274,9 @@ class SchemaBackedStorageCache(StorageCacheAPI):
         """
 
         table_name = (
-            table.table
-            if isinstance(table, StorageCacheSingleTableAPI)
-            else str(table)
+            table.table if isinstance(table, StorageCacheSingleTableAPI) else str(table)
         )
-        if table_name not in self.main_tables:
+        if table_name not in self._main_tables:
             raise KeyError(table_name)
         self._stale_main_tables.add(table_name)
 
@@ -1292,7 +1316,7 @@ class SchemaBackedStorageCache(StorageCacheAPI):
             else str(dst_table)
         )
         key = (src_name, dst_name)
-        table = self.link_tables[key]
+        table = self._link_tables[key]
         if table_type is not None and table.table_type != table_type:
             raise KeyError(
                 f"Link table {src_name!r}->{dst_name!r} is "
@@ -1349,13 +1373,26 @@ class SchemaBackedStorageCache(StorageCacheAPI):
         """
 
         table_name = (
-            table.table
-            if isinstance(table, StorageCacheSingleTableAPI)
-            else str(table)
+            table.table if isinstance(table, StorageCacheSingleTableAPI) else str(table)
         )
-        if table_name not in self.main_tables:
+        if table_name not in self._main_tables:
             raise KeyError(table_name)
         self._stale_ids[table_name].update(int(row_id) for row_id in ids)
+
+    @property
+    def main_tables(self) -> dict[str, SchemaBackedMainTableCache]:
+        """Return the backend-owned main tables registry."""
+        return self._main_tables
+
+    @property
+    def link_tables(self) -> dict[tuple[str, str], SchemaBackedLinkTable]:
+        """Return the backend-owned link tables registry."""
+        return self._link_tables
+
+    @property
+    def fields(self) -> dict[str, FieldBasicInterfaceAPI[Any]]:
+        """Return the backend-owned fields registry."""
+        return self._fields
 
 
 __all__ = ["SchemaBackedStorageCache"]

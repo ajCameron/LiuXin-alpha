@@ -999,6 +999,10 @@ def read_metadata_from_stream(
                 with TemporaryDirectory("_mobi_meta_reader") as tdir:
                     with CurrentDir(tdir):
                         mr = MobiReader(stream, log)
+                        # Conversion allows 128 MiB of text; metadata reads only books
+                        # under 4 MB, whose text is far smaller, and a HUFF/CDIC book of
+                        # thousands of tiny records could otherwise reach that limit.
+                        mr.MAX_TOTAL_TEXT_UNCOMPRESSED_SIZE = 32 * 1024 * 1024
                         parse_cache = {}
                         mr.extract_content(tdir, parse_cache)
                         if mr.embedded_mi is not None:

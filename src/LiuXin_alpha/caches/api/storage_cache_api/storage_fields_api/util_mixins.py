@@ -1,4 +1,3 @@
-
 """
 Define mutable endpoint, property and destination-replacement payloads.
 
@@ -8,14 +7,17 @@ validation or copying; concrete field setters interpret supported properties
 and decide whether None means no update or an explicit clear.
 """
 
-
 from __future__ import annotations
 
 import dataclasses
-from typing import Optional, TypeVar, TYPE_CHECKING, Generic
+from typing import TYPE_CHECKING, Generic, Optional, TypeVar
 
 if TYPE_CHECKING:
-    from LiuXin_alpha.databases.db_types.database_types import MainTableID, MainTableName, MainTableColumnName
+    from LiuXin_alpha.databases.db_types.database_types import (
+        MainTableColumnName,
+        MainTableID,
+        MainTableName,
+    )
 
 T = TypeVar("T")
 

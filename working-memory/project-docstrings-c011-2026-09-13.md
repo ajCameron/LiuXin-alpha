@@ -1,4 +1,4 @@
-# C011 — src/LiuXin_alpha/catalog/api/field_metadata_api.py — part 1/3, 2026-09-13
+# C011 — src/LiuXin_alpha/utils/calibre_compat/metadata/field_metadata_api.py — part 1/3, 2026-09-13
 
 Reviewed optional descriptor/state records and both get overloads. Documented mutable borrowed state and exact-key get behavior, distinct from subscription aliases. Focused field-metadata, import/API, semantic Catalog and legacy-boundary regressions plus selected source examples passed. See the shared completion log for totals/skips; no runtime-doc dispatch found. No executable changes.
 

@@ -13,10 +13,12 @@ from pathlib import Path
 
 import pytest
 
+import scripts.audit_project_docstrings as audit_module
 from scripts.audit_project_docstrings import (
     audit_paths,
     definitions,
     documentation_issues,
+    filler_phrases,
     parameters,
     project_paths,
 )
@@ -349,3 +351,67 @@ def test_project_discovery_includes_initialized_submodule_source(
         check=True,
     )
     assert project_paths(root) == (root / "data/generator.py",)
+
+
+def test_templated_filler_is_named_without_becoming_a_structural_finding(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """
+    Report generated stock phrases apart from the structural documentation issues.
+
+    Example:
+        >>> test_templated_filler_is_named_without_becoming_a_structural_finding(
+        ...     tmp_path, monkeypatch
+        ... )  # doctest: +SKIP
+
+
+    :param tmp_path: Scratch directory holding one templated and one written module.
+    :param monkeypatch: Points the command's display root at the scratch directory.
+    :return: ``None`` after checking phrase codes, report keys and exit statuses.
+    """
+    templated = (
+        "Perform the str operation under explicit file-format and\n"
+        "conversion rules.\n\n"
+        "Example:\n"
+        "    Exercise Thing.str through a consuming regression::\n\n"
+        "        python -m pytest -q tests/test_thing.py\n\n\n"
+        ":param raw: Value supplied for raw under the utility contract.\n"
+        ":return: The normalized value, metadata record, path, stream result or\n"
+        "    collection produced by the operation."
+    )
+    assert filler_phrases(templated) == (
+        "templated_summary",
+        "templated_parameter",
+        "templated_return",
+        "templated_example",
+    )
+    assert filler_phrases("Initialize and validate the dummyfile state.") == (
+        "templated_initializer",
+    )
+    assert filler_phrases("Close the handle and release the lock it holds.") == ()
+    assert filler_phrases("Perform the copy under the storage contract.") == ()
+
+    filled = tmp_path / "filled.py"
+    filled.write_text(
+        '"""\nDescribe a module with one templated function.\n"""\n\n\n'
+        "def convert(raw):\n"
+        '    """\n    ' + templated.replace("\n", "\n    ") + '\n    """\n'
+        "    return raw\n"
+    )
+    report = audit_paths([filled], tmp_path)
+    assert report["findings"] == []
+    assert report["filler_definitions"] == 1
+    assert report["filler_counts"] == {
+        "templated_summary": 1,
+        "templated_parameter": 1,
+        "templated_return": 1,
+        "templated_example": 1,
+    }
+    assert report["filler_findings"][0]["name"] == "convert"
+    monkeypatch.setattr(audit_module, "ROOT", tmp_path)
+    assert audit_module.main(["--check", str(filled)]) == 0
+    assert audit_module.main(["--check-filler", str(filled)]) == 1
+
+    written = tmp_path / "written.py"
+    written.write_text('"""\nHold one constant used by the conversion tests.\n"""\n')
+    assert audit_module.main(["--check", "--check-filler", str(written)]) == 0

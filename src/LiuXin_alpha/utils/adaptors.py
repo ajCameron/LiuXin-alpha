@@ -4,7 +4,7 @@ Convert shared scalar and sequence values without bibliographic field selection.
 Keep the existing text, number, boolean, date, UUID and sequence conversion
 contracts here. Callers explicitly select the converter they need; these helpers
 do not know about title fallbacks, language/identifier policy or custom fields.
-Those rules belong to metadata.field_adaptors, which consumes these primitives.
+Those rules belong to utils.calibre_compat.metadata.field_adaptors, which consumes these primitives.
 
 Some converters intentionally have different missing-value and coercion rules.
 Their names and docstrings describe the compatibility contract; sharing a module

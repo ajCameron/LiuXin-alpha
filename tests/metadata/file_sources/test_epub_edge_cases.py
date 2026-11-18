@@ -735,7 +735,7 @@ def test_epub_cover_helpers_render_and_encryption_edges(monkeypatch) -> None:
 
     import LiuXin_alpha.file_formats as file_formats
 
-    monkeypatch.setattr(file_formats, "render_html_svg_workaround", lambda _path, _log: b"rendered-cover")
+    monkeypatch.setattr(file_formats, "render_html_svg_workaround", lambda _path, _log, **_kwargs: b"rendered-cover")
     render_reader = _FakeCoverReader(write_spine=True)
     assert epub._render_cover_from_spine(render_reader, "chap.xhtml") == b"rendered-cover"
     assert epub.get_cover("missing.png", "chap.xhtml", render_reader) == b"rendered-cover"

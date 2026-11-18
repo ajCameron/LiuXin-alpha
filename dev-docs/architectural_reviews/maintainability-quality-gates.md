@@ -223,6 +223,8 @@ D095 pause and partial inventories are history, not today's work queue.
 [`audit_project_docstrings.py`](../../scripts/audit_project_docstrings.py) audits
 the whole project without positional paths; `--output` writes a report and
 `--check` fails on structural gaps. Explicit file arguments create a batch view.
+The report counts known templated filler phrases separately as `filler_counts`;
+`--check-filler` fails while any remain, and it is not yet part of an enforced gate.
 The [style guide](<../hacking/Style Guide.md>) requires meaningful parameter and
 return descriptions. Empty fields are not sufficient documentation.
 

@@ -1,4 +1,4 @@
-# C012 — src/LiuXin_alpha/catalog/api/field_metadata_api.py — part 2/3, 2026-09-13
+# C012 — src/LiuXin_alpha/utils/calibre_compat/metadata/field_metadata_api.py — part 2/3, 2026-09-13
 
 Reviewed supported field-metadata mapping/classification/registration methods. Corrected assignment exception, field-only filtering, shallow/live views, search pass-through, index semantics and non-atomic alias registration. Focused field-metadata, import/API, semantic Catalog and legacy-boundary regressions plus selected source examples passed. See the shared completion log for totals/skips; no runtime-doc dispatch found. No executable changes.
 

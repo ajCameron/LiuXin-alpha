@@ -8,6 +8,11 @@ and refresh affected caches without adding a transaction boundary.
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from LiuXin_alpha.databases.api.database_api.database_api import DatabaseAPI
+
 from typing import TYPE_CHECKING, Any, Optional, Sequence, Union, cast
 
 from LiuXin_alpha.caches.api.storage_cache_api.storage_fields_api.many_many_field_api import (
@@ -59,7 +64,7 @@ class SchemaBackedManyManyField(
         src_table_id_col: str,
         dst_table: Union[StorageCacheSingleTableAPI, str],
         dst_table_cache_col: str,
-        db: Any,
+        db: DatabaseAPI,
     ) -> None:
         """
         Resolve endpoint/link caches and initialize empty many-to-many projections.
@@ -112,7 +117,10 @@ class SchemaBackedManyManyField(
         :return: Schema-backed link object after root freshness and cardinality checks.
         """
 
-        return cast(SchemaBackedLinkTable, self._cache.get_many_many_link_table(src_table, dst_table))
+        return cast(
+            SchemaBackedLinkTable,
+            self._cache.get_many_many_link_table(src_table, dst_table),
+        )
 
     def update(self, update: ManyManyInTwoTableFieldUpdate[Any]) -> None:
         """
@@ -162,7 +170,9 @@ class SchemaBackedManyManyField(
                 f"Field {self.field_key!r} cannot mix value updates and explicit link replacements "
                 f"for the same src ids: {sorted(overlap)}"
             )
-        overlap = {int(src_id) for src_id in update.deleted_ids} & set(explicit_replacements)
+        overlap = {int(src_id) for src_id in update.deleted_ids} & set(
+            explicit_replacements
+        )
         if overlap:
             raise ValueError(
                 f"Field {self.field_key!r} cannot delete and replace links for the same src ids: {sorted(overlap)}"
@@ -176,7 +186,9 @@ class SchemaBackedManyManyField(
 
         dst_updates: dict[int, Any] = {}
         for src_id, values in value_updates.items():
-            for dst_id, value in zip(self._existing_ordered_dst_ids_for_src(src_id), values):
+            for dst_id, value in zip(
+                self._existing_ordered_dst_ids_for_src(src_id), values
+            ):
                 dst_updates[int(dst_id)] = value
         if dst_updates:
             self._update_dst_values(dst_updates)
@@ -252,10 +264,7 @@ class SchemaBackedManyManyField(
         :return: New dict of source IDs to value tuples.
         """
 
-        return {
-            src_id: tuple(values)
-            for src_id, values in self._src_to_values.items()
-        }
+        return {src_id: tuple(values) for src_id, values in self._src_to_values.items()}
 
     @property
     def dst_ids_values_map(self) -> dict[int, Optional[Any]]:
@@ -451,7 +460,9 @@ class SchemaBackedManyManyField(
 
         return cast(
             IndividualLinkProperties,
-            self._build_link_properties(IndividualLinkProperties, int(src_id), int(dst_id)),
+            self._build_link_properties(
+                IndividualLinkProperties, int(src_id), int(dst_id)
+            ),
         )
 
     def set_link_properties(

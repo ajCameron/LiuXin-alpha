@@ -6,27 +6,34 @@ creation flags without validation. Concrete backends implement persistence,
 null handling, refresh and uniqueness checks; these APIs preserve owner-row
 lifecycle rather than deleting owners when field values are cleared.
 """
+
 from __future__ import annotations
 
 import abc
 import dataclasses
-from typing import TYPE_CHECKING, Generic, Optional, TypeVar, Union
+from typing import TYPE_CHECKING, Any, Generic, Optional, TypeVar, Union
 
 from LiuXin_alpha.caches.api.storage_cache_api.storage_fields_api.base_field_api import (
     RelationFieldBasicInterfaceAPI,
     ScalarFieldBasicInterfaceAPI,
 )
-from LiuXin_alpha.caches.updates.field_updates import OneOneInOneTableFieldUpdate
+from LiuXin_alpha.caches.updates.field_updates import (
+    OneOneInOneTableFieldUpdate as OneOneInOneTableFieldUpdate,
+)
 
 if TYPE_CHECKING:
     from LiuXin_alpha.caches.api.storage_cache_api.storage_tables_api.link_tables_api.one_one_tables_api import (
-        StorageCacheOneToOneLinkTableAPI,
+        StorageCacheOneToOneLinkTable,
     )
     from LiuXin_alpha.caches.api.storage_cache_api.storage_tables_api.single_table_api import (
         StorageCacheSingleTableAPI,
     )
     from LiuXin_alpha.databases.api.database_api.database_api import DatabaseAPI
-    from LiuXin_alpha.databases.db_types.database_types import MainTableID, MainTableName, MainTableColumnName
+    from LiuXin_alpha.databases.db_types.database_types import (
+        MainTableColumnName,
+        MainTableID,
+        MainTableName,
+    )
 
 T = TypeVar("T")
 
@@ -50,7 +57,7 @@ class CacheOneOneInSameTableFieldAPI(ScalarFieldBasicInterfaceAPI[T]):
     _table_id_col: "MainTableName"
     _table_cached_col: "MainTableName"
 
-    _db: "DatabaseAPI"
+    _db: "DatabaseAPI | None"
 
     def __init__(
         self,
@@ -283,9 +290,9 @@ class CacheOneOneInTwoTableFieldAPI(RelationFieldBasicInterfaceAPI[T]):
     dst_table_cache_col: MainTableColumnName
 
     # Connecting the two tables.
-    link_table: "StorageCacheOneToOneLinkTableAPI"
+    link_table: "StorageCacheOneToOneLinkTable[Any]"
 
-    _db: "DatabaseAPI"
+    _db: "DatabaseAPI | None"
 
     def __init__(
         self,
@@ -329,7 +336,7 @@ class CacheOneOneInTwoTableFieldAPI(RelationFieldBasicInterfaceAPI[T]):
         self,
         src_table: Union["StorageCacheSingleTableAPI", MainTableName],
         dst_table: Union["StorageCacheSingleTableAPI", MainTableName],
-    ) -> "StorageCacheOneToOneLinkTableAPI":
+    ) -> "StorageCacheOneToOneLinkTable[Any]":
         """
         Resolve the one-to-one link cache connecting the endpoints.
 

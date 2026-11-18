@@ -1,4 +1,3 @@
-
 """
 Export directed link values and cardinality-specific table lookup contracts.
 

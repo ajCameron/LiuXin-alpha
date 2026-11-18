@@ -8,19 +8,19 @@ from types import SimpleNamespace
 
 import pytest
 
-from LiuXin_alpha.caches.write.covers_writer import CoversWrite
-from LiuXin_alpha.caches.write.generic_writers.many_to_many_writer import (
+from LiuXin_alpha.utils.calibre_compat.caches.write.covers_writer import CoversWrite
+from LiuXin_alpha.utils.calibre_compat.caches.write.generic_writers.many_to_many_writer import (
     ManyToManyWriter,
 )
-from LiuXin_alpha.caches.write.generic_writers.one_to_one_writer import OneToOneWriter
+from LiuXin_alpha.utils.calibre_compat.caches.write.generic_writers.one_to_one_writer import OneToOneWriter
 from LiuXin_alpha.catalog.catalog import Catalog
 from LiuXin_alpha.databases import metadata_sql
 from LiuXin_alpha.databases.api import MetadataSQLAPI
-from LiuXin_alpha.library.caches.calibre.tables.many_many_tables.specific_many_to_many_tables import (
+from LiuXin_alpha.utils.calibre_compat.caches.calibre.tables.many_many_tables.specific_many_to_many_tables import (
     CalibreAuthorsTable,
     CalibreFormatsTable,
 )
-from LiuXin_alpha.library.caches.calibre.tables.one_one_tables import (
+from LiuXin_alpha.utils.calibre_compat.caches.calibre.tables.one_one_tables import (
     CalibreCoversTable,
     CalibreSizeTable,
 )

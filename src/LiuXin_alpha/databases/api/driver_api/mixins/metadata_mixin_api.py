@@ -10,6 +10,7 @@ transaction clocks.
 from __future__ import annotations
 
 import abc
+from contextlib import AbstractContextManager
 from typing import Literal
 import datetime
 from typing import Any
@@ -97,6 +98,17 @@ class DriverMetadataMixinAPI(abc.ABC):
         schema fingerprint. None represents unavailable metadata. Query errors
         propagate. Only a connection acquired for this inspection is closed;
         callers explicitly reconnect an unusable primary connection.
+        """
+
+    @abc.abstractmethod
+    def schema_read_scope(self) -> AbstractContextManager[None]:
+        """Bound reuse of discovery metadata to one complete schema read.
+
+        The shared SQL default leaves backend lookups unchanged. Backends may
+        reuse version probes inside this scope, provided they validate freshness before a
+        successful exit and discard scoped state on failure. Nested scopes may
+        join their enclosing read. No implementation may complete or replace a
+        caller-owned transaction; this is not a database transaction boundary.
         """
 
     @abc.abstractmethod

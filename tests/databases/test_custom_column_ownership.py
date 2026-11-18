@@ -6,7 +6,7 @@ import sys
 import pytest
 
 from LiuXin_alpha.caches.custom_fields import CustomFieldCache
-from LiuXin_alpha.catalog.field_metadata import FieldMetadata
+from LiuXin_alpha.caches.field_metadata import FieldMetadata
 from LiuXin_alpha.databases.custom_columns import CustomFieldError, SeriesValue
 from tests.databases.test_native_custom_fields import native as native
 from tests.databases.test_row_write_safety import db as db
@@ -71,13 +71,13 @@ def test_native_series_does_not_reserve_a_companion_label(native):
         independent = service.create_field("works", "reading_index", datatype="int")
         service.set_value(owner, series.id, SeriesValue("Saga", 2.5))
         service.set_value(owner, independent.id, 42)
-    assert metadata[independent.key]["colnum"] == independent.id
+    assert metadata[independent.key]["id"] == independent.id
     assert metadata[independent.key]["datatype"] == "int"
     assert service.get_value(owner, series.id) == SeriesValue("Saga", 2.5)
     with projection.write():
         service.retire_field(series.id)
     assert series.key not in metadata
-    assert metadata[independent.key]["colnum"] == independent.id
+    assert metadata[independent.key]["id"] == independent.id
     assert service.get_value(owner, independent.id) == 42
 
 

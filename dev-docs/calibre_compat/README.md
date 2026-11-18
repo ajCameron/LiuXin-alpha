@@ -21,6 +21,23 @@ it does not reinterpret existing SQL, source or web IDs.
 - [Mapping guide](<mapping calibre to LiuXin.md>): source IDs, SQL ray IDs and web
   Work IDs, including a novel and introduction sharing one owned volume.
 
+## Upstream calibre
+
+- [Bugs to report upstream](upstream-calibre-bugs.md): ten ways a damaged file
+  keeps a calibre metadata reader busy for minutes or for ever, or fills memory
+  (Topaz, RTF, HTML, encoding detection and MOBI), with reproducers,
+  measurements and suggested fixes. Not yet reported.
+
+## Cache ownership
+
+- [Implemented cache structure](../caches/structure.md): retained cache/base/writer,
+  category/lazy and legacy-search code lives in `utils.calibre_compat.caches`.
+  Legacy field adapters and descriptors live in compatibility metadata. Native
+  caches, Core field descriptors and WEMI search retain separate owners.
+- [Compatibility review](../caches/calibre-compatibility-review-2026-11-16.md):
+  caller evidence, migration outline and validation. Old paths are removed;
+  there are no forwarding facades.
+
 ## Proposed canonical import
 
 - [Import-policy draft](<00 - Calibre Compatibility Policy.md>): proposed

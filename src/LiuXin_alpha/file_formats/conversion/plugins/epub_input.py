@@ -19,6 +19,7 @@ from itertools import cycle
 
 from LiuXin_alpha.file_formats.conversion.plugin import InputFormatPlugin, OptionRecommendation
 from LiuXin_alpha.file_formats.archive_preflight import (
+    is_path_within,
     normalized_zip_member_name,
     validate_zip_member_infos,
 )
@@ -342,7 +343,13 @@ class EPUBInput(InputFormatPlugin):
                     return False
                 cr = em.getparent().xpath('descendant::*[contains(name(), "CipherReference")]')[0]
                 uri = cr.get("URI")
-                path = os.path.abspath(os.path.join(os.path.dirname(encfile), "..", *uri.split("/")))
+                container_root = os.path.abspath(os.path.join(os.path.dirname(encfile), ".."))
+                path = os.path.abspath(os.path.join(container_root, *uri.split("/")))
+                if not is_path_within(container_root, path):
+                    # A font reference must name a file inside the book. Rewriting a
+                    # path outside it would let a crafted EPUB damage unrelated files.
+                    default_log.warning("Ignoring obfuscated font reference outside the EPUB: %r", uri)
+                    continue
                 tkey = key if algorithm == ADOBE_OBFUSCATION else idpf_key
                 if tkey and os.path.exists(path):
                     self._encrypted_font_uris.append(uri)
@@ -435,7 +442,7 @@ class EPUBInput(InputFormatPlugin):
             )
             t.set("media-type", "image/jpeg")
             if os.path.exists(guide_cover):
-                renderer = render_html_svg_workaround(guide_cover, log)
+                renderer = render_html_svg_workaround(guide_cover, log, root=os.getcwd())
                 if renderer is not None:
                     open("calibre_raster_cover.jpg", "wb").write(renderer)
 

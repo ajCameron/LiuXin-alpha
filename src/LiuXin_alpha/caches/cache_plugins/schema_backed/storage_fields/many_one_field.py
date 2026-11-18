@@ -8,6 +8,11 @@ and refresh affected caches without adding a transaction boundary.
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from LiuXin_alpha.databases.api.database_api.database_api import DatabaseAPI
+
 from typing import TYPE_CHECKING, Any, Optional, Sequence, Union, cast
 
 from LiuXin_alpha.caches.api.storage_cache_api.storage_fields_api.many_one_field_api import (
@@ -58,7 +63,7 @@ class SchemaBackedManyOneField(
         src_table_id_col: str,
         dst_table: Union[StorageCacheSingleTableAPI, str],
         dst_table_cache_col: str,
-        db: Any,
+        db: DatabaseAPI,
     ) -> None:
         """
         Resolve endpoint/link caches and initialize empty many-to-one projections.
@@ -111,7 +116,10 @@ class SchemaBackedManyOneField(
         :return: Schema-backed link object after root freshness and cardinality checks.
         """
 
-        return cast(SchemaBackedLinkTable, self._cache.get_many_one_link_table(src_table, dst_table))
+        return cast(
+            SchemaBackedLinkTable,
+            self._cache.get_many_one_link_table(src_table, dst_table),
+        )
 
     def update(self, update: ManyOneInTwoTableFieldUpdate[Any]) -> None:
         """
@@ -164,13 +172,8 @@ class SchemaBackedManyOneField(
             }.items()
         }
 
-        deleted_src_ids = {
-            int(src_id)
-            for src_id in update.deleted_ids
-        } | {
-            int(src_id)
-            for src_id, value in raw_updates.items()
-            if value is None
+        deleted_src_ids = {int(src_id) for src_id in update.deleted_ids} | {
+            int(src_id) for src_id, value in raw_updates.items() if value is None
         }
 
         missing_link_src_ids: list[int] = []
@@ -455,7 +458,9 @@ class SchemaBackedManyOneField(
 
         return cast(
             IndividualLinkProperties,
-            self._build_link_properties(IndividualLinkProperties, int(src_id), int(dst_id)),
+            self._build_link_properties(
+                IndividualLinkProperties, int(src_id), int(dst_id)
+            ),
         )
 
     def set_link_properties(

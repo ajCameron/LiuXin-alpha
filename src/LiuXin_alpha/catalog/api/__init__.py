@@ -1,11 +1,17 @@
 """
-Export Catalog protocols, candidate/result values, errors, and field metadata types.
+Export Catalog protocols, candidate/result values and errors.
 
 The concrete facade is imported from LiuXin_alpha.catalog. This module collects
-the structural CatalogAPI, matching/WEMI values and errors, field-metadata
-contracts and serialized shapes, mutation contracts, and legacy metadata-tool
+the structural CatalogAPI, matching/WEMI values and errors,
+mutation contracts, and legacy metadata-tool
 protocols. Concrete entity repository contracts have their own api.repositories
-namespace. Importing these values does not create a database or Catalog instance.
+namespace. Calibre field-descriptor contracts live in
+utils.calibre_compat.metadata.field_metadata_api; native descriptor snapshots live
+in caches.field_metadata. Importing these values creates no database or Catalog.
+
+The separate api.metadata_access module declares MetadataAPIInterface for a future
+cache-aware metadata adapter. Its placement here supplies the semantic contract;
+the existing Catalog facade does not implement its reconciliation obligations.
 
 Example:
     >>> candidate = MetadataCandidate({"title": "Frankenstein"}, source="manual")
@@ -46,23 +52,6 @@ from .common import (
     WemiGraph,
     WemiLevel,
 )
-from .field_metadata_api import (
-    CalibreFieldMetadataAPI,
-    FieldMetadataAPI,
-    FieldMetadataDataType,
-    FieldMetadataDeserializerAPI,
-    FieldMetadataDisplay,
-    FieldMetadataEntry,
-    FieldMetadataGetterAPI,
-    FieldMetadataKind,
-    FieldMetadataMultiplicity,
-    FieldMetadataRecord,
-    FieldMetadataSearchTarget,
-    FieldRecordIndexMap,
-    GroupedSearchTerms,
-    KnownFieldMetadataDataType,
-    SerializedFieldMetadataState,
-)
 from .metadata_tools_api import (
     AddAPI,
     ApplyAPI,
@@ -82,7 +71,6 @@ __all__ = [
     "AddAPI",
     "ApplyAPI",
     "BackendGetterAPI",
-    "CalibreFieldMetadataAPI",
     "CatalogAPI",
     "CatalogSearchAPI",
     "CalibreCompatibilityAPI",
@@ -97,22 +85,9 @@ __all__ = [
     "CreatedWemiStack",
     "EnsureAPI",
     "EntityId",
-    "FieldMetadataAPI",
-    "FieldMetadataDataType",
-    "FieldMetadataDeserializerAPI",
-    "FieldMetadataDisplay",
-    "FieldMetadataEntry",
-    "FieldMetadataGetterAPI",
-    "FieldMetadataKind",
-    "FieldMetadataMultiplicity",
-    "FieldMetadataRecord",
-    "FieldMetadataSearchTarget",
-    "FieldRecordIndexMap",
     "FingerprintToolsAPI",
-    "GroupedSearchTerms",
     "IdentifierCandidate",
     "IntralinkerAPI",
-    "KnownFieldMetadataDataType",
     "MatchDecision",
     "MatchEvidence",
     "MatchEvidenceKind",
@@ -122,7 +97,6 @@ __all__ = [
     "MetadataWriteReportMapping",
     "RowInput",
     "RowMapping",
-    "SerializedFieldMetadataState",
     "WemiAdjacency",
     "WemiBundle",
     "WemiDirection",

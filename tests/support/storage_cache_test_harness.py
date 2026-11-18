@@ -12,6 +12,7 @@ Example:
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 
@@ -428,6 +429,12 @@ class FakeMacros:
         :return: None; completion is expressed through state changes or assertions.
         """
         self.db = db
+
+    def update_rows(self, table: str, updates: Mapping[int, Mapping[str, Any]]) -> None:
+        """Apply row values for cache tests; real transaction tests use Database."""
+        for row_id, values in updates.items():
+            for column, value in values.items():
+                self.db.driver_wrapper.update_column(table, row_id, column, value)
 
     def ensure_table_value(
         self,

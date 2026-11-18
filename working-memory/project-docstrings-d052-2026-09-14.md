@@ -1,4 +1,4 @@
-# D052 — src/LiuXin_alpha/caches/write — utils, uuid_writer, 2026-09-14
+# D052 — src/LiuXin_alpha/utils/calibre_compat/caches/write — utils, uuid_writer, 2026-09-14
 
 Specialized writers and utility containers source-reviewed; 22 focused regressions passed, including real identifier rejection/success and UpdateDict snapshot consumers. Pure utility examples passed. Documentation preserves custom-series cache-before-write, identifier storage-before-cache, title follow-up sort and UUID cache-before-write ordering; no broad mutation coverage claim for untested legacy hooks.
 

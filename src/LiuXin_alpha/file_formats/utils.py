@@ -103,7 +103,32 @@ class HTMLRenderer:
             self.loop.exit(0)
 
 
-def return_raster_image(path: Union[str, LiteralString, bytes]) -> Optional[bytes]:
+def is_existing_subpath(path: str, root: str) -> bool:
+    """
+    Say whether an existing file is inside an existing folder, links resolved.
+
+    Cover pages name their images by relative paths; this keeps them to the
+    book's own files, as calibre does.
+
+    Example:
+        >>> import os
+        >>> is_existing_subpath(__file__, os.path.dirname(__file__)), is_existing_subpath(__file__, "/no/such/folder")
+        (True, False)
+
+
+    :param path: The file.
+    :param root: The folder it must be inside.
+    :return: Whether both exist and the file is inside the folder.
+    """
+    try:
+        real_root = os.path.realpath(root, strict=True)
+        real_path = os.path.realpath(path, strict=True)
+        return os.path.commonpath([real_root, real_path]) == real_root
+    except (OSError, ValueError):
+        return False
+
+
+def return_raster_image(path: Union[str, LiteralString, bytes], root: str = "") -> Optional[bytes]:
     """
     Return a rasterized image - or return None if the given path doesn't point to one.
 
@@ -115,11 +140,16 @@ def return_raster_image(path: Union[str, LiteralString, bytes]) -> Optional[byte
 
     :param path: Filesystem path read, written, normalized or validated by the
         operation.
+    :param root: When given, only an image inside this folder is read.
     :return: The normalized value, metadata record, path, stream result or collection
         described above.
     """
     from LiuXin_alpha.utils.image_tools.imghdr import what
 
+    # Only read images inside root, so a book's pages cannot name files
+    # elsewhere on the disk
+    if root and not is_existing_subpath(path, root):
+        return None
     if os.access(path, os.R_OK):
         with open(path, "rb") as f:
             raw = f.read()
@@ -127,7 +157,7 @@ def return_raster_image(path: Union[str, LiteralString, bytes]) -> Optional[byte
             return raw
 
 
-def extract_cover_from_embedded_svg(html: _typing.Any, base: _typing.Any, log: _typing.Any) -> Optional[bytes]:
+def extract_cover_from_embedded_svg(html: _typing.Any, base: _typing.Any, log: _typing.Any, root: str = "") -> Optional[bytes]:
     """
     Extract cover from embedded svg under the format's safety and compatibility rules.
 
@@ -140,24 +170,26 @@ def extract_cover_from_embedded_svg(html: _typing.Any, base: _typing.Any, log: _
     :param html: Value supplied for html under the utility contract.
     :param base: Value supplied for base under the utility contract.
     :param log: Value supplied for log under the utility contract.
+    :param root: The book's folder: images outside it are not read. When not
+        given, the page's own folder.
     :return: The normalized value, metadata record, path, stream result or collection
         described above.
     """
     from lxml import etree
     from LiuXin_alpha.file_formats.oeb.base import XPath, SVG, XLINK
 
-    root = etree.fromstring(html)
+    doc = etree.fromstring(html)
 
-    svg = XPath("//svg:svg")(root)
+    svg = XPath("//svg:svg")(doc)
     if len(svg) == 1 and len(svg[0]) == 1 and svg[0][0].tag == SVG("image"):
         image = svg[0][0]
         href = image.get(XLINK("href"), None)
         if href:
             path = os.path.join(base, *href.split("/"))
-            return return_raster_image(path)
+            return return_raster_image(path, root or base)
 
 
-def extract_calibre_cover(raw: _typing.Any, base: _typing.Any, log: _typing.Any) -> Optional[bytes]:
+def extract_calibre_cover(raw: _typing.Any, base: _typing.Any, log: _typing.Any, root: str = "") -> Optional[bytes]:
     """
     Extract a cover from a html tree.
 
@@ -170,6 +202,8 @@ def extract_calibre_cover(raw: _typing.Any, base: _typing.Any, log: _typing.Any)
     :param raw: Value supplied for raw under the utility contract.
     :param base: Value supplied for base under the utility contract.
     :param log: Value supplied for log under the utility contract.
+    :param root: The book's folder: images outside it are not read. When not
+        given, the page's own folder.
     :return: The normalized value, metadata record, path, stream result or collection
         described above.
     """
@@ -180,25 +214,25 @@ def extract_calibre_cover(raw: _typing.Any, base: _typing.Any, log: _typing.Any)
     try:
         from lxml import html as lxml_html
 
-        root = lxml_html.fromstring(raw)
-        matches = root.xpath(".//h1|.//h2|.//h3|.//h4|.//h5|.//h6|.//p|.//span|.//font|.//br")
-        images = root.xpath(".//img")
+        doc = lxml_html.fromstring(raw)
+        matches = doc.xpath(".//h1|.//h2|.//h3|.//h4|.//h5|.//h6|.//p|.//span|.//font|.//br")
+        images = doc.xpath(".//img")
         if not matches and len(images) == 1 and images[0].get("alt", "") == "cover":
             src = images[0].get("src")
             if src:
                 img = os.path.join(base, *src.split("/"))
-                return return_raster_image(img)
+                return return_raster_image(img, root or base)
 
         if not matches:
-            bodies = root.xpath(".//body")
-            body = bodies[0] if bodies else root
+            bodies = doc.xpath(".//body")
+            body = bodies[0] if bodies else doc
             text = "".join(body.itertext())
             if text.strip():
                 return None
             images = body.xpath(".//img[@src]")
             if 0 < len(images) < 2:
                 img = os.path.join(base, *images[0].get("src").split("/"))
-                return return_raster_image(img)
+                return return_raster_image(img, root or base)
         return None
     except Exception:
         pass
@@ -209,7 +243,7 @@ def extract_calibre_cover(raw: _typing.Any, base: _typing.Any, log: _typing.Any)
     if matches is None and len(images) == 1 and images[0].get("alt", "") == "cover":
         img = images[0]
         img = os.path.join(base, *img["src"].split("/"))
-        cover = return_raster_image(img)
+        cover = return_raster_image(img, root or base)
         return cover
 
     # Look for a simple cover, i.e. a body with no text and only one <img> tag
@@ -223,10 +257,12 @@ def extract_calibre_cover(raw: _typing.Any, base: _typing.Any, log: _typing.Any)
             images = body.findAll("img", src=True)
             if 0 < len(images) < 2:
                 img = os.path.join(base, *images[0]["src"].split("/"))
-                return return_raster_image(img)
+                return return_raster_image(img, root or base)
 
 
-def render_html_svg_workaround(path_to_html: _typing.Any, log: _typing.Any, width: int = 590, height: int = 750) -> _typing.Any:
+def render_html_svg_workaround(
+    path_to_html: _typing.Any, log: _typing.Any, width: int = 590, height: int = 750, root: str = ""
+) -> _typing.Any:
     """
     Render html data (which might or might not include an svg file) as a image.
 
@@ -240,6 +276,8 @@ def render_html_svg_workaround(path_to_html: _typing.Any, log: _typing.Any, widt
     :param log: Value supplied for log under the utility contract.
     :param width: Value supplied for width under the utility contract.
     :param height: Value supplied for height under the utility contract.
+    :param root: The book's folder: images outside it are not read. When not
+        given, the page's own folder.
     :return: The normalized value, metadata record, path, stream result or collection
         described above.
     """
@@ -252,13 +290,13 @@ def render_html_svg_workaround(path_to_html: _typing.Any, log: _typing.Any, widt
     # Look for a svg image in the raw data
     if SVG_NS.encode("utf-8") in raw:
         try:
-            data = extract_cover_from_embedded_svg(raw, os.path.dirname(path_to_html), log)
+            data = extract_cover_from_embedded_svg(raw, os.path.dirname(path_to_html), log, root=root)
         except:
             pass
 
     if data is None:
         try:
-            data = extract_calibre_cover(raw, os.path.dirname(path_to_html), log)
+            data = extract_calibre_cover(raw, os.path.dirname(path_to_html), log, root=root)
         except:
             pass
 

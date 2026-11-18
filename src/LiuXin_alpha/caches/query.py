@@ -11,9 +11,14 @@ and sort keys. Live storage can still perform database reads underneath.
 from __future__ import annotations
 
 import unicodedata
-
-from collections.abc import Iterable, Mapping, Sequence
-from typing import Any, Optional, cast
+from collections import OrderedDict
+from collections.abc import Hashable, Iterable, Mapping, Sequence, Set
+from copy import deepcopy
+from dataclasses import dataclass, fields, is_dataclass
+from heapq import nlargest, nsmallest
+from math import isnan
+from operator import index
+from typing import Any, cast
 
 from LiuXin_alpha.caches.api.cache_api import (
     CacheFilterOperator,
@@ -26,9 +31,44 @@ from LiuXin_alpha.caches.api.cache_api import (
     UnknownCacheFieldError,
     UnknownCacheTableError,
 )
-from LiuXin_alpha.caches.api.storage_cache_api.storage_cache_api import (
-    StorageCacheAPI,
+from LiuXin_alpha.caches.predicates import PredicateEvaluator
+from LiuXin_alpha.caches.query_contracts import QueryLink, QueryStorage, QueryTable
+from LiuXin_alpha.databases.db_types.macro_types import LINK_TYPE_UNSET
+from LiuXin_alpha.databases.db_types.query_types import (
+    BooleanMatch,
+    ComparisonMatch,
+    CountMatch,
+    IdentifierMatch,
+    ProvidedMatch,
+    RowPredicate,
+    TextMatch,
+    ValueMatch,
 )
+
+
+def _freeze_key(value: Any) -> Hashable:
+    """Snapshot supported query operands without identity- or repr-based keys."""
+    if value is LINK_TYPE_UNSET:
+        return ("link-type-unset",)
+    if isinstance(value, ProvidedMatch):
+        raise TypeError("Execution providers require fresh evaluation")
+    if value is None or isinstance(value, (str, bytes, bool, int, float)):
+        return (type(value), value)
+    if is_dataclass(value) and not isinstance(value, type):
+        return (
+            type(value),
+            tuple((f.name, _freeze_key(getattr(value, f.name))) for f in fields(value)),
+        )
+    if isinstance(value, Mapping):
+        return (
+            type(value),
+            frozenset((_freeze_key(k), _freeze_key(v)) for k, v in value.items()),
+        )
+    if isinstance(value, (tuple, list)):
+        return (type(value), tuple(_freeze_key(v) for v in value))
+    if isinstance(value, (set, frozenset)):
+        return (type(value), frozenset(_freeze_key(v) for v in value))
+    raise TypeError("Query operand cannot be cached")
 
 
 def normalize_cache_text(value: Any) -> str:
@@ -94,7 +134,21 @@ def _trigrams(value: str) -> frozenset[str]:
     return frozenset(value[index : index + 3] for index in range(len(value) - 2))
 
 
-def _sort_value(value: Any) -> tuple[int, Any]:
+class _UnorderedSortValue(ValueError):
+    """A NaN requires the existing stable full sort instead of heap selection."""
+
+
+@dataclass(frozen=True, slots=True)
+class _DescendingSortKey:
+    """Reverse one present-value component without reversing nulls or row-ID ties."""
+
+    value: tuple[int, Any]
+
+    def __lt__(self, other: _DescendingSortKey) -> bool:
+        return self.value > other.value
+
+
+def _sort_value(value: Any, *, require_total_order: bool = False) -> tuple[int, Any]:
     """
     Build a ranked comparison key for mixed cached values.
 
@@ -109,15 +163,20 @@ def _sort_value(value: Any) -> tuple[int, Any]:
 
 
     :param value: Stored value to order; missing values are handled by the caller.
+    :param require_total_order: Reject NaNs, including nested values, for heap selection.
     :return: Tuple of type rank and comparable payload for supported value families.
     """
 
     if isinstance(value, (list, tuple, set, frozenset)):
-        value = tuple(_sort_value(item) for item in value)
+        value = tuple(
+            _sort_value(item, require_total_order=require_total_order) for item in value
+        )
         return (3, value)
     if isinstance(value, bool):
         return (0, int(value))
     if isinstance(value, (int, float)):
+        if require_total_order and isinstance(value, float) and isnan(value):
+            raise _UnorderedSortValue
         return (1, value)
     if isinstance(value, str):
         return (2, (normalize_cache_text(value), value))
@@ -138,7 +197,13 @@ class CacheQueryEngine:
         call ``engine.query(CacheQuery("books"), generation=1)``.
     """
 
-    def __init__(self, storage: StorageCacheAPI) -> None:
+    def __init__(
+        self,
+        storage: QueryStorage,
+        *,
+        plan_cache_size: int = 100,
+        result_cache_size: int = 50,
+    ) -> None:
         """
         Retain storage and create empty dictionaries for lazy text indexes.
 
@@ -153,10 +218,22 @@ class CacheQueryEngine:
         """
 
         self.storage = storage
+        if plan_cache_size < 0 or result_cache_size < 0:
+            raise ValueError("Query cache limits cannot be negative")
+        self.plan_cache_size = plan_cache_size
+        self.result_cache_size = result_cache_size
+        self._plans: OrderedDict[Hashable, None] = OrderedDict()
+        # Private, exclusively owned sets: queries only read them, while bounded
+        # repair transfers them across generations under the facade lock. Public
+        # results contain independent tuples/records, never these mutable sets.
+        self._results: OrderedDict[Hashable, set[int]] = OrderedDict()
+        self._result_queries: OrderedDict[Hashable, CacheQuery] = OrderedDict()
+        self.result_hits = 0
+        self.repaired_results = 0
         self._text_values: dict[tuple[str, str], dict[int, str]] = {}
         self._text_trigrams: dict[tuple[str, str], dict[str, set[int]]] = {}
 
-    def reset(self) -> None:
+    def reset(self, *, keep_plans: bool = False) -> None:
         """
         Discard normalized text values and trigram indexes for every field.
 
@@ -173,8 +250,119 @@ class CacheQueryEngine:
 
         self._text_values.clear()
         self._text_trigrams.clear()
+        self._results.clear()
+        self._result_queries.clear()
+        if not keep_plans:
+            self._plans.clear()
 
-    def _table(self, table_name: str) -> Any:
+    @staticmethod
+    def _remember[K, V](cache: OrderedDict[K, V], key: K, value: V, limit: int) -> None:
+        if limit:
+            cache[key] = value
+            cache.move_to_end(key)
+            while len(cache) > limit:
+                cache.popitem(last=False)
+
+    @staticmethod
+    def _result_key(query: CacheQuery, generation: int) -> Hashable:
+        return _freeze_key(
+            (
+                generation,
+                query.table,
+                query.predicates,
+                query.relation,
+                query.text,
+                query.text_fields,
+                query.where,
+            )
+        )
+
+    def row_local_results(self) -> list[tuple[CacheQuery, set[int]]]:
+        """Transfer row-local membership to a pending repair before resetting.
+
+        The caller must reset this engine before changing the saved sets, and
+        serialize the complete invalidate/refresh/repair boundary. These private
+        sets are not immutable snapshots or part of the public query result.
+        """
+        result = []
+        for key, ids in self._results.items():
+            query = self._result_queries[key]
+            columns = self._table(query.table).column_headings
+
+            def physical(
+                name: str, query: CacheQuery = query, columns: Sequence[str] = columns
+            ) -> bool:
+                return name.removeprefix(query.table + ".") in columns
+
+            def local(node: RowPredicate | None) -> bool:
+                if node is None:
+                    return True
+                if isinstance(node, BooleanMatch):
+                    return all(local(child) for child in node.operands)
+                if isinstance(node, (ValueMatch, ComparisonMatch, CountMatch)):
+                    return physical(node.column)
+                if isinstance(node, TextMatch):
+                    return all(physical(column) for column in node.columns)
+                if isinstance(node, IdentifierMatch):
+                    return physical(node.scheme_column) and physical(node.value_column)
+                return False
+
+            if (
+                query.relation is None
+                and not query.text.strip()
+                and local(query.where)
+                and all(physical(item.field) for item in query.predicates)
+            ):
+                result.append((query, ids))
+        return result
+
+    def repair_results(
+        self,
+        saved: list[tuple[CacheQuery, set[int]]],
+        changes: Mapping[str, set[int]],
+        *,
+        generation: int,
+    ) -> None:
+        """Repair proven row-local membership only within a bounded work budget.
+
+        Call after resetting the old generation and a successful bounded refresh.
+        Saved membership is exclusively owned and edited in place, avoiding a
+        population-sized copy. Graph, text-index and provider queries are excluded
+        by row_local_results; larger updates remain evicted.
+        """
+        if sum(len(changes.get(query.table, ())) for query, _ in saved) > 50:
+            return
+        for query, previous in saved:
+            changed = changes.get(query.table, set())
+            if changed:
+                evaluator = PredicateEvaluator(self)
+                self._validate_query(query, evaluator)
+                matches = self._matching_ids(query, evaluator, changed)
+                previous.difference_update(changed)
+                previous.update(matches)
+            key = self._result_key(query, generation)
+            self._remember(self._results, key, previous, self.result_cache_size)
+            self._remember(self._result_queries, key, query, self.result_cache_size)
+            self.repaired_results += 1
+
+    def _validate_query(self, query: CacheQuery, evaluator: PredicateEvaluator) -> None:
+        self._table(query.table)
+        for predicate in query.predicates:
+            self._canonical_field(query.table, predicate.field)
+        for sort in query.sort:
+            self._canonical_field(query.table, sort.field)
+        for name in (*query.projection, *query.text_fields):
+            self._canonical_field(query.table, name)
+        for predicate in query.predicates:
+            if predicate.operator not in set(CacheFilterOperator):
+                raise ValueError("Unknown cache filter operator")
+        if query.relation is not None:
+            self._table(query.relation.table)
+            self.storage.get_link_table(query.table, query.relation.table)
+        if query.where is not None:
+            evaluator.validate(query.table, query.where)
+
+    def _table(self, table_name: str) -> QueryTable:
         """
         Resolve a cached main table after checking backend membership.
 
@@ -231,7 +419,7 @@ class CacheQueryEngine:
             raise UnknownCacheFieldError(
                 f"field {requested!r} is owned by {owner!r}, not {table!r}"
             )
-        return str(getattr(resolved, "field_key"))
+        return str(resolved.field_key)
 
     def _value(self, table: str, row_id: int, field: str) -> Any:
         """
@@ -270,7 +458,7 @@ class CacheQueryEngine:
         self,
         table: str,
         predicate: CachePredicate,
-    ) -> Optional[set[int]]:
+    ) -> set[int] | None:
         """
         Use available reverse lookups to narrow EQ or IN predicate candidates.
 
@@ -377,7 +565,9 @@ class CacheQueryEngine:
             return False
         return False  # type: ignore[unreachable]
 
-    def _build_text_index(self, table: str, field: str) -> tuple[dict[int, str], dict[str, set[int]]]:
+    def _build_text_index(
+        self, table: str, field: str
+    ) -> tuple[dict[int, str], dict[str, set[int]]]:
         """
         Lazily index one field's flattened text and per-trigram row memberships.
 
@@ -440,9 +630,7 @@ class CacheQueryEngine:
         :return: Set of row IDs whose indexed field text contains every term.
         """
 
-        terms = tuple(
-            term for term in normalize_cache_text(text).split() if term
-        )
+        terms = tuple(term for term in normalize_cache_text(text).split() if term)
         if not terms:
             return self._all_ids(table)
 
@@ -457,7 +645,7 @@ class CacheQueryEngine:
             else:
                 term_candidates = set()
                 for _values, trigram_index in indexes:
-                    field_candidates: Optional[set[int]] = None
+                    field_candidates: set[int] | None = None
                     for gram in grams:
                         gram_ids = trigram_index.get(gram, set())
                         field_candidates = (
@@ -514,12 +702,11 @@ class CacheQueryEngine:
                 )
                 if raw_links is None:
                     continue
-                links: Sequence[Any] = (
-                    raw_links
-                    if isinstance(raw_links, Sequence)
-                    else (raw_links,)
+                links = cast(
+                    Sequence[QueryLink],
+                    raw_links if isinstance(raw_links, Sequence) else (raw_links,),
                 )
-                ids.update(int(getattr(link, "src_id")) for link in links)
+                ids.update(int(link.src_id) for link in links)
             return ids
         except KeyError:
             try:
@@ -530,7 +717,7 @@ class CacheQueryEngine:
             if not callable(getter):
                 getter = getattr(link_table, "get_link_for_src", None)
             if not callable(getter):
-                raise TypeError("link table does not expose source getters")
+                raise TypeError("link table does not expose source getters") from None
             ids = set()
             for target_id in target_ids:
                 raw_links = getter(
@@ -539,12 +726,11 @@ class CacheQueryEngine:
                 )
                 if raw_links is None:
                     continue
-                links = (
-                    raw_links
-                    if isinstance(raw_links, Sequence)
-                    else (raw_links,)
+                links = cast(
+                    Sequence[QueryLink],
+                    raw_links if isinstance(raw_links, Sequence) else (raw_links,),
                 )
-                ids.update(int(getattr(link, "dst_id")) for link in links)
+                ids.update(int(link.dst_id) for link in links)
             return ids
 
     def _sort_ids(
@@ -575,11 +761,12 @@ class CacheQueryEngine:
 
         ordered = sorted(int(row_id) for row_id in ids)
         for sort_spec in reversed(tuple(sort_specs)):
+            canonical = self._canonical_field(table, sort_spec.field)
             present: list[int] = []
             missing: list[int] = []
             values: dict[int, Any] = {}
             for row_id in ordered:
-                value = self._value(table, row_id, sort_spec.field)
+                value = self.storage.get_cached_value(row_id, canonical)
                 values[row_id] = value
                 (missing if value is None else present).append(row_id)
             present.sort(
@@ -588,6 +775,67 @@ class CacheQueryEngine:
             )
             ordered = present + missing
         return ordered
+
+    def _page_ids(
+        self,
+        table: str,
+        ids: Set[int],
+        sort_specs: Sequence[CacheSort],
+        offset: int,
+        limit: int | None,
+    ) -> list[int]:
+        """Select a small prefix or suffix; use stable full sorting for larger pages.
+
+        Keep at most the smaller of the requested prefix and remaining suffix,
+        only when it is less than a quarter of the matches. Every requested sort
+        value is read, but only retained heap entries need stored keys. Nulls stay
+        last in each direction, with ascending row identity breaking complete ties.
+        NaNs lack a total ordering, so preserve their legacy stable-sort behaviour.
+        Bounds are integer-normalized and fields validated by the caller first.
+        """
+        total = len(ids)
+        if limit == 0 or offset >= total:
+            return []
+        end = total if limit is None else min(total, offset + limit)
+        tail = total - offset
+        if min(end, tail) * 4 >= total:
+            return self._sort_ids(table, ids, sort_specs)[offset:end]
+
+        resolved = tuple(
+            (self._canonical_field(table, spec.field), bool(spec.ascending))
+            for spec in sort_specs
+        )
+        # Compare the primary component directly, including descending values.
+        # Only components with the opposite direction need a reversing wrapper.
+        reverse = not resolved[0][1] if resolved else False
+
+        def key(row_id: int) -> tuple[Any, ...]:
+            parts: list[Any] = []
+            for field, ascending in resolved:
+                value = self.storage.get_cached_value(row_id, field)
+                parts.append((value is None) != reverse)
+                if value is None:
+                    parts.append(())
+                else:
+                    component = _sort_value(value, require_total_order=True)
+                    parts.append(
+                        component
+                        if ascending != reverse
+                        else _DescendingSortKey(component)
+                    )
+            return (*parts, -row_id if reverse else row_id)
+
+        try:
+            # Default ordering needs only IDs, without reading any field values.
+            if end <= tail:
+                select = nlargest if reverse else nsmallest
+                return select(end, ids, key=key if resolved else None)[offset:end]
+            select = nsmallest if reverse else nlargest
+            ordered = select(tail, ids, key=key if resolved else None)
+            ordered.reverse()
+            return ordered[: end - offset]
+        except _UnorderedSortValue:
+            return self._sort_ids(table, ids, sort_specs)[offset:end]
 
     def _record(
         self,
@@ -630,7 +878,7 @@ class CacheQueryEngine:
             values[id_column] = int(row_id)
         return CacheRecord(table=table, row_id=row_id, values=values)
 
-    def get(self, table: str, row_id: int) -> Optional[CacheRecord]:
+    def get(self, table: str, row_id: int) -> CacheRecord | None:
         """
         Return a complete row snapshot when the cached table contains its ID.
 
@@ -657,9 +905,11 @@ class CacheQueryEngine:
 
         Begin with all table IDs, intersect an optional relation constraint, and
         apply predicates in order using available candidate lookups plus value checks.
-        Nonblank text uses explicit text_fields or all main-table columns. Sort before
-        paging and project only visible rows. Fields used only in empty result paths
-        may never be resolved. The method does not take a lock or create a database
+        Nonblank text uses explicit text_fields or all main-table columns. Select
+        ordered page IDs and project only visible rows. Empty pages skip ordering;
+        small pages use bounded selection when sort values have a total ordering.
+        All fields and predicate branches are validated before filtering,
+        including branches with no candidates. The method does not take a lock or create a database
         snapshot, so live backend reads may observe changes during evaluation.
 
         Example:
@@ -672,15 +922,72 @@ class CacheQueryEngine:
         :return: Complete CacheQueryResult with visible records and the total count before paging.
         """
 
-        ids = self._all_ids(query.table)
+        evaluator = PredicateEvaluator(self)
+        try:
+            plan_key = _freeze_key(query)
+            result_key = self._result_key(query, generation)
+        except TypeError:
+            plan_key = result_key = None
+        if plan_key is None or plan_key not in self._plans:
+            self._validate_query(query, evaluator)
+            if plan_key is not None:
+                self._remember(self._plans, plan_key, None, self.plan_cache_size)
+        else:
+            self._plans.move_to_end(plan_key)
+        offset = index(query.offset)
+        limit = None if query.limit is None else index(query.limit)
+        ids: Set[int]
+        if result_key is not None and result_key in self._results:
+            self.result_hits += 1
+            self._results.move_to_end(result_key)
+            self._result_queries.move_to_end(result_key)
+            ids = self._results[result_key]
+        else:
+            ids = self._matching_ids(query, evaluator)
+            if result_key is not None:
+                self._remember(self._results, result_key, ids, self.result_cache_size)
+                self._remember(
+                    self._result_queries,
+                    result_key,
+                    deepcopy(query, {id(LINK_TYPE_UNSET): LINK_TYPE_UNSET}),
+                    self.result_cache_size,
+                )
+
+        total_count = len(ids)
+        visible = self._page_ids(query.table, ids, query.sort, offset, limit)
+        records = tuple(
+            self._record(query.table, row_id, query.projection) for row_id in visible
+        )
+        return CacheQueryResult(
+            records, total_count, query.offset, query.limit, True, generation
+        )
+
+    def _matching_ids(
+        self,
+        query: CacheQuery,
+        evaluator: PredicateEvaluator,
+        candidates: set[int] | None = None,
+    ) -> set[int]:
+        """Evaluate filters once; result caching never retains mutable records."""
+        if candidates is None:
+            ids = self._all_ids(query.table)
+        else:
+            table = self._table(query.table)
+            ids = {row_id for row_id in candidates if table.has_id(row_id)}
+        if query.where is not None:
+            evaluator.check_references(query.table, query.where, ids)
+            ids = evaluator.evaluate(query.table, query.where, ids)
 
         if query.relation is not None:
             ids &= self._ids_for_relation(query.table, query.relation)
 
         for predicate in query.predicates:
-            candidates = self._candidate_ids_for_predicate(query.table, predicate)
-            if candidates is not None:
-                ids &= candidates
+            # Restricted repairs already have a small candidate set. Expanding
+            # an exact-value index here could copy an entire matching population.
+            if candidates is None:
+                indexed = self._candidate_ids_for_predicate(query.table, predicate)
+                if indexed is not None:
+                    ids &= indexed
             ids = {
                 row_id
                 for row_id in ids
@@ -694,27 +1001,11 @@ class CacheQueryEngine:
             text_fields = query.text_fields
             if not text_fields:
                 text_fields = tuple(
-                    str(column)
-                    for column in self._table(query.table).column_headings
+                    str(column) for column in self._table(query.table).column_headings
                 )
             ids &= self._text_candidate_ids(query.table, query.text, text_fields)
 
-        ordered = self._sort_ids(query.table, ids, query.sort)
-        total_count = len(ordered)
-        end = None if query.limit is None else query.offset + query.limit
-        visible = ordered[query.offset:end]
-        records = tuple(
-            self._record(query.table, row_id, query.projection)
-            for row_id in visible
-        )
-        return CacheQueryResult(
-            records=records,
-            total_count=total_count,
-            offset=query.offset,
-            limit=query.limit,
-            complete=True,
-            generation=generation,
-        )
+        return ids
 
     def related_ids(
         self,
@@ -722,7 +1013,7 @@ class CacheQueryEngine:
         source_ids: Iterable[int],
         target_table: str,
         *,
-        type_filter: Optional[str] = None,
+        type_filter: str | None = None,
     ) -> tuple[int, ...]:
         """
         Traverse related target IDs once each in source and link traversal order.
@@ -779,10 +1070,9 @@ class CacheQueryEngine:
                 )
             if raw_links is None:
                 continue
-            links = (
-                raw_links
-                if isinstance(raw_links, Sequence)
-                else (raw_links,)
+            links = cast(
+                Sequence[QueryLink],
+                raw_links if isinstance(raw_links, Sequence) else (raw_links,),
             )
             for link in links:
                 target_id = int(getattr(link, id_attribute))

@@ -6,6 +6,7 @@ row/type metadata plus priority.
 The API classes prescribe read shapes while concrete backends implement
 cardinality enforcement, ordering, storage refresh and update sequencing.
 """
+
 from __future__ import annotations
 
 import abc
@@ -21,8 +22,13 @@ if TYPE_CHECKING:
         OneManyInterlinkTableUpdate,
         OneManyInterLinkTableUpdateResults,
     )
-    from LiuXin_alpha.databases.api.row_api import InterlinkRowAPI, RowAPI
-    from LiuXin_alpha.databases.db_types.database_types import InterlinkTableID, TableColumnName, SrcTableID, DstTableID
+    from LiuXin_alpha.databases.api.row_api import RowAPI
+    from LiuXin_alpha.databases.db_types.database_types import (
+        DstTableID,
+        InterlinkTableID,
+        SrcTableID,
+        TableColumnName,
+    )
 
 
 @dataclasses.dataclass(slots=True)
@@ -210,7 +216,7 @@ class StorageCacheOneManyGetterAPI(abc.ABC):
         self,
         src_id: "SrcTableID",
         dst_id: "DstTableID",
-    ) -> Optional["InterlinkRowAPI"]:
+    ) -> Optional["RowAPI"]:
         """
         Read one optional physical association Rows selected by the directed endpoint pair.
 
@@ -233,7 +239,7 @@ class StorageCacheOneManyGetterAPI(abc.ABC):
         src_id: "SrcTableID",
         require_ordering: bool = False,
         type_filter: Optional[str] = None,
-    ) -> Sequence["InterlinkRowAPI"]:
+    ) -> Sequence["RowAPI"]:
         """
         Read all physical association Rows selected by the source ID.
 
@@ -255,7 +261,7 @@ class StorageCacheOneManyGetterAPI(abc.ABC):
         self,
         dst_id: "DstTableID",
         type_filter: Optional[str] = None,
-    ) -> Optional["InterlinkRowAPI"]:
+    ) -> Optional["RowAPI"]:
         """
         Read one optional physical association Rows selected by the destination ID.
 
@@ -301,6 +307,7 @@ class StorageCacheOneManyGetterAPI(abc.ABC):
         self,
         dst_value: Any,
         dst_column: "TableColumnName",
+        require_ordering: bool = False,
         type_filter: Optional[str] = None,
     ) -> Sequence["SrcTableID"]:
         """
@@ -347,6 +354,7 @@ class StorageCacheOneManyGetterAPI(abc.ABC):
         self,
         dst_value: Any,
         dst_column: "TableColumnName",
+        require_ordering: bool = False,
         type_filter: Optional[str] = None,
     ) -> Sequence["RowAPI"]:
         """
@@ -524,7 +532,7 @@ class StorageCacheOneManyGetterAPI(abc.ABC):
 
 
 class StorageCacheOneToManyLinkTable(
-    StorageCacheLinkTableBaseAPI,
+    StorageCacheLinkTableBaseAPI[Any],
     StorageCacheOneManyGetterAPI,
 ):
     """

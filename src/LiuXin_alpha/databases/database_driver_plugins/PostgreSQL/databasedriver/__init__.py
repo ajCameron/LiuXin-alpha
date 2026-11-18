@@ -11,7 +11,8 @@ from __future__ import annotations
 import uuid
 from collections.abc import Iterable, Iterator, Mapping, Sequence
 from copy import deepcopy
-from contextlib import closing
+from contextlib import closing, contextmanager
+from contextvars import ContextVar
 from dataclasses import replace
 from typing import TYPE_CHECKING, Any, Literal, Never
 from queue import Queue
@@ -264,6 +265,9 @@ class DatabaseDriver(
         self.all_column_names = set()
         self.locations = None
         self.event_count = 0
+        self._schema_read_version: ContextVar[tuple[str | None] | None] = ContextVar(
+            "postgres_schema_read_version", default=None
+        )
         self._open_connections = []
         self.helper_tables = [
             "conversion_options",
@@ -935,12 +939,44 @@ class DatabaseDriver(
             )
             raise DatabaseDriverError(err_str) from exc
 
+    @contextmanager
+    def schema_read_scope(self) -> Iterator[None]:
+        """Reuse one fingerprint during discovery and validate it before return.
+
+        Entry and exit probes use independent short connections. A changed
+        fingerprint rejects the assembled result; failures clear backend schema
+        caches and always release the context-local version. Nested reads join
+        the outer scope. Other threads and independent calls still probe normally.
+        The caller's primary connection and transaction remain untouched.
+        """
+        if self._schema_read_version.get() is not None:
+            yield
+            return
+
+        try:
+            version = self.direct_get_schema_version()
+            if version != getattr(self, "_schema_version_cached", None):
+                self._invalidate_schema_caches()
+            token = self._schema_read_version.set((version,))
+            try:
+                yield
+            finally:
+                self._schema_read_version.reset(token)
+            if self.direct_get_schema_version() != version:
+                raise DatabaseIntegrityError(
+                    "Schema changed during discovery; retry the complete schema read."
+                )
+        except BaseException:
+            self._invalidate_schema_caches()
+            raise
+
     def direct_get_schema_version(self) -> str | None:
         """
         Hash ordered schema/table/column/data-type catalog text on a short connection.
 
         The fingerprint does not encode indexes, triggers, constraints or defaults.
-        Close the connection after reading.
+        Close the connection after reading. Within schema_read_scope(), reuse its
+        entry fingerprint; the scope validates it again before successful exit.
 
         Example:
             Changing a column name or information_schema data_type changes the
@@ -949,6 +985,9 @@ class DatabaseDriver(
 
         :return: Catalog MD5 text, or None if no row value is available.
         """
+        scoped_version = self._schema_read_version.get()
+        if scoped_version is not None:
+            return scoped_version[0]
         conn = self._short_connection()
         try:
             cur = conn.execute(

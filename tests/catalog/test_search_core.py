@@ -17,8 +17,8 @@ from typing import Any
 
 import pytest
 
-import LiuXin_alpha.catalog.search as search_module
-from LiuXin_alpha.catalog.search import (
+import LiuXin_alpha.utils.calibre_compat.caches.search as search_module
+from LiuXin_alpha.utils.calibre_compat.caches.search import (
     CONTAINS_MATCH,
     EQUALS_MATCH,
     REGEXP_MATCH,

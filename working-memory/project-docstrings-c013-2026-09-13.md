@@ -1,4 +1,4 @@
-# C013 — src/LiuXin_alpha/catalog/api/field_metadata_api.py — part 3/3, 2026-09-13
+# C013 — src/LiuXin_alpha/utils/calibre_compat/metadata/field_metadata_api.py — part 3/3, 2026-09-13
 
 Reviewed deserializer protocol and borrowed state overlay semantics. All API slices now pass full-file checks before promotion. Focused field-metadata, import/API, semantic Catalog and legacy-boundary regressions plus selected source examples passed. See the shared completion log for totals/skips; no runtime-doc dispatch found. No executable changes.
 
