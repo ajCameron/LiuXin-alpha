@@ -11,11 +11,18 @@ text, so a search or substitution costs its square, or worse:
   time grows with the cube.
 - ``&(\\S+?);``, which resolves entities, scans from every ``&`` in a run with
   no ``;`` to the end of the run: 80 KB of ``&`` took 33 s.
+- The MOBI 6 reader's clean-up patterns scan to a ``>`` that never comes, try
+  every tag of a long run, or split runs of spaces every way, and its anchor
+  pass searches from every link target afresh: minutes to hours on crafted
+  books of a few hundred kilobytes.
 
 ``LinearPattern`` stands in for such a compiled pattern. It offers ``search``,
 ``finditer`` and ``sub``, and finds the same matches, by hand or with an
-equivalent pattern that never scans the same text twice. The tests compare
-each with the original pattern on random text.
+equivalent pattern that never scans the same text twice. The ``sub_*``
+helpers give exactly what ``pattern.sub`` gives, trying the pattern only where
+a match could begin and skipping tries whose failure is already known.
+``ForwardFinder`` answers ``find`` and ``rfind`` for positions that only grow.
+The tests compare each with the original on random text.
 
 Example:
     >>> entity = LinearPattern(re.compile(r"&(\\S+?);"), entities)
@@ -29,12 +36,277 @@ import re
 from collections.abc import Callable, Iterator
 from typing import Any, AnyStr
 
-__all__ = ["ForwardFinder", "LinearPattern", "entities", "html4_charsets", "xml_declarations"]
+__all__ = [
+    "ForwardFinder",
+    "LinearPattern",
+    "entities",
+    "html4_charsets",
+    "sub_before_last",
+    "sub_from_run_starts",
+    "sub_page_breaks",
+    "sub_skipping_failures",
+    "xml_declarations",
+]
 
 XML_DECLARATION = r"<\?[^<>]+encoding\s*=\s*['\"](.*?)['\"][^<>]*>"
 HTML4_CHARSET = (
     r"""<meta\s+?[^<>]*?content\s*=\s*['\"][^'\"]*?charset=([-_a-z0-9]+)[^'\"]*?['\"][^<>]*>(?:\s*</meta>){0,1}"""
 )
+
+
+# The start of the MOBI page-break pattern. Its whitespace is read possessively,
+# as in MobiReader.PAGE_BREAK_PAT: the original's two runs of spaces around an
+# optional slash were split every way.
+PAGE_BREAK_START = re.compile(r"<\s*+/{0,1}\s*+mbp:pagebreak", re.IGNORECASE)
+
+
+def _sub_candidates(
+    pattern: re.Pattern[AnyStr],
+    repl: AnyStr,
+    text: AnyStr,
+    next_candidate: Callable[[int], int],
+    after_failure: Callable[[int], int],
+) -> AnyStr:
+    """
+    Substitute matches of ``pattern``, trying it only at the candidates given.
+
+    Example:
+        >>> _sub_candidates(re.compile("ab"), "X", "aab", lambda pos: "aab".find("a", pos), lambda i: i + 1)
+        'aX'
+
+
+    :param pattern: The pattern; it must not match the empty string.
+    :param repl: The replacement template, as for ``re.sub``.
+    :param text: The text.
+    :param next_candidate: Where the next possible match at or after a position starts, or -1.
+    :param after_failure: Where to look next after a failed try at a candidate, or -1 to stop.
+    :return: The text with the matches replaced.
+    """
+    out: list[Any] = []
+    pos = 0
+    copied = 0
+    while pos <= len(text):
+        start = next_candidate(pos)
+        if start < 0:
+            break
+        match = pattern.match(text, start)
+        if match is not None:
+            out.append(text[copied:start])
+            out.append(match.expand(repl))
+            pos = copied = match.end()
+            continue
+        pos = after_failure(start)
+        if pos < 0:
+            break
+    out.append(text[copied:])
+    return text[:0].join(out)
+
+
+def sub_skipping_failures(
+    pattern: re.Pattern[AnyStr],
+    repl: AnyStr,
+    text: AnyStr,
+    start: re.Pattern[AnyStr],
+    terminator: AnyStr,
+    ends_with: AnyStr | None = None,
+) -> AnyStr:
+    """
+    Substitute a pattern that scans from its start to the next ``terminator``.
+
+    For patterns such as ``<p[^>]*>...`` or ``<metadata>.+?</metadata>``
+    (whose ``.`` stops at a newline): every try beginning before the same
+    terminator reaches it and continues the same way from there, so when the
+    first try fails, the tries up to the terminator fail too and are skipped.
+    After a failure with no terminator left, nothing later can match. When
+    every match ends with ``ends_with``, the text after its last appearance is
+    left alone, so that no try scans to the end of the text.
+
+    Example:
+        >>> sub_skipping_failures(re.compile(r"&([^;]*?)(<a>)([^;]*);"), r"&\\1\\3;\\2", "&x<a>y;", re.compile("&"), ";")
+        '&xy;<a>'
+
+
+    :param pattern: The pattern.
+    :param repl: The replacement template.
+    :param text: The text.
+    :param start: Finds where a try can begin: the pattern's fixed first characters.
+    :param terminator: The character the pattern's scan runs to; ``start`` must not contain it.
+    :param ends_with: The last character of every match, when there is one.
+    :return: The text with the matches replaced.
+    """
+    if ends_with is not None:
+        end = text.rfind(ends_with) + 1
+        return sub_skipping_failures(pattern, repl, text[:end], start, terminator) + text[end:]
+
+    def next_candidate(pos: int) -> int:
+        """
+        Find the next place the pattern's start appears.
+
+        Example:
+            See ``sub_skipping_failures``.
+
+
+        :param pos: Where to look from.
+        :return: Its position, or -1.
+        """
+        found = start.search(text, pos)
+        return -1 if found is None else found.start()
+
+    def after_failure(at: int) -> int:
+        """
+        Move past the terminator the failed try reached.
+
+        Example:
+            See ``sub_skipping_failures``.
+
+
+        :param at: Where the failed try began.
+        :return: Just past the next terminator, or -1 if there is none.
+        """
+        end = text.find(terminator, at)
+        return -1 if end < 0 else end + 1
+
+    return _sub_candidates(pattern, repl, text, next_candidate, after_failure)
+
+
+def sub_from_run_starts(
+    pattern: re.Pattern[AnyStr], repl: AnyStr, text: AnyStr, run: re.Pattern[AnyStr], ends_with: AnyStr | None = None
+) -> AnyStr:
+    """
+    Substitute a pattern that begins with a run of repeated units, such as tags.
+
+    A match starting inside a run would also match from the run's start, with
+    the same end, so only the starts of runs are tried, and after a failure
+    the rest of the run is skipped. When every match ends with ``ends_with``,
+    the text after its last appearance is left alone, so that finding runs
+    never scans to the end of the text for a unit that is never closed.
+
+    Example:
+        >>> sub_from_run_starts(re.compile(r"(?:<b>)+<p>"), "X", "<b><b><b>!<b><p>", re.compile(r"(?:<b>)+"))
+        '<b><b><b>!X'
+
+
+    :param pattern: The pattern.
+    :param repl: The replacement template.
+    :param text: The text.
+    :param run: Matches a whole run of the pattern's leading units, as long as it goes.
+    :param ends_with: The last character of every match, when there is one.
+    :return: The text with the matches replaced.
+    """
+    if ends_with is not None:
+        end = text.rfind(ends_with) + 1
+        return sub_from_run_starts(pattern, repl, text[:end], run) + text[end:]
+    ends: dict[int, int] = {}
+
+    def next_candidate(pos: int) -> int:
+        """
+        Find the start of the next run.
+
+        Example:
+            See ``sub_from_run_starts``.
+
+
+        :param pos: Where to look from.
+        :return: Its position, or -1.
+        """
+        found = run.search(text, pos)
+        if found is None:
+            return -1
+        ends[found.start()] = found.end()
+        return found.start()
+
+    return _sub_candidates(pattern, repl, text, next_candidate, lambda at: ends[at])
+
+
+def sub_before_last(pattern: re.Pattern[AnyStr], repl: AnyStr, text: AnyStr, terminator: AnyStr) -> AnyStr:
+    """
+    Substitute a pattern whose matches all end with ``terminator``, before the last one.
+
+    Tries after the last terminator scan to the end of the text and fail; they
+    are not made.
+
+    Example:
+        >>> sub_before_last(re.compile(r"<\\?xml[^>]*>"), "", "a<?xml x>b<?xml <?xml", ">")
+        'ab<?xml <?xml'
+
+
+    :param pattern: The pattern.
+    :param repl: The replacement template.
+    :param text: The text.
+    :param terminator: The last character of every match.
+    :return: The text with the matches replaced.
+    """
+    end = text.rfind(terminator) + 1
+    return pattern.sub(repl, text[:end]) + text[end:]
+
+
+def sub_page_breaks(pattern: re.Pattern[str], repl: str, text: str) -> str:
+    """
+    Substitute the MOBI page-break pattern, ``MobiReader.PAGE_BREAK_PAT``.
+
+    After its ``mbp:pagebreak`` start the pattern reads attributes, when a
+    space follows, up to the next ``/`` or ``>``. Such a try fails only when
+    that is a ``/`` not followed by ``>``; then every try beginning before it
+    fails too, except one whose own start holds that ``/``, as in
+    ``</mbp:pagebreak``. Other tries fail at once.
+
+    Example:
+        >>> from LiuXin_alpha.file_formats.mobi.reader.mobi6 import MobiReader
+        >>> sub_page_breaks(MobiReader.PAGE_BREAK_PAT, "|", "a<mbp:pagebreak x/>b")
+        'a|b'
+
+
+    :param pattern: ``MobiReader.PAGE_BREAK_PAT``.
+    :param repl: The replacement template.
+    :param text: The text.
+    :return: The text with the matches replaced.
+    """
+    stop = re.compile(r"[/>]")
+    start_ends: dict[int, int] = {}
+
+    def next_candidate(pos: int) -> int:
+        """
+        Find the next page-break start.
+
+        Example:
+            See ``sub_page_breaks``.
+
+
+        :param pos: Where to look from.
+        :return: Its position, or -1.
+        """
+        found = PAGE_BREAK_START.search(text, pos)
+        if found is None:
+            return -1
+        start_ends[found.start()] = found.end()
+        return found.start()
+
+    def after_failure(at: int) -> int:
+        """
+        Skip the tries that must fail like the one at ``at``.
+
+        Example:
+            See ``sub_page_breaks``.
+
+
+        :param at: Where the failed try began.
+        :return: Where to look next, or -1 to stop.
+        """
+        attributes = start_ends[at]
+        if attributes >= len(text) or not text[attributes].isspace():
+            return at + 1
+        found = stop.search(text, attributes)
+        if found is None:
+            return -1
+        slash = found.start()
+        if text[slash] == ">":
+            return at + 1
+        back = slash
+        while back > at + 1 and text[back - 1].isspace():
+            back -= 1
+        return back - 1 if back > at + 1 and text[back - 1] == "<" else slash
+
+    return _sub_candidates(pattern, repl, text, next_candidate, after_failure)
 
 
 class _Pieces:
