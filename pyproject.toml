@@ -459,6 +459,8 @@ include = [
   "src/LiuXin_alpha/storage/storage_manager/ingest_recovery.py",
   "src/LiuXin_alpha/storage/storage_manager/store_bootstrap.py",
   "src/LiuXin_alpha/surfaces/cli/storage_commands",
+  "src/LiuXin_alpha/file_formats/providers",
+  "src/LiuXin_alpha/file_formats/html/book.py",
 ]
 strict = [
   "src/LiuXin_alpha/databases/creation.py",
@@ -484,6 +486,8 @@ strict = [
   "src/LiuXin_alpha/ingest/resource_probes.py",
   "src/LiuXin_alpha/catalog/write/host_api.py",
   "src/LiuXin_alpha/catalog/api/metadata_tools_api/facades.py",
+  "src/LiuXin_alpha/file_formats/providers",
+  "src/LiuXin_alpha/file_formats/html/book.py",
 ]
 exclude = [
   "**/__pycache__",
@@ -558,6 +562,8 @@ files = [
   "src/LiuXin_alpha/storage/storage_manager/manager.py",
   "src/LiuXin_alpha/storage/storage_manager/mixins",
   "src/LiuXin_alpha/surfaces/cli/storage_commands",
+  "src/LiuXin_alpha/file_formats/providers",
+  "src/LiuXin_alpha/file_formats/html/book.py",
 ]
 mypy_path = "$MYPY_CONFIG_FILE_DIR/src"
 namespace_packages = true
