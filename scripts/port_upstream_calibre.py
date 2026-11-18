@@ -85,6 +85,20 @@ PORTS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
         ("zlib is imported directly rather than through Python 3.14's compression package.",),
     ),
     ("ebooks/metadata/epub.py", "epub.py", ()),
+    ("ebooks/metadata/extz.py", "extz.py", ()),
+    (
+        "ebooks/metadata/html.py",
+        "html.py",
+        ("html5-parser is replaced by lxml's HTML parser (_compat.html5_parse).",),
+    ),
+    ("ebooks/fb2/__init__.py", "fb2_package.py", ()),
+    ("utils/html2text.py", "html_to_text.py", ("The html2text package it wraps is optional.",)),
+    ("ebooks/metadata/fb2.py", "fb2.py", ()),
+    (
+        "ebooks/metadata/odt.py",
+        "odt.py",
+        ("calibre's copy of odfpy is replaced by the copy LiuXin ships in file_formats.odf.",),
+    ),
 )
 
 # LiuXin fixes, by upstream path: calibre's text and its replacement. They are
@@ -109,6 +123,42 @@ PATCHES: dict[str, tuple[tuple[str, str], ...]] = {
 """,
         ),
     ),
+    "ebooks/metadata/html.py": (
+        (
+            """_handle_comment_pat: re.Pattern[str] | None = None
+""",
+            """_handle_comment_pat: re.Pattern[str] | None = None
+_token_start_pat = re.compile(r'\\s\\S')  # LiuXin:
+
+
+def _comment_matches(pat: re.Pattern[str], data: str) -> list[re.Match[str]]:  # LiuXin:
+    # LiuXin: the same matches as pat.finditer(data), in linear time. finditer()
+    # tries the pattern at every character, and on a long run of characters
+    # without a space each try backtracks over the rest of the run, so a comment
+    # of 150,000 characters took minutes. A match starting inside a run would
+    # also match from the run's start, so only run starts need trying.
+    ans = []
+    pos = 0
+    while pos < len(data):
+        match = pat.match(data, pos)
+        if match is not None:
+            ans.append(match)
+            pos = match.end()
+            continue
+        nxt = _token_start_pat.search(data, pos)
+        if nxt is None:
+            break
+        pos = nxt.start() + 1
+    return ans
+""",
+        ),
+        (
+            """    for match in _handle_comment_pat.finditer(data):
+""",
+            """    for match in _comment_matches(_handle_comment_pat, data):  # LiuXin: linear time
+""",
+        ),
+    ),
 }
 
 # calibre modules ported whole: every name imported from them maps to the same
@@ -121,7 +171,12 @@ MODULES = {
     "calibre.ebooks.metadata.book.base": f"{PKG}.book_base",
     "calibre.ebooks.metadata.book.json_codec": f"{PKG}.json_codec",
     "calibre.library.field_metadata": f"{PKG}.field_metadata",
+    "calibre.ebooks.fb2": f"{PKG}.fb2_package",
     "calibre.ebooks.metadata.epub": f"{PKG}.epub",
+    "calibre.ebooks.metadata.extz": f"{PKG}.extz",
+    "calibre.ebooks.metadata.fb2": f"{PKG}.fb2",
+    "calibre.ebooks.metadata.html": f"{PKG}.html",
+    "calibre.ebooks.metadata.odt": f"{PKG}.odt",
     "calibre.ebooks.metadata.opf2": f"{PKG}.opf2",
     "calibre.ebooks.metadata.opf3": f"{PKG}.opf3",
     "calibre.ebooks.metadata.opf": f"{PKG}.opf",
@@ -137,6 +192,7 @@ MODULES = {
     "calibre.utils.date": f"{PKG}.date",
     "calibre.utils.iso8601": f"{PKG}.iso8601",
     "calibre.utils.imghdr": f"{PKG}.imghdr",
+    "calibre.utils.html2text": f"{PKG}.html_to_text",
     "calibre.utils.localunzip": f"{PKG}.localunzip",
 }
 
@@ -148,6 +204,7 @@ NAMES: dict[str, dict[str, str]] = {
         for name in (
             "prints",
             "guess_type",
+            "guess_all_extensions",
             "CurrentDir",
             "strftime",
             "xml_replace_entities",
@@ -219,6 +276,7 @@ NAMES: dict[str, dict[str, str]] = {
     "calibre.ptempfile": {
         "TemporaryDirectory": "TemporaryDirectory",
         "SpooledTemporaryFile": "SpooledTemporaryFile",
+        "PersistentTemporaryFile": "PersistentTemporaryFile",
     },
     "calibre.utils.logging": {"default_log": "default_log"},
     "calibre.utils.formatter": {"TEMPLATE_ERROR": "TEMPLATE_ERROR"},
@@ -240,7 +298,14 @@ NAMES: dict[str, dict[str, str]] = {
 # imports that LiuXin replaces. An empty module imports the name as a module.
 EXTERNAL: dict[tuple[str, str], tuple[str, str]] = {
     ("compression", "zlib"): ("", "zlib"),
+    ("html5_parser", "parse"): (COMPAT, "html5_parse"),
     ("html5_parser.soup", "parse"): (COMPAT, "html5_soup_parse"),
+    ("odf.draw", "Frame"): ("LiuXin_alpha.file_formats.odf.draw", "Frame"),
+    ("odf.draw", "Image"): ("LiuXin_alpha.file_formats.odf.draw", "Image"),
+    ("odf.namespaces", "DCNS"): ("LiuXin_alpha.file_formats.odf.namespaces", "DCNS"),
+    ("odf.namespaces", "METANS"): ("LiuXin_alpha.file_formats.odf.namespaces", "METANS"),
+    ("odf.namespaces", "OFFICENS"): ("LiuXin_alpha.file_formats.odf.namespaces", "OFFICENS"),
+    ("odf.opendocument", "load"): ("LiuXin_alpha.file_formats.odf.opendocument", "load"),
     ("polyglot.urllib", "unquote"): ("urllib.parse", "unquote"),
     ("calibre_extensions", "speedup"): (PKG, "_speedups"),
     ("calibre_extensions.speedup", "clean_xml_chars"): (f"{PKG}._speedups", "clean_xml_chars"),
@@ -254,10 +319,10 @@ EXTERNAL: dict[tuple[str, str], tuple[str, str]] = {
 IMPORT_MODULES = {"tzlocal": f"from {COMPAT} import tzlocal"}
 
 # Imports left as they are: only functions the readers do not call use them.
-LEAVE = frozenset({"qt.core", "html5_parser"})
+LEAVE = frozenset({"qt.core"})
 
 REWRITTEN_ROOTS = frozenset(
-    {"calibre", "polyglot", "calibre_extensions", "tzlocal", "zoneinfo", "compression", "html5_parser"}
+    {"calibre", "polyglot", "calibre_extensions", "tzlocal", "zoneinfo", "compression", "html5_parser", "odf"}
 )
 
 
