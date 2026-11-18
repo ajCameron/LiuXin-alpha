@@ -1009,7 +1009,7 @@ class OEBReader(object):
             writer = OEBWriter()
             writer(self.oeb, tdir)
             path = os.path.join(tdir, urlunquote(hcover.href))
-            data = render_html_svg_workaround(path, self.logger)
+            data = render_html_svg_workaround(path, self.logger, root=tdir)
             if not data:
                 data = ""
 
