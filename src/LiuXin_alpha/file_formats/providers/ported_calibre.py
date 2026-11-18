@@ -18,10 +18,12 @@ from __future__ import annotations
 
 import types
 from collections.abc import Callable, Mapping
+from importlib.util import find_spec
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar, Self, cast
 
 from LiuXin_alpha.file_formats.providers.base import (
+    ProviderAvailability,
     ProviderContext,
     provider_id_from_name,
 )
@@ -52,10 +54,15 @@ PORTED_READERS: Mapping[str, tuple[str, frozenset[str]]] = {
     "Read RTF metadata": ("rtf", frozenset({"rtf"})),
     "Read Topaz metadata": ("topaz", frozenset({"tpz", "azw1"})),
     "Read PML metadata": ("pml", frozenset({"pml", "pmlz"})),
+    "Read OPF metadata": ("opf", frozenset({"opf"})),
 }
 """calibre's reader plugins that have been ported: module and formats."""
 
 PORTED_PRIORITY = -50
+
+# Ported modules that parse dates with python-dateutil, as calibre does. LiuXin
+# lists it only as a test dependency, so these readers check for it.
+NEEDS_DATEUTIL: frozenset[str] = frozenset({"opf"})
 """Priority of every ported reader: above running an installed calibre."""
 
 
@@ -118,6 +125,30 @@ def ported_reader(module: str) -> Callable[[Any], Any]:
         )
 
         return get_pml_metadata
+    if module == "opf":
+        from LiuXin_alpha.metadata.upstream_calibre.opf import (
+            get_metadata as get_opf_metadata,
+        )
+
+        def read_opf(stream: Any) -> Any:
+            """
+            Return the metadata, as calibre's OPF reader plugin does.
+
+            calibre's ``opf.get_metadata`` also returns the OPF version, the
+            raster cover and the first spine item; the plugin keeps the metadata.
+
+            Example:
+                Called by the provider with an open file::
+
+                    metadata = read_opf(stream)
+
+
+            :param stream: The OPF, open for reading bytes.
+            :return: The metadata.
+            """
+            return get_opf_metadata(stream)[0]
+
+        return read_opf
     raise KeyError(f"no calibre reader named {module!r} has been ported")
 
 
@@ -135,6 +166,26 @@ class PortedCalibreReader(CalibreMetadataReader, CoverExtractor):
     """
 
     ported_module: ClassVar[str]
+
+    @classmethod
+    def availability(cls: type[Self]) -> ProviderAvailability:
+        """
+        Report whether the ported reader can run here.
+
+        Readers whose calibre code parses dates need python-dateutil.
+
+        Example:
+            >>> adapt_ported_reader("Read TXT metadata").availability().available
+            True
+
+
+        :return: Ready, or missing with the package to install.
+        """
+        if cls.ported_module in NEEDS_DATEUTIL and find_spec("dateutil") is None:
+            return ProviderAvailability.missing(
+                "calibre's code parses dates with python-dateutil, which is not installed"
+            )
+        return ProviderAvailability.ready()
 
     def read_calibre_metadata(
         self: Self, source: Path, source_format: str, context: ProviderContext
@@ -274,7 +325,7 @@ def register_ported_calibre_readers(
     Example:
         >>> from LiuXin_alpha.file_formats.providers.registry import ProviderRegistry
         >>> [p.provider_id for p in register_ported_calibre_readers(ProviderRegistry())]
-        ['calibre-port.read-txt-metadata', 'calibre-port.read-imp-metadata', 'calibre-port.read-rb-metadata', 'calibre-port.read-lrx-metadata', 'calibre-port.read-snb-metadata', 'calibre-port.read-rtf-metadata', 'calibre-port.read-topaz-metadata', 'calibre-port.read-pml-metadata']
+        ['calibre-port.read-txt-metadata', 'calibre-port.read-imp-metadata', 'calibre-port.read-rb-metadata', 'calibre-port.read-lrx-metadata', 'calibre-port.read-snb-metadata', 'calibre-port.read-rtf-metadata', 'calibre-port.read-topaz-metadata', 'calibre-port.read-pml-metadata', 'calibre-port.read-opf-metadata']
 
 
     :param registry: The registry to add the providers to.

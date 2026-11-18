@@ -1,6 +1,6 @@
 # License: GPLv3 Copyright: 2008, Ashish Kulkarni <kulkarni.ashish@gmail.com>
 # Ported from calibre (https://calibre-ebook.com) 9.18: src/calibre/ebooks/metadata/imp.py
-# Changes from upstream: calibre imports point at upstream_calibre._compat, and
+# Changes from upstream: calibre imports point at upstream_calibre and its _compat, and
 # 'from __future__ import annotations' is added. SPDX-License-Identifier: GPL-3.0-only
 
 """Read meta information from IMP files"""
@@ -10,10 +10,10 @@ from __future__ import annotations
 import sys
 from typing import IO, TYPE_CHECKING
 
-from LiuXin_alpha.metadata.upstream_calibre._compat import MetaInformation, string_to_authors
+from LiuXin_alpha.metadata.upstream_calibre.metadata_base import MetaInformation, string_to_authors
 
 if TYPE_CHECKING:
-    from LiuXin_alpha.metadata.upstream_calibre._compat import Metadata
+    from LiuXin_alpha.metadata.upstream_calibre.book_base import Metadata
 
 MAGIC = (b'\x00\x01BOOKDOUG', b'\x00\x02BOOKDOUG')
 

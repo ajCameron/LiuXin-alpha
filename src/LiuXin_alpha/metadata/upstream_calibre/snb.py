@@ -1,6 +1,6 @@
 # License: GPLv3 Copyright: 2010, Li Fanxi <lifanxi@freemindworld.com>
 # Ported from calibre (https://calibre-ebook.com) 9.18: src/calibre/ebooks/metadata/snb.py
-# Changes from upstream: calibre imports point at upstream_calibre._compat, and
+# Changes from upstream: calibre imports point at upstream_calibre and its _compat, and
 # 'from __future__ import annotations' is added.
 # SPDX-License-Identifier: GPL-3.0-only
 
@@ -12,13 +12,13 @@ import io
 import os
 from typing import IO, TYPE_CHECKING
 
-from LiuXin_alpha.metadata.upstream_calibre._compat import MetaInformation
+from LiuXin_alpha.metadata.upstream_calibre.metadata_base import MetaInformation
 from LiuXin_alpha.metadata.upstream_calibre.snbfile import SNBFile
 from LiuXin_alpha.metadata.upstream_calibre._compat import _
 from LiuXin_alpha.metadata.upstream_calibre._compat import safe_xml_fromstring
 
 if TYPE_CHECKING:
-    from LiuXin_alpha.metadata.upstream_calibre._compat import Metadata
+    from LiuXin_alpha.metadata.upstream_calibre.book_base import Metadata
 
 
 def get_metadata(stream: IO[bytes], extract_cover: bool = True) -> Metadata:

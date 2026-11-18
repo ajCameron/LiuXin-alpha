@@ -32,7 +32,7 @@ from LiuXin_alpha.file_formats.providers.upstream_calibre import (
     UPSTREAM_PRIORITY,
     register_upstream_calibre_readers,
 )
-from LiuXin_alpha.metadata.upstream_calibre import _compat
+from LiuXin_alpha.metadata.upstream_calibre import _compat, metadata_base
 
 
 def imp_file(title: str, author: str, category: str) -> bytes:
@@ -203,7 +203,7 @@ def test_every_port_registers_above_the_installed_calibre() -> None:
     registry = ProviderRegistry()
     register_upstream_calibre_readers(registry)
     made = register_ported_calibre_readers(registry)
-    assert len(made) == len(PORTED_READERS) == 8
+    assert len(made) == len(PORTED_READERS) == 9
     assert PORTED_PRIORITY > UPSTREAM_PRIORITY
     for provider in made:
         file_format = next(iter(provider.calibre_read_formats))
@@ -352,7 +352,7 @@ def test_string_to_authors_splits_as_calibre_does(
     :param expected: The names calibre gives.
     :return: None after the split is compared.
     """
-    assert _compat.string_to_authors(raw) == expected
+    assert metadata_base.string_to_authors(raw) == expected
 
 
 def test_safe_xml_parsing_ignores_external_entities() -> None:

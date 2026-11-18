@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # License: GPLv3 Copyright: 2008, Kovid Goyal kovid@kovidgoyal.net
 # Ported from calibre (https://calibre-ebook.com) 9.18: src/calibre/ebooks/metadata/lrx.py
-# Changes from upstream: calibre imports point at upstream_calibre._compat, and
+# Changes from upstream: calibre imports point at upstream_calibre and its _compat, and
 # 'from __future__ import annotations' is added. SPDX-License-Identifier: GPL-3.0-only
 
 """
@@ -14,11 +14,11 @@ import struct
 from typing import IO, TYPE_CHECKING
 from zlib import decompress
 
-from LiuXin_alpha.metadata.upstream_calibre._compat import MetaInformation, string_to_authors
+from LiuXin_alpha.metadata.upstream_calibre.metadata_base import MetaInformation, string_to_authors
 from LiuXin_alpha.metadata.upstream_calibre._compat import safe_xml_fromstring
 
 if TYPE_CHECKING:
-    from LiuXin_alpha.metadata.upstream_calibre._compat import Metadata
+    from LiuXin_alpha.metadata.upstream_calibre.book_base import Metadata
 
 
 def _read(f: IO[bytes], at: int, amount: int) -> bytes:
