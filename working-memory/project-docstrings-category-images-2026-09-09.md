@@ -13,7 +13,7 @@ result was counted as a pass. Documentation remains local on
 All five production modules were read completely before their initial edits and
 read again while verifying this batch:
 
-- [categories.py](../src/LiuXin_alpha/surfaces/categories.py): mutable legacy
+- [categories.py](../src/LiuXin_alpha/utils/calibre_compat/caches/categories.py): mutable legacy
   category items rather than modern Core records; reference-shared ID sets,
   halved ratings, tooltip composition, and the actual Python 3 str/repr recursion.
   Describes books-table discovery and branch precedence, partial Tag factories,

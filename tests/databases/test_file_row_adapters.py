@@ -5,7 +5,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from LiuXin_alpha.library.caches.calibre.tables.many_many_tables.specific_many_to_many_tables import (
+from LiuXin_alpha.utils.calibre_compat.caches.calibre.tables.many_many_tables.specific_many_to_many_tables import (
     CalibreFormatsTable,
 )
 

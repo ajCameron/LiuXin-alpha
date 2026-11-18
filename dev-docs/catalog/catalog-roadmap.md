@@ -44,12 +44,12 @@ retained adapters from frozen reference code. The
    collision-reporting audit/repair. Define any additional schema/profile migration
    before applying it to existing libraries; normalization changes must not silently
    merge rows or rewrite data during retrieval.
-3. **Resolve compatibility ownership.** Calibre search remains under `catalog.search`,
-   field-metadata implementations still overlap, and older caches remain under
-   `library.caches` and `plugins.cache`. Select their long-term owners with caller
-   and behaviour evidence. The earlier proposal to relocate compatibility under
-   `utils` is not an implemented destination or permission to move modern cache
-   policy there. Preserve the read/write cache split and the unified plugin host.
+3. **Continue compatibility ownership review.** The legacy cache/search family
+   now lives under `utils.calibre_compat`, with native WEMI search and cache-owned
+   descriptor publication separated. See the [implemented structure](../caches/structure.md).
+   Review `library.library_metadata` transaction orchestration, wider book metadata
+   and Catalog conversion policy separately. Preserve the read/write cache split
+   and unified plugin host; modern cache policy remains native.
 4. **Finish read-model policy deliberately.** Core category semantics are shared;
    broader Work/search/file/acquisition adapters and server-side listing costs
    remain. A07 now aligns SQLite primary rays and Catalog bundles under the

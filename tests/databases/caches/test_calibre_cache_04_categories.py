@@ -45,12 +45,12 @@ _LIBS = _PROJECT_ROOT / "src" / "LiuXin_alpha" / "utils" / "libraries"
 if _LIBS.exists() and str(_LIBS) not in sys.path:
     sys.path.insert(0, str(_LIBS))
 
-from LiuXin_alpha.library.caches.calibre.cache import CalibreCache
+from LiuXin_alpha.utils.calibre_compat.caches.calibre.cache import CalibreCache
 from LiuXin_alpha.utils.calibre_compat.custom_columns import (
     CustomColumns,
 )
 from LiuXin_alpha.databases.database import Database
-from LiuXin_alpha.catalog.field_metadata import FieldMetadata
+from LiuXin_alpha.utils.calibre_compat.metadata.field_metadata import FieldMetadata
 
 
 class TestPrefs(dict):

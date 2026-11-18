@@ -35,6 +35,7 @@ test = [
 ]
 search = [
   "rapidfuzz>=3.9",
+  "regex>=2024.5",
 ]
 postgres = [
   "psycopg2-binary>=2.9",
@@ -89,6 +90,7 @@ exclude = [
 namespaces = true
 
 [tool.setuptools.package-data]
+"LiuXin_alpha.utils.calibre_compat.caches.search" = ["provenance.json"]
 "LiuXin_alpha.catalog" = ["py.typed"]
 "LiuXin_alpha.databases" = ["py.typed"]
 "LiuXin_alpha.utils.calibre_compat.database_generator" = ["py.typed"]
@@ -121,6 +123,8 @@ namespaces = true
 "LiuXin_alpha.file_formats.oeb.display" = ["*.coffee"]
 "LiuXin_alpha.metadata.upstream_calibre" = ["iso_codes.json.gz", "mime.types"]
 "LiuXin_alpha.file_formats.oeb.polish" = ["*.coffee"]
+"LiuXin_alpha.file_formats.epub.cfi" = ["epubcfi.ebnf"]
+"LiuXin_alpha.file_formats.unihandecode.pykakasi" = ["*.utf8"]
 "LiuXin_alpha.startup_scripts" = ["LX_folders", "lx_folders.json"]
 "LiuXin_alpha.utils.libraries.iso639" = ["ISO-639-2_utf-8.txt"]
 "LiuXin_alpha.utils.libraries.liuxin_dateutil.zoneinfo" = ["zoneinfo-*.tar.gz"]
@@ -141,9 +145,51 @@ select = ["E4", "E7", "E9", "F", "I", "UP", "B"]
 # Positive scope: directory entries also protect newly added Python modules.
 # Formatting does not implicitly expand the separate lint or typing ratchets.
 paths = [
+  "src/LiuXin_alpha/catalog/api/metadata_access.py",
+  "src/LiuXin_alpha/caches/cache_plugins/registry.py",
+  "src/LiuXin_alpha/catalog/write/column_update.py",
+  "tests/databases/caches/test_small_invalidation.py",
+  "tests/databases/caches/test_membership_mutations.py",
+  "tests/databases/caches/test_cache_registry_lifecycle.py",
+  "tests/databases/caches/test_write_route_recovery.py",
+  "tests/databases/caches/test_writer_lifecycle.py",
+  "scripts/benchmark_cache_invalidation.py",
+  "src/LiuXin_alpha/caches/query.py",
+  "tests/databases/caches/test_query_paging.py",
+  "scripts/benchmark_cache_paging.py",
+  "src/LiuXin_alpha/caches/predicates.py",
+  "src/LiuXin_alpha/caches/projection.py",
+  "src/LiuXin_alpha/caches/query_contracts.py",
+  "src/LiuXin_alpha/catalog/compatibility/search_projection.py",
+  "src/LiuXin_alpha/utils/calibre_compat/caches/search/adapter.py",
+  "src/LiuXin_alpha/utils/calibre_compat/caches/search/formatter_support.py",
+  "src/LiuXin_alpha/utils/calibre_compat/caches/search/upstream.py",
+  "src/LiuXin_alpha/utils/calibre_compat/caches/search/upstream_parser.py",
+  "src/LiuXin_alpha/utils/calibre_compat/caches/search/upstream_formatter.py",
+  "src/LiuXin_alpha/utils/calibre_compat/caches/search/upstream_functions.py",
+  "src/LiuXin_alpha/utils/calibre_compat/caches/search/upstream_support.py",
+  "tests/databases/caches/test_predicate_queries.py",
+  "tests/databases/caches/test_calibre_search_adapter.py",
+  "tests/catalog/test_cache_search_execution.py",
+  "tests/catalog/test_cache_search_differential.py",
+  "tests/databases/caches/test_search_stress.py",
+  "tests/databases/caches/test_calibre_search_stress.py",
+  "tests/databases/caches/test_search_differential_postgres_live.py",
+  "scripts/benchmark_metadata_search_matrix.py",
+  "scripts/benchmark_schema_discovery.py",
+  "scripts/run_cache_long_tests.py",
+  "tests/support/cache_long_runs.py",
+  "tests/databases/caches/test_search_long.py",
+  "tests/databases/caches/test_search_long_database.py",
+  "tests/scripts/test_cache_long_runner.py",
+  "tests/databases/test_schema_discovery_postgres_live.py",
+
   "src/LiuXin_alpha/catalog/custom_fields.py",
   "src/LiuXin_alpha/caches/custom_fields.py",
+  "src/LiuXin_alpha/caches/field_metadata.py",
   "tests/databases/caches/test_native_custom_fields.py",
+  "tests/databases/caches/test_native_field_metadata.py",
+  "tests/databases/caches/test_compatibility_boundary.py",
   "tests/databases/caches/test_native_custom_fields_postgres_live.py",
   "src/LiuXin_alpha/databases/transaction_participants.py",
   "tests/databases/test_native_custom_fields.py",
@@ -394,7 +440,8 @@ include = [
   "src/LiuXin_alpha/errors.py",
   "src/LiuXin_alpha/databases",
   "src/LiuXin_alpha/utils/calibre_compat/database_generator",
-  "src/LiuXin_alpha/caches/custom_fields.py",
+  "src/LiuXin_alpha/caches",
+  "src/LiuXin_alpha/catalog/api/metadata_access.py",
   "src/LiuXin_alpha/utils/calibre_compat/custom_columns",
   "src/LiuXin_alpha/jobs/history.py",
   "src/LiuXin_alpha/jobs/handler_api.py",
@@ -506,7 +553,8 @@ files = [
   "src/LiuXin_alpha/errors.py",
   "src/LiuXin_alpha/databases",
   "src/LiuXin_alpha/utils/calibre_compat/database_generator",
-  "src/LiuXin_alpha/caches/custom_fields.py",
+  "src/LiuXin_alpha/caches",
+  "src/LiuXin_alpha/catalog/api/metadata_access.py",
   "src/LiuXin_alpha/utils/calibre_compat/custom_columns",
   "src/LiuXin_alpha/jobs/history.py",
   "src/LiuXin_alpha/jobs/handler_api.py",

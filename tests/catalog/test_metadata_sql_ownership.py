@@ -211,7 +211,7 @@ def test_original_language_adapter_uses_work_owner(catalog):
 
 
 def test_legacy_identifier_cache_uses_catalog_and_rolls_back(catalog):
-    from LiuXin_alpha.library.caches.calibre.tables.one_many_tables.specific_one_to_many_tables import (
+    from LiuXin_alpha.utils.calibre_compat.caches.calibre.tables.one_many_tables.specific_one_to_many_tables import (
         CalibreIdentifiersTable,
     )
 

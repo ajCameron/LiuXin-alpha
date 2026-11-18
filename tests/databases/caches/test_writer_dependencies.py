@@ -15,7 +15,7 @@ from types import SimpleNamespace
 
 import pytest
 
-import LiuXin_alpha.caches.write as write
+import LiuXin_alpha.utils.calibre_compat.caches.write as write
 from LiuXin_alpha.databases.db_types.database_types import MANY_MANY, MANY_ONE, ONE_MANY
 
 SOURCE_ROOT = Path(__file__).resolve().parents[3] / "src"
@@ -57,10 +57,10 @@ def test_writer_imports_are_safe_from_each_entry_point(first: str) -> None:
 import importlib
 import sys
 sys.path.insert(0, {str(SOURCE_ROOT)!r})
-importlib.import_module('LiuXin_alpha.caches.write.' + {first!r})
-package = importlib.import_module('LiuXin_alpha.caches.write')
+importlib.import_module('LiuXin_alpha.utils.calibre_compat.caches.write.' + {first!r})
+package = importlib.import_module('LiuXin_alpha.utils.calibre_compat.caches.write')
 for name, owner in {WRITER_OWNERS!r}.items():
-    module = importlib.import_module('LiuXin_alpha.caches.write.' + owner)
+    module = importlib.import_module('LiuXin_alpha.utils.calibre_compat.caches.write.' + owner)
     assert getattr(package, name) is getattr(module, name), name
 """
     completed = subprocess.run(
@@ -123,7 +123,7 @@ def test_field_dispatch_constructs_original_writer_classes(
     )
     result = write.get_writer(field)
     owner = importlib.import_module(
-        "LiuXin_alpha.caches.write." + WRITER_OWNERS[expected]
+        "LiuXin_alpha.utils.calibre_compat.caches.write." + WRITER_OWNERS[expected]
     )
     assert type(result) is getattr(owner, expected)
     assert result.field is field

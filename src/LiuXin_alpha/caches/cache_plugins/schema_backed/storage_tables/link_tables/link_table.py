@@ -9,7 +9,13 @@ through the driver and reload afterward without an enclosing transaction.
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from LiuXin_alpha.databases.api.database_api.database_api import DatabaseAPI
+
 from collections import defaultdict
+from collections.abc import Callable
 from copy import deepcopy
 from typing import Any, Mapping, Optional, Sequence, cast
 
@@ -72,7 +78,7 @@ class SchemaBackedLinkTable(
     def __init__(
         self,
         *,
-        db: Any,
+        db: DatabaseAPI,
         link_spec: StorageLinkSpec,
         src_table: SchemaBackedMainTableCache,
         dst_table: SchemaBackedMainTableCache,
@@ -191,7 +197,7 @@ class SchemaBackedLinkTable(
         """
 
         try:
-            return list(self.db.get_column_headings(self.table))
+            return list(self._require_attachment().get_column_headings(self.table))
         except Exception:
             return []
 
@@ -210,7 +216,7 @@ class SchemaBackedLinkTable(
         :return: New mapping of column name to declared type, affinity or UNKNOWN.
         """
 
-        spec = self.db.driver_wrapper.get_table_spec(self.table)
+        spec = self._require_attachment().driver_wrapper.get_table_spec(self.table)
         return _column_type_map(spec)
 
     def _row_from_snapshot(self, row_dict: Mapping[str, Any]) -> Row:
@@ -229,9 +235,15 @@ class SchemaBackedLinkTable(
         :return: Read-only Row attached to the current database, with an independent payload.
         """
 
-        return Row(database=self.db, row_dict=deepcopy(dict(row_dict)), read_only=True)
+        return Row(
+            database=self._require_attachment(),
+            row_dict=deepcopy(dict(row_dict)),
+            read_only=True,
+        )
 
-    def _record_matches(self, record: _CachedLinkRecord, type_filter: Optional[str]) -> bool:
+    def _record_matches(
+        self, record: _CachedLinkRecord, type_filter: Optional[str]
+    ) -> bool:
         """
         Apply an optional exact link-type restriction to one cached record.
 
@@ -303,11 +315,13 @@ class SchemaBackedLinkTable(
         """
 
         try:
-            rows = self.db.driver_wrapper.get_all_rows(self.table)
+            rows = self._require_attachment().driver_wrapper.get_all_rows(self.table)
             return [deepcopy(dict(row)) for row in rows]
         except AttributeError:
-            rows = self.db.get_all_rows(self.table, iterator_return=False)
-            return [deepcopy(row.row_dict) for row in rows]
+            row_objects = self._require_attachment().get_all_rows(
+                self.table, iterator_return=False
+            )
+            return [deepcopy(cast(dict[str, Any], row.row_dict)) for row in row_objects]
 
     def _unique_single_columns(self) -> set[str]:
         """Use the backend's unique-index metadata for cardinality fallback.
@@ -323,7 +337,9 @@ class SchemaBackedLinkTable(
             return set()
         return {
             columns[0]
-            for columns in getter(driver, self.table)
+            for columns in cast(
+                Callable[[object, str], Sequence[Sequence[str]]], getter
+            )(driver, self.table)
             if len(columns) == 1
         }
 
@@ -410,7 +426,9 @@ class SchemaBackedLinkTable(
         :return: None; replaces records/indexes and then infers the view's cardinality.
         """
 
-        self._id_column = self.db.driver_wrapper.get_id_column(self.table)
+        self._id_column = self._require_attachment().driver_wrapper.get_id_column(
+            self.table
+        )
         records: list[_CachedLinkRecord] = []
         for sequence, row_dict in enumerate(row_dicts):
             row_copy = deepcopy(dict(row_dict))
@@ -459,7 +477,7 @@ class SchemaBackedLinkTable(
         self._by_pair = {key: list(value) for key, value in by_pair.items()}
         self._table_type = self._infer_table_type(records)
 
-    def read(self, db: Any) -> None:
+    def read(self, db: DatabaseAPI | None) -> None:
         """
         Attach the selected database and rebuild records from all physical link rows.
 
@@ -480,7 +498,7 @@ class SchemaBackedLinkTable(
         self.db = db
         self._rebuild_indices(self._to_row_dicts())
 
-    def reload(self, db: Any) -> None:
+    def reload(self, db: DatabaseAPI | None) -> None:
         """
         Perform the same complete link-table read as read.
 
@@ -518,7 +536,11 @@ class SchemaBackedLinkTable(
         :return: New list of accepted shared record objects; empty for an absent endpoint key.
         """
 
-        matches = [record for record in self._by_src.get(int(src_id), []) if self._record_matches(record, type_filter)]
+        matches = [
+            record
+            for record in self._by_src.get(int(src_id), [])
+            if self._record_matches(record, type_filter)
+        ]
         return self._ordered_records(matches, require_ordering=require_ordering)
 
     def _records_for_dst(
@@ -545,7 +567,11 @@ class SchemaBackedLinkTable(
         :return: New list of accepted shared record objects; empty for an absent endpoint key.
         """
 
-        matches = [record for record in self._by_dst.get(int(dst_id), []) if self._record_matches(record, type_filter)]
+        matches = [
+            record
+            for record in self._by_dst.get(int(dst_id), [])
+            if self._record_matches(record, type_filter)
+        ]
         return self._ordered_records(matches, require_ordering=require_ordering)
 
     def _records_for_pair(
@@ -864,7 +890,10 @@ class SchemaBackedLinkTable(
         :return: List of cardinality-specific link values, empty for no pair matches.
         """
 
-        return [self._make_link_object(record) for record in self._records_for_pair(src_id, dst_id)]
+        return [
+            self._make_link_object(record)
+            for record in self._records_for_pair(src_id, dst_id)
+        ]
 
     def get_link_for_src(
         self,
@@ -889,7 +918,9 @@ class SchemaBackedLinkTable(
         :raises RuntimeError: More than one accepted link record exists for this endpoint.
         """
 
-        record = self._optional_single(self._records_for_src(src_id, type_filter=type_filter))
+        record = self._optional_single(
+            self._records_for_src(src_id, type_filter=type_filter)
+        )
         if record is None:
             return None
         return self._make_link_object(record)
@@ -919,7 +950,9 @@ class SchemaBackedLinkTable(
 
         return [
             self._make_link_object(record)
-            for record in self._records_for_src(src_id, require_ordering=require_ordering, type_filter=type_filter)
+            for record in self._records_for_src(
+                src_id, require_ordering=require_ordering, type_filter=type_filter
+            )
         ]
 
     def get_link_for_dst(
@@ -945,7 +978,9 @@ class SchemaBackedLinkTable(
         :raises RuntimeError: More than one accepted link record exists for this endpoint.
         """
 
-        record = self._optional_single(self._records_for_dst(dst_id, type_filter=type_filter))
+        record = self._optional_single(
+            self._records_for_dst(dst_id, type_filter=type_filter)
+        )
         if record is None:
             return None
         return self._make_link_object(record)
@@ -975,7 +1010,9 @@ class SchemaBackedLinkTable(
 
         return [
             self._make_link_object(record)
-            for record in self._records_for_dst(dst_id, require_ordering=require_ordering, type_filter=type_filter)
+            for record in self._records_for_dst(
+                dst_id, require_ordering=require_ordering, type_filter=type_filter
+            )
         ]
 
     def get_link_row(
@@ -1034,7 +1071,10 @@ class SchemaBackedLinkTable(
         :return: List of deep-copied read-only Rows, empty for no pair matches.
         """
 
-        return [self._row_from_snapshot(record.row_dict) for record in self._records_for_pair(src_id, dst_id)]
+        return [
+            self._row_from_snapshot(record.row_dict)
+            for record in self._records_for_pair(src_id, dst_id)
+        ]
 
     def get_link_row_for_src(
         self,
@@ -1059,7 +1099,9 @@ class SchemaBackedLinkTable(
         :raises RuntimeError: More than one accepted link record exists for this endpoint.
         """
 
-        record = self._optional_single(self._records_for_src(src_id, type_filter=type_filter))
+        record = self._optional_single(
+            self._records_for_src(src_id, type_filter=type_filter)
+        )
         if record is None:
             return None
         return self._row_from_snapshot(record.row_dict)
@@ -1089,7 +1131,9 @@ class SchemaBackedLinkTable(
 
         return [
             self._row_from_snapshot(record.row_dict)
-            for record in self._records_for_src(src_id, require_ordering=require_ordering, type_filter=type_filter)
+            for record in self._records_for_src(
+                src_id, require_ordering=require_ordering, type_filter=type_filter
+            )
         ]
 
     def get_link_row_for_dst(
@@ -1115,7 +1159,9 @@ class SchemaBackedLinkTable(
         :raises RuntimeError: More than one accepted link record exists for this endpoint.
         """
 
-        record = self._optional_single(self._records_for_dst(dst_id, type_filter=type_filter))
+        record = self._optional_single(
+            self._records_for_dst(dst_id, type_filter=type_filter)
+        )
         if record is None:
             return None
         return self._row_from_snapshot(record.row_dict)
@@ -1145,7 +1191,9 @@ class SchemaBackedLinkTable(
 
         return [
             self._row_from_snapshot(record.row_dict)
-            for record in self._records_for_dst(dst_id, require_ordering=require_ordering, type_filter=type_filter)
+            for record in self._records_for_dst(
+                dst_id, require_ordering=require_ordering, type_filter=type_filter
+            )
         ]
 
     def get_src_id(
@@ -1170,7 +1218,9 @@ class SchemaBackedLinkTable(
         :raises RuntimeError: More than one accepted link record exists.
         """
 
-        record = self._optional_single(self._records_for_dst(dst_id, type_filter=type_filter))
+        record = self._optional_single(
+            self._records_for_dst(dst_id, type_filter=type_filter)
+        )
         return None if record is None else record.src_id
 
     def get_src_ids(
@@ -1197,7 +1247,9 @@ class SchemaBackedLinkTable(
 
         return [
             record.src_id
-            for record in self._records_for_dst(dst_id, require_ordering=require_ordering, type_filter=type_filter)
+            for record in self._records_for_dst(
+                dst_id, require_ordering=require_ordering, type_filter=type_filter
+            )
         ]
 
     def get_src_row(
@@ -1251,7 +1303,9 @@ class SchemaBackedLinkTable(
         """
 
         rows = []
-        for src_id in self.get_src_ids(dst_id, require_ordering=require_ordering, type_filter=type_filter):
+        for src_id in self.get_src_ids(
+            dst_id, require_ordering=require_ordering, type_filter=type_filter
+        ):
             row = self._src_row(src_id)
             if row is not None:
                 rows.append(row)
@@ -1315,7 +1369,9 @@ class SchemaBackedLinkTable(
 
         return [
             self._src_table.get_row_snapshot(src_id).get(src_column)
-            for src_id in self.get_src_ids(dst_id, require_ordering=require_ordering, type_filter=type_filter)
+            for src_id in self.get_src_ids(
+                dst_id, require_ordering=require_ordering, type_filter=type_filter
+            )
         ]
 
     def get_src_ids_from_value(
@@ -1346,7 +1402,11 @@ class SchemaBackedLinkTable(
 
         src_ids: list[int] = []
         for dst_id in sorted(self._dst_table.get_ids_for_value(dst_column, dst_value)):
-            src_ids.extend(self.get_src_ids(dst_id, require_ordering=require_ordering, type_filter=type_filter))
+            src_ids.extend(
+                self.get_src_ids(
+                    dst_id, require_ordering=require_ordering, type_filter=type_filter
+                )
+            )
         return src_ids
 
     def get_src_rows_from_value(
@@ -1409,7 +1469,9 @@ class SchemaBackedLinkTable(
         :raises RuntimeError: More than one accepted link record exists.
         """
 
-        record = self._optional_single(self._records_for_src(src_id, type_filter=type_filter))
+        record = self._optional_single(
+            self._records_for_src(src_id, type_filter=type_filter)
+        )
         return None if record is None else record.dst_id
 
     def get_dst_ids(
@@ -1436,7 +1498,9 @@ class SchemaBackedLinkTable(
 
         return [
             record.dst_id
-            for record in self._records_for_src(src_id, require_ordering=require_ordering, type_filter=type_filter)
+            for record in self._records_for_src(
+                src_id, require_ordering=require_ordering, type_filter=type_filter
+            )
         ]
 
     def get_dst_row(
@@ -1490,7 +1554,9 @@ class SchemaBackedLinkTable(
         """
 
         rows = []
-        for dst_id in self.get_dst_ids(src_id, require_ordering=require_ordering, type_filter=type_filter):
+        for dst_id in self.get_dst_ids(
+            src_id, require_ordering=require_ordering, type_filter=type_filter
+        ):
             row = self._dst_row(dst_id)
             if row is not None:
                 rows.append(row)
@@ -1554,7 +1620,9 @@ class SchemaBackedLinkTable(
 
         return [
             self._dst_table.get_row_snapshot(dst_id).get(dst_column)
-            for dst_id in self.get_dst_ids(src_id, require_ordering=require_ordering, type_filter=type_filter)
+            for dst_id in self.get_dst_ids(
+                src_id, require_ordering=require_ordering, type_filter=type_filter
+            )
         ]
 
     def get_dst_ids_from_value(
@@ -1585,7 +1653,11 @@ class SchemaBackedLinkTable(
 
         dst_ids: list[int] = []
         for src_id in sorted(self._src_table.get_ids_for_value(src_column, src_value)):
-            dst_ids.extend(self.get_dst_ids(src_id, require_ordering=require_ordering, type_filter=type_filter))
+            dst_ids.extend(
+                self.get_dst_ids(
+                    src_id, require_ordering=require_ordering, type_filter=type_filter
+                )
+            )
         return dst_ids
 
     def get_dst_rows_from_value(
@@ -1725,7 +1797,7 @@ class SchemaBackedLinkTable(
         ids_to_delete: set[int] = set()
         for record in self._records:
             if row_ids is not None and record.row_id in row_ids:
-                ids_to_delete.add(cast(int, record.row_id))
+                ids_to_delete.add(record.row_id)
                 continue
             if src_ids is not None and record.src_id in src_ids:
                 ids_to_delete.add(cast(int, record.row_id))
@@ -1734,7 +1806,9 @@ class SchemaBackedLinkTable(
                 ids_to_delete.add(cast(int, record.row_id))
                 continue
         if ids_to_delete:
-            self.db.driver_wrapper.delete_by_id(self.table, ids_to_delete)
+            self._require_attachment().driver_wrapper.delete_by_id(
+                self.table, ids_to_delete
+            )
 
     def _delete_existing_for_src(self, src_id: int) -> None:
         """
@@ -1772,7 +1846,9 @@ class SchemaBackedLinkTable(
 
         self._delete_matching_records(dst_ids={int(dst_id)})
 
-    def _find_existing_pair_row(self, src_id: int, dst_id: int) -> Optional[dict[str, Any]]:
+    def _find_existing_pair_row(
+        self, src_id: int, dst_id: int
+    ) -> Optional[dict[str, Any]]:
         """
         Deep-copy the first cached row payload for a directed pair.
 
@@ -1839,11 +1915,11 @@ class SchemaBackedLinkTable(
                 self._dst_link_col: dst_id,
             }
             payload.update(updates)
-            self.db.driver_wrapper.add_row(payload)
+            self._require_attachment().driver_wrapper.add_row(payload)
             return
 
         current.update(updates)
-        self.db.driver_wrapper.update_row(current)
+        self._require_attachment().driver_wrapper.update_row(current)
 
     def _set_pair_column(
         self,
@@ -2003,22 +2079,36 @@ class SchemaBackedLinkTable(
             self._delete_matching_records(row_ids=link_row_ids)
 
         src_ids = {int(value) for value in getattr(update, "src_ids_deleted", set())}
-        src_ids |= {int(value) for value in getattr(update, "delete_these_src_ids", set())}
-        src_ids |= {int(value) for value in getattr(update, "delete_links_with_this_src_id", set())}
+        src_ids |= {
+            int(value) for value in getattr(update, "delete_these_src_ids", set())
+        }
+        src_ids |= {
+            int(value)
+            for value in getattr(update, "delete_links_with_this_src_id", set())
+        }
         if src_ids:
             self._delete_matching_records(src_ids=src_ids)
 
         dst_ids = {int(value) for value in getattr(update, "dst_ids_deleted", set())}
-        dst_ids |= {int(value) for value in getattr(update, "delete_these_dst_ids", set())}
-        dst_ids |= {int(value) for value in getattr(update, "delete_links_with_this_dst_id", set())}
+        dst_ids |= {
+            int(value) for value in getattr(update, "delete_these_dst_ids", set())
+        }
+        dst_ids |= {
+            int(value)
+            for value in getattr(update, "delete_links_with_this_dst_id", set())
+        }
         if dst_ids:
             self._delete_matching_records(dst_ids=dst_ids)
 
         for src_id, dst_id in getattr(update, "create_these_links", {}).items():
             self._ensure_link(int(src_id), int(dst_id))
 
-        for src_id, dst_ids_for_src in getattr(update, "src_dst_priority_update", {}).items():
-            self._apply_priority_order(int(src_id), [int(dst_id) for dst_id in dst_ids_for_src])
+        for src_id, dst_ids_for_src in getattr(
+            update, "src_dst_priority_update", {}
+        ).items():
+            self._apply_priority_order(
+                int(src_id), [int(dst_id) for dst_id in dst_ids_for_src]
+            )
 
         for dst_srcs, dst_id in getattr(update, "dst_src_priority_update", {}).items():
             for src_id in dst_srcs:
@@ -2030,7 +2120,9 @@ class SchemaBackedLinkTable(
                     self._ensure_link(
                         int(src_id),
                         int(dst_id),
-                        updates={self.link_spec.type_link_col: link_type} if self.link_spec.type_link_col else None,
+                        updates={self.link_spec.type_link_col: link_type}
+                        if self.link_spec.type_link_col
+                        else None,
                     )
 
         for type_and_srcs, dst_id in getattr(update, "dst_src_type_update", {}).items():
@@ -2039,10 +2131,14 @@ class SchemaBackedLinkTable(
                 self._ensure_link(
                     int(src_id),
                     int(dst_id),
-                    updates={self.link_spec.type_link_col: link_type} if self.link_spec.type_link_col else None,
+                    updates={self.link_spec.type_link_col: link_type}
+                    if self.link_spec.type_link_col
+                    else None,
                 )
 
-        for src_id, typed_values in getattr(update, "src_dst_priority_type_update", {}).items():
+        for src_id, typed_values in getattr(
+            update, "src_dst_priority_type_update", {}
+        ).items():
             for link_type, ordered_dsts in typed_values.items():
                 total = len(ordered_dsts)
                 for index, dst_id in enumerate(ordered_dsts):
@@ -2053,7 +2149,9 @@ class SchemaBackedLinkTable(
                         updates[self.link_spec.priority_link_col] = total - index
                     self._ensure_link(int(src_id), int(dst_id), updates=updates)
 
-        for type_and_srcs, dst_id in getattr(update, "dst_src_priority_type_update", {}).items():
+        for type_and_srcs, dst_id in getattr(
+            update, "dst_src_priority_type_update", {}
+        ).items():
             link_type, src_ids_for_type = type_and_srcs
             total = len(src_ids_for_type)
             for index, src_id in enumerate(src_ids_for_type):
@@ -2064,11 +2162,17 @@ class SchemaBackedLinkTable(
                     updates[self.link_spec.priority_link_col] = total - index
                 self._ensure_link(int(src_id), int(dst_id), updates=updates)
 
-        for (src_id, dst_id), priority in getattr(update, "set_link_priority", {}).items():
-            self._set_pair_column(int(src_id), int(dst_id), self.link_spec.priority_link_col, priority)
+        for (src_id, dst_id), priority in getattr(
+            update, "set_link_priority", {}
+        ).items():
+            self._set_pair_column(
+                int(src_id), int(dst_id), self.link_spec.priority_link_col, priority
+            )
 
         for (src_id, dst_id), link_type in getattr(update, "set_link_type", {}).items():
-            self._set_pair_column(int(src_id), int(dst_id), self.link_spec.type_link_col, link_type)
+            self._set_pair_column(
+                int(src_id), int(dst_id), self.link_spec.type_link_col, link_type
+            )
 
         optional_columns = {
             "set_link_origin": "origin",

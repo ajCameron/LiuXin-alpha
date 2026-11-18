@@ -11,15 +11,18 @@ from __future__ import annotations
 
 import abc
 import enum
-
 from collections.abc import Iterable, Iterator, KeysView, Mapping
 from dataclasses import dataclass, field
 from types import MappingProxyType
-from typing import Any, Generic, Optional, TypeVar
+from typing import TYPE_CHECKING, Any, Generic, Optional, Protocol, TypeVar
 
 from LiuXin_alpha.caches.api.storage_cache_api.storage_cache_api import (
     StorageCacheAPI,
 )
+from LiuXin_alpha.databases.db_types.query_types import RowPredicate
+
+if TYPE_CHECKING:
+    from LiuXin_alpha.databases.api.database_api.database_api import DatabaseAPI
 
 
 class CacheError(RuntimeError):
@@ -365,7 +368,9 @@ class CacheRelation:
 
         if not str(self.table).strip():
             raise ValueError("CacheRelation.table must not be empty")
-        object.__setattr__(self, "ids", tuple(dict.fromkeys(int(value) for value in self.ids)))
+        object.__setattr__(
+            self, "ids", tuple(dict.fromkeys(int(value) for value in self.ids))
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -414,6 +419,7 @@ class CacheQuery:
     by precedence; an empty sort uses row IDs. projection selects result fields,
     with an empty projection requesting full rows. offset and limit control
     paging; None means no limit and zero returns no visible rows.
+    where adds a physical Boolean predicate tree, intersected with these filters.
 
     Construction converts predicates, text_fields, sort and projection to tuples
     and rejects negative paging values. Elements remain shared. Type annotations
@@ -434,6 +440,8 @@ class CacheQuery:
     projection: tuple[str, ...] = ()
     offset: int = 0
     limit: Optional[int] = None
+    # Physical Boolean tree, composed with the other filters by intersection.
+    where: RowPredicate | None = None
 
     def __post_init__(self) -> None:
         """
@@ -668,6 +676,21 @@ class CacheQueryResult:
         return tuple(record.row_id for record in self.records)
 
 
+class CacheWriter(Protocol):
+    """Schema-selected writer with row-ID-keyed receipts.
+
+    Payload arguments depend on the selected column/relation writer. The common
+    cache surface preserves those dynamic payloads while typing identities and
+    receipt containers; Cache.create_writer exposes the concrete writer union.
+    """
+
+    def write(self, *args: Any, **kwargs: Any) -> Mapping[int, object]: ...
+
+    def write_one(
+        self, src_id: int, dst_value: Any, **kwargs: Any
+    ) -> Mapping[int, object]: ...
+
+
 class CacheAPI(abc.ABC):
     """
     Specify the application facade around an attached database and storage cache.
@@ -683,7 +706,7 @@ class CacheAPI(abc.ABC):
         returns a page and a total match count from the cache surface.
     """
 
-    database: Any
+    database: DatabaseAPI
     storage: StorageCacheAPI
 
     @property
@@ -914,7 +937,7 @@ class CacheAPI(abc.ABC):
         *,
         force_refresh: bool = False,
         destination_owned: bool | None = None,
-    ) -> Any:
+    ) -> CacheWriter:
         """
         Bind a schema-resolved Catalog writer to this cache for reconciliation.
 
@@ -941,7 +964,7 @@ class CacheAPI(abc.ABC):
         dst_column: str,
         *args: Any,
         **kwargs: Any,
-    ) -> Mapping[Any, Any]:
+    ) -> Mapping[int, object]:
         """
         Resolve a Catalog writer and apply its bulk-write operation.
 
@@ -966,10 +989,10 @@ class CacheAPI(abc.ABC):
         self,
         src_table: str,
         dst_column: str,
-        src_id: Any,
+        src_id: int,
         dst_value: Any,
         **kwargs: Any,
-    ) -> Mapping[Any, Any]:
+    ) -> Mapping[int, object]:
         """
         Resolve a Catalog writer and apply one source-row update.
 
@@ -993,6 +1016,7 @@ class CacheAPI(abc.ABC):
 
 __all__ = [
     "CacheAPI",
+    "CacheWriter",
     "CacheCapabilities",
     "CacheClosedError",
     "CacheConsistency",

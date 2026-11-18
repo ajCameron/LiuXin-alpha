@@ -10,6 +10,7 @@ Owner-row creation/deletion belongs to table/database APIs.
 from __future__ import annotations
 
 import abc
+from collections.abc import Mapping
 from typing import (
     TYPE_CHECKING,
     ClassVar,
@@ -21,14 +22,16 @@ from typing import (
     Union,
 )
 
-from LiuXin_alpha.databases.api import DatabaseAPI
+from LiuXin_alpha.databases.api.database_api.database_api import DatabaseAPI
 
 if TYPE_CHECKING:
     from LiuXin_alpha.caches.api.storage_cache_api.storage_tables_api.single_table_api import (
         StorageCacheSingleTableAPI,
     )
-    from LiuXin_alpha.catalog.api.field_metadata_api import FieldMetadataAPI
-    from LiuXin_alpha.databases.db_types.database_types import MainTableID, MainTableName
+    from LiuXin_alpha.databases.db_types.database_types import (
+        MainTableID,
+        MainTableName,
+    )
 
 T = TypeVar("T")
 
@@ -48,26 +51,35 @@ class FieldBasicInterfaceAPI(abc.ABC, Generic[T]):
         False
     """
 
-    metadata: "FieldMetadataAPI"
+    metadata: Mapping[str, object]
+    _db: DatabaseAPI | None
 
-    name: Union[Literal["text"],
-                Literal["series"],
-                Literal["datetime"],
-                Literal["int"],
-                Literal["float"],
-                Literal["bool"],
-                Literal["comments"],
-                Literal["rating"],
-                Literal["enumeration"],
-                Literal["composite"],
-                Literal["title"],
-                Literal["author_sort"],
-                Literal["authors"],
-                Literal["timestamp"],
-                Literal["last_modified"],
-                Literal["series_index"],
-                Literal["languages"],
-                Literal["identifiers"]]
+    @property
+    @abc.abstractmethod
+    def field_key(self) -> str:
+        """Canonical physical or relationship field identity."""
+        raise NotImplementedError
+
+    name: Union[
+        Literal["text"],
+        Literal["series"],
+        Literal["datetime"],
+        Literal["int"],
+        Literal["float"],
+        Literal["bool"],
+        Literal["comments"],
+        Literal["rating"],
+        Literal["enumeration"],
+        Literal["composite"],
+        Literal["title"],
+        Literal["author_sort"],
+        Literal["authors"],
+        Literal["timestamp"],
+        Literal["last_modified"],
+        Literal["series_index"],
+        Literal["languages"],
+        Literal["identifiers"],
+    ]
 
     #: High-level storage/behavior category for the field.
     field_storage_shape: ClassVar[str] = "generic"

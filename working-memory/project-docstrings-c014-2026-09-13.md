@@ -1,4 +1,4 @@
-# C014 — src/LiuXin_alpha/catalog/field_metadata.py — part 1/3, 2026-09-13
+# C014 — src/LiuXin_alpha/utils/calibre_compat/metadata/field_metadata.py — part 1/3, 2026-09-13
 
 Reviewed builtin LiuXin descriptors and the first FieldMetadata slice, including mutable registry behavior and refresh/Series-companion limitations. Focused field-metadata, import/API, semantic Catalog and legacy-boundary regressions plus selected source examples passed. See the shared completion log for totals/skips; no runtime-doc dispatch found. No executable changes.
 

@@ -61,11 +61,17 @@ def test_wheel_rejects_a_stale_plugin_package(tmp_path: Path, name: str) -> None
 
 def test_retained_cache_callers_use_the_relocated_contracts() -> None:
     """Check live class identity without requiring the obsolete cache schema."""
-    from LiuXin_alpha.library.caches.calibre.cache import CalibreCache
-    from LiuXin_alpha.plugins.cache.base_cache import BaseCache
-    from LiuXin_alpha.plugins.cache.base_field import BaseField
-    from LiuXin_alpha.plugins.cache.base_tables import BaseTable
+    from LiuXin_alpha.utils.calibre_compat.caches.base.base_cache import BaseCache
+    from LiuXin_alpha.utils.calibre_compat.caches.base.base_field import BaseField
+    from LiuXin_alpha.utils.calibre_compat.caches.base.base_tables import BaseTable
+    from LiuXin_alpha.utils.calibre_compat.caches.calibre.cache import CalibreCache
 
     assert issubclass(CalibreCache, BaseCache)
-    assert BaseField.__module__ == "LiuXin_alpha.plugins.cache.base_field"
-    assert BaseTable.__module__ == "LiuXin_alpha.plugins.cache.base_tables"
+    assert (
+        BaseField.__module__
+        == "LiuXin_alpha.utils.calibre_compat.caches.base.base_field"
+    )
+    assert (
+        BaseTable.__module__
+        == "LiuXin_alpha.utils.calibre_compat.caches.base.base_tables"
+    )

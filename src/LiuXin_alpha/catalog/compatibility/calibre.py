@@ -104,9 +104,10 @@ class CalibreCompatibility:
         Explicit context is honored; otherwise reuse Catalog's preferred WEM
         path ranking for display. The selected path is returned separately from
         the input reference, so a display preference is not a write instruction.
-        This bounded projection covers the six writable fields, not files,
-        covers, all identifiers or a lossless external Calibre record. Reads
-        are not an atomic snapshot.
+        The six writable fields retain their conversion policy. Read metadata
+        also includes selected-context credits, terms, identifiers, dates, file
+        summaries and native custom fields for display and explicit search.
+        This is not a lossless Calibre record or an atomic database snapshot.
         """
         ref, expression, works, manifestations = self._context(reference)
         candidates_w = [row for row in works if ref.work_id in (None, row["work_id"])]
@@ -151,7 +152,9 @@ class CalibreCompatibility:
             if not ratings
             else self.repositories.ratings.require(ratings[0].secondary_id)
         )
+        from .search_projection import metadata_values
         return {
+            **metadata_values(self, ref, work, expression, manifestation),
             "policy": self.policy.value,
             "reference": ref,
             "expression_id": ref.expression_id,
@@ -163,6 +166,7 @@ class CalibreCompatibility:
             ),
             "title": title,
             "title_sort": title_to_title_sort(title),
+            "sort": title_to_title_sort(title),
             "author_sort": work.get("work_creator_sort"),
             "language": expression.get("expression_language_id"),
             "last_modified": expression.get("expression_modified_timestamp_ep_k"),

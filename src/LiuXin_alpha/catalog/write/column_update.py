@@ -90,7 +90,10 @@ class CatalogColumnUpdate[ValueT]:
         database: DatabaseAPI,
     ) -> Mapping[SrcTableID, ValueT]:
         """
-        Apply this update through the database's bulk-column operation.
+        Apply this update through portable row batching in the caller's transaction.
+
+        The macro joins an existing transaction or owns an atomic batch when
+        called alone. Physical normalization remains with the database layer.
 
         Example:
             Exercise CatalogColumnUpdate.write through its owning regression module::
@@ -104,10 +107,12 @@ class CatalogColumnUpdate[ValueT]:
 
         if not self.values:
             return self.values
-        database.update_columns(
-            values_map=dict(self.values),
-            field=self.column_spec.name,
-            table=self.table_spec.name,
+        database.macros.update_rows(
+            self.table_spec.name,
+            {
+                row_id: {self.column_spec.name: value}
+                for row_id, value in self.values.items()
+            },
         )
         return self.values
 

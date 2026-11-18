@@ -7,6 +7,13 @@ Decision date: **2026-07-24**. Implementation checked: **2026-10-20**, against
 
 Status: **Current contract, including the read-only / writable facade split.**
 
+The [2026-11-18 lifecycle review](../caches/invalidation-and-lifecycle-2026-11-18.md)
+adds a tested route matrix. Extension-table column writers now use portable row
+batching to join outer transactions. Shared-value writers can return a persistence
+receipt before deferred snapshot refresh; a failed later read raises
+`CacheDirtyError`. Immediate post-write reconciliation failures retain the
+receipt-bearing `CacheReconciliationError` contract.
+
 ## Decision
 
 When a composed cache is attached, application and library code should prefer
@@ -83,9 +90,18 @@ validation, or mutation policy
 out of `Catalog` merely to make a lookup faster. A cached index is an execution
 mechanism, not a second definition of bibliographic identity.
 
-Direct Catalog reads remain supported for maintenance, migrations, batch jobs,
-tests, and deployments without an attached cache. They do not implicitly
-populate or reconcile a separate snapshot cache.
+Direct database-backed Catalog reads remain supported for maintenance,
+migrations, batch jobs, tests, and deployments without an attached cache. They
+do not implicitly populate or reconcile a separate snapshot cache.
+
+Explicit cache-backed retrieval can initialize a reader: `_loaded_cache()`
+creates a read cache when none is supplied, or loads a supplied empty cache.
+`CacheMetadataReadSource.refresh()` explicitly requests `cache.reload()`.
+These are cache lifecycle operations requested by the read adapter; they do
+not make Catalog writes automatically update that cache. Cache contents and
+refresh policy remain owned by the cache implementation. See
+[reader initialization](../../src/LiuXin_alpha/catalog/retrieval/metadata.py) and
+[the read-source adapter](../../src/LiuXin_alpha/catalog/retrieval/hydration/read_sources.py).
 
 ## Write contract
 
@@ -193,6 +209,76 @@ For example, an immutable update object may memoize a resolved value during one
 write. It must not outlive that operation as an application cache or introduce
 a dependency on the cache layer.
 
+## Metadata access interface direction — 2026-11-18
+
+**Interface declared; bound implementation and caller migration remain pending.**
+[MetadataAPIInterface](../../src/LiuXin_alpha/catalog/api/metadata_access.py) defines a
+native metadata-facing contract in `LiuXin_alpha.catalog.api.metadata_access`,
+alongside Catalog's existing public protocols. The future bound adapter belongs
+in `caches`, alongside its existing Catalog write bridge. This uses existing
+top-level packages. Importing the contract does not construct Catalog, cache or
+metadata services. Neither the current Catalog nor Cache object claims to
+implement it.
+
+The interface takes its vocabulary from Catalog: `works`, `expressions`,
+`manifestations`, `items`, `search` and `mutations`. Entity services offer
+`get`, `require`, `list`, `create`, `update` and `delete`. Reads return the
+existing native Work/Expression/Manifestation/Item metadata contracts. Search
+returns explicit `(level, entity_id)` references; a later metadata read is a
+separate operation, not an implied shared snapshot. Compound mutations retain
+Catalog's `create_wemi_stack`, `attach_metadata`, `replace_metadata`, `link_wemi`
+and `unlink_wemi` vocabulary and semantic rules.
+
+The planned implementation borrows Catalog and an optional cache for the same
+database once; their composing caller retains ownership and shutdown duties.
+Core can construct and expose it, but the service must also be
+usable in process without Core's command dispatcher. Cache selection and database
+fallback policy belong to that binding. Known misses, unavailable operations and
+failed reads remain distinct. Returned metadata is detached from cache storage;
+editing a container does not implicitly persist it.
+
+The interface deliberately does not inherit all of `CatalogAPI`: that would expose
+database handles, physical row mappings, schema writers and compatibility helpers,
+and raw repository writes would bypass reconciliation. Declaring the contract in
+`catalog.api` does not make Catalog's mutation implementation responsible for
+cache reconciliation. The interface also does not sit under
+`metadata`, whose package owns pure values and rules rather than persistence
+composition. Catalog owns validation, identity decisions and persistence; caches
+own refresh/invalidation mechanics; the bound access service owns coordinating
+the operation across those owners.
+
+`MetadataWriteReceipt` records the operation result, whether it changed anything,
+whether persistence is committed or pending an outer transaction, cache freshness
+and the cache generation when configured. Pending writes must not be presented as
+durable success. Receipts describe return-time state; a pending receipt does not
+later become committed in place. Deferred snapshots must recover after either
+commit or rollback.
+Reconciliation errors retain the receipt in `MetadataReconciliationError` and
+leave the cache dirty; callers must not repeat a committed write automatically.
+These are implementation requirements, not guarantees supplied by a Protocol or
+the passive receipt dataclass. Unsupported transaction capabilities must not
+silently weaken an atomic operation.
+
+The first contract covers native WEMI CRUD, reads, search and those compound
+operations. Matching, merges, custom-field administration and dedicated Agent and
+vocabulary services need explicit contracts before inclusion. Calibre projection
+and write policy remain in their compatibility layer. This is not whole-Catalog
+feature parity.
+
+The adapter in `caches` should reuse the existing Core semantic-write composition
+and cache writer mechanisms. Core currently uses a broad data reload for many
+semantic writes. A conservative refresh remains a valid first implementation when affected
+dependencies cannot yet be proven; later targeted refresh must preserve the same
+contract. Every exposed mutation must pass through that coordination, including
+creation, deletion and relationship replacement. A forwarding `__getattr__` is not
+an adequate implementation of this boundary.
+
+The implementation acceptance gate is one typed consumer exercising the same
+semantic operations without a cache and with each native backend, including
+read-after-write, detached results, wrong-database binding, known misses,
+unsupported reads, outer commit/rollback and receipt-bearing refresh failures.
+See [CACHE05](../caches/next_tasks.md#cache05-implement-the-bound-metadata-access-service).
+
 ## Legacy scope
 
 This contract applies to modern `CacheAPI`, its internal `StorageCacheAPI`
@@ -202,22 +288,28 @@ portable database path.
 The following compatibility areas are not evidence for the modern ownership
 model:
 
-- the older dual-purpose writers under `caches.write`, which still combine
+- dual-purpose writers under `utils.calibre_compat.caches.write`, which combine
   database and Calibre-style map updates;
-- Calibre search-result caching currently located under `catalog.search`;
-- the older cache implementations under `library.caches` and
-  `plugins.cache` (moved from `customize.cache` on 2026-10-19).
+- legacy search-result caching and typed operators under
+  `utils.calibre_compat.caches.search`;
+- retained caches, base contracts, categories and lazy metadata under
+  `utils.calibre_compat.caches`;
+- legacy field descriptor containers under `utils.calibre_compat.metadata`.
+
+Native `database_search.CatalogSearch` and `physical_plan` remain Catalog semantic
+search responsibilities. Native descriptor snapshots and custom-field publication
+belong to caches. The old paths have been removed without forwarding facades;
+see the [implemented structure](../caches/structure.md).
 
 The unused `catalog_macros` facade was removed on 2026-10-30.
 `databases.metadata_sql` retains physical-table helpers without book/title
 projections. Cover-flag writes and legacy format removal refuse effects
 until explicit asset/replica policies are available.
 
-No new modern feature should depend on those shapes. Their long-term owners
-remain a [Catalog roadmap](catalog-roadmap.md) decision; the earlier `utils`
-relocation proposal has not been implemented. Modern cache behaviour remains
-behind its contracts. Any compatibility move must preserve the read/write split
-and must not move reconciliation into Catalog mutations.
+No new modern feature should depend on compatibility shapes. Preserve the
+read/write cache split and keep reconciliation outside Catalog mutations.
+`library.library_metadata`, wider book metadata and Catalog conversion policy
+remain separate review subjects.
 
 ## Enforcement
 

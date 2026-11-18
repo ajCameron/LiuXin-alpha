@@ -1,5 +1,9 @@
 # Databases
 
+- [PostgreSQL schema discovery optimization, 2026-11-17](schema-discovery-optimization-2026-11-17.md):
+  scoped fingerprint reuse, freshness checks, transaction ownership and measured
+  reduction in discovery work for cache loading and metadata refresh.
+
 - [November review repair contracts](review-repairs-2026-11-14.md): explicit identity
   and preference migrations, versioned search indexes, write reservations and
   physical-reference protection during pruning. Includes finding dispositions

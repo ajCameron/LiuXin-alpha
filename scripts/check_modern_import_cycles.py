@@ -61,6 +61,17 @@ TERMINAL_COMPONENT_CONTRACTS = frozenset(
     for root in TERMINAL_COMPONENT_ROOTS
     for owner in ("models", "contracts")
 )
+NATIVE_CACHE_PREFIXES = (
+    "LiuXin_alpha.caches",
+    "LiuXin_alpha.catalog.search",
+    "LiuXin_alpha.core.services",
+)
+LEGACY_CACHE_PREFIXES = (
+    "LiuXin_alpha.utils.calibre_compat.caches",
+    "LiuXin_alpha.utils.calibre_compat.metadata.field_metadata",
+    "LiuXin_alpha.utils.calibre_compat.metadata.field_metadata_api",
+    "LiuXin_alpha.utils.calibre_compat.metadata.field_adaptors",
+)
 PROTECTED_PREFIXES = (
     "LiuXin_alpha.catalog.api",
     "LiuXin_alpha.catalog.catalog",
@@ -69,7 +80,9 @@ PROTECTED_PREFIXES = (
     "LiuXin_alpha.metadata.api.containers_api.calibre_metadata_api",
     "LiuXin_alpha.caches.cache",
     "LiuXin_alpha.caches.read_cache",
-    "LiuXin_alpha.caches.write",
+    "LiuXin_alpha.caches.field_metadata",
+    "LiuXin_alpha.caches.custom_fields",
+    "LiuXin_alpha.utils.calibre_compat.caches.write",
     *SHARED_SURFACE_PREFIXES,
     *WEB_APPLICATION_PREFIXES,
     CLI_PREFIX,
@@ -624,6 +637,10 @@ def forbidden_dependency(edge: ImportEdge) -> str | None:
     :return: The normalized value, metadata record, path, stream result or collection
         described above.
     """
+    if _within(edge.source, NATIVE_CACHE_PREFIXES) and _within(
+        edge.target, LEGACY_CACHE_PREFIXES
+    ):
+        return "native caches, search and Core composition must not depend on legacy cache contracts"
     terminal_error = _forbidden_terminal_dependency(edge)
     if terminal_error is not None:
         return terminal_error
@@ -643,8 +660,8 @@ def forbidden_dependency(edge: ImportEdge) -> str | None:
     ):
         return "CLI parser contracts must remain independent leaves"
     if (
-        edge.source.startswith("LiuXin_alpha.caches.write.")
-        and edge.target == "LiuXin_alpha.caches.write"
+        edge.source.startswith("LiuXin_alpha.utils.calibre_compat.caches.write.")
+        and edge.target == "LiuXin_alpha.utils.calibre_compat.caches.write"
     ):
         return "cache writers must import implementation owners, not their assembling package"
     if _within(edge.source, SHARED_SURFACE_PREFIXES) and _within(
@@ -763,13 +780,23 @@ def main(argv: list[str] | None = None) -> int:
         default=Path(__file__).resolve().parents[1] / "src",
     )
     args = parser.parse_args(argv)
-    inventory = collect_imports(args.source_root)
+    # Broader cache/search ownership checks do not silently extend the acyclic
+    # contract. Existing cycles outside PROTECTED_PREFIXES remain measured by
+    # check_layer_direction's whole-package ratchet.
+    inventory = collect_imports(
+        args.source_root,
+        protected_prefixes=(*PROTECTED_PREFIXES, *NATIVE_CACHE_PREFIXES),
+    )
     if not inventory.modules:
         print(
             f"Modern import-cycle check failed: no protected modules under {args.source_root}."
         )
         return 1
-    graph = inventory.graph()
+    graph = {
+        source: {target for target in targets if _within(target, PROTECTED_PREFIXES)}
+        for source, targets in inventory.graph().items()
+        if _within(source, PROTECTED_PREFIXES)
+    }
     cycles = strongly_connected_components(graph)
     violations = [
         (edge, reason)

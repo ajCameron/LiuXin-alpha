@@ -17,10 +17,10 @@ from typing import Any
 
 import pytest
 
-from LiuXin_alpha.catalog.search.field_searches import date_search
-from LiuXin_alpha.catalog.search.field_searches.boolean_search import BooleanSearch
-from LiuXin_alpha.catalog.search.field_searches.date_search import DateSearch
-from LiuXin_alpha.catalog.search.field_searches.numeric_search import NumericSearch
+from LiuXin_alpha.utils.calibre_compat.caches.search.field_searches import date_search
+from LiuXin_alpha.utils.calibre_compat.caches.search.field_searches.boolean_search import BooleanSearch
+from LiuXin_alpha.utils.calibre_compat.caches.search.field_searches.date_search import DateSearch
+from LiuXin_alpha.utils.calibre_compat.caches.search.field_searches.numeric_search import NumericSearch
 from LiuXin_alpha.utils.date import UNDEFINED_DATE
 from LiuXin_alpha.utils.search_query_parser import ParseException
 

@@ -7,10 +7,13 @@ from datetime import datetime
 
 import pytest
 
-from LiuXin_alpha.catalog.field_metadata import CalibreFieldMetadata, FieldMetadata
 from LiuXin_alpha.utils.calibre_compat.custom_columns import (
     CustomColumns,
     CustomColumnsManager,
+)
+from LiuXin_alpha.utils.calibre_compat.metadata.field_metadata import (
+    CalibreFieldMetadata,
+    FieldMetadata,
 )
 from tests.databases.test_custom_value_transactions import inject_commit_failure
 from tests.databases.test_row_write_safety import db as db

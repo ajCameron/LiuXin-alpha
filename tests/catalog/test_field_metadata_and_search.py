@@ -12,12 +12,12 @@ Example:
 
 from __future__ import annotations
 
-from LiuXin_alpha.catalog.field_metadata import (
+from LiuXin_alpha.utils.calibre_compat.metadata.field_metadata import (
     CalibreFieldMetadata,
     FieldMetadata,
     fm_from_dict,
 )
-from LiuXin_alpha.catalog.search import KeyPairSearch, LRUCache, Search
+from LiuXin_alpha.utils.calibre_compat.caches.search import KeyPairSearch, LRUCache, Search
 
 
 def test_field_metadata_has_a_truthful_mapping_surface() -> None:

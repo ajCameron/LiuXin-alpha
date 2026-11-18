@@ -9,6 +9,10 @@ values or links; callers own any enclosing transaction.
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from LiuXin_alpha.databases.api.database_api.database_api import DatabaseAPI
 from typing import TYPE_CHECKING, Any, Iterable, Optional, Union, cast
 
 from LiuXin_alpha.caches.api.storage_cache_api.storage_fields_api.one_one_field_api import (
@@ -33,6 +37,7 @@ from LiuXin_alpha.caches.cache_plugins.schema_backed.storage_tables.link_tables.
 from LiuXin_alpha.caches.cache_plugins.schema_backed.storage_tables.single_table import (
     SchemaBackedMainTableCache,
 )
+from LiuXin_alpha.databases.schema_specs import StorageColumnSpec
 
 if TYPE_CHECKING:
     from LiuXin_alpha.caches.cache_plugins.schema_backed.storage_cache import (
@@ -59,7 +64,7 @@ class SchemaBackedSameTableField(CacheOneOneInSameTableFieldAPI[Any]):
         cache: "SchemaBackedStorageCache",
         in_table: Union[StorageCacheSingleTableAPI, str],
         column_name: str,
-        db: Any,
+        db: DatabaseAPI,
     ) -> None:
         """
         Resolve the owner table and allocate an empty scalar value mapping.
@@ -125,7 +130,7 @@ class SchemaBackedSameTableField(CacheOneOneInSameTableFieldAPI[Any]):
 
         return self._cache.get_main_table(name)
 
-    def read(self, db: Any) -> None:
+    def read(self, db: DatabaseAPI | None) -> None:
         """
         Copy the loaded table column into an owner-ID-to-value mapping.
 
@@ -170,7 +175,7 @@ class SchemaBackedSameTableField(CacheOneOneInSameTableFieldAPI[Any]):
 
         return cast(SchemaBackedMainTableCache, self.in_table)
 
-    def _column_spec(self):
+    def _column_spec(self) -> StorageColumnSpec:
         """
         Find the first schema column matching the field's stored column name.
 
@@ -235,10 +240,13 @@ class SchemaBackedSameTableField(CacheOneOneInSameTableFieldAPI[Any]):
         missing = [
             int(row_id)
             for row_id in ids
-            if self._db.get_row_from_id(self.table_name, int(row_id)) is None
+            if _ensure_db(self._db).get_row_from_id(self.table_name, int(row_id))
+            is None
         ]
         if missing:
-            raise KeyError(f"Cannot update field {self.field_key!r}; missing row ids: {sorted(missing)}")
+            raise KeyError(
+                f"Cannot update field {self.field_key!r}; missing row ids: {sorted(missing)}"
+            )
 
     def _write_values(self, id_value_map: dict[int, Any]) -> None:
         """
@@ -264,7 +272,7 @@ class SchemaBackedSameTableField(CacheOneOneInSameTableFieldAPI[Any]):
         self._assert_rows_exist(normalized.keys())
         for value in normalized.values():
             self._assert_can_write_value(value)
-        self.in_table.update(
+        cast(SchemaBackedMainTableCache, self.in_table).update(
             normalized,
             self._db,
             target_column=self.column_name,
@@ -310,7 +318,7 @@ class SchemaBackedSameTableField(CacheOneOneInSameTableFieldAPI[Any]):
     def refresh_ids(
         self,
         ids: Iterable[int],
-        db: Any = None,
+        db: DatabaseAPI | None = None,
     ) -> None:
         """
         Reload selected owner rows and repair this field from the table cache.
@@ -354,7 +362,9 @@ class SchemaBackedSameTableField(CacheOneOneInSameTableFieldAPI[Any]):
         table = self._table_cache()
         for row_id in ids:
             if table.has_id(row_id):
-                self._ids_values_map[row_id] = table.get_row_snapshot(row_id).get(self.column_name)
+                self._ids_values_map[row_id] = table.get_row_snapshot(row_id).get(
+                    self.column_name
+                )
             else:
                 self._ids_values_map.pop(row_id, None)
 
@@ -459,7 +469,11 @@ class SchemaBackedSameTableField(CacheOneOneInSameTableFieldAPI[Any]):
         :return: Sorted list of matching owner IDs.
         """
 
-        return sorted(row_id for row_id, row_value in self._ids_values_map.items() if row_value == value)
+        return sorted(
+            row_id
+            for row_id, row_value in self._ids_values_map.items()
+            if row_value == value
+        )
 
 
 class SchemaBackedTwoTableOneOneField(
@@ -488,7 +502,7 @@ class SchemaBackedTwoTableOneOneField(
         src_table_id_col: str,
         dst_table: Union[StorageCacheSingleTableAPI, str],
         dst_table_cache_col: str,
-        db: Any,
+        db: DatabaseAPI,
     ) -> None:
         """
         Resolve endpoint/link caches and initialize empty one-to-one projections.
@@ -541,7 +555,10 @@ class SchemaBackedTwoTableOneOneField(
         :return: Schema-backed link object after root freshness and cardinality checks.
         """
 
-        return cast(SchemaBackedLinkTable, self._cache.get_one_one_link_table(src_table, dst_table))
+        return cast(
+            SchemaBackedLinkTable,
+            self._cache.get_one_one_link_table(src_table, dst_table),
+        )
 
     def update(self, update: OneOneInTwoTableFieldUpdate[Any]) -> None:
         """
@@ -593,13 +610,8 @@ class SchemaBackedTwoTableOneOneField(
             }.items()
         }
 
-        deleted_src_ids = {
-            int(src_id)
-            for src_id in update.deleted_ids
-        } | {
-            int(src_id)
-            for src_id, value in raw_updates.items()
-            if value is None
+        deleted_src_ids = {int(src_id) for src_id in update.deleted_ids} | {
+            int(src_id) for src_id, value in raw_updates.items() if value is None
         }
 
         missing_link_src_ids: list[int] = []
@@ -629,7 +641,9 @@ class SchemaBackedTwoTableOneOneField(
             else:
                 existing_src_id = cast(Any, self.link_table).get_src_id(int(dst_id))
                 if existing_src_id is not None and int(existing_src_id) != int(src_id):
-                    linked_dst_conflicts.append((int(src_id), int(dst_id), int(existing_src_id)))
+                    linked_dst_conflicts.append(
+                        (int(src_id), int(dst_id), int(existing_src_id))
+                    )
                     continue
 
             links_to_create[int(src_id)] = int(dst_id)

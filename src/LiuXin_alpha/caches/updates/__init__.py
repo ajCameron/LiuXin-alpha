@@ -1,4 +1,3 @@
-
 """
 Group legacy field and table update payload definitions.
 

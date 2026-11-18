@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 
 from LiuXin_alpha.errors import InvalidUpdate
-from LiuXin_alpha.metadata.field_adaptors import (
+from LiuXin_alpha.utils.calibre_compat.metadata.field_adaptors import (
     cc_adapt_datetime,
     cc_adapt_number,
     cc_adapt_text,
@@ -21,7 +21,7 @@ from LiuXin_alpha.utils.adaptors import adapt_number, multiple_text, single_text
 
 @pytest.mark.parametrize(
     "module",
-    ["LiuXin_alpha.utils.adaptors", "LiuXin_alpha.metadata.field_adaptors"],
+    ["LiuXin_alpha.utils.adaptors", "LiuXin_alpha.utils.calibre_compat.metadata.field_adaptors"],
 )
 def test_adaptors_import_without_loading_their_consumers(module: str) -> None:
     """Utilities must not load metadata; neither adapter owner may load writers."""

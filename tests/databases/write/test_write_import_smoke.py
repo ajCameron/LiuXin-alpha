@@ -23,5 +23,5 @@ def test_basic_write_imports_for_loops() -> None:
 
     :return: None; failed expectations raise AssertionError.
     """
-    from LiuXin_alpha.caches.write import DummyWriter
+    from LiuXin_alpha.utils.calibre_compat.caches.write import DummyWriter
     assert DummyWriter is not None

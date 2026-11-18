@@ -1,4 +1,4 @@
-# D054 — src/LiuXin_alpha/caches/write/generic_writers — one_to_many_writer, one_to_one_writer, 2026-09-14
+# D054 — src/LiuXin_alpha/utils/calibre_compat/caches/write/generic_writers — one_to_many_writer, one_to_one_writer, 2026-09-14
 
 Complete generic writer source review includes nested converters, actual result shapes, cleanup inactivity, cache/persistence ordering and type/priority branches. Cache-source milestone passed: 155 regressions with six explicit capability skips, 54 selected writer examples, full quality and whole-project inventory reconciliation. Three initial doctest expected-output quote styles were corrected and examples/static/reconciliation rerun successfully. Existing language-hook required-argument mismatch and unresolved series-index global remain documented implementation limitations; no comprehensive legacy mutation coverage claim.
 

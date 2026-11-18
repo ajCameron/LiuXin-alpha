@@ -17,7 +17,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from LiuXin_alpha.caches.write.identifiers_writer import IdentifiersWrite
+from LiuXin_alpha.utils.calibre_compat.caches.write.identifiers_writer import IdentifiersWrite
 from LiuXin_alpha.catalog.api import (
     CatalogAmbiguousMatchError,
     CatalogMutationError,

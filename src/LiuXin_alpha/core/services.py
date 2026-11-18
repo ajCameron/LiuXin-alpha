@@ -289,13 +289,12 @@ class CoreServices:
     @property
     def field_metadata(self) -> Any:
         """
-        Return injected field metadata or build standard fields plus advertised custom-column definitions.
+        Return injected metadata or build the native schema/custom-field registry.
 
-        Only mapping-valued custom definitions are used. Required fields are
-        indexed directly; malformed definitions can raise. The new object is
-        retained before adding custom fields, so a failure can leave a partially
-        populated object returned by later accesses. Database changes are not
-        reflected until an explicit refresh.
+        Standard keys are physical table.column names; custom keys retain their
+        attachment-qualified identities. Construction retains the candidate only
+        after refresh succeeds. Database changes require explicit refresh or a
+        CustomFieldCache coordinator sharing this registry.
 
         Example:
             >>> from types import SimpleNamespace
@@ -308,42 +307,21 @@ class CoreServices:
         """
 
         if self._field_metadata is None:
-            from LiuXin_alpha.catalog.field_metadata import FieldMetadata
+            from LiuXin_alpha.caches.field_metadata import FieldMetadata
+            from LiuXin_alpha.databases.schema_specs import StorageSchemaSpec
 
-            candidate_metadata = FieldMetadata()
-            if hasattr(self.database, "driver_wrapper") and hasattr(self.database, "driver"):
+            wrapper = getattr(self.database, "driver_wrapper", None)
+            get_schema = getattr(wrapper, "get_schema_spec", None)
+            schema = get_schema() if callable(get_schema) else None
+            if schema is not None and not isinstance(schema, StorageSchemaSpec):
+                raise TypeError("driver_wrapper.get_schema_spec() must return a StorageSchemaSpec")
+            candidate = FieldMetadata(schema)
+            if wrapper is not None and hasattr(self.database, "driver"):
                 from LiuXin_alpha.databases.custom_columns.native_service import CustomFieldService
                 from LiuXin_alpha.caches.custom_fields import CustomFieldCache
 
-                service = CustomFieldService(self.database)
-                CustomFieldCache(service, candidate_metadata).refresh()
-                self._field_metadata = candidate_metadata
-                return self._field_metadata
-            self._field_metadata = candidate_metadata
-            custom_metadata = getattr(
-                self.database,
-                "custom_column_label_map",
-                None,
-            )
-            add_custom = getattr(self._field_metadata, "add_custom_field", None)
-            if isinstance(custom_metadata, Mapping) and callable(add_custom):
-                for item in custom_metadata.values():
-                    if isinstance(item, Mapping):
-                        values = dict(item)
-                        add_custom(
-                            label=values["label"],
-                            table=values["table"],
-                            column=values["column"],
-                            datatype=values["datatype"],
-                            colnum=values.get("colnum", values.get("num")),
-                            name=values["name"],
-                            display=values.get("display", {}),
-                            is_editable=values.get("is_editable", True),
-                            is_multiple=values.get("is_multiple", False),
-                            is_category=values.get("is_category", False),
-                            is_csp=values.get("is_csp", False),
-                            in_table=values.get("in_table", "books"),
-                        )
+                CustomFieldCache(CustomFieldService(self.database), candidate).refresh()
+            self._field_metadata = candidate
         return self._field_metadata
 
     def refresh_field_metadata(self) -> Any:
@@ -351,7 +329,7 @@ class CoreServices:
         Discard the current field metadata reference and immediately rebuild it from database definitions.
 
         This replaces even a caller-injected object, without closing it. A rebuild
-        error does not restore the old reference and can leave partial metadata.
+        error leaves the reference unset; the next access retries construction.
 
         Example:
             >>> fields = services.refresh_field_metadata()  # doctest: +SKIP

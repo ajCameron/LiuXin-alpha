@@ -32,7 +32,9 @@ lifetime contract; avoid claiming arbitrary initialization can be rolled back.
 
 ## PL-03 — Retire unsupported compatibility interfaces by caller
 
-Inventory `plugins.cache`, `folder_store_driver`, abstract APIs and retained
+`plugins.cache` has moved to `utils.calibre_compat.caches.base`; its callers and
+installed-package guards use the new owner. Inventory `folder_store_driver`,
+abstract APIs and retained
 application families. Decide supported, adapter, unavailable or retired status
 for each real consumer. Use shared loading only where contracts match; database,
 storage and terminal registries retain domain-specific capability checks.

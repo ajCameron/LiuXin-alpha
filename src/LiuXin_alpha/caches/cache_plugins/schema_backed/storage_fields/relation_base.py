@@ -9,13 +9,18 @@ requested by the concrete update policy; no encompassing transaction is added.
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from LiuXin_alpha.databases.api.database_api.database_api import DatabaseAPI
+
 import dataclasses
 from types import SimpleNamespace
 from typing import (
     TYPE_CHECKING,
     Any,
-    Generic,
     Iterable,
+    Mapping,
     Optional,
     Sequence,
     TypeVar,
@@ -23,6 +28,9 @@ from typing import (
     cast,
 )
 
+from LiuXin_alpha.caches.api.storage_cache_api.storage_fields_api.base_field_api import (
+    FieldBasicInterfaceAPI,
+)
 from LiuXin_alpha.caches.api.storage_cache_api.storage_tables_api.single_table_api import (
     StorageCacheSingleTableAPI,
 )
@@ -39,10 +47,14 @@ if TYPE_CHECKING:
         SchemaBackedStorageCache,
     )
 
+from LiuXin_alpha.caches.cache_plugins.schema_backed.storage_tables.single_table import (
+    SchemaBackedMainTableCache,
+)
+
 T = TypeVar("T")
 
 
-class _SchemaBackedRelationFieldBase(Generic[T]):
+class _SchemaBackedRelationFieldBase(FieldBasicInterfaceAPI[T]):
     """
     Maintain relation dictionaries and shared endpoint/link mutation helpers.
 
@@ -60,10 +72,15 @@ class _SchemaBackedRelationFieldBase(Generic[T]):
         while its public API returns sequences of projected destination values.
     """
 
+    src_table_id_col: str
+    dst_table_cache_col: str
+    src_table: StorageCacheSingleTableAPI
+    dst_table: StorageCacheSingleTableAPI
+
     def _init_relation_field(
         self,
         cache: "SchemaBackedStorageCache",
-        db: Any,
+        db: DatabaseAPI,
     ) -> None:
         """
         Retain the owner/database and allocate empty relation dictionaries.
@@ -160,7 +177,7 @@ class _SchemaBackedRelationFieldBase(Generic[T]):
         :return: The existing link_table object without lookup, validation or refresh.
         """
 
-        return cast(SchemaBackedLinkTable, self.link_table)
+        return self._link_table()
 
     def _value_for_dst_id(self, dst_id: int) -> Optional[T]:
         """
@@ -179,7 +196,10 @@ class _SchemaBackedRelationFieldBase(Generic[T]):
 
         dst_id = int(dst_id)
         if self.dst_table.has_id(dst_id):
-            return cast(Optional[T], self.dst_table.get_row_snapshot(dst_id).get(self.dst_table_cache_col))
+            return cast(
+                Optional[T],
+                self.dst_table.get_row_snapshot(dst_id).get(self.dst_table_cache_col),
+            )
         return None
 
     def _ordered_dst_ids_for_src(
@@ -206,7 +226,7 @@ class _SchemaBackedRelationFieldBase(Generic[T]):
         :return: Tuple of integer endpoint IDs in link order, preserving duplicate links.
         """
 
-        link_table = cast(Any, self.link_table)
+        link_table = cast(Any, self._link_table())
         return tuple(
             int(dst_id)
             for dst_id in link_table.get_dst_ids(
@@ -240,7 +260,7 @@ class _SchemaBackedRelationFieldBase(Generic[T]):
         :return: Tuple of integer endpoint IDs in link order, preserving duplicate links.
         """
 
-        link_table = cast(Any, self.link_table)
+        link_table = cast(Any, self._link_table())
         return tuple(
             int(src_id)
             for src_id in link_table.get_src_ids(
@@ -349,12 +369,11 @@ class _SchemaBackedRelationFieldBase(Generic[T]):
         self._src_to_dst_ids = src_to_dst_ids
         self._src_to_values = src_to_values
         self._dst_to_src_ids = {
-            dst_id: tuple(src_ids)
-            for dst_id, src_ids in dst_to_src_ids.items()
+            dst_id: tuple(src_ids) for dst_id, src_ids in dst_to_src_ids.items()
         }
         self._dst_to_values = dst_to_values
 
-    def read(self, db: Any) -> None:
+    def read(self, db: DatabaseAPI | None) -> None:
         """
         Attach relation database references and rebuild field value dictionaries.
 
@@ -376,13 +395,13 @@ class _SchemaBackedRelationFieldBase(Generic[T]):
         self._db = db
         self.src_table.catalog = db
         self.dst_table.catalog = db
-        self.link_table.catalog = db
+        self._link_table().catalog = db
         self._read_relation_cache()
 
     def refresh_ids(
         self,
         ids: Iterable[int],
-        db: Any = None,
+        db: DatabaseAPI | None = None,
     ) -> None:
         """
         Rebuild the complete field projection for an ignored ID refresh hint.
@@ -524,8 +543,7 @@ class _SchemaBackedRelationFieldBase(Generic[T]):
                 dst_to_values[dst_id] = value
 
         self._dst_to_src_ids = {
-            dst_id: tuple(src_ids)
-            for dst_id, src_ids in dst_to_src_ids.items()
+            dst_id: tuple(src_ids) for dst_id, src_ids in dst_to_src_ids.items()
         }
         self._dst_to_values = dst_to_values
 
@@ -573,7 +591,9 @@ class _SchemaBackedRelationFieldBase(Generic[T]):
         if not deleted_ids:
             return
         self._db = _ensure_db(self._db)
-        cast(Any, self.link_table).update(SimpleNamespace(src_ids_deleted=deleted_ids))
+        cast(Any, self._link_table()).update(
+            SimpleNamespace(src_ids_deleted=deleted_ids)
+        )
 
     def _validate_create_policy(
         self,
@@ -624,7 +644,7 @@ class _SchemaBackedRelationFieldBase(Generic[T]):
         if not dst_values_map:
             return
         self._db = _ensure_db(self._db)
-        self.dst_table.update(
+        cast(SchemaBackedMainTableCache, self.dst_table).update(
             {int(dst_id): value for dst_id, value in dst_values_map.items()},
             self._db,
             target_column=self.dst_table_cache_col,
@@ -668,7 +688,12 @@ class _SchemaBackedRelationFieldBase(Generic[T]):
         :raises ValueError: More than one destination ID matches the value.
         """
 
-        matches = sorted(int(dst_id) for dst_id in self.dst_table.get_ids_for_value(self.dst_table_cache_col, value))
+        matches = sorted(
+            int(dst_id)
+            for dst_id in self.dst_table.get_ids_for_value(
+                self.dst_table_cache_col, value
+            )
+        )
         if not matches:
             return None
         if len(matches) > 1:
@@ -677,7 +702,7 @@ class _SchemaBackedRelationFieldBase(Generic[T]):
             )
         return matches[0]
 
-    def _create_related_dst_row(self, value: T) -> int:
+    def _create_related_dst_row(self, value: T | None) -> int:
         """
         Create a destination row and refresh its table through the available driver path.
 
@@ -736,7 +761,7 @@ class _SchemaBackedRelationFieldBase(Generic[T]):
         """
 
         self._db = _ensure_db(self._db)
-        cast(Any, self.link_table).update(
+        cast(Any, self._link_table()).update(
             SimpleNamespace(create_these_links={int(src_id): int(dst_id)})
         )
 
@@ -757,13 +782,20 @@ class _SchemaBackedRelationFieldBase(Generic[T]):
         :raises ValueError: A supplied destination table or target-column label differs from this field.
         """
 
-        if str(getattr(link_update, "dst_table", self.dst_table_name)) != self.dst_table_name:
+        if (
+            str(getattr(link_update, "dst_table", self.dst_table_name))
+            != self.dst_table_name
+        ):
             raise ValueError(
                 f"Field {self.field_key!r} received a link update for dst table "
                 f"{getattr(link_update, 'dst_table', None)!r}, expected {self.dst_table_name!r}"
             )
         if (
-            str(getattr(link_update, "dst_table_target_column", self.dst_table_cache_col))
+            str(
+                getattr(
+                    link_update, "dst_table_target_column", self.dst_table_cache_col
+                )
+            )
             != self.dst_table_cache_col
         ):
             raise ValueError(
@@ -817,7 +849,7 @@ class _SchemaBackedRelationFieldBase(Generic[T]):
                     f"Field {self.field_key!r} cannot target missing dst id {dst_id}"
                 )
             if not allow_shared_dst:
-                existing_src_id = cast(Any, self.link_table).get_src_id(dst_id)
+                existing_src_id = cast(Any, self._link_table()).get_src_id(dst_id)
                 if existing_src_id is not None and int(existing_src_id) != int(src_id):
                     raise ValueError(
                         f"Field {self.field_key!r} cannot retarget dst id {dst_id} "
@@ -831,7 +863,9 @@ class _SchemaBackedRelationFieldBase(Generic[T]):
             if matched_dst_id is not None:
                 if allow_shared_dst:
                     return matched_dst_id
-                existing_src_id = cast(Any, self.link_table).get_src_id(matched_dst_id)
+                existing_src_id = cast(Any, self._link_table()).get_src_id(
+                    matched_dst_id
+                )
                 if existing_src_id is None or int(existing_src_id) == int(src_id):
                     return matched_dst_id
 
@@ -855,7 +889,15 @@ class _SchemaBackedRelationFieldBase(Generic[T]):
         """
 
         updates: dict[str, Any] = {}
-        for property_name in ("priority", "type", "primary", "origin", "policy", "data", "index"):
+        for property_name in (
+            "priority",
+            "type",
+            "primary",
+            "origin",
+            "policy",
+            "data",
+            "index",
+        ):
             column_name = self._column_for_extra(property_name)
             if column_name is None or not hasattr(link_update, property_name):
                 continue
@@ -926,7 +968,7 @@ class _SchemaBackedRelationFieldBase(Generic[T]):
         self._unlink_src_ids({int(src_id)})
 
         if resolved:
-            cast(Any, self.link_table).update(
+            cast(Any, self._link_table()).update(
                 SimpleNamespace(
                     src_dst_priority_update={
                         int(src_id): [dst_id for dst_id, _link_update in resolved]
@@ -940,7 +982,9 @@ class _SchemaBackedRelationFieldBase(Generic[T]):
         for dst_id, link_update in resolved:
             property_updates = self._link_property_updates(link_update)
             if property_updates:
-                self._update_link_row_columns(int(src_id), int(dst_id), property_updates)
+                self._update_link_row_columns(
+                    int(src_id), int(dst_id), property_updates
+                )
 
     def _ensure_existing_singular_targets(
         self,
@@ -966,7 +1010,7 @@ class _SchemaBackedRelationFieldBase(Generic[T]):
         mapping: dict[int, int] = {}
         missing: list[int] = []
         for src_id in sorted({int(value) for value in src_ids}):
-            dst_id = cast(Any, self.link_table).get_dst_id(src_id)
+            dst_id = cast(Any, self._link_table()).get_dst_id(src_id)
             if dst_id is None:
                 missing.append(src_id)
                 continue
@@ -979,7 +1023,7 @@ class _SchemaBackedRelationFieldBase(Generic[T]):
 
     def _ensure_existing_sequence_targets(
         self,
-        updates: dict[int, Sequence[Optional[T]]],
+        updates: Mapping[int, Sequence[Optional[T]]],
     ) -> dict[int, tuple[int, ...]]:
         """
         Match each supplied value sequence to the existing ordered destination sequence.
@@ -1048,7 +1092,7 @@ class _SchemaBackedRelationFieldBase(Generic[T]):
         :raises RuntimeError: The pair has several cached link records.
         """
 
-        row = cast(Any, self.link_table).get_link_row(int(src_id), int(dst_id))
+        row = cast(Any, self._link_table()).get_link_row(int(src_id), int(dst_id))
         if row is None:
             raise KeyError((int(src_id), int(dst_id)))
         return dict(row.row_dict)
@@ -1123,7 +1167,7 @@ class _SchemaBackedRelationFieldBase(Generic[T]):
         row_dict = self._link_row_snapshot(src_id, dst_id)
         row_dict.update(updates)
         self._db.driver_wrapper.update_row(row_dict)
-        self.link_table.read(self._db)
+        self._link_table().read(self._db)
 
     def _value_from_link_property(
         self,
@@ -1188,7 +1232,9 @@ class _SchemaBackedRelationFieldBase(Generic[T]):
             elif dc_field.name == "dst_table_id":
                 kwargs[dc_field.name] = int(dst_id)
             else:
-                kwargs[dc_field.name] = self._value_from_link_property(row_dict, dc_field.name)
+                kwargs[dc_field.name] = self._value_from_link_property(
+                    row_dict, dc_field.name
+                )
         return props_cls(**kwargs)
 
     def _set_link_properties(self, updated_link_properties: Any) -> None:
@@ -1211,9 +1257,19 @@ class _SchemaBackedRelationFieldBase(Generic[T]):
         """
 
         updates: dict[str, Any] = {}
-        for property_name in ("priority", "type", "primary", "origin", "policy", "data", "index"):
+        for property_name in (
+            "priority",
+            "type",
+            "primary",
+            "origin",
+            "policy",
+            "data",
+            "index",
+        ):
             column_name = self._column_for_extra(property_name)
-            if column_name is None or not hasattr(updated_link_properties, property_name):
+            if column_name is None or not hasattr(
+                updated_link_properties, property_name
+            ):
                 continue
             value = getattr(updated_link_properties, property_name)
             if value is None:
@@ -1288,5 +1344,19 @@ class _SchemaBackedRelationFieldBase(Generic[T]):
         column_name = self._column_for_extra(str(extra_type))
         if column_name is None:
             raise KeyError(str(extra_type))
-        self._update_link_row_columns(int(src_id), int(dst_id), {column_name: new_extra_value})
+        self._update_link_row_columns(
+            int(src_id), int(dst_id), {column_name: new_extra_value}
+        )
         self.read(self._db)
+
+    @property
+    def src_table_name(self) -> str:
+        return self.src_table.table
+
+    @property
+    def dst_table_name(self) -> str:
+        return self.dst_table.table
+
+    def _link_table(self) -> SchemaBackedLinkTable:
+        """Narrow the link installed by this backend's cardinality constructor."""
+        return cast(SchemaBackedLinkTable, getattr(self, "link_table"))

@@ -10,12 +10,12 @@ from __future__ import annotations
 
 import pytest
 
-from LiuXin_alpha.library.caches.calibre.tables.one_one_tables import (
+from LiuXin_alpha.utils.calibre_compat.caches.calibre.tables.one_one_tables import (
     CalibreCustomColumnsOneToOneTable,
 )
-from LiuXin_alpha.catalog.field_metadata import FieldMetadata
+from LiuXin_alpha.utils.calibre_compat.metadata.field_metadata import FieldMetadata
 from LiuXin_alpha.errors import InvalidCacheUpdate
-from LiuXin_alpha.surfaces.categories import find_categories
+from LiuXin_alpha.utils.calibre_compat.caches.categories import find_categories
 
 def _add_custom_field(
     fm: FieldMetadata,

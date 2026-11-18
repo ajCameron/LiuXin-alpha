@@ -48,7 +48,6 @@ PLUGIN_HOST_PREFIXES = tuple(
         "contracts",
         "archives",
         "builtins",
-        "cache",
         "folder_store_driver",
     )
 )

@@ -19,7 +19,7 @@ from types import MappingProxyType
 
 import pytest
 
-from LiuXin_alpha.caches.write.utils import UpdateDict
+from LiuXin_alpha.utils.calibre_compat.caches.write.utils import UpdateDict
 from LiuXin_alpha.catalog.catalog import Catalog
 from LiuXin_alpha.catalog.write import LinkUpdate, LinkUpdateEntry, LinkUpdateLink
 from LiuXin_alpha.databases.db_types.macro_types import LINK_TYPE_UNSET, LinkRow, LinkValue

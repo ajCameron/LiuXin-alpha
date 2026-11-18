@@ -1,4 +1,4 @@
-# D050 — src/LiuXin_alpha/caches/write — __init__, author_sort_writer, base_writer, covers_writer, 2026-09-14
+# D050 — src/LiuXin_alpha/utils/calibre_compat/caches/write — __init__, author_sort_writer, base_writer, covers_writer, 2026-09-14
 
 Legacy writer dispatch, adaptation/filtering, value resolution and database/link helper order source-reviewed. Existing 26 writer import/dispatch regressions and selected safe examples passed. Mutation helpers retain legacy partial-side-effect and cache ordering behavior; executable AST/comments/headers and lint baselines preserved. Full cache-source checkpoint remains due after D054.
 

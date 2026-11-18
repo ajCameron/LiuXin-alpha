@@ -15,6 +15,7 @@ from __future__ import annotations
 import shlex
 import shutil
 import subprocess
+import tomllib
 from pathlib import Path
 
 import pytest
@@ -293,3 +294,10 @@ def test_typing_extra_installs_native_database_modules_and_stubs() -> None:
         for spec in config["project"]["optional-dependencies"]["typing"]
     }
     assert {"apsw", "psycopg2-binary", "types-psycopg2"} <= dependencies
+
+
+def test_native_cache_package_stays_in_both_type_checker_scopes() -> None:
+    """New cache modules must enter both checkers without per-file opt-in."""
+    config = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text())
+    assert "src/LiuXin_alpha/caches" in config["tool"]["basedpyright"]["include"]
+    assert "src/LiuXin_alpha/caches" in config["tool"]["mypy"]["files"]

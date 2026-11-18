@@ -1047,7 +1047,10 @@ class DriverWrapper(
 
         Includes views among table specifications. Relationship discovery uses
         main-table groups and conventional names. force_refresh clears derived wrapper
-        caches; nested discovery otherwise uses its ordinary cached backend paths.
+        caches. A backend scope can reuse version probes during reconstruction and
+        validates them before publication. Failure discards partial derived state;
+        caller-owned transactions remain untouched. Cached specifications still
+        require force_refresh after schema changes.
 
         Example:
             >>> wrapper.get_schema_spec()  # doctest: +SKIP
@@ -1062,26 +1065,32 @@ class DriverWrapper(
         elif self._cached_schema_spec is not None:
             return self._cached_schema_spec
 
-        tables = {
-            spec.name: spec
-            for spec in self.iter_table_specs(force_refresh=False, include_views=True)
-        }
-        interlinks = tuple(
-            self.iter_link_specs(force_refresh=False, include_intralinks=False)
-        )
-        intralinks = tuple(
-            spec
-            for spec in self.iter_link_specs(
-                force_refresh=False, include_intralinks=True
-            )
-            if spec.primary_table == spec.secondary_table
-        )
-
-        schema = StorageSchemaSpec(
-            tables=tables,
-            interlinks=interlinks,
-            intralinks=intralinks,
-        )
+        try:
+            with self.driver.schema_read_scope():
+                tables = {
+                    spec.name: spec
+                    for spec in self.iter_table_specs(
+                        force_refresh=False, include_views=True
+                    )
+                }
+                interlinks = tuple(
+                    self.iter_link_specs(force_refresh=False, include_intralinks=False)
+                )
+                intralinks = tuple(
+                    spec
+                    for spec in self.iter_link_specs(
+                        force_refresh=False, include_intralinks=True
+                    )
+                    if spec.primary_table == spec.secondary_table
+                )
+                schema = StorageSchemaSpec(
+                    tables=tables,
+                    interlinks=interlinks,
+                    intralinks=intralinks,
+                )
+        except BaseException:
+            self._clear_derived_schema_caches()
+            raise
         self._cached_schema_spec = schema
         return schema
 

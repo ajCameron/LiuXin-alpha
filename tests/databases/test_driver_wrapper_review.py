@@ -22,7 +22,7 @@ stored = fixtures.stored
 
 
 @pytest.mark.parametrize(
-    "lookup", ["relation", "table_spec", "tables", "columns", "views"]
+    "lookup", ["relation", "table_spec", "schema_spec", "tables", "columns", "views"]
 )
 def test_schema_inspection_preserves_pending_writes(db, lookup):
     """Schema reads cannot publish or discard the primary connection's writes."""
@@ -33,6 +33,7 @@ def test_schema_inspection_preserves_pending_writes(db, lookup):
     calls = {
         "relation": lambda: wrapper.get_relation_type("works"),
         "table_spec": lambda: wrapper.get_table_spec("works", force_refresh=True),
+        "schema_spec": lambda: wrapper.get_schema_spec(force_refresh=True),
         "tables": lambda: wrapper.get_tables(force_refresh=True),
         "columns": lambda: db.driver.direct_get_tables_and_columns(force_refresh=True),
         "views": lambda: wrapper.get_views(force_refresh=True),

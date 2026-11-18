@@ -49,6 +49,52 @@ class ValueMatch:
 
 
 @dataclass(frozen=True, slots=True)
+class ComparisonMatch:
+    """Compare physical values; collection operators inspect stored collections.
+
+    Unlike ValueMatch, ordered comparisons against missing values never match.
+    Text operators use literal values; TextMatch owns normalized text matching.
+    """
+
+    column: str
+    operator: Literal[
+        "eq",
+        "ne",
+        "lt",
+        "lte",
+        "gt",
+        "gte",
+        "in",
+        "contains",
+        "prefix",
+        "regex",
+        "is_null",
+    ]
+    value: Any = None
+
+
+@dataclass(frozen=True, slots=True)
+class CountMatch:
+    """Compare the number of values in a physical collection field."""
+
+    column: str
+    operator: Literal["eq", "ne", "lt", "lte", "gt", "gte"]
+    value: int
+
+
+@dataclass(frozen=True, slots=True)
+class ProvidedMatch:
+    """Delegate a leaf to an explicitly supplied candidate-set provider.
+
+    Providers implement validate(table) and match(table, candidates). They own
+    field meaning and must not modify candidates. This execution-only predicate
+    is not SQL-compilable or result-cacheable without a separate revision scope.
+    """
+
+    provider: Any
+
+
+@dataclass(frozen=True, slots=True)
 class IdentifierMatch:
     """Compare stored scheme/value columns with an already-normalized pair.
 
@@ -104,5 +150,13 @@ class ForeignMatch:
 
 
 RowPredicate = (
-    TextMatch | ValueMatch | IdentifierMatch | BooleanMatch | LinkedMatch | ForeignMatch
+    TextMatch
+    | ValueMatch
+    | IdentifierMatch
+    | BooleanMatch
+    | LinkedMatch
+    | ForeignMatch
+    | ComparisonMatch
+    | CountMatch
+    | ProvidedMatch
 )

@@ -299,17 +299,17 @@ def test_ratings_have_explicit_work_scope_preserve_other_sources_and_rollback(
 
 
 def test_migrated_cache_hooks_use_policy_and_do_not_write_legacy_views(catalog):
-    from LiuXin_alpha.caches.write.author_sort_writer import AuthorSortWriter
-    from LiuXin_alpha.caches.write.generic_writers.many_to_many_writer import (
+    from LiuXin_alpha.utils.calibre_compat.caches.write.author_sort_writer import AuthorSortWriter
+    from LiuXin_alpha.utils.calibre_compat.caches.write.generic_writers.many_to_many_writer import (
         ManyToManyWriter,
     )
-    from LiuXin_alpha.caches.write.generic_writers.many_to_one_writer import (
+    from LiuXin_alpha.utils.calibre_compat.caches.write.generic_writers.many_to_one_writer import (
         ManyToOneWriter,
     )
-    from LiuXin_alpha.caches.write.generic_writers.one_to_one_writer import (
+    from LiuXin_alpha.utils.calibre_compat.caches.write.generic_writers.one_to_one_writer import (
         OneToOneWriter,
     )
-    from LiuXin_alpha.caches.write.title_writer import TitleWriter
+    from LiuXin_alpha.utils.calibre_compat.caches.write.title_writer import TitleWriter
 
     db = catalog.db
     key = "3:13:105"
@@ -338,3 +338,39 @@ def test_migrated_cache_hooks_use_policy_and_do_not_write_legacy_views(catalog):
     assert catalog.works.require(3)["work_sort_title"] is None
     assert catalog.calibre.project(key)["title"] == "A translated title"
     assert field.table.book_col_map[key] == "A translated title"
+
+
+def test_search_adapter_uses_displayed_expression_projection(catalog):
+    from LiuXin_alpha.utils.calibre_compat.caches.search.adapter import CalibreSearchAdapter
+    novel, intro = CalibreBookRef(13), CalibreBookRef(14)
+    adapter = CalibreSearchAdapter.from_catalog(catalog, (novel, intro))
+    assert adapter.search('title:Novel') == {novel}
+    assert adapter.search('Novel') == {novel}
+    assert adapter.search('title:Introduction') == {intro}
+    catalog.calibre.write_field('title', {novel:'Changed'})
+    assert adapter.search('title:Novel') == {novel}
+    assert CalibreSearchAdapter.from_catalog(catalog, (novel,)).search('title:Changed') == {novel}
+
+
+def test_search_adapter_reads_native_custom_fields(catalog):
+    from LiuXin_alpha.databases.custom_columns.native_types import OwnerRef
+    from LiuXin_alpha.utils.calibre_compat.caches.search.adapter import CalibreSearchAdapter
+    field = catalog.custom_fields.create_field('expressions', 'score', datatype='int')
+    catalog.custom_fields.set_value(OwnerRef('expressions', 13), field.id, 8)
+    ref = CalibreBookRef(13)
+    adapter = CalibreSearchAdapter.from_catalog(catalog, (ref,))
+    assert adapter.search('#score:>=7') == {ref}
+
+
+def test_search_custom_aliases_are_resolved_across_the_whole_projection(catalog):
+    from LiuXin_alpha.databases.custom_columns.native_types import OwnerRef
+    from LiuXin_alpha.utils.calibre_compat.caches.search.adapter import CalibreSearchAdapter
+    work_field = catalog.custom_fields.create_field('works', 'score', datatype='int')
+    expression_field = catalog.custom_fields.create_field('expressions', 'score', datatype='int')
+    catalog.custom_fields.set_value(OwnerRef('works', 3), work_field.id, 8)
+    catalog.custom_fields.set_value(OwnerRef('expressions', 21), expression_field.id, 7)
+    novel, orphan = CalibreBookRef(13), CalibreBookRef(21)
+    adapter = CalibreSearchAdapter.from_catalog(catalog, (novel, orphan))
+    assert adapter.search(work_field.key + ':8') == {novel}
+    assert adapter.search(expression_field.key + ':7') == {orphan}
+    assert '#score' not in adapter.field_metadata.aliases

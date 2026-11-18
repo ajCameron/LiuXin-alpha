@@ -4,8 +4,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from LiuXin_alpha.caches.write.base_writer import BaseWriter
-from LiuXin_alpha.caches.write.generic_writers.one_to_one_writer import OneToOneWriter
+from LiuXin_alpha.utils.calibre_compat.caches.write.base_writer import BaseWriter
+from LiuXin_alpha.utils.calibre_compat.caches.write.generic_writers.one_to_one_writer import OneToOneWriter
 from LiuXin_alpha.catalog.catalog import Catalog
 from LiuXin_alpha.databases.custom_columns import CustomFieldService, OwnerRef
 from LiuXin_alpha.databases.custom_columns.native_repository import names
