@@ -37,6 +37,7 @@ def test_format_provider_contracts_are_budgeted() -> None:
         "LiuXin_alpha.file_formats.providers.legacy_conversion",
         "LiuXin_alpha.file_formats.providers.upstream_calibre",
         "LiuXin_alpha.file_formats.providers.fork_metadata",
+        "LiuXin_alpha.file_formats.providers.ported_calibre",
         "LiuXin_alpha.file_formats.html.book",
     ):
         budget = budgets[module]

@@ -251,14 +251,14 @@ def _plugin(plugin_class: type[Any]) -> Any:
     return plugin
 
 
-def _cached(
+def remember_reading(
     key: tuple[object, ...], read: Callable[[], tuple[object, CoverImage | None]]
 ) -> tuple[object, CoverImage | None]:
     """
     Reuse a recent answer for the same reader and unchanged file.
 
     Example:
-        >>> _cached(("example",), lambda: ("fields", None))
+        >>> remember_reading(("example",), lambda: ("fields", None))
         ('fields', None)
 
 
@@ -277,14 +277,14 @@ def _cached(
     return answer
 
 
-def _file_key(
+def reading_key(
     provider: type[Any], source: Path, source_format: str
 ) -> tuple[object, ...]:
     """
     Identify one reader's read of one unchanged file.
 
     Example:
-        >>> _file_key(int, Path(__file__), "py")[1] == str(Path(__file__).resolve())
+        >>> reading_key(int, Path(__file__), "py")[1] == str(Path(__file__).resolve())
         True
 
 
@@ -408,7 +408,9 @@ class ForkCalibreReader(CalibreMetadataReader, CoverExtractor):
             values, cover = serialised_calibre(metadata, context)
             return CalibreFields(values), cover
 
-        fields, cover = _cached(_file_key(type(self), source, source_format), read)
+        fields, cover = remember_reading(
+            reading_key(type(self), source, source_format), read
+        )
         return cast("CalibreFields", fields), cover
 
     def _run(self: Self, source: Path, source_format: str) -> object:
@@ -552,7 +554,9 @@ class LiuXinReader(WEMIMetadataReader, CoverExtractor):
                 f"{self.provider_id} got {type(metadata).__name__} from its reader"
             )
 
-        fields, cover = _cached(_file_key(type(self), source, source_format), read)
+        fields, cover = remember_reading(
+            reading_key(type(self), source, source_format), read
+        )
         return cast("WEMIFields", fields), cover
 
 
