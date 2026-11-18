@@ -18,7 +18,7 @@ from unittest.mock import MagicMock, Mock
 import pytest
 
 from LiuXin_alpha.core import CoreClientAPI
-from LiuXin_alpha.surfaces import categories
+from LiuXin_alpha.utils.calibre_compat.caches import categories
 from LiuXin_alpha.surfaces.core import CoreSurfaceModel
 from LiuXin_alpha.surfaces.images.api import ImageBackend
 from LiuXin_alpha.surfaces.tags_icons import TagsIcons, category_icon_map

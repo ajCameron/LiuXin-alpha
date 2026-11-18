@@ -35,6 +35,7 @@ test = [
 ]
 search = [
   "rapidfuzz>=3.9",
+  "regex>=2024.5",
 ]
 postgres = [
   "psycopg2-binary>=2.9",
