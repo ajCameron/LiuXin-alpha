@@ -19,7 +19,7 @@ database lifetime and any required consistency scope.
 from __future__ import annotations
 
 from collections.abc import Iterable
-from typing import Any
+from typing import TYPE_CHECKING, Any, cast
 
 from LiuXin_alpha.catalog.api.common import (
     CatalogNotFoundError,
@@ -31,6 +31,9 @@ from LiuXin_alpha.catalog.repositories.base import WEMI_TABLES
 from LiuXin_alpha.databases.db_types.query_types import MissingSearchReference
 from LiuXin_alpha.metadata.text_identity import normalize_identity_text
 from LiuXin_alpha.utils.search_query_parser import ParseException, Parser
+
+if TYPE_CHECKING:
+    from LiuXin_alpha.caches.api import CacheQuery
 
 _LEVELS = tuple(WEMI_TABLES)
 _TEXT_PROFILE = "unicode_nfkc_whitespace_casefold"
@@ -123,7 +126,7 @@ _ALIASES = {
     "publishers": "publisher",
     "identifiers": "identifier",
 }
-_LOCATIONS = {"all": (None, "all")}
+_LOCATIONS: dict[str, tuple[WemiLevel | None, str]] = {"all": (None, "all")}
 for _field in (*_FIELDS, *_ALIASES):
     _LOCATIONS[_field] = (None, _ALIASES.get(_field, _field))
 for _level, _table in WEMI_TABLES.items():
@@ -167,6 +170,7 @@ class CatalogSearch:
         level: WemiLevel = "work",
         limit: int | None = 100,
         offset: int = 0,
+        read_cache: Any = None,
     ) -> tuple[RowMapping, ...]:
         """Return matching rows at one level, ordered by ascending entity ID.
 
@@ -201,6 +205,20 @@ class CatalogSearch:
                 self._validate_terms(tree)
         except RecursionError as exc:
             raise ParseException("Search expression is too deeply nested") from exc
+        if read_cache is not None:
+            if read_cache.database is not self.db:
+                raise ValueError("Search cache belongs to another database")
+            from dataclasses import replace
+
+            plan = replace(self.compile(query, level=level), limit=limit, offset=offset)
+            try:
+                return tuple(
+                    dict(record.values) for record in read_cache.query(plan).records
+                )
+            except MissingSearchReference as exc:
+                raise CatalogNotFoundError(
+                    f"Missing linked {exc.table} row during search"
+                ) from exc
         if limit == 0:
             return ()
         supports = getattr(self.db.macros, "supports_normalized_search", None)
@@ -234,17 +252,45 @@ class CatalogSearch:
                 break
         return tuple(matches)
 
+    def compile(self, query: str, *, level: WemiLevel = "work") -> CacheQuery:
+        """Resolve native semantics into a physical CacheQuery without reading rows.
+
+        The resulting immutable specification can be executed by an explicitly
+        supplied ReadCache. Field and traversal policy remain owned by Catalog.
+        """
+        from LiuXin_alpha.caches.api import CacheQuery
+
+        from .physical_plan import PhysicalSearchPlan
+
+        if level not in WEMI_TABLES:
+            raise ValueError(f"unknown WEMI level: {level!r}")
+        if not isinstance(query, str):
+            raise TypeError("query must be a string")
+        try:
+            tree = Parser().parse(query, _LOCATIONS) if query.strip() else None
+            if tree is not None:
+                self._validate_terms(tree)
+            return CacheQuery(
+                WEMI_TABLES[level], where=PhysicalSearchPlan(self.db).build(tree, level)
+            )
+        except RecursionError as exc:
+            raise ParseException("Search expression is too deeply nested") from exc
+
     def _candidate_rows(self, level):
         """Bound fallback payload reads where the adapter supports cursor pages."""
         page = getattr(self.db.macros, "get_rows_page", None)
         if not callable(page):
-            yield from self.db.macros.get_rows(
-                WEMI_TABLES[level], order_by=(f"{level}_id",)
+            yield from cast(
+                Iterable[RowMapping],
+                self.db.macros.get_rows(WEMI_TABLES[level], order_by=(f"{level}_id",)),
             )
             return
         after = None
         while True:
-            rows, complete = page(WEMI_TABLES[level], limit=500, after_id=after)
+            rows, complete = cast(
+                tuple[tuple[RowMapping, ...], bool],
+                page(WEMI_TABLES[level], limit=500, after_id=after),
+            )
             yield from rows
             if complete or not rows:
                 return
@@ -401,7 +447,7 @@ class _SearchReads:
     def linked_rows(self, level: WemiLevel, entity_id: int, table: str) -> tuple:
         key = (level, entity_id, table)
         if key not in self.related:
-            spec = self.search.db.driver_wrapper.get_link_spec(
+            spec = cast(Any, self.search.db).driver_wrapper.get_link_spec(
                 WEMI_TABLES[level], table
             )
             self.related[key] = (

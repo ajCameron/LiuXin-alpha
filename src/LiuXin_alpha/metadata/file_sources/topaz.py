@@ -382,7 +382,13 @@ class MetadataUpdater:
         """
         topaz_headers: dict[str, dict] = {}
         th_seq: list[str] = []
+        # The counts come from the file. Every record and block takes at least one
+        # byte, so a count that runs past the end is damage; stop there rather than
+        # loop on through up to 2**56 records of nothing.
+        data_len = len(self.data)
         for _ in range(self.header_records):
+            if offset >= data_len:
+                raise ValueError("Truncated Topaz header")
             offset += 1  # record marker ('c')
 
             taglen, consumed = self.decode_vwi(self.data[offset : offset + 8])
@@ -394,6 +400,8 @@ class MetadataUpdater:
             offset += consumed
             blocks = {}
             for val in range(num_vals):
+                if offset >= data_len:
+                    raise ValueError("Truncated Topaz header")
                 hdr_offset, consumed = self.decode_vwi(self.data[offset : offset + 8])
                 offset += consumed
                 len_uncomp, consumed = self.decode_vwi(self.data[offset : offset + 8])

@@ -5,7 +5,6 @@ from __future__ import annotations
 from collections.abc import Callable, Iterable, Mapping, MutableMapping, Sequence
 from typing import TYPE_CHECKING, Any, cast
 
-from LiuXin_alpha.catalog.field_metadata import FieldMetadata
 from LiuXin_alpha.databases.constants import CUSTOM_DATA_TYPES
 from LiuXin_alpha.databases.custom_columns.native_repository import names
 from LiuXin_alpha.databases.custom_columns.native_service import CustomFieldService
@@ -21,14 +20,6 @@ from LiuXin_alpha.databases.utils import (
     cleanup_tags,
 )
 from LiuXin_alpha.errors import DatabaseIntegrityError
-from LiuXin_alpha.metadata.field_adaptors import (
-    cc_adapt_bool,
-    cc_adapt_datetime,
-    cc_adapt_enum,
-    cc_adapt_number,
-    cc_adapt_rating,
-    cc_adapt_text,
-)
 from LiuXin_alpha.utils.calibre_compat.custom_columns.adapter import (
     CustomColumnAdapter,
 )
@@ -47,6 +38,15 @@ from LiuXin_alpha.utils.calibre_compat.custom_columns.values import (
     _inventory,
     _project,
 )
+from LiuXin_alpha.utils.calibre_compat.metadata.field_adaptors import (
+    cc_adapt_bool,
+    cc_adapt_datetime,
+    cc_adapt_enum,
+    cc_adapt_number,
+    cc_adapt_rating,
+    cc_adapt_text,
+)
+from LiuXin_alpha.utils.calibre_compat.metadata.field_metadata import FieldMetadata
 from LiuXin_alpha.utils.language_tools import plural_singular_mapper
 from LiuXin_alpha.utils.libraries.liuxin_six import basestring
 from LiuXin_alpha.utils.logging import prints

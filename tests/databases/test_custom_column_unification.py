@@ -39,7 +39,7 @@ assert "__getattr__" not in vars(native)
 assert not hasattr(native.CustomFieldService, "_prepare_fields")
 assert not hasattr(native.CustomFieldService, "_prepare_storage_registry")
 assert not any(name.startswith("LiuXin_alpha.caches") for name in sys.modules)
-assert "LiuXin_alpha.catalog.field_metadata" not in sys.modules
+assert "LiuXin_alpha.utils.calibre_compat.metadata.field_metadata" not in sys.modules
 assert not hasattr(native.native_types, "CompatibilityError")
 for name in (
     "CustomColumns", "CustomColumnsManager", "CustomColumnsAPI", "CompatibilityError",

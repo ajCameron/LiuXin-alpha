@@ -13,7 +13,7 @@ Shared policy labels and schema-independent display defaults live in
 remain in ``databases.column_metadata``; Catalog applies rules during writes.
 
 Legacy bibliographic and custom-field conversion belongs to
-``metadata.field_adaptors``. Generic scalar converters remain in ``utils.adaptors``.
+``utils.calibre_compat.metadata.field_adaptors``. Generic scalar converters remain in ``utils.adaptors``.
 
 Import concrete value types, policies, containers, and workflows from their owning
 modules. Persistence-free OPF conversion lives in ``LiuXin_alpha.metadata.facade``;

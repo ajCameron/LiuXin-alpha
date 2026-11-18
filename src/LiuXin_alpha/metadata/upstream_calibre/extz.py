@@ -1,0 +1,135 @@
+# License: GPLv3 Copyright: 2011, John Schember <john@nachtimwald.com>
+# Ported from calibre (https://calibre-ebook.com) 9.18: src/calibre/ebooks/metadata/extz.py
+# Changes from upstream: calibre imports point at upstream_calibre and its _compat, and
+# 'from __future__ import annotations' is added.
+# SPDX-License-Identifier: GPL-3.0-only
+
+"""
+Read meta information from extZ (TXTZ, HTMLZ...) files.
+"""
+
+from __future__ import annotations
+
+import io
+import os
+from typing import IO, TYPE_CHECKING
+
+from LiuXin_alpha.metadata.upstream_calibre.metadata_base import MetaInformation
+from LiuXin_alpha.metadata.upstream_calibre.opf2 import OPF
+from LiuXin_alpha.metadata.upstream_calibre._compat import PersistentTemporaryFile
+from LiuXin_alpha.metadata.upstream_calibre._compat import _
+from LiuXin_alpha.metadata.upstream_calibre._compat import ZipFile
+from LiuXin_alpha.metadata.upstream_calibre._compat import safe_replace
+
+if TYPE_CHECKING:
+    from LiuXin_alpha.metadata.upstream_calibre.book_base import Metadata
+
+
+def get_metadata(stream: IO[bytes], extract_cover: bool = True) -> Metadata:
+    """
+    Return metadata as a L{MetaInfo} object
+    """
+    mi = MetaInformation(_('Unknown'), [_('Unknown')])
+    stream.seek(0)
+    try:
+        with ZipFile(stream) as zf:
+            opf_name = get_first_opf_name(zf)
+            with zf.open(opf_name) as opf_stream:
+                opf = OPF(opf_stream)
+            mi = opf.to_book_metadata()
+            if extract_cover:
+                cover_href = opf.raster_cover
+                if not cover_href:
+                    gc = opf.guide_raster_cover
+                    if gc is not None:
+                        cover_href = gc.get('href')
+                if not cover_href:
+                    for meta in opf.metadata.xpath('//*[local-name()="meta" and @name="cover"]'):
+                        val = meta.get('content')
+                        if val.rpartition('.')[2].lower() in {'jpeg', 'jpg', 'png'}:
+                            cover_href = val
+                            break
+                    else:
+                        for val in opf.guide_cover_path(opf.root):  # this is needed because the cover is not in the manifest
+                            if val.rpartition('.')[2].lower() in {'jpeg', 'jpg', 'png'}:
+                                cover_href = val
+                                break
+                        else:
+                            # txtz files use a special element for cover
+                            for cpath in opf.root.xpath('//cover-relpath-from-base'):
+                                if cpath.text:
+                                    cover_href = cpath.text
+                                    break
+                if cover_href:
+                    try:
+                        mi.cover_data = (os.path.splitext(cover_href)[1], zf.read(cover_href))
+                    except Exception:
+                        pass
+    except Exception:
+        return mi
+    return mi
+
+
+def set_metadata(stream: IO[bytes], mi: Metadata) -> None:
+    replacements = {}
+
+    # Get the OPF in the archive.
+    with ZipFile(stream) as zf:
+        opf_path = get_first_opf_name(zf)
+        opf_stream = io.BytesIO(zf.read(opf_path))
+    opf = OPF(opf_stream)
+
+    # Cover.
+    new_cdata = None
+    try:
+        new_cdata = mi.cover_data[1]
+        if not new_cdata:
+            raise Exception('no cover')
+    except Exception:
+        try:
+            assert mi.cover is not None  # failures are ignored below
+            with open(mi.cover, 'rb') as f:
+                new_cdata = f.read()
+        except Exception:
+            pass
+    if new_cdata:
+        cpath = opf.raster_cover
+        if not cpath:
+            cpath = 'cover.jpg'
+        new_cover = _write_new_cover(new_cdata, cpath)
+        replacements[cpath] = open(new_cover.name, 'rb')  # ruff: ignore[open-file-with-context-handler]
+        mi.cover = cpath
+
+    # Update the metadata.
+    opf.smart_update(mi, replace_metadata=True)
+    newopf = io.BytesIO(opf.render())
+    safe_replace(stream, opf_path, newopf, extra_replacements=replacements, add_missing=True)
+
+    # Cleanup temporary files.
+    try:
+        if cpath is not None:
+            replacements[cpath].close()
+            os.remove(replacements[cpath].name)
+    except Exception:
+        pass
+
+
+def get_first_opf_name(zf: ZipFile) -> str:
+    names = zf.namelist()
+    opfs = []
+    for n in names:
+        if n.endswith('.opf') and '/' not in n:
+            opfs.append(n)
+    if not opfs:
+        raise Exception('No OPF found')
+    opfs.sort()
+    return opfs[0]
+
+
+def _write_new_cover(new_cdata: bytes, cpath: str) -> PersistentTemporaryFile:
+    from LiuXin_alpha.metadata.upstream_calibre._compat import save_cover_data_to
+
+    new_cover = PersistentTemporaryFile(suffix=os.path.splitext(cpath)[1])
+    new_cover.close()
+    save_cover_data_to(new_cdata, new_cover.name)
+    return new_cover

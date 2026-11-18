@@ -133,7 +133,7 @@ validators. Identifier schemes and per-entity allow-lists belong to
 `metadata.relators`. Schema constraints may consume those rules without becoming
 their semantic owner.
 
-Legacy field conversion belongs to `metadata.field_adaptors`: field-specific
+Legacy field conversion belongs to `utils.calibre_compat.metadata.field_adaptors`: field-specific
 fallbacks, series parsing, language/identifier wrappers and custom-field rules.
 Generic converters remain in `utils.adaptors`. The metadata-descriptor and explicit
 datatype factory entry points share one implementation. Custom-field converters

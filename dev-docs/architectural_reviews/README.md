@@ -43,8 +43,9 @@ access; existing subsystem contracts continue to describe shipped behaviour.
 
 | Document | Latest interpretation |
 | --- | --- |
+| [Cache architecture and optimization readiness, 2026-11-17](caches-review-2026-11-17.md) | Metadata-search core ready for measured optimization after stress repairs. Records validation scope, performance priorities and remaining lifecycle/registry work; whole-cache sign-off remains open. |
 | [Global review and task list, 2026-11-16](global-review-2026-11-16.md) | Open. Static review of maintainability, documentation and goals; no tests run. Proposes prioritized tasks G-L1 to G-C5. Same-day follow-up: GPL-3.0 chosen for the whole project, licence provenance inventory added, tracked local artefacts removed. |
-| [Databases package review, 2026-11-14](databases-review-2026-11-14.md) | Ready for module sign-off at the documented boundaries in PR #161; not merged. The final native gate passed 5,010 tests and all 2,462 mandatory cases; the repaired general suite passed 9,381 tests. Read the final closure for skip counts, exact commits and remaining scope. Unsupported pre-release libraries require regeneration. |
+| [Databases package review, 2026-11-14](databases-review-2026-11-14.md) | Signed off at the documented boundaries on 2026-11-16. Repairs in PR #161 and the docstring follow-up in PR #165 are merged; the latter's database gate and full suite passed. Read the final closure and publication follow-up for exact evidence and remaining scope. Unsupported pre-release libraries require regeneration. |
 | [Whole-codebase review, 2026-10-27](codebase-review-2026-10-27.md) | Assessment of the October 27 main revision, reproducible remaining defects, integration gaps and fresh validation. |
 | [CI and repository baseline, 2026-10-20](ci-baseline-2026-10-20.md) | A15 dependency/image repairs, generated scratch inventory, clean-environment verification and fresh branch-rule observations. |
 | [Whole-repository review, 2026-09-26](architecture-review-2026-09-26.md) | Original 68 findings preserved, with October 18 status tables and October 19–20 follow-ups. Read the latest note before using the original action list. |

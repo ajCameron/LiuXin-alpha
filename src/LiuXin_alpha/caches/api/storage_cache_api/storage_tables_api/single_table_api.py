@@ -33,6 +33,28 @@ class StorageCacheSingleTableAPI(StorageCacheBaseTableAPI):
         'StorageCacheSingleTableAPI'
     """
 
+    @property
+    @abc.abstractmethod
+    def row_ids(self) -> Sequence[int]:
+        """Row identities in the same order as column values."""
+        raise NotImplementedError
+
+    @property
+    @abc.abstractmethod
+    def id_column(self) -> str:
+        """Physical identity column of this table."""
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def has_id(self, table_id: int) -> bool:
+        """Whether the current view contains this identity."""
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def get_row_snapshot(self, table_id: int) -> dict[str, Any]:
+        """Return an independent snapshot of this row's values."""
+        raise NotImplementedError
+
     # -----------------
     # - LINK PROPERTIES
 
@@ -86,7 +108,7 @@ class StorageCacheSingleTableAPI(StorageCacheBaseTableAPI):
         """
 
     @abc.abstractmethod
-    def get_ids_for_value(self, column: str, value: str) -> set[int]:
+    def get_ids_for_value(self, column: str, value: Any) -> set[int]:
         """
         Find row identities matching a value in one cached column.
 

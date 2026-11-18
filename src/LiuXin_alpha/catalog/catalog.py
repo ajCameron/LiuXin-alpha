@@ -342,7 +342,8 @@ class Catalog:
 
         Catalog-owned tables use their repositories, including partial-value
         validation, within one available macro transaction. Other schema tables
-        retain their database adapter. The receipt preserves the requested values.
+        use portable row batching in the same transaction. The receipt preserves
+        the requested values.
 
         Example:
             A configured column writer calls this seam after building and validating

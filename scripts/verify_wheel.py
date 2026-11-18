@@ -15,10 +15,27 @@ from __future__ import annotations
 
 import argparse
 import zipfile
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Sequence
 
 REQUIRED_MEMBERS = {
+    "LiuXin_alpha/caches/predicates.py",
+    "LiuXin_alpha/utils/calibre_compat/caches/search/adapter.py",
+    "LiuXin_alpha/utils/calibre_compat/caches/search/upstream.py",
+    "LiuXin_alpha/utils/calibre_compat/caches/search/upstream_parser.py",
+    "LiuXin_alpha/utils/calibre_compat/caches/search/upstream_formatter.py",
+    "LiuXin_alpha/utils/calibre_compat/caches/search/upstream_functions.py",
+    "LiuXin_alpha/utils/calibre_compat/caches/search/provenance.json",
+    "LiuXin_alpha/caches/field_metadata.py",
+    "LiuXin_alpha/utils/calibre_compat/caches/write/__init__.py",
+    "LiuXin_alpha/utils/calibre_compat/caches/base/base_cache.py",
+    "LiuXin_alpha/utils/calibre_compat/caches/calibre/cache.py",
+    "LiuXin_alpha/utils/calibre_compat/caches/search/__init__.py",
+    "LiuXin_alpha/utils/calibre_compat/caches/categories.py",
+    "LiuXin_alpha/utils/calibre_compat/caches/lazy.py",
+    "LiuXin_alpha/utils/calibre_compat/metadata/field_metadata.py",
+    "LiuXin_alpha/utils/calibre_compat/metadata/field_metadata_api.py",
+    "LiuXin_alpha/utils/calibre_compat/metadata/field_adaptors.py",
     "LiuXin_alpha/databases/database_driver_plugins/SQL/database_generator_frbr/aggregate_tables.toml",
     "LiuXin_alpha/databases/database_driver_plugins/SQL/database_generator_frbr/table_sql/storage_tables/3-digital-assets.sql",
     "LiuXin_alpha/databases/database_driver_plugins/SQL/database_generator_frbr/trigger_sql/storage/3-digital-assets_triggers.sql",
@@ -29,6 +46,18 @@ REQUIRED_MEMBERS = {
     "LiuXin_alpha/utils/libraries/liuxin_dateutil/zoneinfo/zoneinfo-2010g.tar.gz",
 }
 REQUIRED_ENTRY_POINTS = {"liuxin = LiuXin_alpha.surfaces.cli.app:main"}
+RETIRED_CACHE_PATHS = (
+    "LiuXin_alpha/caches/write/",
+    "LiuXin_alpha/plugins/cache/",
+    "LiuXin_alpha/library/caches/",
+    "LiuXin_alpha/library/lazy.py",
+    "LiuXin_alpha/library/tag_classes.py",
+    "LiuXin_alpha/catalog/field_metadata.py",
+    "LiuXin_alpha/catalog/api/field_metadata_api.py",
+    "LiuXin_alpha/catalog/search/field_searches/",
+    "LiuXin_alpha/metadata/field_adaptors.py",
+    "LiuXin_alpha/surfaces/categories.py",
+)
 
 
 def verify_wheel(wheel_path: Path) -> None:
@@ -50,6 +79,8 @@ def verify_wheel(wheel_path: Path) -> None:
         retired_prefixes = ("LiuXin_alpha/customize/", "LiuXin_alpha/plugin_system/")
         if any(name.startswith(retired_prefixes) for name in members):
             raise ValueError("wheel contains a retired plugin package")
+        if any(name.startswith(RETIRED_CACHE_PATHS) for name in members):
+            raise ValueError("wheel contains a retired cache compatibility path")
         missing_members = sorted(REQUIRED_MEMBERS - members)
         if missing_members:
             raise ValueError("wheel is missing runtime files: {}".format(", ".join(missing_members)))

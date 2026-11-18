@@ -1,5 +1,165 @@
 # Working Memory Index
 
+Cache PR publication checkpoint, **2026-11-18**: the user requested a PR for
+`caches-calibre-compat-boundary`. The three earlier local commits and the accumulated
+optimization, lifecycle, typing and metadata-interface work form the publication
+batch. The interface remains under `catalog.api.metadata_access`; its adapter is
+still CACHE05 under `caches`. No new top-level package or bound implementation.
+
+The 90-file staging selection excludes the unrelated file-formats review/index,
+Claude outputs and data-submodule dirt. Saved runtime evidence remains applicable:
+651 passes/16 expected skips, all 359 mandatory phase audits and four gated smoke
+passes. Of 448 saved source hashes, only the Catalog API initializer differs,
+and AST comparison confirms that difference is its module docstring; the new
+interface has separate static/import checks. Publication tooling: 49 tests pass;
+the staged 223 guides have 1,905 valid versioned local links and complete navigation.
+The manifest retains all prior requirements at 2,827 cases. Older uncommitted-state
+notes below describe their historical checkpoints. No runtime rerun was needed
+for documentation/interface placement changes.
+Final publication quality runner passed: 422 formatted files, both type checkers
+(mypy 528 files; 110/106 negative contracts), lint/complexity, annotation coverage,
+25 cold-import budgets and dependency checks. The branch is ready for the requested
+commit/push/PR; source code is unchanged after those checks.
+
+Metadata access interface, **2026-11-18**, declared:
+[contract and direction](../dev-docs/catalog/catalog-cache-boundary.md#metadata-access-interface-direction--2026-11-18).
+`catalog.api.metadata_access.MetadataAPIInterface` follows Catalog's native WEMI vocabulary,
+returns existing metadata container contracts and specifies coordinated write
+receipts. **No bound implementation or caller migration yet**; CACHE05 is the next
+step. Catalog remains the persistence authority and caches retain freshness
+mechanics. This does not sign off the module. Existing uncommitted work is preserved.
+Placement correction: the user prefers existing top-level packages. The contract
+now lives in `catalog.api.metadata_access`; the future adapter belongs in `caches`.
+The temporary top-level `metadata_access` package has been removed.
+Relocation checks pass: both type-contract lanes, dependency direction, passive
+contract import, 66 developer-guide link targets, formatting/lint and whitespace.
+Validation: both internal type-contract lanes pass (**110/106** rejected mistakes),
+the contract passes basedpyright and a mypy check following imported types,
+and **21 documentation checks pass/one tracked-content check deselected** because
+new files remain unstaged. Working-tree local links, lint/format, passive import,
+receipt retention and dependency direction pass. No runtime service was added.
+
+Native cache typing pass, **2026-11-18**, complete: [handoff](cache-typing-2026-11-18.md).
+All **53 native modules** now in both checkers; typed backend/query/writer contracts
+and regression examples added. Full quality green (mypy 527 files; 104/102 negative
+contracts). **651 runtime tests passed/16 expected skips**, all **359 selected
+mandatory cases** passed; four final gated smoke cases and 233 tooling tests passed.
+Final run source hashes match. Manifest **2,827**. Changes remain uncommitted.
+
+Cache addition/removal test follow-up, **2026-11-18**, complete:
+[handoff](cache-invalidation-lifecycle-2026-11-18.md#additionremoval-tests-follow-up--2026-11-18).
+Added **78 mandatory cases** across the three backends: table drain/refill,
+identity reuse, warm searches/fields/pages, shared relationships, deferred
+invalidations, partial failure and real SQLite/APSW commit/rollback. **174 tests
+passed with no skips**, all 174 selected mandatory phase audits passed; **64 tooling
+tests** and the full quality runner passed. Manifest now **2,826**; both pre-task
+and HEAD requirements preserved. No runtime changes or new defects surfaced in
+this follow-up. Changes remain uncommitted; prior work and user dirt preserved.
+
+Cache invalidation, write-route lifecycle and registry follow-up, **2026-11-18**,
+complete: [handoff](cache-invalidation-lifecycle-2026-11-18.md). Small-ID repair,
+immutable registry bindings and CACHE01/CACHE03 review implemented. Repaired writer
+transaction and storage publication defects. **572 ordinary tests passed/16 expected
+skips**, all **280 selected mandatory cases** passed; two full 10k/1k-step snapshot
+soaks, full quality and 87 tooling tests passed. Mandatory manifest **2,748**.
+At 100k rows/50 queries, changed membership repair: **793 → 3.83 ms**, peak additional
+allocation **206.8 MiB → 22.2 KiB**. Physical replica leases/content application
+features remain separate. Changes are uncommitted.
+
+Native sorting/pagination optimization, **2026-11-18**, complete:
+[handoff](cache-pagination-optimization-2026-11-18.md). Empty pages skip ordering;
+small prefix/suffix pages use bounded selection, retaining null placement, mixed
+directions and row-ID ties. NaNs use the stable full-sort fallback. Typed missing
+projection-field errors repaired. **422 integration tests passed/16 expected skips**;
+all **207 selected mandatory cases** passed. New mandatory count **2,675**. At 100k,
+mixed small page 803 → 359 ms and 24.7 MiB → 7.1 KiB peak; count-only 998 → 0.028 ms.
+Descending stored-ID pages were 18% slower, a documented allocation/latency trade-off.
+Full quality and 79 tooling tests passed. All eight selected full long cases passed:
+six SQLite/APSW cases and two snapshot soaks, with mandatory phase audits. No
+PostgreSQL rerun. [Implementation and measurements](../dev-docs/caches/pagination-optimization-2026-11-18.md)
+record the scope and limits. This and the preceding adapter pass remain uncommitted.
+
+Candidate/definition optimization, **2026-11-17**, complete:
+[handoff](cache-search-scope-optimization-2026-11-17.md). Reverse reference
+lookup, immutable result/scope reuse and fixed projection retention across
+definition edits; rejected-alias restoration repaired. **122 acceptance tests passed**
+with four expected capability skips; all **102 selected mandatory cases** passed,
+including the full 10k-record/1k-step Calibre soak. Nine new required cases (2,646
+total). Matched 100k measurements: warm ten-candidate
+search 22.636 → 0.015 ms; definition edit/search 951.982 → 3.849 ms, with about
+5 MiB extra index memory. Full quality and 64 documentation/tooling checks passed;
+the tracked-content link test awaits staging, with working-tree links checked.
+Changes are uncommitted; the prior three cache commits remain local.
+
+Cache commit batch, **2026-11-17**: the accumulated work is recorded locally on
+`caches-calibre-compat-boundary` in three commits: `b0a27bd7` for the compatibility
+migration, native metadata search and stress repairs; `f412808a` for bounded
+PostgreSQL schema discovery; and the following commit, **Add gated long-running
+cache regressions and manual CI**, for the opt-in longer tests. No push or PR.
+The final tooling selection passed **65 tests**; saved full-lane audits confirm
+all 13 long cases passed. Each commit's staged documentation links, mandatory
+test paths, format scope and whitespace were checked. Unrelated review drafts,
+their existing index entry, the data submodule and stashes remain untouched.
+Earlier “no commit/staging” statements below and in handoffs describe their
+historical checkpoints and are superseded by this publication record.
+
+Gated longer cache tests, **2026-11-17**, complete:
+[handoff](cache-long-tests-2026-11-17.md). Dedicated opt-in runner and manual CI;
+13 native/Calibre and real database cases, full versus smoke workloads, mandatory
+pass auditing, operation timings and optional profiles. **All 13 full cases passed**;
+188 supporting regressions/tooling checks, final runner8, docs22 and format409
+passed. Ordinary pytest skips the long lane. Production code unchanged; private
+PostgreSQL stopped. No staging, commit or remote workflow dispatch.
+
+PostgreSQL schema discovery optimization, **2026-11-17**, complete:
+[handoff](schema-discovery-optimization-2026-11-17.md). Scoped fingerprint reuse
+reduces a complete native schema rebuild from 8,492 probes to two; external
+freshness and transaction/failure contracts have new regressions. Selected
+integration: **312 passed/four capability skips**. Final new mandatory gate:
+**14/14 passed**; current manifest has 2,637 cases. Quality, docs16 and tooling57
+passed; workflow35 passed after adding the new lint entries. Recorded timing:
+201.30 s before, optimized median 4.90 s; final-source repeat 4.21 s. Private
+PostgreSQL is stopped. No staging, commit or PR.
+
+Cache architecture assessment, **2026-11-17**, documented at the user's request:
+[review](../dev-docs/architectural_reviews/caches-review-2026-11-17.md). Metadata-search
+core ready for measured optimization; whole-cache sign-off remains open. Preserve
+ownership boundaries; prioritize repeated PostgreSQL schema discovery, candidate
+and projection work, sorting/pagination, then whole-table work during small
+invalidations. The review distinguishes existing validation from a fresh audit
+and routes remaining work to CACHE01–CACHE03 and SEARCH02–SEARCH05. Documentation
+only; no new runtime changes, staging, commit or PR.
+
+Metadata search stress testing, **2026-11-17**, complete:
+[current handoff](cache-search-stress-2026-11-17.md). Aggressive deterministic
+differential, fault-injection and concurrency coverage before optimization;
+[test report](../dev-docs/caches/metadata-search-testing-2026-11-17.md). Lifecycle,
+null-membership, snapshot, alias and zero-index sorting defects repaired. The
+full database gate passed **5,121 tests/94 skips**, including all **2,534 original
+mandatory cases**. The corrected cache/Catalog run passed 459 with 16 skips; all
+89 new mandatory cases and 12 SQLite differential cases passed across focused runs.
+Quality, packaging and docs passed; the 100k-record baseline is recorded. Private
+PostgreSQL is stopped. No commit/PR or real-index changes; preserve prior dirt.
+
+Metadata search implementation, **2026-11-17**:
+[active handoff](cache-metadata-search-2026-11-17.md). Native predicates and explicit
+Calibre projection search, current pinned templates with one-use trusted permission,
+CR02/CR03 repairs and bounded result repair are implemented. The
+[contract and parity ledger](../dev-docs/caches/metadata-search.md) records the
+metadata milestone and remaining content/application work. The older CR02/CR03
+open status below is superseded. No commit/PR for this work yet.
+
+Cache compatibility migration, **2026-11-16**, implemented and verified:
+[active handoff](caches-review-2026-11-16.md). All 61 source relocations and the
+native descriptor split are on `caches-calibre-compat-boundary`; CR01 is repaired,
+CR02/CR03 remain open. See [current structure](../dev-docs/caches/structure.md).
+Full cache directory: 220 passed/20 skips; compatibility/search: 291 passed;
+final guards: 159 passed; full quality and installed-wheel checks pass. Broader
+run corrections and all limits are recorded in the handoff. No cache commit/PR
+or staging yet. Preserve user drafts, the data submodule and pre-pull stash.
+Database close-out PR #170 remains separate. Build outside the repo while tests
+are running: root-artifact cleanup otherwise removes newly created build output.
+
 Database review repairs, **2026-11-14**, complete:
 [handoff](database-review-fixes-2026-11-14.md). DBR01–DBR13 resolved at their documented
 boundaries; DBR14's concrete contract fixes are complete, with broad indexing and

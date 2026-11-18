@@ -5,6 +5,7 @@ Values come from a destination column reached through a directed link
 table. Concrete backends supply reads, value matching and update behavior;
 this module provides endpoint binding, names and compatibility forwarding.
 """
+
 from __future__ import annotations
 
 import abc
@@ -14,9 +15,11 @@ from LiuXin_alpha.caches.api.storage_cache_api.storage_fields_api.base_field_api
     RelationFieldBasicInterfaceAPI,
 )
 from LiuXin_alpha.caches.api.storage_cache_api.storage_fields_api.util_mixins import (
-    IndividualLinkProperties,
+    IndividualLinkProperties as IndividualLinkProperties,
 )
-from LiuXin_alpha.caches.updates.field_updates import OneManyInTwoTableFieldUpdate
+from LiuXin_alpha.caches.updates.field_updates import (
+    OneManyInTwoTableFieldUpdate as OneManyInTwoTableFieldUpdate,
+)
 
 if TYPE_CHECKING:
     from LiuXin_alpha.caches.api.storage_cache_api.storage_tables_api.link_tables_api.one_many_tables_api import (
@@ -26,8 +29,12 @@ if TYPE_CHECKING:
         StorageCacheSingleTableAPI,
     )
     from LiuXin_alpha.databases.api.database_api.database_api import DatabaseAPI
-    from LiuXin_alpha.databases.db_types.database_types import MainTableID, MainTableName, MainTableColumnName, \
-        InterlinkExtraTypes
+    from LiuXin_alpha.databases.db_types.database_types import (
+        InterlinkExtraTypes,
+        MainTableColumnName,
+        MainTableID,
+        MainTableName,
+    )
 
 T = TypeVar("T")
 
@@ -57,7 +64,7 @@ class OneToManyFieldAPI(RelationFieldBasicInterfaceAPI[T]):
     # Connecting the two tables.
     link_table: "StorageCacheOneToManyLinkTable"
 
-    _db: "DatabaseAPI"
+    _db: "DatabaseAPI | None"
 
     def __init__(
         self,

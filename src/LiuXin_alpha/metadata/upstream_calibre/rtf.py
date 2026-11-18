@@ -1,0 +1,274 @@
+#!/usr/bin/env python
+# License: GPLv3 Copyright: 2008, Kovid Goyal <kovid at kovidgoyal.net>
+# Ported from calibre (https://calibre-ebook.com) 9.18: src/calibre/ebooks/metadata/rtf.py
+# Changes from upstream: calibre imports point at upstream_calibre and its _compat, and
+# 'from __future__ import annotations' is added.
+# get_document_info stops at the end of the file: upstream loops forever when
+# the {\info group is never closed. The field patterns are linear-time stand-ins
+# from _compat: upstream's backtrack in cubic time on repeated never-closed
+# groups (15 kB took 53 s to read). Each change is marked '# LiuXin:'.
+# SPDX-License-Identifier: GPL-3.0-only
+
+"""
+Edit metadata in RTF files.
+"""
+
+from __future__ import annotations
+
+import codecs
+import re
+from typing import IO, TYPE_CHECKING
+
+from LiuXin_alpha.metadata.upstream_calibre._compat import force_unicode
+from LiuXin_alpha.metadata.upstream_calibre.metadata_base import MetaInformation
+from LiuXin_alpha.metadata.upstream_calibre._compat import _
+from LiuXin_alpha.metadata.upstream_calibre._compat import int_to_byte
+from LiuXin_alpha.metadata.upstream_calibre._compat import FieldPattern, InfoFieldPattern  # LiuXin: stand-ins below
+
+if TYPE_CHECKING:
+    import unittest
+
+    from LiuXin_alpha.metadata.upstream_calibre.book_base import Metadata
+
+title_pat = InfoFieldPattern(b'title')  # LiuXin: linear-time stand-in
+author_pat = InfoFieldPattern(b'author')  # LiuXin: linear-time stand-in
+comment_pat = InfoFieldPattern(b'subject')  # LiuXin: linear-time stand-in
+tags_pat = InfoFieldPattern(b'category')  # LiuXin: linear-time stand-in
+publisher_pat = InfoFieldPattern(b'manager')  # LiuXin: linear-time stand-in
+
+
+def get_document_info(stream: IO[bytes]) -> tuple[bytes, int] | tuple[None, int]:
+    """
+    Extract the \\info block from an RTF file.
+    Return the info block as a string and the position in the file at which it
+    starts.
+    @param stream: File like object pointing to the RTF file.
+    """
+    block_size = 4096
+    stream.seek(0)
+    found, block = False, b''
+    while not found:
+        prefix = block[-6:]
+        block = prefix + stream.read(block_size)
+        actual_block_size = len(block) - len(prefix)
+        if len(block) == len(prefix):
+            break
+        idx = block.find(rb'{\info')
+        if idx >= 0:
+            found = True
+            pos = stream.tell() - actual_block_size + idx - len(prefix)
+            stream.seek(pos)
+        elif block.find(rb'\sect') > -1:
+            break
+    if not found:
+        return None, 0
+    (
+        data,
+        count,
+    ) = [], 0
+    pos = stream.tell()
+    while True:
+        ch = stream.read(1)
+        if not ch:  # LiuXin: a group cut off by the end of the file ends the block
+            break
+        if ch == b'\\':
+            data.append(ch + stream.read(1))
+            continue
+        if ch == b'{':
+            count += 1
+        elif ch == b'}':
+            count -= 1
+        data.append(ch)
+        if count == 0:
+            break
+    return b''.join(data), pos
+
+
+def detect_codepage(stream: IO[bytes]) -> str | None:
+    pat = re.compile(rb'\\ansicpg(\d+)')
+    match = pat.search(stream.read(512))
+    if match is not None:
+        num = match.group(1)
+        if num == b'0':
+            num = b'1252'
+        try:
+            codec = (b'cp' + num).decode('ascii')
+            codecs.lookup(codec)
+            return codec
+        except Exception:
+            pass
+
+
+def encode(unistr: str | bytes) -> str:
+    if not isinstance(unistr, str):
+        unistr = force_unicode(unistr)
+    return ''.join(c if ord(c) < 128 else f'\\u{ord(c)}?' for c in unistr)
+
+
+def decode(raw: str | bytes, codec: str | None) -> str:
+    # https://en.wikipedia.org/wiki/Rich_Text_Format#Character_encoding
+
+    def codepage(match: re.Match[str]) -> str:
+        try:
+            return int_to_byte(int(match.group(1), 16)).decode(codec)
+        except ValueError:
+            return '?'
+
+    def uni(match: re.Match[str]) -> str:
+        try:
+            return chr(int(match.group(1)))
+        except Exception:
+            return '?'
+
+    if isinstance(raw, bytes):
+        raw = raw.decode('ascii', 'replace')
+
+    if codec is not None:
+        raw = re.sub(r"\\'([a-fA-F0-9]{2})", codepage, raw)
+
+    raw = re.sub(r'\\u([0-9]{3,5}).', uni, raw)
+    return raw
+
+
+def get_metadata(stream: IO[bytes]) -> Metadata:
+    """
+    Return metadata as a L{MetaInfo} object
+    """
+    stream.seek(0)
+    if stream.read(5) != rb'{\rtf':
+        return MetaInformation(_('Unknown'))
+    block = get_document_info(stream)[0]
+    if not block:
+        return MetaInformation(_('Unknown'))
+
+    stream.seek(0)
+    cpg = detect_codepage(stream)
+    stream.seek(0)
+
+    title_match = title_pat.search(block)
+    if title_match is not None:
+        title = decode(title_match.group(1).strip(), cpg)
+    else:
+        title = _('Unknown')
+    author_match = author_pat.search(block)
+    if author_match is not None:
+        author = decode(author_match.group(1).strip(), cpg)
+    else:
+        author = None
+    mi = MetaInformation(title)
+    if author:
+        mi.authors = [x.strip() for x in author.split(',')]
+
+    comment_match = comment_pat.search(block)
+    if comment_match is not None:
+        comment = decode(comment_match.group(1).strip(), cpg)
+        mi.comments = comment
+    tags_match = tags_pat.search(block)
+    if tags_match is not None:
+        tags = decode(tags_match.group(1).strip(), cpg)
+        mi.tags = list(filter(None, (x.strip() for x in tags.split(','))))
+    publisher_match = publisher_pat.search(block)
+    if publisher_match is not None:
+        publisher = decode(publisher_match.group(1).strip(), cpg)
+        mi.publisher = publisher
+
+    return mi
+
+
+def create_metadata(stream: IO[bytes], options: Metadata) -> None:
+    md = [r'{\info']
+    if options.title:
+        title = encode(options.title)
+        md.append(rf'{{\title {title}}}')
+    if options.authors:
+        au = options.authors
+        if not isinstance(au, (str, bytes)):
+            au = ', '.join(au)
+        author = encode(au)
+        md.append(rf'{{\author {author}}}')
+    comp = options.comment if hasattr(options, 'comment') else options.comments
+    if comp:
+        assert isinstance(comp, (str, bytes))
+        comment = encode(comp)
+        md.append(rf'{{\subject {comment}}}')
+    if options.publisher:
+        publisher = encode(options.publisher)
+        md.append(rf'{{\manager {publisher}}}')
+    if options.tags:
+        tags = ', '.join(options.tags)
+        tags = encode(tags)
+        md.append(rf'{{\category {tags}}}')
+    if len(md) > 1:
+        md.append('}')
+        stream.seek(0)
+        src = stream.read()
+        ans = src[:6] + ''.join(md).encode('ascii') + src[6:]
+        stream.seek(0)
+        stream.write(ans)
+
+
+def set_metadata(stream: IO[bytes], options: Metadata) -> None:
+    """
+    Modify/add RTF metadata in stream
+    @param options: Object with metadata attributes title, author, comment, category
+    """
+
+    def add_metadata_item(src: str, name: str, val: str) -> str:
+        index = src.rindex('}')
+        return src[:index] + r'{\ '[:-1] + name + ' ' + val + '}}'
+
+    src, pos = get_document_info(stream)
+    if src is None:
+        create_metadata(stream, options)
+    else:
+        src = src.decode('ascii')
+        olen = len(src)
+
+        base_pat = r'\{\\name(.*?)(?<!\\)\}'
+
+        def replace_or_create(src: str, name: str, val: str) -> str:
+            val = encode(val)
+            pat = FieldPattern(name)  # LiuXin: linear-time stand-in for base_pat
+            src, num = pat.subn(r'{\\' + name.replace('\\', r'\\') + ' ' + val.replace('\\', r'\\') + '}', src)
+            if num == 0:
+                src = add_metadata_item(src, name, val)
+            return src
+
+        if options.title is not None:
+            src = replace_or_create(src, 'title', options.title)
+        if options.comments is not None:
+            src = replace_or_create(src, 'subject', options.comments)
+        if options.authors is not None:
+            src = replace_or_create(src, 'author', ', '.join(options.authors))
+        if options.tags is not None:
+            src = replace_or_create(src, 'category', ', '.join(options.tags))
+        if options.publisher is not None:
+            src = replace_or_create(src, 'manager', options.publisher)
+        stream.seek(pos + olen)
+        after = stream.read()
+        stream.seek(pos)
+        stream.truncate()
+        stream.write(src.encode('ascii'))
+        stream.write(after)
+
+
+def find_tests() -> unittest.TestSuite:
+    import unittest
+    from io import BytesIO
+
+    from LiuXin_alpha.metadata.upstream_calibre.book_base import Metadata
+
+    class Test(unittest.TestCase):
+        def test_rtf_metadata(self) -> None:
+            stream = BytesIO(rb'{\rtf1\ansi\ansicpg1252}')
+            m = Metadata('Test ø̄title', ['Author One', 'Author БTwo'])
+            m.tags = ['tag1', '見tag2']
+            m.comments = '<p>some ⊹comments</p>'
+            m.publisher = 'publiSher'
+            set_metadata(stream, m)
+            stream.seek(0)
+            o = get_metadata(stream)
+            for attr in 'title authors publisher comments tags'.split():
+                self.assertEqual(getattr(m, attr), getattr(o, attr))
+
+    return unittest.defaultTestLoader.loadTestsFromTestCase(Test)

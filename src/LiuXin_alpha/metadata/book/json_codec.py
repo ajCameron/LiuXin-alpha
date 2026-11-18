@@ -23,7 +23,7 @@ from datetime import datetime, time
 
 from LiuXin_alpha.constants import filesystem_encoding, preferred_encoding
 
-from LiuXin_alpha.catalog.field_metadata import FieldMetadata
+from LiuXin_alpha.utils.calibre_compat.metadata.field_metadata import FieldMetadata
 
 from LiuXin_alpha.metadata.book import SERIALIZABLE_FIELDS
 

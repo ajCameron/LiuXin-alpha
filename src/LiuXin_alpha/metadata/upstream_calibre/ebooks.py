@@ -1,0 +1,356 @@
+# License: GPLv3 Copyright: 2008, Kovid Goyal <kovid at kovidgoyal.net>
+# Ported from calibre (https://calibre-ebook.com) 9.18: src/calibre/ebooks/__init__.py
+# Changes from upstream: calibre imports point at upstream_calibre and its _compat, and
+# 'from __future__ import annotations' is added.
+# render_html_data needs calibre's Qt worker, which LiuXin does not port: _compat's
+# fork_job stands in and raises WorkerError, so HTML cover pages are not rendered.
+# SPDX-License-Identifier: GPL-3.0-only
+
+"""
+Code for the conversion of ebook formats and the reading of metadata
+from various formats.
+"""
+
+from __future__ import annotations
+
+import numbers
+import os
+import re
+import sys
+from contextlib import suppress
+from typing import IO, TYPE_CHECKING, cast, overload
+
+from LiuXin_alpha.metadata.upstream_calibre._compat import prints
+from LiuXin_alpha.metadata.upstream_calibre.chardet import xml_to_unicode
+
+if TYPE_CHECKING:
+    from LiuXin_alpha.metadata.upstream_calibre._compat import Log
+
+
+class ConversionError(Exception):
+    def __init__(self, msg: str, only_msg: bool = False) -> None:
+        Exception.__init__(self, msg)
+        self.only_msg = only_msg
+
+
+class UnknownFormatError(Exception):
+    pass
+
+
+class DRMError(ValueError):
+    pass
+
+
+class ParserError(ValueError):
+    pass
+
+
+BOOK_EXTENSIONS = [
+    'lrf',
+    'rar',
+    'zip',
+    'rtf',
+    'lit',
+    'txt',
+    'txtz',
+    'text',
+    'htm',
+    'xhtm',
+    'html',
+    'htmlz',
+    'xhtml',
+    'pdf',
+    'pdb',
+    'updb',
+    'pdr',
+    'prc',
+    'mobi',
+    'azw',
+    'doc',
+    'epub',
+    'fb2',
+    'fbz',
+    'djv',
+    'djvu',
+    'lrx',
+    'cbr',
+    'cb7',
+    'cbz',
+    'cbc',
+    'oebzip',
+    'rb',
+    'imp',
+    'odt',
+    'chm',
+    'tpz',
+    'azw1',
+    'pml',
+    'pmlz',
+    'mbp',
+    'tan',
+    'snb',
+    'xps',
+    'oxps',
+    'azw4',
+    'book',
+    'zbf',
+    'pobi',
+    'docx',
+    'docm',
+    'md',
+    'textile',
+    'markdown',
+    'ibook',
+    'ibooks',
+    'iba',
+    'azw3',
+    'ps',
+    'kepub',
+    'kfx',
+    'kpf',
+]
+
+
+def return_raster_image(path: str, root: str = '') -> bytes | None:
+    from LiuXin_alpha.metadata.upstream_calibre._compat import is_existing_subpath
+    from LiuXin_alpha.metadata.upstream_calibre.imghdr import what
+
+    # Only read images inside root, to prevent malicious HTML from reading
+    # arbitrary files
+    if root and not is_existing_subpath(path, root):
+        return None
+    if os.access(path, os.R_OK):
+        with open(path, 'rb') as f:
+            raw = f.read()
+        if what(None, raw) not in (None, 'svg'):
+            return raw
+
+
+def extract_cover_from_embedded_svg(html: str | bytes, base: str, log: Log, root: str = '') -> bytes | None:
+    from LiuXin_alpha.metadata.upstream_calibre._compat import SVG
+    from LiuXin_alpha.metadata.upstream_calibre._compat import XLINK
+    from LiuXin_alpha.metadata.upstream_calibre._compat import XPath
+    from LiuXin_alpha.metadata.upstream_calibre._compat import safe_xml_fromstring
+
+    doc = safe_xml_fromstring(html)
+
+    svg = XPath('//svg:svg')(doc)
+    if len(svg) != 1:
+        return None
+    # Ignore the text alternative of the image, such as the book title in
+    # calibre generated cover pages
+    children = [c for c in svg[0] if c.tag not in (SVG('title'), SVG('desc'))]
+    if len(children) == 1 and children[0].tag == SVG('image'):
+        image = children[0]
+        href = image.get(XLINK('href'), None)
+        if href:
+            path = os.path.join(base, *href.split('/'))
+            return return_raster_image(path, root or base)
+
+
+def extract_calibre_cover(raw: str | bytes, base: str, log: Log, root: str = '') -> bytes | None:
+    from LiuXin_alpha.metadata.upstream_calibre.beautifulsoup import BeautifulSoup
+
+    soup = BeautifulSoup(raw)
+    matches = soup.find(name=['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'span', 'font', 'br'])
+    images = soup.find_all('img', src=True)
+    # alt and src are not multi-valued attributes so their values are always str
+    if matches is None and len(images) == 1 and cast('str', images[0].get('alt', '')).lower() == 'cover':
+        img = images[0]
+        img = os.path.join(base, *cast('str', img['src']).split('/'))
+        q = return_raster_image(img, root or base)
+        if q is not None:
+            return q
+
+    # Look for a simple cover, i.e. a body with no text and only one <img> tag
+    if matches is None:
+        body = soup.find('body')
+        if body is not None:
+            text = ''.join(map(str, body.find_all(string=True)))
+            if text.strip():
+                # Body has text, abort
+                return
+            images = body.find_all('img', src=True)
+            if len(images) == 1:
+                img = os.path.join(base, *cast('str', images[0]['src']).split('/'))
+                return return_raster_image(img, root or base)
+
+
+def render_html_svg_workaround(path_to_html: str, log: Log, width: int = 1200, height: int = 1600, root: str = '') -> bytes | None:
+    from LiuXin_alpha.metadata.upstream_calibre._compat import SVG_NS
+
+    with open(path_to_html, 'rb') as f:
+        raw = f.read()
+    raw = xml_to_unicode(raw, strip_encoding_pats=True)[0]
+    data = None
+    if SVG_NS in raw:
+        try:
+            data = extract_cover_from_embedded_svg(raw, os.path.dirname(path_to_html), log, root=root)
+        except Exception:
+            pass
+    if data is None:
+        try:
+            data = extract_calibre_cover(raw, os.path.dirname(path_to_html), log, root=root)
+        except Exception:
+            pass
+
+    if data is None:
+        data = render_html_data(path_to_html, width, height, root=root)
+    return data
+
+
+def render_html_data(path_to_html: str, width: int, height: int, root: str = '') -> bytes | None:
+    from LiuXin_alpha.metadata.upstream_calibre._compat import TemporaryDirectory
+    from LiuXin_alpha.metadata.upstream_calibre._compat import WorkerError
+    from LiuXin_alpha.metadata.upstream_calibre._compat import fork_job
+
+    result = {}
+
+    def report_error(text: str = '') -> None:
+        prints('Failed to render', path_to_html, 'with errors:', file=sys.stderr)
+        if text:
+            prints(text, file=sys.stderr)
+        if result and result['stdout_stderr']:
+            with open(result['stdout_stderr'], 'rb') as f:
+                prints(f.read(), file=sys.stderr)
+
+    with TemporaryDirectory('-render-html') as tdir:
+        try:
+            result = fork_job('calibre.ebooks.render_html', 'main', args=(path_to_html, tdir, 'jpeg', root))
+        except WorkerError as e:
+            report_error(e.orig_tb)
+        else:
+            if result['result']:
+                with open(os.path.join(tdir, 'rendered.jpeg'), 'rb') as f:
+                    return f.read()
+            else:
+                report_error()
+
+
+def check_ebook_format(stream: IO[bytes], current_guess: str) -> str:
+    ans = current_guess
+    if current_guess.lower() in ('prc', 'mobi', 'azw', 'azw1', 'azw3'):
+        stream.seek(0)
+        if stream.read(3) == b'TPZ':
+            ans = 'tpz'
+        stream.seek(0)
+    return ans
+
+
+@overload
+def normalize(x: str) -> str: ...
+@overload
+def normalize(x: None) -> None: ...
+def normalize(x: str | None) -> str | None:
+    if isinstance(x, str):
+        import unicodedata
+
+        x = unicodedata.normalize('NFC', x)
+    return x
+
+
+def calibre_cover(
+    title: str,
+    author_string: str,
+    series_string: str | None = None,
+    output_format: str = 'jpg',
+    title_size: int = 46,
+    author_size: int = 36,
+    logo_path: str | None = None,
+) -> bytes:
+    title = normalize(title)
+    author_string = normalize(author_string)
+    series_string = normalize(series_string)
+    from LiuXin_alpha.metadata.upstream_calibre._compat import calibre_cover2
+    from LiuXin_alpha.metadata.upstream_calibre._compat import image_to_data
+
+    ans = calibre_cover2(title, author_string or '', series_string or '', logo_path=logo_path, as_qimage=True)
+    return image_to_data(ans, fmt=output_format)
+
+
+UNIT_RE = re.compile(r'^(-*[0-9]*[.]?[0-9]*)\s*(%|em|ex|en|px|mm|cm|in|pt|pc|rem|q)$')
+
+
+def unit_convert(value: str | float, base: float, font: float, dpi: float, body_font_size: float = 12) -> float | str:
+    "Return value in pts"
+    if isinstance(value, numbers.Number):
+        return value
+    with suppress(Exception):
+        return float(value) * 72.0 / dpi
+    result = value
+    m = UNIT_RE.match(cast('str', value))  # numbers have been returned above
+    if m is not None and m.group(1):
+        try:
+            value = float(m.group(1))
+        except ValueError:
+            value = 0
+        unit = m.group(2)
+        if unit == '%':
+            result = (value / 100.0) * base
+        elif unit == 'px':
+            result = value * 72.0 / dpi
+        elif unit == 'in':
+            result = value * 72.0
+        elif unit == 'pt':
+            result = value
+        elif unit == 'em':
+            result = value * font
+        elif unit in ('ex', 'en'):
+            # This is a hack for ex since we have no way to know
+            # the x-height of the font
+            result = value * font * 0.5
+        elif unit == 'pc':
+            result = value * 12.0
+        elif unit == 'mm':
+            result = value * 2.8346456693
+        elif unit == 'cm':
+            result = value * 28.346456693
+        elif unit == 'rem':
+            result = value * body_font_size
+        elif unit == 'q':
+            result = value * 0.708661417325
+    return result
+
+
+def parse_css_length(value: str | None) -> tuple[float, str] | tuple[None, None]:
+    if value is None:
+        return None, None
+    try:
+        m = UNIT_RE.match(value)
+    except TypeError:
+        return None, None
+    if m is not None and m.group(1):
+        num = float(m.group(1))
+        unit = m.group(2)
+        return num, unit.lower()
+    return None, None
+
+
+@overload
+def generate_masthead(title: str, output_path: None = None, width: int = 600, height: int = 60) -> bytes: ...
+@overload
+def generate_masthead(title: str, output_path: str, width: int = 600, height: int = 60) -> None: ...
+def generate_masthead(title: str, output_path: str | None = None, width: int = 600, height: int = 60) -> bytes | None:
+    from LiuXin_alpha.metadata.upstream_calibre._compat import load_defaults
+
+    recs = load_defaults('mobi_output')
+    masthead_font_family = recs.get('masthead_font', None)
+    from LiuXin_alpha.metadata.upstream_calibre._compat import covers_generate_masthead as generate_masthead
+
+    # as_qimage is False so a QImage is never returned
+    return cast('bytes | None', generate_masthead(title, output_path=output_path, width=width, height=height, font_family=masthead_font_family))
+
+
+def escape_xpath_attr(value: str) -> str:
+    if '"' in value:
+        if "'" in value:
+            parts = re.split(r'("+)', value)
+            ans = []
+            for x in parts:
+                if x:
+                    q = "'" if '"' in x else '"'
+                    ans.append(q + x + q)
+            return 'concat({})'.format(', '.join(ans))
+        else:
+            return f"'{value}'"
+    return f'"{value}"'

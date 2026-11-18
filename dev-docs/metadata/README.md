@@ -7,7 +7,7 @@ owns persistence-aware hydration and bibliographic mutations; application workfl
 coordinate acquisition and file operations.
 
 Field conversion ownership was updated **2026-10-29**:
-[`metadata.field_adaptors`](../../src/LiuXin_alpha/metadata/field_adaptors.py)
+[`utils.calibre_compat.metadata.field_adaptors`](../../src/LiuXin_alpha/utils/calibre_compat/metadata/field_adaptors.py)
 owns legacy bibliographic and custom-field adapters. It delegates general conversion
 to `utils.adaptors`, language normalization to `metadata.languages`, and identifier
 cleaning to `metadata.identifiers`. Both field-factory entry points use one

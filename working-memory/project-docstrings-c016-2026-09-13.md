@@ -1,4 +1,4 @@
-# C016 — src/LiuXin_alpha/catalog/field_metadata.py — part 3/3, 2026-09-13
+# C016 — src/LiuXin_alpha/utils/calibre_compat/metadata/field_metadata.py — part 3/3, 2026-09-13
 
 Reviewed remaining Calibre operations and fm_from_dict: replace alias maps, overlay dynamic records in order, retain shared values and do not synthesize missing companions. Both complete field files pass full-file checks. Focused field-metadata, import/API, semantic Catalog and legacy-boundary regressions plus selected source examples passed. See the shared completion log for totals/skips; no runtime-doc dispatch found. No executable changes.
 

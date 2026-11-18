@@ -5,23 +5,23 @@ from copy import deepcopy
 import pytest
 
 from LiuXin_alpha.errors import NotInCache
-from LiuXin_alpha.library.caches.calibre.fields import (
+from LiuXin_alpha.utils.calibre_compat.caches.calibre.fields import (
     CalibreManyToManyField,
     CalibreManyToOneField,
 )
-from LiuXin_alpha.library.caches.calibre.tables.many_many_tables.priority_typed_many_to_many_table import (
+from LiuXin_alpha.utils.calibre_compat.caches.calibre.tables.many_many_tables.priority_typed_many_to_many_table import (
     CalibrePriorityTypedManyToManyTable,
 )
-from LiuXin_alpha.library.caches.calibre.tables.many_many_tables.typed_many_to_many_table import (
+from LiuXin_alpha.utils.calibre_compat.caches.calibre.tables.many_many_tables.typed_many_to_many_table import (
     CalibreTypedManyToManyTable,
 )
-from LiuXin_alpha.library.caches.calibre.tables.many_one_tables.priority_many_to_one_table import (
+from LiuXin_alpha.utils.calibre_compat.caches.calibre.tables.many_one_tables.priority_many_to_one_table import (
     CalibrePriorityManyToOneTable,
 )
-from LiuXin_alpha.library.caches.calibre.tables.many_one_tables.priority_typed_many_to_one_table import (
+from LiuXin_alpha.utils.calibre_compat.caches.calibre.tables.many_one_tables.priority_typed_many_to_one_table import (
     CalibrePriorityTypedManyToOneTable,
 )
-from LiuXin_alpha.library.caches.calibre.tables.many_one_tables.typed_many_to_one_table import (
+from LiuXin_alpha.utils.calibre_compat.caches.calibre.tables.many_one_tables.typed_many_to_one_table import (
     CalibreTypedManyToOneTable,
 )
 

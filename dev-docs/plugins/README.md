@@ -33,6 +33,17 @@ direction. The application host extends the standalone file-provider catalogue
 and binds its initialized instances into the format runtime; both use the same
 loading and priority policy.
 
+[Porting calibre's metadata readers](upstream-calibre-port.md) explains how
+LiuXin carries current calibre readers, what it substitutes for calibre's C
+extensions and data, and how to port more. Its [status page](upstream-calibre-port-status.md) lists
+the readers ported so far, how they compare with the fork's and LiuXin's
+readers, the hostile-input findings and the batches still to port.
+
+[Utils plugin layers](utils-plugin-layers.md) covers the separate
+`utils.plugins` mechanism: native modules standing in for calibre's compiled
+extensions, their pure-Python fallbacks, and installed packages with a vendored
+copy behind them, such as python-dateutil.
+
 Conversion-specific guidance remains in [file formats](../file_formats/README.md)
 and the [conversion pipeline](../conversion_pipeline/README.md). The persisted
 plugin settings are a component namespace within the broader
@@ -66,5 +77,10 @@ For resource telemetry and broader lanes, see [test streams](../hacking/test-str
 
 [Next tasks](next_tasks.md) records proposed changes, dependencies and completion
 checks. No runtime change is implied by this documentation review.
+
+The [capability providers proposal](format-capability-providers.md) of 2026-11-16
+sets out a replacement for the one-plugin-per-format model: typed capability
+base classes, conversions as routes through providers, staged transforms and
+recorded provenance. It is under review and not implemented.
 
 Return to the [developer index](../README.md).

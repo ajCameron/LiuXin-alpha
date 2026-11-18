@@ -19,7 +19,10 @@ from __future__ import annotations
 import codecs
 import re
 import warnings
-from typing import Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Optional, Tuple, Union
+
+if TYPE_CHECKING:
+    from LiuXin_alpha.utils.linear_time import LinearPattern
 
 
 __license__ = "GPL v3"
@@ -27,21 +30,92 @@ __copyright__ = "2009, Kovid Goyal <kovid@kovidgoyal.net>"
 __docformat__ = "restructuredtext en"
 
 
-ENCODING_PATS = [
-    # XML declaration
-    re.compile(r"<\?[^<>]+encoding\s*=\s*['\"](.*?)['\"][^<>]*>", re.IGNORECASE),
-    # HTML 5 charset
-    re.compile(
-        r"""<meta\s+charset=['\"]([-_a-z0-9]+)['\"][^<>]*>(?:\s*</meta>){0,1}""",
-        re.IGNORECASE,
-    ),
-    # HTML 4 Pragma directive
-    re.compile(
-        r"""<meta\s+?[^<>]*?content\s*=\s*['\"][^'\"]*?charset=([-_a-z0-9]+)[^'\"]*?['\"][^<>]*>(?:\s*</meta>){0,1}""",
-        re.IGNORECASE,
-    ),
-]
-ENTITY_PATTERN = re.compile(r"&(\S+?);")
+# ENCODING_PATS and ENTITY_PATTERN are built on first use (see __getattr__), so
+# importing this module stays as light as before.
+_ENCODING_PATS: list[re.Pattern[str] | LinearPattern] = []
+_ENTITY_PATTERN: list[LinearPattern] = []
+
+
+def _encoding_pats() -> list[re.Pattern[str] | LinearPattern]:
+    """
+    Return the XML-declaration, HTML 5 and HTML 4 charset patterns, building them once.
+
+    The XML-declaration and HTML 4 patterns backtrack: on 8 KB of unclosed
+    declarations the first took 6.7 s, and the time grows with the cube.
+    ``LinearPattern`` finds the same matches in linear time; the patterns stay
+    as written, as their definition.
+
+    Example:
+        >>> [type(pat).__name__ for pat in _encoding_pats()]
+        ['LinearPattern', 'Pattern', 'LinearPattern']
+
+
+    :return: The patterns, in the order they are tried.
+    """
+    if not _ENCODING_PATS:
+        from LiuXin_alpha.utils.linear_time import (
+            HTML4_CHARSET,
+            XML_DECLARATION,
+            LinearPattern,
+            html4_charsets,
+            xml_declarations,
+        )
+
+        _ENCODING_PATS.extend(
+            [
+                # XML declaration
+                LinearPattern(re.compile(XML_DECLARATION, re.IGNORECASE), xml_declarations),
+                # HTML 5 charset
+                re.compile(
+                    r"""<meta\s+charset=['\"]([-_a-z0-9]+)['\"][^<>]*>(?:\s*</meta>){0,1}""",
+                    re.IGNORECASE,
+                ),
+                # HTML 4 Pragma directive
+                LinearPattern(re.compile(HTML4_CHARSET, re.IGNORECASE), html4_charsets),
+            ]
+        )
+    return _ENCODING_PATS
+
+
+def _entity_pattern() -> LinearPattern:
+    """
+    Return the entity pattern ``&(\\S+?);``, building it once.
+
+    As a pattern, a run of ``&`` with no ``;`` took 33 s for 80 KB; the
+    stand-in finds the same matches in linear time.
+
+    Example:
+        >>> _entity_pattern().sub(lambda m: m.group(1), "&amp; &&")
+        'amp &&'
+
+
+    :return: The pattern's stand-in.
+    """
+    if not _ENTITY_PATTERN:
+        from LiuXin_alpha.utils.linear_time import LinearPattern, entities
+
+        _ENTITY_PATTERN.append(LinearPattern(re.compile(r"&(\S+?);"), entities))
+    return _ENTITY_PATTERN[0]
+
+
+def __getattr__(name: str) -> Any:
+    """
+    Build ``ENCODING_PATS`` and ``ENTITY_PATTERN`` when first asked for.
+
+    Example:
+        >>> from LiuXin_alpha.utils.libraries import calibre_chardet
+        >>> len(calibre_chardet.ENCODING_PATS)
+        3
+
+
+    :param name: The attribute asked for.
+    :return: Its value.
+    """
+    if name == "ENCODING_PATS":
+        return _encoding_pats()
+    if name == "ENTITY_PATTERN":
+        return _entity_pattern()
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 # Calibre code historically uses a ``unicode`` type name. Keep a runtime alias
@@ -130,13 +204,13 @@ def strip_encoding_declarations(raw: Union[str, BytesLike], limit: int = 50 * 10
     if isinstance(raw, str):
         prefix = raw[:limit]
         suffix = raw[limit:]
-        for pat in ENCODING_PATS:
+        for pat in _encoding_pats():
             prefix = pat.sub("", prefix)
         return prefix + suffix
 
     b = _to_bytes(raw)
     prefix_t = b[:limit].decode("latin-1")
-    for pat in ENCODING_PATS:
+    for pat in _encoding_pats():
         prefix_t = pat.sub("", prefix_t)
     return prefix_t.encode("latin-1") + b[limit:]
 
@@ -193,7 +267,7 @@ def replace_encoding_declarations(
             ans = ans[:start] + enc + ans[end:]
         return ans
 
-    for pat in ENCODING_PATS:
+    for pat in _encoding_pats():
         prefix = pat.sub(sub, prefix)
 
     if isinstance(raw, str):
@@ -222,7 +296,7 @@ def find_declared_encoding(raw: Union[str, BytesLike], limit: int = 50 * 1024) -
         prefix = raw[:limit]
     else:
         prefix = _latin1_decode(raw)[:limit]
-    for pat in ENCODING_PATS:
+    for pat in _encoding_pats():
         m = pat.search(prefix)
         if m is not None:
             return m.group(1)
@@ -274,7 +348,7 @@ def substitute_entites(raw: Union[str, BytesLike]):
                     return m.group(0)
             return {"nbsp": "\u00a0"}.get(ent, m.group(0))
 
-    return ENTITY_PATTERN.sub(xml_entity_to_unicode, raw)
+    return _entity_pattern().sub(xml_entity_to_unicode, raw)
 
 
 # Fix the historical typo while keeping backwards compatibility.
@@ -397,7 +471,7 @@ def detect_xml_encoding(
     # to preserve byte offsets and avoid decode errors.
     encoding = None
     header = b[: 50 * 1024].decode("latin-1")
-    for pat in ENCODING_PATS:
+    for pat in _encoding_pats():
         match = pat.search(header)
         if match is not None:
             encoding = match.group(1)

@@ -1,5 +1,3 @@
-
-
 """
 Define directed link-table metadata and endpoint mapping contracts.
 
@@ -8,7 +6,6 @@ Priority/type flags default false; simple accessors expose them without
 schema lookup or validation. The base also requires mappings for callers
 that expect singular endpoints.
 """
-
 
 from __future__ import annotations
 
@@ -25,7 +22,6 @@ if TYPE_CHECKING:
     )
 
 T = TypeVar("T")
-
 
 
 class StorageCacheLinkTableBaseAPI(StorageCacheBaseTableAPI, Generic[T]):

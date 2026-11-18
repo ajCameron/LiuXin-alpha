@@ -17,10 +17,10 @@ import textwrap
 
 from pathlib import Path
 
+from LiuXin_alpha.utils.calibre_compat.metadata.field_metadata_api import FieldMetadataAPI
 from LiuXin_alpha.catalog.api import (
     CatalogAPI,
     CatalogMetadataToolsAPI,
-    FieldMetadataAPI,
     MatchResult,
 )
 from LiuXin_alpha.catalog.api.matching_api import CatalogMatchingAPI

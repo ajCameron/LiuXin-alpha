@@ -8,23 +8,22 @@ identity matching, schema writer, or transaction evidence; those behaviors are
 covered by adjacent Catalog integration suites.
 """
 
+from LiuXin_alpha.utils.calibre_compat.metadata.field_metadata_api import CalibreFieldMetadataAPI, FieldMetadataAPI
 from LiuXin_alpha.catalog.catalog import Catalog
 from LiuXin_alpha.catalog.api import (
     AddAPI,
     ApplyAPI,
     BackendGetterAPI,
-    CalibreFieldMetadataAPI,
     CatalogAPI,
     CatalogMetadataToolsAPI,
     CatalogMutationsAPI,
     EnsureAPI,
-    FieldMetadataAPI,
     FingerprintToolsAPI,
     IdentifierCandidate,
     IntralinkerAPI,
     MetadataCandidate,
 )
-from LiuXin_alpha.catalog.field_metadata import CalibreFieldMetadata, FieldMetadata
+from LiuXin_alpha.utils.calibre_compat.metadata.field_metadata import CalibreFieldMetadata, FieldMetadata
 from LiuXin_alpha.catalog.write import (
     BaseCatalogWriter,
     CatalogColumnWriter,

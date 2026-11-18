@@ -10,10 +10,16 @@ table/database APIs. Consumers apply creation, uniqueness and refresh policy.
 from __future__ import annotations
 
 import dataclasses
-from typing import Generic, Sequence, Optional, TypeVar
+from typing import Generic, Optional, Sequence, TypeVar
 
-from LiuXin_alpha.caches.api.storage_cache_api.storage_fields_api.util_mixins import LinkDstUpdate
-from LiuXin_alpha.databases.db_types.database_types import MainTableID, MainTableName, MainTableColumnName
+from LiuXin_alpha.caches.api.storage_cache_api.storage_fields_api.util_mixins import (
+    LinkDstUpdate,
+)
+from LiuXin_alpha.databases.db_types.database_types import (
+    MainTableColumnName,
+    MainTableID,
+    MainTableName,
+)
 
 T = TypeVar("T")
 
@@ -55,7 +61,9 @@ class ManyManyInTwoTableFieldUpdate(Generic[T]):
     # Explicit per-src replacement payload for link-oriented operations.
     # When provided for a src id, implementations should treat the sequence as
     # the authoritative desired set of linked dst rows for that src.
-    link_replacements: dict[MainTableID, Sequence[LinkDstUpdate[T]]] = dataclasses.field(default_factory=dict)
+    link_replacements: dict[MainTableID, Sequence[LinkDstUpdate[T]]] = (
+        dataclasses.field(default_factory=dict)
+    )
 
 
 @dataclasses.dataclass
@@ -141,7 +149,9 @@ class OneManyInTwoTableFieldUpdate(Generic[T]):
     # Explicit per-src replacement payload for link-oriented operations.
     # When provided for a src id, implementations should treat the sequence as
     # the authoritative desired set of linked dst rows for that src.
-    link_replacements: dict[MainTableID, Sequence[LinkDstUpdate[T]]] = dataclasses.field(default_factory=dict)
+    link_replacements: dict[MainTableID, Sequence[LinkDstUpdate[T]]] = (
+        dataclasses.field(default_factory=dict)
+    )
 
 
 @dataclasses.dataclass

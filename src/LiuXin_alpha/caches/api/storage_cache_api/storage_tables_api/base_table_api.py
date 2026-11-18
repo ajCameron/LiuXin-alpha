@@ -1,4 +1,3 @@
-
 """
 Define cache-table metadata, cardinality values and abstract load/column contracts.
 
@@ -8,8 +7,9 @@ object sentinel, distinct from None. Table instances retain a borrowed
 database reference, name and metadata without loading rows.
 """
 
-import abc
+from __future__ import annotations
 
+import abc
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -20,21 +20,22 @@ ONE_ONE, MANY_ONE, MANY_MANY, ONE_MANY = range(4)
 null = object()
 
 from dataclasses import dataclass
-
 from enum import Enum
+
 
 class TableTypes(Enum):
     """
-    Represent relation cardinality with the established integer-valued enum members.
+        Represent relation cardinality with the established integer-valued enum members.
 
-    These are Enum members rather than integer aliases. Use .value when
-    interoperating with the module's legacy integer constants; cardinality
-    declarations do not validate physical rows by themselves.
+        These are Enum members rather than integer aliases. Use .value when
+        interoperating with the module's legacy integer constants; cardinality
+        declarations do not validate physical rows by themselves.
 
-    Example:
-import LiuXin_alpha.databases.db_types.database_types        >>> LiuXin_alpha.databases.db_types.database_types.ONE_ONE.value == ONE_ONE
-        True
+        Example:
+    import LiuXin_alpha.databases.db_types.database_types        >>> LiuXin_alpha.databases.db_types.database_types.ONE_ONE.value == ONE_ONE
+            True
     """
+
     ONE_ONE = ONE_ONE
     MANY_ONE = MANY_ONE
     MANY_MANY = MANY_MANY
@@ -54,13 +55,13 @@ class TableMetadata:
         >>> TableMetadata("books", main_table=True).is_interlink
         False
     """
+
     table_name: str
 
     main_table: bool
-    
+
     is_interlink: bool = False
     is_intralink: bool = False
-
 
 
 class StorageCacheBaseTableAPI(abc.ABC):
@@ -77,7 +78,7 @@ class StorageCacheBaseTableAPI(abc.ABC):
     """
 
     table: str
-    db: "DatabaseAPI"
+    db: "DatabaseAPI | None"
     metadata: TableMetadata
 
     def __init__(self, table: str, db: "DatabaseAPI", metadata: TableMetadata) -> None:
@@ -97,6 +98,20 @@ class StorageCacheBaseTableAPI(abc.ABC):
         self.db = db
         self.metadata = metadata
 
+    def _require_attachment(self) -> DatabaseAPI:
+        """Return the borrowed database, rejecting SQL access after detach."""
+        if self.db is None:
+            raise RuntimeError("No database is attached to this cache table")
+        return self.db
+
+    @property
+    def catalog(self) -> DatabaseAPI | None:
+        """Alias the borrowed database attachment."""
+        return self.db
+
+    @catalog.setter
+    def catalog(self, db: DatabaseAPI | None) -> None:
+        self.db = db
 
     @abc.abstractmethod
     def read(self, db: "DatabaseAPI") -> None:
@@ -164,4 +179,3 @@ class StorageCacheBaseTableAPI(abc.ABC):
 
         :return: Dictionary of column names to type-name strings.
         """
-

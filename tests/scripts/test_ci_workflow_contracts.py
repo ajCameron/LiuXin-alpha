@@ -351,7 +351,7 @@ def test_database_ratchet_requires_all_backends_and_preserves_evidence():
         for step in job["steps"]
         if step.get("name") == "Install database regression dependencies"
     )
-    assert '".[test,postgres]" apsw' in install["run"]
+    assert '".[test,postgres,search]" apsw' in install["run"]
     run = next(
         step
         for step in job["steps"]

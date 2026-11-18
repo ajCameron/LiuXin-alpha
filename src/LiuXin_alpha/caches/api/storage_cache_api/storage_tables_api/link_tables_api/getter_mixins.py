@@ -9,11 +9,15 @@ the requested endpoint side. Concrete classes supply all lookup behavior.
 from __future__ import annotations
 
 import abc
-from typing import Optional, Sequence, Any
+from typing import Any, Optional, Sequence
 
 from LiuXin_alpha.databases.api import RowAPI
 from LiuXin_alpha.databases.api.row_api import InterlinkRowAPI
-from LiuXin_alpha.databases.db_types.database_types import TableColumnName, SrcTableID, DstTableID
+from LiuXin_alpha.databases.db_types.database_types import (
+    DstTableID,
+    SrcTableID,
+    TableColumnName,
+)
 
 
 class StorageCacheGetterMixinAPI(abc.ABC):
@@ -35,10 +39,11 @@ class StorageCacheGetterMixinAPI(abc.ABC):
 
     @abc.abstractmethod
     def get_src_ids(
-            self,
-            dst_id: DstTableID,
-            require_ordering: bool = False,
-            type_filter: Optional[str] = None) -> Sequence[SrcTableID]:
+        self,
+        dst_id: DstTableID,
+        require_ordering: bool = False,
+        type_filter: Optional[str] = None,
+    ) -> Sequence[SrcTableID]:
         """
         Find source identities linked to the selected destination identity.
 
@@ -57,11 +62,12 @@ class StorageCacheGetterMixinAPI(abc.ABC):
 
     @abc.abstractmethod
     def get_src_ids_from_value(
-            self,
-            dst_value: Any,
-            dst_column: TableColumnName,
-            require_ordering: bool = False,
-            type_filter: Optional[str] = None) -> Sequence[SrcTableID]:
+        self,
+        dst_value: Any,
+        dst_column: TableColumnName,
+        require_ordering: bool = False,
+        type_filter: Optional[str] = None,
+    ) -> Sequence[SrcTableID]:
         """
         Find source identities linked to destination-column value matches.
 
@@ -82,10 +88,11 @@ class StorageCacheGetterMixinAPI(abc.ABC):
 
     @abc.abstractmethod
     def get_src_rows(
-            self,
-            dst_id: DstTableID,
-            require_ordering: bool = False,
-            type_filter: Optional[str] = None) -> Sequence["RowAPI"]:
+        self,
+        dst_id: DstTableID,
+        require_ordering: bool = False,
+        type_filter: Optional[str] = None,
+    ) -> Sequence["RowAPI"]:
         """
         Find source Rows linked to the selected destination identity.
 
@@ -105,11 +112,12 @@ class StorageCacheGetterMixinAPI(abc.ABC):
 
     @abc.abstractmethod
     def get_src_rows_from_value(
-            self,
-            dst_value: Any,
-            dst_column: TableColumnName,
-            require_ordering: bool = False,
-            type_filter: Optional[str] = None) -> Sequence["RowAPI"]:
+        self,
+        dst_value: Any,
+        dst_column: TableColumnName,
+        require_ordering: bool = False,
+        type_filter: Optional[str] = None,
+    ) -> Sequence["RowAPI"]:
         """
         Find source Rows linked to destination-column value matches.
 
@@ -131,11 +139,12 @@ class StorageCacheGetterMixinAPI(abc.ABC):
 
     @abc.abstractmethod
     def get_src_values(
-            self,
-            dst_id: DstTableID,
-            src_column: TableColumnName,
-            require_ordering: bool = False,
-            type_filter: Optional[str] = None) -> Sequence[Any]:
+        self,
+        dst_id: DstTableID,
+        src_column: TableColumnName,
+        require_ordering: bool = False,
+        type_filter: Optional[str] = None,
+    ) -> Sequence[Any]:
         """
         Find source column values linked to the selected destination identity.
 
@@ -161,10 +170,11 @@ class StorageCacheGetterMixinAPI(abc.ABC):
 
     @abc.abstractmethod
     def get_dst_ids(
-            self,
-            src_id: SrcTableID,
-            require_ordering: bool = False,
-            type_filter: Optional[str] = None) -> Sequence[DstTableID]:
+        self,
+        src_id: SrcTableID,
+        require_ordering: bool = False,
+        type_filter: Optional[str] = None,
+    ) -> Sequence[DstTableID]:
         """
         Find destination identities linked to the selected source identity.
 
@@ -183,11 +193,12 @@ class StorageCacheGetterMixinAPI(abc.ABC):
 
     @abc.abstractmethod
     def get_dst_ids_from_value(
-            self,
-            src_value: Any,
-            src_column: TableColumnName,
-            require_ordering: bool = False,
-            type_filter: Optional[str] = None) -> Sequence[DstTableID]:
+        self,
+        src_value: Any,
+        src_column: TableColumnName,
+        require_ordering: bool = False,
+        type_filter: Optional[str] = None,
+    ) -> Sequence[DstTableID]:
         """
         Find destination identities linked to source-column value matches.
 
@@ -208,10 +219,11 @@ class StorageCacheGetterMixinAPI(abc.ABC):
 
     @abc.abstractmethod
     def get_dst_rows(
-            self,
-            src_id: SrcTableID,
-            require_ordering: bool = False,
-            type_filter: Optional[str] = None) -> Sequence["RowAPI"]:
+        self,
+        src_id: SrcTableID,
+        require_ordering: bool = False,
+        type_filter: Optional[str] = None,
+    ) -> Sequence["RowAPI"]:
         """
         Find destination Rows linked to the selected source identity.
 
@@ -231,11 +243,12 @@ class StorageCacheGetterMixinAPI(abc.ABC):
 
     @abc.abstractmethod
     def get_dst_rows_from_value(
-            self,
-            src_value: Any,
-            src_column: TableColumnName,
-            require_ordering: bool = False,
-            type_filter: Optional[str] = None) -> Sequence["RowAPI"]:
+        self,
+        src_value: Any,
+        src_column: TableColumnName,
+        require_ordering: bool = False,
+        type_filter: Optional[str] = None,
+    ) -> Sequence["RowAPI"]:
         """
         Find destination Rows linked to source-column value matches.
 
@@ -257,11 +270,12 @@ class StorageCacheGetterMixinAPI(abc.ABC):
 
     @abc.abstractmethod
     def get_dst_values(
-            self,
-            src_id: SrcTableID,
-            dst_column: TableColumnName,
-            require_ordering: bool = False,
-            type_filter: Optional[str] = None) -> Sequence[Any]:
+        self,
+        src_id: SrcTableID,
+        dst_column: TableColumnName,
+        require_ordering: bool = False,
+        type_filter: Optional[str] = None,
+    ) -> Sequence[Any]:
         """
         Find destination column values linked to the selected source identity.
 
@@ -287,10 +301,8 @@ class StorageCacheGetterMixinAPI(abc.ABC):
 
     @abc.abstractmethod
     def get_link_row(
-            self,
-            src_id: SrcTableID,
-            dst_id: DstTableID,
-            insist_on_singular: bool = True) -> Optional["InterlinkRowAPI"]:
+        self, src_id: SrcTableID, dst_id: DstTableID, insist_on_singular: bool = True
+    ) -> Optional["InterlinkRowAPI"]:
         """
         Read one optional physical association Rows selected by the directed endpoint pair.
 
@@ -310,9 +322,8 @@ class StorageCacheGetterMixinAPI(abc.ABC):
 
     @abc.abstractmethod
     def get_link_rows(
-            self,
-            src_id: SrcTableID,
-            dst_id: DstTableID) -> Sequence["InterlinkRowAPI"]:
+        self, src_id: SrcTableID, dst_id: DstTableID
+    ) -> Sequence["InterlinkRowAPI"]:
         """
         Read all physical association Rows selected by the directed endpoint pair.
 

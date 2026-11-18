@@ -49,7 +49,8 @@ UNIVERSAL_PLUGINS = [
     "_patiencediff_c",
     "bzzdec",
     "matcher",
-    "tokenizer"]
+    "tokenizer",
+    "dateutil_parser"]
 
 if iswindows:
     UNIVERSAL_PLUGINS.extend(["winutil", "wpd", "winfonts"])

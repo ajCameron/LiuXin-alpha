@@ -8,14 +8,14 @@ In LiuXin, we use the word **category** for the facet itself (the thing being li
 
 ## What a “category” means in code
 
-The calibre-style category browser is driven by `FieldMetadata` and the category routines in `LiuXin_alpha.surfaces.categories`.
+The calibre-style category browser is driven by `FieldMetadata` and the category routines in `LiuXin_alpha.utils.calibre_compat.caches.categories`.
 
 A field becomes a category if:
 
 1. `FieldMetadata[<field>]["is_category"]` is true **and** the field is not of kind `user` or `search`, **and**
 2. For descriptors of kind `field`, `in_table` is `books` (an absent value defaults to `books`).
 
-The helper reads dictionary descriptors from [Catalog field metadata](../../src/LiuXin_alpha/catalog/field_metadata.py); this legacy `books` vocabulary does not change the WEMI schema.
+The helper reads dictionary descriptors from [Catalog field metadata](../../src/LiuXin_alpha/utils/calibre_compat/metadata/field_metadata.py); this legacy `books` vocabulary does not change the WEMI schema.
 
 There is one special case:
 

@@ -334,9 +334,8 @@ class DatabaseStorageMetadataRepository:
         Scan every configured envelope table, validate older payloads with the decoder, and update
         only changed scratch columns. Unsupported versions or write failures leave transaction
         handling to the provider. After successful context exit, record the migration separately,
-        then invalidate covered tables if any rows changed. Migration-recording or invalidation
-        errors can occur after the rewrites, and a recording failure prevents the subsequent
-        invalidation call.
+        then invalidate covered tables if any rows changed, even if recording failed.
+        Migration-recording or invalidation errors can occur after the rewrites.
 
         Example:
             >>> result = repository.migrate_envelopes()  # doctest: +SKIP
@@ -361,9 +360,11 @@ class DatabaseStorageMetadataRepository:
                     upgraded += 1
         from LiuXin_alpha.storage.utils.migrations import record_envelope_migration
 
-        record_envelope_migration(self.db, upgraded)
-        if upgraded:
-            self._invalidate_records(*self._ENVELOPE_COLUMNS)
+        try:
+            record_envelope_migration(self.db, upgraded)
+        finally:
+            if upgraded:
+                self._invalidate_records(*self._ENVELOPE_COLUMNS)
         return upgraded
 
     def allocate_record_id(self, kind: str) -> int:
@@ -1562,9 +1563,8 @@ class DatabaseStorageMetadataRepository:
         Exact kind digital_asset selects the atomic table; every other kind selects the Composite
         table without validation. Preserve role text in the envelope, project recognized roles
         directly, and use primary_payload for unsupported scalar roles. The primary flag reflects
-        the original role, not that fallback. After transaction exit, invalidate only the newly
-        selected relationship pair; no independent invalidation of a replaced other-kind pair is
-        issued here.
+        the original role, not that fallback. After transaction exit, invalidate both relationship
+        pairs in both directions, including the old target kind removed by replacement.
 
         Example:
             >>> repository.upsert_item_target(((manager_api.ItemID(7), "cover"), ("digital_asset", manager_api.DigitalAssetID(2))))  # doctest: +SKIP
@@ -1623,20 +1623,20 @@ class DatabaseStorageMetadataRepository:
                 },
             )
         if self.cache is not None:
-            target_table = (
-                "digital_assets"
-                if kind == "digital_asset"
-                else "composite_digital_assets"
-            )
             self.cache.invalidate(
-                links=(("items", target_table), (target_table, "items"))
+                links=(
+                    ("items", "digital_assets"),
+                    ("digital_assets", "items"),
+                    ("items", "composite_digital_assets"),
+                    ("composite_digital_assets", "items"),
+                )
             )
 
     def remove_item_target(self, key: tuple[manager_api.ItemID, str]) -> None:
         """
         Delete every atomic/Composite link matching the exact Item-role key, then invalidate all
-        four Item/target relationship directions. No surrounding transaction or prior existence
-        check is added; multi-row deletion and later invalidation can fail after earlier mutations.
+        four Item/target relationship directions. Deletions share one macro transaction, joining
+        the caller's transaction when present. Invalidation errors can follow successful deletion.
 
         Example:
             >>> repository.remove_item_target((manager_api.ItemID(7), "cover"))  # doctest: +SKIP
@@ -1646,7 +1646,8 @@ class DatabaseStorageMetadataRepository:
         :return: None after matching deletions and relationship invalidation.
         """
 
-        self._delete_item_target(*key)
+        with self.macros.transaction():
+            self._delete_item_target(*key)
         if self.cache is not None:
             self.cache.invalidate(
                 links=(

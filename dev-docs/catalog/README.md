@@ -25,6 +25,8 @@ and verification; their old test counts are not current checkout results.
 - [Preferred WEMI paths](catalog-wemi-selection.md): SQL/bundle ranking, partial
   paths and the distinct metadata relation-selection contract.
 - [Cache boundary](catalog-cache-boundary.md): derived reads and reconciliation.
+- [Metadata access interface](catalog-cache-boundary.md#metadata-access-interface-direction--2026-11-18):
+  declared native service contract; bound implementation pending.
 - [Link writers](catalog-link-writer-architecture.md): schema-driven relationships.
 - [Cache backends](<../08 - Storage Cache Backends.md>) and
   [read failures](../surfaces/read-model-failures.md): backend capabilities and failure visibility.

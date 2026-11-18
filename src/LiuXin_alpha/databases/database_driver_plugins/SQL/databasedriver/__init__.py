@@ -11,7 +11,7 @@ import time
 import gc
 import pprint
 from collections.abc import Callable, Mapping
-from contextlib import closing
+from contextlib import AbstractContextManager, closing, nullcontext
 from threading import RLock
 
 from typing import TYPE_CHECKING, Any, Literal, TypeVar, cast
@@ -109,6 +109,14 @@ class SQLBaseDriver(SQLDriverMixinState):
         :return: Whether ``os.path.exists(database_path)`` succeeds.
         """
         return os.path.exists(self.database_path)
+
+    def schema_read_scope(self) -> AbstractContextManager[None]:
+        """Leave schema lookup behavior unchanged for backends without scoped reuse.
+
+        PostgreSQL overrides this to bound expensive fingerprint checks. The
+        default opens no connection and cannot affect a caller's transaction.
+        """
+        return nullcontext()
 
     def zero_prop_cache(self) -> None:
         """

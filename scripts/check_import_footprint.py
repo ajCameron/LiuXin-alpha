@@ -76,6 +76,14 @@ PLUGIN_CONTRACT_FORBIDDEN_DOMAINS = frozenset(
 CONVERSION_CONTRACT_FORBIDDEN_DOMAINS = PLUGIN_CONTRACT_FORBIDDEN_DOMAINS - {
     "file_formats"
 }
+# Format-provider contracts describe work; importing them must not load any
+# format implementation, the legacy plugin contracts, or a plugin host.
+FORMAT_PROVIDER_FORBIDDEN_MODULES = (
+    *PLUGIN_HOST_PREFIXES,
+    "LiuXin_alpha.file_formats.oeb",
+    "LiuXin_alpha.file_formats.conversion.plugin",
+    "LiuXin_alpha.file_formats.plugin_runtime",
+)
 
 IMPORT_BUDGETS = (
     ImportBudget("LiuXin_alpha", 1),
@@ -130,6 +138,42 @@ IMPORT_BUDGETS = (
         31,
         CONVERSION_CONTRACT_FORBIDDEN_DOMAINS,
         PLUGIN_HOST_PREFIXES,
+    ),
+    ImportBudget(
+        "LiuXin_alpha.file_formats.providers.registry",
+        23,
+        CONVERSION_CONTRACT_FORBIDDEN_DOMAINS,
+        FORMAT_PROVIDER_FORBIDDEN_MODULES,
+    ),
+    ImportBudget(
+        "LiuXin_alpha.file_formats.providers.legacy_conversion",
+        22,
+        CONVERSION_CONTRACT_FORBIDDEN_DOMAINS,
+        FORMAT_PROVIDER_FORBIDDEN_MODULES,
+    ),
+    ImportBudget(
+        "LiuXin_alpha.file_formats.providers.upstream_calibre",
+        21,
+        CONVERSION_CONTRACT_FORBIDDEN_DOMAINS,
+        FORMAT_PROVIDER_FORBIDDEN_MODULES,
+    ),
+    ImportBudget(
+        "LiuXin_alpha.file_formats.providers.fork_metadata",
+        25,
+        CONVERSION_CONTRACT_FORBIDDEN_DOMAINS,
+        FORMAT_PROVIDER_FORBIDDEN_MODULES,
+    ),
+    ImportBudget(
+        "LiuXin_alpha.file_formats.providers.ported_calibre",
+        27,
+        CONVERSION_CONTRACT_FORBIDDEN_DOMAINS,
+        FORMAT_PROVIDER_FORBIDDEN_MODULES,
+    ),
+    ImportBudget(
+        "LiuXin_alpha.file_formats.html.book",
+        17,
+        CONVERSION_CONTRACT_FORBIDDEN_DOMAINS,
+        FORMAT_PROVIDER_FORBIDDEN_MODULES,
     ),
     ImportBudget(
         "LiuXin_alpha.plugins.contracts",

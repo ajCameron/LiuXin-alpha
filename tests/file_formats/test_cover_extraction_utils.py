@@ -259,3 +259,126 @@ def test_gui2_compatibility_module_is_importable() -> None:
     assert gui2.is_ok_to_use_qt() is False
     assert gui2.must_use_qt() is False
     assert gui2.pixmap_to_data(None) == b""
+
+
+def _svg_page(href: str) -> bytes:
+    """
+    Make an SVG cover page showing one image.
+
+    Example:
+        >>> b"cover.png" in _svg_page("cover.png")
+        True
+
+
+    :param href: The image's href.
+    :return: The page.
+    """
+    return (
+        '<html xmlns="http://www.w3.org/1999/xhtml"><body><svg xmlns="http://www.w3.org/2000/svg"'
+        f' xmlns:xlink="http://www.w3.org/1999/xlink"><image xlink:href="{href}"/></svg></body></html>'
+    ).encode("utf-8")
+
+
+def _html_page(src: str) -> bytes:
+    """
+    Make an HTML cover page holding only a cover image.
+
+    Example:
+        >>> b'alt="cover"' in _html_page("cover.png")
+        True
+
+
+    :param src: The image's src.
+    :return: The page.
+    """
+    return f'<html><body><img src="{src}" alt="cover"/></body></html>'.encode("utf-8")
+
+
+@pytest.mark.parametrize("make_page", [_svg_page, _html_page], ids=["svg", "html"])
+def test_cover_page_images_stay_inside_the_book(cover_module, tmp_path, make_page) -> None:
+    """
+    Read a cover page's image only from inside the book, as calibre does.
+
+    Example:
+        >>> test_cover_page_images_stay_inside_the_book(None, None, _svg_page)  # doctest: +SKIP
+
+
+    :param cover_module: The module whose helpers are checked.
+    :param tmp_path: Folder for the book and an image outside it.
+    :param make_page: Makes the cover page.
+    :return: None; the assertions are the check.
+    """
+    book = tmp_path / "book"
+    text = book / "text"
+    text.mkdir(parents=True)
+    _write_cover(book)
+    (tmp_path / "private.png").write_bytes(PNG_BYTES)
+    outside = (tmp_path / "private.png").as_posix()
+    extract = (
+        cover_module.extract_cover_from_embedded_svg
+        if make_page is _svg_page
+        else cover_module.extract_calibre_cover
+    )
+
+    assert extract(make_page("../images/cover.png"), str(text), None, root=str(book)) == PNG_BYTES
+    assert extract(make_page("../../private.png"), str(text), None, root=str(book)) is None
+    assert extract(make_page(outside), str(text), None, root=str(book)) is None
+    # Without a root, the page's own folder is the limit
+    assert extract(make_page("../images/cover.png"), str(text), None) is None
+    assert extract(make_page("../images/cover.png"), str(book / "images" / ".."), None) is None
+
+
+def test_render_passes_the_book_folder_on(cover_module, tmp_path) -> None:
+    """
+    Keep images to the book folder given to ``render_html_svg_workaround``.
+
+    Example:
+        >>> test_render_passes_the_book_folder_on(None, None)  # doctest: +SKIP
+
+
+    :param cover_module: The module whose helpers are checked.
+    :param tmp_path: Folder for the book and an image outside it.
+    :return: None; the assertions are the check.
+    """
+    book = tmp_path / "book"
+    text = book / "text"
+    text.mkdir(parents=True)
+    _write_cover(book)
+    (tmp_path / "private.png").write_bytes(PNG_BYTES)
+    inside = text / "inside.xhtml"
+    inside.write_bytes(_svg_page("../images/cover.png"))
+    escaping = text / "escaping.xhtml"
+    escaping.write_bytes(_svg_page("../../private.png"))
+
+    assert cover_module.render_html_svg_workaround(str(inside), None, root=str(book)) == PNG_BYTES
+    assert cover_module.extract_cover_from_embedded_svg(
+        escaping.read_bytes(), str(text), None, root=str(book)
+    ) is None
+
+
+def test_is_existing_subpath_resolves_links(tmp_path) -> None:
+    """
+    Follow links before deciding whether a file is inside a folder.
+
+    Example:
+        >>> test_is_existing_subpath_resolves_links(None)  # doctest: +SKIP
+
+
+    :param tmp_path: Folder for the files.
+    :return: None; the assertions are the check.
+    """
+    from LiuXin_alpha.file_formats.utils import is_existing_subpath
+
+    book = tmp_path / "book"
+    book.mkdir()
+    private = tmp_path / "private.png"
+    private.write_bytes(PNG_BYTES)
+    link = book / "cover.png"
+    try:
+        link.symlink_to(private)
+    except OSError:
+        pytest.skip("symbolic links are not available here")
+
+    assert is_existing_subpath(str(private), str(tmp_path))
+    assert not is_existing_subpath(str(link), str(book))
+    assert not is_existing_subpath(str(book / "missing.png"), str(book))

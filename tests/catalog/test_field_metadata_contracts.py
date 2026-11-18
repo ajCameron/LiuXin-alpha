@@ -17,8 +17,8 @@ from typing import Any
 
 import pytest
 
-import LiuXin_alpha.catalog.field_metadata as field_metadata_module
-from LiuXin_alpha.catalog.field_metadata import (
+import LiuXin_alpha.utils.calibre_compat.metadata.field_metadata as field_metadata_module
+from LiuXin_alpha.utils.calibre_compat.metadata.field_metadata import (
     CalibreFieldMetadata,
     FieldMetadata,
     calibre_name_to_liuxin_name,

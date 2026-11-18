@@ -1,4 +1,3 @@
-
 """
 Describe legacy main-table and association update requests and result payloads.
 
@@ -14,13 +13,17 @@ does not provide executable update coordination.
 """
 
 import dataclasses
-
-from typing import Any, Dict, List, Optional, Tuple, Union, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
 if TYPE_CHECKING:
-
-    from LiuXin_alpha.databases.db_types.database_types import MainTableID, MainTableName, MainTableColumnName, \
-        InterlinkTableID, InterLinkTableName, SrcTableID, DstTableID
+    from LiuXin_alpha.databases.db_types.database_types import (
+        DstTableID,
+        InterlinkTableID,
+        InterLinkTableName,
+        MainTableID,
+        MainTableName,
+        SrcTableID,
+    )
 
 
 @dataclasses.dataclass
@@ -37,6 +40,7 @@ class MainTableUpdate:
         A request can carry one new row dictionary and a set of obsolete row IDs
         for a consumer to validate before writing.
     """
+
     # We're targeting this table
     main_table: MainTableName
 
@@ -62,6 +66,7 @@ class MainTableUpdateResults:
     Example:
         A caller can report IDs {1, 2} as dirty with its corresponding changed row dictionaries.
     """
+
     main_table: MainTableName
 
     # The ids of rows affected by this update
@@ -86,6 +91,7 @@ class OneOneInterLinkTableUpdate:
         A create_these_links entry {1: 7} describes a source/destination association
         for the concrete updater to validate and persist.
     """
+
     interlink_table: InterLinkTableName
 
     # Keyed with the src table id and valued with the dst table id
@@ -117,6 +123,7 @@ class OneOneInterLinkTableUpdateResults:
     Example:
         A caller can record source 1 mapping to destination 7 in src_values_changed.
     """
+
     interlink_table: InterLinkTableName
 
     src_ids_deleted: set[MainTableID]
@@ -150,6 +157,7 @@ class OneManyInterlinkTableUpdate:
         An explicit set_link_priority mapping {(1, 7): 3} describes priority 3
         for that directed pair; it does not write the physical link by itself.
     """
+
     interlink_table: InterLinkTableName
 
     src_ids_deleted: set[MainTableID]
@@ -182,9 +190,9 @@ class OneManyInterlinkTableUpdate:
     set_link_data: Optional[dict[tuple[SrcTableID, DstTableID], str]] = None
 
     # index
-    set_link_index: Optional[dict[tuple[SrcTableID, DstTableID], Optional[Union[int, float]]]] = None
-
-
+    set_link_index: Optional[
+        dict[tuple[SrcTableID, DstTableID], Optional[Union[int, float]]]
+    ] = None
 
 
 @dataclasses.dataclass
@@ -201,6 +209,7 @@ class OneManyInterLinkTableUpdateResults:
         A priority_updates entry {(1, 7): 3} records the reported change for
         one directed association.
     """
+
     interlink_table: InterLinkTableName
 
     src_ids_deleted: set[MainTableID]
@@ -256,6 +265,7 @@ class ManyOneInterlinkTableUpdate:
         An explicit set_link_priority mapping {(1, 7): 3} describes priority 3
         for that directed pair; it does not write the physical link by itself.
     """
+
     interlink_table: InterLinkTableName
 
     src_ids_deleted: set[MainTableID]
@@ -289,7 +299,9 @@ class ManyOneInterlinkTableUpdate:
     set_link_data: Optional[dict[tuple[SrcTableID, DstTableID], str]] = None
 
     # index
-    set_link_index: Optional[dict[tuple[SrcTableID, DstTableID], Optional[Union[int, float]]]] = None
+    set_link_index: Optional[
+        dict[tuple[SrcTableID, DstTableID], Optional[Union[int, float]]]
+    ] = None
 
 
 class ManyOneInterLinkTableUpdateResults(OneManyInterLinkTableUpdateResults):
@@ -305,7 +317,6 @@ class ManyOneInterLinkTableUpdateResults(OneManyInterLinkTableUpdateResults):
         Construct this result with the same required endpoint and property
         arguments as OneManyInterLinkTableUpdateResults.
     """
-
 
 
 @dataclasses.dataclass
@@ -328,6 +339,7 @@ class ManyManyInterlinkTableUpdate:
         An explicit set_link_priority mapping {(1, 7): 3} describes priority 3
         for that directed pair; it does not write the physical link by itself.
     """
+
     interlink_table: InterLinkTableName
 
     dirtied_src_ids: set[MainTableID]
@@ -365,7 +377,9 @@ class ManyManyInterlinkTableUpdate:
     set_link_data: Optional[dict[tuple[SrcTableID, DstTableID], str]] = None
 
     # index
-    set_link_index: Optional[dict[tuple[SrcTableID, DstTableID], Optional[Union[int, float]]]] = None
+    set_link_index: Optional[
+        dict[tuple[SrcTableID, DstTableID], Optional[Union[int, float]]]
+    ] = None
 
 
 class ManyManyInterLinkTableUpdateResults(OneManyInterLinkTableUpdateResults):
@@ -381,14 +395,3 @@ class ManyManyInterLinkTableUpdateResults(OneManyInterLinkTableUpdateResults):
         Construct this result with the same required endpoint and property
         arguments as OneManyInterLinkTableUpdateResults.
     """
-
-
-
-
-
-
-
-
-
-
-
