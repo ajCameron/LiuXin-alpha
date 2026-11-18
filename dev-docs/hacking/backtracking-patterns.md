@@ -19,6 +19,27 @@ calibre behave this way.
 `xml_to_unicode` decodes OPF, NCX, HTML, FB2, CHM and LIT content, so each of
 these reached most readers and converters.
 
+The MOBI 6 reader, `file_formats/mobi/reader/mobi6.py`, runs every MOBI 6 book's
+text through more patterns and scans in conversion, and so does metadata reading
+for books under 4 MB without an EXTH header. On crafted books of a few hundred
+kilobytes these took minutes or more:
+
+| Pass | Why it was slow | Now |
+| --- | --- | --- |
+| `PAGE_BREAK_PAT`, the `o:p` pattern | `\s*/{0,1}\s*` and `(?:\s+[^/>]*)` split a run of spaces every way | possessive `\s*+` and an atomic group: the matches cannot end another way; `sub_page_breaks` skips tries that must fail |
+| `<\?xml`, `<o:p`, `name: ` tags | a try at each opening scans to a `>` that never comes | `sub_before_last`: no tries after the last `>` |
+| the four swaps of style and block tags | every tag of a long run is tried, or each `<p` and `</p` scans to a missing `>` | `sub_from_run_starts`, `sub_skipping_failures` |
+| `filepos=` links | an unclosed tag retries every `filepos=` against the rest of it | a lookahead checks first that the tag closes |
+| entities around anchors, `&(\S+?);` | each `&` scans to the end of the text | `sub_skipping_failures`, `entities` |
+| anchor placement | each link target searches afresh for `<` and `>` | `ForwardFinder` |
+| CSS classes | each rule is compared with every rule so far | a dictionary |
+| svg images, page-break anchors | placed by counting the parent's children | `addprevious` and `addnext` beside the element |
+
+The reader also pasted the guide's toc and cover hrefs into XPath; they now pass
+as XPath variables. Its PalmDB table already refuses offsets that go back, its
+HUFF/CDIC reader caps each record's output and its EXTH reader refuses records
+of size 0, which calibre's own reader does not.
+
 ## How they are fixed
 
 `LiuXin_alpha.utils.linear_time` holds stand-ins. A `LinearPattern` wraps the
@@ -57,13 +78,10 @@ unchanged.
   `file_formats/lrf/html/convert_from.py` and `file_formats/lrf/pylrs/pylrs.py`.
   These are on conversion paths; `LinearPattern(re.compile(r"&(\S+?);"), entities)`
   replaces each.
-- LiuXin's MOBI 6 reader, `file_formats/mobi/reader/mobi6.py`, has its own
-  backtracking clean-up patterns, XPath built from the book's text and repeated
-  scans; they are being fixed separately.
 
-calibre 9.18 has the declaration patterns too (its `ebooks/chardet.py`), and
-the same entity pattern in its conversion code. The declaration hangs are
-recorded for reporting upstream in
-`dev-docs/calibre_compat/upstream-calibre-bugs.md` (PR #181).
+calibre 9.18 has the declaration patterns too (its `ebooks/chardet.py`), the
+same entity pattern in its conversion code, and the same MOBI 6 passes and XPath.
+The declaration and MOBI hangs are recorded for reporting upstream in
+`dev-docs/calibre_compat/upstream-calibre-bugs.md` (PR #181, bugs 5, 9 and 10).
 
 Return to [contributing and tools](README.md).

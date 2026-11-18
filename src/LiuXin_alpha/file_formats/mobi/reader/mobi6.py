@@ -43,6 +43,7 @@ from LiuXin_alpha.file_formats.mobi.reader.headers import (
 from LiuXin_alpha.file_formats.opf.opf2 import OPF, OPFCreator
 from LiuXin_alpha.file_formats.toc import TOC
 from LiuXin_alpha.metadata.book.base import calibreMetaInformation as MetaInformation
+from LiuXin_alpha.utils import linear_time
 from LiuXin_alpha.utils.calibre import entity_to_unicode, xml_entity_to_unicode
 from LiuXin_alpha.utils.libraries.calibre_chardet import ENCODING_PATS
 from LiuXin_alpha.utils.libraries.cleantext import clean_ascii_chars
@@ -78,10 +79,16 @@ class MobiReader(object):
 
             python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
     """
+    # Runs of whitespace and the attributes are read possessively: they can end
+    # only one way, but as plain repeats a long run of spaces was split every
+    # way, for minutes on a few kilobytes. The matches are unchanged.
     PAGE_BREAK_PAT = re.compile(
-        r"<\s*/{0,1}\s*mbp:pagebreak((?:\s+[^/>]*){0,1})/{0,1}\s*>\s*(?:<\s*/{0,1}\s*mbp:pagebreak\s*/{0,1}\s*>)*",
+        r"<\s*+/{0,1}\s*+mbp:pagebreak((?>(?:\s+[^/>]*){0,1}))/{0,1}\s*>\s*(?:<\s*+/{0,1}\s*+mbp:pagebreak\s*+/{0,1}\s*>)*",
         re.IGNORECASE,
     )
+    # Finds the matches of &(\S+?); in linear time: as a pattern, a run of '&'
+    # with no ';' took 33 s for 80 KB.
+    ENTITY_PAT = linear_time.LinearPattern(re.compile(r"&(\S+?);"), linear_time.entities)
     IMAGE_ATTRS = ("lowrecindex", "recindex", "hirecindex")
     MAX_TEXT_RECORD_UNCOMPRESSED_SIZE = 8 * 1024 * 1024
     MAX_TOTAL_TEXT_UNCOMPRESSED_SIZE = 128 * 1024 * 1024
@@ -274,11 +281,14 @@ class MobiReader(object):
         self.processed_html = self.processed_html.replace("\ufeff", "")
         # Remove tags of the form <xyz: ...> as they can cause issues further
         # along the pipeline
-        self.processed_html = re.sub(r"</{0,1}[a-zA-Z]+:\s+[^>]*>", "", self.processed_html)
+        # Tries after the last '>' scan to the end and fail, so they are not made.
+        self.processed_html = linear_time.sub_before_last(
+            re.compile(r"</{0,1}[a-zA-Z]+:\s+[^>]*>"), "", self.processed_html, ">"
+        )
 
         for pat in ENCODING_PATS:
             self.processed_html = pat.sub("", self.processed_html)
-        self.processed_html = re.sub(r"&(\S+?);", xml_entity_to_unicode, self.processed_html)
+        self.processed_html = self.ENTITY_PAT.sub(xml_entity_to_unicode, self.processed_html)
         self.extract_images(processed_records, output_dir)
         self.replace_page_breaks()
         self.cleanup_html()
@@ -290,10 +300,8 @@ class MobiReader(object):
             if len(root.xpath("//html")) > 5:
                 root = html.fromstring(self.processed_html.replace("\x0c", "").replace("\x14", ""))
         except Exception as e:
-            self.log.warning(
-                "MOBI markup appears to contain random bytes. Stripping.",
-                " - Error message: {}".format(e),
-            )
+            # One message: a second argument is taken as a %-format argument.
+            self.log.warning("MOBI markup appears to contain random bytes. Stripping. - Error message: {}".format(e))
             self.processed_html = self.remove_random_bytes(self.processed_html)
             root = html.fromstring(self.processed_html)
 
@@ -304,10 +312,7 @@ class MobiReader(object):
             try:
                 root = fromstring(self.processed_html)
             except Exception as e:
-                self.log.warning(
-                    "MOBI markup appears to contain random bytes. Stripping.",
-                    " - exception message: {}".format(e),
-                )
+                self.log.warning("MOBI markup appears to contain random bytes. Stripping. - exception message: {}".format(e))
                 self.processed_html = self.remove_random_bytes(self.processed_html)
                 root = fromstring(self.processed_html)
             if len(root.xpath("body/descendant::*")) < 1:
@@ -450,7 +455,9 @@ class MobiReader(object):
                     href = ref.get("href", "")
                     if href.startswith("#"):
                         href = href[1:]
-                    anchors = root.xpath('//*[@id="%s"]' % href)
+                    # The href is passed as a value, not pasted into the XPath, where a
+                    # quote in it failed the read and the rest ran as XPath.
+                    anchors = root.xpath("//*[@id=$id]", id=href)
                     if anchors:
                         cpos = anchors[0]
                         reached = False
@@ -484,33 +491,46 @@ class MobiReader(object):
         self.processed_html = self.processed_html.replace("\r\n", "\n")
         self.processed_html = self.processed_html.replace("> <", ">\n<")
         self.processed_html = self.processed_html.replace("<mbp: ", "<mbp:")
-        self.processed_html = re.sub(r"<\?xml[^>]*>", "", self.processed_html)
-        self.processed_html = re.sub(r"<\s*(/?)\s*o:p[^>]*>", r"", self.processed_html)
+        # These passes give the results of plain re.sub in linear time. As plain
+        # substitutions they took hours on crafted books: tries scanned to a '>'
+        # that never came, every tag of a long run was tried, and runs of spaces
+        # were split every way. Tries that must fail are not made, and the o:p
+        # pattern reads its spaces possessively.
+        self.processed_html = linear_time.sub_before_last(re.compile(r"<\?xml[^>]*>"), "", self.processed_html, ">")
+        self.processed_html = linear_time.sub_before_last(
+            re.compile(r"<\s*+(/?)\s*+o:p[^>]*>"), "", self.processed_html, ">"
+        )
         # Swap inline and block level elements, and order block level elements according to priority
         # - lxml and beautifulsoup expect/assume a specific order based on xhtml spec
-
-        self.processed_html = re.sub(
-            r"(?i)(?P<styletags>(<(h\d+|i|b|u|em|small|big|strong|tt)>\s*){1,})(?P<para><p[^>]*>)",
+        self.processed_html = linear_time.sub_from_run_starts(
+            re.compile(r"(?i)(?P<styletags>(<(h\d+|i|b|u|em|small|big|strong|tt)>\s*){1,})(?P<para><p[^>]*>)"),
             r"\g<para>\g<styletags>",
             self.processed_html,
+            re.compile(r"(?i)(?:<(?:h\d+|i|b|u|em|small|big|strong|tt)>\s*)+"),
         )
 
-        self.processed_html = re.sub(
-            r"(?i)(?P<para></p[^>]*>)\s*(?P<styletags>(</(h\d+|i|b|u|em|small|big|strong|tt)>\s*){1,})",
+        self.processed_html = linear_time.sub_skipping_failures(
+            re.compile(r"(?i)(?P<para></p[^>]*>)\s*(?P<styletags>(</(h\d+|i|b|u|em|small|big|strong|tt)>\s*){1,})"),
             r"\g<styletags>\g<para>",
             self.processed_html,
+            re.compile(r"(?i)</p"),
+            ">",
         )
 
-        self.processed_html = re.sub(
-            r"(?i)(?P<blockquote>(</(blockquote|div)[^>]*>\s*){1,})(?P<para></p[^>]*>)",
+        self.processed_html = linear_time.sub_from_run_starts(
+            re.compile(r"(?i)(?P<blockquote>(</(blockquote|div)[^>]*>\s*){1,})(?P<para></p[^>]*>)"),
             r"\g<para>\g<blockquote>",
             self.processed_html,
+            re.compile(r"(?i)(?:</(?:blockquote|div)[^>]*>\s*)+"),
+            ">",
         )
 
-        self.processed_html = re.sub(
-            r"(?i)(?P<para><p[^>]*>)\s*(?P<blockquote>(<(blockquote|div)[^>]*>\s*){1,})",
+        self.processed_html = linear_time.sub_skipping_failures(
+            re.compile(r"(?i)(?P<para><p[^>]*>)\s*(?P<blockquote>(<(blockquote|div)[^>]*>\s*){1,})"),
             r"\g<blockquote>\g<para>",
             self.processed_html,
+            re.compile(r"(?i)<p"),
+            ">",
         )
 
         bods = htmls = 0
@@ -614,6 +634,10 @@ class MobiReader(object):
         forwardable_anchors = []
         pagebreak_anchors = []
         BLOCK_TAGS = {"h1", "h2", "h3", "h4", "h5", "h6", "div", "p"}
+        # The first class given each rule, for looking rules up below.
+        classes_by_rule: dict[str, str] = {}
+        for sel, srule in self.tag_css_rules.items():
+            classes_by_rule.setdefault(srule, sel)
         for i, tag in enumerate(root.iter()):
             if not isinstance(tag.tag, str):
                 continue
@@ -774,15 +798,14 @@ class MobiReader(object):
                 forwardable_anchors.append(tag)
 
             if styles:
-                ncls = None
                 rule = "; ".join(styles)
-                for sel, srule in self.tag_css_rules.items():
-                    if srule == rule:
-                        ncls = sel
-                        break
+                # Looked up, not compared with every rule so far, which took
+                # minutes for a book of many differently styled tags.
+                ncls = classes_by_rule.get(rule)
                 if ncls is None:
                     ncls = "calibre_%d" % i
                     self.tag_css_rules[ncls] = rule
+                    classes_by_rule.setdefault(rule, ncls)
                 cls = attrib.get("class", "")
                 cls = cls + (" " if cls else "") + ncls
                 attrib["class"] = cls
@@ -792,11 +815,15 @@ class MobiReader(object):
             parent = tag.getparent()
 
             if images and hasattr(parent, "find"):
-                index = parent.index(tag)
+                # Each image goes where inserting it at the svg's index put it,
+                # before the one put there last, without counting the svg's
+                # siblings again for each: books of many svgs took minutes.
+                before = tag
                 for img in images:
                     img.getparent().remove(img)
                     img.tail = img.text = None
-                    parent.insert(index, img)
+                    before.addprevious(img)
+                    before = img
 
             if hasattr(parent, "remove"):
                 parent.remove(tag)
@@ -809,7 +836,7 @@ class MobiReader(object):
             p = tag.getparent()
             a = p.makeelement("a")
             a.attrib["id"] = anchor
-            p.insert(p.index(tag) + 1, a)
+            tag.addnext(a)  # where p.insert(p.index(tag) + 1, a) put it, without counting siblings
             if getattr(a.getnext(), "tag", None) in BLOCK_TAGS:
                 forwardable_anchors.append(a)
 
@@ -954,9 +981,10 @@ class MobiReader(object):
         ncx_manifest_entry = None
         if toc:
             ncx_manifest_entry = "toc.ncx"
-            elems = root.xpath('//*[@id="%s"]' % toc.partition("#")[-1])
+            # The fragment is passed as a value, not pasted into the XPath.
+            elems = root.xpath("//*[@id=$id]", id=toc.partition("#")[-1])
             tocobj = None
-            ent_pat = re.compile(r"&(\S+?);")
+            ent_pat = self.ENTITY_PAT
             if elems:
                 tocobj = TOC()
                 found = False
@@ -1282,7 +1310,9 @@ class MobiReader(object):
         :return: None; the operation mutates state, writes output or performs cleanup in
             place.
         """
-        self.processed_html = self.PAGE_BREAK_PAT.sub(r'<div \1 class="mbp_pagebreak" />', self.processed_html)
+        self.processed_html = linear_time.sub_page_breaks(
+            self.PAGE_BREAK_PAT, r'<div \1 class="mbp_pagebreak" />', self.processed_html
+        )
 
     def add_anchors(self: _typing.Self) -> None:
         """
@@ -1299,21 +1329,26 @@ class MobiReader(object):
         """
         self.log.debug("Adding anchors...")
         positions = set([])
-        link_pattern = re.compile(br"""<[^<>]+filepos=['"]{0,1}(\d+)[^<>]*>""", re.IGNORECASE)
+        # Checks first that the tag closes: an open tag was retried at every
+        # filepos= in it against the rest of the tag. The matches are unchanged.
+        link_pattern = re.compile(br"""<(?=[^<>]*>)[^<>]+filepos=['"]{0,1}(\d+)[^<>]*>""", re.IGNORECASE)
         for match in link_pattern.finditer(self.mobi_html):
             positions.add(int(match.group(1)))
         pos = 0
         processed_html = BytesIO()
         end_tag_re = re.compile(br"<\s*/")
+        # Link targets come in order, so a search from one reuses what the last
+        # found instead of crossing the same text again.
+        finder = linear_time.ForwardFinder(self.mobi_html)
         for end in sorted(positions):
             if end == 0:
                 continue
             oend = end
-            l = self.mobi_html.find(b"<", end)
-            r = self.mobi_html.find(b">", end)
+            l = finder.find(b"<", end)
+            r = finder.find(b">", end)
             anchor = b'<a id="filepos%d"></a>'
             if r > -1 and (r < l or l == end or l == -1):
-                p = self.mobi_html.rfind(b"<", 0, end + 1)
+                p = finder.rfind(b"<", end + 1)
                 if (
                     pos < end
                     and p > -1
@@ -1330,7 +1365,16 @@ class MobiReader(object):
         processed_html = processed_html.getvalue().decode(self.book_header.codec, "ignore")
 
         # Remove anchors placed inside entities
-        self.processed_html = re.sub(r'&([^;]*?)(<a id="filepos\d+"></a>)([^;]*);', r"&\1\3;\2", processed_html)
+        # Tries after the last ';' fail, as does every try between an '&' whose
+        # try failed and the next ';', so they are not made.
+        self.processed_html = linear_time.sub_skipping_failures(
+            re.compile(r'&([^;]*?)(<a id="filepos\d+"></a>)([^;]*);'),
+            r"&\1\3;\2",
+            processed_html,
+            re.compile("&"),
+            ";",
+            ";",
+        )
 
     def extract_images(self: _typing.Self, processed_records: _typing.Any, output_dir: _typing.Any) -> None:
         """
