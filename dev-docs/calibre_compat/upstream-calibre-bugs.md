@@ -1,9 +1,10 @@
 # Bugs to report to upstream calibre
 
-Status: **not yet reported.** Found **2026-11-17** while porting calibre's metadata
-readers (PR #179) and hardening LiuXin's own readers (PR #180).
+Status: **not yet reported.** Found **2026-11-17** and **2026-11-18** while porting
+calibre's metadata readers (PRs #179 and #185) and hardening LiuXin's own readers
+(PRs #180 and #186).
 
-These are three ways a damaged or hostile file keeps a calibre metadata reader
+These are four ways a damaged or hostile file keeps a calibre metadata reader
 busy for minutes, or for ever. Each section has the location, a reproducer to run
 with `calibre-debug`, what was measured, and a suggested fix.
 
@@ -19,7 +20,7 @@ with `calibre-debug`, what was measured, and a suggested fix.
 - **Where to report:** calibre takes ordinary bugs on
   [Launchpad](https://bugs.launchpad.net/calibre). Recent security fixes have gone
   through [GitHub security advisories](https://github.com/kovidgoyal/calibre/security/advisories).
-  All three are denial of service from a crafted file. That makes them candidates
+  All four are denial of service from a crafted file. That makes them candidates
   for a private advisory rather than a public bug, or for a public bug if calibre
   treats reader hangs as ordinary bugs. Choosing which is the reporter's call.
 - **Order:** bugs 2 and 3 should go together. Fixing 2 lets never-closed info
@@ -32,6 +33,7 @@ with `calibre-debug`, what was measured, and a suggested fix.
 | 1 | `ebooks/metadata/topaz.py`, `MetadataUpdater.get_headers` | A header or block count past the end of the file | 9-byte file: 7.8 minutes, 2.2 GB, then an error |
 | 2 | `ebooks/metadata/rtf.py`, `get_document_info` | An `{\info` group that the end of the file cuts off | Never returns; memory grows about 100 MB a second |
 | 3 | `ebooks/metadata/rtf.py`, the five field patterns | Many `{\info` groups and a field that isn't there | Quadratic: 56 kB takes 10 s. Cubic once 2 is fixed |
+| 4 | `ebooks/metadata/html.py`, `handle_comment` | An HTML comment with a long run of characters and no spaces | Quadratic: 40,000 characters take 14–32 s; the 150,000 calibre reads, minutes |
 
 ## 1. Topaz: counts past the end of the file
 
@@ -187,6 +189,73 @@ closing brace. LiuXin's version of both, `info_field` and `replace_fields` in
 patterns on 100,000 random blocks. A 1.5 MB file now reads or rewrites in about
 0.2 s.
 
+## 4. HTML: the comment pattern backtracks
+
+`handle_comment` reads metadata comments such as `<!-- TITLE="A Book" -->` with
+
+```python
+_handle_comment_pat = re.compile(rf'''(?P<name>\S+)\s*=\s*{attr_pat}''')
+for match in _handle_comment_pat.finditer(data):
+```
+
+`finditer` tries the pattern at every character. On a run of characters without a
+space, `\S+` takes the rest of the run and then backs off a character at a time
+looking for `=` and a quote, so each start costs the length of the run and the whole
+comment costs its square. `a=a=a=…` is worse, as every `=` is tried. `get_metadata_`
+keeps only the first 150,000 characters, which bounds it at minutes.
+
+```python
+# html_comment.py: run with calibre-debug -e html_comment.py
+import io
+import time
+
+from calibre.ebooks.metadata.html import get_metadata
+
+for size in (10_000, 20_000, 40_000):
+    for label, comment in (('run', 'a' * size), ('equals', 'a=' * (size // 2))):
+        data = f'<html><head><!-- {comment} --></head></html>'.encode()
+        start = time.monotonic()
+        get_metadata(io.BytesIO(data))
+        print(label, size, f'{time.monotonic() - start:.2f} s')
+```
+
+**Measured** (calibre's code with html5-parser replaced by lxml's HTML parser, which
+parses these pages in milliseconds; the time is the pattern's):
+
+| Characters | Run of `a` | `a=a=…` |
+|---|---|---|
+| 10,000 | 0.87 s | 2.1 s |
+| 20,000 | 3.5 s | 7.6 s |
+| 40,000 | 14 s | 32 s |
+
+At the 150,000-character cap that is about 3 and 7 minutes (extrapolated, not run).
+
+**Suggested fix:** a match starting inside a run would also match from the run's
+start, so trying only the search position and the starts of runs finds the same
+matches as `finditer`:
+
+```python
+_token_start_pat = re.compile(r'\s\S')
+
+
+def comment_matches(pat, data):
+    ans, pos = [], 0
+    while pos < len(data):
+        match = pat.match(data, pos)
+        if match is not None:
+            ans.append(match)
+            pos = match.end()
+            continue
+        nxt = _token_start_pat.search(data, pos)
+        if nxt is None:
+            break
+        pos = nxt.start() + 1
+    return ans
+```
+
+This gave the same matches as `finditer` on 200,000 random comments, and reads
+150,000 characters in 6 ms.
+
 ## LiuXin's own fixes
 
 - PR #180 fixes LiuXin's readers on `main`: `metadata/file_sources/topaz.py`
@@ -194,5 +263,8 @@ patterns on 100,000 random blocks. A 1.5 MB file now reads or rewrites in about
   `metadata/file_sources/rtf.py`.
 - PR #179 carries the same fixes in the ported calibre readers under
   `metadata/upstream_calibre/`, each line marked `# LiuXin:`.
+- PR #186 fixes the same comment pattern in LiuXin's HTML reader on `main`
+  (`metadata/file_sources/html.py`), which has no length cap, so a 1 MB comment
+  would have taken hours. PR #185 carries the fix in the ported HTML reader.
 
 Return to the [calibre compatibility index](README.md).
