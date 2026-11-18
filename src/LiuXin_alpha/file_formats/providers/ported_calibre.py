@@ -48,6 +48,10 @@ PORTED_READERS: Mapping[str, tuple[str, frozenset[str]]] = {
     "Read IMP metadata": ("imp", frozenset({"imp"})),
     "Read RB metadata": ("rb", frozenset({"rb"})),
     "Read LRX metadata": ("lrx", frozenset({"lrx"})),
+    "Read SNB metadata": ("snb", frozenset({"snb"})),
+    "Read RTF metadata": ("rtf", frozenset({"rtf"})),
+    "Read Topaz metadata": ("topaz", frozenset({"tpz", "azw1"})),
+    "Read PML metadata": ("pml", frozenset({"pml", "pmlz"})),
 }
 """calibre's reader plugins that have been ported: module and formats."""
 
@@ -90,6 +94,30 @@ def ported_reader(module: str) -> Callable[[Any], Any]:
         )
 
         return get_lrx_metadata
+    if module == "snb":
+        from LiuXin_alpha.metadata.upstream_calibre.snb import (
+            get_metadata as get_snb_metadata,
+        )
+
+        return get_snb_metadata
+    if module == "rtf":
+        from LiuXin_alpha.metadata.upstream_calibre.rtf import (
+            get_metadata as get_rtf_metadata,
+        )
+
+        return get_rtf_metadata
+    if module == "topaz":
+        from LiuXin_alpha.metadata.upstream_calibre.topaz import (
+            get_metadata as get_topaz_metadata,
+        )
+
+        return get_topaz_metadata
+    if module == "pml":
+        from LiuXin_alpha.metadata.upstream_calibre.pml import (
+            get_metadata as get_pml_metadata,
+        )
+
+        return get_pml_metadata
     raise KeyError(f"no calibre reader named {module!r} has been ported")
 
 
@@ -246,7 +274,7 @@ def register_ported_calibre_readers(
     Example:
         >>> from LiuXin_alpha.file_formats.providers.registry import ProviderRegistry
         >>> [p.provider_id for p in register_ported_calibre_readers(ProviderRegistry())]
-        ['calibre-port.read-txt-metadata', 'calibre-port.read-imp-metadata', 'calibre-port.read-rb-metadata', 'calibre-port.read-lrx-metadata']
+        ['calibre-port.read-txt-metadata', 'calibre-port.read-imp-metadata', 'calibre-port.read-rb-metadata', 'calibre-port.read-lrx-metadata', 'calibre-port.read-snb-metadata', 'calibre-port.read-rtf-metadata', 'calibre-port.read-topaz-metadata', 'calibre-port.read-pml-metadata']
 
 
     :param registry: The registry to add the providers to.

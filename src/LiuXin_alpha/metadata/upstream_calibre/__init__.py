@@ -8,6 +8,10 @@ at :mod:`._compat` instead, and ``from __future__ import annotations`` is added
 so they also run on Python versions before 3.14. Keeping the code otherwise
 untouched is what makes a later upstream change easy to bring across.
 
+The one other kind of change fixes a reader that upstream leaves running for
+minutes, or forever, on a damaged file. Each such line is marked
+``# LiuXin:`` and listed in the module's top comment.
+
 :mod:`._compat` holds ports of the few calibre helpers the readers use. It
 takes calibre's ``Metadata`` class from the project's own copy of it, in
 ``metadata.book.base``.
