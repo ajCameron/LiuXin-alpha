@@ -12,12 +12,14 @@ the source path and those changes.
 
 Run it again on a newer calibre to bring its changes across. An import the
 tables do not cover stops the run, so each new dependency is a deliberate
-choice. Modules listed in ``PORTS`` carry no LiuXin edits; the earlier readers
-(``txt``, ``rtf``, ``topaz`` and the rest) were ported by hand and some carry
-fixes marked ``# LiuXin:``, which a re-port would need to keep.
+choice. The only other edits to modules listed in ``PORTS`` are the fixes in
+``PATCHES``, whose lines are marked ``# LiuXin:``; a run stops if the calibre
+code a fix replaces has changed. The earlier readers (``txt``, ``rtf``,
+``topaz`` and the rest) were ported by hand and some carry fixes marked the
+same way, which a re-port would need to keep.
 
 Example:
-    Re-port the OPF modules from a calibre checkout::
+    Re-port the modules from a calibre checkout::
 
         python scripts/port_upstream_calibre.py ~/src/calibre
 """
@@ -61,16 +63,65 @@ PORTS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
     ("ebooks/metadata/opf.py", "opf.py", ()),
     ("ebooks/metadata/opf3_test.py", "opf3_test.py", ()),
     ("ebooks/metadata/test_author_sort.py", "author_sort_test.py", ()),
+    (
+        "ebooks/__init__.py",
+        "ebooks.py",
+        (
+            "render_html_data needs calibre's Qt worker, which LiuXin does not port: _compat's",
+            "fork_job stands in and raises WorkerError, so HTML cover pages are not rendered.",
+        ),
+    ),
+    (
+        "ebooks/BeautifulSoup.py",
+        "beautifulsoup.py",
+        (
+            "html5-parser's soup builder is replaced by Beautiful Soup's lxml builder",
+            "(_compat.html5_soup_parse); Beautiful Soup itself stays optional.",
+        ),
+    ),
+    (
+        "utils/localunzip.py",
+        "localunzip.py",
+        ("zlib is imported directly rather than through Python 3.14's compression package.",),
+    ),
+    ("ebooks/metadata/epub.py", "epub.py", ()),
 )
+
+# LiuXin fixes, by upstream path: calibre's text and its replacement. They are
+# applied before the imports are rewritten, so they are written in calibre's
+# terms.
+PATCHES: dict[str, tuple[tuple[str, str], ...]] = {
+    "ebooks/metadata/epub.py": (
+        (
+            """            cpage = os.path.join(tdir, cpage)
+            if not os.path.exists(cpage):
+                return
+""",
+            """            cpage = os.path.join(tdir, cpage)
+            if not os.path.exists(cpage):
+                return
+            # LiuXin: only a page inside the extracted book can be its cover. A
+            # spine entry climbing out of the book would read a file outside it.
+            from calibre.utils.filenames import is_existing_subpath
+
+            if not is_existing_subpath(cpage, tdir):  # LiuXin:
+                return
+""",
+        ),
+    ),
+}
 
 # calibre modules ported whole: every name imported from them maps to the same
 # name in the ported module.
 MODULES = {
+    "calibre.ebooks": f"{PKG}.ebooks",
+    "calibre.ebooks.BeautifulSoup": f"{PKG}.beautifulsoup",
     "calibre.ebooks.metadata": f"{PKG}.metadata_base",
     "calibre.ebooks.metadata.book": f"{PKG}.book_fields",
     "calibre.ebooks.metadata.book.base": f"{PKG}.book_base",
     "calibre.ebooks.metadata.book.json_codec": f"{PKG}.json_codec",
     "calibre.library.field_metadata": f"{PKG}.field_metadata",
+    "calibre.ebooks.metadata.epub": f"{PKG}.epub",
     "calibre.ebooks.metadata.opf2": f"{PKG}.opf2",
     "calibre.ebooks.metadata.opf3": f"{PKG}.opf3",
     "calibre.ebooks.metadata.opf": f"{PKG}.opf",
@@ -86,6 +137,7 @@ MODULES = {
     "calibre.utils.date": f"{PKG}.date",
     "calibre.utils.iso8601": f"{PKG}.iso8601",
     "calibre.utils.imghdr": f"{PKG}.imghdr",
+    "calibre.utils.localunzip": f"{PKG}.localunzip",
 }
 
 # Helpers from modules that are not ported whole: the names _compat provides,
@@ -118,10 +170,26 @@ NAMES: dict[str, dict[str, str]] = {
             "ismacos",
         )
     },
-    "calibre.ebooks": {"escape_xpath_attr": "escape_xpath_attr"},
+    "calibre.ebooks.conversion.config": {"load_defaults": "load_defaults"},
+    "calibre.ebooks.covers": {
+        "calibre_cover2": "calibre_cover2",
+        "generate_masthead": "covers_generate_masthead",
+    },
     "calibre.ebooks.oeb.base": {
         name: name
-        for name in ("DC", "OPF", "OPF2_NSMAP", "CALIBRE_NS", "DC11_NS", "OPF2_NS", "XML_NS")
+        for name in (
+            "DC",
+            "OPF",
+            "OPF2_NSMAP",
+            "CALIBRE_NS",
+            "DC11_NS",
+            "OPF2_NS",
+            "XML_NS",
+            "SVG",
+            "SVG_NS",
+            "XLINK",
+            "XPath",
+        )
     },
     "calibre.ebooks.oeb.polish.utils": {"guess_type": "polish_guess_type"},
     "calibre.spell": {"parse_lang_code": "parse_lang_code", "DictionaryLocale": "DictionaryLocale"},
@@ -142,7 +210,8 @@ NAMES: dict[str, dict[str, str]] = {
     },
     "calibre.utils.xml_parse": {"safe_xml_fromstring": "safe_xml_fromstring"},
     "calibre.utils.speedups": {"ReadOnlyFileBuffer": "ReadOnlyFileBuffer"},
-    "calibre.utils.img": {"save_cover_data_to": "save_cover_data_to"},
+    "calibre.utils.img": {"save_cover_data_to": "save_cover_data_to", "image_to_data": "image_to_data"},
+    "calibre.utils.ipc.simple_worker": {"fork_job": "fork_job", "WorkerError": "WorkerError"},
     "calibre.utils.zipfile": {
         name: name
         for name in ("ZipFile", "BadZipfile", "safe_replace", "ZIP_DEFLATED", "ZIP_STORED", "ZipInfo")
@@ -154,7 +223,10 @@ NAMES: dict[str, dict[str, str]] = {
     "calibre.utils.logging": {"default_log": "default_log"},
     "calibre.utils.formatter": {"TEMPLATE_ERROR": "TEMPLATE_ERROR"},
     "calibre.ebooks.metadata.book.formatter": {"SafeFormat": "SafeFormat"},
-    "calibre.utils.filenames": {"is_windows_reserved_filename": "is_windows_reserved_filename"},
+    "calibre.utils.filenames": {
+        "is_windows_reserved_filename": "is_windows_reserved_filename",
+        "is_existing_subpath": "is_existing_subpath",
+    },
     "calibre.gui2": {"is_gui_thread": "is_gui_thread", "UNDEFINED_QDATETIME": "UNDEFINED_QDATETIME"},
     "calibre.gui2.ui": {"get_gui": "get_gui"},
     "polyglot.builtins": {"as_bytes": "as_bytes", "as_unicode": "as_unicode"},
@@ -165,8 +237,10 @@ NAMES: dict[str, dict[str, str]] = {
 }
 
 # Single names from elsewhere: C extensions, polyglot and standard-library
-# imports that LiuXin replaces.
+# imports that LiuXin replaces. An empty module imports the name as a module.
 EXTERNAL: dict[tuple[str, str], tuple[str, str]] = {
+    ("compression", "zlib"): ("", "zlib"),
+    ("html5_parser.soup", "parse"): (COMPAT, "html5_soup_parse"),
     ("polyglot.urllib", "unquote"): ("urllib.parse", "unquote"),
     ("calibre_extensions", "speedup"): (PKG, "_speedups"),
     ("calibre_extensions.speedup", "clean_xml_chars"): (f"{PKG}._speedups", "clean_xml_chars"),
@@ -182,7 +256,9 @@ IMPORT_MODULES = {"tzlocal": f"from {COMPAT} import tzlocal"}
 # Imports left as they are: only functions the readers do not call use them.
 LEAVE = frozenset({"qt.core", "html5_parser"})
 
-REWRITTEN_ROOTS = frozenset({"calibre", "polyglot", "calibre_extensions", "tzlocal", "zoneinfo"})
+REWRITTEN_ROOTS = frozenset(
+    {"calibre", "polyglot", "calibre_extensions", "tzlocal", "zoneinfo", "compression", "html5_parser"}
+)
 
 
 def parenthesise_excepts(source: str) -> str:
@@ -281,8 +357,32 @@ def rewrite_import(node: ast.Import | ast.ImportFrom, line: str, typing_only: bo
         else:
             raise SystemExit(f"no mapping for {module}.{alias.name}")
         suffix = f" as {local}" if local != target_name else ""
+        if not target_module:
+            out.append(f"{indent}import {target_name}{suffix}")
+            continue
         out.append(f"{indent}from {target_module} import {target_name}{suffix}")
     return out
+
+
+def apply_patches(source: str, source_path: str) -> str:
+    """
+    Apply the LiuXin fixes listed for one calibre module.
+
+    Example:
+        >>> apply_patches("x = 1\\n", "utils/imghdr.py")
+        'x = 1\\n'
+
+
+    :param source: The calibre module's source.
+    :param source_path: Its path under ``src/calibre``.
+    :return: The source with the fixes applied.
+    :raises SystemExit: If the calibre code a fix replaces is not there once.
+    """
+    for old, new in PATCHES.get(source_path, ()):
+        if source.count(old) != 1:
+            raise SystemExit(f"the LiuXin fix for {source_path} no longer matches calibre's code")
+        source = source.replace(old, new)
+    return source
 
 
 def port_source(source: str, source_path: str, extra_header: tuple[str, ...] = ()) -> str:
@@ -299,7 +399,8 @@ def port_source(source: str, source_path: str, extra_header: tuple[str, ...] = (
     :param extra_header: More lines for the header comment.
     :return: The ported source.
     """
-    excepts_fixed = parenthesise_excepts(source)
+    patched = apply_patches(source, source_path)
+    excepts_fixed = parenthesise_excepts(patched)
     fixed = drop_type_parameter_defaults(excepts_fixed)
     tree = ast.parse(fixed)
     lines = fixed.split("\n")
@@ -330,7 +431,7 @@ def port_source(source: str, source_path: str, extra_header: tuple[str, ...] = (
         if isinstance(first, ast.Expr) and isinstance(getattr(first, "value", None), ast.Constant):
             lines[first.end_lineno : first.end_lineno] = ["", "from __future__ import annotations"]  # type: ignore[index]
         else:
-            at = next((i for i, l in enumerate(lines) if l.strip() and not l.startswith("#")), len(lines))
+            at = next((i for i, row in enumerate(lines) if row.strip() and not row.startswith("#")), len(lines))
             lines[at:at] = ["from __future__ import annotations", ""]
         text = "\n".join(lines)
     lines = text.split("\n")
@@ -342,10 +443,12 @@ def port_source(source: str, source_path: str, extra_header: tuple[str, ...] = (
         "# Changes from upstream: calibre imports point at upstream_calibre and its _compat, and",
         "# 'from __future__ import annotations' is added.",
     ]
-    if excepts_fixed != source:
+    if excepts_fixed != patched:
         header.append("# Except clauses naming several exceptions are parenthesised, for Python before 3.14.")
     if fixed != excepts_fixed:
         header.append("# Type-parameter defaults are dropped, for Python before 3.13.")
+    if patched != source:
+        header.append("# LiuXin fixes are marked '# LiuXin:'.")
     header += [f"# {line}" for line in extra_header]
     header.append("# SPDX-License-Identifier: GPL-3.0-only")
     lines[at:at] = header

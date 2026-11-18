@@ -33,7 +33,7 @@ from LiuXin_alpha.metadata.upstream_calibre._compat import prints
 from LiuXin_alpha.metadata.upstream_calibre._compat import __appname__
 from LiuXin_alpha.metadata.upstream_calibre._compat import __version__
 from LiuXin_alpha.metadata.upstream_calibre._compat import filesystem_encoding
-from LiuXin_alpha.metadata.upstream_calibre._compat import escape_xpath_attr
+from LiuXin_alpha.metadata.upstream_calibre.ebooks import escape_xpath_attr
 from LiuXin_alpha.metadata.upstream_calibre.metadata_base import MetaInformation
 from LiuXin_alpha.metadata.upstream_calibre.metadata_base import check_isbn
 from LiuXin_alpha.metadata.upstream_calibre.metadata_base import string_to_authors
