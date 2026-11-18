@@ -4,9 +4,10 @@ Port calibre modules into ``LiuXin_alpha.metadata.upstream_calibre``.
 Each module is copied from a calibre source tree with its imports rewritten by
 the tables below: calibre modules that are ported whole map to their module in
 the package, and smaller helpers map to names in ``_compat``. Nothing else in
-the code changes, apart from two mechanical edits so the copies also run before
-Python 3.14: ``from __future__ import annotations`` is added, and ``except``
-clauses naming several exceptions are parenthesised. A header comment records
+the code changes, apart from mechanical edits so the copies also run on Python
+3.12 and 3.13: ``from __future__ import annotations`` is added, ``except``
+clauses naming several exceptions are parenthesised, and defaults are dropped
+from type parameters, which only type checkers read. A header comment records
 the source path and those changes.
 
 Run it again on a newer calibre to bring its changes across. An import the
@@ -204,6 +205,40 @@ def parenthesise_excepts(source: str) -> str:
     )
 
 
+def drop_type_parameter_defaults(source: str) -> str:
+    """
+    Drop the defaults of type parameters (PEP 696) for Python before 3.13.
+
+    Only type checkers read them, so the code runs the same without them.
+
+    Example:
+        >>> drop_type_parameter_defaults("class A[T = str]:\\n    pass\\n").splitlines()[0]
+        'class A[T]:'
+
+
+    :param source: Python source, parsed with Python 3.13 or later.
+    :return: The source without type-parameter defaults.
+    :raises SystemExit: For a default not on one line with its ``=``.
+    """
+    lines = source.split("\n")
+    cuts: list[tuple[int, int, int]] = []
+    for node in ast.walk(ast.parse(source)):
+        default = getattr(node, "default_value", None)
+        if not isinstance(node, ast.TypeVar | ast.ParamSpec | ast.TypeVarTuple) or default is None:
+            continue
+        line = lines[default.lineno - 1]
+        encoded = line.encode()
+        start = len(encoded[: default.col_offset].decode())
+        if default.end_lineno != default.lineno or "=" not in line[:start]:
+            raise SystemExit(f"cannot drop the type-parameter default on line {default.lineno}")
+        end = len(encoded[: default.end_col_offset].decode())
+        cut = len(line[: line.rindex("=", 0, start)].rstrip())
+        cuts.append((default.lineno - 1, cut, end))
+    for row, cut, end in sorted(cuts, reverse=True):
+        lines[row] = lines[row][:cut] + lines[row][end:]
+    return "\n".join(lines)
+
+
 def rewrite_import(node: ast.Import | ast.ImportFrom, line: str, typing_only: bool) -> list[str]:
     """
     Rewrite one import statement by the tables.
@@ -264,7 +299,8 @@ def port_source(source: str, source_path: str, extra_header: tuple[str, ...] = (
     :param extra_header: More lines for the header comment.
     :return: The ported source.
     """
-    fixed = parenthesise_excepts(source)
+    excepts_fixed = parenthesise_excepts(source)
+    fixed = drop_type_parameter_defaults(excepts_fixed)
     tree = ast.parse(fixed)
     lines = fixed.split("\n")
     typing_lines: set[int] = set()
@@ -306,8 +342,10 @@ def port_source(source: str, source_path: str, extra_header: tuple[str, ...] = (
         "# Changes from upstream: calibre imports point at upstream_calibre and its _compat, and",
         "# 'from __future__ import annotations' is added.",
     ]
-    if fixed != source:
+    if excepts_fixed != source:
         header.append("# Except clauses naming several exceptions are parenthesised, for Python before 3.14.")
+    if fixed != excepts_fixed:
+        header.append("# Type-parameter defaults are dropped, for Python before 3.13.")
     header += [f"# {line}" for line in extra_header]
     header.append("# SPDX-License-Identifier: GPL-3.0-only")
     lines[at:at] = header

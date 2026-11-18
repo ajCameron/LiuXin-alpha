@@ -4,6 +4,7 @@
 # Changes from upstream: calibre imports point at upstream_calibre and its _compat, and
 # 'from __future__ import annotations' is added.
 # Except clauses naming several exceptions are parenthesised, for Python before 3.14.
+# Type-parameter defaults are dropped, for Python before 3.13.
 # SPDX-License-Identifier: GPL-3.0-only
 
 """
@@ -454,7 +455,7 @@ class Guide(ResourceCollection['Guide.Reference']):  # {{{
 # }}}
 
 
-class MetadataField[T = str]:
+class MetadataField[T]:
     def __init__(
         self,
         name: str,
