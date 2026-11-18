@@ -33,7 +33,7 @@ owners:
 | `file_formats.plugin_runtime` | Selection, file hooks, metadata dispatch and host binding |
 | `file_formats.rendering` | Headless rendering hooks |
 | `file_formats.html.comments` | Plain-text and HTML comment formatting |
-| `file_formats.providers` | Capability base classes, transform stages and the registry for format providers; contracts only, not yet called by conversion |
+| `file_formats.providers` | Capability base classes (conversion, metadata and covers), transform stages and the registry for format providers; contracts only, not yet called by conversion or metadata reading |
 | `file_formats.providers.legacy_conversion` | Adapters that run each bundled conversion plugin as an OEB importer or exporter, with `Plumber`'s option resolution; not yet used by `Plumber` |
 | `file_formats.html.book` | The `HTMLBook` description of the HTML intermediate and its structural checks; no loading or saving yet |
 | `plugins.application` | Application registry lifecycle, lookups and installed-plugin management |
@@ -136,7 +136,7 @@ Fresh-process budgets cover the passive boundaries:
 | `file_formats.conversion.plugin`, `file_formats.conversion.profiles` | 31 each |
 | `file_formats.plugin_runtime` | 37 |
 | `file_formats.rendering` | 16 |
-| `file_formats.providers.registry` | 22 |
+| `file_formats.providers.registry` | 23 |
 | `file_formats.providers.legacy_conversion` | 22 |
 | `file_formats.html.book` | 17 |
 | `plugins.contracts` | 35 |

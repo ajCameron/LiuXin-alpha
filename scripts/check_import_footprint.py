@@ -141,7 +141,7 @@ IMPORT_BUDGETS = (
     ),
     ImportBudget(
         "LiuXin_alpha.file_formats.providers.registry",
-        22,
+        23,
         CONVERSION_CONTRACT_FORBIDDEN_DOMAINS,
         FORMAT_PROVIDER_FORBIDDEN_MODULES,
     ),
