@@ -11,6 +11,7 @@ Example:
 """
 from __future__ import annotations
 
+import os
 import posixpath
 from collections.abc import Collection
 from typing import Protocol
@@ -66,6 +67,36 @@ def _raise(error_type: type[Exception], message: str) -> None:
         place.
     """
     raise error_type(message)
+
+
+def is_path_within(root: str | os.PathLike[str], candidate: str | os.PathLike[str]) -> bool:
+    """
+    Report whether a filesystem path resolves to the root folder or somewhere under it.
+
+    Both paths are made absolute, resolved through symbolic links and case-folded
+    the way the host filesystem compares names, so ``..`` segments, absolute names,
+    Windows drive-qualified names and links that point elsewhere all count as
+    outside. Neither path has to exist. This answers a question about the paths as
+    they resolve now; it does not stop a later change to the filesystem.
+
+    Example:
+        >>> is_path_within('/books/work', '/books/work/images/cover.png')
+        True
+        >>> is_path_within('/books/work', '/books/work/../other/notes.txt')
+        False
+        >>> is_path_within('/books/work', '/books/workshop/x')
+        False
+
+
+    :param root: Folder that content is allowed to live in.
+    :param candidate: Path built from untrusted input, such as a link or member name.
+    :return: ``True`` when ``candidate`` is ``root`` itself or is contained in it.
+    """
+    resolved_root = os.path.normcase(os.path.realpath(os.path.abspath(os.fspath(root))))
+    resolved = os.path.normcase(os.path.realpath(os.path.abspath(os.fspath(candidate))))
+    if resolved == resolved_root:
+        return True
+    return resolved.startswith(resolved_root.rstrip(os.sep) + os.sep)
 
 
 def normalized_zip_member_name(

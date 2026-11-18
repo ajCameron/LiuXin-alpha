@@ -143,8 +143,14 @@ Defines the inter-relation between manifestation.
  - user_marked_different
 The automated system has flagged this manifestation as the same, but the user reckons it's not.
 
-In this particular case, the default is to assume everything is under one manifestation.
-Slicing the mono-expression up can be done manually.
+Matching treats records of the same edition and format as one manifestation by default.
+Slicing them apart can be done manually with this link.
+
+This default never merges different formats. Format is a manifestation attribute, so an
+EPUB and a MOBI of one book are separate manifestations of the same expression, and a
+local format conversion creates a new, derived manifestation. A link type recording that
+derivation is proposed in dev-docs/plugins/format-capability-providers.md and is not
+defined here yet.
 
 """
 

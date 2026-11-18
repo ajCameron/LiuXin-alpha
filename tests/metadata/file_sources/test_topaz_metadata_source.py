@@ -389,3 +389,64 @@ def test_topaz_metadata_deterministic_for_same_payload() -> None:
     md_1 = get_metadata(io.BytesIO(payload))
     md_2 = get_metadata(io.BytesIO(payload))
     assert _snapshot(md_1) == _snapshot(md_2)
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        b"TPZ0" + _encode_vwi(2**56 - 1) + b"c",
+        b"TPZ0" + _encode_vwi(1) + b"c" + _encode_vwi(8) + b"metadata" + _encode_vwi(2**56 - 1),
+    ],
+    ids=["header-count", "block-count"],
+)
+def test_topaz_counts_past_the_end_of_the_file_are_refused(
+    payload: bytes, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """
+    Refuse a Topaz file whose header or block count runs past its end.
+
+    Each count is read from the file, so a damaged one made the reader loop on
+    through up to 2**56 records of nothing. Reads past the end touch no stream,
+    so the test counts decoded numbers, and fails fast if the loop returns.
+
+    Example:
+        Run with pytest, which supplies ``monkeypatch``::
+
+            python -m pytest -q tests/metadata/file_sources/test_topaz_metadata_source.py
+
+
+    :param payload: A damaged Topaz file.
+    :param monkeypatch: Wraps the number decoder with a counter.
+    :return: None; the function records state or raises through its assertions.
+    """
+    from LiuXin_alpha.metadata.file_sources.topaz import MetadataUpdater, TopazFormatError, get_metadata
+
+    decode = MetadataUpdater.decode_vwi
+    calls = 0
+
+    def counted(byts: bytes) -> tuple[int, int]:
+        """
+        Decode as the reader does, failing once far more numbers were read.
+
+        Example:
+            Replaces ``MetadataUpdater.decode_vwi`` during the test.
+
+
+        :param byts: The encoded number.
+        :return: The number and the bytes it took.
+        :raises AssertionError: When the reader keeps decoding.
+        """
+        nonlocal calls
+        calls += 1
+        if calls > 1000:
+            raise AssertionError("the reader kept reading after the end of the file")
+        return decode(byts)
+
+    monkeypatch.setattr(MetadataUpdater, "decode_vwi", staticmethod(counted))
+
+    with pytest.raises(TopazFormatError) as caught:
+        get_metadata(io.BytesIO(payload))
+    assert "Truncated Topaz header" in str(caught.value.__cause__)
+
+    md = get_metadata(io.BytesIO(payload), fallback_on_parse_error=True)
+    assert _first(md.title) == "Unknown"

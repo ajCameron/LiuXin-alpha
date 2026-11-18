@@ -454,7 +454,7 @@ class CalibreLikeLiuXinBookMetaData(
             elif isinstance(value, (six_string_types, Number)):
                 # If there is only one series set then set the series to be that
                 if len(_data["series"]) == 1:
-                    _data["series_index"][_data["series"].keys()[0]] = value
+                    _data["series_index"][next(iter(_data["series"]))] = value
                 else:
                     # Cache for later processing
                     _data["calibre_series_index"] = value

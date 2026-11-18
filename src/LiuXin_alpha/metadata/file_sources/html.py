@@ -82,6 +82,7 @@ COMMENT_NAMES = {
 }
 
 _COMMENT_PAIR_RE = re.compile(rf"(?P<name>\S+)\s*=\s*{attr_pat}")
+_RUN_START_RE = re.compile(r"\s\S")
 _IDENTIFIER_NAME_RE = re.compile(r"(?:dc|dcterms)[.:]identifier(?:\.|$)", flags=re.IGNORECASE)
 _IDENTIFIER_EXACT_RE = re.compile(r"(?:dc|dcterms)[.:]identifier$", flags=re.IGNORECASE)
 _SERIES_INDEX_IN_SERIES_RE = re.compile(r"\[([.0-9]+)\]$")
@@ -342,6 +343,39 @@ def _parse_date_value(raw: str | None):
     return None
 
 
+def _comment_pair_matches(text: str) -> list[re.Match[str]]:
+    """
+    Find what ``_COMMENT_PAIR_RE.finditer(text)`` finds, in linear time.
+
+    ``finditer`` tries the pattern at every character. On a long run of
+    characters without a space, each try backtracks over the rest of the run,
+    so a comment of 20,000 characters took seconds and one of a megabyte would
+    take hours. A match starting inside a run would also match from the run's
+    start, so trying only where runs start finds the same matches.
+
+    Example:
+        >>> [m.group("name") for m in _comment_pair_matches('aaa TITLE="x" b=c AUTHOR="y"')]
+        ['TITLE', 'AUTHOR']
+
+
+    :param text: The comment's text.
+    :return: The matches, in order.
+    """
+    found: list[re.Match[str]] = []
+    pos = 0
+    while pos < len(text):
+        match = _COMMENT_PAIR_RE.match(text, pos)
+        if match is not None:
+            found.append(match)
+            pos = match.end()
+            continue
+        run_start = _RUN_START_RE.search(text, pos)
+        if run_start is None:
+            break
+        pos = run_start.start() + 1
+    return found
+
+
 def _extract_comment_pairs(comment_text: str) -> dict[str, list[str]]:
     """
     Extract comment pairs using the format-specific ordering and validation rules.
@@ -356,7 +390,7 @@ def _extract_comment_pairs(comment_text: str) -> dict[str, list[str]]:
     :return: Parsed, normalized or updated value described above.
     """
     ans: dict[str, list[str]] = defaultdict(list)
-    for match in _COMMENT_PAIR_RE.finditer(comment_text or ""):
+    for match in _comment_pair_matches(comment_text or ""):
         raw_name = match.group("name")
         field = _RMAP_COMMENT.get(raw_name.upper())
         if not field:

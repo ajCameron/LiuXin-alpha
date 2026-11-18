@@ -32,6 +32,13 @@ Current dossiers:
 - [ODT](odt/README.md)
 - [PDB](pdb/README.md)
 
+Shared types:
+
+- [HTMLBook specification](html-book-spec.md): draft definition of the HTML
+  intermediate proposed in the
+  [capability providers proposal](../plugins/format-capability-providers.md).
+  Not implemented.
+
 Shared composition policy is recorded in the
 [plugin system guide](../plugins/plugin-composition.md). In particular, importing the
 `plugins.builtins` namespace must not discover the complete converter fleet.

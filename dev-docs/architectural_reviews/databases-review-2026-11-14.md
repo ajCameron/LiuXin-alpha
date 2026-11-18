@@ -1,8 +1,10 @@
 # Databases package review — 2026-11-14
 
-Current status: the [final closure and module sign-off](#final-closure-and-module-sign-off--2026-11-16)
-records completed repairs, verified CI results and remaining scope. Earlier
-sections preserve the findings and evidence at their dated checkpoints.
+Current status: **signed off at the documented boundaries**, with the repairs
+and docstring follow-up merged. The [publication and review close-out](#publication-and-review-close-out--2026-11-16)
+records the merged commits and latest CI evidence; the
+[final closure](#final-closure-and-module-sign-off--2026-11-16) retains the detailed
+validation and remaining scope. Earlier sections preserve their dated findings.
 
 Reviewed checkpoint: the working tree on `main`, with `HEAD` at
 **`7780b7eb62020d8b1cf6891b3bb95a47d9f7fcfb`**. Uncommitted changes were not
@@ -1176,3 +1178,30 @@ implementation evidence above. The full quality runner and current PR's
 architecture/type, packaging, file-format and confidence lanes also passed.
 The closing review/index candidate passed all **22 documentation navigation and
 boundary checks** in 11.86 seconds in the clean PR checkout.
+
+### Publication and review close-out — 2026-11-16
+
+**The database review cycle is closed and the module is signed off at the
+boundaries above.** [PR #161](https://github.com/ajCameron/LiuXin-alpha/pull/161)
+merged as `525b8411`; the documentation follow-up in
+[PR #165](https://github.com/ajCameron/LiuXin-alpha/pull/165) merged as `2d2a9cc3`,
+the `main` checkpoint for this close-out.
+
+The follow-up revised 98 docstrings in 12 files. It passed 69 documentation
+regressions and 36 runnable examples; AST comparison across all 229 database
+modules confirmed that executable code was unchanged. The
+[PR #165 CI run](https://github.com/ajCameron/LiuXin-alpha/actions/runs/43799683209)
+also completed successfully, including the database regression ratchet, full
+test suite, architecture/type checks, packaging and file-format lanes. These
+results are separate from the earlier exact-count implementation evidence.
+
+Sign-off preserves the stated limits: unsupported pre-release catalogues require
+regeneration, the six guarded references retain conservative pruning refusal,
+and broader compatibility cleanup, comparison indexes, automatic scheduling and
+additional Windows coverage remain separate work. Reopen database work for a
+concrete consumer requirement, regression or measured performance issue.
+
+The next module review is caches: native custom-field publication, transaction
+and recovery behavior, lifecycle, and consistency across live and snapshot
+backends. Its governing boundary remains the
+[Catalog/cache contract](../catalog/catalog-cache-boundary.md).

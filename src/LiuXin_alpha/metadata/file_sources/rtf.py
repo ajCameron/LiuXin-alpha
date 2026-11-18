@@ -34,15 +34,94 @@ VALID_FOR = ["RTF"]
 PRIORITY_FOR = ["RTF"]
 RUN_COST = ["LOW"]
 
-title_pat = re.compile(br"\{\\info.*?\{\\title(.*?)(?<!\\)\}", re.DOTALL)
-subject_pat = re.compile(br"\{\\info.*?\{\\subject(.*?)(?<!\\)\}", re.DOTALL)
-author_pat = re.compile(br"\{\\info.*?\{\\author(.*?)(?<!\\)\}", re.DOTALL)
-manager_pat = re.compile(br"\{\\info.*?\{\\manager(.*?)(?<!\\)\}", re.DOTALL)
-company_pat = re.compile(br"\{\\info.*?\{\\company(.*?)(?<!\\)\}", re.DOTALL)
-operator_pat = re.compile(br"\{\\info.*?\{\\operator(.*?)(?<!\\)\}", re.DOTALL)
-tags_pat = re.compile(br"\{\\info.*?\{\\category(.*?)(?<!\\)\}", re.DOTALL)
-tags_pat_2 = re.compile(br"\{\\info.*?\{\\keywords(.*?)(?<!\\)\}", re.DOTALL)
-comment_pat_2 = re.compile(br"\{\\info.*?\{\\comment(.*?)(?<!\\)\}", re.DOTALL)
+
+def _closing_brace(text, start: int) -> int:
+    r"""
+    Find the first ``}`` at or after ``start`` that no backslash precedes.
+
+    This is where an info field's value ends, as the pattern ``(?<!\\)\}`` found it.
+
+    Example:
+        >>> _closing_brace(rb"a\}b}", 0), _closing_brace("x", 0)
+        (4, -1)
+
+
+    :param text: The RTF, as bytes or text.
+    :param start: Where the field's value starts.
+    :return: The brace's index, or ``-1`` when there is none.
+    """
+    brace, backslash = ("}", "\\") if isinstance(text, str) else (b"}", b"\\")
+    end = text.find(brace, start)
+    while end > 0 and text[end - 1 : end] == backslash:
+        end = text.find(brace, end + 1)
+    return end
+
+
+def info_field(block: bytes, name: bytes) -> bytes | None:
+    r"""
+    Return the raw value of one ``{\name ...}`` field in an RTF info block.
+
+    The field is the first one after the first ``{\info``, and its value runs to
+    the first brace no backslash precedes: what the pattern
+    ``\{\\info.*?\{\\name(.*?)(?<!\\)\}`` matched. Searching with ``find`` keeps
+    this linear; that pattern backtracked in cubic time, so a 15 kB file of
+    repeated, never-closed ``{\info{\title`` groups took nearly a minute.
+
+    Example:
+        >>> info_field(rb"{\info{\title A \} B}{\author C}}", b"title")
+        b' A \\} B'
+        >>> info_field(rb"{\info{\title never closed", b"title") is None
+        True
+
+
+    :param block: The info block, as get_document_info returns it.
+    :param name: The field's control word, such as ``b"title"``.
+    :return: The value's raw bytes, or ``None`` when the field is absent or open.
+    """
+    info = block.find(b"{\\info")
+    if info < 0:
+        return None
+    opening = b"{\\" + name
+    field = block.find(opening, info + len(b"{\\info"))
+    if field < 0:
+        return None
+    start = field + len(opening)
+    end = _closing_brace(block, start)
+    return None if end < 0 else block[start:end]
+
+
+def replace_fields(text: str, name: str, replacement: str) -> tuple[str, int]:
+    r"""
+    Replace every closed ``{\name ...}`` field, as ``re.subn`` did, in linear time.
+
+    Fields are found left to right and do not overlap. A field whose value has
+    no closing brace ends the search, since no later field can have one either.
+
+    Example:
+        >>> replace_fields(r"{\title A}{\title B}{\title C", "title", "N")
+        ('NN{\\title C', 2)
+
+
+    :param text: The info block as text.
+    :param name: The field's control word, such as ``"title"``.
+    :param replacement: The text each field becomes.
+    :return: The new text and how many fields were replaced.
+    """
+    opening = "{\\" + name
+    parts: list[str] = []
+    count = position = 0
+    while True:
+        field = text.find(opening, position)
+        if field < 0:
+            break
+        end = _closing_brace(text, field + len(opening))
+        if end < 0:
+            break
+        parts.extend((text[position:field], replacement))
+        position = end + 1
+        count += 1
+    parts.append(text[position:])
+    return "".join(parts), count
 
 
 class RtfFormatError(Exception):
@@ -499,27 +578,27 @@ def rtf_get_metadata_from_stream(stream, *, fallback_on_parse_error: bool = Fals
     cpg = detect_codepage(stream)
     stream.seek(0)
 
-    title_match = title_pat.search(block)
-    if title_match is not None:
-        title = decode(title_match.group(1).strip(), cpg)
+    raw_title = info_field(block, b"title")
+    if raw_title is not None:
+        title = decode(raw_title.strip(), cpg)
         if title:
             mi.title = title
 
-    author_match = author_pat.search(block)
-    if author_match is not None:
-        author = decode(author_match.group(1).strip(), cpg)
+    raw_author = info_field(block, b"author")
+    if raw_author is not None:
+        author = decode(raw_author.strip(), cpg)
         if author:
             _set_authors(mi, author)
 
-    subject_match = subject_pat.search(block)
-    if subject_match is not None:
-        comment = decode(subject_match.group(1).strip(), cpg)
+    raw_subject = info_field(block, b"subject")
+    if raw_subject is not None:
+        comment = decode(raw_subject.strip(), cpg)
         if comment:
             mi.comments = comment
 
-    comment_match_2 = comment_pat_2.search(block)
-    if comment_match_2 is not None:
-        comment_2 = decode(comment_match_2.group(1).strip(), cpg)
+    raw_comment = info_field(block, b"comment")
+    if raw_comment is not None:
+        comment_2 = decode(raw_comment.strip(), cpg)
         if comment_2:
             # Explicit \comment is usually richer than \subject.
             try:
@@ -530,34 +609,34 @@ def rtf_get_metadata_from_stream(stream, *, fallback_on_parse_error: bool = Fals
                 pass
             mi.comments = comment_2
 
-    tags_match = tags_pat.search(block)
-    if tags_match is not None:
-        tags = decode(tags_match.group(1).strip(), cpg)
+    raw_category = info_field(block, b"category")
+    if raw_category is not None:
+        tags = decode(raw_category.strip(), cpg)
         _set_tags(mi, tags)
 
-    tags_match_2 = tags_pat_2.search(block)
-    if tags_match_2 is not None:
-        tags_2 = decode(tags_match_2.group(1).strip(), cpg)
+    raw_keywords = info_field(block, b"keywords")
+    if raw_keywords is not None:
+        tags_2 = decode(raw_keywords.strip(), cpg)
         _set_tags(mi, tags_2)
 
-    publisher_match = manager_pat.search(block)
-    if publisher_match is not None:
-        publisher = decode(publisher_match.group(1).strip(), cpg)
+    raw_manager = info_field(block, b"manager")
+    if raw_manager is not None:
+        publisher = decode(raw_manager.strip(), cpg)
         if publisher:
             mi.publisher = publisher
 
-    company_match = company_pat.search(block)
-    if company_match is not None:
-        company = decode(company_match.group(1).strip(), cpg)
+    raw_company = info_field(block, b"company")
+    if raw_company is not None:
+        company = decode(raw_company.strip(), cpg)
         if company:
             try:
                 mi.tags = company
             except Exception:
                 pass
 
-    operator_match = operator_pat.search(block)
-    if operator_match is not None:
-        operator = decode(operator_match.group(1).strip(), cpg)
+    raw_operator = info_field(block, b"operator")
+    if raw_operator is not None:
+        operator = decode(raw_operator.strip(), cpg)
         if operator:
             try:
                 mi.add_creators({"operator": operator})
@@ -669,9 +748,8 @@ def set_metadata(stream, options):
         :return: Parsed, normalized or serialized value described above.
         """
         val = encode(val)
-        pat = re.compile(base_pat.replace("name", name), re.DOTALL)
         replacement = "{\\" + name + " " + val + "}"
-        src, num = pat.subn(lambda _match: replacement, src)
+        src, num = replace_fields(src, name, replacement)
         if num == 0:
             src = add_metadata_item(src, name, val)
         return src
@@ -689,7 +767,6 @@ def set_metadata(stream, options):
         return
 
     olen = len(src)
-    base_pat = r"\{\\name(.*?)(?<!\\)\}"
 
     if getattr(options, "title", None) is not None:
         src_text = replace_or_create(src_text, "title", options.title)

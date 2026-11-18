@@ -10,6 +10,10 @@ Private, nested, asynchronous, test, example, and inherited definitions count.
 The report checks observable conventions; it cannot prove that prose accurately
 explains an implementation. Review descriptions against source before declaring
 a file complete. Explicit paths provide a batch view, never a project-wide pass.
+
+Templated filler is reported apart from structural findings. A docstring made of
+generated stock phrases satisfies every structural rule while telling a reader
+nothing, so ``filler_counts`` measures it without changing what ``--check`` means.
 """
 
 from __future__ import annotations
@@ -29,6 +33,23 @@ ROOT = Path(__file__).resolve().parents[1]
 DefinitionNode = ast.Module | ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef
 PARAMETER = re.compile(r"^:param\s+([^:]+):(.*)$")
 RETURN = re.compile(r"^:returns?:(.*)$")
+FILLER_PATTERNS: dict[str, re.Pattern[str]] = {
+    "templated_summary": re.compile(
+        r"\bPerform the .{1,80}? operation under (?:explicit|the) [a-z, -]{3,60}?"
+        r"(?:rules|contract)\b"
+    ),
+    "templated_initializer": re.compile(r"\bInitialize and validate the \w+ state\b"),
+    "templated_parameter": re.compile(
+        r"\bValue supplied for .{1,60}? under the [a-z -]{3,40}? contract\b"
+    ),
+    "templated_return": re.compile(
+        r"\bThe normalized value, metadata record, path, stream result or collection\b"
+        r"|\bNone; validated state is stored on\b"
+    ),
+    "templated_example": re.compile(
+        r"\bExercise .{1,120}? through a consuming regression\b"
+    ),
+}
 
 
 @dataclass(frozen=True)
@@ -210,6 +231,31 @@ def documentation_issues(
     return tuple(dict.fromkeys(issues))
 
 
+def filler_phrases(docstring: str) -> tuple[str, ...]:
+    """
+    Name the generated stock phrases that a docstring contains.
+
+    Matching is literal: it recognises the known templates and nothing else, so an
+    empty result does not show that the prose is accurate or useful. Line breaks
+    inside a phrase are tolerated because wrapped text is collapsed first.
+
+    Example:
+        >>> filler_phrases('Initialize and validate ' + 'the widget state.')
+        ('templated_initializer',)
+        >>> filler_phrases('Close the handle and release its lock.')
+        ()
+
+
+    :param docstring: Docstring text as returned by :func:`ast.get_docstring`.
+    :return: Matching pattern codes in declaration order, each at most once.
+    """
+
+    text = " ".join(docstring.split())
+    return tuple(
+        code for code, pattern in FILLER_PATTERNS.items() if pattern.search(text)
+    )
+
+
 def project_paths(root: Path = ROOT) -> tuple[Path, ...]:
     """
     Discover tracked source, submodule source, and new non-ignored Python files.
@@ -246,12 +292,15 @@ def audit_paths(paths: Sequence[Path], root: Path = ROOT) -> dict[str, object]:
 
     :param paths: Python source files to inspect in the supplied order.
     :param root: Root used to display portable source paths in reports.
-    :return: Counts, issue totals, detailed findings, and file-read/parse errors.
+    :return: Counts, issue totals, detailed findings, file-read/parse errors, and
+        the separate templated-filler counts and findings.
     """
 
     totals: Counter[str] = Counter()
     issues: Counter[str] = Counter()
+    filler: Counter[str] = Counter()
     findings = []
+    filler_findings = []
     failures = []
     for path in paths:
         name = path.relative_to(root).as_posix()
@@ -277,6 +326,18 @@ def audit_paths(paths: Sequence[Path], root: Path = ROOT) -> dict[str, object]:
             if "missing_docstring" in problems:
                 totals[f"missing_{kind}"] += 1
             issues.update(problems)
+            phrases = filler_phrases(ast.get_docstring(node) or "")
+            filler.update(phrases)
+            if phrases:
+                filler_findings.append(
+                    {
+                        "path": name,
+                        "name": definition.name,
+                        "kind": kind,
+                        "line": getattr(node, "lineno", 1),
+                        "phrases": phrases,
+                    }
+                )
             if problems:
                 findings.append(
                     {
@@ -292,6 +353,9 @@ def audit_paths(paths: Sequence[Path], root: Path = ROOT) -> dict[str, object]:
         "issue_counts": dict(issues),
         "findings": findings,
         "failures": failures,
+        "filler_counts": dict(filler),
+        "filler_definitions": len(filler_findings),
+        "filler_findings": filler_findings,
     }
 
 
@@ -304,7 +368,8 @@ def main(argv: Sequence[str] | None = None) -> int:
 
 
     :param argv: Command-line arguments, or ``None`` to use the process arguments.
-    :return: One for read/parse errors or an incomplete ``--check``; otherwise zero.
+    :return: One for read/parse errors, an incomplete ``--check``, or filler found
+        under ``--check-filler``; otherwise zero.
     """
 
     parser = argparse.ArgumentParser(description=__doc__)
@@ -320,9 +385,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         help="Fail while any documentation issues remain.",
     )
     parser.add_argument(
+        "--check-filler",
+        action="store_true",
+        help="Fail while any docstring contains a known templated filler phrase.",
+    )
+    parser.add_argument(
         "--details",
         action="store_true",
-        help="Include per-definition findings in stdout JSON.",
+        help="Include per-definition findings and filler findings in stdout JSON.",
     )
     parser.add_argument(
         "--output",
@@ -333,7 +403,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     paths = (
         tuple(path.resolve() for path in args.paths) if args.paths else project_paths()
     )
-    report = audit_paths(paths)
+    report = audit_paths(paths, ROOT)
     report["scope"] = "explicit-files" if args.paths else "whole-project"
     report["files_requested"] = len(paths)
     if args.output:
@@ -343,12 +413,18 @@ def main(argv: Sequence[str] | None = None) -> int:
             {
                 key: value
                 for key, value in report.items()
-                if args.details or key != "findings"
+                if args.details or key not in {"findings", "filler_findings"}
             },
             indent=2,
         )
     )
-    return int(bool(report["failures"] or (args.check and report["findings"])))
+    return int(
+        bool(
+            report["failures"]
+            or (args.check and report["findings"])
+            or (args.check_filler and report["filler_definitions"])
+        )
+    )
 
 
 if __name__ == "__main__":
