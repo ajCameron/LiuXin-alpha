@@ -82,8 +82,10 @@ class ToAndFromCalibreMetadataMixin:
 
         Read title/authors, sort and publication-date aliases, known external/internal
         identifiers, application-id aliases, languages, producer, and cover path. A supplied
-        get_identifiers method is also read. Fields not enumerated here are not imported; no
-        finalize call is made.
+        get_identifiers method is also read. The descriptive fields that to_calibre
+        exports are imported when set: publisher, tags, comments, series with its index,
+        the calibre rating, title sort, and rights. Fields not enumerated here are not
+        imported; no finalize call is made.
 
         Example:
             Exercise the owning behavior with pytest::
@@ -145,6 +147,35 @@ class ToAndFromCalibreMetadataMixin:
         if hasattr(calibre_md, "languages"):
             md.languages = calibre_md.languages
 
+        # Transfer the descriptive fields to_calibre exports, so that a reader which
+        # parses them does not drop them on the way into this container.  Null values
+        # are skipped: the setters add entries, and an empty one would be a value.
+        publisher = getattr(calibre_md, "publisher", None)
+        if publisher:
+            md.publisher = publisher
+        tags = getattr(calibre_md, "tags", None)
+        if tags:
+            # A list rather than a string, so a tag containing ";" stays one tag.
+            md.tags = [tags] if isinstance(tags, six_string_types) else list(tags)
+        comments = getattr(calibre_md, "comments", None)
+        if comments:
+            md.comments = comments
+        series = getattr(calibre_md, "series", None)
+        if series:
+            md.series = series
+            series_index = getattr(calibre_md, "series_index", None)
+            if series_index is not None:
+                md.series_index = (series, series_index)
+        rating = getattr(calibre_md, "rating", None)
+        if rating:
+            md.ratings = ("calibre", rating)
+        title_sort = getattr(calibre_md, "title_sort", None)
+        if title_sort:
+            md.title_sort = title_sort
+        rights = getattr(calibre_md, "rights", None)
+        if rights:
+            md.rights = rights
+
         # Transfer the producer - book producer is mapped to producer
         if hasattr(calibre_md, "book_producer"):
             md.producer = calibre_md.book_producer
@@ -164,7 +195,8 @@ class ToAndFromCalibreMetadataMixin:
 
         Prepend editors to authors, join comments and synopses, and choose the first cover,
         publisher, series, and identifier value per scheme. Combine tags with subjects and
-        use the calibre rating only. An available get_database_id(item_id) result becomes
+        use the calibre rating only; rights copy across when set. An available
+        get_database_id(item_id) result becomes
         db_id/application_id. Field setters on the Calibre object determine identifier
         exposure.
 
@@ -250,5 +282,9 @@ class ToAndFromCalibreMetadataMixin:
         # TTITLESORT
         calibre_md.title_sort = self.titlesort
         calibre_md.titlesort = self.titlesort
+
+        # RIGHTS
+        if self.rights:
+            calibre_md.rights = self.rights
 
         return calibre_md

@@ -527,4 +527,6 @@ def test_mobi_output_old_mode_is_deterministic_with_frozen_runtime(
         run_names=("det_run_1", "det_run_2"),
     )
     assert len(first) > 4096
-    assert sha256_hex(first) == "b3b9a4a480dd298ff0a72ec1093b366ff21698707ec57fa695749feee6702bbb"
+    # The source OPF's description and language reach the EXTH records since the OPF 2
+    # book metadata stopped dropping them; the language no longer follows the locale.
+    assert sha256_hex(first) == "e063596560b3e1e6a13741d63a5afa661d8266fdfa654399c4d3b964733d01a9"

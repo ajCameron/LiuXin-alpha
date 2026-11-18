@@ -770,6 +770,33 @@ def _parse_using_opf_stack(root):
     return mi
 
 
+def _without_tags(calibre_md):
+    """
+    Return a copy of Calibre metadata with its tags removed, for conversion.
+
+    ``finalize()`` lowercases the container's tags, while this reader returns tags as
+    the OPF wrote them; converting without them lets the caller add them after
+    ``finalize()``. Objects that cannot copy their stored metadata are returned as
+    they are.
+
+    Example:
+        >>> from LiuXin_alpha.metadata.book.base import calibreMetadata
+        >>> book = calibreMetadata("Example", ["Writer"])
+        >>> book.tags = ["History"]
+        >>> _without_tags(book).tags, book.tags
+        ([], ['History'])
+
+    :param calibre_md: Calibre-compatible metadata about to be converted.
+    :return: A tag-free copy, or ``calibre_md`` itself when it cannot be copied.
+    """
+    copy_metadata = getattr(calibre_md, "deepcopy_metadata", None)
+    if not callable(copy_metadata):
+        return calibre_md
+    source = copy_metadata()
+    source.tags = []
+    return source
+
+
 def _to_liuxin_metadata(calibre_md):
     """
     Convert Calibre-compatible metadata to the LiuXin container while preserving supported fields.
@@ -785,7 +812,7 @@ def _to_liuxin_metadata(calibre_md):
     """
     calibre_authors = [a for a in (_normalize(x) for x in _iter_values(getattr(calibre_md, "authors", None))) if a]
     try:
-        md = MetaData.from_calibre(calibre_md)
+        md = MetaData.from_calibre(_without_tags(calibre_md))
     except Exception:
         # Last-resort conversion path.
         md = MetaData(getattr(calibre_md, "title", None), getattr(calibre_md, "authors", None))
@@ -794,8 +821,8 @@ def _to_liuxin_metadata(calibre_md):
     except Exception:
         pass
 
-    # The current from_calibre path intentionally skips some fields.
-    # Preserve richer OPF-derived information in the returned LiuXin metadata.
+    # Fill whatever conversion left blank from the OPF-derived values, and add the
+    # tags that were held back from finalize() in the case the OPF wrote them.
     if calibre_authors and not getattr(md, "authors", None):
         for author in calibre_authors:
             md.authors = author
