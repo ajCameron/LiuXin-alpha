@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import typing as _typing
 
+import ast
 import os
 
 from LiuXin_alpha.file_formats.conversion.plugin import OptionRecommendation
@@ -226,23 +227,33 @@ class GuiRecommendations(dict):
 
     def from_string(self: _typing.Self, raw: _typing.Any) -> None:
         """
-        Perform the from string operation under explicit file-format and conversion rules.
+        Merge recommendations from their stored text form without executing it.
+
+        The text is the dictionary literal written by ``str(recommendations)``. It is
+        read with :func:`ast.literal_eval`, so only Python literals are accepted:
+        stored text comes from a catalogue or a defaults file that may have been
+        produced elsewhere, and must never be run as code. Text that is not a
+        literal, or whose value is not a dictionary, is ignored and leaves the
+        current recommendations unchanged.
 
         Example:
-            Exercise GuiRecommendations.from string through a consuming regression::
+            >>> stored = GuiRecommendations()
+            >>> stored.from_string("{'margin_top': 5.0, 'no_chapters_in_toc': True}")
+            >>> stored['margin_top']
+            5.0
+            >>> stored.from_string("__import__('os').system('true')")
+            >>> sorted(stored)
+            ['margin_top', 'no_chapters_in_toc']
 
-                python -m pytest -q tests/file_formats/conversion/test_conversion_top_level_smoke.py
 
-
-        :param raw: Value supplied for raw under the utility contract.
-        :return: None; the operation mutates state, writes output or performs cleanup in
-            place.
+        :param raw: Stored text of a recommendations dictionary; may be untrusted.
+        :return: ``None``; valid entries are merged into this mapping.
         """
         try:
-            d = eval(raw)
-        except (SyntaxError, TypeError):
-            d = None
-        if d:
+            d = ast.literal_eval(raw)
+        except (ValueError, SyntaxError, TypeError, MemoryError, RecursionError):
+            return
+        if isinstance(d, dict) and d:
             self.update(d)
 
     def merge_recommendations(self: _typing.Self, get_option: _typing.Any, level: _typing.Any, options: _typing.Any, only_existing: bool = False) -> None:
