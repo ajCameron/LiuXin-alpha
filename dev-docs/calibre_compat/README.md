@@ -23,9 +23,10 @@ it does not reinterpret existing SQL, source or web IDs.
 
 ## Upstream calibre
 
-- [Bugs to report upstream](upstream-calibre-bugs.md): three ways a damaged file
-  keeps a calibre metadata reader busy for minutes or for ever (Topaz and RTF),
-  with reproducers, measurements and suggested fixes. Not yet reported.
+- [Bugs to report upstream](upstream-calibre-bugs.md): ten ways a damaged file
+  keeps a calibre metadata reader busy for minutes or for ever, or fills memory
+  (Topaz, RTF, HTML, encoding detection and MOBI), with reproducers,
+  measurements and suggested fixes. Not yet reported.
 
 ## Proposed canonical import
 
