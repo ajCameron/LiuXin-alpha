@@ -75,7 +75,7 @@ ZIP_CONTAINERS: frozenset[str] = frozenset({"epub"})
 """Ported modules reading ZIP containers, which LiuXin checks before calibre opens them."""
 
 
-def ported_reader(module: str) -> Callable[[Any], Any]:
+def ported_reader(module: str) -> Callable[..., Any]:
     """
     Load the ``get_metadata`` function of one ported reader module.
 
