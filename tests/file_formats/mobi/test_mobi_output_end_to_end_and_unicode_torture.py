@@ -527,4 +527,6 @@ def test_mobi_output_old_mode_is_deterministic_with_frozen_runtime(
         run_names=("det_run_1", "det_run_2"),
     )
     assert len(first) > 4096
-    assert sha256_hex(first) == "b3b9a4a480dd298ff0a72ec1093b366ff21698707ec57fa695749feee6702bbb"
+    # The text is PalmDOC-compressed, so the digest moves with the cPalmdoc codec.
+    digest = sha256_hex(first)
+    assert digest == "b3b9a4a480dd298ff0a72ec1093b366ff21698707ec57fa695749feee6702bbb", f"sha256 {digest}"
