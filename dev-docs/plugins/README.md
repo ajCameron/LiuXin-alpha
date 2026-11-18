@@ -39,6 +39,11 @@ extensions and data, and how to port more. Its [status page](upstream-calibre-po
 the readers ported so far, how they compare with the fork's and LiuXin's
 readers, the hostile-input findings and the batches still to port.
 
+[Utils plugin layers](utils-plugin-layers.md) covers the separate
+`utils.plugins` mechanism: native modules standing in for calibre's compiled
+extensions, their pure-Python fallbacks, and installed packages with a vendored
+copy behind them, such as python-dateutil.
+
 Conversion-specific guidance remains in [file formats](../file_formats/README.md)
 and the [conversion pipeline](../conversion_pipeline/README.md). The persisted
 plugin settings are a component namespace within the broader

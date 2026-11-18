@@ -51,6 +51,7 @@ REQUIRED_MODULE_ASSETS = (
     PACKAGE_ROOT / "utils" / "libraries" / "iso639" / "ISO-639-2_utf-8.txt",
     PACKAGE_ROOT / "metadata" / "upstream_calibre" / "iso_codes.json.gz",
     PACKAGE_ROOT / "metadata" / "upstream_calibre" / "mime.types",
+    PACKAGE_ROOT / "utils" / "libraries" / "python_dateutil" / "LICENSE",
     PACKAGE_ROOT
     / "utils"
     / "libraries"

@@ -30,8 +30,6 @@ from LiuXin_alpha.file_formats.providers.metadata import CoverImage
 from LiuXin_alpha.file_formats.providers.ported_calibre import adapt_ported_reader
 from LiuXin_alpha.metadata.upstream_calibre import _compat, ebooks, epub, localunzip
 
-pytest.importorskip("dateutil")
-
 CONTAINER = (
     '<container xmlns="urn:oasis:names:tc:opendocument:xmlns:container" version="1.0">'
     '<rootfiles><rootfile full-path="OEBPS/content.opf" '
@@ -536,26 +534,6 @@ def test_a_large_ordinary_book_is_still_read(tmp_path: Path) -> None:
 
     assert values["title"] == "Field Test"
     assert cover is not None
-
-
-def test_the_reader_waits_for_python_dateutil(monkeypatch: pytest.MonkeyPatch) -> None:
-    """
-    Report the EPUB reader missing without python-dateutil, which calibre's OPF code needs.
-
-    Example:
-        >>> test_the_reader_waits_for_python_dateutil(None)  # doctest: +SKIP
-
-
-    :param monkeypatch: Hides the package.
-    :return: None; the assertions are the check.
-    """
-    from LiuXin_alpha.file_formats.providers import ported_calibre
-
-    monkeypatch.setattr(ported_calibre, "find_spec", lambda name: None)
-
-    availability = adapt_ported_reader("Read EPUB metadata").availability()
-
-    assert not availability.available
 
 
 def load_porter() -> Any:
