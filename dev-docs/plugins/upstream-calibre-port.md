@@ -36,7 +36,7 @@ substitutes for, and how to port more.
 
 | Ported | From calibre | Notes |
 | --- | --- | --- |
-| Readers `txt`, `imp`, `rb`, `lrx`, `snb`, `rtf`, `topaz`, `pml`, `opf`, `epub` | `ebooks/metadata/` | `rtf`, `topaz` and `epub` carry marked fixes; `epub` also reads KEPUB |
+| Readers `txt`, `imp`, `rb`, `lrx`, `snb`, `rtf`, `topaz`, `pml`, `opf`, `epub`, `extz`, `html`, `fb2`, `odt` | `ebooks/metadata/` | `rtf`, `topaz`, `epub` and `html` carry marked fixes; `epub` also reads KEPUB, `extz` reads HTMLZ and TXTZ, `fb2` reads FBZ |
 | `snbfile` | `ebooks/snb/snbfile.py` | |
 | `metadata_base` | `ebooks/metadata/__init__.py` | `MetaInformation`, `string_to_authors`, `check_isbn`, `title_sort` and so on |
 | `book_fields`, `book_base`, `field_metadata`, `json_codec` | `ebooks/metadata/book/`, `library/field_metadata.py` | calibre's own `Metadata` class, used by every ported reader |
@@ -45,6 +45,7 @@ substitutes for, and how to port more.
 | `pretty`, `config_base`, `meta` | parts of `ebooks/oeb/polish/pretty.py`, `utils/config_base.py`, `ebooks/metadata/meta.py` | only what the ported code uses |
 | `localunzip` | `utils/localunzip.py` | Reads ZIP files whose central directory is missing or damaged, from their local headers |
 | `ebooks`, `beautifulsoup` | `ebooks/__init__.py`, `ebooks/BeautifulSoup.py` | Finding a cover on a book's first page |
+| `fb2_package`, `html_to_text` | `ebooks/fb2/__init__.py`, `utils/html2text.py` | FB2's tolerant base64 decoder; HTML to text, which only FB2 writing uses |
 
 ## What LiuXin substitutes
 
@@ -62,7 +63,10 @@ and its docstring lists each difference from calibre. In short:
 | Interface language from preferences or the system | English | Only the default language of OPF files the code writes |
 | Template formatter (`SafeFormat`) | a stand-in that raises when used | Composite custom columns cannot be computed |
 | calibre's own `zipfile`, a copy of an old Python one | Python's `zipfile`, with calibre's defaults and `writestr` keywords | Entry names are read the same way; Python's extraction makes them safe |
+| html5-parser (C) parsing HTML | lxml's HTML parser | Tags and comments come back the same on ordinary pages; badly broken pages can be repaired differently |
 | html5-parser (C) building Beautiful Soup trees | Beautiful Soup's lxml builder; Beautiful Soup is optional | Without Beautiful Soup, an HTML first page holding only a cover image is not recognised; SVG cover pages still are |
+| calibre's copy of odfpy | the copy LiuXin ships in `file_formats.odf` | The same library: the ODT reader uses it only to find the cover's frame |
+| The html2text package, which calibre bundles | not a LiuXin dependency | Only writing FB2 comments needs it; calibre's FB2 test runs where it is installed |
 | A worker process running Qt to draw a book's first page as its cover | not ported: `fork_job` raises `WorkerError`, as a failed worker does | A book with no cover image and a first page of text has no cover; calibre prints a line saying so |
 | Qt image and date helpers, EPUB writing helpers | not ported; raise `NotImplementedError` | Readers do not call them |
 
@@ -75,16 +79,18 @@ themselves unavailable, naming the package, where it is missing.
 The providers run calibre's code as calibre's plugins do, with two LiuXin
 rules around it:
 
-- **Archive limits.** Before calibre's EPUB reader opens a book, the provider
-  applies the member-count, size and compression-ratio limits of LiuXin's own
-  EPUB input (`file_formats.archive_preflight`). calibre reads the package
-  document whole, and extracts the whole book when it looks for a cover on
-  the first page, so a small file that expands enormously would otherwise
+- **Archive limits.** Before calibre's EPUB, HTMLZ, TXTZ, FBZ or ODT reader
+  opens a book, the provider applies the member-count, size and
+  compression-ratio limits of LiuXin's own EPUB input
+  (`file_formats.archive_preflight`). calibre reads the members it needs
+  whole, and the EPUB reader extracts the whole book when it looks for a cover
+  on the first page, so a small file that expands enormously would otherwise
   fill memory or disk. Books whose central directory Python cannot read go to
   calibre's salvage reader, which inflates in bounded pieces.
 - **Cover formats named by their bytes.** calibre's EPUB reader labels every
-  cover `jpg`; the provider names each cover by what calibre's `imghdr` finds
-  in it, so a PNG cover is a `png`.
+  cover `jpg`, and its HTMLZ and TXTZ reader uses the file's extension, dot
+  included; the provider names each cover by what calibre's `imghdr` finds in
+  it, so a PNG cover is a `png`.
 
 ## Not ported yet
 

@@ -203,7 +203,7 @@ def test_every_port_registers_above_the_installed_calibre() -> None:
     registry = ProviderRegistry()
     register_upstream_calibre_readers(registry)
     made = register_ported_calibre_readers(registry)
-    assert len(made) == len(PORTED_READERS) == 10
+    assert len(made) == len(PORTED_READERS) == 15
     assert PORTED_PRIORITY > UPSTREAM_PRIORITY
     for provider in made:
         file_format = next(iter(provider.calibre_read_formats))

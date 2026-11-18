@@ -38,9 +38,9 @@ What differs from calibre, and why:
   Python's. calibre's ``zipfile`` is its own copy of an old Python one;
   ``ZipFile`` here is Python's, taking calibre's defaults and ``writestr``
   keywords. Both read entry names the same way.
-- HTML: calibre parses HTML into Beautiful Soup trees with html5-parser, a C
-  extension; ``html5_soup_parse`` uses Beautiful Soup's lxml builder instead.
-  Beautiful Soup is optional.
+- HTML: calibre parses HTML with html5-parser, a C extension. ``html5_parse``
+  uses lxml's HTML parser instead, and ``html5_soup_parse``, for Beautiful
+  Soup trees, Beautiful Soup's lxml builder. Beautiful Soup is optional.
 - Not ported: the template formatter (``SafeFormat`` can be made, not used),
   Qt, calibre's worker processes (``fork_job`` raises ``WorkerError``, so HTML
   cover pages are not rendered), and the helpers only writers use
@@ -1823,6 +1823,7 @@ def _not_ported(name: str) -> Any:
 # Writing EPUB files needs these; the readers do not.
 save_cover_data_to = _not_ported("save_cover_data_to")
 safe_replace = _not_ported("safe_replace")
+PersistentTemporaryFile = _not_ported("PersistentTemporaryFile")
 
 # calibre draws covers and mastheads with Qt; no reader calls these.
 calibre_cover2 = _not_ported("calibre_cover2")
@@ -1884,6 +1885,39 @@ def fork_job(mod_name: str, func_name: str, *args: object, **kwargs: object) -> 
         "calibre's worker processes are not ported to LiuXin",
         orig_tb=f"LiuXin has no stand-in for {mod_name}.{func_name}; nothing was rendered",
     )
+
+
+def html5_parse(html: str | bytes, return_root: bool = True, **kwargs: object) -> Any:
+    """
+    Parse HTML into an lxml tree, standing in for ``html5_parser.parse``.
+
+    calibre parses HTML with html5-parser, a C extension following the HTML 5
+    parsing rules. lxml's HTML parser stands in: tags come back in lower case
+    without namespaces, as html5-parser gives them by default, and comments are
+    kept. Malformed pages can be repaired differently. A page with nothing in
+    it gives an empty ``<html>`` element, as html5-parser does.
+
+    Example:
+        >>> root = html5_parse("<TITLE>A</TITLE><!-- TITLE='B' --><p>x")
+        >>> root.tag, root.find(".//title").text, len(root.xpath("//comment()"))
+        ('html', 'A', 1)
+
+
+    :param html: The HTML.
+    :param return_root: Return the ``<html>`` element rather than its tree.
+    :param kwargs: html5-parser's other options, ignored.
+    :return: The root element, or the tree.
+    """
+    from lxml import html as lxml_html
+
+    if isinstance(html, str):
+        # lxml refuses text that declares an encoding; the text is decoded already
+        html = re.sub(r"^\s*<\?xml[^>]*>", "", html)
+    try:
+        root = lxml_html.document_fromstring(html)
+    except etree.ParserError:
+        root = lxml_html.document_fromstring("<html></html>")
+    return root if return_root else root.getroottree()
 
 
 def html5_soup_parse(markup: str | bytes, return_root: bool = True, **kwargs: object) -> Any:

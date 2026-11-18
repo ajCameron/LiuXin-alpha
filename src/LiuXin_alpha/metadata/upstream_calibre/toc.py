@@ -49,7 +49,7 @@ C = ElementMaker(namespace=CALIBRE_NS, nsmap=NSMAP)
 
 
 def parse_html_toc(data: str | bytes) -> Iterator[tuple[str, str | None, str]]:
-    from html5_parser import parse
+    from LiuXin_alpha.metadata.upstream_calibre._compat import html5_parse as parse
     from lxml import etree
 
     from LiuXin_alpha.metadata.upstream_calibre.cleantext import clean_xml_chars

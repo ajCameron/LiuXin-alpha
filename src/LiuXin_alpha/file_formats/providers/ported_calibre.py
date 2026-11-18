@@ -56,13 +56,18 @@ PORTED_READERS: Mapping[str, tuple[str, frozenset[str]]] = {
     "Read PML metadata": ("pml", frozenset({"pml", "pmlz"})),
     "Read OPF metadata": ("opf", frozenset({"opf"})),
     "Read EPUB metadata": ("epub", frozenset({"epub", "kepub"})),
+    "Read HTMLZ metadata": ("extz", frozenset({"htmlz"})),
+    "Read TXTZ metadata": ("extz", frozenset({"txtz"})),
+    "Read HTML metadata": ("html", frozenset({"html"})),
+    "Read FB2 metadata": ("fb2", frozenset({"fb2", "fbz"})),
+    "Read ODT metadata": ("odt", frozenset({"odt"})),
 }
 """calibre's reader plugins that have been ported: module and formats."""
 
 PORTED_PRIORITY = -50
 """Priority of every ported reader: above running an installed calibre."""
 
-NEEDS_DATEUTIL: frozenset[str] = frozenset({"opf", "epub"})
+NEEDS_DATEUTIL: frozenset[str] = frozenset({"opf", "epub", "extz", "html", "fb2", "odt"})
 """Ported modules that parse dates with python-dateutil, as calibre does.
 
 python-dateutil is a LiuXin dependency; these readers still check for it, so
@@ -71,8 +76,10 @@ an install without it reports them unavailable rather than failing on a book."""
 PASSES_FORMAT: frozenset[str] = frozenset({"epub"})
 """Ported modules whose ``get_metadata`` calibre's plugin calls with the format."""
 
-ZIP_CONTAINERS: frozenset[str] = frozenset({"epub"})
-"""Ported modules reading ZIP containers, which LiuXin checks before calibre opens them."""
+ZIP_CONTAINERS: frozenset[str] = frozenset({"epub", "extz", "fb2", "odt"})
+"""Ported modules reading ZIP containers, which LiuXin checks before calibre opens them.
+
+The FB2 reader reads plain FB2 too; a file that is not a ZIP passes unchecked."""
 
 
 def ported_reader(module: str) -> Callable[..., Any]:
@@ -164,6 +171,30 @@ def ported_reader(module: str) -> Callable[..., Any]:
         )
 
         return get_epub_metadata
+    if module == "extz":
+        from LiuXin_alpha.metadata.upstream_calibre.extz import (
+            get_metadata as get_extz_metadata,
+        )
+
+        return get_extz_metadata
+    if module == "html":
+        from LiuXin_alpha.metadata.upstream_calibre.html import (
+            get_metadata as get_html_metadata,
+        )
+
+        return get_html_metadata
+    if module == "fb2":
+        from LiuXin_alpha.metadata.upstream_calibre.fb2 import (
+            get_metadata as get_fb2_metadata,
+        )
+
+        return get_fb2_metadata
+    if module == "odt":
+        from LiuXin_alpha.metadata.upstream_calibre.odt import (
+            get_metadata as get_odt_metadata,
+        )
+
+        return get_odt_metadata
     raise KeyError(f"no calibre reader named {module!r} has been ported")
 
 
@@ -171,12 +202,13 @@ def check_zip_container(source: Path, source_format: str) -> None:
     """
     Refuse a ZIP container LiuXin's archive limits would refuse.
 
-    calibre's EPUB reader reads its package file whole and, for a book that
-    names no cover image, extracts the whole book to look for one, so a small
-    file that expands enormously would fill memory or disk. This applies the
-    member-count, size and compression-ratio limits LiuXin's own EPUB input
-    applies, before calibre's code runs. Entry names are not checked: Python's
-    ``zipfile`` makes them safe when it extracts.
+    calibre's readers read the members they need whole, and its EPUB reader
+    extracts the whole book when it looks for a cover on the first page, so a
+    small file that expands enormously would fill memory or disk. This applies
+    the member-count, size and compression-ratio limits LiuXin's own EPUB input
+    applies, before calibre's code runs. Entry names are not checked: the
+    readers only read members, and Python's ``zipfile`` makes names safe when
+    it extracts.
 
     A file whose central directory Python cannot read is left to calibre's
     salvage reader, which inflates in bounded pieces and stops at ratios beyond
@@ -408,7 +440,7 @@ def adapt_ported_reader(plugin_name: str) -> type[PortedCalibreReader]:
         """
         namespace.update(attributes)
 
-    name = f"{module.capitalize()}Ported"
+    name = "".join(word.capitalize() for word in plugin_name.split()[1:-1]) + "Ported"
     made = types.new_class(name, (PortedCalibreReader,), exec_body=fill)
     return cast("type[PortedCalibreReader]", made)
 
@@ -422,7 +454,7 @@ def register_ported_calibre_readers(
     Example:
         >>> from LiuXin_alpha.file_formats.providers.registry import ProviderRegistry
         >>> [p.provider_id for p in register_ported_calibre_readers(ProviderRegistry())]
-        ['calibre-port.read-txt-metadata', 'calibre-port.read-imp-metadata', 'calibre-port.read-rb-metadata', 'calibre-port.read-lrx-metadata', 'calibre-port.read-snb-metadata', 'calibre-port.read-rtf-metadata', 'calibre-port.read-topaz-metadata', 'calibre-port.read-pml-metadata', 'calibre-port.read-opf-metadata', 'calibre-port.read-epub-metadata']
+        ['calibre-port.read-txt-metadata', 'calibre-port.read-imp-metadata', 'calibre-port.read-rb-metadata', 'calibre-port.read-lrx-metadata', 'calibre-port.read-snb-metadata', 'calibre-port.read-rtf-metadata', 'calibre-port.read-topaz-metadata', 'calibre-port.read-pml-metadata', 'calibre-port.read-opf-metadata', 'calibre-port.read-epub-metadata', 'calibre-port.read-htmlz-metadata', 'calibre-port.read-txtz-metadata', 'calibre-port.read-html-metadata', 'calibre-port.read-fb2-metadata', 'calibre-port.read-odt-metadata']
 
 
     :param registry: The registry to add the providers to.
