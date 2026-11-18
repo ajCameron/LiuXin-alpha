@@ -64,6 +64,7 @@ from __future__ import annotations
 import codecs
 import functools
 import html.entities
+import io
 import locale
 import mimetypes
 import os
@@ -397,6 +398,31 @@ def safe_xml_fromstring(string_or_bytes: str | bytes, recover: bool = True) -> A
     parser = etree.XMLParser(recover=recover, no_network=True, encoding=encoding)
     parser.resolvers.add(_Resolver())
     return etree.fromstring(raw, parser=parser)
+
+
+def safe_html_fromstring(string_or_bytes: str | bytes, recover: bool = True) -> Any:
+    """
+    Parse HTML without network access or external entities, as calibre does.
+
+    Example:
+        >>> safe_html_fromstring("<p>x<b>y</b></p>").find(".//b").text
+        'y'
+
+
+    :param string_or_bytes: The page.
+    :param recover: Whether to recover from errors.
+    :return: The root element.
+    """
+    from lxml import html as lxml_html
+
+    encoding = None
+    raw = string_or_bytes
+    if isinstance(raw, str):
+        raw = raw.encode("utf-8")
+        encoding = "utf-8"
+    parser = lxml_html.HTMLParser(recover=recover, no_network=True, encoding=encoding)
+    parser.resolvers.add(_Resolver())
+    return lxml_html.fromstring(raw, parser=parser)
 
 
 def force_unicode(obj: Any, enc: str = preferred_encoding) -> Any:
@@ -1714,6 +1740,7 @@ class _Log:
 
 
 default_log = _Log()
+Log = _Log
 
 
 # --- tzlocal and zoneinfo ------------------------------------------------------
@@ -1832,6 +1859,105 @@ PersistentTemporaryFile = _not_ported("PersistentTemporaryFile")
 calibre_cover2 = _not_ported("calibre_cover2")
 covers_generate_masthead = _not_ported("generate_masthead")
 image_to_data = _not_ported("image_to_data")
+image_from_data = _not_ported("image_from_data")
+png_data_to_gif_data = _not_ported("png_data_to_gif_data")
+resize_image = _not_ported("resize_image")
+scale_image = _not_ported("scale_image")
+# Only MOBI writing parses CSS colours, with calibre's copy of tinycss.
+parse_color_string = _not_ported("parse_color_string")
+# calibre's MOBI tests build a whole OEB book.
+OEBBook = _not_ported("OEBBook")
+
+
+class AnimatedGIF(ValueError):
+    """
+    Raised for an animated GIF, which calibre keeps rather than converting.
+
+    Example:
+        >>> issubclass(AnimatedGIF, ValueError)
+        True
+    """
+
+
+def gif_data_to_png_data(data: bytes, discard_animation: bool = False) -> bytes:
+    """
+    Convert a still GIF to PNG with Pillow, as calibre does.
+
+    Pillow is not a LiuXin dependency. Without it this raises ``OSError``,
+    which calibre's MOBI reader treats as an image it cannot decode and skips;
+    the metadata reader does not need the book's images.
+
+    Example:
+        >>> gif_data_to_png_data(b"GIF89a")  # doctest: +SKIP
+
+
+    :param data: The GIF.
+    :param discard_animation: Convert an animated GIF's first frame rather than raise.
+    :return: The PNG.
+    :raises AnimatedGIF: For an animated GIF, unless ``discard_animation``.
+    :raises OSError: Without Pillow, or for data Pillow cannot read.
+    """
+    try:
+        from PIL import Image
+    except ImportError as error:
+        raise OSError("converting GIF images needs Pillow, which is not installed") from error
+    img = Image.open(io.BytesIO(data))
+    try:
+        is_animated = img.is_animated  # type: ignore[attr-defined]
+    except Exception:
+        is_animated = False
+    if is_animated and not discard_animation:
+        raise AnimatedGIF()
+    buf = io.BytesIO()
+    img.save(buf, "png")
+    return buf.getvalue()
+
+
+class _PluginModule:
+    """
+    Stand in for one of calibre's C extensions with a LiuXin utils plugin.
+
+    The plugin is loaded the first time one of its names is used.
+
+    Example:
+        >>> cPalmdoc.decompress(b"ab\\x80\\x10")
+        b'ababa'
+    """
+
+    def __init__(self, name: str) -> None:
+        """
+        Name the plugin.
+
+        Example:
+            See ``_PluginModule``.
+
+
+        :param name: The utils plugin's name.
+        :return: None.
+        """
+        self._name = name
+
+    def __getattr__(self, attr: str) -> Any:
+        """
+        Fetch a name from the plugin's module.
+
+        Example:
+            See ``_PluginModule``.
+
+
+        :param attr: The name.
+        :return: Its value in the plugin.
+        :raises ImportError: If the plugin cannot be loaded.
+        """
+        from LiuXin_alpha.utils.plugins import plugins
+
+        module, error = plugins[self._name]
+        if module is None:
+            raise ImportError(f"the {self._name} plugin could not be loaded:\n{error}")
+        return getattr(module, attr)
+
+
+cPalmdoc = _PluginModule("cPalmdoc")  # noqa: N816 - calibre's extension name
 
 
 class WorkerError(Exception):

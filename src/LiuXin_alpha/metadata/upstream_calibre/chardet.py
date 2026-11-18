@@ -3,6 +3,7 @@
 # Ported from calibre (https://calibre-ebook.com) 9.18: src/calibre/ebooks/chardet.py
 # Changes from upstream: calibre imports point at upstream_calibre and its _compat, and
 # 'from __future__ import annotations' is added.
+# LiuXin fixes are marked '# LiuXin:'.
 # SPDX-License-Identifier: GPL-3.0-only
 
 from __future__ import annotations
@@ -13,6 +14,7 @@ import sys
 from typing import TYPE_CHECKING, Literal, TypedDict, overload
 
 from LiuXin_alpha.metadata.upstream_calibre._compat import xml_replace_entities
+from LiuXin_alpha.metadata.upstream_calibre import _linear_time  # LiuXin:
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -44,7 +46,10 @@ def compile_pats(binary: bool) -> Iterator[re.Pattern[str]] | Iterator[re.Patter
     for raw in _encoding_pats:
         if binary:
             raw = raw.encode('ascii')
-        yield re.compile(raw, flags=re.IGNORECASE)
+        # LiuXin: two of these patterns retry every quote after every encoding=
+        # or content= against the rest of the tag: over half an hour on 50 KB of
+        # unclosed declarations. linear_pattern finds the same matches in linear time.
+        yield _linear_time.linear_pattern(re.compile(raw, flags=re.IGNORECASE))  # LiuXin:
 
 
 class LazyEncodingPats:

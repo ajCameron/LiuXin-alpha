@@ -99,6 +99,22 @@ PORTS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
         "odt.py",
         ("calibre's copy of odfpy is replaced by the copy LiuXin ships in file_formats.odf.",),
     ),
+    ("ebooks/mobi/__init__.py", "mobi_package.py", ()),
+    ("ebooks/mobi/langcodes.py", "mobi_langcodes.py", ()),
+    (
+        "ebooks/mobi/utils.py",
+        "mobi_utils.py",
+        ("Its Qt image helpers and tinycss colour parsing, which only MOBI writing uses, are not ported.",),
+    ),
+    ("ebooks/mobi/huffcdic.py", "huffcdic.py", ()),
+    (
+        "ebooks/compression/palmdoc.py",
+        "palmdoc.py",
+        ("calibre's cPalmdoc extension comes from LiuXin's utils plugin system (_compat.cPalmdoc).",),
+    ),
+    ("ebooks/mobi/reader/headers.py", "mobi_headers.py", ()),
+    ("ebooks/mobi/reader/mobi6.py", "mobi6.py", ()),
+    ("ebooks/metadata/mobi.py", "mobi.py", ()),
 )
 
 # LiuXin fixes, by upstream path: calibre's text and its replacement. They are
@@ -120,6 +136,327 @@ PATCHES: dict[str, tuple[tuple[str, str], ...]] = {
 
             if not is_existing_subpath(cpage, tdir):  # LiuXin:
                 return
+""",
+        ),
+    ),
+    "ebooks/metadata/mobi.py": (
+        (
+            """            mi.cover_data = ('jpg', save_cover_data_to(data))
+""",
+            """            # LiuXin: keep the cover as the book stores it. calibre re-encodes it
+            # as a JPEG no larger than 1650x2200, which needs Qt; LiuXin names
+            # the format from the bytes instead.
+            mi.cover_data = ('jpg', data)  # LiuXin:
+""",
+        ),
+    ),
+    "ebooks/mobi/reader/headers.py": (
+        (
+            """            idx, size = struct.unpack('>LL', raw[pos : pos + 8])
+            content = raw[pos + 8 : pos + size]
+""",
+            """            idx, size = struct.unpack('>LL', raw[pos : pos + 8])
+            # LiuXin: a record claiming size 0 would be read again for every item
+            # the EXTH header claims, up to 2**32 times.
+            if size == 0:  # LiuXin:
+                break
+            content = raw[pos + 8 : pos + size]
+""",
+        ),
+    ),
+    "ebooks/mobi/huffcdic.py": (
+        (
+            r"""from calibre.ebooks.mobi import MobiError
+""",
+            r"""from calibre.ebooks.mobi import MobiError
+
+# LiuXin: the most text one book may unpack to; see Reader.unpack.
+MAX_UNPACKED = 32 * 1024 * 1024  # LiuXin:
+""",
+        ),
+        (
+            r"""        self.q = struct.Struct(b'>Q').unpack_from
+""",
+            r"""        self.q = struct.Struct(b'>Q').unpack_from
+        self.unpacked = 0  # LiuXin: bytes unpacked so far, dictionary entries included
+""",
+        ),
+        (
+            r"""            s.append(slice_)
+        return b''.join(s)
+""",
+            r"""            s.append(slice_)
+            # LiuXin: dictionary entries unpack to other entries, so a few bytes
+            # can stand for gigabytes. The metadata reader unpacks text only for
+            # books under 4 MB, whose text is a small part of this limit.
+            self.unpacked += len(slice_)  # LiuXin:
+            if self.unpacked > MAX_UNPACKED:  # LiuXin:
+                raise MobiError('HUFF/CDIC text unpacks to more than %d bytes' % MAX_UNPACKED)
+        return b''.join(s)
+""",
+        ),
+    ),
+    "ebooks/chardet.py": (
+        (
+            r"""from calibre import xml_replace_entities
+""",
+            r"""from calibre import xml_replace_entities
+from LiuXin_alpha.metadata.upstream_calibre import _linear_time  # LiuXin:
+""",
+        ),
+        (
+            r"""        yield re.compile(raw, flags=re.IGNORECASE)
+""",
+            r"""        # LiuXin: two of these patterns retry every quote after every encoding=
+        # or content= against the rest of the tag: over half an hour on 50 KB of
+        # unclosed declarations. linear_pattern finds the same matches in linear time.
+        yield _linear_time.linear_pattern(re.compile(raw, flags=re.IGNORECASE))  # LiuXin:
+""",
+        ),
+    ),
+    "ebooks/mobi/reader/mobi6.py": (
+        (
+            r"""from calibre.utils.xml_parse import safe_html_fromstring
+""",
+            r"""from calibre.utils.xml_parse import safe_html_fromstring
+from LiuXin_alpha.metadata.upstream_calibre import _linear_time  # LiuXin:
+""",
+        ),
+        (
+            r"""    PAGE_BREAK_PAT = re.compile(
+        r'<\s*/{0,1}\s*mbp:pagebreak((?:\s+[^/>]*){0,1})/{0,1}\s*>\s*(?:<\s*/{0,1}\s*mbp:pagebreak\s*/{0,1}\s*>)*',
+        re.IGNORECASE,
+    )
+""",
+            r"""    # LiuXin: calibre's pattern, with its runs of whitespace and its attributes
+    # read possessively. They can end only one way, but calibre's pattern tried
+    # every split of a long run of spaces: minutes for a few kilobytes.
+    PAGE_BREAK_PAT = re.compile(
+        r'<\s*+/{0,1}\s*+mbp:pagebreak((?>(?:\s+[^/>]*){0,1}))/{0,1}\s*>\s*(?:<\s*+/{0,1}\s*+mbp:pagebreak\s*+/{0,1}\s*>)*',  # LiuXin:
+        re.IGNORECASE,
+    )
+""",
+        ),
+        (
+            r"""        for i in range(self.num_sections):
+            self.sections.append((section(i), self.section_headers[i]))
+""",
+            r"""        # LiuXin: a section runs to the next one's offset, so a table whose offsets
+        # go back and forth holds the same bytes again for each entry: 65535 copies
+        # of a few megabytes. Sections of a well-formed book do not overlap; they
+        # may hold twice the file before it is refused.
+        held = 0  # LiuXin:
+        for i in range(self.num_sections):
+            self.sections.append((section(i), self.section_headers[i]))
+            held += len(self.sections[-1][0])  # LiuXin:
+            if held > 2 * len(raw_bytes):  # LiuXin:
+                raise MobiError('MOBI sections overlap')
+""",
+        ),
+        (
+            r"""        self.processed_html = re.sub(r'</{0,1}[a-zA-Z]+:\s+[^>]*>', '', self.processed_html)
+""",
+            r"""        # LiuXin: tries after the last '>' scan to the end and fail; they are not made.
+        self.processed_html = _linear_time.sub_before_last(re.compile(r'</{0,1}[a-zA-Z]+:\s+[^>]*>'), '', self.processed_html, '>')  # LiuXin:
+""",
+        ),
+        (
+            r"""            self.processed_html = re.sub(r'<metadata>.+?</metadata>', '', self.processed_html, flags=re.I)
+            self.processed_html = re.sub(r'<guide>.+?</guide>', '', self.processed_html, flags=re.I)
+""",
+            r"""            # LiuXin: a failed try scans to the end of its line, as would every later
+            # try on that line; they are not made.
+            self.processed_html = _linear_time.sub_skipping_failures(  # LiuXin:
+                re.compile(r'<metadata>.+?</metadata>', re.I), '', self.processed_html, re.compile(r'<metadata>', re.I), '\n'
+            )
+            self.processed_html = _linear_time.sub_skipping_failures(  # LiuXin:
+                re.compile(r'<guide>.+?</guide>', re.I), '', self.processed_html, re.compile(r'<guide>', re.I), '\n'
+            )
+""",
+        ),
+        (
+            r"""                    anchors = root.xpath(f'//*[@id="{href}"]')
+""",
+            r"""                    # LiuXin: the href is passed as a value, not pasted into the XPath,
+                    # where a quote in it failed the read and the rest ran as XPath.
+                    anchors = root.xpath('//*[@id=$id]', id=href)  # LiuXin:
+""",
+        ),
+        (
+            r"""        self.processed_html = re.sub(r'<\?xml[^>]*>', '', self.processed_html)
+        self.processed_html = re.sub(r'<\s*(/?)\s*o:p[^>]*>', '', self.processed_html)
+        # Swap inline and block level elements, and order block level elements according to priority
+        # - lxml and beautifulsoup expect/assume a specific order based on xhtml spec
+        self.processed_html = re.sub(
+            r'(?i)(?P<styletags>(<(h\d+|i|b|u|em|small|big|strong|tt)>\s*){1,})(?P<para><p[^>]*>)',
+            r'\g<para>\g<styletags>',
+            self.processed_html,
+        )
+        self.processed_html = re.sub(
+            r'(?i)(?P<para></p[^>]*>)\s*(?P<styletags>(</(h\d+|i|b|u|em|small|big|strong|tt)>\s*){1,})',
+            r'\g<styletags>\g<para>',
+            self.processed_html,
+        )
+        self.processed_html = re.sub(
+            r'(?i)(?P<blockquote>(</(blockquote|div)[^>]*>\s*){1,})(?P<para></p[^>]*>)',
+            r'\g<para>\g<blockquote>',
+            self.processed_html,
+        )
+        self.processed_html = re.sub(
+            r'(?i)(?P<para><p[^>]*>)\s*(?P<blockquote>(<(blockquote|div)[^>]*>\s*){1,})',
+            r'\g<blockquote>\g<para>',
+            self.processed_html,
+        )
+""",
+            r"""        # LiuXin: these passes give calibre's results in linear time; calibre's
+        # took hours on crafted books of a few megabytes. Its tries scanned to a
+        # '>' that never came, tried every tag of a long run, and split runs of
+        # spaces every way. Tries that must fail are not made, and the o:p
+        # pattern reads its spaces possessively.
+        self.processed_html = _linear_time.sub_before_last(re.compile(r'<\?xml[^>]*>'), '', self.processed_html, '>')  # LiuXin:
+        self.processed_html = _linear_time.sub_before_last(re.compile(r'<\s*+(/?)\s*+o:p[^>]*>'), '', self.processed_html, '>')  # LiuXin:
+        # Swap inline and block level elements, and order block level elements according to priority
+        # - lxml and beautifulsoup expect/assume a specific order based on xhtml spec
+        self.processed_html = _linear_time.sub_from_run_starts(  # LiuXin:
+            re.compile(r'(?i)(?P<styletags>(<(h\d+|i|b|u|em|small|big|strong|tt)>\s*){1,})(?P<para><p[^>]*>)'),
+            r'\g<para>\g<styletags>',
+            self.processed_html,
+            re.compile(r'(?i)(?:<(?:h\d+|i|b|u|em|small|big|strong|tt)>\s*)+'),
+        )
+        self.processed_html = _linear_time.sub_skipping_failures(  # LiuXin:
+            re.compile(r'(?i)(?P<para></p[^>]*>)\s*(?P<styletags>(</(h\d+|i|b|u|em|small|big|strong|tt)>\s*){1,})'),
+            r'\g<styletags>\g<para>',
+            self.processed_html,
+            re.compile(r'(?i)</p'),
+            '>',
+        )
+        self.processed_html = _linear_time.sub_from_run_starts(  # LiuXin:
+            re.compile(r'(?i)(?P<blockquote>(</(blockquote|div)[^>]*>\s*){1,})(?P<para></p[^>]*>)'),
+            r'\g<para>\g<blockquote>',
+            self.processed_html,
+            re.compile(r'(?i)(?:</(?:blockquote|div)[^>]*>\s*)+'),
+            '>',
+        )
+        self.processed_html = _linear_time.sub_skipping_failures(  # LiuXin:
+            re.compile(r'(?i)(?P<para><p[^>]*>)\s*(?P<blockquote>(<(blockquote|div)[^>]*>\s*){1,})'),
+            r'\g<blockquote>\g<para>',
+            self.processed_html,
+            re.compile(r'(?i)<p'),
+            '>',
+        )
+""",
+        ),
+        (
+            r"""        BLOCK_TAGS = {'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'div', 'p'}
+""",
+            r"""        BLOCK_TAGS = {'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'div', 'p'}
+        # LiuXin: the first class given each rule, for looking rules up below.
+        classes_by_rule: dict[str, str] = {}  # LiuXin:
+        for sel, srule in self.tag_css_rules.items():  # LiuXin:
+            classes_by_rule.setdefault(srule, sel)
+""",
+        ),
+        (
+            r"""                ncls = None
+                rule = '; '.join(styles)
+                for sel, srule in self.tag_css_rules.items():
+                    if srule == rule:
+                        ncls = sel
+                        break
+                if ncls is None:
+                    ncls = f'calibre_{i}'
+                    self.tag_css_rules[ncls] = rule
+""",
+            r"""                rule = '; '.join(styles)
+                # LiuXin: the rule is looked up, not compared with every rule so far,
+                # which took minutes for a book of many differently styled tags.
+                ncls = classes_by_rule.get(rule)  # LiuXin:
+                if ncls is None:
+                    ncls = f'calibre_{i}'
+                    self.tag_css_rules[ncls] = rule
+                    classes_by_rule.setdefault(rule, ncls)  # LiuXin:
+""",
+        ),
+        (
+            r"""            if images and hasattr(parent, 'find'):
+                index = parent.index(tag)
+                for img in images:
+                    img.getparent().remove(img)
+                    img.tail = img.text = None
+                    parent.insert(index, img)
+""",
+            r"""            if images and hasattr(parent, 'find'):
+                # LiuXin: each image goes where inserting it at the svg's index puts
+                # it, before the one put there last, without counting the svg's
+                # siblings again for each: books of many svgs took minutes.
+                before = tag  # LiuXin:
+                for img in images:
+                    img.getparent().remove(img)
+                    img.tail = img.text = None
+                    before.addprevious(img)  # LiuXin:
+                    before = img  # LiuXin:
+""",
+        ),
+        (
+            r"""            p.insert(p.index(tag) + 1, a)
+""",
+            r"""            tag.addnext(a)  # LiuXin: where p.insert(p.index(tag) + 1, a) puts it, without counting siblings
+""",
+        ),
+        (
+            r"""            elems = root.xpath('//*[@id="{}"]'.format(toc.partition('#')[-1]))
+""",
+            r"""            # LiuXin: the fragment is passed as a value, not pasted into the XPath.
+            elems = root.xpath('//*[@id=$id]', id=toc.partition('#')[-1])  # LiuXin:
+""",
+        ),
+        (
+            r"""        self.processed_html = self.PAGE_BREAK_PAT.sub(r'<div \1 class="mbp_pagebreak" />', cast('str', self.processed_html))
+""",
+            r"""        self.processed_html = _linear_time.sub_page_breaks(  # LiuXin: linear time
+            self.PAGE_BREAK_PAT, r'<div \1 class="mbp_pagebreak" />', cast('str', self.processed_html)
+        )
+""",
+        ),
+        (
+            r"""        link_pattern = re.compile(rb'''<[^<>]+filepos=['"]{0,1}(\d+)[^<>]*>''', re.IGNORECASE)
+""",
+            r"""        # LiuXin: calibre's pattern, first checking that the tag closes. An open
+        # tag was retried at every filepos= in it against the rest of the tag.
+        link_pattern = re.compile(rb'''<(?=[^<>]*>)[^<>]+filepos=['"]{0,1}(\d+)[^<>]*>''', re.IGNORECASE)  # LiuXin:
+""",
+        ),
+        (
+            r"""        end_tag_re = re.compile(rb'<\s*/')
+""",
+            r"""        end_tag_re = re.compile(rb'<\s*/')
+        # LiuXin: link targets come in order, so a search from one reuses what the
+        # last found instead of crossing the same text again.
+        finder = _linear_time.ForwardFinder(self.mobi_html)  # LiuXin:
+""",
+        ),
+        (
+            r"""            l = self.mobi_html.find(b'<', end)
+            r = self.mobi_html.find(b'>', end)
+""",
+            r"""            l = finder.find(b'<', end)  # LiuXin:
+            r = finder.find(b'>', end)  # LiuXin:
+""",
+        ),
+        (
+            r"""                p = self.mobi_html.rfind(b'<', 0, end + 1)
+""",
+            r"""                p = finder.rfind(b'<', end + 1)  # LiuXin:
+""",
+        ),
+        (
+            r"""        self.processed_html = re.sub(rb'&([^;]*?)(<a id="filepos\d+"></a>)([^;]*);', rb'&\1\3;\2', processed_html)
+""",
+            r"""        # LiuXin: tries after the last ';' fail, as does every try between an '&'
+        # whose try failed and the next ';'; they are not made.
+        self.processed_html = _linear_time.sub_skipping_failures(  # LiuXin:
+            re.compile(rb'&([^;]*?)(<a id="filepos\d+"></a>)([^;]*);'), rb'&\1\3;\2', processed_html, re.compile(b'&'), b';', b';'
+        )
 """,
         ),
     ),
@@ -171,11 +508,13 @@ MODULES = {
     "calibre.ebooks.metadata.book.base": f"{PKG}.book_base",
     "calibre.ebooks.metadata.book.json_codec": f"{PKG}.json_codec",
     "calibre.library.field_metadata": f"{PKG}.field_metadata",
+    "calibre.ebooks.compression.palmdoc": f"{PKG}.palmdoc",
     "calibre.ebooks.fb2": f"{PKG}.fb2_package",
     "calibre.ebooks.metadata.epub": f"{PKG}.epub",
     "calibre.ebooks.metadata.extz": f"{PKG}.extz",
     "calibre.ebooks.metadata.fb2": f"{PKG}.fb2",
     "calibre.ebooks.metadata.html": f"{PKG}.html",
+    "calibre.ebooks.metadata.mobi": f"{PKG}.mobi",
     "calibre.ebooks.metadata.odt": f"{PKG}.odt",
     "calibre.ebooks.metadata.opf2": f"{PKG}.opf2",
     "calibre.ebooks.metadata.opf3": f"{PKG}.opf3",
@@ -192,6 +531,12 @@ MODULES = {
     "calibre.utils.date": f"{PKG}.date",
     "calibre.utils.iso8601": f"{PKG}.iso8601",
     "calibre.utils.imghdr": f"{PKG}.imghdr",
+    "calibre.ebooks.mobi": f"{PKG}.mobi_package",
+    "calibre.ebooks.mobi.huffcdic": f"{PKG}.huffcdic",
+    "calibre.ebooks.mobi.langcodes": f"{PKG}.mobi_langcodes",
+    "calibre.ebooks.mobi.reader.headers": f"{PKG}.mobi_headers",
+    "calibre.ebooks.mobi.reader.mobi6": f"{PKG}.mobi6",
+    "calibre.ebooks.mobi.utils": f"{PKG}.mobi_utils",
     "calibre.utils.html2text": f"{PKG}.html_to_text",
     "calibre.utils.localunzip": f"{PKG}.localunzip",
 }
@@ -246,6 +591,7 @@ NAMES: dict[str, dict[str, str]] = {
             "SVG_NS",
             "XLINK",
             "XPath",
+            "OEBBook",
         )
     },
     "calibre.ebooks.oeb.polish.utils": {"guess_type": "polish_guess_type"},
@@ -265,9 +611,24 @@ NAMES: dict[str, dict[str, str]] = {
             "load_iso3166",
         )
     },
-    "calibre.utils.xml_parse": {"safe_xml_fromstring": "safe_xml_fromstring"},
+    "calibre.utils.xml_parse": {
+        "safe_xml_fromstring": "safe_xml_fromstring",
+        "safe_html_fromstring": "safe_html_fromstring",
+    },
     "calibre.utils.speedups": {"ReadOnlyFileBuffer": "ReadOnlyFileBuffer"},
-    "calibre.utils.img": {"save_cover_data_to": "save_cover_data_to", "image_to_data": "image_to_data"},
+    "calibre.utils.img": {
+        name: name
+        for name in (
+            "save_cover_data_to",
+            "image_to_data",
+            "image_from_data",
+            "png_data_to_gif_data",
+            "gif_data_to_png_data",
+            "AnimatedGIF",
+            "resize_image",
+            "scale_image",
+        )
+    },
     "calibre.utils.ipc.simple_worker": {"fork_job": "fork_job", "WorkerError": "WorkerError"},
     "calibre.utils.zipfile": {
         name: name
@@ -278,7 +639,7 @@ NAMES: dict[str, dict[str, str]] = {
         "SpooledTemporaryFile": "SpooledTemporaryFile",
         "PersistentTemporaryFile": "PersistentTemporaryFile",
     },
-    "calibre.utils.logging": {"default_log": "default_log"},
+    "calibre.utils.logging": {"default_log": "default_log", "Log": "Log"},
     "calibre.utils.formatter": {"TEMPLATE_ERROR": "TEMPLATE_ERROR"},
     "calibre.ebooks.metadata.book.formatter": {"SafeFormat": "SafeFormat"},
     "calibre.utils.filenames": {
@@ -312,6 +673,8 @@ EXTERNAL: dict[tuple[str, str], tuple[str, str]] = {
     ("calibre_extensions.speedup", "clean_xml_chars"): (f"{PKG}._speedups", "clean_xml_chars"),
     ("calibre_extensions.speedup", "parse_iso8601"): (f"{PKG}._speedups", "parse_iso8601"),
     ("calibre_extensions.uchardet", "detect"): (COMPAT, "uchardet_detect"),
+    ("calibre_extensions", "cPalmdoc"): (COMPAT, "cPalmdoc"),
+    ("tinycss.color4", "parse_color_string"): (COMPAT, "parse_color_string"),
     ("calibre_extensions.usbobserver", "date_format"): (COMPAT, "macos_date_format"),
     ("zoneinfo", "ZoneInfo"): (COMPAT, "ZoneInfo"),
 }
@@ -333,6 +696,7 @@ REWRITTEN_ROOTS = frozenset(
         "html5_parser",
         "odf",
         "dateutil",
+        "tinycss",
     }
 )
 
