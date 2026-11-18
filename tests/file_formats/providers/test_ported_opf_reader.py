@@ -22,7 +22,7 @@ from typing import Any
 import pytest
 
 from LiuXin_alpha.file_formats.conversion.report import ConversionReport
-from LiuXin_alpha.file_formats.providers import fork_metadata, ported_calibre
+from LiuXin_alpha.file_formats.providers import fork_metadata
 from LiuXin_alpha.file_formats.providers.base import ProviderContext
 from LiuXin_alpha.file_formats.providers.ported_calibre import adapt_ported_reader
 from LiuXin_alpha.metadata.upstream_calibre import _compat, _speedups, config_base, meta
@@ -264,28 +264,6 @@ def test_entity_expansion_is_bounded(tmp_path: Path) -> None:
     assert time.monotonic() - start < 10
     assert values["title"] == "Field Test"
     assert "comments" not in values
-
-
-def test_reader_needs_dateutil(monkeypatch: pytest.MonkeyPatch) -> None:
-    """
-    Report the reader unavailable without python-dateutil, naming the package.
-
-    Example:
-        Run with pytest, which supplies ``monkeypatch``::
-
-            python -m pytest -q tests/file_formats/providers/test_ported_opf_reader.py
-
-
-    :param monkeypatch: Hides the package.
-    :return: None; the assertions are the check.
-    """
-    monkeypatch.setattr(ported_calibre, "find_spec", lambda name: None)
-
-    availability = adapt_ported_reader("Read OPF metadata").availability()
-
-    assert not availability.available
-    assert "python-dateutil" in (availability.reason or "")
-    assert adapt_ported_reader("Read TXT metadata").availability().available
 
 
 # Answers from calibre 9.18's compiled speedup.parse_iso8601.

@@ -33,8 +33,12 @@ re-running it reproduces them byte for byte.
 
 - **python-dateutil** became a runtime dependency on 2026-11-18 (#184). calibre's
   date parsing uses it, and with it only a test dependency the OPF and EPUB
-  providers were unavailable in ordinary installs. The providers still check
-  for it.
+  providers were unavailable in ordinary installs. Since #187 the ported code
+  reaches it through the `dateutil_parser` utils plugin, which falls back to a
+  vendored copy of python-dateutil 2.9.0.post0 where the package is missing, so
+  the readers always run. See [utils plugin layers](utils-plugin-layers.md);
+  that page also records why LiuXin's older `liuxin_dateutil` 1.5 was not used
+  as the backup.
 - **Beautiful Soup** stays optional. Without it the EPUB reader does not
   recognise an HTML first page holding only a cover image; SVG cover pages
   still work.

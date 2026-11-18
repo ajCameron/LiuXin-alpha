@@ -61,6 +61,7 @@ and its docstring lists each difference from calibre. In short:
 | uchardet | the `chardet` package | Encoding guesses can differ; calibre only guesses when a file declares no encoding and is not UTF-8 |
 | `mime.types` added to Python's global table, with the system's files | a private table of Python's built-in types plus calibre's `mime.types` | The same answers on every machine; other code is unaffected |
 | ISO 639 and 3166 maps built at calibre's build time | `iso_codes.json.gz`, built from iso-codes 4.16.0 by `scripts/build_upstream_calibre_iso_codes.py` with calibre's rules | Languages read as ISO 639-3 codes, as calibre stores them (`fra`, not `fr`) |
+| python-dateutil, imported directly | the `dateutil_parser` utils plugin: the installed package, or LiuXin's vendored copy | None: the same parser either way |
 | The `tzlocal` package, and `zoneinfo` with calibre's bundled tz data | `TZ` or `/etc/localtime`, falling back to UTC | Only dates written without a time zone are affected |
 | Interface language from preferences or the system | English | Only the default language of OPF files the code writes |
 | Template formatter (`SafeFormat`) | a stand-in that raises when used | Composite custom columns cannot be computed |
@@ -72,9 +73,11 @@ and its docstring lists each difference from calibre. In short:
 | A worker process running Qt to draw a book's first page as its cover | not ported: `fork_job` raises `WorkerError`, as a failed worker does | A book with no cover image and a first page of text has no cover; calibre prints a line saying so |
 | Qt image and date helpers, EPUB writing helpers | not ported; raise `NotImplementedError` | Readers do not call them |
 
-The OPF and EPUB readers parse dates with `python-dateutil`, as calibre does,
-so it is a LiuXin dependency. Their providers still check for it, and report
-themselves unavailable, naming the package, where it is missing.
+The ported readers parse dates with `python-dateutil`'s parser, as calibre
+does. It comes through the utils plugin system's `dateutil_parser` plugin:
+python-dateutil itself, a LiuXin dependency, where it is installed, and
+otherwise the copy LiuXin vendors, which gives the same answers. See
+[utils plugin layers](utils-plugin-layers.md).
 
 ## What the providers add
 

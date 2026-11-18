@@ -124,6 +124,7 @@ namespaces = true
 "LiuXin_alpha.startup_scripts" = ["LX_folders", "lx_folders.json"]
 "LiuXin_alpha.utils.libraries.iso639" = ["ISO-639-2_utf-8.txt"]
 "LiuXin_alpha.utils.libraries.liuxin_dateutil.zoneinfo" = ["zoneinfo-*.tar.gz"]
+"LiuXin_alpha.utils.libraries.python_dateutil" = ["LICENSE"]
 
 [tool.ruff]
 target-version = "py312"

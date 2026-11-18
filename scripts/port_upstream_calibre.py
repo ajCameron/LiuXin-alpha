@@ -298,6 +298,7 @@ NAMES: dict[str, dict[str, str]] = {
 # imports that LiuXin replaces. An empty module imports the name as a module.
 EXTERNAL: dict[tuple[str, str], tuple[str, str]] = {
     ("compression", "zlib"): ("", "zlib"),
+    ("dateutil.parser", "parse"): (COMPAT, "dateutil_parse"),
     ("html5_parser", "parse"): (COMPAT, "html5_parse"),
     ("html5_parser.soup", "parse"): (COMPAT, "html5_soup_parse"),
     ("odf.draw", "Frame"): ("LiuXin_alpha.file_formats.odf.draw", "Frame"),
@@ -322,7 +323,17 @@ IMPORT_MODULES = {"tzlocal": f"from {COMPAT} import tzlocal"}
 LEAVE = frozenset({"qt.core"})
 
 REWRITTEN_ROOTS = frozenset(
-    {"calibre", "polyglot", "calibre_extensions", "tzlocal", "zoneinfo", "compression", "html5_parser", "odf"}
+    {
+        "calibre",
+        "polyglot",
+        "calibre_extensions",
+        "tzlocal",
+        "zoneinfo",
+        "compression",
+        "html5_parser",
+        "odf",
+        "dateutil",
+    }
 )
 
 

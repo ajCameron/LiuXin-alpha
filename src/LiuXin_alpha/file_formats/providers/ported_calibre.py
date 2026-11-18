@@ -18,12 +18,10 @@ from __future__ import annotations
 
 import types
 from collections.abc import Callable, Mapping
-from importlib.util import find_spec
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar, Self, cast
 
 from LiuXin_alpha.file_formats.providers.base import (
-    ProviderAvailability,
     ProviderContext,
     provider_id_from_name,
 )
@@ -66,12 +64,6 @@ PORTED_READERS: Mapping[str, tuple[str, frozenset[str]]] = {
 
 PORTED_PRIORITY = -50
 """Priority of every ported reader: above running an installed calibre."""
-
-NEEDS_DATEUTIL: frozenset[str] = frozenset({"opf", "epub", "extz", "html", "fb2", "odt"})
-"""Ported modules that parse dates with python-dateutil, as calibre does.
-
-python-dateutil is a LiuXin dependency; these readers still check for it, so
-an install without it reports them unavailable rather than failing on a book."""
 
 PASSES_FORMAT: frozenset[str] = frozenset({"epub"})
 """Ported modules whose ``get_metadata`` calibre's plugin calls with the format."""
@@ -289,26 +281,6 @@ class PortedCalibreReader(CalibreMetadataReader, CoverExtractor):
     """
 
     ported_module: ClassVar[str]
-
-    @classmethod
-    def availability(cls: type[Self]) -> ProviderAvailability:
-        """
-        Report whether the ported reader can run here.
-
-        Readers whose calibre code parses dates need python-dateutil.
-
-        Example:
-            >>> adapt_ported_reader("Read TXT metadata").availability().available
-            True
-
-
-        :return: Ready, or missing with the package to install.
-        """
-        if cls.ported_module in NEEDS_DATEUTIL and find_spec("dateutil") is None:
-            return ProviderAvailability.missing(
-                "calibre's code parses dates with python-dateutil, which is not installed"
-            )
-        return ProviderAvailability.ready()
 
     def read_calibre_metadata(
         self: Self, source: Path, source_format: str, context: ProviderContext

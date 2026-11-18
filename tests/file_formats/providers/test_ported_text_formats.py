@@ -32,8 +32,6 @@ from LiuXin_alpha.file_formats.providers.metadata import CoverImage
 from LiuXin_alpha.file_formats.providers.ported_calibre import adapt_ported_reader
 from LiuXin_alpha.metadata.upstream_calibre import fb2, html
 
-pytest.importorskip("dateutil")
-
 
 def png(width: int, height: int) -> bytes:
     """

@@ -29,6 +29,9 @@ What differs from calibre, and why:
   system's files, so answers are the same on every machine.
 - Tweaks: calibre's ``default_tweaks.py`` is read as calibre reads it; there
   is no user tweaks file.
+- Dates: python-dateutil's parser comes through the utils plugin system
+  (``dateutil_parse``), which falls back to LiuXin's vendored copy of the same
+  package where it is not installed.
 - C functions: ``replace_all_entities`` ports calibre's
   ``fast_html_entities``; ``_speedups`` ports the ``speedup`` functions the
   modules call. Encoding guesses use the ``chardet`` package where calibre uses
@@ -1885,6 +1888,35 @@ def fork_job(mod_name: str, func_name: str, *args: object, **kwargs: object) -> 
         "calibre's worker processes are not ported to LiuXin",
         orig_tb=f"LiuXin has no stand-in for {mod_name}.{func_name}; nothing was rendered",
     )
+
+
+def dateutil_parse(timestr: str, *args: Any, **kwargs: Any) -> Any:
+    """
+    Parse a date as python-dateutil's ``parse`` does, through the utils plugin system.
+
+    calibre parses dates with python-dateutil. The ``dateutil_parser`` plugin
+    serves the installed package, or, where it is missing, the copy LiuXin
+    vendors in ``utils.libraries.python_dateutil``; both are the same parser.
+
+    Example:
+        >>> import datetime
+        >>> dateutil_parse("3 February 2001", default=datetime.datetime(2026, 1, 15)).isoformat()
+        '2001-02-03T00:00:00'
+
+
+    :param timestr: The text to parse.
+    :param args: Passed to ``parse``.
+    :param kwargs: Passed to ``parse``, such as ``default`` and ``dayfirst``.
+    :return: The date and time.
+    :raises ImportError: If neither the package nor the vendored copy loads.
+    :raises ValueError: If the text holds no date (``ParserError`` is one).
+    """
+    from LiuXin_alpha.utils.plugins import plugins
+
+    module, error = plugins["dateutil_parser"]
+    if module is None:
+        raise ImportError(f"no dateutil parser could be loaded:\n{error}")
+    return module.parse(timestr, *args, **kwargs)
 
 
 def html5_parse(html: str | bytes, return_root: bool = True, **kwargs: object) -> Any:

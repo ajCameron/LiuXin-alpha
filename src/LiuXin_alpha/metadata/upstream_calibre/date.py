@@ -110,7 +110,7 @@ def parse_date(date_string: str | bytes | None, assume_utc: bool = False, as_utc
     :param default: Missing fields are filled in from default. If None, the
     current month and year are used.
     """
-    from dateutil.parser import parse
+    from LiuXin_alpha.metadata.upstream_calibre._compat import dateutil_parse as parse
 
     if not date_string:
         return UNDEFINED_DATE
