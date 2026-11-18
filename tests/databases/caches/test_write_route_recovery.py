@@ -24,6 +24,8 @@ from LiuXin_alpha.storage.storage_manager.database_repository import (
 
 @pytest.fixture(params=("SQLite", "SQLite_apsw"))
 def route_database(request, tmp_path, monkeypatch):
+    if request.param == "SQLite_apsw":
+        pytest.importorskip("apsw")
     path = tmp_path / "routes.sqlite"
     with Database(
         metadata={"database_path": str(path)},
