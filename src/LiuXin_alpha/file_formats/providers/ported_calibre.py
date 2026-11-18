@@ -65,8 +65,8 @@ PORTED_PRIORITY = -50
 NEEDS_DATEUTIL: frozenset[str] = frozenset({"opf", "epub"})
 """Ported modules that parse dates with python-dateutil, as calibre does.
 
-LiuXin lists python-dateutil only as a test dependency, so these readers check
-for it."""
+python-dateutil is a LiuXin dependency; these readers still check for it, so
+an install without it reports them unavailable rather than failing on a book."""
 
 PASSES_FORMAT: frozenset[str] = frozenset({"epub"})
 """Ported modules whose ``get_metadata`` calibre's plugin calls with the format."""

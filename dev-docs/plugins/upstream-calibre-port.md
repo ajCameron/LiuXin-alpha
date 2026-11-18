@@ -66,9 +66,9 @@ and its docstring lists each difference from calibre. In short:
 | A worker process running Qt to draw a book's first page as its cover | not ported: `fork_job` raises `WorkerError`, as a failed worker does | A book with no cover image and a first page of text has no cover; calibre prints a line saying so |
 | Qt image and date helpers, EPUB writing helpers | not ported; raise `NotImplementedError` | Readers do not call them |
 
-`python-dateutil` is not a runtime dependency of LiuXin. The OPF and EPUB
-readers parse dates with it, so their providers report themselves unavailable,
-naming the package, when it is not installed.
+The OPF and EPUB readers parse dates with `python-dateutil`, as calibre does,
+so it is a LiuXin dependency. Their providers still check for it, and report
+themselves unavailable, naming the package, where it is missing.
 
 ## What the providers add
 
