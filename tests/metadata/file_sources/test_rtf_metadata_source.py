@@ -368,3 +368,159 @@ def test_rtf_md_fixture_smoke_and_deterministic(md_test_fixture) -> None:
 
     assert _snapshot(md_1) == _snapshot(md_2)
     assert bool(_first(md_1.title))
+
+
+class _EndOfFileGuard(io.BytesIO):
+    """
+    A stream that fails a test which keeps reading after its end.
+
+    Example:
+        >>> _EndOfFileGuard(b"ab").read()
+        b'ab'
+    """
+
+    def __init__(self, data: bytes) -> None:
+        """
+        Hold the data and start counting reads at the end.
+
+        Example:
+            >>> _EndOfFileGuard(b"").empty_reads
+            0
+
+
+        :param data: The stream's content.
+        :return: None.
+        """
+        super().__init__(data)
+        self.empty_reads = 0
+
+    def read(self, size: int | None = -1, /) -> bytes:
+        """
+        Read as a stream does, failing after many reads at the end.
+
+        Example:
+            >>> _EndOfFileGuard(b"x").read(1)
+            b'x'
+
+
+        :param size: How many bytes to read; all if negative.
+        :return: The bytes read.
+        :raises AssertionError: When the reader keeps reading at the end.
+        """
+        data = super().read(size)
+        if not data and size != 0:
+            self.empty_reads += 1
+            if self.empty_reads > 64:
+                raise AssertionError("the reader kept reading after the end of the file")
+        return data
+
+
+def test_rtf_info_group_cut_off_by_the_end_of_the_file_is_read() -> None:
+    """
+    Stop at the end of a file whose info group is never closed.
+
+    calibre's reader loops forever here; this one stops, and keeps what it can.
+
+    Example:
+        Exercise the cut-off info group through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_rtf_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
+    from LiuXin_alpha.metadata.file_sources.rtf import get_document_info, get_metadata
+
+    stream = _EndOfFileGuard(b"{\\rtf1\\ansi{\\info{\\title Kept}{\\author Cut off")
+
+    block, _pos = get_document_info(stream)
+    md = get_metadata(stream)
+
+    assert block == b"{\\info{\\title Kept}{\\author Cut off"
+    assert _first(md.title) == "Kept"
+    assert _values(md.authors) == ["Unknown"]
+
+
+@pytest.mark.parametrize(
+    "block",
+    [
+        b"{\\info{\\title A}{\\author B}}",
+        b"{\\info{\\title A \\} still A}}",
+        b"{\\info{\\title A \\\\}}",
+        b"{\\info{\\titlepg}{\\title Real}}",
+        b"{\\title Outside}{\\info{\\title Inside}}",
+        b"{\\info{\\author A}{\\title never closed",
+        b"{\\info{\\title}",
+        b"{\\info{\\info{\\title X}",
+        b"no info here {\\title X}",
+        b"",
+    ],
+)
+def test_rtf_info_fields_match_the_patterns_they_replace(block: bytes) -> None:
+    """
+    Find the same field values the old regular expressions found.
+
+    Example:
+        Exercise the field lookup through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_rtf_metadata_source.py
+
+
+    :param block: An info block, well formed or not.
+    :return: None; the function records state or raises through its assertions.
+    """
+    import re
+
+    from LiuXin_alpha.metadata.file_sources.rtf import info_field, replace_fields
+
+    for name in ("title", "author", "subject", "comment", "category", "keywords", "manager", "company", "operator"):
+        pattern = re.compile(rb"\{\\info.*?\{\\" + name.encode() + rb"(.*?)(?<!\\)\}", re.DOTALL)
+        match = pattern.search(block)
+        assert info_field(block, name.encode()) == (None if match is None else match.group(1))
+
+        text = block.decode("ascii")
+        replacement = "{\\" + name + " New}"
+        subn = re.compile(r"\{\\" + name + r"(.*?)(?<!\\)\}", re.DOTALL).subn(lambda _match, value=replacement: value, text)
+        assert replace_fields(text, name, replacement) == subn
+
+
+def test_rtf_many_unclosed_info_groups_are_read_in_linear_time() -> None:
+    """
+    Read and rewrite a file of repeated, never-closed info groups quickly.
+
+    The regular expressions this module used backtracked in cubic time on such a
+    file: 15 kB took nearly a minute to read, and 150 kB took 15 seconds to
+    rewrite. The 1.5 MB file here runs in a child process with a time limit, so a
+    regression fails rather than hanging the suite.
+
+    Example:
+        Exercise the repeated groups through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_rtf_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
+    import os
+    import subprocess
+    import sys
+
+    script = (
+        "import io\n"
+        "from types import SimpleNamespace\n"
+        "from LiuXin_alpha.metadata.file_sources import rtf\n"
+        "data = b'{\\\\rtf1' + b'{\\\\info{\\\\title x' * 100000\n"
+        "assert rtf.get_metadata(io.BytesIO(data)).title is not None\n"
+        "try:\n"
+        "    rtf.set_metadata(io.BytesIO(data), SimpleNamespace(title='New', authors=['A']))\n"
+        "except ValueError:\n"
+        "    pass\n"
+        "print('done')\n"
+    )
+    env = {**os.environ, "PYTHONPATH": os.pathsep.join(path for path in sys.path if path)}
+    result = subprocess.run(
+        [sys.executable, "-c", script], capture_output=True, text=True, timeout=60, env=env, check=False
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == "done"
