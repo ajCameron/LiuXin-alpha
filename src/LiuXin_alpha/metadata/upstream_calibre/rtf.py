@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # License: GPLv3 Copyright: 2008, Kovid Goyal <kovid at kovidgoyal.net>
 # Ported from calibre (https://calibre-ebook.com) 9.18: src/calibre/ebooks/metadata/rtf.py
-# Changes from upstream: calibre imports point at upstream_calibre._compat, and
+# Changes from upstream: calibre imports point at upstream_calibre and its _compat, and
 # 'from __future__ import annotations' is added.
 # get_document_info stops at the end of the file: upstream loops forever when
 # the {\info group is never closed. The field patterns are linear-time stand-ins
@@ -20,7 +20,7 @@ import re
 from typing import IO, TYPE_CHECKING
 
 from LiuXin_alpha.metadata.upstream_calibre._compat import force_unicode
-from LiuXin_alpha.metadata.upstream_calibre._compat import MetaInformation
+from LiuXin_alpha.metadata.upstream_calibre.metadata_base import MetaInformation
 from LiuXin_alpha.metadata.upstream_calibre._compat import _
 from LiuXin_alpha.metadata.upstream_calibre._compat import int_to_byte
 from LiuXin_alpha.metadata.upstream_calibre._compat import FieldPattern, InfoFieldPattern  # LiuXin: stand-ins below
@@ -28,7 +28,7 @@ from LiuXin_alpha.metadata.upstream_calibre._compat import FieldPattern, InfoFie
 if TYPE_CHECKING:
     import unittest
 
-    from LiuXin_alpha.metadata.upstream_calibre._compat import Metadata
+    from LiuXin_alpha.metadata.upstream_calibre.book_base import Metadata
 
 title_pat = InfoFieldPattern(b'title')  # LiuXin: linear-time stand-in
 author_pat = InfoFieldPattern(b'author')  # LiuXin: linear-time stand-in
@@ -256,7 +256,7 @@ def find_tests() -> unittest.TestSuite:
     import unittest
     from io import BytesIO
 
-    from LiuXin_alpha.metadata.upstream_calibre._compat import Metadata
+    from LiuXin_alpha.metadata.upstream_calibre.book_base import Metadata
 
     class Test(unittest.TestCase):
         def test_rtf_metadata(self) -> None:

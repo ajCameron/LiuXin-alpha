@@ -1,0 +1,51 @@
+#!/usr/bin/env python
+# License: GPLv3 Copyright: 2016, Kovid Goyal <kovid at kovidgoyal.net>
+# Ported from calibre (https://calibre-ebook.com) 9.18: src/calibre/utils/iso8601.py
+# Changes from upstream: calibre imports point at upstream_calibre and its _compat, and
+# 'from __future__ import annotations' is added.
+# The tzlocal package and zoneinfo.ZoneInfo come from _compat, which fall back to UTC
+# where no zone can be found rather than failing at import.
+# SPDX-License-Identifier: GPL-3.0-only
+
+from __future__ import annotations
+
+from datetime import UTC as utc_tz
+from datetime import datetime, timedelta, timezone
+from LiuXin_alpha.metadata.upstream_calibre._compat import ZoneInfo
+
+from LiuXin_alpha.metadata.upstream_calibre._compat import tzlocal
+
+from LiuXin_alpha.metadata.upstream_calibre import _speedups as speedup
+
+try:
+    tz_name = tzlocal.get_localzone_name() or 'UTC'
+except Exception:
+    tz_name = 'UTC'
+local_tz = ZoneInfo(tz_name)
+UNDEFINED_DATE = datetime(101, 1, 1, tzinfo=utc_tz)
+
+
+def parse_iso8601(date_string: str | None, assume_utc: bool = False, as_utc: bool = True, require_aware: bool = False) -> datetime:
+    if not date_string:
+        return UNDEFINED_DATE
+    dt, aware, tzseconds = speedup.parse_iso8601(date_string)
+    tz = utc_tz if assume_utc else local_tz
+    if aware:  # timezone was specified
+        if tzseconds == 0:
+            tz = utc_tz
+        else:
+            sign = '-' if tzseconds < 0 else '+'
+            description = f'{sign}{abs(tzseconds) // 3600:02}:{abs(tzseconds) % 3600 // 60:02}'
+            tz = timezone(timedelta(seconds=tzseconds), description)
+    elif require_aware:
+        raise ValueError(f'{date_string} does not specify a time zone')
+    dt = dt.replace(tzinfo=tz)
+    if as_utc and tz is utc_tz:
+        return dt
+    return dt.astimezone(utc_tz if as_utc else local_tz)
+
+
+if __name__ == '__main__':
+    import sys
+
+    print(parse_iso8601(sys.argv[-1]))

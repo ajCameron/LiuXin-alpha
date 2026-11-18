@@ -1,6 +1,6 @@
 # License: GPLv3 Copyright: 2009, John Schember <john@nachtimwald.com>
 # Ported from calibre (https://calibre-ebook.com) 9.18: src/calibre/ebooks/metadata/txt.py
-# Changes from upstream: calibre imports point at upstream_calibre._compat, and
+# Changes from upstream: calibre imports point at upstream_calibre and its _compat, and
 # 'from __future__ import annotations' is added. SPDX-License-Identifier: GPL-3.0-only
 
 """
@@ -13,11 +13,11 @@ import os
 import re
 from typing import IO, TYPE_CHECKING
 
-from LiuXin_alpha.metadata.upstream_calibre._compat import MetaInformation
+from LiuXin_alpha.metadata.upstream_calibre.metadata_base import MetaInformation
 from LiuXin_alpha.metadata.upstream_calibre._compat import _
 
 if TYPE_CHECKING:
-    from LiuXin_alpha.metadata.upstream_calibre._compat import Metadata
+    from LiuXin_alpha.metadata.upstream_calibre.book_base import Metadata
 
 
 def get_metadata(stream: IO[bytes], extract_cover: bool = True) -> Metadata:

@@ -33,6 +33,10 @@ direction. The application host extends the standalone file-provider catalogue
 and binds its initialized instances into the format runtime; both use the same
 loading and priority policy.
 
+[Porting calibre's metadata readers](upstream-calibre-port.md) explains how
+LiuXin carries current calibre readers, what it substitutes for calibre's C
+extensions and data, and how to port more.
+
 Conversion-specific guidance remains in [file formats](../file_formats/README.md)
 and the [conversion pipeline](../conversion_pipeline/README.md). The persisted
 plugin settings are a component namespace within the broader

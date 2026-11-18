@@ -1,6 +1,6 @@
 # License: GPLv3 Copyright: 2010, Greg Riker <griker@hotmail.com>
 # Ported from calibre (https://calibre-ebook.com) 9.18: src/calibre/ebooks/metadata/topaz.py
-# Changes from upstream: calibre imports point at upstream_calibre._compat, and
+# Changes from upstream: calibre imports point at upstream_calibre and its _compat, and
 # 'from __future__ import annotations' is added.
 # get_headers raises ValueError when its record counts run past the end of the
 # file: upstream reads on, so a 9-byte file kept it busy for minutes and
@@ -18,13 +18,13 @@ from struct import pack
 from typing import IO, TYPE_CHECKING, TypedDict
 
 from LiuXin_alpha.metadata.upstream_calibre._compat import force_unicode
-from LiuXin_alpha.metadata.upstream_calibre._compat import MetaInformation
+from LiuXin_alpha.metadata.upstream_calibre.metadata_base import MetaInformation
 from LiuXin_alpha.metadata.upstream_calibre._compat import int_to_byte
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
-    from LiuXin_alpha.metadata.upstream_calibre._compat import Metadata
+    from LiuXin_alpha.metadata.upstream_calibre.book_base import Metadata
 
 
 class TopazHeader(TypedDict, total=False):

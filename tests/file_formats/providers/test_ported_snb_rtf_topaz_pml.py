@@ -29,7 +29,7 @@ from LiuXin_alpha.file_formats.conversion.report import ConversionReport
 from LiuXin_alpha.file_formats.providers import fork_metadata
 from LiuXin_alpha.file_formats.providers.base import ProviderContext
 from LiuXin_alpha.file_formats.providers.ported_calibre import adapt_ported_reader
-from LiuXin_alpha.metadata.upstream_calibre import _compat, pml, rtf, snbfile, topaz
+from LiuXin_alpha.metadata.upstream_calibre import _compat, book_base, pml, rtf, snbfile, topaz
 
 JPEG = b"\xff\xd8\xff\xe0" + b"\x00" * 60 + b"\xff\xd9"
 PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 60
@@ -300,7 +300,7 @@ def test_rtf_reads_the_info_group(tmp_path: Path) -> None:
     :param tmp_path: Folder for the sample.
     :return: None; the assertions are the check.
     """
-    book = _compat.Metadata("Test ø̄title", ["Author One", "Author БTwo"])
+    book = book_base.Metadata("Test ø̄title", ["Author One", "Author БTwo"])
     book.tags = ["tag1", "見tag2"]
     book.comments = "<p>some ⊹comments</p>"
     book.publisher = "publiSher"
@@ -418,11 +418,11 @@ def test_rtf_many_unclosed_info_groups_are_read_in_linear_time() -> None:
     """
     script = (
         "import io\n"
-        "from LiuXin_alpha.metadata.upstream_calibre import _compat, rtf\n"
+        "from LiuXin_alpha.metadata.upstream_calibre import book_base, rtf\n"
         "data = b'{\\\\rtf1' + b'{\\\\info{\\\\title x' * 100000\n"
         "assert rtf.get_metadata(io.BytesIO(data)).title == 'Unknown'\n"
         "try:\n"
-        "    rtf.set_metadata(io.BytesIO(data), _compat.Metadata('New', ['A']))\n"
+        "    rtf.set_metadata(io.BytesIO(data), book_base.Metadata('New', ['A']))\n"
         "except ValueError:\n"
         "    pass\n"
         "print('done')\n"
@@ -481,7 +481,7 @@ def test_topaz_writer_round_trips() -> None:
     :return: None; the assertions are the check.
     """
     stream = io.BytesIO(topaz_file({b"Title": b"Old", b"Authors": b"Ann"}))
-    topaz.set_metadata(stream, _compat.Metadata("New Title", ["Cy", "Di"]))
+    topaz.set_metadata(stream, book_base.Metadata("New Title", ["Cy", "Di"]))
 
     book = topaz.get_metadata(stream)
 
