@@ -15,6 +15,8 @@ import re
 
 from functools import partial
 
+from LiuXin_alpha.utils.linear_time import LinearPattern, entities
+
 
 def my_unichr(num):
     """
@@ -107,7 +109,8 @@ def entity_to_unicode(match, exceptions=[], encoding="cp1252", result_exceptions
 
 
 
-_ent_pat = re.compile(r"&(\S+?);")
+# Found in linear time: as a pattern, a run of '&' with no ';' took 33 s for 80 KB.
+_ent_pat = LinearPattern(re.compile(r"&(\S+?);"), entities)
 xml_entity_to_unicode = partial(
     entity_to_unicode, result_exceptions={'"': "&quot;", "'": "&apos;", "<": "&lt;", ">": "&gt;", "&": "&amp;"}
 )

@@ -10,6 +10,8 @@ Source reviewed **2026-10-20**, working tree based on `fc5de7af`.
 - [Quality gates](../architectural_reviews/maintainability-quality-gates.md),
   [layer rules](../architectural_reviews/layer-direction-ratchet.md) and
   [import checks](../architectural_reviews/import-footprint-ratchet.md): active enforcement.
+- [Backtracking patterns](backtracking-patterns.md): regular expressions that hang on
+  hostile input, the linear-time stand-ins that replace them, and what is left.
 
 The [docstring completion plan](project-docstrings-completion-plan.md) and
 [work inventory](project-docstrings-work-units.json) record a completed campaign.
