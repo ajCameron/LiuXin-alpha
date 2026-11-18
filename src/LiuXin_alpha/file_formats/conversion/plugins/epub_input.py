@@ -442,7 +442,7 @@ class EPUBInput(InputFormatPlugin):
             )
             t.set("media-type", "image/jpeg")
             if os.path.exists(guide_cover):
-                renderer = render_html_svg_workaround(guide_cover, log)
+                renderer = render_html_svg_workaround(guide_cover, log, root=os.getcwd())
                 if renderer is not None:
                     open("calibre_raster_cover.jpg", "wb").write(renderer)
 

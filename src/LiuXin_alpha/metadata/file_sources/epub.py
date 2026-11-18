@@ -859,9 +859,14 @@ def _render_cover_from_spine(reader: OCFZipReader, first_spine_item: str | None)
             html_path = os.path.join(tdir, first_spine_item.replace("/", os.sep))
             if not os.path.exists(html_path):
                 return None
+            from LiuXin_alpha.file_formats.utils import is_existing_subpath
+
+            # A spine entry climbing out of the book is not its cover page
+            if not is_existing_subpath(html_path, tdir):
+                return None
             from LiuXin_alpha.file_formats import render_html_svg_workaround
 
-            return render_html_svg_workaround(html_path, default_log)
+            return render_html_svg_workaround(html_path, default_log, root=tdir)
     except Exception as err:
         default_log.log_exception(
             "Failed to render EPUB spine item as cover.",
