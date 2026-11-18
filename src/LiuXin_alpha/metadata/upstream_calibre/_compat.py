@@ -1,9 +1,10 @@
 # Derived from calibre (https://calibre-ebook.com) 9.18: small parts of
 # src/calibre/__init__.py, constants.py, ptempfile.py, spell/__init__.py,
-# ebooks/__init__.py, ebooks/oeb/base.py, ebooks/oeb/polish/utils.py,
-# ebooks/metadata/meta.py, ebooks/html_entities.c and utils/ (__init__.py,
-# config_base.py, filenames.py, icu.py, localization.py, speedups.py and
-# xml_parse.py), and polyglot/. License: GPL v3. Copyright: Kovid Goyal.
+# ebooks/oeb/base.py, ebooks/oeb/polish/utils.py, ebooks/metadata/meta.py,
+# ebooks/html_entities.c and utils/ (__init__.py, config_base.py,
+# filenames.py, icu.py, ipc/simple_worker.py, localization.py, speedups.py,
+# xml_parse.py and zipfile.py), and polyglot/. License: GPL v3.
+# Copyright: Kovid Goyal.
 # SPDX-License-Identifier: GPL-3.0-only
 """
 The small calibre helpers the ported modules import, ported or mapped.
@@ -33,11 +34,18 @@ What differs from calibre, and why:
   modules call. Encoding guesses use the ``chardet`` package where calibre uses
   uchardet. ``tzlocal`` and ``ZoneInfo`` fall back to UTC where no zone can be
   found.
-- Standard library: ``TemporaryDirectory``, ``SpooledTemporaryFile`` and
-  ``ZipFile`` are Python's; calibre's ``zipfile`` is its own copy.
+- Standard library: ``TemporaryDirectory`` and ``SpooledTemporaryFile`` are
+  Python's. calibre's ``zipfile`` is its own copy of an old Python one;
+  ``ZipFile`` here is Python's, taking calibre's defaults and ``writestr``
+  keywords. Both read entry names the same way.
+- HTML: calibre parses HTML into Beautiful Soup trees with html5-parser, a C
+  extension; ``html5_soup_parse`` uses Beautiful Soup's lxml builder instead.
+  Beautiful Soup is optional.
 - Not ported: the template formatter (``SafeFormat`` can be made, not used),
-  Qt, and the helpers only writers use (``save_cover_data_to``,
-  ``safe_replace``), which raise ``NotImplementedError``.
+  Qt, calibre's worker processes (``fork_job`` raises ``WorkerError``, so HTML
+  cover pages are not rendered), and the helpers only writers use
+  (``save_cover_data_to``, ``safe_replace``), which raise
+  ``NotImplementedError``.
 
 ``InfoFieldPattern`` and ``FieldPattern`` stand in for the RTF reader's and
 writer's field patterns, which backtrack for minutes on damaged files; they
@@ -59,8 +67,8 @@ import os
 import re
 import sys
 import tempfile
+import time
 import zipfile
-from collections.abc import Collection
 from pathlib import Path
 from typing import IO, Any
 
@@ -88,7 +96,84 @@ __all__ = [
 ]
 
 TemporaryDirectory = tempfile.TemporaryDirectory
-ZipFile = zipfile.ZipFile
+
+
+class ZipFile(zipfile.ZipFile):
+    """
+    Python's ``ZipFile`` with calibre's defaults and ``writestr`` keywords.
+
+    calibre's own ``ZipFile`` deflates by default and takes ``permissions`` and
+    ``compression`` in ``writestr``; its tests and writers use them.
+
+    Example:
+        >>> import io
+        >>> buffer = io.BytesIO()
+        >>> with ZipFile(buffer, "w") as zf:
+        ...     zf.writestr("mimetype", b"application/epub+zip", compression=zipfile.ZIP_STORED)
+        ...     zf.writestr("a.txt", "text")
+        >>> [(i.filename, i.compress_type) for i in ZipFile(buffer).infolist()]
+        [('mimetype', 0), ('a.txt', 8)]
+    """
+
+    def __init__(
+        self,
+        file: str | os.PathLike[str] | IO[bytes],
+        mode: str = "r",
+        compression: int = zipfile.ZIP_DEFLATED,
+        allowZip64: bool = True,  # noqa: N803 - calibre's name
+    ) -> None:
+        """
+        Open an archive, deflating new entries unless told otherwise.
+
+        Example:
+            See ``ZipFile``.
+
+
+        :param file: A path or a binary stream.
+        :param mode: ``r``, ``w``, ``a`` or ``x``.
+        :param compression: The compression for new entries.
+        :param allowZip64: Whether to write ZIP64 extensions where needed.
+        :return: None.
+        """
+        super().__init__(file, mode=mode, compression=compression, allowZip64=allowZip64)  # type: ignore[arg-type]
+
+    def writestr(  # type: ignore[override]
+        self,
+        zinfo_or_arcname: zipfile.ZipInfo | str | bytes,
+        byts: bytes | str,
+        permissions: int = 0o600,
+        compression: int = zipfile.ZIP_DEFLATED,
+        raw_bytes: bool = False,
+    ) -> None:
+        """
+        Write one entry, as calibre's ``writestr`` does.
+
+        Example:
+            See ``ZipFile``.
+
+
+        :param zinfo_or_arcname: The entry's name, or its ``ZipInfo``.
+        :param byts: The contents; text is written as UTF-8.
+        :param permissions: Unix permissions for a named entry.
+        :param compression: The compression for a named entry.
+        :param raw_bytes: Write already-compressed bytes; not supported here.
+        :return: None.
+        :raises NotImplementedError: For ``raw_bytes``, which only calibre's writers use.
+        """
+        if raw_bytes:
+            raise NotImplementedError("calibre's raw_bytes writes are not ported to LiuXin yet")
+        if isinstance(byts, str):
+            byts = byts.encode("utf-8")
+        if isinstance(zinfo_or_arcname, zipfile.ZipInfo):
+            zinfo = zinfo_or_arcname
+        else:
+            if isinstance(zinfo_or_arcname, bytes):
+                zinfo_or_arcname = zinfo_or_arcname.decode(filesystem_encoding)
+            zinfo = zipfile.ZipInfo(filename=zinfo_or_arcname, date_time=time.localtime(time.time())[:6])
+            zinfo.compress_type = compression
+            zinfo.external_attr = permissions << 16
+        super().writestr(zinfo, byts)
+
 
 _mime_types: mimetypes.MimeTypes | None = None
 
@@ -971,31 +1056,6 @@ def strftime(fmt: str, t: Any = None) -> str:
     return ans
 
 
-def escape_xpath_attr(value: str) -> str:
-    """
-    Quote a value for an XPath attribute test, as ``calibre.ebooks`` does.
-
-    Example:
-        >>> escape_xpath_attr('a"b'), escape_xpath_attr("plain")
-        ('\\'a"b\\'', '"plain"')
-
-
-    :param value: The attribute value.
-    :return: An XPath string literal, or a ``concat()`` of them.
-    """
-    if '"' in value:
-        if "'" in value:
-            parts = re.split(r'("+)', value)
-            ans = []
-            for x in parts:
-                if x:
-                    q = "'" if '"' in x else '"'
-                    ans.append(q + x + q)
-            return "concat({})".format(", ".join(ans))
-        return f"'{value}'"
-    return f'"{value}"'
-
-
 # --- calibre.ebooks.oeb.base: namespaces ------------------------------------
 
 XML_NS = "http://www.w3.org/XML/1998/namespace"
@@ -1007,6 +1067,34 @@ DC11_NS = "http://purl.org/dc/elements/1.1/"
 XSI_NS = "http://www.w3.org/2001/XMLSchema-instance"
 DCTERMS_NS = "http://purl.org/dc/terms/"
 CALIBRE_NS = "http://calibre.kovidgoyal.net/2009/metadata"
+XHTML_NS = "http://www.w3.org/1999/xhtml"
+NCX_NS = "http://www.daisy.org/z3986/2005/ncx/"
+SVG_NS = "http://www.w3.org/2000/svg"
+XLINK_NS = "http://www.w3.org/1999/xlink"
+RE_NS = "http://exslt.org/regular-expressions"
+MBP_NS = "http://www.mobipocket.com"
+EPUB_NS = "http://www.idpf.org/2007/ops"
+MATHML_NS = "http://www.w3.org/1998/Math/MathML"
+SMIL_NS = "http://www.w3.org/ns/SMIL"
+XPNSMAP = {
+    "h": XHTML_NS,
+    "o1": OPF1_NS,
+    "o2": OPF2_NS,
+    "d09": DC09_NS,
+    "d10": DC10_NS,
+    "d11": DC11_NS,
+    "xsi": XSI_NS,
+    "dt": DCTERMS_NS,
+    "ncx": NCX_NS,
+    "svg": SVG_NS,
+    "xl": XLINK_NS,
+    "re": RE_NS,
+    "mathml": MATHML_NS,
+    "mbp": MBP_NS,
+    "calibre": CALIBRE_NS,
+    "epub": EPUB_NS,
+    "smil": SMIL_NS,
+}
 OPF2_NSMAP = {
     "opf": OPF2_NS,
     "dc": DC11_NS,
@@ -1095,6 +1183,51 @@ def DC(name: str) -> str:  # noqa: N802 - calibre's name
     :return: The Clark-notation name.
     """
     return f"{{{DC11_NS}}}{name}"
+
+
+def SVG(name: str) -> str:  # noqa: N802 - calibre's name
+    """
+    Qualify a name with the SVG namespace.
+
+    Example:
+        >>> SVG("image")
+        '{http://www.w3.org/2000/svg}image'
+
+
+    :param name: The local name.
+    :return: The Clark-notation name.
+    """
+    return f"{{{SVG_NS}}}{name}"
+
+
+def XLINK(name: str) -> str:  # noqa: N802 - calibre's name
+    """
+    Qualify a name with the XLink namespace.
+
+    Example:
+        >>> XLINK("href")
+        '{http://www.w3.org/1999/xlink}href'
+
+
+    :param name: The local name.
+    :return: The Clark-notation name.
+    """
+    return f"{{{XLINK_NS}}}{name}"
+
+
+def XPath(expr: str) -> etree.XPath:  # noqa: N802 - calibre's name
+    """
+    Compile an XPath expression with calibre's OEB namespace prefixes.
+
+    Example:
+        >>> XPath("//svg:svg")(etree.fromstring('<svg xmlns="http://www.w3.org/2000/svg"/>'))[0].tag
+        '{http://www.w3.org/2000/svg}svg'
+
+
+    :param expr: The expression, using prefixes such as ``h``, ``svg`` and ``xl``.
+    :return: The compiled expression.
+    """
+    return etree.XPath(expr, namespaces=XPNSMAP)
 
 
 def polish_guess_type(x: str) -> str:
@@ -1690,6 +1823,98 @@ def _not_ported(name: str) -> Any:
 # Writing EPUB files needs these; the readers do not.
 save_cover_data_to = _not_ported("save_cover_data_to")
 safe_replace = _not_ported("safe_replace")
+
+# calibre draws covers and mastheads with Qt; no reader calls these.
+calibre_cover2 = _not_ported("calibre_cover2")
+covers_generate_masthead = _not_ported("generate_masthead")
+image_to_data = _not_ported("image_to_data")
+
+
+class WorkerError(Exception):
+    """
+    Stand in for ``calibre.utils.ipc.simple_worker.WorkerError``.
+
+    Example:
+        >>> WorkerError("failed", orig_tb="trace").orig_tb
+        'trace'
+    """
+
+    def __init__(self, msg: str, orig_tb: str = "", log_path: str | None = None) -> None:
+        """
+        Keep the message, the worker's traceback and its log, as calibre does.
+
+        Example:
+            See ``WorkerError``.
+
+
+        :param msg: The message.
+        :param orig_tb: The traceback from the worker process.
+        :param log_path: Where the worker wrote its log, if anywhere.
+        :return: None.
+        """
+        super().__init__(msg)
+        self.orig_tb = orig_tb
+        self.log_path = log_path
+
+
+def fork_job(mod_name: str, func_name: str, *args: object, **kwargs: object) -> dict[str, Any]:
+    """
+    Refuse to start a calibre worker process: LiuXin does not port them.
+
+    calibre's EPUB reader asks a worker running its Qt HTML renderer to draw a
+    cover from the book's first page when the book names no cover image. This
+    stand-in raises the error calibre raises when that worker fails, so the
+    reader carries on without a cover, as calibre does then.
+
+    Example:
+        >>> fork_job("calibre.ebooks.render_html", "main")
+        Traceback (most recent call last):
+        ...
+        LiuXin_alpha.metadata.upstream_calibre._compat.WorkerError: calibre's worker processes are not ported to LiuXin
+
+
+    :param mod_name: The calibre module the worker would run.
+    :param func_name: The function in it.
+    :param args: Ignored.
+    :param kwargs: Ignored.
+    :return: Never.
+    :raises WorkerError: Always.
+    """
+    raise WorkerError(
+        "calibre's worker processes are not ported to LiuXin",
+        orig_tb=f"LiuXin has no stand-in for {mod_name}.{func_name}; nothing was rendered",
+    )
+
+
+def html5_soup_parse(markup: str | bytes, return_root: bool = True, **kwargs: object) -> Any:
+    """
+    Parse HTML into a Beautiful Soup tree, standing in for ``html5_parser.soup.parse``.
+
+    calibre builds its soups with html5-parser, a C extension. Beautiful Soup's
+    own lxml builder stands in: the trees agree on well-formed pages such as
+    cover pages, and lxml is already a LiuXin dependency. Beautiful Soup itself
+    is optional, as it is not a LiuXin dependency; without it this raises
+    ``ImportError``, which calibre's cover code treats as finding no cover.
+
+    Example:
+        >>> soup = html5_soup_parse("<p>x</p>", return_root=False)  # doctest: +SKIP
+        >>> soup.find("p").get_text()  # doctest: +SKIP
+        'x'
+
+
+    :param markup: The HTML.
+    :param return_root: Return the ``<html>`` element rather than the soup, as html5-parser does.
+    :param kwargs: html5-parser's other options, ignored.
+    :return: The soup, or its root element.
+    :raises ImportError: Without Beautiful Soup.
+    """
+    import bs4
+
+    soup = bs4.BeautifulSoup(markup, "lxml")
+    if return_root:
+        root = soup.find("html")
+        return root if root is not None else soup
+    return soup
 
 
 # --- more of calibre (package), polyglot and small utilities --------------------

@@ -263,7 +263,7 @@ def test_snb_reads_the_book_head_and_cover(tmp_path: Path) -> None:
     assert values["languages"] == ("zh-cn",)
     assert values["publisher"] == "Pub Co"
     assert cover is not None
-    assert (cover.image_format, cover.data) == ("jpg", JPEG)
+    assert (cover.image_format, cover.data) == ("jpeg", JPEG)
 
 
 def test_snb_without_a_complete_head_reads_as_unknown(tmp_path: Path) -> None:

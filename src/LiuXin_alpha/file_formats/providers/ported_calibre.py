@@ -28,8 +28,8 @@ from LiuXin_alpha.file_formats.providers.base import (
     provider_id_from_name,
 )
 from LiuXin_alpha.file_formats.providers.fork_metadata import (
-    remember_reading,
     reading_key,
+    remember_reading,
     serialised_calibre,
 )
 from LiuXin_alpha.file_formats.providers.metadata import (
@@ -55,18 +55,27 @@ PORTED_READERS: Mapping[str, tuple[str, frozenset[str]]] = {
     "Read Topaz metadata": ("topaz", frozenset({"tpz", "azw1"})),
     "Read PML metadata": ("pml", frozenset({"pml", "pmlz"})),
     "Read OPF metadata": ("opf", frozenset({"opf"})),
+    "Read EPUB metadata": ("epub", frozenset({"epub", "kepub"})),
 }
 """calibre's reader plugins that have been ported: module and formats."""
 
 PORTED_PRIORITY = -50
-
-# Ported modules that parse dates with python-dateutil, as calibre does. LiuXin
-# lists it only as a test dependency, so these readers check for it.
-NEEDS_DATEUTIL: frozenset[str] = frozenset({"opf"})
 """Priority of every ported reader: above running an installed calibre."""
 
+NEEDS_DATEUTIL: frozenset[str] = frozenset({"opf", "epub"})
+"""Ported modules that parse dates with python-dateutil, as calibre does.
 
-def ported_reader(module: str) -> Callable[[Any], Any]:
+python-dateutil is a LiuXin dependency; these readers still check for it, so
+an install without it reports them unavailable rather than failing on a book."""
+
+PASSES_FORMAT: frozenset[str] = frozenset({"epub"})
+"""Ported modules whose ``get_metadata`` calibre's plugin calls with the format."""
+
+ZIP_CONTAINERS: frozenset[str] = frozenset({"epub"})
+"""Ported modules reading ZIP containers, which LiuXin checks before calibre opens them."""
+
+
+def ported_reader(module: str) -> Callable[..., Any]:
     """
     Load the ``get_metadata`` function of one ported reader module.
 
@@ -149,7 +158,89 @@ def ported_reader(module: str) -> Callable[[Any], Any]:
             return get_opf_metadata(stream)[0]
 
         return read_opf
+    if module == "epub":
+        from LiuXin_alpha.metadata.upstream_calibre.epub import (
+            get_metadata as get_epub_metadata,
+        )
+
+        return get_epub_metadata
     raise KeyError(f"no calibre reader named {module!r} has been ported")
+
+
+def check_zip_container(source: Path, source_format: str) -> None:
+    """
+    Refuse a ZIP container LiuXin's archive limits would refuse.
+
+    calibre's EPUB reader reads its package file whole and, for a book that
+    names no cover image, extracts the whole book to look for one, so a small
+    file that expands enormously would fill memory or disk. This applies the
+    member-count, size and compression-ratio limits LiuXin's own EPUB input
+    applies, before calibre's code runs. Entry names are not checked: Python's
+    ``zipfile`` makes them safe when it extracts.
+
+    A file whose central directory Python cannot read is left to calibre's
+    salvage reader, which inflates in bounded pieces and stops at ratios beyond
+    about a thousand to one.
+
+    Example:
+        >>> import os, tempfile, zipfile
+        >>> path = os.path.join(tempfile.mkdtemp(), "bomb.epub")
+        >>> with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as zf:
+        ...     zf.writestr("big", bytes(8 * 1024 * 1024))
+        >>> check_zip_container(Path(path), "epub")  # doctest: +ELLIPSIS
+        Traceback (most recent call last):
+        ...
+        LiuXin_alpha.file_formats.archive_preflight.ArchivePreflightError: EPUB archive member has suspicious compression ratio: big (...)
+
+
+    :param source: The file.
+    :param source_format: Its format, for the messages.
+    :return: None when the container is within the limits.
+    :raises ArchivePreflightError: When it is not.
+    """
+    import zipfile
+
+    from LiuXin_alpha.file_formats.archive_preflight import validate_zip_member_infos
+
+    try:
+        with zipfile.ZipFile(source) as archive:
+            infos = archive.infolist()
+    except (zipfile.BadZipFile, ValueError, OSError):
+        return
+    label = source_format.upper()
+    validate_zip_member_infos(
+        infos,
+        container_label=f"{label} file",
+        member_label=f"{label} archive",
+        allow_unsafe_paths=True,
+    )
+
+
+def named_by_its_bytes(cover: CoverImage | None) -> CoverImage | None:
+    """
+    Name a cover's format by what its bytes are, where calibre's label differs.
+
+    calibre's EPUB reader labels every cover it finds ``jpg``, whatever the
+    image is, and other readers use calibre's short names. The bytes are
+    checked with calibre's own ``imghdr``; a label is kept only when they are
+    not recognised.
+
+    Example:
+        >>> named_by_its_bytes(CoverImage(b"\\x89PNG\\r\\n\\x1a\\n" + bytes(16), "jpg")).image_format
+        'png'
+
+
+    :param cover: The cover, or ``None``.
+    :return: The cover, named for its bytes.
+    """
+    if cover is None:
+        return None
+    from LiuXin_alpha.metadata.upstream_calibre.imghdr import what
+
+    found = what(None, cover.data)
+    if not found or found == cover.image_format:
+        return cover
+    return CoverImage(cover.data, found)
 
 
 class PortedCalibreReader(CalibreMetadataReader, CoverExtractor):
@@ -257,13 +348,19 @@ class PortedCalibreReader(CalibreMetadataReader, CoverExtractor):
 
             :return: The fields and the cover.
             """
-            get_metadata = ported_reader(self.ported_module)
+            module = self.ported_module
+            if module in ZIP_CONTAINERS:
+                check_zip_container(source, source_format)
+            get_metadata = ported_reader(module)
             with source.open("rb") as stream:
-                metadata = get_metadata(stream)
+                if module in PASSES_FORMAT:
+                    metadata = get_metadata(stream, ftype=source_format)
+                else:
+                    metadata = get_metadata(stream)
             if metadata is None:
                 return CalibreFields({}), None
             values, cover = serialised_calibre(metadata, context)
-            return CalibreFields(values), cover
+            return CalibreFields(values), named_by_its_bytes(cover)
 
         fields, cover = remember_reading(
             reading_key(type(self), source, source_format), read
@@ -325,7 +422,7 @@ def register_ported_calibre_readers(
     Example:
         >>> from LiuXin_alpha.file_formats.providers.registry import ProviderRegistry
         >>> [p.provider_id for p in register_ported_calibre_readers(ProviderRegistry())]
-        ['calibre-port.read-txt-metadata', 'calibre-port.read-imp-metadata', 'calibre-port.read-rb-metadata', 'calibre-port.read-lrx-metadata', 'calibre-port.read-snb-metadata', 'calibre-port.read-rtf-metadata', 'calibre-port.read-topaz-metadata', 'calibre-port.read-pml-metadata', 'calibre-port.read-opf-metadata']
+        ['calibre-port.read-txt-metadata', 'calibre-port.read-imp-metadata', 'calibre-port.read-rb-metadata', 'calibre-port.read-lrx-metadata', 'calibre-port.read-snb-metadata', 'calibre-port.read-rtf-metadata', 'calibre-port.read-topaz-metadata', 'calibre-port.read-pml-metadata', 'calibre-port.read-opf-metadata', 'calibre-port.read-epub-metadata']
 
 
     :param registry: The registry to add the providers to.
