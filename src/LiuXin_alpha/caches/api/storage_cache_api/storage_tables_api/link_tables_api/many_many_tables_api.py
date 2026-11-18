@@ -6,12 +6,12 @@ row/type metadata plus priority.
 The API classes prescribe read shapes while concrete backends implement
 cardinality enforcement, ordering, storage refresh and update sequencing.
 """
+
 from __future__ import annotations
 
 import abc
 import dataclasses
-
-from typing import Optional, TYPE_CHECKING, Sequence, Any
+from typing import TYPE_CHECKING, Any, Optional, Sequence
 
 from LiuXin_alpha.caches.api.storage_cache_api.storage_tables_api.link_tables_api.link_table_base_api import (
     StorageCacheLinkTableBaseAPI,
@@ -21,12 +21,16 @@ from LiuXin_alpha.caches.api.storage_cache_api.storage_tables_api.link_tables_ap
 )
 
 if TYPE_CHECKING:
-    from LiuXin_alpha.databases.db_types.database_types import TableColumnName, SrcTableID, DstTableID
     from LiuXin_alpha.caches.updates.table_updates import (
         ManyManyInterlinkTableUpdate,
         ManyManyInterLinkTableUpdateResults,
     )
-    from LiuXin_alpha.databases.api.row_api import RowAPI, InterlinkRowAPI
+    from LiuXin_alpha.databases.api.row_api import RowAPI
+    from LiuXin_alpha.databases.db_types.database_types import (
+        DstTableID,
+        SrcTableID,
+        TableColumnName,
+    )
 
 
 @dataclasses.dataclass(slots=True)
@@ -44,8 +48,6 @@ class ManyManyLink(OneManyLink):
         >>> ManyManyLink(1, 7).link_row_id is None
         True
     """
-
-
 
 
 class StorageCacheManyManyGetterAPI(abc.ABC):
@@ -189,7 +191,7 @@ class StorageCacheManyManyGetterAPI(abc.ABC):
         src_id: "SrcTableID",
         dst_id: "DstTableID",
         insist_on_singular: bool = True,
-    ) -> Optional["InterlinkRowAPI"]:
+    ) -> Optional["RowAPI"]:
         """
         Read one optional physical association Rows selected by the directed endpoint pair.
 
@@ -212,7 +214,7 @@ class StorageCacheManyManyGetterAPI(abc.ABC):
         self,
         src_id: "SrcTableID",
         dst_id: "DstTableID",
-    ) -> Sequence["InterlinkRowAPI"]:
+    ) -> Sequence["RowAPI"]:
         """
         Read all physical association Rows selected by the directed endpoint pair.
 
@@ -490,7 +492,7 @@ class StorageCacheManyManyGetterAPI(abc.ABC):
 
 
 class StorageCacheManyToManyLinkTable(
-    StorageCacheLinkTableBaseAPI,
+    StorageCacheLinkTableBaseAPI[Any],
     StorageCacheManyManyGetterAPI,
 ):
     """

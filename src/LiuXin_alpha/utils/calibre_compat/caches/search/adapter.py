@@ -320,7 +320,7 @@ class _TemplateDatabase:
 
     def search(self, query, restriction=None):
         refs = self.adapter.search(query, restriction=restriction or "")
-        return {i for i, ref in self.adapter._refs.items() if ref in refs}
+        return {self.adapter._ids_by_ref[ref] for ref in refs}
 
     def search_getting_ids(self, query, restriction=None, use_virtual_library=True):
         if use_virtual_library:
@@ -383,6 +383,7 @@ class CalibreSearchAdapter:
         self._refs = dict(enumerate(records, 1))
         if not all(isinstance(ref, CalibreBookRef) for ref in self._refs.values()):
             raise TypeError("Use explicit CalibreBookRef identities")
+        self._ids_by_ref = {ref: i for i, ref in self._refs.items()}
         self._rows = {i: deepcopy(dict(records[ref])) for i, ref in self._refs.items()}
         self._available = set().union(*(set(row) for row in self._rows.values()))
         for name, provider in (providers or {}).items():
@@ -399,8 +400,14 @@ class CalibreSearchAdapter:
                         milliseconds=row[name]
                     )
         self._available |= {"id", "identifiers", "languages"}
+        self._inferred_fields = {}
         self._definition_state = None
         self._refresh_definitions()
+        # Definitions change aliases and expressions, never projected values or
+        # columns. Retain the same engine snapshot for this adapter's lifetime.
+        self._engine = ProjectionQueryEngine(
+            "books", self._rows, self._field_metadata, result_cache_size=0
+        )
 
     @property
     def field_metadata(self):
@@ -475,42 +482,57 @@ class CalibreSearchAdapter:
             return
         self._plans.clear()
         self._results.clear()
-        self._field_metadata = _Fields(self._custom, state)
-        for name in self._available - self._field_metadata.keys():
-            examples = [
-                row[name] for row in self._rows.values() if row.get(name) is not None
-            ]
-            sample = next(iter(examples), None)
-            multiple = isinstance(sample, (tuple, list, set, frozenset))
-            if multiple:
-                sample = next(iter(sample), None)
-            datatype = (
-                "bool"
-                if isinstance(sample, bool)
-                else "int"
-                if isinstance(sample, int)
-                else "float"
-                if isinstance(sample, float)
-                else "datetime"
-                if isinstance(sample, datetime)
-                else "text"
-            )
-            self._field_metadata[name] = {
-                "datatype": datatype,
-                "display": {},
-                "is_multiple": multiple,
-                "search_terms": [name],
-            }
+        metadata = _Fields(self._custom, state)
+        for name in self._available - metadata.keys():
+            if name not in self._inferred_fields:
+                sample = next(
+                    (
+                        row[name]
+                        for row in self._rows.values()
+                        if row.get(name) is not None
+                    ),
+                    None,
+                )
+                multiple = isinstance(sample, (tuple, list, set, frozenset))
+                if multiple:
+                    sample = next(iter(sample), None)
+                datatype = (
+                    "bool"
+                    if isinstance(sample, bool)
+                    else "int"
+                    if isinstance(sample, int)
+                    else "float"
+                    if isinstance(sample, float)
+                    else "datetime"
+                    if isinstance(sample, datetime)
+                    else "text"
+                )
+                self._inferred_fields[name] = {
+                    "datatype": datatype,
+                    "display": {},
+                    "is_multiple": multiple,
+                    "search_terms": [name],
+                }
+            metadata[name] = deepcopy(self._inferred_fields[name])
             alias = name.casefold()
-            previous = self._field_metadata.aliases.get(alias)
+            previous = metadata.aliases.get(alias)
             if previous is not None and previous != name:
                 raise ValueError("Ambiguous search alias: " + alias)
-            self._field_metadata.aliases[alias] = name
+            metadata.aliases[alias] = name
+        # A rejected alias revision must leave the last valid descriptors intact.
+        self._field_metadata = metadata
         self._fields = {name: _Field(self, name) for name in self._field_metadata}
-        self._engine = ProjectionQueryEngine(
-            "books", self._rows, self._field_metadata, result_cache_size=0
-        )
         self._definition_state = state
+
+    def _candidate_ids(self, references):
+        """Resolve only the supplied identities; None reuses the full frozen scope."""
+        if references is None:
+            return self._engine.row_ids
+        return frozenset(
+            row_id
+            for ref in references
+            if (row_id := self._ids_by_ref.get(ref)) is not None
+        )
 
     def _pref(self, name, default=None):
         return self._definition_state.get(name, self._settings.get(name, default))
@@ -709,16 +731,12 @@ class CalibreSearchAdapter:
                 self._template_authorized = True
             if templates and (remote or not self._template_authorized):
                 raise PermissionError(TrustedTemplateExecution.WARNING)
-            selected = None if references is None else frozenset(references)
-            ids = {
-                i
-                for i, ref in self._refs.items()
-                if selected is None or ref in selected
-            }
-            key = (tree, frozenset(ids))
+            candidates = self._candidate_ids(references)
+            key = (tree, candidates)
             if not dynamic and key in self._results:
                 self._results.move_to_end(key)
-                return frozenset(self._refs[i] for i in self._results[key])
+                return self._results[key]
+            ids = set(candidates)
             parser = Parser(
                 self,
                 ids,
@@ -751,11 +769,12 @@ class CalibreSearchAdapter:
                 template_function_context(self._template_functions),
             ):
                 result = evaluator.evaluate("books", predicate, ids)
+            references = frozenset(self._refs[i] for i in result)
             if not dynamic:
                 self._engine._remember(
-                    self._results, key, frozenset(result), self.result_cache_size
+                    self._results, key, references, self.result_cache_size
                 )
-            return frozenset(self._refs[i] for i in result)
+            return references
 
     def multisort(
         self,
@@ -797,11 +816,8 @@ class CalibreSearchAdapter:
                     self._template_authorized = True
                 if templates and (remote or not self._template_authorized):
                     raise PermissionError(TrustedTemplateExecution.WARNING)
-                selected = (
-                    set(self._refs.values()) if references is None else set(references)
-                )
                 ids = sorted(
-                    (i for i, ref in self._refs.items() if ref in selected),
+                    self._candidate_ids(references),
                     key=lambda i: (
                         self._refs[i].expression_id,
                         self._refs[i].work_id or 0,

@@ -1,0 +1,498 @@
+{
+  "date": "2026-11-18",
+  "scope": "Indexed in-memory database double; schema backend; facade invalidation, row reload and warm membership repair; no concurrent test suites; independent oracle checks outside timing.",
+  "before": {
+    "python": "3.12.3",
+    "platform": "Linux-6.18.33.1-microsoft-standard-WSL2-x86_64-with-glibc2.39",
+    "source_sha256": {
+      "scripts/benchmark_cache_invalidation.py": "5e0c8bff9520916a9798277df46eb34589d0dad3409c77daa45db7247ab9bab8",
+      "src/LiuXin_alpha/caches/query.py": "8ce08f6df50afb7541b557a2361cd69a923f4b380df351931c797c0664de4fb9",
+      "src/LiuXin_alpha/caches/read_cache.py": "4a38cef14d4e8cb3b82d92348571727267e9e14899416b9c58ea44d768363d2d",
+      "src/LiuXin_alpha/caches/cache_plugins/schema_backed/storage_cache.py": "d319896908e753a3b09131233b57ea7da31c194454a777944953fd775e313060",
+      "src/LiuXin_alpha/caches/cache_plugins/schema_backed/storage_tables/single_table.py": "5bd5966b19075be55a9329b40ec0d1c563a2300c678082f104fda1fb5aaf4e9e"
+    },
+    "runs": [
+      {
+        "records": 1000,
+        "repeats": 5,
+        "cases": {
+          "1_queries_unchanged": {
+            "median_seconds": 0.0003446670016273856,
+            "samples_seconds": [
+              0.0003111169789917767,
+              0.0005583420279435813,
+              0.0003446670016273856,
+              0.00038197601679712534,
+              0.00030534202232956886
+            ],
+            "peak_traced_bytes": 83832,
+            "retained_traced_bytes": 35564
+          },
+          "1_queries_changed": {
+            "median_seconds": 0.00022568297572433949,
+            "samples_seconds": [
+              0.00029846600955352187,
+              0.00022568297572433949,
+              0.0002611580421216786,
+              0.00018553301924839616,
+              0.00019735901150852442
+            ],
+            "peak_traced_bytes": 83752,
+            "retained_traced_bytes": 35564
+          },
+          "10_queries_unchanged": {
+            "median_seconds": 0.0012074329424649477,
+            "samples_seconds": [
+              0.0013397090369835496,
+              0.0011381340445950627,
+              0.0012962580076418817,
+              0.0012074329424649477,
+              0.001108342024963349
+            ],
+            "peak_traced_bytes": 384128,
+            "retained_traced_bytes": 335396
+          },
+          "10_queries_changed": {
+            "median_seconds": 0.0012689420254901052,
+            "samples_seconds": [
+              0.0012689420254901052,
+              0.0012499670265242457,
+              0.0013702340074814856,
+              0.0013337500276975334,
+              0.0010666330344974995
+            ],
+            "peak_traced_bytes": 384184,
+            "retained_traced_bytes": 335452
+          },
+          "50_queries_unchanged": {
+            "median_seconds": 0.006506775971502066,
+            "samples_seconds": [
+              0.005790216964669526,
+              0.005981251015327871,
+              0.006506775971502066,
+              0.009072067972738296,
+              0.007781491964124143
+            ],
+            "peak_traced_bytes": 1719824,
+            "retained_traced_bytes": 1670548
+          },
+          "50_queries_changed": {
+            "median_seconds": 0.007316924980841577,
+            "samples_seconds": [
+              0.007316924980841577,
+              0.005362958996556699,
+              0.0076475669629871845,
+              0.0057835259940475225,
+              0.008741700032260269
+            ],
+            "peak_traced_bytes": 1719880,
+            "retained_traced_bytes": 1670604
+          }
+        }
+      },
+      {
+        "records": 10000,
+        "repeats": 5,
+        "cases": {
+          "1_queries_unchanged": {
+            "median_seconds": 0.0008812829619273543,
+            "samples_seconds": [
+              0.0011520669795572758,
+              0.0008634999976493418,
+              0.0008083160500973463,
+              0.0008812829619273543,
+              0.0010257510002702475
+            ],
+            "peak_traced_bytes": 1261808,
+            "retained_traced_bytes": 526884
+          },
+          "1_queries_changed": {
+            "median_seconds": 0.0010996999917551875,
+            "samples_seconds": [
+              0.001630400016438216,
+              0.0009576999582350254,
+              0.0009658000199124217,
+              0.0012428000336512923,
+              0.0010996999917551875
+            ],
+            "peak_traced_bytes": 1261728,
+            "retained_traced_bytes": 526884
+          },
+          "10_queries_unchanged": {
+            "median_seconds": 0.011011101014446467,
+            "samples_seconds": [
+              0.014435201999731362,
+              0.009479300992097706,
+              0.014658502012025565,
+              0.01087880099657923,
+              0.011011101014446467
+            ],
+            "peak_traced_bytes": 5985784,
+            "retained_traced_bytes": 5250652
+          },
+          "10_queries_changed": {
+            "median_seconds": 0.011228097951970994,
+            "samples_seconds": [
+              0.01167890097713098,
+              0.009987701021600515,
+              0.011494217033032328,
+              0.009756401996128261,
+              0.011228097951970994
+            ],
+            "peak_traced_bytes": 5985784,
+            "retained_traced_bytes": 5250652
+          },
+          "50_queries_unchanged": {
+            "median_seconds": 0.10075434000464156,
+            "samples_seconds": [
+              0.10902601800626144,
+              0.10075434000464156,
+              0.10843682597624138,
+              0.07888773002196103,
+              0.0678479359485209
+            ],
+            "peak_traced_bytes": 26985248,
+            "retained_traced_bytes": 26249828
+          },
+          "50_queries_changed": {
+            "median_seconds": 0.070194931991864,
+            "samples_seconds": [
+              0.08106428501196206,
+              0.057110929978080094,
+              0.070194931991864,
+              0.055458527989685535,
+              0.09248493198538199
+            ],
+            "peak_traced_bytes": 26985248,
+            "retained_traced_bytes": 26249828
+          }
+        }
+      },
+      {
+        "records": 100000,
+        "repeats": 5,
+        "cases": {
+          "1_queries_unchanged": {
+            "median_seconds": 0.013598660007119179,
+            "samples_seconds": [
+              0.013904643012210727,
+              0.012200651050079614,
+              0.012829118000809103,
+              0.01427351002348587,
+              0.013598660007119179
+            ],
+            "peak_traced_bytes": 11287920,
+            "retained_traced_bytes": 4196900
+          },
+          "1_queries_changed": {
+            "median_seconds": 0.012773385038599372,
+            "samples_seconds": [
+              0.015422185009811074,
+              0.01929803501116112,
+              0.012773385038599372,
+              0.010879093024414033,
+              0.011141259979922324
+            ],
+            "peak_traced_bytes": 11287840,
+            "retained_traced_bytes": 4196900
+          },
+          "10_queries_unchanged": {
+            "median_seconds": 0.13438123802188784,
+            "samples_seconds": [
+              0.15095046104397625,
+              0.11888794502010569,
+              0.13534991996129975,
+              0.12100057298084721,
+              0.13438123802188784
+            ],
+            "peak_traced_bytes": 49041464,
+            "retained_traced_bytes": 41949980
+          },
+          "10_queries_changed": {
+            "median_seconds": 0.198666856973432,
+            "samples_seconds": [
+              0.3022804540232755,
+              0.22723608202068135,
+              0.198666856973432,
+              0.1689917899784632,
+              0.18606610299320891
+            ],
+            "peak_traced_bytes": 49042040,
+            "retained_traced_bytes": 41950812
+          },
+          "50_queries_unchanged": {
+            "median_seconds": 0.6195096599985845,
+            "samples_seconds": [
+              0.7671558270230889,
+              0.5601189219742082,
+              0.6910431609721854,
+              0.5771225990029052,
+              0.6195096599985845
+            ],
+            "peak_traced_bytes": 216839176,
+            "retained_traced_bytes": 209747404
+          },
+          "50_queries_changed": {
+            "median_seconds": 0.793307033018209,
+            "samples_seconds": [
+              1.0393599959788844,
+              0.7395626099896617,
+              0.793307033018209,
+              0.7799660000018775,
+              0.8737311640288681
+            ],
+            "peak_traced_bytes": 216839176,
+            "retained_traced_bytes": 209747404
+          }
+        }
+      }
+    ]
+  },
+  "after": {
+    "python": "3.12.3",
+    "platform": "Linux-6.18.33.1-microsoft-standard-WSL2-x86_64-with-glibc2.39",
+    "source_sha256": {
+      "scripts/benchmark_cache_invalidation.py": "5e0c8bff9520916a9798277df46eb34589d0dad3409c77daa45db7247ab9bab8",
+      "src/LiuXin_alpha/caches/query.py": "c9e3ca8603fd6647cdf6aacfad4296c96de1d7c12da2382719470e45903ef004",
+      "src/LiuXin_alpha/caches/read_cache.py": "29b98349a4055f920f8beceda0c3f685b6b67d240acf4a4997fef076e208e9b9",
+      "src/LiuXin_alpha/caches/cache_plugins/schema_backed/storage_cache.py": "d319896908e753a3b09131233b57ea7da31c194454a777944953fd775e313060",
+      "src/LiuXin_alpha/caches/cache_plugins/schema_backed/storage_tables/single_table.py": "5bd5966b19075be55a9329b40ec0d1c563a2300c678082f104fda1fb5aaf4e9e"
+    },
+    "runs": [
+      {
+        "records": 1000,
+        "repeats": 5,
+        "cases": {
+          "1_queries_unchanged": {
+            "median_seconds": 0.00016120000509545207,
+            "samples_seconds": [
+              0.0002867999719455838,
+              0.00024310004664584994,
+              0.00016120000509545207,
+              0.00015430001076310873,
+              0.00015269999857991934
+            ],
+            "peak_traced_bytes": 4104,
+            "retained_traced_bytes": 2580
+          },
+          "1_queries_changed": {
+            "median_seconds": 0.0001618000096641481,
+            "samples_seconds": [
+              0.00022600003285333514,
+              0.0001928000128827989,
+              0.0001618000096641481,
+              0.00015209999401122332,
+              0.00015069899382069707
+            ],
+            "peak_traced_bytes": 4032,
+            "retained_traced_bytes": 2580
+          },
+          "10_queries_unchanged": {
+            "median_seconds": 0.0006562999915331602,
+            "samples_seconds": [
+              0.000765498960390687,
+              0.0005717000458389521,
+              0.0007354000117629766,
+              0.0006562999915331602,
+              0.0005434000049717724
+            ],
+            "peak_traced_bytes": 7008,
+            "retained_traced_bytes": 5556
+          },
+          "10_queries_changed": {
+            "median_seconds": 0.0005732999998144805,
+            "samples_seconds": [
+              0.0006507000070996583,
+              0.0005142999580129981,
+              0.000644999963697046,
+              0.0005507000023499131,
+              0.0005732999998144805
+            ],
+            "peak_traced_bytes": 7064,
+            "retained_traced_bytes": 5612
+          },
+          "50_queries_unchanged": {
+            "median_seconds": 0.0021136999712325633,
+            "samples_seconds": [
+              0.0021136999712325633,
+              0.0019714999943971634,
+              0.002259599044919014,
+              0.002115099981892854,
+              0.001980399014428258
+            ],
+            "peak_traced_bytes": 23272,
+            "retained_traced_bytes": 21348
+          },
+          "50_queries_changed": {
+            "median_seconds": 0.0019313999800942838,
+            "samples_seconds": [
+              0.001980998960789293,
+              0.002756599977146834,
+              0.0019313999800942838,
+              0.0019094999879598618,
+              0.0018293000175617635
+            ],
+            "peak_traced_bytes": 22936,
+            "retained_traced_bytes": 21012
+          }
+        }
+      },
+      {
+        "records": 10000,
+        "repeats": 5,
+        "cases": {
+          "1_queries_unchanged": {
+            "median_seconds": 0.00017473299521952868,
+            "samples_seconds": [
+              0.0003320200485177338,
+              0.00017473299521952868,
+              0.00015069899382069707,
+              0.00014750001719221473,
+              0.0002129159984178841
+            ],
+            "peak_traced_bytes": 3968,
+            "retained_traced_bytes": 2380
+          },
+          "1_queries_changed": {
+            "median_seconds": 0.00014798500342294574,
+            "samples_seconds": [
+              0.0002478040405549109,
+              0.00014798500342294574,
+              0.00014430203009396791,
+              0.0002570109791122377,
+              0.00014575599925592542
+            ],
+            "peak_traced_bytes": 3896,
+            "retained_traced_bytes": 2380
+          },
+          "10_queries_unchanged": {
+            "median_seconds": 0.0004930880386382341,
+            "samples_seconds": [
+              0.0006067660287953913,
+              0.0005174130201339722,
+              0.0004930880386382341,
+              0.0004608160234056413,
+              0.0004511249717324972
+            ],
+            "peak_traced_bytes": 7064,
+            "retained_traced_bytes": 5612
+          },
+          "10_queries_changed": {
+            "median_seconds": 0.0005271040135994554,
+            "samples_seconds": [
+              0.000612194009590894,
+              0.0005908730090595782,
+              0.0005271040135994554,
+              0.0004397870507091284,
+              0.0004771949606947601
+            ],
+            "peak_traced_bytes": 7064,
+            "retained_traced_bytes": 5612
+          },
+          "50_queries_unchanged": {
+            "median_seconds": 0.001921668997965753,
+            "samples_seconds": [
+              0.001921668997965753,
+              0.0020151889766566455,
+              0.0017634109826758504,
+              0.0017850230215117335,
+              0.0020717859733849764
+            ],
+            "peak_traced_bytes": 26296,
+            "retained_traced_bytes": 24628
+          },
+          "50_queries_changed": {
+            "median_seconds": 0.0018695670296438038,
+            "samples_seconds": [
+              0.00217125698691234,
+              0.0017797640175558627,
+              0.0018695670296438038,
+              0.0017479569651186466,
+              0.0034653450129553676
+            ],
+            "peak_traced_bytes": 26296,
+            "retained_traced_bytes": 24628
+          }
+        }
+      },
+      {
+        "records": 100000,
+        "repeats": 5,
+        "cases": {
+          "1_queries_unchanged": {
+            "median_seconds": 0.00015730003360658884,
+            "samples_seconds": [
+              0.0003629999700933695,
+              0.00020089995814487338,
+              0.00015009997878223658,
+              0.00015730003360658884,
+              0.00015119998715817928
+            ],
+            "peak_traced_bytes": 3968,
+            "retained_traced_bytes": 2380
+          },
+          "1_queries_changed": {
+            "median_seconds": 0.000152299995534122,
+            "samples_seconds": [
+              0.00028989999555051327,
+              0.00018430000636726618,
+              0.000152299995534122,
+              0.00014429999282583594,
+              0.00014089996693655849
+            ],
+            "peak_traced_bytes": 3896,
+            "retained_traced_bytes": 2380
+          },
+          "10_queries_unchanged": {
+            "median_seconds": 0.00048693304415792227,
+            "samples_seconds": [
+              0.0006595420418307185,
+              0.00048693304415792227,
+              0.0004471499705687165,
+              0.00046566600212827325,
+              0.0004941750084981322
+            ],
+            "peak_traced_bytes": 6416,
+            "retained_traced_bytes": 4780
+          },
+          "10_queries_changed": {
+            "median_seconds": 0.00044293300015851855,
+            "samples_seconds": [
+              0.0005884079728275537,
+              0.00044293300015851855,
+              0.00041919201612472534,
+              0.0004507250268943608,
+              0.0004270750214345753
+            ],
+            "peak_traced_bytes": 7064,
+            "retained_traced_bytes": 5612
+          },
+          "50_queries_unchanged": {
+            "median_seconds": 0.002018845989368856,
+            "samples_seconds": [
+              0.0026903559919446707,
+              0.001978736952878535,
+              0.00232821301324293,
+              0.0019987919949926436,
+              0.002018845989368856
+            ],
+            "peak_traced_bytes": 22768,
+            "retained_traced_bytes": 20844
+          },
+          "50_queries_changed": {
+            "median_seconds": 0.0038332169642671943,
+            "samples_seconds": [
+              0.005201224994380027,
+              0.004278504988178611,
+              0.0028212479664944112,
+              0.0034183470415882766,
+              0.0038332169642671943
+            ],
+            "peak_traced_bytes": 22768,
+            "retained_traced_bytes": 20844
+          }
+        }
+      }
+    ]
+  }
+}

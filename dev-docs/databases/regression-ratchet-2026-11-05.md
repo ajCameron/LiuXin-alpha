@@ -64,6 +64,17 @@ remain available while developing, but they are not a ratchet signoff.
 
 ## Adding coverage
 
+The [Calibre candidate/definition optimization](../caches/metadata-search-scope-optimization-2026-11-17.md)
+adds nine cases under `calibre-candidate-and-definition-work-bounds`, taking the
+required set from 2,637 to **2,646**. These protect complete reference identity,
+iterator scopes, bounded identity work, projection reuse and restoration after a
+rejected alias revision. They supplement the existing search correctness groups.
+
+The [native pagination pass](../caches/pagination-optimization-2026-11-18.md) adds
+29 cases under `native-cache-pagination-order-and-work-bounds`, taking the required
+set to **2,675**. Independent page oracles, empty-page validation, bounded selection,
+NaN fallback, error propagation and mutations cover all three native backends.
+
 1. Reproduce the defect with a test at its observable boundary. Prefer real
    database transactions and an independent reader for durability checks.
 2. Include failure and retry paths, iterator reuse, borrowed resource ownership,
@@ -81,6 +92,22 @@ explicitly reviewed migration of the invariant and gate policy; there is no
 routine “accept lower baseline” switch. This is a ratchet for demonstrated
 behavior, not a claim of complete line/branch coverage. Review must still check
 that assertions meaningfully test the invariant.
+
+The subsequent [invalidation/lifecycle pass](../caches/invalidation-and-lifecycle-2026-11-18.md)
+adds **73 mandatory cases**, taking the total to **2,748** while preserving all
+previous cases: fifteen small-invalidation work bounds, sixteen registry policy
+cases, thirty real SQLite/APSW write-route cases, and twelve writer lifetime and
+concurrency cases. The write-route matrix uses real persistence with schema
+capture limited to the selected route families; full catalogue capture remains
+in the separate long lane.
+
+The [addition/removal follow-up](../caches/invalidation-and-lifecycle-2026-11-18.md#addition-and-removal-follow-up)
+adds **78 mandatory cases**, for **2,826 total**, retaining every earlier case.
+`native-cache-membership-add-remove-reuse` covers 72 source-model cases and six
+SQLite/APSW transaction cases across the three backends: insert/delete/reuse,
+empty/refill, accumulated notifications, forward/reverse relationships, partial
+refresh failure and rollback. Fresh source scans and independent SQL readers
+provide the expectations; no second cache serves as the oracle.
 
 ## Whole-package review extension — 2026-11-14
 
@@ -287,3 +314,8 @@ instance was stopped and removed. The earlier lifecycle tests reproduced worker
 leaks before the fix, and fault-injection tests exercise SQL, cache, dirty-hook,
 commit, startup, wiring and notification failures. No new full-suite run or
 production archive import is claimed for this follow-up.
+
+The [native cache typing pass](../caches/typing-2026-11-18.md) adds one mandatory
+namespace-package location regression, bringing the manifest to **2,827 cases**.
+Existing requirements are retained. Static type examples and checker-scope
+regressions are enforced by the separate typing/tooling gates.

@@ -13,7 +13,9 @@ from __future__ import annotations
 
 import dataclasses
 from collections import defaultdict
+from collections.abc import Callable
 from copy import deepcopy
+from types import ModuleType
 from typing import Any, Iterable, Mapping, Optional, Sequence, cast
 
 from LiuXin_alpha.caches.api.storage_cache_api.storage_tables_api.base_table_api import (
@@ -39,6 +41,7 @@ from LiuXin_alpha.caches.api.storage_cache_api.storage_tables_api.link_tables_ap
 from LiuXin_alpha.caches.api.storage_cache_api.storage_tables_api.single_table_api import (
     StorageCacheSingleTableAPI,
 )
+from LiuXin_alpha.databases.api.database_api.database_api import DatabaseAPI
 from LiuXin_alpha.databases.row import Row
 from LiuXin_alpha.databases.schema_specs import (
     LinkCardinality,
@@ -47,12 +50,16 @@ from LiuXin_alpha.databases.schema_specs import (
 )
 
 try:
-    import numpy as _np
+    import numpy as _numpy
+
+    _np: ModuleType | None = _numpy
 except Exception:  # pragma: no cover - availability is environment-specific
     _np = None
 
 
-def _ensure_db(current_db: Any, passed_db: Any = None) -> Any:
+def _ensure_db(
+    current_db: DatabaseAPI | None, passed_db: DatabaseAPI | None = None
+) -> DatabaseAPI:
     """
     Choose an explicitly supplied database or retain the current attachment.
 
@@ -92,8 +99,7 @@ def _column_type_map(spec: StorageTableSpec) -> dict[str, str]:
     """
 
     return {
-        col.name: col.declared_type or col.affinity or "UNKNOWN"
-        for col in spec.columns
+        col.name: col.declared_type or col.affinity or "UNKNOWN" for col in spec.columns
     }
 
 
@@ -228,7 +234,7 @@ class NumpyVectorizedLinkTable(
     def __init__(
         self,
         *,
-        db: Any,
+        db: DatabaseAPI,
         link_spec: StorageLinkSpec,
         src_table: StorageCacheSingleTableAPI,
         dst_table: StorageCacheSingleTableAPI,
@@ -351,7 +357,7 @@ class NumpyVectorizedLinkTable(
         """
 
         try:
-            return list(self.db.get_column_headings(self.table))
+            return list(self._require_attachment().get_column_headings(self.table))
         except Exception:
             return []
 
@@ -370,7 +376,7 @@ class NumpyVectorizedLinkTable(
         :return: New mapping of column name to declared type, affinity or UNKNOWN.
         """
 
-        spec = self.db.driver_wrapper.get_table_spec(self.table)
+        spec = self._require_attachment().driver_wrapper.get_table_spec(self.table)
         return _column_type_map(spec)
 
     def _row_from_snapshot(self, row_dict: Mapping[str, Any]) -> Row:
@@ -389,9 +395,15 @@ class NumpyVectorizedLinkTable(
         :return: Read-only Row attached to the current database, with an independent payload.
         """
 
-        return Row(database=self.db, row_dict=deepcopy(dict(row_dict)), read_only=True)
+        return Row(
+            database=self._require_attachment(),
+            row_dict=deepcopy(dict(row_dict)),
+            read_only=True,
+        )
 
-    def _record_matches(self, record: _CachedLinkRecord, type_filter: Optional[str]) -> bool:
+    def _record_matches(
+        self, record: _CachedLinkRecord, type_filter: Optional[str]
+    ) -> bool:
         """
         Apply an optional exact link-type restriction to one cached record.
 
@@ -459,7 +471,9 @@ class NumpyVectorizedLinkTable(
             return set()
         return {
             columns[0]
-            for columns in getter(driver, self.table)
+            for columns in cast(
+                Callable[[object, str], Sequence[Sequence[str]]], getter
+            )(driver, self.table)
             if len(columns) == 1
         }
 
@@ -547,7 +561,9 @@ class NumpyVectorizedLinkTable(
         :return: None; replaces records/source index, clears lazy indexes and derives type/topology.
         """
 
-        self._id_column = self.db.driver_wrapper.get_id_column(self.table)
+        self._id_column = self._require_attachment().driver_wrapper.get_id_column(
+            self.table
+        )
         records: list[_CachedLinkRecord] = []
         records_append = records.append
         by_src: dict[int, list[_CachedLinkRecord]] = defaultdict(list)
@@ -576,7 +592,9 @@ class NumpyVectorizedLinkTable(
             record = _CachedLinkRecord(
                 src_id=int(src_id),
                 dst_id=int(dst_id),
-                row_dict=row_payload if isinstance(row_payload, dict) else dict(row_payload),
+                row_dict=row_payload
+                if isinstance(row_payload, dict)
+                else dict(row_payload),
                 row_id=int(row_id) if row_id is not None else None,
                 link_type=link_type,
                 priority=priority,
@@ -744,7 +762,7 @@ class NumpyVectorizedLinkTable(
 
         return self._relation_topology
 
-    def read(self, db: Any) -> None:
+    def read(self, db: DatabaseAPI | None) -> None:
         """
         Attach the selected database and rebuild all link records from its physical table.
 
@@ -764,10 +782,12 @@ class NumpyVectorizedLinkTable(
 
         db = _ensure_db(self.db, db)
         self.db = db
-        rows = self.db.get_all_rows(self.table, iterator_return=False)
+        rows = self._require_attachment().get_all_rows(
+            self.table, iterator_return=False
+        )
         self._rebuild_indices(rows)
 
-    def reload(self, db: Any) -> None:
+    def reload(self, db: DatabaseAPI | None) -> None:
         """
         Perform the same complete link-table read as read.
 
@@ -809,9 +829,7 @@ class NumpyVectorizedLinkTable(
         if type_filter is None:
             return list(matches)
         return [
-            record
-            for record in matches
-            if self._record_matches(record, type_filter)
+            record for record in matches if self._record_matches(record, type_filter)
         ]
 
     def _records_for_dst(
@@ -1164,7 +1182,10 @@ class NumpyVectorizedLinkTable(
         :return: List of cardinality-specific link values, empty for no pair matches.
         """
 
-        return [self._make_link_object(record) for record in self._records_for_pair(src_id, dst_id)]
+        return [
+            self._make_link_object(record)
+            for record in self._records_for_pair(src_id, dst_id)
+        ]
 
     def get_link_for_src(
         self,
@@ -1189,7 +1210,9 @@ class NumpyVectorizedLinkTable(
         :raises RuntimeError: More than one accepted link record exists for this endpoint.
         """
 
-        record = self._optional_single(self._records_for_src(src_id, type_filter=type_filter))
+        record = self._optional_single(
+            self._records_for_src(src_id, type_filter=type_filter)
+        )
         if record is None:
             return None
         return self._make_link_object(record)
@@ -1249,7 +1272,9 @@ class NumpyVectorizedLinkTable(
         :raises RuntimeError: More than one accepted link record exists for this endpoint.
         """
 
-        record = self._optional_single(self._records_for_dst(dst_id, type_filter=type_filter))
+        record = self._optional_single(
+            self._records_for_dst(dst_id, type_filter=type_filter)
+        )
         if record is None:
             return None
         return self._make_link_object(record)
@@ -1342,7 +1367,10 @@ class NumpyVectorizedLinkTable(
         :return: List of deep-copied read-only Rows, empty for no pair matches.
         """
 
-        return [self._row_from_snapshot(record.row_dict) for record in self._records_for_pair(src_id, dst_id)]
+        return [
+            self._row_from_snapshot(record.row_dict)
+            for record in self._records_for_pair(src_id, dst_id)
+        ]
 
     def get_link_row_for_src(
         self,
@@ -1367,7 +1395,9 @@ class NumpyVectorizedLinkTable(
         :raises RuntimeError: More than one accepted link record exists for this endpoint.
         """
 
-        record = self._optional_single(self._records_for_src(src_id, type_filter=type_filter))
+        record = self._optional_single(
+            self._records_for_src(src_id, type_filter=type_filter)
+        )
         if record is None:
             return None
         return self._row_from_snapshot(record.row_dict)
@@ -1427,7 +1457,9 @@ class NumpyVectorizedLinkTable(
         :raises RuntimeError: More than one accepted link record exists for this endpoint.
         """
 
-        record = self._optional_single(self._records_for_dst(dst_id, type_filter=type_filter))
+        record = self._optional_single(
+            self._records_for_dst(dst_id, type_filter=type_filter)
+        )
         if record is None:
             return None
         return self._row_from_snapshot(record.row_dict)
@@ -1486,7 +1518,9 @@ class NumpyVectorizedLinkTable(
         :raises RuntimeError: More than one accepted link record exists.
         """
 
-        record = self._optional_single(self._records_for_dst(dst_id, type_filter=type_filter))
+        record = self._optional_single(
+            self._records_for_dst(dst_id, type_filter=type_filter)
+        )
         return None if record is None else record.src_id
 
     def get_src_ids(
@@ -1673,7 +1707,9 @@ class NumpyVectorizedLinkTable(
         """
 
         src_ids: list[int] = []
-        for dst_id in sorted(cast(Any, self._dst_table).get_ids_for_value(dst_column, dst_value)):
+        for dst_id in sorted(
+            cast(Any, self._dst_table).get_ids_for_value(dst_column, dst_value)
+        ):
             src_ids.extend(
                 self.get_src_ids(
                     dst_id,
@@ -1743,7 +1779,9 @@ class NumpyVectorizedLinkTable(
         :raises RuntimeError: More than one accepted link record exists.
         """
 
-        record = self._optional_single(self._records_for_src(src_id, type_filter=type_filter))
+        record = self._optional_single(
+            self._records_for_src(src_id, type_filter=type_filter)
+        )
         return None if record is None else record.dst_id
 
     def get_dst_ids(
@@ -1930,7 +1968,9 @@ class NumpyVectorizedLinkTable(
         """
 
         dst_ids: list[int] = []
-        for src_id in sorted(cast(Any, self._src_table).get_ids_for_value(src_column, src_value)):
+        for src_id in sorted(
+            cast(Any, self._src_table).get_ids_for_value(src_column, src_value)
+        ):
             dst_ids.extend(
                 self.get_dst_ids(
                     src_id,
@@ -2078,7 +2118,7 @@ class NumpyVectorizedLinkTable(
         ids_to_delete: set[int] = set()
         for record in self._records:
             if row_ids is not None and record.row_id in row_ids:
-                ids_to_delete.add(cast(int, record.row_id))
+                ids_to_delete.add(record.row_id)
                 continue
             if src_ids is not None and record.src_id in src_ids:
                 ids_to_delete.add(cast(int, record.row_id))
@@ -2087,7 +2127,9 @@ class NumpyVectorizedLinkTable(
                 ids_to_delete.add(cast(int, record.row_id))
                 continue
         if ids_to_delete:
-            self.db.driver_wrapper.delete_by_id(self.table, ids_to_delete)
+            self._require_attachment().driver_wrapper.delete_by_id(
+                self.table, ids_to_delete
+            )
 
     def _delete_existing_for_src(self, src_id: int) -> None:
         """
@@ -2125,7 +2167,9 @@ class NumpyVectorizedLinkTable(
 
         self._delete_matching_records(dst_ids={int(dst_id)})
 
-    def _find_existing_pair_row(self, src_id: int, dst_id: int) -> Optional[dict[str, Any]]:
+    def _find_existing_pair_row(
+        self, src_id: int, dst_id: int
+    ) -> Optional[dict[str, Any]]:
         """
         Deep-copy the first cached row payload for a directed pair.
 
@@ -2192,11 +2236,11 @@ class NumpyVectorizedLinkTable(
                 self._dst_link_col: dst_id,
             }
             payload.update(updates)
-            self.db.driver_wrapper.add_row(payload)
+            self._require_attachment().driver_wrapper.add_row(payload)
             return
 
         current.update(updates)
-        self.db.driver_wrapper.update_row(current)
+        self._require_attachment().driver_wrapper.update_row(current)
 
     def _set_pair_column(
         self,
@@ -2356,22 +2400,36 @@ class NumpyVectorizedLinkTable(
             self._delete_matching_records(row_ids=link_row_ids)
 
         src_ids = {int(value) for value in getattr(update, "src_ids_deleted", set())}
-        src_ids |= {int(value) for value in getattr(update, "delete_these_src_ids", set())}
-        src_ids |= {int(value) for value in getattr(update, "delete_links_with_this_src_id", set())}
+        src_ids |= {
+            int(value) for value in getattr(update, "delete_these_src_ids", set())
+        }
+        src_ids |= {
+            int(value)
+            for value in getattr(update, "delete_links_with_this_src_id", set())
+        }
         if src_ids:
             self._delete_matching_records(src_ids=src_ids)
 
         dst_ids = {int(value) for value in getattr(update, "dst_ids_deleted", set())}
-        dst_ids |= {int(value) for value in getattr(update, "delete_these_dst_ids", set())}
-        dst_ids |= {int(value) for value in getattr(update, "delete_links_with_this_dst_id", set())}
+        dst_ids |= {
+            int(value) for value in getattr(update, "delete_these_dst_ids", set())
+        }
+        dst_ids |= {
+            int(value)
+            for value in getattr(update, "delete_links_with_this_dst_id", set())
+        }
         if dst_ids:
             self._delete_matching_records(dst_ids=dst_ids)
 
         for src_id, dst_id in getattr(update, "create_these_links", {}).items():
             self._ensure_link(int(src_id), int(dst_id))
 
-        for src_id, dst_ids_for_src in getattr(update, "src_dst_priority_update", {}).items():
-            self._apply_priority_order(int(src_id), [int(dst_id) for dst_id in dst_ids_for_src])
+        for src_id, dst_ids_for_src in getattr(
+            update, "src_dst_priority_update", {}
+        ).items():
+            self._apply_priority_order(
+                int(src_id), [int(dst_id) for dst_id in dst_ids_for_src]
+            )
 
         for dst_srcs, dst_id in getattr(update, "dst_src_priority_update", {}).items():
             for src_id in dst_srcs:
@@ -2399,7 +2457,9 @@ class NumpyVectorizedLinkTable(
                     else None,
                 )
 
-        for src_id, typed_values in getattr(update, "src_dst_priority_type_update", {}).items():
+        for src_id, typed_values in getattr(
+            update, "src_dst_priority_type_update", {}
+        ).items():
             for link_type, ordered_dsts in typed_values.items():
                 total = len(ordered_dsts)
                 for index, dst_id in enumerate(ordered_dsts):
@@ -2410,7 +2470,9 @@ class NumpyVectorizedLinkTable(
                         updates[self.link_spec.priority_link_col] = total - index
                     self._ensure_link(int(src_id), int(dst_id), updates=updates)
 
-        for type_and_srcs, dst_id in getattr(update, "dst_src_priority_type_update", {}).items():
+        for type_and_srcs, dst_id in getattr(
+            update, "dst_src_priority_type_update", {}
+        ).items():
             link_type, src_ids_for_type = type_and_srcs
             total = len(src_ids_for_type)
             for index, src_id in enumerate(src_ids_for_type):
@@ -2421,11 +2483,17 @@ class NumpyVectorizedLinkTable(
                     updates[self.link_spec.priority_link_col] = total - index
                 self._ensure_link(int(src_id), int(dst_id), updates=updates)
 
-        for (src_id, dst_id), priority in getattr(update, "set_link_priority", {}).items():
-            self._set_pair_column(int(src_id), int(dst_id), self.link_spec.priority_link_col, priority)
+        for (src_id, dst_id), priority in getattr(
+            update, "set_link_priority", {}
+        ).items():
+            self._set_pair_column(
+                int(src_id), int(dst_id), self.link_spec.priority_link_col, priority
+            )
 
         for (src_id, dst_id), link_type in getattr(update, "set_link_type", {}).items():
-            self._set_pair_column(int(src_id), int(dst_id), self.link_spec.type_link_col, link_type)
+            self._set_pair_column(
+                int(src_id), int(dst_id), self.link_spec.type_link_col, link_type
+            )
 
         optional_columns = {
             "set_link_origin": "origin",

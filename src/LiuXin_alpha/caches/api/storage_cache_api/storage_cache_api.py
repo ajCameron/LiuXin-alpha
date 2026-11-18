@@ -7,11 +7,14 @@ across getter signatures. Application search, presentation and coordinated
 writes belong to the composed CacheAPI. This contract does not create
 connections, allocate backend registries or own database transactions.
 """
+
 from __future__ import annotations
 
 import abc
 import inspect
+from collections.abc import Callable
 from dataclasses import dataclass
+from types import MappingProxyType
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -21,6 +24,7 @@ from typing import (
     Optional,
     Sequence,
     Union,
+    cast,
 )
 
 from LiuXin_alpha.caches.api.storage_cache_api.storage_fields_api.base_field_api import (
@@ -51,7 +55,10 @@ from LiuXin_alpha.caches.api.storage_cache_api.storage_tables_api.single_table_a
 
 if TYPE_CHECKING:
     from LiuXin_alpha.databases.api.database_api.database_api import DatabaseAPI
-    from LiuXin_alpha.databases.db_types.database_types import MainTableName
+    from LiuXin_alpha.databases.db_types.database_types import (
+        MainTableID,
+        MainTableName,
+    )
 
 FieldKey = str
 LinkTableKey = tuple[str, str]
@@ -110,14 +117,26 @@ class StorageCacheAPI(abc.ABC):
     db: Optional["DatabaseAPI"]
 
     #: Main cached tables, keyed by database table name.
-    main_tables: Mapping["MainTableName", StorageCacheSingleTableAPI]
+    @property
+    @abc.abstractmethod
+    def main_tables(self) -> Mapping[str, StorageCacheSingleTableAPI]:
+        """Loaded main-table registry owned by this backend."""
+        raise NotImplementedError
 
     #: All cached link tables, keyed however the implementation prefers.
     #: A canonical choice is ``(src_table_name, dst_table_name)``.
-    link_tables: Mapping[LinkTableKey, StorageCacheLinkTableBaseAPI[Any]]
+    @property
+    @abc.abstractmethod
+    def link_tables(self) -> Mapping[LinkTableKey, StorageCacheLinkTableBaseAPI[Any]]:
+        """Loaded directed-link registry owned by this backend."""
+        raise NotImplementedError
 
     #: Storage-facing fields, keyed by field name.
-    fields: Mapping[FieldKey, FieldBasicInterfaceAPI[Any]]
+    @property
+    @abc.abstractmethod
+    def fields(self) -> Mapping[FieldKey, FieldBasicInterfaceAPI[Any]]:
+        """Loaded field registry owned by this backend."""
+        raise NotImplementedError
 
     def query_view(self) -> StorageCacheAPI:
         """Return the read view for one composed query.
@@ -654,7 +673,7 @@ class StorageCacheAPI(abc.ABC):
         try:
             parameters = inspect.signature(getter).parameters
         except (TypeError, ValueError):
-            parameters = {}
+            parameters = MappingProxyType({})
             accepts_arbitrary_kwargs = True
         else:
             accepts_arbitrary_kwargs = any(
@@ -666,7 +685,7 @@ class StorageCacheAPI(abc.ABC):
         if accepts_arbitrary_kwargs or "type_filter" in parameters:
             kwargs["type_filter"] = type_filter
 
-        rows = getter(int(row_id), **kwargs)
+        rows = cast(Callable[..., Any], getter)(int(row_id), **kwargs)
         if rows is None:
             return ()
         if hasattr(rows, "row_dict") or isinstance(rows, dict):

@@ -20,7 +20,9 @@ if TYPE_CHECKING:
 class CustomFieldCache:
     """Coordinate native writes with a caller-owned field metadata projection."""
 
-    def __init__(self, service: CustomFieldService, field_metadata: FieldMetadata):
+    def __init__(
+        self, service: CustomFieldService, field_metadata: FieldMetadata
+    ) -> None:
         self.service = service
         self.field_metadata = field_metadata
 

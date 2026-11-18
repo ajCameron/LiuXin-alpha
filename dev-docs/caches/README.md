@@ -22,6 +22,16 @@ methods do not automatically gain cache reconciliation. A direct Catalog or
 external database write must therefore be paired with explicit invalidation or
 a live backend. See the [Catalog/cache contract](../catalog/catalog-cache-boundary.md).
 
+Catalog's cache-backed read adapters can load an empty cache and explicitly
+request a reload. Those lifecycle calls do not give Catalog mutations ownership
+of cache contents or write reconciliation; the cache implementation performs
+the refresh.
+
+The next composition step is the declared
+[MetadataAPIInterface](../catalog/catalog-cache-boundary.md#metadata-access-interface-direction--2026-11-18):
+native metadata reads and semantic writes through a bound Catalog/cache service.
+The interface exists; its implementation remains [CACHE05](next_tasks.md#cache05-implement-the-bound-metadata-access-service).
+
 ## Backend choice
 
 | Backend | Read state | Refresh contract |
@@ -33,8 +43,9 @@ a live backend. See the [Catalog/cache contract](../catalog/catalog-cache-bounda
 Read capability flags rather than selecting behaviour from a backend's name.
 The [backend guide](<../08 - Storage Cache Backends.md>) owns the detailed query,
 lookup and mutation contract. The [registry](../../src/LiuXin_alpha/caches/cache_plugins/registry.py)
-stores import targets and loads them on demand; its process-local registration
-currently overwrites matching names/aliases and is not synchronized.
+stores import targets and loads them on demand. Names/aliases have immutable
+process-local bindings; identical registration is idempotent and collisions fail
+atomically. Lookup/publication is synchronized; imports run outside the lock.
 
 A cache miss, unsupported operation and broken query are distinct. A capability
 adapter may explicitly select a fallback; arbitrary exceptions must not become
@@ -66,6 +77,12 @@ the correctness regressions and repeatable baseline for subsequent optimization.
 The [subsequent architecture assessment](../architectural_reviews/caches-review-2026-11-17.md)
 finds the metadata-search core ready for measured optimization and records the
 priorities and remaining whole-cache sign-off work.
+The [candidate and definition optimization](metadata-search-scope-optimization-2026-11-17.md)
+records the next adapter changes, matched measurements and regression evidence.
+The [native sorting and pagination pass](pagination-optimization-2026-11-18.md)
+records bounded page selection, empty-page shortcuts and their measured trade-offs.
+The [invalidation and lifecycle follow-up](invalidation-and-lifecycle-2026-11-18.md)
+records bounded membership repair, write-route ownership and backend registry policy.
 
 ## Validation
 
@@ -75,8 +92,15 @@ and optional call profiles. It has a separate manual CI workflow.
 
 Check lookup completeness, known misses, dirty/read failures, targeted refresh
 and mutation receipts with small fixtures. The
+[addition/removal matrix](invalidation-and-lifecycle-2026-11-18.md#addition-and-removal-follow-up)
+also covers empty/refilled tables, reused identities, shared relationships,
+warm indexes and real insert/delete transaction rollback across the three backends. The
 [storage benchmark](../storage_and_backup/storage_cache_benchmark.md) provides
 dated performance evidence and a deliberate large-run recipe, not a routine
 documentation test or universal latency target.
 
 Return to the [developer index](../README.md).
+
+The [2026-11-18 typing pass](typing-2026-11-18.md) extends both static checkers to
+all native cache modules and documents the database, query, projection and writer
+contracts, including the remaining dynamic payload boundaries.

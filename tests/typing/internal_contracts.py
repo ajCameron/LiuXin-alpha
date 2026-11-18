@@ -17,6 +17,12 @@ from contextlib import AbstractContextManager
 from typing import Any, Literal, Protocol, assert_type
 
 import LiuXin_alpha.storage.api as storage
+from LiuXin_alpha.caches.api.storage_cache_api.storage_tables_api.link_tables_api.one_one_tables_api import (
+    StorageCacheOneOneGetterAPI,
+)
+from LiuXin_alpha.caches.api.storage_cache_api.storage_tables_api.single_table_api import (
+    StorageCacheSingleTableAPI,
+)
 from LiuXin_alpha.core.commands import CoreCommand
 from LiuXin_alpha.core.program_api import CoreProgramAPI
 from LiuXin_alpha.core.program_endpoints import install_program_endpoints
@@ -1101,3 +1107,146 @@ def sqlite_result_container_contracts() -> None:
     with CompatibilityConnection(":memory:") as compatibility:
         assert_type(compatibility.get("SELECT 1"), list[Any])
         assert_type(compatibility.get_row("SELECT 1"), list[Any])
+
+
+def native_cache_contracts(db: DatabaseAPI) -> None:
+    """Backends, projections, factories and writer receipts preserve typed seams."""
+    from LiuXin_alpha.caches.api import (
+        CacheAPI,
+        CacheLookup,
+        CacheQuery,
+        CacheRecord,
+        StorageCacheAPI,
+    )
+    from LiuXin_alpha.caches.cache import Cache, create_cache
+    from LiuXin_alpha.caches.cache_plugins.database_backed.storage_cache import (
+        DatabaseBackedStorageCache,
+    )
+    from LiuXin_alpha.caches.cache_plugins.numpy_vectorized.storage_cache import (
+        NumpyVectorizedStorageCache,
+    )
+    from LiuXin_alpha.caches.cache_plugins.registry import (
+        create_storage_cache,
+        load_cache_plugin,
+    )
+    from LiuXin_alpha.caches.cache_plugins.schema_backed.storage_cache import (
+        SchemaBackedStorageCache,
+    )
+    from LiuXin_alpha.caches.projection import ProjectionQueryEngine
+    from LiuXin_alpha.caches.query import CacheQueryEngine
+    from LiuXin_alpha.caches.query_contracts import QueryStorage
+    from LiuXin_alpha.catalog.write import SchemaCatalogWriter
+
+    assert_type(load_cache_plugin("schema"), type[StorageCacheAPI])
+    assert_type(create_storage_cache(db), StorageCacheAPI)
+    assert_type(create_cache(db), Cache)
+    cache = Cache(db)
+    assert_type(cache.create_writer("books", "title"), SchemaCatalogWriter)
+    assert_type(cache.write_one("books", "title", 1, "Title"), Mapping[int, object])
+    assert_type(cache.get("books", 1), CacheLookup[CacheRecord])
+    for storage in (
+        SchemaBackedStorageCache(db),
+        NumpyVectorizedStorageCache(db),
+        DatabaseBackedStorageCache(db),
+    ):
+        source: QueryStorage = storage
+        engine = CacheQueryEngine(source)
+        assert_type(
+            engine.query(CacheQuery("books"), generation=1).ids, tuple[int, ...]
+        )
+    projection = ProjectionQueryEngine("books", {1: {"title": "Title"}}, ("title",))
+    source = projection
+    assert_type(projection.all_book_ids(), frozenset[int])
+    assert_type(projection.get_main_table("books"), ProjectionQueryEngine)
+    lookup = cache.get("books", 1)
+    if lookup.value is not None:
+        assert_type(lookup.value.row_id, int)
+        lookup.value.values["title"] = "wrong"  # expect-error: reportIndexIssue index
+    cache.get("books", "one")  # expect-error: reportArgumentType arg-type
+    cache.write_one("b", "t", "x", None)  # expect-error: reportArgumentType arg-type
+    Cache(object())  # expect-error: reportArgumentType arg-type
+    CacheQuery("books", projection=(1,))  # expect-error: reportArgumentType arg-type
+    CacheQuery("books", where=object())  # expect-error: reportArgumentType arg-type
+    p = projection
+    p.get_cached_value("x", "b.t")  # expect-error: reportArgumentType arg-type
+    source = object()  # expect-error: reportAssignmentType assignment
+    receipt = cache.write_one("books", "title", 1, "Title")
+    receipt[1] = "wrong"  # expect-error: reportIndexIssue index
+
+    # Annotation exposes the abstract facade without concrete-class narrowing.
+    def facade_contract(facade: CacheAPI) -> None:
+        from LiuXin_alpha.caches.api import CacheWriter
+
+        assert_type(facade.create_writer("books", "title"), CacheWriter)
+        assert_type(facade.database, DatabaseAPI)
+        assert_type(facade.write_one("books", "title", 1, None), Mapping[int, object])
+
+    facade_contract(cache)
+
+
+def cache_table_read_contracts(
+    table: "StorageCacheSingleTableAPI",
+    links: "StorageCacheOneOneGetterAPI",
+) -> None:
+    """Detached tables and cardinality getters expose the native row API."""
+    assert_type(table.db, DatabaseAPI | None)
+    assert_type(table.row_ids, Sequence[int])
+    assert_type(table.get_row_snapshot(1), dict[str, Any])
+    assert_type(links.get_link_row(1, 2, True, "author"), RowAPI | None)
+    assert_type(
+        links.get_src_ids_from_value("name", "name", True, "author"), Sequence[int]
+    )
+    assert_type(
+        links.get_dst_rows_from_value("title", "title", True, "author"),
+        Sequence[RowAPI],
+    )
+
+
+def metadata_access_contracts() -> None:
+    """Metadata-facing consumers retain entity types and persistence receipts."""
+    from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.item_containers.item_metadata_api import (
+        ItemMetadataAPI,
+    )
+    from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.work_containers.work_metadata_api import (
+        WorkMetadataAPI,
+    )
+    from LiuXin_alpha.catalog.api.metadata_access import (
+        MetadataAPIInterface,
+        MetadataEntityInterface,
+        MetadataReconciliationError,
+        MetadataReference,
+        MetadataWriteReceipt,
+    )
+
+    def consume(api: MetadataAPIInterface) -> None:
+        assert_type(api.works, MetadataEntityInterface[WorkMetadataAPI])
+        assert_type(api.works.get(7), WorkMetadataAPI | None)
+        assert_type(api.items.require(9), ItemMetadataAPI)
+        assert_type(api.search.find("author:Herbert"), tuple[MetadataReference, ...])
+        receipt = api.works.update(7, {"title": "Dune"})
+        assert_type(receipt, MetadataWriteReceipt[int])
+        assert_type(receipt.result, int)
+        assert_type(api.works.delete(7), MetadataWriteReceipt[int])
+        api.works.get("7")  # expect-error: reportArgumentType arg-type
+        api.items = api.works  # expect-error: reportAttributeAccessIssue misc
+        # These legacy imported types are outside mypy's checked source scope;
+        # basedpyright also checks their WEMI level and container distinctions.
+        find = api.search.find
+        find("title:Dune", level="book")  # expect-error: reportArgumentType -
+        work = api.works.require(7)
+        item: ItemMetadataAPI = work  # expect-error: reportAssignmentType -
+        del item
+
+    receipt = MetadataWriteReceipt(
+        result=7, changed=True, persistence="committed", cache="dirty", generation=3
+    )
+    error = MetadataReconciliationError("refresh failed", receipt=receipt)
+    assert_type(error.receipt.result, object)
+    receipt.result = 8  # expect-error: reportAttributeAccessIssue misc
+    MetadataWriteReceipt(
+        7,
+        True,
+        "maybe",  # expect-error: reportArgumentType arg-type
+        "current",
+        3,
+    )

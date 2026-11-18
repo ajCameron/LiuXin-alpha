@@ -10,6 +10,12 @@ state operations without a transaction or lock added by this module.
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from LiuXin_alpha.databases.api.database_api.database_api import DatabaseAPI
+
+from collections.abc import Iterator
 from typing import Any, Iterable, Optional, Sequence, Union
 
 from LiuXin_alpha.caches.api.storage_cache_api.storage_cache_api import (
@@ -182,7 +188,7 @@ class _LiveDelegatingProxyMixin:
         target = object.__getattribute__(self, "_get_live_target")()
         return repr(target)
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[int]:
         """
         Create an iterator from one freshly resolved target.
 
@@ -627,7 +633,7 @@ class DatabaseBackedStorageCache(SchemaBackedStorageCache):
         requires_reload_for_external_changes=False,
     )
 
-    def __init__(self, db: Any) -> None:
+    def __init__(self, db: DatabaseAPI | None) -> None:
         """
         Initialize live snapshot/proxy registries and the schema-backed base state.
 
@@ -693,8 +699,8 @@ class DatabaseBackedStorageCache(SchemaBackedStorageCache):
         self.db = None
         for table in self._snapshot_main_tables.values():
             table.db = None
-        for table in self._snapshot_link_tables.values():
-            table.db = None
+        for link_table in self._snapshot_link_tables.values():
+            link_table.db = None
         for field in self._snapshot_field_objects.values():
             field._db = None
         return old_db
@@ -718,7 +724,7 @@ class DatabaseBackedStorageCache(SchemaBackedStorageCache):
         self.clear()
         self.detach_db()
 
-    def read(self, db: Any = None) -> None:
+    def read(self, db: DatabaseAPI | None = None) -> None:
         """
         Rebuild complete schema-backed state and install its live proxy views.
 
@@ -741,15 +747,15 @@ class DatabaseBackedStorageCache(SchemaBackedStorageCache):
         self._building_live_state = True
         try:
             super().read(db=db)
-            self._snapshot_main_tables = dict(self.main_tables)
-            self._snapshot_link_tables = dict(self.link_tables)
-            self._snapshot_fields = dict(self.fields)
+            self._snapshot_main_tables = dict(self._main_tables)
+            self._snapshot_link_tables = dict(self._link_tables)
+            self._snapshot_fields = dict(self._fields)
             self._snapshot_field_objects = dict(self._field_objects)
             self._install_live_views()
         finally:
             self._building_live_state = False
 
-    def reload(self, db: Any = None) -> None:
+    def reload(self, db: DatabaseAPI | None = None) -> None:
         """
         Delegate a full reload to the guarded live-state reader.
 
@@ -766,7 +772,7 @@ class DatabaseBackedStorageCache(SchemaBackedStorageCache):
 
         self.read(db=db)
 
-    def _refresh_live_state(self, db: Any = None) -> None:
+    def _refresh_live_state(self, db: DatabaseAPI | None = None) -> None:
         """
         Request a full read unless a live state build is already in progress.
 
@@ -831,6 +837,13 @@ class DatabaseBackedStorageCache(SchemaBackedStorageCache):
             return existing
 
         field = self._snapshot_field_objects[field_key]
+        proxy: (
+            _LiveSameTableFieldProxy
+            | _LiveTwoTableOneOneFieldProxy
+            | _LiveOneManyFieldProxy
+            | _LiveManyOneFieldProxy
+            | _LiveManyManyFieldProxy
+        )
         if isinstance(field, SchemaBackedSameTableField):
             proxy = _LiveSameTableFieldProxy(self, field_key)
         elif isinstance(field, SchemaBackedTwoTableOneOneField):
@@ -906,19 +919,18 @@ class DatabaseBackedStorageCache(SchemaBackedStorageCache):
         :return: None; installs new dictionaries based on the current snapshot registries.
         """
 
-        self.main_tables = {
+        self._main_tables = {
             table_name: self._main_table_proxy(table_name)
             for table_name in self._snapshot_main_tables
         }
-        self.link_tables = {
-            key: self._link_table_proxy(key)
-            for key in self._snapshot_link_tables
+        self._link_tables = {
+            key: self._link_table_proxy(key) for key in self._snapshot_link_tables
         }
         self._field_objects = {
             field_key: self._make_field_proxy(field_key)
             for field_key in self._snapshot_field_objects
         }
-        self.fields = {
+        self._fields = {
             alias: self._make_field_proxy(actual.field_key)
             for alias, actual in self._snapshot_fields.items()
         }
@@ -1079,7 +1091,7 @@ class DatabaseBackedStorageCache(SchemaBackedStorageCache):
         if self._building_live_state:
             return super().get_main_table(name)
         self._refresh_live_state()
-        return self.main_tables[self._table_name_from_ref(name)]
+        return self._main_tables[self._table_name_from_ref(name)]
 
     def iter_main_tables(self) -> Iterable[SchemaBackedMainTableCache]:
         """
@@ -1101,8 +1113,8 @@ class DatabaseBackedStorageCache(SchemaBackedStorageCache):
             yield from super().iter_main_tables()
             return
         self._refresh_live_state()
-        for table_name in sorted(self.main_tables):
-            yield self.main_tables[table_name]
+        for table_name in sorted(self._main_tables):
+            yield self._main_tables[table_name]
 
     def get_table(self, name: str) -> StorageCacheBaseTableAPI:
         """
@@ -1125,11 +1137,11 @@ class DatabaseBackedStorageCache(SchemaBackedStorageCache):
         if self._building_live_state:
             return super().get_table(name)
         self._refresh_live_state()
-        if name in self.main_tables:
-            return self.main_tables[name]
+        if name in self._main_tables:
+            return self._main_tables[name]
         for key, table in self._snapshot_link_tables.items():
             if table.table == name:
-                return self.link_tables[key]
+                return self._link_tables[key]
         raise KeyError(name)
 
     def iter_tables(self) -> Iterable[StorageCacheBaseTableAPI]:
@@ -1153,16 +1165,16 @@ class DatabaseBackedStorageCache(SchemaBackedStorageCache):
             return
         self._refresh_live_state()
         yielded: set[int] = set()
-        for table_name in sorted(self.main_tables):
-            table = self.main_tables[table_name]
+        for table_name in sorted(self._main_tables):
+            table = self._main_tables[table_name]
             yielded.add(id(table))
             yield table
-        for key in sorted(self.link_tables):
-            table = self.link_tables[key]
-            if id(table) in yielded:
+        for key in sorted(self._link_tables):
+            link_table = self._link_tables[key]
+            if id(link_table) in yielded:
                 continue
-            yielded.add(id(table))
-            yield table
+            yielded.add(id(link_table))
+            yield link_table
 
     def has_link_table(
         self,
@@ -1229,7 +1241,7 @@ class DatabaseBackedStorageCache(SchemaBackedStorageCache):
             raise KeyError(
                 f"Link table {src_name!r}->{dst_name!r} is {table.table_type}, not {table_type}"
             )
-        return self.link_tables[key]
+        return self._link_tables[key]
 
     def iter_link_tables(self) -> Iterable[SchemaBackedLinkTable]:
         """
@@ -1250,8 +1262,8 @@ class DatabaseBackedStorageCache(SchemaBackedStorageCache):
             yield from super().iter_link_tables()
             return
         self._refresh_live_state()
-        for key in sorted(self.link_tables):
-            yield self.link_tables[key]
+        for key in sorted(self._link_tables):
+            yield self._link_tables[key]
 
     def has_field(self, name: FieldKey) -> bool:
         """
@@ -1296,7 +1308,7 @@ class DatabaseBackedStorageCache(SchemaBackedStorageCache):
             return super().get_field(name)
         self._refresh_live_state()
         field_name = self._resolve_field_name(name)
-        return self.fields[field_name]
+        return self._fields[field_name]
 
     def iter_fields(self) -> Iterable[FieldBasicInterfaceAPI[Any]]:
         """
@@ -1413,7 +1425,9 @@ class DatabaseBackedStorageCache(SchemaBackedStorageCache):
         """
 
         self._refresh_live_state()
-        resolved_field_keys = tuple(self._resolve_field_name(field_key) for field_key in field_keys)
+        resolved_field_keys = tuple(
+            self._resolve_field_name(field_key) for field_key in field_keys
+        )
         return tuple(
             self._cached_value_from_loaded_state(
                 owner_id,
@@ -1426,7 +1440,7 @@ class DatabaseBackedStorageCache(SchemaBackedStorageCache):
     def reload_main_table(
         self,
         name: Union[str, StorageCacheSingleTableAPI],
-        db: Any = None,
+        db: DatabaseAPI | None = None,
     ) -> None:
         """
         Rebuild all live state for a targeted reload request.
@@ -1451,7 +1465,7 @@ class DatabaseBackedStorageCache(SchemaBackedStorageCache):
         self,
         src_table: Union[str, StorageCacheSingleTableAPI],
         dst_table: Union[str, StorageCacheSingleTableAPI],
-        db: Any = None,
+        db: DatabaseAPI | None = None,
         table_type: Optional[TableTypes] = None,
     ) -> None:
         """
@@ -1478,7 +1492,7 @@ class DatabaseBackedStorageCache(SchemaBackedStorageCache):
     def reload_field(
         self,
         name: Union[FieldKey, FieldBasicInterfaceAPI[Any]],
-        db: Any = None,
+        db: DatabaseAPI | None = None,
     ) -> None:
         """
         Rebuild all live state for a targeted reload request.

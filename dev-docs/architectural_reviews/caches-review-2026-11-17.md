@@ -100,7 +100,15 @@ conditions and retain the independent result checks, fault cases and work-count
 bounds. The 50-pair repair budget bounds predicate visits; it does not currently
 bound every ID-set copy or backend refresh operation.
 
-## Remaining sign-off work
+## Sign-off follow-ups
+
+**2026-11-18 update:** the [invalidation/lifecycle review](../caches/invalidation-and-lifecycle-2026-11-18.md)
+implements bounded row-local membership repair and closes the selected CACHE01
+write-route/lifecycle and CACHE03 registry reviews below. It records real
+transaction and stale-link repairs, concurrent writer/close coverage, the registry's
+immutable binding policy and the explicit external-write boundary. CACHE02 and
+SEARCH02–SEARCH05 remain separate cross-module/application work. The original
+assessment and earlier validation counts below retain their dated scope.
 
 The existing [cache backlog](../caches/next_tasks.md) remains the implementation
 owner for these follow-ups:
@@ -137,8 +145,14 @@ The measured 125-table rebuild now issues two fingerprint queries instead of
 8,492. The linked implementation record owns validation results and limits.
 Selected integration checks passed 312 tests with four capability skips; the
 final focused gate passed all 14 new mandatory regressions.
-Candidate/projection work, sorting/pagination and small-invalidation costs remain
-the subsequent optimization targets; the sign-off gaps above remain open.
+The subsequent [candidate and definition optimization](../caches/metadata-search-scope-optimization-2026-11-17.md)
+indexes explicit references, reuses immutable result sets and retains the fixed
+projection across definition edits. Its matched measurements and ownership costs
+are recorded separately. The [native pagination pass](../caches/pagination-optimization-2026-11-18.md)
+then adds bounded selection for small prefix/suffix pages and avoids ordering for
+empty pages. Its measurements include the descending-ID latency trade-off alongside
+substantial allocation savings. Small-invalidation costs remain the next performance
+target; the sign-off gaps above remain open.
 
 The subsequent [long-running test lane](../caches/long-running-tests.md) now
 provides opt-in native/Calibre soaks and repeated real database captures, with

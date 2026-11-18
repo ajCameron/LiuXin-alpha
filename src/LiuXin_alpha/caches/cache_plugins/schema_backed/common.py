@@ -9,9 +9,9 @@ returns a reference; the calling cache decides whether to retain it.
 from __future__ import annotations
 
 import dataclasses
-
 from typing import Any, Optional
 
+from LiuXin_alpha.databases.api import DatabaseAPI
 from LiuXin_alpha.databases.schema_specs import StorageTableSpec
 
 
@@ -30,8 +30,7 @@ def _column_type_map(spec: StorageTableSpec) -> dict[str, str]:
     :return: New dict from column name to first truthy declared_type/affinity, otherwise UNKNOWN.
     """
     return {
-        col.name: col.declared_type or col.affinity or "UNKNOWN"
-        for col in spec.columns
+        col.name: col.declared_type or col.affinity or "UNKNOWN" for col in spec.columns
     }
 
 
@@ -83,9 +82,9 @@ def _sort_key(value: Any) -> tuple[int, str]:
 
 
 def _ensure_db(
-    current_db: Any,
-    passed_db: Any = None,
-):
+    current_db: DatabaseAPI | None,
+    passed_db: DatabaseAPI | None = None,
+) -> DatabaseAPI:
     """
     Choose an explicitly supplied database or retain the current attachment.
 
@@ -140,6 +139,7 @@ class _CachedLinkRecord:
         >>> record.src_id, record.dst_id, record.sequence
         (1, 7, 0)
     """
+
     src_id: int
     dst_id: int
     row_dict: dict[str, Any]

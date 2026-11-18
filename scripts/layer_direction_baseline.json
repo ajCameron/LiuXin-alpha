@@ -19,8 +19,8 @@
     "whole_runtime_component": 214
   },
   "unresolved_dynamic": [
-    {"expression": "registration.cache_module", "kind": "deferred", "line": 142, "source": "LiuXin_alpha.caches.cache_plugins.registry"},
-    {"expression": "registration.cache_module.rsplit('.', 1)[0]", "kind": "deferred", "line": 235, "source": "LiuXin_alpha.caches.cache_plugins.registry"},
+    {"expression": "registration.cache_module", "kind": "deferred", "line": 203, "source": "LiuXin_alpha.caches.cache_plugins.registry"},
+    {"expression": "registration.cache_module.rsplit('.', 1)[0]", "kind": "deferred", "line": 303, "source": "LiuXin_alpha.caches.cache_plugins.registry"},
     {"expression": "mod", "kind": "deferred", "line": 452, "source": "LiuXin_alpha.plugins.contracts"},
     {"expression": "base", "kind": "deferred", "line": 518, "source": "LiuXin_alpha.plugins.contracts"},
     {"expression": "mod", "kind": "deferred", "line": 579, "source": "LiuXin_alpha.plugins.contracts"},

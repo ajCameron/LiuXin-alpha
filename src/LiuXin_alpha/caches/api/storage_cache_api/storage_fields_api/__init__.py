@@ -1,4 +1,3 @@
-
 """
 Export canonical scalar and relation field contracts for storage backends.
 

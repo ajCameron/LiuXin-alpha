@@ -248,9 +248,14 @@ class _Macros:
         """
         self.ensured: list[tuple[str, str, Any, str | None]] = []
         self.found: list[tuple[str, str, Any, str | None]] = []
+        self.row_updates: list[tuple[str, dict[int, dict[str, Any]]]] = []
         self.owned_writes: list[
             tuple[StorageLinkSpec, str, dict[int, Any | None]]
         ] = []
+
+    def update_rows(self, table: str, updates: Mapping[int, Mapping[str, Any]]) -> None:
+        """Record portable batches supplied by column writers."""
+        self.row_updates.append((table, {key: dict(value) for key, value in updates.items()}))
 
     def ensure_table_value(
         self,
@@ -535,8 +540,8 @@ def test_factory_creates_and_writes_a_same_table_column_writer() -> None:
     assert writer.table_spec is books
     assert writer.column_spec.name == "book_title"
     assert result == {1: "A New Title"}
-    assert catalog.db.column_writes == [
-        ({1: "A New Title"}, "book_title", "books")
+    assert catalog.db.macros.row_updates == [
+        ("books", {1: {"book_title": "A New Title"}})
     ]
     assert catalog.db.driver_wrapper.schema_refreshes == [True]
     assert catalog.db.driver_wrapper.link_requests == []

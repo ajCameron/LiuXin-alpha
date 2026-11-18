@@ -5,8 +5,10 @@ from __future__ import annotations
 import operator
 import re
 from collections.abc import Mapping
-from typing import Any
+from typing import Any, cast
 
+from LiuXin_alpha.caches.query_contracts import PredicateReadEngine
+from LiuXin_alpha.databases.api import RowAPI
 from LiuXin_alpha.databases.db_types.macro_types import LINK_TYPE_UNSET
 from LiuXin_alpha.databases.db_types.query_types import (
     BooleanMatch,
@@ -17,6 +19,7 @@ from LiuXin_alpha.databases.db_types.query_types import (
     LinkedMatch,
     MissingSearchReference,
     ProvidedMatch,
+    RowPredicate,
     TextMatch,
     ValueMatch,
 )
@@ -64,10 +67,10 @@ def compare(value: Any, op: str, expected: Any) -> bool:
 class PredicateEvaluator:
     """Validate a complete tree, check references and narrow candidate sets."""
 
-    def __init__(self, engine: Any) -> None:
+    def __init__(self, engine: PredicateReadEngine) -> None:
         self.engine = engine
         self.edges: dict[tuple[str, int, frozenset[int]], dict[int, set[int]]] = {}
-        self._rows: dict[tuple[str, int], Any] = {}
+        self._rows: dict[tuple[str, int], Mapping[str, Any]] = {}
 
     def value(self, table: str, row_id: int, field: str) -> Any:
         """Share one row observation among predicates within this execution."""
@@ -80,10 +83,10 @@ class PredicateEvaluator:
             self._rows[key] = cached_table.get_row_snapshot(row_id)
         return self._rows[key].get(column)
 
-    def validate(self, table: str, node: Any) -> None:
+    def validate(self, table: str, node: RowPredicate) -> None:
         self.engine._table(table)
 
-        def field(name):
+        def field(name: str) -> str:
             return self.engine._canonical_field(table, name)
 
         if isinstance(node, ProvidedMatch):
@@ -153,7 +156,9 @@ class PredicateEvaluator:
         else:
             raise InputIntegrityError("Unsupported physical row predicate")
 
-    def relations(self, table: str, node: Any, ids: set[int]) -> dict[int, set[int]]:
+    def relations(
+        self, table: str, node: LinkedMatch | ForeignMatch, ids: set[int]
+    ) -> dict[int, set[int]]:
         key = (table, id(node), frozenset(ids))
         if key in self.edges:
             return self.edges[key]
@@ -172,9 +177,17 @@ class PredicateEvaluator:
                     require_ordering=False,
                 )
                 for raw in rows:
-                    row = raw if isinstance(raw, Mapping) else raw.row_dict
+                    row = (
+                        raw
+                        if isinstance(raw, Mapping)
+                        else cast(Mapping[str, Any], cast(RowAPI, raw).row_dict)
+                    )
                     if node.link_type is not LINK_TYPE_UNSET:
-                        if row.get(spec.type_link_col) != node.link_type:
+                        if (
+                            row.get(spec.type_link_col)
+                            if spec.type_link_col is not None
+                            else None
+                        ) != node.link_type:
                             continue
                     target_id = int(row[spec.secondary_link_col])
                     if target_id not in targets:
@@ -197,7 +210,7 @@ class PredicateEvaluator:
         self.edges[key] = result
         return result
 
-    def check_references(self, table: str, node: Any, ids: set[int]) -> None:
+    def check_references(self, table: str, node: RowPredicate, ids: set[int]) -> None:
         """Match SQL integrity guards even in Boolean branches that cannot match."""
         if isinstance(node, BooleanMatch):
             for child in node.operands:
@@ -211,7 +224,7 @@ class PredicateEvaluator:
             )
             self.check_references(target, node.predicate, set().union(*edges.values()))
 
-    def evaluate(self, table: str, node: Any, ids: set[int]) -> set[int]:
+    def evaluate(self, table: str, node: RowPredicate, ids: set[int]) -> set[int]:
         if isinstance(node, ProvidedMatch):
             result = set(node.provider.match(table, frozenset(ids)))
             if not result <= ids:

@@ -1,6 +1,6 @@
 # Native caches and Calibre compatibility
 
-Updated **2026-11-17**. This is the implemented package boundary following the
+Updated **2026-11-18**. This is the implemented package boundary following the
 [compatibility review](calibre-compatibility-review-2026-11-16.md).
 
 ## Native owners
@@ -98,8 +98,11 @@ remains caller-owned until explicit refresh replaces it.
 - `library.library_metadata` transaction/write orchestration, the wider
   `metadata.book` family and `catalog.compatibility.calibre` conversion policy
   require separate reviews. Relocation does not turn them into cache helpers.
-- CR02/CR03 are repaired; broader cache concurrency and registry-lifetime review remains open.
-  This package boundary is not whole-cache sign-off or a performance migration.
+- CR02/CR03 are repaired. The subsequent
+  [invalidation/lifecycle review](invalidation-and-lifecycle-2026-11-18.md) covers
+  cache writer/storage publication, reader/writer/close serialization and immutable
+  registry bindings. Explicit external invalidation and raw backend child-object
+  lifetimes remain distinct contracts. Physical replica leases remain with storage/ingest.
 
 Static ownership checks reject native cache/search/Core imports of the legacy
 cache, descriptor and field-adaptor families, including deferred and type-only

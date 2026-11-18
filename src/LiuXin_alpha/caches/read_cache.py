@@ -11,9 +11,9 @@ read-only owner so reading through a cache cannot create a dependency cycle.
 from __future__ import annotations
 
 import threading
-from collections.abc import Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from types import MappingProxyType
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from LiuXin_alpha.caches.api.cache_api import (
     CacheAPI,
@@ -29,6 +29,7 @@ from LiuXin_alpha.caches.api.cache_api import (
     CacheReconciliationError,
     CacheRecord,
     CacheState,
+    CacheWriter,
 )
 from LiuXin_alpha.caches.api.storage_cache_api.storage_cache_api import (
     StorageCacheAPI,
@@ -36,165 +37,8 @@ from LiuXin_alpha.caches.api.storage_cache_api.storage_cache_api import (
 from LiuXin_alpha.caches.cache_plugins.registry import create_storage_cache
 from LiuXin_alpha.caches.query import CacheQueryEngine
 
-
-class _CacheCatalogFacade:
-    """
-    Intercept normalized Catalog writes to reconcile their owning cache.
-
-    Store one Catalog instance and its database identity. The three private
-    prepared-update methods pass through the owner lock and reconciliation; other
-    attributes are delegated directly to Catalog and are not automatically
-    intercepted. Attachment is checked again each time a normalized write runs.
-
-    Example:
-        A writer created by Cache.create_writer uses this boundary to keep a
-        Catalog column update and subsequent cache reconciliation together.
-    """
-
-    def __init__(self, owner: ReadCache, catalog: Any) -> None:
-        """
-        Create a Catalog delegate tied to the owner's current database identity.
-
-        This does not load the cache or validate its readiness; the write boundary
-        checks attachment and readiness when an update is applied.
-
-        Example:
-            If the owner later switches databases, the retained identity causes a
-            previously created writer to be rejected on use.
-
-
-        :param owner: Cache whose database, lock and reconciliation methods will be used.
-        :return: None; retains the owner, Catalog delegate and original database object.
-        """
-
-        self._owner = owner
-        self._catalog = catalog
-        self.db = owner.database
-
-    def __getattr__(self, name: str) -> Any:
-        """
-        Forward attributes not implemented by this boundary to its Catalog.
-
-        Delegated methods do not acquire the owner lock or add reconciliation here.
-
-        Example:
-            Schema helpers accessed by the writer factory resolve through the Catalog
-            delegate when this boundary has no matching attribute.
-
-
-        :param name: Attribute name requested from the delegate.
-        :return: Catalog attribute, preserving the delegate's own binding behavior.
-        :raises AttributeError: The Catalog delegate also lacks the requested attribute.
-        """
-
-        return getattr(self._catalog, name)
-
-    def _assert_attached(self) -> None:
-        """
-        Require an open, ready owner still attached to the original database.
-
-        Example:
-            Changing either owner.database or owner.storage.db invalidates a writer
-            created against the previous attachment.
-
-
-        :return: None when owner and storage share the retained database identity.
-        :raises CacheClosedError: The owner is closed.
-        :raises RuntimeError: The owner or storage database is no longer the retained object.
-        :raises CacheNotReadyError: The owner has not been loaded or storage is uninitialized.
-        """
-
-        self._owner._assert_open()
-        if self._owner.database is not self.db or self._owner.storage.db is not self.db:
-            raise RuntimeError(
-                "cache writer cannot apply after its cache is closed, detached, "
-                "or attached to a different database"
-            )
-        self._owner._assert_ready()
-
-    def _apply(self, method_name: str, update: Any) -> Mapping[Any, Any]:
-        """
-        Apply one normalized Catalog write under the owner's reconciliation lock.
-
-        Check attachment, then refresh preexisting DIRTY state unless a macro
-        transaction is open. Invoke Catalog, then reconcile its result. Catalog errors
-        propagate without reconciliation; post-write refresh errors preserve the
-        successful receipt in CacheReconciliationError.
-
-        Example:
-            An _apply_column_update call refreshes earlier external invalidations before
-            applying the new column update when no macro transaction is open.
-
-
-        :param method_name: Name of the Catalog update method to call.
-        :param update: Normalized update passed unchanged to that method.
-        :return: Catalog receipt after successful reconciliation or permitted deferral.
-        """
-
-        with self._owner._lock:
-            self._assert_attached()
-            if (
-                self._owner.state == CacheState.DIRTY
-                and not self._owner._transaction_is_open()
-            ):
-                self._owner._refresh_dirty()
-            result = cast(
-                Mapping[Any, Any],
-                getattr(self._catalog, method_name)(update),
-            )
-            self._owner._reconcile_catalog_update(update, result)
-            return result
-
-    def _apply_column_update(self, update: Any) -> Mapping[Any, Any]:
-        """
-        Apply a CatalogColumnUpdate for a same-table value through the cache boundary.
-
-        Delegate to _apply for attachment checks, locking and reconciliation.
-        Validation/persistence failures and receipt-bearing refresh failures propagate.
-
-        Example:
-            Writers call this private host seam after normalizing caller input.
-
-
-        :param update: Normalized update consumed by Catalog.
-        :return: Authoritative Catalog receipt after reconciliation or deferred refresh.
-        """
-
-        return self._apply("_apply_column_update", update)
-
-    def _apply_link_update(self, update: Any) -> Mapping[Any, Any]:
-        """
-        Apply a LinkUpdate for a shared relationship through the cache boundary.
-
-        Delegate to _apply for attachment checks, locking and reconciliation.
-        Validation/persistence failures and receipt-bearing refresh failures propagate.
-
-        Example:
-            Writers call this private host seam after normalizing caller input.
-
-
-        :param update: Normalized update consumed by Catalog.
-        :return: Authoritative Catalog receipt after reconciliation or deferred refresh.
-        """
-
-        return self._apply("_apply_link_update", update)
-
-    def _apply_owned_row_update(self, update: Any) -> Mapping[Any, Any]:
-        """
-        Apply a CatalogOwnedRowUpdate for an owned destination through the cache boundary.
-
-        Delegate to _apply for attachment checks, locking and reconciliation.
-        Validation/persistence failures and receipt-bearing refresh failures propagate.
-
-        Example:
-            Writers call this private host seam after normalizing caller input.
-
-
-        :param update: Normalized update consumed by Catalog.
-        :return: Authoritative Catalog receipt after reconciliation or deferred refresh.
-        """
-
-        return self._apply("_apply_owned_row_update", update)
+if TYPE_CHECKING:
+    from LiuXin_alpha.databases.api.database_api.database_api import DatabaseAPI
 
 
 class ReadCache(CacheAPI):
@@ -214,7 +58,7 @@ class ReadCache(CacheAPI):
 
     def __init__(
         self,
-        database: Any,
+        database: DatabaseAPI,
         *,
         storage: StorageCacheAPI | None = None,
         storage_type: str = "schema_backed",
@@ -257,14 +101,16 @@ class ReadCache(CacheAPI):
         self._lock = threading.RLock()
         self._state = CacheState.EMPTY
         self._generation = 0
-        self._pending_query_results: list[tuple[CacheQuery, frozenset[int]]] | None = None
+        self._pending_query_results: list[tuple[CacheQuery, set[int]]] | None = None
         self._full_reload_required = False
         self._dirty_tables: set[str] = set()
         self._dirty_ids: dict[str, set[int]] = {}
         self._dirty_links: set[tuple[str, str]] = set()
         self._dirty_fields: set[str] = set()
         self._query_engine = CacheQueryEngine(
-            self.storage, plan_cache_size=plan_cache_size, result_cache_size=result_cache_size,
+            self.storage,
+            plan_cache_size=plan_cache_size,
+            result_cache_size=result_cache_size,
         )
 
     @classmethod
@@ -407,7 +253,10 @@ class ReadCache(CacheAPI):
         self._query_engine.reset()
 
     def _run_full_refresh(
-        self, operation: Any, *, final_state: CacheState = CacheState.READY
+        self,
+        operation: Callable[[], object],
+        *,
+        final_state: CacheState = CacheState.READY,
     ) -> None:
         """Publish a complete lifecycle operation, or require recovery after failure."""
         self._pending_query_results = None
@@ -643,7 +492,9 @@ class ReadCache(CacheAPI):
         self._advance_generation()
         if saved:
             try:
-                self._query_engine.repair_results(saved, changes, generation=self._generation)
+                self._query_engine.repair_results(
+                    saved, changes, generation=self._generation
+                )
             except Exception:
                 # Derived optimization failures cannot poison successfully refreshed data.
                 self._query_engine.reset()
@@ -922,7 +773,7 @@ class ReadCache(CacheAPI):
 
     @staticmethod
     def _update_dependencies(
-        update: Any,
+        update: object,
     ) -> tuple[set[str], set[tuple[str, str]], set[str]]:
         """
         Derive storage refresh dependencies from a normalized Catalog update.
@@ -1003,8 +854,8 @@ class ReadCache(CacheAPI):
 
     def _reconcile_catalog_update(
         self,
-        update: Any,
-        result: Mapping[Any, Any],
+        update: object,
+        result: Mapping[int, object],
     ) -> None:
         """
         Reconcile a nonempty Catalog receipt or retain dependencies for recovery.
@@ -1072,7 +923,7 @@ class ReadCache(CacheAPI):
         *,
         force_refresh: bool = False,
         destination_owned: bool | None = None,
-    ) -> Any:
+    ) -> CacheWriter:
         """
         Bind a schema-resolved Catalog writer to this cache for reconciliation.
 
@@ -1108,7 +959,7 @@ class ReadCache(CacheAPI):
         force_refresh: bool = False,
         destination_owned: bool | None = None,
         **kwargs: Any,
-    ) -> Mapping[Any, Any]:
+    ) -> Mapping[int, object]:
         """
         Resolve a Catalog writer and apply its bulk-write operation.
 
@@ -1138,19 +989,19 @@ class ReadCache(CacheAPI):
             force_refresh=force_refresh,
             destination_owned=destination_owned,
         )
-        return cast(Mapping[Any, Any], writer.write(*args, **kwargs))
+        return writer.write(*args, **kwargs)
 
     def write_one(
         self,
         src_table: str,
         dst_column: str,
-        src_id: Any,
+        src_id: int,
         dst_value: Any,
         *,
         force_refresh: bool = False,
         destination_owned: bool | None = None,
         **kwargs: Any,
-    ) -> Mapping[Any, Any]:
+    ) -> Mapping[int, object]:
         """
         Resolve a Catalog writer and apply one source-row update.
 
@@ -1181,14 +1032,11 @@ class ReadCache(CacheAPI):
             force_refresh=force_refresh,
             destination_owned=destination_owned,
         )
-        return cast(
-            Mapping[Any, Any],
-            writer.write_one(src_id, dst_value, **kwargs),
-        )
+        return writer.write_one(src_id, dst_value, **kwargs)
 
 
 def create_read_cache(
-    database: Any,
+    database: DatabaseAPI,
     storage_type: str = "schema_backed",
     *,
     load: bool = True,

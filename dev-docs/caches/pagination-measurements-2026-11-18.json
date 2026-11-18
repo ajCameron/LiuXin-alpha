@@ -1,0 +1,1146 @@
+{
+  "schema_version": 1,
+  "date": "2026-11-18",
+  "baseline_ref": "c1d2cb74",
+  "method": "Identical benchmark; saved baseline query/projection modules imported in isolated processes; warm membership; one scale per fresh subprocess; five untraced samples; separate allocation sample; no concurrent test suite.",
+  "before": {
+    "schema_version": 1,
+    "python": "3.12.3",
+    "platform": "Linux-6.18.33.1-microsoft-standard-WSL2-x86_64-with-glibc2.39",
+    "source_sha256": {
+      "scripts/benchmark_cache_paging.py": "0048188ccd374fb195f338b925d3e2066fa0bd6aa4987bebec4647a77769e530",
+      "src/LiuXin_alpha/caches/query.py": "f1510e814f9b24cab4195a27023b047f3fad25fabef7b4da2a2bb8f6f5854723",
+      "src/LiuXin_alpha/caches/projection.py": "661d6e3d8f458a9cc6faaf658b464f56afd109befe645f54a8d3a3e2cbaa6a4b"
+    },
+    "runs": [
+      {
+        "records": 1000,
+        "repeats": 5,
+        "cases": {
+          "count_only": {
+            "page_size": 0,
+            "total_count": 1000,
+            "median_seconds": 0.005981435999274254,
+            "p95_seconds": 0.0089858120190911,
+            "samples_seconds": [
+              0.0089858120190911,
+              0.004778952046763152,
+              0.007576252974104136,
+              0.005981435999274254,
+              0.005717710999306291
+            ],
+            "retained_traced_bytes": 652,
+            "peak_traced_bytes": 143844
+          },
+          "past_end": {
+            "page_size": 0,
+            "total_count": 1000,
+            "median_seconds": 0.006221419025678188,
+            "p95_seconds": 0.010073986952193081,
+            "samples_seconds": [
+              0.010073986952193081,
+              0.005311535962391645,
+              0.007249643967952579,
+              0.005949810962192714,
+              0.006221419025678188
+            ],
+            "retained_traced_bytes": 652,
+            "peak_traced_bytes": 143788
+          },
+          "default_first": {
+            "page_size": 20,
+            "total_count": 1000,
+            "median_seconds": 0.0001928670099005103,
+            "p95_seconds": 0.0002667499938979745,
+            "samples_seconds": [
+              0.0002667499938979745,
+              0.0001918590278364718,
+              0.0001928670099005103,
+              0.00017068401211872697,
+              0.0002007500152103603
+            ],
+            "retained_traced_bytes": 6172,
+            "peak_traced_bytes": 48802
+          },
+          "id_descending": {
+            "page_size": 20,
+            "total_count": 1000,
+            "median_seconds": 0.0022355669643729925,
+            "p95_seconds": 0.00726449501235038,
+            "samples_seconds": [
+              0.0020467350259423256,
+              0.001994849997572601,
+              0.00726449501235038,
+              0.003181659965775907,
+              0.0022355669643729925
+            ],
+            "retained_traced_bytes": 6332,
+            "peak_traced_bytes": 104048
+          },
+          "numeric_ascending": {
+            "page_size": 20,
+            "total_count": 1000,
+            "median_seconds": 0.0025836260174401104,
+            "p95_seconds": 0.004574077029246837,
+            "samples_seconds": [
+              0.0023830599966458976,
+              0.002475826011504978,
+              0.004574077029246837,
+              0.0037504510255530477,
+              0.0025836260174401104
+            ],
+            "retained_traced_bytes": 6332,
+            "peak_traced_bytes": 103664
+          },
+          "numeric_descending": {
+            "page_size": 20,
+            "total_count": 1000,
+            "median_seconds": 0.0024055169778876007,
+            "p95_seconds": 0.005405861011240631,
+            "samples_seconds": [
+              0.0022698509856127203,
+              0.0022187919821590185,
+              0.0024055169778876007,
+              0.005405861011240631,
+              0.00396742596058175
+            ],
+            "retained_traced_bytes": 6332,
+            "peak_traced_bytes": 103664
+          },
+          "text_descending": {
+            "page_size": 20,
+            "total_count": 1000,
+            "median_seconds": 0.0030462680151686072,
+            "p95_seconds": 0.003990710014477372,
+            "samples_seconds": [
+              0.002655126038007438,
+              0.0030462680151686072,
+              0.003990710014477372,
+              0.00360442599048838,
+              0.0027435849769972265
+            ],
+            "retained_traced_bytes": 6332,
+            "peak_traced_bytes": 143684
+          },
+          "multi_first": {
+            "page_size": 20,
+            "total_count": 1000,
+            "median_seconds": 0.006232785992324352,
+            "p95_seconds": 0.00788856198778376,
+            "samples_seconds": [
+              0.00788856198778376,
+              0.006232785992324352,
+              0.007253036019392312,
+              0.006050644034985453,
+              0.004855219041928649
+            ],
+            "retained_traced_bytes": 6452,
+            "peak_traced_bytes": 143804
+          },
+          "multi_middle": {
+            "page_size": 20,
+            "total_count": 1000,
+            "median_seconds": 0.007993887003976852,
+            "p95_seconds": 0.009505836991593242,
+            "samples_seconds": [
+              0.007423078001011163,
+              0.006779027986340225,
+              0.007993887003976852,
+              0.008562311995774508,
+              0.009505836991593242
+            ],
+            "retained_traced_bytes": 6452,
+            "peak_traced_bytes": 143804
+          },
+          "multi_tail": {
+            "page_size": 20,
+            "total_count": 1000,
+            "median_seconds": 0.00555078499019146,
+            "p95_seconds": 0.007933661981951445,
+            "samples_seconds": [
+              0.00555078499019146,
+              0.0047563110128976405,
+              0.007933661981951445,
+              0.005465718975756317,
+              0.007657653011847287
+            ],
+            "retained_traced_bytes": 6452,
+            "peak_traced_bytes": 143804
+          },
+          "multi_unlimited_tail": {
+            "page_size": 25,
+            "total_count": 1000,
+            "median_seconds": 0.00982227100757882,
+            "p95_seconds": 0.011492253979668021,
+            "samples_seconds": [
+              0.011492253979668021,
+              0.01074077095836401,
+              0.008707878005225211,
+              0.006713852984830737,
+              0.00982227100757882
+            ],
+            "retained_traced_bytes": 7892,
+            "peak_traced_bytes": 143804
+          },
+          "multi_full": {
+            "page_size": 1000,
+            "total_count": 1000,
+            "median_seconds": 0.011345037957653403,
+            "p95_seconds": 0.012772288988344371,
+            "samples_seconds": [
+              0.010636179009452462,
+              0.010268961952533573,
+              0.011345037957653403,
+              0.012772288988344371,
+              0.01255952997598797
+            ],
+            "retained_traced_bytes": 288692,
+            "peak_traced_bytes": 338458
+          }
+        }
+      },
+      {
+        "records": 10000,
+        "repeats": 5,
+        "cases": {
+          "count_only": {
+            "page_size": 0,
+            "total_count": 10000,
+            "median_seconds": 0.07275163003941998,
+            "p95_seconds": 0.0914741390151903,
+            "samples_seconds": [
+              0.0914741390151903,
+              0.07275163003941998,
+              0.0726588309626095,
+              0.07467723096488044,
+              0.07238983100978658
+            ],
+            "retained_traced_bytes": 108116,
+            "peak_traced_bytes": 2368960
+          },
+          "past_end": {
+            "page_size": 0,
+            "total_count": 10000,
+            "median_seconds": 0.06610942800762132,
+            "p95_seconds": 0.07091423001838848,
+            "samples_seconds": [
+              0.06610942800762132,
+              0.06982643000083044,
+              0.07091423001838848,
+              0.06197512603830546,
+              0.06006152497138828
+            ],
+            "retained_traced_bytes": 108116,
+            "peak_traced_bytes": 2368904
+          },
+          "default_first": {
+            "page_size": 20,
+            "total_count": 10000,
+            "median_seconds": 0.0009456000407226384,
+            "p95_seconds": 0.0010832009720616043,
+            "samples_seconds": [
+              0.0009990999824367464,
+              0.0009274010080844164,
+              0.0009456000407226384,
+              0.0009188000112771988,
+              0.0010832009720616043
+            ],
+            "retained_traced_bytes": 6172,
+            "peak_traced_bytes": 616642
+          },
+          "id_descending": {
+            "page_size": 20,
+            "total_count": 10000,
+            "median_seconds": 0.03304411395220086,
+            "p95_seconds": 0.03839751600753516,
+            "samples_seconds": [
+              0.02919101301813498,
+              0.02952821203507483,
+              0.03839751600753516,
+              0.036647116008680314,
+              0.03304411395220086
+            ],
+            "retained_traced_bytes": 8124,
+            "peak_traced_bytes": 1520536
+          },
+          "numeric_ascending": {
+            "page_size": 20,
+            "total_count": 10000,
+            "median_seconds": 0.03045481297885999,
+            "p95_seconds": 0.038924816995859146,
+            "samples_seconds": [
+              0.038924816995859146,
+              0.03229571302654222,
+              0.030119813047349453,
+              0.03045481297885999,
+              0.029579311958514154
+            ],
+            "retained_traced_bytes": 95596,
+            "peak_traced_bytes": 1553208
+          },
+          "numeric_descending": {
+            "page_size": 20,
+            "total_count": 10000,
+            "median_seconds": 0.03099891298916191,
+            "p95_seconds": 0.0322336140088737,
+            "samples_seconds": [
+              0.028251611976884305,
+              0.03016911295708269,
+              0.03099891298916191,
+              0.03172501304652542,
+              0.0322336140088737
+            ],
+            "retained_traced_bytes": 95652,
+            "peak_traced_bytes": 1553128
+          },
+          "text_descending": {
+            "page_size": 20,
+            "total_count": 10000,
+            "median_seconds": 0.03746801597299054,
+            "p95_seconds": 0.04118331696372479,
+            "samples_seconds": [
+              0.04118331696372479,
+              0.03651711600832641,
+              0.03746801597299054,
+              0.034110114036593586,
+              0.03995281702373177
+            ],
+            "retained_traced_bytes": 120580,
+            "peak_traced_bytes": 2370936
+          },
+          "multi_first": {
+            "page_size": 20,
+            "total_count": 10000,
+            "median_seconds": 0.07568544003879651,
+            "p95_seconds": 0.07835789199452847,
+            "samples_seconds": [
+              0.07568544003879651,
+              0.07662548200460151,
+              0.07835789199452847,
+              0.07280765497125685,
+              0.06951874599326402
+            ],
+            "retained_traced_bytes": 113916,
+            "peak_traced_bytes": 2368920
+          },
+          "multi_middle": {
+            "page_size": 20,
+            "total_count": 10000,
+            "median_seconds": 0.07581533200573176,
+            "p95_seconds": 0.08906804595608264,
+            "samples_seconds": [
+              0.07526340603362769,
+              0.07685602398123592,
+              0.07581533200573176,
+              0.08906804595608264,
+              0.0707696300232783
+            ],
+            "retained_traced_bytes": 113916,
+            "peak_traced_bytes": 2368920
+          },
+          "multi_tail": {
+            "page_size": 20,
+            "total_count": 10000,
+            "median_seconds": 0.07587060699006543,
+            "p95_seconds": 0.08122586697572842,
+            "samples_seconds": [
+              0.08122586697572842,
+              0.06539631099440157,
+              0.07219761400483549,
+              0.07587060699006543,
+              0.07683824101695791
+            ],
+            "retained_traced_bytes": 113916,
+            "peak_traced_bytes": 2368920
+          },
+          "multi_unlimited_tail": {
+            "page_size": 25,
+            "total_count": 10000,
+            "median_seconds": 0.0735925059998408,
+            "p95_seconds": 0.09532145701814443,
+            "samples_seconds": [
+              0.06771135301096365,
+              0.06990952102933079,
+              0.09532145701814443,
+              0.07978917501168326,
+              0.0735925059998408
+            ],
+            "retained_traced_bytes": 115356,
+            "peak_traced_bytes": 2368920
+          },
+          "multi_full": {
+            "page_size": 10000,
+            "total_count": 10000,
+            "median_seconds": 0.13983150897547603,
+            "p95_seconds": 0.1579642829601653,
+            "samples_seconds": [
+              0.11559813201893121,
+              0.14242420997470617,
+              0.12496225297218189,
+              0.13983150897547603,
+              0.1579642829601653
+            ],
+            "retained_traced_bytes": 2992620,
+            "peak_traced_bytes": 3697370
+          }
+        }
+      },
+      {
+        "records": 100000,
+        "repeats": 5,
+        "cases": {
+          "count_only": {
+            "page_size": 0,
+            "total_count": 100000,
+            "median_seconds": 0.9981542659807019,
+            "p95_seconds": 1.1246169490041211,
+            "samples_seconds": [
+              0.9981542659807019,
+              0.966804558003787,
+              1.1246169490041211,
+              0.935491893964354,
+              1.0675758500001393
+            ],
+            "retained_traced_bytes": 121932,
+            "peak_traced_bytes": 25894680
+          },
+          "past_end": {
+            "page_size": 0,
+            "total_count": 100000,
+            "median_seconds": 0.9973704449948855,
+            "p95_seconds": 1.4238923990051262,
+            "samples_seconds": [
+              1.0735085880151019,
+              1.4238923990051262,
+              0.9728283089934848,
+              0.8682491660001688,
+              0.9973704449948855
+            ],
+            "retained_traced_bytes": 121932,
+            "peak_traced_bytes": 25894624
+          },
+          "default_first": {
+            "page_size": 20,
+            "total_count": 100000,
+            "median_seconds": 0.010993221017997712,
+            "p95_seconds": 0.016305031953379512,
+            "samples_seconds": [
+              0.016305031953379512,
+              0.010993221017997712,
+              0.009611529007088393,
+              0.01286083902232349,
+              0.009853804018348455
+            ],
+            "retained_traced_bytes": 6172,
+            "peak_traced_bytes": 5002466
+          },
+          "id_descending": {
+            "page_size": 20,
+            "total_count": 100000,
+            "median_seconds": 0.28159617696655914,
+            "p95_seconds": 0.30510153697105125,
+            "samples_seconds": [
+              0.28159617696655914,
+              0.2909709310042672,
+              0.30510153697105125,
+              0.2693054139963351,
+              0.27543956600129604
+            ],
+            "retained_traced_bytes": 8124,
+            "peak_traced_bytes": 17330136
+          },
+          "numeric_ascending": {
+            "page_size": 20,
+            "total_count": 100000,
+            "median_seconds": 0.40799631300615147,
+            "p95_seconds": 0.48278385295998305,
+            "samples_seconds": [
+              0.38778416300192475,
+              0.4697321980493143,
+              0.48278385295998305,
+              0.40799631300615147,
+              0.40086766902823
+            ],
+            "retained_traced_bytes": 115364,
+            "peak_traced_bytes": 17752840
+          },
+          "numeric_descending": {
+            "page_size": 20,
+            "total_count": 100000,
+            "median_seconds": 0.3618962109903805,
+            "p95_seconds": 0.6634629209875129,
+            "samples_seconds": [
+              0.3596679759793915,
+              0.37441962503362447,
+              0.3618962109903805,
+              0.3414126440184191,
+              0.6634629209875129
+            ],
+            "retained_traced_bytes": 115532,
+            "peak_traced_bytes": 17752824
+          },
+          "text_descending": {
+            "page_size": 20,
+            "total_count": 100000,
+            "median_seconds": 0.41770517599070445,
+            "p95_seconds": 0.42502647900255397,
+            "samples_seconds": [
+              0.42502647900255397,
+              0.41770517599070445,
+              0.4134072420420125,
+              0.35869469499448314,
+              0.4246810969780199
+            ],
+            "retained_traced_bytes": 123612,
+            "peak_traced_bytes": 25894296
+          },
+          "multi_first": {
+            "page_size": 20,
+            "total_count": 100000,
+            "median_seconds": 0.8030788379837759,
+            "p95_seconds": 0.8790950700058602,
+            "samples_seconds": [
+              0.8030788379837759,
+              0.829751949000638,
+              0.780934029025957,
+              0.8790950700058602,
+              0.7535354309948161
+            ],
+            "retained_traced_bytes": 123236,
+            "peak_traced_bytes": 25894640
+          },
+          "multi_middle": {
+            "page_size": 20,
+            "total_count": 100000,
+            "median_seconds": 0.7873405319987796,
+            "p95_seconds": 0.8604119519586675,
+            "samples_seconds": [
+              0.7797045329934917,
+              0.8604119519586675,
+              0.8312947499798611,
+              0.7669547219993547,
+              0.7873405319987796
+            ],
+            "retained_traced_bytes": 127796,
+            "peak_traced_bytes": 25894640
+          },
+          "multi_tail": {
+            "page_size": 20,
+            "total_count": 100000,
+            "median_seconds": 0.7246111059794202,
+            "p95_seconds": 0.8237111460184678,
+            "samples_seconds": [
+              0.7214271450066008,
+              0.6963131260126829,
+              0.8237111460184678,
+              0.7467285890015773,
+              0.7246111059794202
+            ],
+            "retained_traced_bytes": 127796,
+            "peak_traced_bytes": 25894640
+          },
+          "multi_unlimited_tail": {
+            "page_size": 25,
+            "total_count": 100000,
+            "median_seconds": 0.686427447013557,
+            "p95_seconds": 0.9848190150223672,
+            "samples_seconds": [
+              0.6726522999815643,
+              0.6603872940177098,
+              0.686427447013557,
+              0.9010644789668731,
+              0.9848190150223672
+            ],
+            "retained_traced_bytes": 129236,
+            "peak_traced_bytes": 25894640
+          },
+          "multi_full": {
+            "page_size": 100000,
+            "total_count": 100000,
+            "median_seconds": 1.910951028985437,
+            "p95_seconds": 1.9658940639928915,
+            "samples_seconds": [
+              1.606676850002259,
+              1.6229646829888225,
+              1.910951028985437,
+              1.960005788016133,
+              1.9658940639928915
+            ],
+            "retained_traced_bytes": 28810788,
+            "peak_traced_bytes": 34734370
+          }
+        }
+      }
+    ]
+  },
+  "after": {
+    "schema_version": 1,
+    "python": "3.12.3",
+    "platform": "Linux-6.18.33.1-microsoft-standard-WSL2-x86_64-with-glibc2.39",
+    "source_sha256": {
+      "scripts/benchmark_cache_paging.py": "0048188ccd374fb195f338b925d3e2066fa0bd6aa4987bebec4647a77769e530",
+      "src/LiuXin_alpha/caches/query.py": "8ce08f6df50afb7541b557a2361cd69a923f4b380df351931c797c0664de4fb9",
+      "src/LiuXin_alpha/caches/projection.py": "c1086d046f0209c62f3c2981d603070ca3c4325f1a8c53096f89cd5d1a47cd3a"
+    },
+    "runs": [
+      {
+        "records": 1000,
+        "repeats": 5,
+        "cases": {
+          "count_only": {
+            "page_size": 0,
+            "total_count": 1000,
+            "median_seconds": 2.1724961698055267e-05,
+            "p95_seconds": 3.47419991157949e-05,
+            "samples_seconds": [
+              3.47419991157949e-05,
+              2.3558037355542183e-05,
+              2.1724961698055267e-05,
+              2.0899984519928694e-05,
+              2.0350038539618254e-05
+            ],
+            "retained_traced_bytes": 652,
+            "peak_traced_bytes": 2264
+          },
+          "past_end": {
+            "page_size": 0,
+            "total_count": 1000,
+            "median_seconds": 2.1724961698055267e-05,
+            "p95_seconds": 2.4657987523823977e-05,
+            "samples_seconds": [
+              2.4657987523823977e-05,
+              2.1724961698055267e-05,
+              2.0900042727589607e-05,
+              2.3742031771689653e-05,
+              2.034998033195734e-05
+            ],
+            "retained_traced_bytes": 652,
+            "peak_traced_bytes": 2208
+          },
+          "default_first": {
+            "page_size": 20,
+            "total_count": 1000,
+            "median_seconds": 0.00011394196189939976,
+            "p95_seconds": 0.0001338329748250544,
+            "samples_seconds": [
+              0.0001338329748250544,
+              0.00011394196189939976,
+              0.00012778298696503043,
+              0.00011229200754314661,
+              0.00010789098450914025
+            ],
+            "retained_traced_bytes": 6172,
+            "peak_traced_bytes": 7018
+          },
+          "id_descending": {
+            "page_size": 20,
+            "total_count": 1000,
+            "median_seconds": 0.0021574669517576694,
+            "p95_seconds": 0.002483709016814828,
+            "samples_seconds": [
+              0.00232925103046,
+              0.002483709016814828,
+              0.0021574669517576694,
+              0.0021266679977998137,
+              0.0018209590343758464
+            ],
+            "retained_traced_bytes": 6380,
+            "peak_traced_bytes": 7186
+          },
+          "numeric_ascending": {
+            "page_size": 20,
+            "total_count": 1000,
+            "median_seconds": 0.0013997500063851476,
+            "p95_seconds": 0.001719667052384466,
+            "samples_seconds": [
+              0.001719667052384466,
+              0.0013319170102477074,
+              0.0013997500063851476,
+              0.0014313759747892618,
+              0.0013026759843342006
+            ],
+            "retained_traced_bytes": 6380,
+            "peak_traced_bytes": 7186
+          },
+          "numeric_descending": {
+            "page_size": 20,
+            "total_count": 1000,
+            "median_seconds": 0.0013096420443616807,
+            "p95_seconds": 0.001630293030757457,
+            "samples_seconds": [
+              0.001630293030757457,
+              0.0012923169997520745,
+              0.0013096420443616807,
+              0.0012896580155938864,
+              0.0013838009908795357
+            ],
+            "retained_traced_bytes": 6380,
+            "peak_traced_bytes": 7186
+          },
+          "text_descending": {
+            "page_size": 20,
+            "total_count": 1000,
+            "median_seconds": 0.001602976000867784,
+            "p95_seconds": 0.0016300170100294054,
+            "samples_seconds": [
+              0.001602976000867784,
+              0.001541467965580523,
+              0.0016252509667538106,
+              0.0015452249790541828,
+              0.0016300170100294054
+            ],
+            "retained_traced_bytes": 6380,
+            "peak_traced_bytes": 7186
+          },
+          "multi_first": {
+            "page_size": 20,
+            "total_count": 1000,
+            "median_seconds": 0.00335289299255237,
+            "p95_seconds": 0.008223053009714931,
+            "samples_seconds": [
+              0.002714433998335153,
+              0.0026629180065356195,
+              0.003889602026902139,
+              0.00335289299255237,
+              0.008223053009714931
+            ],
+            "retained_traced_bytes": 6508,
+            "peak_traced_bytes": 7314
+          },
+          "multi_middle": {
+            "page_size": 20,
+            "total_count": 1000,
+            "median_seconds": 0.0031045679934322834,
+            "p95_seconds": 0.003643842996098101,
+            "samples_seconds": [
+              0.003643842996098101,
+              0.00324903498403728,
+              0.002959734993055463,
+              0.002639358979649842,
+              0.0031045679934322834
+            ],
+            "retained_traced_bytes": 6452,
+            "peak_traced_bytes": 111151
+          },
+          "multi_tail": {
+            "page_size": 20,
+            "total_count": 1000,
+            "median_seconds": 0.0030270180432125926,
+            "p95_seconds": 0.003352710045874119,
+            "samples_seconds": [
+              0.003352710045874119,
+              0.003193026001099497,
+              0.0030092340311966836,
+              0.0030270180432125926,
+              0.0028804419562220573
+            ],
+            "retained_traced_bytes": 6508,
+            "peak_traced_bytes": 7314
+          },
+          "multi_unlimited_tail": {
+            "page_size": 25,
+            "total_count": 1000,
+            "median_seconds": 0.0035826090024784207,
+            "p95_seconds": 0.005356452951673418,
+            "samples_seconds": [
+              0.0034266840084455907,
+              0.003655667998827994,
+              0.005356452951673418,
+              0.0035826090024784207,
+              0.002944701991509646
+            ],
+            "retained_traced_bytes": 7948,
+            "peak_traced_bytes": 8754
+          },
+          "multi_full": {
+            "page_size": 1000,
+            "total_count": 1000,
+            "median_seconds": 0.007718886015936732,
+            "p95_seconds": 0.007946035999339074,
+            "samples_seconds": [
+              0.007946035999339074,
+              0.007234519987832755,
+              0.006913319986779243,
+              0.007746019982732832,
+              0.007718886015936732
+            ],
+            "retained_traced_bytes": 288692,
+            "peak_traced_bytes": 297474
+          }
+        }
+      },
+      {
+        "records": 10000,
+        "repeats": 5,
+        "cases": {
+          "count_only": {
+            "page_size": 0,
+            "total_count": 10000,
+            "median_seconds": 2.5699962861835957e-05,
+            "p95_seconds": 4.899996565654874e-05,
+            "samples_seconds": [
+              3.3400021493434906e-05,
+              2.5699962861835957e-05,
+              2.3800006601959467e-05,
+              2.2899999748915434e-05,
+              4.899996565654874e-05
+            ],
+            "retained_traced_bytes": 652,
+            "peak_traced_bytes": 2264
+          },
+          "past_end": {
+            "page_size": 0,
+            "total_count": 10000,
+            "median_seconds": 2.5500019546598196e-05,
+            "p95_seconds": 3.1299947295337915e-05,
+            "samples_seconds": [
+              3.1299947295337915e-05,
+              2.5500019546598196e-05,
+              2.4300010409206152e-05,
+              2.6100024115294218e-05,
+              2.340000355616212e-05
+            ],
+            "retained_traced_bytes": 652,
+            "peak_traced_bytes": 2208
+          },
+          "default_first": {
+            "page_size": 20,
+            "total_count": 10000,
+            "median_seconds": 0.00029609998455271125,
+            "p95_seconds": 0.00030100002186372876,
+            "samples_seconds": [
+              0.000298099999781698,
+              0.00030100002186372876,
+              0.00029609998455271125,
+              0.0002775000175461173,
+              0.0002747999969869852
+            ],
+            "retained_traced_bytes": 6172,
+            "peak_traced_bytes": 7018
+          },
+          "id_descending": {
+            "page_size": 20,
+            "total_count": 10000,
+            "median_seconds": 0.022193409968167543,
+            "p95_seconds": 0.027698210964445025,
+            "samples_seconds": [
+              0.022193409968167543,
+              0.027698210964445025,
+              0.02207080996595323,
+              0.022329109022393823,
+              0.02148780896095559
+            ],
+            "retained_traced_bytes": 6380,
+            "peak_traced_bytes": 7186
+          },
+          "numeric_ascending": {
+            "page_size": 20,
+            "total_count": 10000,
+            "median_seconds": 0.016316107008606195,
+            "p95_seconds": 0.019066507986281067,
+            "samples_seconds": [
+              0.016579005983658135,
+              0.016111106029711664,
+              0.016316107008606195,
+              0.019066507986281067,
+              0.015645007020793855
+            ],
+            "retained_traced_bytes": 6380,
+            "peak_traced_bytes": 7186
+          },
+          "numeric_descending": {
+            "page_size": 20,
+            "total_count": 10000,
+            "median_seconds": 0.016515107010491192,
+            "p95_seconds": 0.016762307030148804,
+            "samples_seconds": [
+              0.016762307030148804,
+              0.01631410699337721,
+              0.01660440699197352,
+              0.016006606980226934,
+              0.016515107010491192
+            ],
+            "retained_traced_bytes": 6380,
+            "peak_traced_bytes": 7186
+          },
+          "text_descending": {
+            "page_size": 20,
+            "total_count": 10000,
+            "median_seconds": 0.022106310003437102,
+            "p95_seconds": 0.02322501002345234,
+            "samples_seconds": [
+              0.02322501002345234,
+              0.019681808014865965,
+              0.022106310003437102,
+              0.022272709000390023,
+              0.02087310899514705
+            ],
+            "retained_traced_bytes": 6380,
+            "peak_traced_bytes": 7186
+          },
+          "multi_first": {
+            "page_size": 20,
+            "total_count": 10000,
+            "median_seconds": 0.03664571599802002,
+            "p95_seconds": 0.04178201803006232,
+            "samples_seconds": [
+              0.03957081597764045,
+              0.03664571599802002,
+              0.03321711398893967,
+              0.03438961401116103,
+              0.04178201803006232
+            ],
+            "retained_traced_bytes": 6508,
+            "peak_traced_bytes": 7314
+          },
+          "multi_middle": {
+            "page_size": 20,
+            "total_count": 10000,
+            "median_seconds": 0.04716332000680268,
+            "p95_seconds": 0.05693152401363477,
+            "samples_seconds": [
+              0.04945432103704661,
+              0.04716332000680268,
+              0.04515801899833605,
+              0.04427211795700714,
+              0.05693152401363477
+            ],
+            "retained_traced_bytes": 113916,
+            "peak_traced_bytes": 1844747
+          },
+          "multi_tail": {
+            "page_size": 20,
+            "total_count": 10000,
+            "median_seconds": 0.04241571802413091,
+            "p95_seconds": 0.04673901997739449,
+            "samples_seconds": [
+              0.0410140180028975,
+              0.04591341898776591,
+              0.04673901997739449,
+              0.04241571802413091,
+              0.04071401699911803
+            ],
+            "retained_traced_bytes": 6508,
+            "peak_traced_bytes": 7314
+          },
+          "multi_unlimited_tail": {
+            "page_size": 25,
+            "total_count": 10000,
+            "median_seconds": 0.03598211501957849,
+            "p95_seconds": 0.04063541698269546,
+            "samples_seconds": [
+              0.0367430149926804,
+              0.04063541698269546,
+              0.03387751500122249,
+              0.033859813993331045,
+              0.03598211501957849
+            ],
+            "retained_traced_bytes": 7948,
+            "peak_traced_bytes": 8754
+          },
+          "multi_full": {
+            "page_size": 10000,
+            "total_count": 10000,
+            "median_seconds": 0.10592954501044005,
+            "p95_seconds": 0.11780794902006164,
+            "samples_seconds": [
+              0.1065998449921608,
+              0.11780794902006164,
+              0.10592954501044005,
+              0.08423789404332638,
+              0.08868057100335136
+            ],
+            "retained_traced_bytes": 2992732,
+            "peak_traced_bytes": 3092978
+          }
+        }
+      },
+      {
+        "records": 100000,
+        "repeats": 5,
+        "cases": {
+          "count_only": {
+            "page_size": 0,
+            "total_count": 100000,
+            "median_seconds": 2.8099981136620045e-05,
+            "p95_seconds": 4.0499959141016006e-05,
+            "samples_seconds": [
+              4.0499959141016006e-05,
+              3.0099996365606785e-05,
+              2.8099981136620045e-05,
+              2.659996971487999e-05,
+              2.6200024876743555e-05
+            ],
+            "retained_traced_bytes": 652,
+            "peak_traced_bytes": 2264
+          },
+          "past_end": {
+            "page_size": 0,
+            "total_count": 100000,
+            "median_seconds": 2.8799986466765404e-05,
+            "p95_seconds": 4.75000124424696e-05,
+            "samples_seconds": [
+              4.75000124424696e-05,
+              3.100000321865082e-05,
+              2.8799986466765404e-05,
+              2.8199981898069382e-05,
+              2.7699978090822697e-05
+            ],
+            "retained_traced_bytes": 652,
+            "peak_traced_bytes": 2208
+          },
+          "default_first": {
+            "page_size": 20,
+            "total_count": 100000,
+            "median_seconds": 0.003057500987779349,
+            "p95_seconds": 0.004469502018764615,
+            "samples_seconds": [
+              0.004469502018764615,
+              0.003057500987779349,
+              0.003608601982705295,
+              0.0026235010009258986,
+              0.002263101050630212
+            ],
+            "retained_traced_bytes": 6172,
+            "peak_traced_bytes": 7018
+          },
+          "id_descending": {
+            "page_size": 20,
+            "total_count": 100000,
+            "median_seconds": 0.33211014000698924,
+            "p95_seconds": 0.352170247992035,
+            "samples_seconds": [
+              0.33211014000698924,
+              0.31312763202004135,
+              0.349517647002358,
+              0.352170247992035,
+              0.25284820602973923
+            ],
+            "retained_traced_bytes": 6380,
+            "peak_traced_bytes": 7186
+          },
+          "numeric_ascending": {
+            "page_size": 20,
+            "total_count": 100000,
+            "median_seconds": 0.21471037704031914,
+            "p95_seconds": 0.29146877204766497,
+            "samples_seconds": [
+              0.25173890602309257,
+              0.29146877204766497,
+              0.19413308304501697,
+              0.19779436598764732,
+              0.21471037704031914
+            ],
+            "retained_traced_bytes": 6380,
+            "peak_traced_bytes": 7186
+          },
+          "numeric_descending": {
+            "page_size": 20,
+            "total_count": 100000,
+            "median_seconds": 0.20869073196081445,
+            "p95_seconds": 0.23813341796630993,
+            "samples_seconds": [
+              0.19754726701648906,
+              0.20869073196081445,
+              0.20859222003491595,
+              0.2332772230147384,
+              0.23813341796630993
+            ],
+            "retained_traced_bytes": 6380,
+            "peak_traced_bytes": 7186
+          },
+          "text_descending": {
+            "page_size": 20,
+            "total_count": 100000,
+            "median_seconds": 0.2554293080465868,
+            "p95_seconds": 0.29076232202351093,
+            "samples_seconds": [
+              0.2560972620267421,
+              0.24504890298703685,
+              0.2554293080465868,
+              0.22038509300909936,
+              0.29076232202351093
+            ],
+            "retained_traced_bytes": 6380,
+            "peak_traced_bytes": 7186
+          },
+          "multi_first": {
+            "page_size": 20,
+            "total_count": 100000,
+            "median_seconds": 0.35881535103544593,
+            "p95_seconds": 0.3981827510287985,
+            "samples_seconds": [
+              0.35881535103544593,
+              0.3771138829761185,
+              0.3298449469730258,
+              0.32726920396089554,
+              0.3981827510287985
+            ],
+            "retained_traced_bytes": 6508,
+            "peak_traced_bytes": 7314
+          },
+          "multi_middle": {
+            "page_size": 20,
+            "total_count": 100000,
+            "median_seconds": 0.5053684120066464,
+            "p95_seconds": 0.6498644740204327,
+            "samples_seconds": [
+              0.45619833399541676,
+              0.5027411199989729,
+              0.5053684120066464,
+              0.5723809410119429,
+              0.6498644740204327
+            ],
+            "retained_traced_bytes": 127796,
+            "peak_traced_bytes": 21700451
+          },
+          "multi_tail": {
+            "page_size": 20,
+            "total_count": 100000,
+            "median_seconds": 0.3225738519686274,
+            "p95_seconds": 0.34077409299788997,
+            "samples_seconds": [
+              0.31878178397892043,
+              0.3225738519686274,
+              0.32161822699708864,
+              0.32670591201167554,
+              0.34077409299788997
+            ],
+            "retained_traced_bytes": 6508,
+            "peak_traced_bytes": 7314
+          },
+          "multi_unlimited_tail": {
+            "page_size": 25,
+            "total_count": 100000,
+            "median_seconds": 0.35240464902017266,
+            "p95_seconds": 0.352525249007158,
+            "samples_seconds": [
+              0.3513330479618162,
+              0.35240464902017266,
+              0.3473613460082561,
+              0.352525249007158,
+              0.35251294798217714
+            ],
+            "retained_traced_bytes": 7948,
+            "peak_traced_bytes": 8754
+          },
+          "multi_full": {
+            "page_size": 100000,
+            "total_count": 100000,
+            "median_seconds": 1.2186297139851376,
+            "p95_seconds": 1.5530949539970607,
+            "samples_seconds": [
+              1.3286456420319155,
+              1.1301164419855922,
+              1.2186297139851376,
+              1.1919870019773953,
+              1.5530949539970607
+            ],
+            "retained_traced_bytes": 28810788,
+            "peak_traced_bytes": 29739850
+          }
+        }
+      }
+    ]
+  }
+}

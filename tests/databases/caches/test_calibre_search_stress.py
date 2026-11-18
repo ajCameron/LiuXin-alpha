@@ -94,6 +94,110 @@ def test_duplicate_expression_contexts_keep_distinct_identity():
     assert adapter.search("", references=()) == set()
 
 
+@pytest.mark.parametrize("cache_size", (0, 2))
+def test_candidate_iterables_preserve_complete_identity(cache_size):
+    refs = (
+        CalibreBookRef(7, work_id=10, manifestation_id=30),
+        CalibreBookRef(7, work_id=10, manifestation_id=40),
+        CalibreBookRef(7, work_id=20, manifestation_id=30),
+    )
+    adapter = CalibreSearchAdapter(
+        {ref: {"title": "One"} for ref in refs}, result_cache_size=cache_size
+    )
+    for _ in range(2):
+        # Equal newly constructed references work; duplicates collapse, absent
+        # contexts are ignored, and consuming a generator cannot broaden a scope.
+        selected = [CalibreBookRef(7, 10, 40), refs[1], CalibreBookRef(7)]
+        assert adapter.search("id:7", references=iter(selected)) == {refs[1]}
+        assert adapter.multisort([], references=iter(selected)) == (refs[1],)
+        assert adapter.search("", references=iter(())) == set()
+        assert adapter.search("", references=(CalibreBookRef(7),)) == set()
+        assert adapter.search("", references=iter(refs)) == set(refs)
+        assert adapter.search("") == set(refs)
+
+
+@pytest.mark.parametrize("operation", ("cold", "warm", "sort", "template", "all"))
+def test_reference_resolution_work_is_bounded(monkeypatch, operation):
+    refs = tuple(CalibreBookRef(i) for i in range(1, 1001))
+    adapter = CalibreSearchAdapter({ref: {"title": "One"} for ref in refs})
+    selected = refs[:10]
+    if operation == "warm":
+        adapter.search("", references=selected)
+    elif operation in {"template", "all"}:
+        adapter.search("id:1" if operation == "template" else "")
+    original = CalibreBookRef.__hash__
+    hashes = 0
+
+    def counted(ref):
+        nonlocal hashes
+        hashes += 1
+        return original(ref)
+
+    with monkeypatch.context() as patch:
+        patch.setattr(CalibreBookRef, "__hash__", counted)
+        if operation == "sort":
+            actual = adapter.multisort([], references=iter(selected))
+        elif operation == "template":
+            actual = adapter._template_database.search("id:1")
+        elif operation == "all":
+            actual = adapter.search("")
+        else:
+            actual = adapter.search("", references=iter(selected))
+    # Count identity work, not wall time. A warm full-scope hit and a small
+    # candidate request must not hash every reference in the collection.
+    assert hashes <= 4 * len(selected), hashes
+    assert actual == (
+        tuple(selected)
+        if operation == "sort"
+        else {1}
+        if operation == "template"
+        else set(refs)
+        if operation == "all"
+        else set(selected)
+    )
+
+
+def test_definition_refresh_does_not_recopy_snapshot_values():
+    copies = []
+
+    class TrackedTags(list):
+        def __deepcopy__(self, memo):
+            copies.append(1)
+            return TrackedTags(self)
+
+    definitions = SearchDefinitions({})
+    ref = CalibreBookRef(1)
+    tags = TrackedTags(["fiction"])
+    adapter = CalibreSearchAdapter(
+        {ref: {"tags": tags, "#Rank": 5}}, definitions=definitions
+    )
+    assert copies  # Construction must still establish an owned snapshot.
+    tags.append("history")
+    copies.clear()
+    for query in ("#rank:>2", "#rank:>6", "#rank:>2"):
+        definitions.set("saved_searches", "chosen", query)
+        assert adapter.search("search:chosen", references=()) == set()
+    assert not copies
+    assert adapter.search("search:chosen") == {ref}
+    assert adapter.search("tags:history") == set()
+    assert adapter.search("tags:=fiction") == {ref}
+
+
+def test_failed_definition_refresh_can_restore_previous_aliases():
+    definitions = SearchDefinitions({})
+    ref = CalibreBookRef(1)
+    adapter = CalibreSearchAdapter({ref: {"#Rank": 5}}, definitions=definitions)
+    assert adapter.search("#rank:>2") == {ref}
+    definitions.set("grouped_search_terms", "#rank", ["title"])
+    for _ in range(2):
+        with pytest.raises(ValueError, match="Ambiguous"):
+            adapter.search("#rank:>2")
+    # Restore the exact last valid state, including absence of the group key.
+    definitions.preferences[SearchDefinitions.KEY] = {}
+    assert adapter.search("#rank:>3") == {ref}
+    assert adapter.search("#rank:>6") == set()
+
+
 def test_provider_values_are_copied_into_snapshot():
     ref = CalibreBookRef(1)
     values = {ref: ["fiction"]}

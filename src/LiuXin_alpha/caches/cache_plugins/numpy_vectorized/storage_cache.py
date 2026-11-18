@@ -17,8 +17,9 @@ from __future__ import annotations
 
 import dataclasses
 from collections import defaultdict
+from collections.abc import Callable
 from copy import deepcopy
-from types import SimpleNamespace
+from types import ModuleType, SimpleNamespace
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -88,20 +89,26 @@ from LiuXin_alpha.caches.cache_plugins.numpy_vectorized.link_table import (
     NumpyVectorizedLinkTable,
 )
 from LiuXin_alpha.databases.row import Row
-from LiuXin_alpha.databases.schema_specs import LinkCardinality, StorageTableSpec
+from LiuXin_alpha.databases.schema_specs import (
+    StorageColumnSpec,
+    StorageTableSpec,
+)
 
 try:
-    import numpy as _np
+    import numpy as _numpy
+
+    _np: ModuleType | None = _numpy
 except Exception:  # pragma: no cover - availability is environment-specific
     _np = None
 
 if TYPE_CHECKING:
     from LiuXin_alpha.databases.api.database_api.database_api import DatabaseAPI
-    from LiuXin_alpha.databases.db_types.database_types import MainTableName
     from LiuXin_alpha.databases.schema_specs import StorageSchemaSpec
 
 
-def _ensure_db(current_db: Any, passed_db: Any = None) -> Any:
+def _ensure_db(
+    current_db: DatabaseAPI | None, passed_db: DatabaseAPI | None = None
+) -> DatabaseAPI:
     """
     Choose an explicitly supplied database or retain the current attachment.
 
@@ -158,8 +165,7 @@ def _column_type_map(spec: StorageTableSpec) -> dict[str, str]:
     """
 
     return {
-        col.name: col.declared_type or col.affinity or "UNKNOWN"
-        for col in spec.columns
+        col.name: col.declared_type or col.affinity or "UNKNOWN" for col in spec.columns
     }
 
 
@@ -267,16 +273,23 @@ def _column_array_dtype(values: Sequence[Any], declared_type: str) -> Any:
     if (
         "INT" in normalized_declared
         and len(non_null) == len(values)
-        and all(isinstance(value, int) and not isinstance(value, bool) for value in non_null)
+        and all(
+            isinstance(value, int) and not isinstance(value, bool) for value in non_null
+        )
     ):
         return _np.int64
     if (
         any(token in normalized_declared for token in ("REAL", "FLOAT", "DOUBLE"))
         and len(non_null) == len(values)
-        and all(isinstance(value, (int, float)) and not isinstance(value, bool) for value in non_null)
+        and all(
+            isinstance(value, (int, float)) and not isinstance(value, bool)
+            for value in non_null
+        )
     ):
         return _np.float64
-    if len(non_null) == len(values) and all(isinstance(value, str) for value in non_null):
+    if len(non_null) == len(values) and all(
+        isinstance(value, str) for value in non_null
+    ):
         return None
     return object
 
@@ -327,7 +340,9 @@ def _array_value(array_obj: Any, index: int) -> Any:
     return _normalize_numpy_scalar(array_obj[index])
 
 
-def _array_values(array_obj: Any, *, start: int = 0, end: Optional[int] = None) -> list[Any]:
+def _array_values(
+    array_obj: Any, *, start: int = 0, end: Optional[int] = None
+) -> list[Any]:
     """
     Copy a slice into a list while normalizing each NumPy scalar element.
 
@@ -368,7 +383,7 @@ class NumpyVectorizedMainTableCache(StorageCacheSingleTableAPI):
 
     spec: StorageTableSpec
 
-    def __init__(self, spec: StorageTableSpec, db: Any) -> None:
+    def __init__(self, spec: StorageTableSpec, db: DatabaseAPI) -> None:
         """
         Attach table metadata and allocate empty array/index state without reading.
 
@@ -392,7 +407,9 @@ class NumpyVectorizedMainTableCache(StorageCacheSingleTableAPI):
         )
         super().__init__(table=spec.name, db=db, metadata=metadata)
         self.spec = spec
-        self._column_headings: tuple[str, ...] = tuple(col.name for col in self.spec.columns)
+        self._column_headings: tuple[str, ...] = tuple(
+            col.name for col in self.spec.columns
+        )
         self._column_types: dict[str, str] = _column_type_map(self.spec)
         self._row_id_array: Any = _as_int_array(())
         self._row_ids: tuple[int, ...] = ()
@@ -524,9 +541,15 @@ class NumpyVectorizedMainTableCache(StorageCacheSingleTableAPI):
         :return: Read-only Row attached to the current database, with an independent payload.
         """
 
-        return Row(database=self.db, row_dict=deepcopy(dict(row_dict)), read_only=True)
+        return Row(
+            database=self._require_attachment(),
+            row_dict=deepcopy(dict(row_dict)),
+            read_only=True,
+        )
 
-    def _build_value_indexes(self, row_ids: Sequence[int], column_values: dict[str, Sequence[Any]]) -> None:
+    def _build_value_indexes(
+        self, row_ids: Sequence[int], column_values: Mapping[str, Sequence[Any]]
+    ) -> None:
         """
         Build exact column-value buckets from aligned row IDs and raw values.
 
@@ -554,10 +577,7 @@ class NumpyVectorizedMainTableCache(StorageCacheSingleTableAPI):
             grouped_ids: dict[Any, list[int]] = defaultdict(list)
             for row_id, value in zip(normalized_row_ids, values_for_column):
                 grouped_ids[value].append(row_id)
-            indexes[column] = {
-                value: tuple(ids)
-                for value, ids in grouped_ids.items()
-            }
+            indexes[column] = {value: tuple(ids) for value, ids in grouped_ids.items()}
         self._value_indexes = indexes
 
     def _replace_rows(self, row_dicts: Iterable[Mapping[str, Any]]) -> None:
@@ -597,10 +617,7 @@ class NumpyVectorizedMainTableCache(StorageCacheSingleTableAPI):
         sortable.sort(key=lambda item: (item[0], item[1]))
 
         row_ids = tuple(int(row_id) for row_id, _index, _row in sortable)
-        column_values: dict[str, list[Any]] = {
-            column: []
-            for column in column_headings
-        }
+        column_values: dict[str, list[Any]] = {column: [] for column in column_headings}
         for _row_id, _index, row_data in sortable:
             row_get = row_data.get
             for column in column_headings:
@@ -608,7 +625,9 @@ class NumpyVectorizedMainTableCache(StorageCacheSingleTableAPI):
 
         self._row_ids = row_ids
         self._row_id_array = _as_int_array(row_ids)
-        self._row_id_positions = {row_id: position for position, row_id in enumerate(row_ids)}
+        self._row_id_positions = {
+            row_id: position for position, row_id in enumerate(row_ids)
+        }
         self._column_arrays = {
             column: _as_column_array(column_values[column], column_types[column])
             for column in column_headings
@@ -616,7 +635,7 @@ class NumpyVectorizedMainTableCache(StorageCacheSingleTableAPI):
         self._build_value_indexes(row_ids, column_values)
         self._loaded = True
 
-    def read(self, db: Any) -> None:
+    def read(self, db: DatabaseAPI | None) -> None:
         """
         Attach the selected database and replace table arrays from all physical rows.
 
@@ -639,12 +658,17 @@ class NumpyVectorizedMainTableCache(StorageCacheSingleTableAPI):
         # Physical views can share columns, so do not ask Row to infer their table.
         reader = getattr(getattr(db, "driver_wrapper", None), "get_all_rows", None)
         if callable(reader):
-            row_dicts = reader(self.table)
+            row_dicts = cast(Callable[[str], Iterable[Mapping[str, Any]]], reader)(
+                self.table
+            )
         else:
-            row_dicts = (row.row_dict for row in db.get_all_rows(self.table, iterator_return=False))
+            row_dicts = (
+                cast(Mapping[str, Any], row.row_dict)
+                for row in db.get_all_rows(self.table, iterator_return=False)
+            )
         self._replace_rows(row_dicts)
 
-    def reload(self, db: Any) -> None:
+    def reload(self, db: DatabaseAPI | None) -> None:
         """
         Delegate a complete table reload to read.
 
@@ -688,7 +712,9 @@ class NumpyVectorizedMainTableCache(StorageCacheSingleTableAPI):
         payloads: dict[int, dict[str, Any]] = {}
         chosen_column = target_column or self.default_value_column
         if chosen_column is None:
-            raise RuntimeError(f"Table {self.table!r} has no sensible default value column")
+            raise RuntimeError(
+                f"Table {self.table!r} has no sensible default value column"
+            )
 
         for table_id, value in table_id_val_map.items():
             row_id = int(table_id)
@@ -795,7 +821,7 @@ class NumpyVectorizedMainTableCache(StorageCacheSingleTableAPI):
             raise KeyError(column)
         return set(self._value_indexes[column].keys())
 
-    def get_ids_for_value(self, column: str, value: str) -> set[int]:
+    def get_ids_for_value(self, column: str, value: Any) -> set[int]:
         """
         Look up row IDs using exact Python value-index equality.
 
@@ -883,7 +909,7 @@ class NumpyVectorizedMainTableCache(StorageCacheSingleTableAPI):
     def create(
         self,
         table_id_val_map: Mapping[int, Any],
-        db: Any,
+        db: DatabaseAPI | None,
         target_column: Optional[str] = None,
         allow_case_change: bool = False,
     ) -> None:
@@ -943,7 +969,7 @@ class NumpyVectorizedMainTableCache(StorageCacheSingleTableAPI):
     def _create_to_db(
         self,
         table_id_val_map: Mapping[int, Any],
-        db: Any,
+        db: DatabaseAPI | None,
         target_column: Optional[str] = None,
         allow_case_change: bool = False,
     ) -> None:
@@ -976,7 +1002,7 @@ class NumpyVectorizedMainTableCache(StorageCacheSingleTableAPI):
     def update(
         self,
         table_id_val_map: Mapping[int, Any],
-        db: Any,
+        db: DatabaseAPI | None,
         target_column: Optional[str] = None,
         allow_case_change: bool = False,
     ) -> None:
@@ -1036,7 +1062,7 @@ class NumpyVectorizedMainTableCache(StorageCacheSingleTableAPI):
     def _update_db(
         self,
         table_id_val_map: Mapping[int, Any],
-        db: Any,
+        db: DatabaseAPI | None,
         target_column: Optional[str] = None,
         allow_case_change: bool = False,
     ) -> None:
@@ -1076,13 +1102,15 @@ class NumpyVectorizedMainTableCache(StorageCacheSingleTableAPI):
                 current = db.get_row_from_id(self.table, row_id)
                 if current is None:
                     raise KeyError(f"No such row in {self.table!r}: {row_id}")
-                merged = deepcopy(current.row_dict)
+                merged = deepcopy(cast(dict[str, Any], current.row_dict))
                 merged.update(payload)
                 db.driver_wrapper.update_row(merged)
                 continue
 
             if chosen_column is None:
-                raise RuntimeError(f"Table {self.table!r} has no sensible default value column")
+                raise RuntimeError(
+                    f"Table {self.table!r} has no sensible default value column"
+                )
 
             current_value = None
             if self.has_id(row_id):
@@ -1097,12 +1125,14 @@ class NumpyVectorizedMainTableCache(StorageCacheSingleTableAPI):
             ):
                 continue
 
-            db.driver_wrapper.update_column(self.table, row_id, chosen_column, new_value)
+            db.driver_wrapper.update_column(
+                self.table, row_id, chosen_column, new_value
+            )
 
     def delete(
         self,
         table_ids: Iterable[int],
-        db: Any,
+        db: DatabaseAPI | None,
     ) -> None:
         """
         Delete selected physical rows then reload the complete table cache.
@@ -1138,7 +1168,7 @@ class NumpyVectorizedMainTableCache(StorageCacheSingleTableAPI):
         del table_ids
         self.read(_ensure_db(self.db))
 
-    def _delete_from_db(self, table_ids: Iterable[str], db: Any) -> None:
+    def _delete_from_db(self, table_ids: Iterable[int], db: DatabaseAPI | None) -> None:
         """
         Delete a deduplicated integer-ID set through the selected database driver.
 
@@ -1187,7 +1217,7 @@ class NumpyVectorizedSameTableField(CacheOneOneInSameTableFieldAPI[Any]):
         cache: "NumpyVectorizedStorageCache",
         in_table: Union[StorageCacheSingleTableAPI, str],
         column_name: str,
-        db: Any,
+        db: DatabaseAPI,
     ) -> None:
         """
         Resolve the owning table and allocate empty scalar-field references.
@@ -1260,7 +1290,7 @@ class NumpyVectorizedSameTableField(CacheOneOneInSameTableFieldAPI[Any]):
 
         return cast(NumpyVectorizedMainTableCache, self.in_table)
 
-    def _column_spec(self):
+    def _column_spec(self) -> StorageColumnSpec:
         """
         Find the first schema column matching the field's stored column name.
 
@@ -1325,10 +1355,13 @@ class NumpyVectorizedSameTableField(CacheOneOneInSameTableFieldAPI[Any]):
         missing = [
             int(row_id)
             for row_id in ids
-            if self._db.get_row_from_id(self.table_name, int(row_id)) is None
+            if _ensure_db(self._db).get_row_from_id(self.table_name, int(row_id))
+            is None
         ]
         if missing:
-            raise KeyError(f"Cannot update field {self.field_key!r}; missing row ids: {sorted(missing)}")
+            raise KeyError(
+                f"Cannot update field {self.field_key!r}; missing row ids: {sorted(missing)}"
+            )
 
     def _write_values(self, id_value_map: dict[int, Any]) -> None:
         """
@@ -1354,7 +1387,7 @@ class NumpyVectorizedSameTableField(CacheOneOneInSameTableFieldAPI[Any]):
         self._assert_rows_exist(normalized.keys())
         for value in normalized.values():
             self._assert_can_write_value(value)
-        self.in_table.update(
+        cast(NumpyVectorizedMainTableCache, self.in_table).update(
             normalized,
             self._db,
             target_column=self.column_name,
@@ -1586,15 +1619,19 @@ class NumpyVectorizedSameTableField(CacheOneOneInSameTableFieldAPI[Any]):
 
         self._db = _ensure_db(self._db)
         if update.added_maps:
-            self._write_values({int(row_id): value for row_id, value in update.added_maps.items()})
+            self._write_values(
+                {int(row_id): value for row_id, value in update.added_maps.items()}
+            )
         if update.updated_maps:
-            self._write_values({int(row_id): value for row_id, value in update.updated_maps.items()})
+            self._write_values(
+                {int(row_id): value for row_id, value in update.updated_maps.items()}
+            )
         if update.deleted_ids:
             self._write_values({int(row_id): None for row_id in update.deleted_ids})
-        self.read(self._db)
+        self.read(_ensure_db(self._db))
 
 
-class _NumpyVectorizedRelationFieldBase:
+class _NumpyVectorizedRelationFieldBase(FieldBasicInterfaceAPI[Any]):
     """
     Share packed relation projections and legacy write helpers across cardinalities.
 
@@ -1609,10 +1646,15 @@ class _NumpyVectorizedRelationFieldBase:
         destination buffers while exposing different public scalar/plural APIs.
     """
 
+    src_table_id_col: str
+    dst_table_cache_col: str
+    src_table: StorageCacheSingleTableAPI
+    dst_table: StorageCacheSingleTableAPI
+
     def _init_relation_field(
         self,
         cache: "NumpyVectorizedStorageCache",
-        db: Any,
+        db: DatabaseAPI,
     ) -> None:
         """
         Retain the owner/database and initialize empty relation projection buffers.
@@ -1718,7 +1760,7 @@ class _NumpyVectorizedRelationFieldBase:
         :return: The same link_table object; cast adds no validation, lookup or refresh.
         """
 
-        return cast(NumpyVectorizedLinkTable, self.link_table)
+        return self._link_table()
 
     def _value_for_dst_id(self, dst_id: int) -> Optional[Any]:
         """
@@ -1738,7 +1780,9 @@ class _NumpyVectorizedRelationFieldBase:
 
         dst_id = int(dst_id)
         if self.dst_table.has_id(dst_id):
-            return cast(NumpyVectorizedMainTableCache, self.dst_table).get_column_value_from_id(
+            return cast(
+                NumpyVectorizedMainTableCache, self.dst_table
+            ).get_column_value_from_id(
                 dst_id,
                 self.dst_table_cache_col,
             )
@@ -1769,7 +1813,7 @@ class _NumpyVectorizedRelationFieldBase:
 
         return tuple(
             int(dst_id)
-            for dst_id in cast(Any, self.link_table).get_dst_ids(
+            for dst_id in cast(Any, self._link_table()).get_dst_ids(
                 int(src_id),
                 require_ordering=require_ordering,
                 type_filter=type_filter,
@@ -1801,7 +1845,7 @@ class _NumpyVectorizedRelationFieldBase:
 
         return tuple(
             int(src_id)
-            for src_id in cast(Any, self.link_table).get_src_ids(
+            for src_id in cast(Any, self._link_table()).get_src_ids(
                 int(dst_id),
                 require_ordering=require_ordering,
                 type_filter=type_filter,
@@ -1910,7 +1954,10 @@ class _NumpyVectorizedRelationFieldBase:
         if slice_bounds is None:
             return ()
         start, end = slice_bounds
-        return tuple(int(value) for value in _array_values(self._flat_dst_ids, start=start, end=end))
+        return tuple(
+            int(value)
+            for value in _array_values(self._flat_dst_ids, start=start, end=end)
+        )
 
     def _cached_values_for_src(self, src_id: int) -> tuple[Optional[Any], ...]:
         """
@@ -2005,7 +2052,9 @@ class _NumpyVectorizedRelationFieldBase:
 
         dst_ids = [
             int(dst_id)
-            for dst_id in self.dst_table.get_ids_for_value(self.dst_table_cache_col, value)
+            for dst_id in self.dst_table.get_ids_for_value(
+                self.dst_table_cache_col, value
+            )
             if int(dst_id) in self._dst_to_src_ids
         ]
         dst_ids.sort()
@@ -2029,7 +2078,9 @@ class _NumpyVectorizedRelationFieldBase:
 
         src_ids: list[int] = []
         for dst_id in self._get_dst_ids_from_value(value):
-            src_ids.extend(int(src_id) for src_id in self._dst_to_src_ids.get(int(dst_id), ()))
+            src_ids.extend(
+                int(src_id) for src_id in self._dst_to_src_ids.get(int(dst_id), ())
+            )
         return sorted(src_ids)
 
     def _read_relation_cache(self) -> None:
@@ -2060,7 +2111,7 @@ class _NumpyVectorizedRelationFieldBase:
         self._dst_to_src_ids = topology.dst_to_src_ids
         self._flat_values = self._project_flat_values()
 
-    def read(self, db: Any) -> None:
+    def read(self, db: DatabaseAPI | None) -> None:
         """
         Attach field and endpoint/link table database references, then bind relation values.
 
@@ -2082,13 +2133,13 @@ class _NumpyVectorizedRelationFieldBase:
         self._db = db
         self.src_table.catalog = db
         self.dst_table.catalog = db
-        self.link_table.catalog = db
+        self._link_table().catalog = db
         self._read_relation_cache()
 
     def refresh_ids(
         self,
         ids: Iterable[int],
-        db: Any = None,
+        db: DatabaseAPI | None = None,
     ) -> None:
         """
         Rebind the whole relation field for a bounded ID refresh hint.
@@ -2126,7 +2177,7 @@ class _NumpyVectorizedRelationFieldBase:
 
         del ids
         if self._db is not None:
-            self.read(self._db)
+            self.read(_ensure_db(self._db))
 
     def _flattened_values(self) -> list[Optional[Any]]:
         """
@@ -2200,7 +2251,9 @@ class _NumpyVectorizedRelationFieldBase:
         if not deleted_ids:
             return
         self._db = _ensure_db(self._db)
-        cast(Any, self.link_table).update(SimpleNamespace(src_ids_deleted=deleted_ids))
+        cast(Any, self._link_table()).update(
+            SimpleNamespace(src_ids_deleted=deleted_ids)
+        )
 
     def _validate_create_policy(
         self,
@@ -2251,7 +2304,7 @@ class _NumpyVectorizedRelationFieldBase:
         if not dst_values_map:
             return
         self._db = _ensure_db(self._db)
-        self.dst_table.update(
+        cast(NumpyVectorizedMainTableCache, self.dst_table).update(
             {int(dst_id): value for dst_id, value in dst_values_map.items()},
             self._db,
             target_column=self.dst_table_cache_col,
@@ -2297,7 +2350,9 @@ class _NumpyVectorizedRelationFieldBase:
 
         matches = sorted(
             int(dst_id)
-            for dst_id in self.dst_table.get_ids_for_value(self.dst_table_cache_col, value)
+            for dst_id in self.dst_table.get_ids_for_value(
+                self.dst_table_cache_col, value
+            )
         )
         if not matches:
             return None
@@ -2366,7 +2421,7 @@ class _NumpyVectorizedRelationFieldBase:
         """
 
         self._db = _ensure_db(self._db)
-        cast(Any, self.link_table).update(
+        cast(Any, self._link_table()).update(
             SimpleNamespace(create_these_links={int(src_id): int(dst_id)})
         )
 
@@ -2387,13 +2442,20 @@ class _NumpyVectorizedRelationFieldBase:
         :raises ValueError: A supplied destination table or target-column label differs from this field.
         """
 
-        if str(getattr(link_update, "dst_table", self.dst_table_name)) != self.dst_table_name:
+        if (
+            str(getattr(link_update, "dst_table", self.dst_table_name))
+            != self.dst_table_name
+        ):
             raise ValueError(
                 f"Field {self.field_key!r} received a link update for dst table "
                 f"{getattr(link_update, 'dst_table', None)!r}, expected {self.dst_table_name!r}"
             )
         if (
-            str(getattr(link_update, "dst_table_target_column", self.dst_table_cache_col))
+            str(
+                getattr(
+                    link_update, "dst_table_target_column", self.dst_table_cache_col
+                )
+            )
             != self.dst_table_cache_col
         ):
             raise ValueError(
@@ -2447,7 +2509,7 @@ class _NumpyVectorizedRelationFieldBase:
                     f"Field {self.field_key!r} cannot target missing dst id {dst_id}"
                 )
             if not allow_shared_dst:
-                existing_src_id = cast(Any, self.link_table).get_src_id(dst_id)
+                existing_src_id = cast(Any, self._link_table()).get_src_id(dst_id)
                 if existing_src_id is not None and int(existing_src_id) != int(src_id):
                     raise ValueError(
                         f"Field {self.field_key!r} cannot retarget dst id {dst_id} "
@@ -2461,7 +2523,9 @@ class _NumpyVectorizedRelationFieldBase:
             if matched_dst_id is not None:
                 if allow_shared_dst:
                     return matched_dst_id
-                existing_src_id = cast(Any, self.link_table).get_src_id(matched_dst_id)
+                existing_src_id = cast(Any, self._link_table()).get_src_id(
+                    matched_dst_id
+                )
                 if existing_src_id is None or int(existing_src_id) == int(src_id):
                     return matched_dst_id
 
@@ -2485,7 +2549,15 @@ class _NumpyVectorizedRelationFieldBase:
         """
 
         updates: dict[str, Any] = {}
-        for property_name in ("priority", "type", "primary", "origin", "policy", "data", "index"):
+        for property_name in (
+            "priority",
+            "type",
+            "primary",
+            "origin",
+            "policy",
+            "data",
+            "index",
+        ):
             column_name = self._column_for_extra(property_name)
             if column_name is None or not hasattr(link_update, property_name):
                 continue
@@ -2545,7 +2617,7 @@ class _NumpyVectorizedRelationFieldBase:
                 )
             seen_dst_ids.add(dst_id)
 
-            desired_value = cast(Optional[Any], getattr(link_update, "dst_col_val", None))
+            desired_value = getattr(link_update, "dst_col_val", None)
             if dst_id in dst_updates and dst_updates[dst_id] != desired_value:
                 raise ValueError(
                     f"Field {self.field_key!r} received conflicting values for dst id {dst_id}"
@@ -2556,7 +2628,7 @@ class _NumpyVectorizedRelationFieldBase:
         self._unlink_src_ids({int(src_id)})
 
         if resolved:
-            cast(Any, self.link_table).update(
+            cast(Any, self._link_table()).update(
                 SimpleNamespace(
                     src_dst_priority_update={
                         int(src_id): [dst_id for dst_id, _link_update in resolved]
@@ -2570,11 +2642,13 @@ class _NumpyVectorizedRelationFieldBase:
         for dst_id, link_update in resolved:
             property_updates = self._link_property_updates(link_update)
             if property_updates:
-                self._update_link_row_columns(int(src_id), int(dst_id), property_updates)
+                self._update_link_row_columns(
+                    int(src_id), int(dst_id), property_updates
+                )
 
     def _ensure_existing_sequence_targets(
         self,
-        updates: dict[int, Sequence[Optional[Any]]],
+        updates: Mapping[int, Sequence[Optional[Any]]],
     ) -> dict[int, tuple[int, ...]]:
         """
         Match each supplied value sequence to the existing ordered destination sequence.
@@ -2643,7 +2717,7 @@ class _NumpyVectorizedRelationFieldBase:
         :raises RuntimeError: The pair has several cached link records.
         """
 
-        row = cast(Any, self.link_table).get_link_row(int(src_id), int(dst_id))
+        row = cast(Any, self._link_table()).get_link_row(int(src_id), int(dst_id))
         if row is None:
             raise KeyError((int(src_id), int(dst_id)))
         return dict(row.row_dict)
@@ -2718,7 +2792,7 @@ class _NumpyVectorizedRelationFieldBase:
         row_dict = self._link_row_snapshot(src_id, dst_id)
         row_dict.update(updates)
         self._db.driver_wrapper.update_row(row_dict)
-        self.link_table.read(self._db)
+        self._link_table().read(self._db)
 
     def _value_from_link_property(
         self,
@@ -2783,7 +2857,9 @@ class _NumpyVectorizedRelationFieldBase:
             elif dc_field.name == "dst_table_id":
                 kwargs[dc_field.name] = int(dst_id)
             else:
-                kwargs[dc_field.name] = self._value_from_link_property(row_dict, dc_field.name)
+                kwargs[dc_field.name] = self._value_from_link_property(
+                    row_dict, dc_field.name
+                )
         return props_cls(**kwargs)
 
     def _set_link_properties(self, updated_link_properties: Any) -> None:
@@ -2806,9 +2882,19 @@ class _NumpyVectorizedRelationFieldBase:
         """
 
         updates: dict[str, Any] = {}
-        for property_name in ("priority", "type", "primary", "origin", "policy", "data", "index"):
+        for property_name in (
+            "priority",
+            "type",
+            "primary",
+            "origin",
+            "policy",
+            "data",
+            "index",
+        ):
             column_name = self._column_for_extra(property_name)
-            if column_name is None or not hasattr(updated_link_properties, property_name):
+            if column_name is None or not hasattr(
+                updated_link_properties, property_name
+            ):
                 continue
             value = getattr(updated_link_properties, property_name)
             if value is None:
@@ -2820,7 +2906,7 @@ class _NumpyVectorizedRelationFieldBase:
             int(updated_link_properties.dst_table_id),
             updates,
         )
-        self.read(self._db)
+        self.read(_ensure_db(self._db))
 
     def get_extra(
         self,
@@ -2883,8 +2969,22 @@ class _NumpyVectorizedRelationFieldBase:
         column_name = self._column_for_extra(str(extra_type))
         if column_name is None:
             raise KeyError(str(extra_type))
-        self._update_link_row_columns(int(src_id), int(dst_id), {column_name: new_extra_value})
-        self.read(self._db)
+        self._update_link_row_columns(
+            int(src_id), int(dst_id), {column_name: new_extra_value}
+        )
+        self.read(_ensure_db(self._db))
+
+    @property
+    def src_table_name(self) -> str:
+        return self.src_table.table
+
+    @property
+    def dst_table_name(self) -> str:
+        return self.dst_table.table
+
+    def _link_table(self) -> NumpyVectorizedLinkTable:
+        """Narrow the link installed by this backend's cardinality constructor."""
+        return cast(NumpyVectorizedLinkTable, getattr(self, "link_table"))
 
 
 class NumpyVectorizedTwoTableOneOneField(
@@ -2913,7 +3013,7 @@ class NumpyVectorizedTwoTableOneOneField(
         src_table_id_col: str,
         dst_table: Union[StorageCacheSingleTableAPI, str],
         dst_table_cache_col: str,
-        db: Any,
+        db: DatabaseAPI,
     ) -> None:
         """
         Resolve one-to-one endpoint/link objects and initialize empty projection state.
@@ -2967,7 +3067,10 @@ class NumpyVectorizedTwoTableOneOneField(
         :return: Bound NumPy link-table object after root freshness and cardinality checks.
         """
 
-        return cast(NumpyVectorizedLinkTable, self._cache.get_one_one_link_table(src_table, dst_table))
+        return cast(
+            NumpyVectorizedLinkTable,
+            self._cache.get_one_one_link_table(src_table, dst_table),
+        )
 
     @property
     def ids(self) -> set[int]:
@@ -3030,10 +3133,13 @@ class NumpyVectorizedTwoTableOneOneField(
         :return: New dict of source ID to first value, or None for an empty group.
         """
 
-        return {src_id: (values[0] if values else None) for src_id, values in (
-            (src_id, self._cached_values_for_src(src_id))
-            for src_id in self._src_ids
-        )}
+        return {
+            src_id: (values[0] if values else None)
+            for src_id, values in (
+                (src_id, self._cached_values_for_src(src_id))
+                for src_id in self._src_ids
+            )
+        }
 
     @property
     def dst_ids_values_map(self) -> dict[int, Optional[Any]]:
@@ -3206,13 +3312,8 @@ class NumpyVectorizedTwoTableOneOneField(
                 **dict(update.updated_maps),
             }.items()
         }
-        deleted_src_ids = {
-            int(src_id)
-            for src_id in update.deleted_ids
-        } | {
-            int(src_id)
-            for src_id, value in raw_updates.items()
-            if value is None
+        deleted_src_ids = {int(src_id) for src_id in update.deleted_ids} | {
+            int(src_id) for src_id, value in raw_updates.items() if value is None
         }
 
         missing_link_src_ids: list[int] = []
@@ -3239,7 +3340,9 @@ class NumpyVectorizedTwoTableOneOneField(
             else:
                 existing_src_id = cast(Any, self.link_table).get_src_id(int(dst_id))
                 if existing_src_id is not None and int(existing_src_id) != int(src_id):
-                    linked_dst_conflicts.append((int(src_id), int(dst_id), int(existing_src_id)))
+                    linked_dst_conflicts.append(
+                        (int(src_id), int(dst_id), int(existing_src_id))
+                    )
                     continue
             links_to_create[int(src_id)] = int(dst_id)
 
@@ -3263,7 +3366,7 @@ class NumpyVectorizedTwoTableOneOneField(
         if dst_updates:
             self._update_dst_values(dst_updates)
         if deleted_src_ids or links_to_create or dst_updates or update.dirtied:
-            self.read(self._db)
+            self.read(_ensure_db(self._db))
 
 
 class NumpyVectorizedManyOneField(
@@ -3292,7 +3395,7 @@ class NumpyVectorizedManyOneField(
         src_table_id_col: str,
         dst_table: Union[StorageCacheSingleTableAPI, str],
         dst_table_cache_col: str,
-        db: Any,
+        db: DatabaseAPI,
     ) -> None:
         """
         Resolve many-to-one endpoint/link objects and initialize empty projection state.
@@ -3346,7 +3449,10 @@ class NumpyVectorizedManyOneField(
         :return: Bound NumPy link-table object after root freshness and cardinality checks.
         """
 
-        return cast(NumpyVectorizedLinkTable, self._cache.get_many_one_link_table(src_table, dst_table))
+        return cast(
+            NumpyVectorizedLinkTable,
+            self._cache.get_many_one_link_table(src_table, dst_table),
+        )
 
     @property
     def ids(self) -> set[int]:
@@ -3409,10 +3515,13 @@ class NumpyVectorizedManyOneField(
         :return: New dict of source ID to first value, or None for an empty group.
         """
 
-        return {src_id: (values[0] if values else None) for src_id, values in (
-            (src_id, self._cached_values_for_src(src_id))
-            for src_id in self._src_ids
-        )}
+        return {
+            src_id: (values[0] if values else None)
+            for src_id, values in (
+                (src_id, self._cached_values_for_src(src_id))
+                for src_id in self._src_ids
+            )
+        }
 
     @property
     def dst_ids_values_map(self) -> dict[int, Optional[Any]]:
@@ -3487,7 +3596,9 @@ class NumpyVectorizedManyOneField(
         """
 
         if type_filter is not None:
-            dst_ids = self._ordered_dst_ids_for_src(int(src_id), type_filter=type_filter)
+            dst_ids = self._ordered_dst_ids_for_src(
+                int(src_id), type_filter=type_filter
+            )
         else:
             dst_ids = self._cached_dst_ids_for_src(int(src_id))
         return dst_ids[0] if dst_ids else None
@@ -3583,7 +3694,9 @@ class NumpyVectorizedManyOneField(
 
         return cast(
             ManyOneIndividualLinkProperties,
-            self._build_link_properties(ManyOneIndividualLinkProperties, int(src_id), int(dst_id)),
+            self._build_link_properties(
+                ManyOneIndividualLinkProperties, int(src_id), int(dst_id)
+            ),
         )
 
     def set_link_properties(
@@ -3658,13 +3771,8 @@ class NumpyVectorizedManyOneField(
                 **dict(update.updated_maps),
             }.items()
         }
-        deleted_src_ids = {
-            int(src_id)
-            for src_id in update.deleted_ids
-        } | {
-            int(src_id)
-            for src_id, value in raw_updates.items()
-            if value is None
+        deleted_src_ids = {int(src_id) for src_id in update.deleted_ids} | {
+            int(src_id) for src_id, value in raw_updates.items() if value is None
         }
 
         missing_link_src_ids: list[int] = []
@@ -3701,7 +3809,7 @@ class NumpyVectorizedManyOneField(
         if dst_updates:
             self._update_dst_values(dst_updates)
         if deleted_src_ids or links_to_create or dst_updates or update.dirtied:
-            self.read(self._db)
+            self.read(_ensure_db(self._db))
 
 
 class NumpyVectorizedOneManyField(
@@ -3729,7 +3837,7 @@ class NumpyVectorizedOneManyField(
         src_table_id_col: str,
         dst_table: Union[StorageCacheSingleTableAPI, str],
         dst_table_cache_col: str,
-        db: Any,
+        db: DatabaseAPI,
     ) -> None:
         """
         Resolve one-to-many endpoint/link objects and initialize empty projection state.
@@ -3783,7 +3891,10 @@ class NumpyVectorizedOneManyField(
         :return: Bound NumPy link-table object after root freshness and cardinality checks.
         """
 
-        return cast(NumpyVectorizedLinkTable, self._cache.get_one_many_link_table(src_table, dst_table))
+        return cast(
+            NumpyVectorizedLinkTable,
+            self._cache.get_one_many_link_table(src_table, dst_table),
+        )
 
     @property
     def ids(self) -> set[int]:
@@ -3846,10 +3957,7 @@ class NumpyVectorizedOneManyField(
         :return: New dict of source ID to value tuple, retaining duplicate links and None.
         """
 
-        return {
-            src_id: self._cached_values_for_src(src_id)
-            for src_id in self._src_ids
-        }
+        return {src_id: self._cached_values_for_src(src_id) for src_id in self._src_ids}
 
     @property
     def dst_ids_values_map(self) -> dict[int, Optional[Any]]:
@@ -3970,7 +4078,9 @@ class NumpyVectorizedOneManyField(
         """
 
         if type_filter is not None:
-            src_ids = self._ordered_src_ids_for_dst(int(dst_id), type_filter=type_filter)
+            src_ids = self._ordered_src_ids_for_dst(
+                int(dst_id), type_filter=type_filter
+            )
         else:
             src_ids = tuple(self._dst_to_src_ids.get(int(dst_id), ()))
         return src_ids[0] if src_ids else None
@@ -4034,7 +4144,9 @@ class NumpyVectorizedOneManyField(
 
         return cast(
             OneManyIndividualLinkProperties,
-            self._build_link_properties(OneManyIndividualLinkProperties, int(src_id), int(dst_id)),
+            self._build_link_properties(
+                OneManyIndividualLinkProperties, int(src_id), int(dst_id)
+            ),
         )
 
     def set_link_properties(
@@ -4106,7 +4218,9 @@ class NumpyVectorizedOneManyField(
                 f"Field {self.field_key!r} cannot mix value updates and explicit link replacements "
                 f"for the same src ids: {sorted(overlap)}"
             )
-        overlap = {int(src_id) for src_id in update.deleted_ids} & set(explicit_replacements)
+        overlap = {int(src_id) for src_id in update.deleted_ids} & set(
+            explicit_replacements
+        )
         if overlap:
             raise ValueError(
                 f"Field {self.field_key!r} cannot delete and replace links for the same src ids: {sorted(overlap)}"
@@ -4119,7 +4233,9 @@ class NumpyVectorizedOneManyField(
 
         dst_updates: dict[int, Any] = {}
         for src_id, values in value_updates.items():
-            for dst_id, value in zip(self._existing_ordered_dst_ids_for_src(src_id), values):
+            for dst_id, value in zip(
+                self._existing_ordered_dst_ids_for_src(src_id), values
+            ):
                 dst_updates[int(dst_id)] = value
         if dst_updates:
             self._update_dst_values(dst_updates)
@@ -4132,7 +4248,7 @@ class NumpyVectorizedOneManyField(
             )
 
         if deleted_src_ids or dst_updates or explicit_replacements or update.dirtied:
-            self.read(self._db)
+            self.read(_ensure_db(self._db))
 
 
 class NumpyVectorizedManyManyField(
@@ -4160,7 +4276,7 @@ class NumpyVectorizedManyManyField(
         src_table_id_col: str,
         dst_table: Union[StorageCacheSingleTableAPI, str],
         dst_table_cache_col: str,
-        db: Any,
+        db: DatabaseAPI,
     ) -> None:
         """
         Resolve many-to-many endpoint/link objects and initialize empty projection state.
@@ -4214,7 +4330,10 @@ class NumpyVectorizedManyManyField(
         :return: Bound NumPy link-table object after root freshness and cardinality checks.
         """
 
-        return cast(NumpyVectorizedLinkTable, self._cache.get_many_many_link_table(src_table, dst_table))
+        return cast(
+            NumpyVectorizedLinkTable,
+            self._cache.get_many_many_link_table(src_table, dst_table),
+        )
 
     @property
     def ids(self) -> set[int]:
@@ -4277,10 +4396,7 @@ class NumpyVectorizedManyManyField(
         :return: New dict of source ID to value tuple, retaining duplicate links and None.
         """
 
-        return {
-            src_id: self._cached_values_for_src(src_id)
-            for src_id in self._src_ids
-        }
+        return {src_id: self._cached_values_for_src(src_id) for src_id in self._src_ids}
 
     @property
     def dst_ids_values_map(self) -> dict[int, Optional[Any]]:
@@ -4470,7 +4586,9 @@ class NumpyVectorizedManyManyField(
 
         return cast(
             ManyManyIndividualLinkProperties,
-            self._build_link_properties(ManyManyIndividualLinkProperties, int(src_id), int(dst_id)),
+            self._build_link_properties(
+                ManyManyIndividualLinkProperties, int(src_id), int(dst_id)
+            ),
         )
 
     def set_link_properties(
@@ -4542,7 +4660,9 @@ class NumpyVectorizedManyManyField(
                 f"Field {self.field_key!r} cannot mix value updates and explicit link replacements "
                 f"for the same src ids: {sorted(overlap)}"
             )
-        overlap = {int(src_id) for src_id in update.deleted_ids} & set(explicit_replacements)
+        overlap = {int(src_id) for src_id in update.deleted_ids} & set(
+            explicit_replacements
+        )
         if overlap:
             raise ValueError(
                 f"Field {self.field_key!r} cannot delete and replace links for the same src ids: {sorted(overlap)}"
@@ -4555,7 +4675,9 @@ class NumpyVectorizedManyManyField(
 
         dst_updates: dict[int, Any] = {}
         for src_id, values in value_updates.items():
-            for dst_id, value in zip(self._existing_ordered_dst_ids_for_src(src_id), values):
+            for dst_id, value in zip(
+                self._existing_ordered_dst_ids_for_src(src_id), values
+            ):
                 dst_updates[int(dst_id)] = value
         if dst_updates:
             self._update_dst_values(dst_updates)
@@ -4568,7 +4690,7 @@ class NumpyVectorizedManyManyField(
             )
 
         if deleted_src_ids or dst_updates or explicit_replacements or update.dirtied:
-            self.read(self._db)
+            self.read(_ensure_db(self._db))
 
 
 class NumpyVectorizedStorageCache(StorageCacheAPI):
@@ -4599,7 +4721,7 @@ class NumpyVectorizedStorageCache(StorageCacheAPI):
         requires_reload_for_external_changes=True,
     )
 
-    def __init__(self, db: Any, *, require_numpy: bool = True) -> None:
+    def __init__(self, db: DatabaseAPI | None, *, require_numpy: bool = True) -> None:
         """
         Check NumPy requirements and allocate empty root cache state.
 
@@ -4622,9 +4744,9 @@ class NumpyVectorizedStorageCache(StorageCacheAPI):
                 "The numpy_vectorized cache plugin requires numpy to be installed"
             )
         self._require_numpy = require_numpy
-        self.main_tables: dict[str, NumpyVectorizedMainTableCache] = {}
-        self.link_tables: dict[tuple[str, str], NumpyVectorizedLinkTable] = {}
-        self.fields: dict[str, FieldBasicInterfaceAPI[Any]] = {}
+        self._main_tables: dict[str, NumpyVectorizedMainTableCache] = {}
+        self._link_tables: dict[tuple[str, str], NumpyVectorizedLinkTable] = {}
+        self._fields: dict[str, FieldBasicInterfaceAPI[Any]] = {}
         self._field_objects: dict[str, FieldBasicInterfaceAPI[Any]] = {}
         self._schema: Optional["StorageSchemaSpec"] = None
         self._is_loaded = False
@@ -4713,7 +4835,7 @@ class NumpyVectorizedStorageCache(StorageCacheAPI):
 
         return self._is_initialized
 
-    def _require_db(self, db: Any = None) -> Any:
+    def _require_db(self, db: DatabaseAPI | None = None) -> DatabaseAPI:
         """
         Resolve an explicit/current database and retain it on the root cache.
 
@@ -4747,9 +4869,9 @@ class NumpyVectorizedStorageCache(StorageCacheAPI):
         :return: None; leaves the root unloaded while retaining its database reference.
         """
 
-        self.main_tables = {}
-        self.link_tables = {}
-        self.fields = {}
+        self._main_tables = {}
+        self._link_tables = {}
+        self._fields = {}
         self._field_objects = {}
         self._schema = None
         self._is_loaded = False
@@ -4777,10 +4899,10 @@ class NumpyVectorizedStorageCache(StorageCacheAPI):
 
         old_db = self.db
         self.db = None
-        for table in self.main_tables.values():
+        for table in self._main_tables.values():
             table.db = None
-        for table in self.link_tables.values():
-            table.db = None
+        for link_table in self._link_tables.values():
+            link_table.db = None
         for field in self._field_objects.values():
             if hasattr(field, "_db"):
                 field._db = None
@@ -4803,7 +4925,7 @@ class NumpyVectorizedStorageCache(StorageCacheAPI):
         self.clear()
         self.detach_db()
 
-    def read(self, db: Any = None) -> None:
+    def read(self, db: DatabaseAPI | None = None) -> None:
         """
         Rebuild the entire schema, table data and field projections against the selected database.
 
@@ -4830,7 +4952,7 @@ class NumpyVectorizedStorageCache(StorageCacheAPI):
         self._is_loaded = True
         self._is_initialized = True
 
-    def reload(self, db: Any = None) -> None:
+    def reload(self, db: DatabaseAPI | None = None) -> None:
         """
         Delegate a full schema/data/projection rebuild to read.
 
@@ -4845,7 +4967,7 @@ class NumpyVectorizedStorageCache(StorageCacheAPI):
 
         self.read(db=db)
 
-    def read_tables(self, db: Any = None) -> None:
+    def read_tables(self, db: DatabaseAPI | None = None) -> None:
         """
         Force schema discovery and construct unloaded main and directed link tables.
 
@@ -4869,7 +4991,7 @@ class NumpyVectorizedStorageCache(StorageCacheAPI):
         db = self._require_db(db)
         schema = db.driver_wrapper.get_schema_spec(force_refresh=True)
         self._schema = schema
-        self.main_tables = {
+        self._main_tables = {
             table_name: NumpyVectorizedMainTableCache(spec, db)
             for table_name, spec in schema.tables.items()
             if spec.is_main_table and spec.id_column is not None
@@ -4877,8 +4999,8 @@ class NumpyVectorizedStorageCache(StorageCacheAPI):
 
         link_tables: dict[tuple[str, str], NumpyVectorizedLinkTable] = {}
         for link_spec in schema.interlinks + schema.intralinks:
-            src_table = self.main_tables.get(link_spec.primary_table)
-            dst_table = self.main_tables.get(link_spec.secondary_table)
+            src_table = self._main_tables.get(link_spec.primary_table)
+            dst_table = self._main_tables.get(link_spec.secondary_table)
             if src_table is None or dst_table is None:
                 continue
 
@@ -4905,11 +5027,13 @@ class NumpyVectorizedStorageCache(StorageCacheAPI):
                     src_link_col=link_spec.secondary_link_col,
                     dst_link_col=link_spec.primary_link_col,
                 )
-                link_tables[(link_spec.secondary_table, link_spec.primary_table)] = reverse
+                link_tables[(link_spec.secondary_table, link_spec.primary_table)] = (
+                    reverse
+                )
 
-        self.link_tables = link_tables
+        self._link_tables = link_tables
 
-    def initialize_tables(self, db: Any = None) -> None:
+    def initialize_tables(self, db: DatabaseAPI | None = None) -> None:
         """
         Read every registered main table before reading directed link tables.
 
@@ -4927,12 +5051,12 @@ class NumpyVectorizedStorageCache(StorageCacheAPI):
         """
 
         db = self._require_db(db)
-        for table in self.main_tables.values():
+        for table in self._main_tables.values():
             table.read(db)
-        for table in self.link_tables.values():
-            table.read(db)
+        for link_table in self._link_tables.values():
+            link_table.read(db)
 
-    def read_fields(self, db: Any = None) -> None:
+    def read_fields(self, db: DatabaseAPI | None = None) -> None:
         """
         Construct canonical scalar/relation fields and unambiguous scalar aliases.
 
@@ -4958,15 +5082,18 @@ class NumpyVectorizedStorageCache(StorageCacheAPI):
         db = self._require_db(db)
         field_objects: dict[str, FieldBasicInterfaceAPI[Any]] = {}
         raw_name_counts: dict[str, int] = defaultdict(int)
+        field: FieldBasicInterfaceAPI[Any]
 
-        for table_name, table in self.main_tables.items():
+        for table_name, table in self._main_tables.items():
             for column in table.column_headings:
                 field = NumpyVectorizedSameTableField(self, table_name, column, db)
                 field_objects[field.field_key] = field
                 raw_name_counts[column] += 1
 
-        for (src_table_name, dst_table_name), link_table in sorted(self.link_tables.items()):
-            dst_table = self.main_tables[dst_table_name]
+        for (src_table_name, dst_table_name), link_table in sorted(
+            self._link_tables.items()
+        ):
+            dst_table = self._main_tables[dst_table_name]
             dst_columns = [
                 column
                 for column in dst_table.column_headings
@@ -4974,10 +5101,10 @@ class NumpyVectorizedStorageCache(StorageCacheAPI):
             ]
             for column in dst_columns:
                 if link_table.table_type == TableTypes.ONE_ONE:
-                    field: FieldBasicInterfaceAPI[Any] = NumpyVectorizedTwoTableOneOneField(
+                    field = NumpyVectorizedTwoTableOneOneField(
                         self,
                         src_table_name,
-                        self.main_tables[src_table_name].id_column,
+                        self._main_tables[src_table_name].id_column,
                         dst_table_name,
                         column,
                         db,
@@ -4986,7 +5113,7 @@ class NumpyVectorizedStorageCache(StorageCacheAPI):
                     field = NumpyVectorizedOneManyField(
                         self,
                         src_table_name,
-                        self.main_tables[src_table_name].id_column,
+                        self._main_tables[src_table_name].id_column,
                         dst_table_name,
                         column,
                         db,
@@ -4995,7 +5122,7 @@ class NumpyVectorizedStorageCache(StorageCacheAPI):
                     field = NumpyVectorizedManyOneField(
                         self,
                         src_table_name,
-                        self.main_tables[src_table_name].id_column,
+                        self._main_tables[src_table_name].id_column,
                         dst_table_name,
                         column,
                         db,
@@ -5004,7 +5131,7 @@ class NumpyVectorizedStorageCache(StorageCacheAPI):
                     field = NumpyVectorizedManyManyField(
                         self,
                         src_table_name,
-                        self.main_tables[src_table_name].id_column,
+                        self._main_tables[src_table_name].id_column,
                         dst_table_name,
                         column,
                         db,
@@ -5022,9 +5149,9 @@ class NumpyVectorizedStorageCache(StorageCacheAPI):
                 fields[str(column_name)] = field
 
         self._field_objects = field_objects
-        self.fields = fields
+        self._fields = fields
 
-    def initialize_fields(self, db: Any = None) -> None:
+    def initialize_fields(self, db: DatabaseAPI | None = None) -> None:
         """
         Bind each canonical field once to its already loaded endpoint/link state.
 
@@ -5043,7 +5170,9 @@ class NumpyVectorizedStorageCache(StorageCacheAPI):
         for field in self._field_objects.values():
             field.read(db)
 
-    def _resolve_field_name(self, name: Union[FieldKey, FieldBasicInterfaceAPI[Any]]) -> str:
+    def _resolve_field_name(
+        self, name: Union[FieldKey, FieldBasicInterfaceAPI[Any]]
+    ) -> str:
         """
         Resolve a field reference, existing public key or unique bare column match.
 
@@ -5065,7 +5194,7 @@ class NumpyVectorizedStorageCache(StorageCacheAPI):
         if hasattr(name, "field_key"):
             return str(getattr(name, "field_key"))
         requested = str(name)
-        if requested in self.fields:
+        if requested in self._fields:
             return requested
         if "." not in requested:
             matches = [
@@ -5120,7 +5249,9 @@ class NumpyVectorizedStorageCache(StorageCacheAPI):
                 tables.add(str(table_name))
         return tables
 
-    def _field_link_key(self, field: FieldBasicInterfaceAPI[Any]) -> Optional[tuple[str, str]]:
+    def _field_link_key(
+        self, field: FieldBasicInterfaceAPI[Any]
+    ) -> Optional[tuple[str, str]]:
         """
         Extract a directed endpoint key when a field declares both endpoint names.
 
@@ -5196,10 +5327,8 @@ class NumpyVectorizedStorageCache(StorageCacheAPI):
         :return: None; applies the applicable dependency refresh operations.
         """
 
-        field = self.fields[field_name]
-        for table_name in sorted(
-            self._field_tables(field) & self._stale_main_tables
-        ):
+        field = self._fields[field_name]
+        for table_name in sorted(self._field_tables(field) & self._stale_main_tables):
             self.reload_main_table(table_name)
         link_key = self._field_link_key(field)
         if link_key is not None and link_key in self._stale_link_tables:
@@ -5219,7 +5348,7 @@ class NumpyVectorizedStorageCache(StorageCacheAPI):
         :return: Whether the current main_tables dictionary contains the key.
         """
 
-        return str(name) in self.main_tables
+        return str(name) in self._main_tables
 
     def get_main_table(
         self,
@@ -5240,9 +5369,11 @@ class NumpyVectorizedStorageCache(StorageCacheAPI):
         :raises KeyError: The resolved main-table key is unknown.
         """
 
-        table_name = name.table if isinstance(name, StorageCacheSingleTableAPI) else str(name)
+        table_name = (
+            name.table if isinstance(name, StorageCacheSingleTableAPI) else str(name)
+        )
         self._ensure_main_table_fresh(table_name)
-        return self.main_tables[table_name]
+        return self._main_tables[table_name]
 
     def iter_main_tables(self) -> Iterable[NumpyVectorizedMainTableCache]:
         """
@@ -5259,10 +5390,12 @@ class NumpyVectorizedStorageCache(StorageCacheAPI):
         :return: Generator whose table refreshes occur as iteration advances.
         """
 
-        for table_name in sorted(self.main_tables):
+        for table_name in sorted(self._main_tables):
             yield self.get_main_table(table_name)
 
-    def get_table(self, name: str):
+    def get_table(
+        self, name: str
+    ) -> NumpyVectorizedMainTableCache | NumpyVectorizedLinkTable:
         """
         Resolve a main table or the first directed view with a matching physical link name.
 
@@ -5280,9 +5413,9 @@ class NumpyVectorizedStorageCache(StorageCacheAPI):
         :raises KeyError: Neither a main key nor a physical link-table name matches.
         """
 
-        if name in self.main_tables:
+        if name in self._main_tables:
             return self.get_main_table(name)
-        for key, table in self.link_tables.items():
+        for key, table in self._link_tables.items():
             if table.table == name:
                 self._ensure_link_table_fresh(key)
                 return table
@@ -5307,12 +5440,12 @@ class NumpyVectorizedStorageCache(StorageCacheAPI):
         for table in self.iter_main_tables():
             yielded.add(id(table))
             yield table
-        for key in sorted(self.link_tables):
-            table = self.get_link_table(*key)
-            if id(table) in yielded:
+        for key in sorted(self._link_tables):
+            link_table = self.get_link_table(*key)
+            if id(link_table) in yielded:
                 continue
-            yielded.add(id(table))
-            yield table
+            yielded.add(id(link_table))
+            yield link_table
 
     def has_link_table(
         self,
@@ -5341,7 +5474,7 @@ class NumpyVectorizedStorageCache(StorageCacheAPI):
 
         src_name = self.get_main_table(src_table).table
         dst_name = self.get_main_table(dst_table).table
-        table = self.link_tables.get((src_name, dst_name))
+        table = self._link_tables.get((src_name, dst_name))
         if table is None:
             return False
         self._ensure_link_table_fresh((src_name, dst_name))
@@ -5375,9 +5508,11 @@ class NumpyVectorizedStorageCache(StorageCacheAPI):
         dst_name = self.get_main_table(dst_table).table
         key = (src_name, dst_name)
         self._ensure_link_table_fresh(key)
-        table = self.link_tables[key]
+        table = self._link_tables[key]
         if table_type is not None and table.table_type != table_type:
-            raise KeyError(f"Link table {src_name!r}->{dst_name!r} is {table.table_type}, not {table_type}")
+            raise KeyError(
+                f"Link table {src_name!r}->{dst_name!r} is {table.table_type}, not {table_type}"
+            )
         return table
 
     def get_one_one_link_table(
@@ -5474,7 +5609,9 @@ class NumpyVectorizedStorageCache(StorageCacheAPI):
         :raises KeyError: An endpoint/route is absent or its current type differs from MANY_MANY.
         """
 
-        return self.get_link_table(src_table, dst_table, table_type=TableTypes.MANY_MANY)
+        return self.get_link_table(
+            src_table, dst_table, table_type=TableTypes.MANY_MANY
+        )
 
     def iter_link_tables(self) -> Iterable[NumpyVectorizedLinkTable]:
         """
@@ -5490,7 +5627,7 @@ class NumpyVectorizedStorageCache(StorageCacheAPI):
         :return: Generator over registered views, without deduplication by physical table.
         """
 
-        for key in sorted(self.link_tables):
+        for key in sorted(self._link_tables):
             yield self.get_link_table(*key)
 
     def has_field(self, name: FieldKey) -> bool:
@@ -5539,7 +5676,7 @@ class NumpyVectorizedStorageCache(StorageCacheAPI):
         field_name = self._resolve_field_name(name)
         if self._stale_fields or self._stale_main_tables or self._stale_link_tables:
             self._ensure_field_fresh(field_name)
-        return self.fields[field_name]
+        return self._fields[field_name]
 
     def iter_fields(self) -> Iterable[FieldBasicInterfaceAPI[Any]]:
         """
@@ -5577,13 +5714,15 @@ class NumpyVectorizedStorageCache(StorageCacheAPI):
 
         table_name = self.get_main_table(table).table
         return tuple(
-            field for field in self.iter_fields() if self._field_owner_table(field) == table_name
+            field
+            for field in self.iter_fields()
+            if self._field_owner_table(field) == table_name
         )
 
     def reload_main_table(
         self,
         name: Union[str, StorageCacheSingleTableAPI],
-        db: Any = None,
+        db: DatabaseAPI | None = None,
     ) -> None:
         """
         Reload one table, rebuild non-stale related topology and rebind dependent fields.
@@ -5606,15 +5745,16 @@ class NumpyVectorizedStorageCache(StorageCacheAPI):
         """
 
         table_name = (
-            name.table
-            if isinstance(name, StorageCacheSingleTableAPI)
-            else str(name)
+            name.table if isinstance(name, StorageCacheSingleTableAPI) else str(name)
         )
-        table = self.main_tables[table_name]
+        table = self._main_tables[table_name]
         table.reload(self._require_db(db))
         skipped_link_keys: set[tuple[str, str]] = set()
-        for key, link_table in self.link_tables.items():
-            if table.table not in (link_table.primary_table, link_table.secondary_table):
+        for key, link_table in self._link_tables.items():
+            if table.table not in (
+                link_table.primary_table,
+                link_table.secondary_table,
+            ):
                 continue
             if key in self._stale_link_tables:
                 skipped_link_keys.add(key)
@@ -5628,14 +5768,14 @@ class NumpyVectorizedStorageCache(StorageCacheAPI):
             link_key = self._field_link_key(field)
             if link_key is not None and link_key in skipped_link_keys:
                 continue
-            field.read(self.db)
+            field.read(self._require_db())
             self._stale_fields.discard(field.field_key)
 
     def reload_link_table(
         self,
         src_table: Union[str, StorageCacheSingleTableAPI],
         dst_table: Union[str, StorageCacheSingleTableAPI],
-        db: Any = None,
+        db: DatabaseAPI | None = None,
         table_type: Optional[TableTypes] = None,
     ) -> None:
         """
@@ -5669,7 +5809,7 @@ class NumpyVectorizedStorageCache(StorageCacheAPI):
             if isinstance(dst_table, StorageCacheSingleTableAPI)
             else str(dst_table)
         )
-        table = self.link_tables[(src_name, dst_name)]
+        table = self._link_tables[(src_name, dst_name)]
         if table_type is not None and table.table_type != table_type:
             raise KeyError(
                 f"Link table {src_name!r}->{dst_name!r} is "
@@ -5680,13 +5820,13 @@ class NumpyVectorizedStorageCache(StorageCacheAPI):
         self._stale_link_tables.discard(key)
         for field in self._field_objects.values():
             if self._field_link_key(field) == key:
-                field.read(self.db)
+                field.read(self._require_db())
                 self._stale_fields.discard(field.field_key)
 
     def reload_field(
         self,
         name: Union[FieldKey, FieldBasicInterfaceAPI[Any]],
-        db: Any = None,
+        db: DatabaseAPI | None = None,
     ) -> None:
         """
         Rebind one canonical field from current table/link state and clear its marker.
@@ -5894,15 +6034,21 @@ class NumpyVectorizedStorageCache(StorageCacheAPI):
         """
 
         owner_id = int(owner_id)
-        field_name = field_key if isinstance(field_key, str) and field_key in self.fields else self._resolve_field_name(field_key)
+        field_name = (
+            field_key
+            if isinstance(field_key, str) and field_key in self._fields
+            else self._resolve_field_name(field_key)
+        )
         if self._stale_fields or self._stale_main_tables or self._stale_link_tables:
             self._ensure_field_fresh(field_name)
-        field = self.fields[field_name]
+        field = self._fields[field_name]
         if isinstance(field, NumpyVectorizedSameTableField):
             value = field.get_value_from_id(owner_id)
             return default_value if value is None else value
         if isinstance(field, _NumpyVectorizedRelationFieldBase):
-            value = field.get_value_from_src_id(owner_id)
+            value = cast(Callable[[int], Any], getattr(field, "get_value_from_src_id"))(
+                owner_id
+            )
             return default_value if value is None else value
         getter = getattr(field, "get_value_from_id", None)
         if callable(getter):
@@ -5912,12 +6058,14 @@ class NumpyVectorizedStorageCache(StorageCacheAPI):
         if callable(getter):
             value = getter(owner_id)
             return default_value if value is None else value
-        return super().get_cached_value(owner_id, field_key, default_value=default_value)
+        return super().get_cached_value(
+            owner_id, field_key, default_value=default_value
+        )
 
     def get_cached_row_values(
         self,
         owner_id: int,
-        field_keys: tuple[str, ...] | list[str],
+        field_keys: Sequence[str],
         default_value: Any = None,
     ) -> tuple[Any, ...]:
         """
@@ -5950,14 +6098,22 @@ class NumpyVectorizedStorageCache(StorageCacheAPI):
         for field in resolved_fields:
             if not isinstance(field, NumpyVectorizedSameTableField):
                 return tuple(
-                    self.get_cached_value(owner_id, str(getattr(field, "field_key", field)), default_value=default_value)
+                    self.get_cached_value(
+                        owner_id,
+                        str(getattr(field, "field_key", field)),
+                        default_value=default_value,
+                    )
                     for field in resolved_fields
                 )
             if table_name is None:
                 table_name = field.table_name
             elif field.table_name != table_name:
                 return tuple(
-                    self.get_cached_value(owner_id, str(getattr(field, "field_key", field)), default_value=default_value)
+                    self.get_cached_value(
+                        owner_id,
+                        str(getattr(field, "field_key", field)),
+                        default_value=default_value,
+                    )
                     for field in resolved_fields
                 )
             scalar_fields.append(field)
@@ -5966,9 +6122,28 @@ class NumpyVectorizedStorageCache(StorageCacheAPI):
         if not table.has_id(int(owner_id)):
             return tuple(default_value for _field in scalar_fields)
         return tuple(
-            (table.get_column_value_from_id(int(owner_id), field.column_name) if table.has_id(int(owner_id)) else default_value)
+            (
+                table.get_column_value_from_id(int(owner_id), field.column_name)
+                if table.has_id(int(owner_id))
+                else default_value
+            )
             for field in scalar_fields
         )
+
+    @property
+    def main_tables(self) -> dict[str, NumpyVectorizedMainTableCache]:
+        """Return the backend-owned main tables registry."""
+        return self._main_tables
+
+    @property
+    def link_tables(self) -> dict[tuple[str, str], NumpyVectorizedLinkTable]:
+        """Return the backend-owned link tables registry."""
+        return self._link_tables
+
+    @property
+    def fields(self) -> dict[str, FieldBasicInterfaceAPI[Any]]:
+        """Return the backend-owned fields registry."""
+        return self._fields
 
 
 StorageCache = NumpyVectorizedStorageCache

@@ -6,6 +6,7 @@ row/type metadata.
 The API classes prescribe read shapes while concrete backends implement
 cardinality enforcement, ordering, storage refresh and update sequencing.
 """
+
 from __future__ import annotations
 
 import abc
@@ -25,8 +26,13 @@ if TYPE_CHECKING:
         OneOneInterLinkTableUpdate,
         OneOneInterLinkTableUpdateResults,
     )
-    from LiuXin_alpha.databases.api.row_api import InterlinkRowAPI, RowAPI
-    from LiuXin_alpha.databases.db_types.database_types import InterlinkTableID, TableColumnName, SrcTableID, DstTableID
+    from LiuXin_alpha.databases.api.row_api import RowAPI
+    from LiuXin_alpha.databases.db_types.database_types import (
+        DstTableID,
+        InterlinkTableID,
+        SrcTableID,
+        TableColumnName,
+    )
 
 
 @dataclasses.dataclass(slots=True)
@@ -140,6 +146,7 @@ class StorageCacheOneOneGetterAPI(abc.ABC):
         self,
         src_id: "SrcTableID",
         dst_id: "DstTableID",
+        insist_on_singular: bool = True,
         type_filter: Optional[str] = None,
     ) -> Optional[OneOneLink]:
         """
@@ -211,8 +218,9 @@ class StorageCacheOneOneGetterAPI(abc.ABC):
         self,
         src_id: "SrcTableID",
         dst_id: "DstTableID",
+        insist_on_singular: bool = True,
         type_filter: Optional[str] = None,
-    ) -> Optional["InterlinkRowAPI"]:
+    ) -> Optional["RowAPI"]:
         """
         Read one optional physical association Rows selected by the directed endpoint pair.
 
@@ -235,7 +243,7 @@ class StorageCacheOneOneGetterAPI(abc.ABC):
         self,
         src_id: "SrcTableID",
         type_filter: Optional[str] = None,
-    ) -> Optional["InterlinkRowAPI"]:
+    ) -> Optional["RowAPI"]:
         """
         Read one optional physical association Rows selected by the source ID.
 
@@ -257,7 +265,7 @@ class StorageCacheOneOneGetterAPI(abc.ABC):
         self,
         dst_id: "DstTableID",
         type_filter: Optional[str] = None,
-    ) -> Optional["InterlinkRowAPI"]:
+    ) -> Optional["RowAPI"]:
         """
         Read one optional physical association Rows selected by the destination ID.
 
@@ -350,6 +358,7 @@ class StorageCacheOneOneGetterAPI(abc.ABC):
         self,
         dst_value: Any,
         dst_column: "TableColumnName",
+        require_ordering: bool = False,
         type_filter: Optional[str] = None,
     ) -> Sequence["SrcTableID"]:
         """
@@ -374,6 +383,7 @@ class StorageCacheOneOneGetterAPI(abc.ABC):
         self,
         dst_value: Any,
         dst_column: "TableColumnName",
+        require_ordering: bool = False,
         type_filter: Optional[str] = None,
     ) -> Sequence["RowAPI"]:
         """
@@ -470,6 +480,7 @@ class StorageCacheOneOneGetterAPI(abc.ABC):
         self,
         src_value: Any,
         src_column: "TableColumnName",
+        require_ordering: bool = False,
         type_filter: Optional[str] = None,
     ) -> Sequence["DstTableID"]:
         """
@@ -494,6 +505,7 @@ class StorageCacheOneOneGetterAPI(abc.ABC):
         self,
         src_value: Any,
         src_column: "TableColumnName",
+        require_ordering: bool = False,
         type_filter: Optional[str] = None,
     ) -> Sequence["RowAPI"]:
         """
@@ -515,7 +527,9 @@ class StorageCacheOneOneGetterAPI(abc.ABC):
         """
 
 
-class StorageCacheOneToOneLinkTable(StorageCacheLinkTableBaseAPI[T], StorageCacheOneOneGetterAPI):
+class StorageCacheOneToOneLinkTable(
+    StorageCacheLinkTableBaseAPI[T], StorageCacheOneOneGetterAPI
+):
     """
     Combine one-to-one read contracts with table lifecycle and legacy update hooks.
 
@@ -657,7 +671,7 @@ class StorageCacheOneToOneLinkTableAPI(StorageCacheOneToOneLinkTable[T]):
     """
 
 
-class StorageCacheItemCalibreUUIDTableAPI(StorageCacheLinkTableBaseAPI):
+class StorageCacheItemCalibreUUIDTableAPI(StorageCacheLinkTableBaseAPI[Any]):
     """
     Specify Item identity lookup through a linked Calibre UUID value.
 

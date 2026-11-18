@@ -9,6 +9,7 @@ in a subprocess so earlier runs cannot retain allocator or cache state.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import math
 import platform
@@ -17,12 +18,16 @@ import subprocess
 import sys
 import time
 import tracemalloc
+from pathlib import Path
 
 from LiuXin_alpha.caches.api import CacheQuery, CacheSort
 from LiuXin_alpha.caches.projection import ProjectionQueryEngine
 from LiuXin_alpha.databases.db_types.query_types import ComparisonMatch
 from LiuXin_alpha.metadata.calibre_conversion import CalibreBookRef
-from LiuXin_alpha.utils.calibre_compat.caches.search.adapter import CalibreSearchAdapter
+from LiuXin_alpha.utils.calibre_compat.caches.search.adapter import (
+    CalibreSearchAdapter,
+    SearchDefinitions,
+)
 
 
 def timed(operation, expected, repeats):
@@ -60,12 +65,16 @@ def measure(records, repeats):
             "title": f"Book {i}",
             "sort": f"Book {i}",
             "rating": 2 * (i % 6),
+            "#Rank": i % 7,
             "tags": ("fiction", "space") if i % 2 else ("history",),
         }
         for i in range(1, records + 1)
     }
     refs = {CalibreBookRef(i): row for i, row in rows.items()}
-    adapter, adapter_construction = constructed(lambda: CalibreSearchAdapter(refs))
+    definitions = SearchDefinitions({})
+    adapter, adapter_construction = constructed(
+        lambda: CalibreSearchAdapter(refs, definitions=definitions)
+    )
     workloads = [
         ("all", "", lambda i: True),
         ("absent", "title:missing", lambda i: False),
@@ -93,6 +102,42 @@ def measure(records, repeats):
             "cold": timed(cold, expected, repeats),
             "warm": timed(lambda query=query: adapter.search(query), expected, repeats),
         }
+    # A small caller-supplied scope must not require walking the whole projection.
+    selected = tuple(CalibreBookRef(i) for i in range(1, min(records, 10) + 1))
+    expected = frozenset(ref for ref in selected if ref.expression_id % 7 > 3)
+
+    def scoped_cold():
+        adapter._results.clear()
+        return adapter.search("#rank:>3", references=iter(selected))
+
+    results["ten_candidates"] = {
+        "matched": len(expected),
+        "cold": timed(scoped_cold, expected, repeats),
+        "warm": timed(
+            lambda: adapter.search("#rank:>3", references=iter(selected)),
+            expected,
+            repeats,
+        ),
+    }
+    results["ten_candidate_sort"] = timed(
+        lambda: adapter.multisort([("id", False)], references=iter(selected)),
+        tuple(reversed(selected)),
+        repeats,
+    )
+    revision = 0
+
+    def definition_edit():
+        nonlocal revision
+        revision += 1
+        # Equivalent spellings change the definition while retaining one oracle.
+        definitions.set(
+            "saved_searches", "chosen", ("#rank:>3", "#RANK:>3")[revision % 2]
+        )
+        return adapter.search("search:chosen", references=selected)
+
+    results["definition_edit"] = timed(definition_edit, expected, repeats)
+    actual, results["definition_edit_allocations"] = constructed(definition_edit)
+    assert actual == expected
     # Query churn must evict bounded caches; a hot entry must still be correct.
     for i in range(200):
         assert adapter.search(f"id:{i}") == (
@@ -158,6 +203,7 @@ def measure(records, repeats):
 
 
 def main():
+    root = Path(__file__).resolve().parents[1]
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--scales", type=int, nargs="+", default=[1000, 10000, 100000])
     parser.add_argument("--repeats", type=int, default=7)
@@ -196,6 +242,14 @@ def main():
                 "schema_version": 1,
                 "python": platform.python_version(),
                 "platform": platform.platform(),
+                "source_sha256": {
+                    path: hashlib.sha256((root / path).read_bytes()).hexdigest()
+                    for path in (
+                        "scripts/benchmark_metadata_search_matrix.py",
+                        "src/LiuXin_alpha/utils/calibre_compat/caches/search/adapter.py",
+                        "src/LiuXin_alpha/caches/projection.py",
+                    )
+                },
                 "runs": runs,
             },
             indent=2,

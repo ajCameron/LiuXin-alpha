@@ -9,10 +9,15 @@ or provide an encompassing transaction.
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from LiuXin_alpha.databases.api.database_api.database_api import DatabaseAPI
+
 import bisect
 from collections import defaultdict
 from copy import deepcopy
-from typing import Any, Iterable, Mapping, Optional, Sequence
+from typing import Any, Iterable, Mapping, Optional, Sequence, cast
 
 from LiuXin_alpha.caches.api.storage_cache_api.storage_tables_api.base_table_api import (
     TableMetadata,
@@ -47,7 +52,7 @@ class SchemaBackedMainTableCache(StorageCacheSingleTableAPI):
 
     spec: StorageTableSpec
 
-    def __init__(self, spec: StorageTableSpec, db: Any) -> None:
+    def __init__(self, spec: StorageTableSpec, db: DatabaseAPI) -> None:
         """
         Attach schema/table metadata and allocate empty row and index state.
 
@@ -169,7 +174,11 @@ class SchemaBackedMainTableCache(StorageCacheSingleTableAPI):
         :return: Read-only Row attached to the current database, with an independent payload.
         """
 
-        return Row(database=self.db, row_dict=deepcopy(dict(row_dict)), read_only=True)
+        return Row(
+            database=self._require_attachment(),
+            row_dict=deepcopy(dict(row_dict)),
+            read_only=True,
+        )
 
     def _refresh_indexes(self) -> None:
         """
@@ -188,8 +197,7 @@ class SchemaBackedMainTableCache(StorageCacheSingleTableAPI):
         """
 
         value_indexes: dict[str, dict[Any, set[int]]] = {
-            column: defaultdict(set)
-            for column in self.column_headings
+            column: defaultdict(set) for column in self.column_headings
         }
         for row_id in self._row_order:
             row_dict = self._rows_by_id[row_id]
@@ -240,7 +248,7 @@ class SchemaBackedMainTableCache(StorageCacheSingleTableAPI):
         self._refresh_indexes()
         self._loaded = True
 
-    def read(self, db: Any) -> None:
+    def read(self, db: DatabaseAPI | None) -> None:
         """
         Attach the selected database and replace snapshots from all physical rows.
 
@@ -266,10 +274,10 @@ class SchemaBackedMainTableCache(StorageCacheSingleTableAPI):
             row_dicts = db.driver_wrapper.get_all_rows(self.table)
         except AttributeError:
             rows = db.get_all_rows(self.table, iterator_return=False)
-            row_dicts = [row.row_dict for row in rows]
+            row_dicts = [cast(dict[str, Any], row.row_dict) for row in rows]
         self._replace_rows(row_dicts)
 
-    def reload(self, db: Any) -> None:
+    def reload(self, db: DatabaseAPI | None) -> None:
         """
         Delegate a complete table replacement to read.
 
@@ -333,7 +341,7 @@ class SchemaBackedMainTableCache(StorageCacheSingleTableAPI):
             raise KeyError(column)
         return set(self._value_indexes[column].keys())
 
-    def get_ids_for_value(self, column: str, value: str) -> set[int]:
+    def get_ids_for_value(self, column: str, value: Any) -> set[int]:
         """
         Look up row IDs using exact Python value-index equality.
 
@@ -457,7 +465,9 @@ class SchemaBackedMainTableCache(StorageCacheSingleTableAPI):
         payloads: dict[int, dict[str, Any]] = {}
         chosen_column = target_column or self.default_value_column
         if chosen_column is None:
-            raise RuntimeError(f"Table {self.table!r} has no sensible default value column")
+            raise RuntimeError(
+                f"Table {self.table!r} has no sensible default value column"
+            )
 
         for table_id, value in table_id_val_map.items():
             row_id = int(table_id)
@@ -503,7 +513,7 @@ class SchemaBackedMainTableCache(StorageCacheSingleTableAPI):
                 self._rows_by_id.pop(row_id, None)
                 self._row_order.remove(row_id)
                 continue
-            new_row = deepcopy(row.row_dict)
+            new_row = deepcopy(cast(dict[str, Any], row.row_dict))
             if old_row is not None:
                 self._remove_row_from_indexes(row_id, old_row)
             else:
@@ -566,7 +576,7 @@ class SchemaBackedMainTableCache(StorageCacheSingleTableAPI):
     def create(
         self,
         table_id_val_map: Mapping[int, Any],
-        db: Any,
+        db: DatabaseAPI | None,
         target_column: Optional[str] = None,
         allow_case_change: bool = False,
     ) -> None:
@@ -621,7 +631,7 @@ class SchemaBackedMainTableCache(StorageCacheSingleTableAPI):
     def _create_to_db(
         self,
         table_id_val_map: Mapping[int, Any],
-        db: Any,
+        db: DatabaseAPI | None,
         target_column: Optional[str] = None,
         allow_case_change: bool = False,
     ) -> None:
@@ -654,7 +664,7 @@ class SchemaBackedMainTableCache(StorageCacheSingleTableAPI):
     def update(
         self,
         table_id_val_map: Mapping[int, Any],
-        db: Any,
+        db: DatabaseAPI | None,
         target_column: Optional[str] = None,
         allow_case_change: bool = False,
     ) -> None:
@@ -717,7 +727,7 @@ class SchemaBackedMainTableCache(StorageCacheSingleTableAPI):
     def _update_db(
         self,
         table_id_val_map: Mapping[int, Any],
-        db: Any,
+        db: DatabaseAPI | None,
         target_column: Optional[str] = None,
         allow_case_change: bool = False,
     ) -> None:
@@ -757,13 +767,15 @@ class SchemaBackedMainTableCache(StorageCacheSingleTableAPI):
                 current = db.get_row_from_id(self.table, row_id)
                 if current is None:
                     raise KeyError(f"No such row in {self.table!r}: {row_id}")
-                merged = deepcopy(current.row_dict)
+                merged = deepcopy(cast(dict[str, Any], current.row_dict))
                 merged.update(payload)
                 db.driver_wrapper.update_row(merged)
                 continue
 
             if chosen_column is None:
-                raise RuntimeError(f"Table {self.table!r} has no sensible default value column")
+                raise RuntimeError(
+                    f"Table {self.table!r} has no sensible default value column"
+                )
 
             current_value = None
             if self.has_id(row_id):
@@ -778,12 +790,14 @@ class SchemaBackedMainTableCache(StorageCacheSingleTableAPI):
             ):
                 continue
 
-            db.driver_wrapper.update_column(self.table, row_id, chosen_column, new_value)
+            db.driver_wrapper.update_column(
+                self.table, row_id, chosen_column, new_value
+            )
 
     def delete(
         self,
         table_ids: Iterable[int],
-        db: Any,
+        db: DatabaseAPI | None,
     ) -> None:
         """
         Delete physical rows, then evict selected IDs and rebuild local value indexes.
@@ -827,10 +841,12 @@ class SchemaBackedMainTableCache(StorageCacheSingleTableAPI):
             for row_id, row_dict in self._rows_by_id.items()
             if row_id not in deleted
         }
-        self._row_order = [row_id for row_id in self._row_order if row_id not in deleted]
+        self._row_order = [
+            row_id for row_id in self._row_order if row_id not in deleted
+        ]
         self._refresh_indexes()
 
-    def _delete_from_db(self, table_ids: Iterable[str], db: Any) -> None:
+    def _delete_from_db(self, table_ids: Iterable[int], db: DatabaseAPI | None) -> None:
         """
         Delete a deduplicated integer-ID set through the selected database driver.
 
