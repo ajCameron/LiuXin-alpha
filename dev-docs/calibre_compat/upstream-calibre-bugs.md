@@ -668,9 +668,11 @@ the patched reader read 9,000 random books exactly as calibre's does.
   (`metadata/file_sources/html.py`), which has no length cap, so a 1 MB comment
   would have taken hours. PR #185 carries the fix in the ported HTML reader.
 - PR #188 carries fixes for bugs 5 to 10 in the ported `chardet` and MOBI
-  readers. LiuXin's own `utils/libraries/calibre_chardet.py` has bug 5, and its
-  own MOBI 6 reader (`file_formats/mobi/reader/mobi6.py`) has bugs 8 to 10; both
-  are still to be fixed on `main`. Its EXTH reader already refuses a record of
-  size 0, and its HUFF/CDIC reader caps each record's output.
+  readers. On `main`, PR #190 fixes bug 5 in LiuXin's own
+  `utils/libraries/calibre_chardet.py`, and PR #191 fixes bugs 9 and 10 in its
+  own MOBI 6 reader (`file_formats/mobi/reader/mobi6.py`). LiuXin's readers
+  never had bugs 6 to 8: its EXTH reader refuses a record of size 0, its
+  HUFF/CDIC reader caps each record's output, and its PalmDB reader refuses
+  offsets that go back.
 
 Return to the [calibre compatibility index](README.md).
