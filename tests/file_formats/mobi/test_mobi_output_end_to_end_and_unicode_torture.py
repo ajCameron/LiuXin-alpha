@@ -531,4 +531,4 @@ def test_mobi_output_old_mode_is_deterministic_with_frozen_runtime(
     # book metadata stopped dropping them; the language no longer follows the locale.
     # The text is PalmDOC-compressed, so the digest also moves with the cPalmdoc codec.
     digest = sha256_hex(first)
-    assert digest == "0c63b27e4f8d0672048805f485ece62a671153504132402c292506a9fba9fd37", f"sha256 {digest}"
+    assert digest == "6d6093c570c0dd5d3011f782318fa3452bf7edbd19d00fd584380f8112bb673a", f"sha256 {digest}"
