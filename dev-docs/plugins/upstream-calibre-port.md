@@ -7,7 +7,9 @@ metadata readers and the calibre code they use. They run in process, without
 calibre installed, through the providers in
 `file_formats.providers.ported_calibre` (priority −50, ahead of running an
 installed calibre at −60). This guide covers what is ported, what LiuXin
-substitutes for, and how to port more.
+substitutes for, and how to port more. The [status page](upstream-calibre-port-status.md)
+records how the ports compare with LiuXin's other readers, what hostile input
+turned up, and which readers are left.
 
 ## The rules
 
@@ -96,6 +98,8 @@ rules around it:
 
 The LIT reader needs calibre's LIT container reader and OEB reader and the
 `lzx` and `msdes` C extensions; the fork's LIT reader still serves LIT files.
+The [status page](upstream-calibre-port-status.md#what-is-left) lists the other
+readers left and what each needs.
 
 ## Porting more
 

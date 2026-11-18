@@ -92,6 +92,21 @@ The checked-in hostile corpus currently covers:
 Future ODT work should add named regressions here when a real fixture exposes a
 new failure mode.
 
+## Known Issue: odfpy Writing
+
+Found **2026-11-18** while building test documents for the ported calibre ODT
+reader (PR #185). Writing a `draw:frame` with `svg:width` and `svg:height`, holding
+a `draw:image` with `xlink:href`, through `LiuXin_alpha.file_formats.odf` gives a
+`content.xml` whose root declares the `draw`, `manifest`, `meta`, `office` and
+`text` prefixes but not `svg` or `xlink`. The part is not well-formed XML, so
+odfpy's own `load` and lxml both refuse it. odfpy 1.4.1 from PyPI declares both
+prefixes for the same document.
+
+No LiuXin code writes ODT through this copy today: the converter and the
+metadata readers only load documents. LiuXin's ODT metadata reader also falls
+back to scanning `content.xml` for frames, which is why it still found the cover
+in such a document. Fix the writer before anything writes ODT with it.
+
 ## Sign-Off Status
 
 ODT is signed off for the current input/container conversion scope as of
