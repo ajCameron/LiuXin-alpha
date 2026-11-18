@@ -529,4 +529,6 @@ def test_mobi_output_old_mode_is_deterministic_with_frozen_runtime(
     assert len(first) > 4096
     # The source OPF's description and language reach the EXTH records since the OPF 2
     # book metadata stopped dropping them; the language no longer follows the locale.
-    assert sha256_hex(first) == "e063596560b3e1e6a13741d63a5afa661d8266fdfa654399c4d3b964733d01a9"
+    # The text is PalmDOC-compressed, so the digest also moves with the cPalmdoc codec.
+    digest = sha256_hex(first)
+    assert digest == "6d6093c570c0dd5d3011f782318fa3452bf7edbd19d00fd584380f8112bb673a", f"sha256 {digest}"

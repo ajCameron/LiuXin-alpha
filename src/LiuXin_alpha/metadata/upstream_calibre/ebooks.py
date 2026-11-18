@@ -24,7 +24,7 @@ from LiuXin_alpha.metadata.upstream_calibre._compat import prints
 from LiuXin_alpha.metadata.upstream_calibre.chardet import xml_to_unicode
 
 if TYPE_CHECKING:
-    from typing import Any as Log
+    from LiuXin_alpha.metadata.upstream_calibre._compat import Log
 
 
 class ConversionError(Exception):

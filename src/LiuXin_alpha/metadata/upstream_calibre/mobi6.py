@@ -1,0 +1,1055 @@
+#!/usr/bin/env python
+# License: GPLv3 Copyright: 2012, Kovid Goyal <kovid@kovidgoyal.net>
+# Ported from calibre (https://calibre-ebook.com) 9.18: src/calibre/ebooks/mobi/reader/mobi6.py
+# Changes from upstream: calibre imports point at upstream_calibre and its _compat, and
+# 'from __future__ import annotations' is added.
+# Except clauses naming several exceptions are parenthesised, for Python before 3.14.
+# LiuXin fixes are marked '# LiuXin:'.
+# SPDX-License-Identifier: GPL-3.0-only
+
+from __future__ import annotations
+
+import io
+import os
+import re
+import shutil
+import struct
+import textwrap
+from typing import IO, TYPE_CHECKING, cast
+
+from lxml import etree, html
+
+from LiuXin_alpha.metadata.upstream_calibre._compat import guess_type
+from LiuXin_alpha.metadata.upstream_calibre._compat import replace_entities
+from LiuXin_alpha.metadata.upstream_calibre._compat import xml_replace_entities
+from LiuXin_alpha.metadata.upstream_calibre.ebooks import DRMError
+from LiuXin_alpha.metadata.upstream_calibre.ebooks import unit_convert
+from LiuXin_alpha.metadata.upstream_calibre.chardet import strip_encoding_declarations
+from LiuXin_alpha.metadata.upstream_calibre.palmdoc import decompress_doc
+from LiuXin_alpha.metadata.upstream_calibre.metadata_base import MetaInformation
+from LiuXin_alpha.metadata.upstream_calibre.opf2 import OPF
+from LiuXin_alpha.metadata.upstream_calibre.opf2 import OPFCreator
+from LiuXin_alpha.metadata.upstream_calibre.toc import TOC
+from LiuXin_alpha.metadata.upstream_calibre.mobi_package import MobiError
+from LiuXin_alpha.metadata.upstream_calibre.huffcdic import HuffReader
+from LiuXin_alpha.metadata.upstream_calibre.mobi_headers import BookHeader
+from LiuXin_alpha.metadata.upstream_calibre._compat import StreamOrPath
+from LiuXin_alpha.metadata.upstream_calibre.cleantext import clean_ascii_chars
+from LiuXin_alpha.metadata.upstream_calibre.cleantext import clean_xml_chars
+from LiuXin_alpha.metadata.upstream_calibre._compat import AnimatedGIF
+from LiuXin_alpha.metadata.upstream_calibre._compat import gif_data_to_png_data
+from LiuXin_alpha.metadata.upstream_calibre._compat import save_cover_data_to
+from LiuXin_alpha.metadata.upstream_calibre.imghdr import what
+from LiuXin_alpha.metadata.upstream_calibre._compat import _
+from LiuXin_alpha.metadata.upstream_calibre._compat import default_log
+from LiuXin_alpha.metadata.upstream_calibre._compat import safe_html_fromstring
+from LiuXin_alpha.metadata.upstream_calibre import _linear_time  # LiuXin:
+
+if TYPE_CHECKING:
+    from lxml.etree import _Element
+
+    from LiuXin_alpha.metadata.upstream_calibre._compat import Log
+
+
+class TopazError(ValueError):
+    pass
+
+
+class KFXError(ValueError):
+    def __init__(self) -> None:
+        ValueError.__init__(
+            self,
+            _('This is an Amazon KFX book. It cannot be processed. See {} for information on how to handle KFX books.').format(
+                'https://www.mobileread.com/forums/showthread.php?t=283371'
+            ),
+        )
+
+
+class MobiReader:
+    # LiuXin: calibre's pattern, with its runs of whitespace and its attributes
+    # read possessively. They can end only one way, but calibre's pattern tried
+    # every split of a long run of spaces: minutes for a few kilobytes.
+    PAGE_BREAK_PAT = re.compile(
+        r'<\s*+/{0,1}\s*+mbp:pagebreak((?>(?:\s+[^/>]*){0,1}))/{0,1}\s*>\s*(?:<\s*+/{0,1}\s*+mbp:pagebreak\s*+/{0,1}\s*>)*',  # LiuXin:
+        re.IGNORECASE,
+    )
+    IMAGE_ATTRS = ('lowrecindex', 'recindex', 'hirecindex')
+
+    def __init__(
+        self,
+        filename_or_stream: str | IO[bytes],
+        log: Log | None = None,
+        user_encoding: str | None = None,
+        debug: str | None = None,
+        try_extra_data_fix: bool = False,
+    ) -> None:
+        self.log = log or default_log
+        self.debug = debug
+        self.embedded_mi = None
+        self.warned_about_trailing_entry_corruption = False
+        self.base_css_rules = textwrap.dedent('''
+                body { text-align: justify }
+
+                blockquote { margin: 0em 0em 0em 2em; }
+
+                p { margin: 0em; text-indent: 1.5em }
+
+                .bold { font-weight: bold }
+
+                .italic { font-style: italic }
+
+                .underline { text-decoration: underline }
+
+                .mbp_pagebreak {
+                    page-break-after: always; margin: 0; display: block
+                }
+                ''')
+        self.tag_css_rules = {}
+        self.left_margins = {}
+        self.text_indents = {}
+
+        with StreamOrPath(filename_or_stream, 'rb') as stream:
+            stream.seek(0)
+            raw = stream.read()
+
+        if raw.startswith(b'TPZ'):
+            raise TopazError(_('This is an Amazon Topaz book. It cannot be processed.'))
+        if raw.startswith(b'\xeaDRMION\xee'):
+            raise KFXError()
+
+        self.header = raw[0:72]
+        self.name = self.header[:32].replace(b'\x00', b'')
+        (self.num_sections,) = struct.unpack('>H', raw[76:78])
+
+        self.ident = self.header[0x3C : 0x3C + 8].upper()
+        if self.ident not in (b'BOOKMOBI', b'TEXTREAD'):
+            raise MobiError(f'Unknown book type: {self.ident!r}')
+
+        self.sections = []
+        self.section_headers = []
+        for i in range(self.num_sections):
+            offset, a1, a2, a3, a4 = struct.unpack('>LBBBB', raw[78 + i * 8 : 78 + i * 8 + 8])
+            flags, val = a1, a2 << 16 | a3 << 8 | a4
+            self.section_headers.append((offset, flags, val))
+
+        raw_bytes: bytes = raw
+
+        def section(section_number: int) -> bytes:
+            if section_number == self.num_sections - 1:
+                end_off = len(raw_bytes)
+            else:
+                end_off = self.section_headers[section_number + 1][0]
+            off = self.section_headers[section_number][0]
+            return raw_bytes[off:end_off]
+
+        # LiuXin: a section runs to the next one's offset, so a table whose offsets
+        # go back and forth holds the same bytes again for each entry: 65535 copies
+        # of a few megabytes. Sections of a well-formed book do not overlap; they
+        # may hold twice the file before it is refused.
+        held = 0  # LiuXin:
+        for i in range(self.num_sections):
+            self.sections.append((section(i), self.section_headers[i]))
+            held += len(self.sections[-1][0])  # LiuXin:
+            if held > 2 * len(raw_bytes):  # LiuXin:
+                raise MobiError('MOBI sections overlap')
+
+        self.book_header = bh = BookHeader(self.sections[0][0], self.ident, user_encoding, self.log, try_extra_data_fix=try_extra_data_fix)
+        self.name = self.name.decode(self.book_header.codec, 'replace')
+        self.kf8_type = None
+        k8i = getattr(self.book_header.exth, 'kf8_header', None)
+
+        # Ancient PRC files from Baen can have random values for
+        # mobi_version, so be conservative
+        if self.book_header.mobi_version == 8 and hasattr(self.book_header, 'skelidx'):
+            self.kf8_type = 'standalone'
+        elif k8i is not None:  # Check for joint mobi 6 and kf 8 file
+            try:
+                raw = self.sections[k8i - 1][0]
+            except Exception:
+                raw = None
+            if raw == b'BOUNDARY':
+                try:
+                    self.book_header = BookHeader(self.sections[k8i][0], self.ident, user_encoding, self.log)
+                    self.book_header.kf8_first_image_index = self.book_header.first_image_index + k8i
+                    self.book_header.mobi6_records = bh.records
+
+                    # Need the first_image_index from the mobi 6 header as well
+                    for x in ('first_image_index',):
+                        setattr(self.book_header, x, getattr(bh, x))
+
+                    # We need to do this because the MOBI 6 text extract code
+                    # does not know anything about the kf8 offset
+                    if hasattr(self.book_header, 'huff_offset'):
+                        self.book_header.huff_offset += k8i
+
+                    self.kf8_type = 'joint'
+                    self.kf8_boundary = k8i - 1
+                except Exception:
+                    self.book_header = bh
+
+    def check_for_drm(self) -> None:
+        if self.book_header.encryption_type != 0:
+            try:
+                exth = self.book_header.exth
+                assert exth is not None
+                name = exth.mi.title
+            except Exception:
+                name = self.name
+            if not name:
+                name = self.name
+            raise DRMError(name)
+
+    def extract_content(self, output_dir: str, parse_cache: dict[str, _Element | bytes]) -> None:
+        output_dir = os.path.abspath(output_dir)
+        self.check_for_drm()
+        processed_records = self.extract_text()
+        if self.debug is not None:
+            parse_cache['calibre_raw_mobi_markup'] = self.mobi_html
+        self.add_anchors()
+        self.processed_html = cast('bytes', self.processed_html).decode(self.book_header.codec, 'ignore')
+        self.processed_html = self.processed_html.replace('</</', '</')
+        self.processed_html = re.sub(r'</([a-zA-Z]+)<', r'</\1><', self.processed_html)
+        self.processed_html = self.processed_html.replace('\ufeff', '')
+        # Remove tags of the form <xyz: ...> as they can cause issues further
+        # along the pipeline
+        # LiuXin: tries after the last '>' scan to the end and fail; they are not made.
+        self.processed_html = _linear_time.sub_before_last(re.compile(r'</{0,1}[a-zA-Z]+:\s+[^>]*>'), '', self.processed_html, '>')  # LiuXin:
+
+        self.processed_html = strip_encoding_declarations(self.processed_html)
+        self.processed_html = xml_replace_entities(self.processed_html)
+        image_name_map = self.extract_images(processed_records, output_dir)
+        self.replace_page_breaks()
+        self.cleanup_html()
+
+        self.log.debug('Parsing HTML...')
+        self.processed_html = clean_xml_chars(self.processed_html)
+        try:
+            root = safe_html_fromstring(self.processed_html)
+            if len(root.xpath('//html')) > 5:
+                root = safe_html_fromstring(self.processed_html.replace('\x0c', '').replace('\x14', ''))
+        except Exception:
+            self.log.warning('MOBI markup appears to contain random bytes. Stripping.')
+            self.processed_html = self.remove_random_bytes(self.processed_html)
+            try:
+                root = safe_html_fromstring(self.processed_html)
+            except Exception:
+                self.log.warning('MOBI markup could not be parsed by lxml using html5-parser')
+                # Happens on windows with python 3 where lxml causes libxml to die with an
+                # error about using UCS-4 little endian encoding if certain
+                # characters are present in the input
+                from LiuXin_alpha.metadata.upstream_calibre._compat import html5_parse as parse
+
+                root = parse(
+                    self.processed_html,
+                    keep_doctype=False,
+                    namespace_elements=False,
+                    maybe_xhtml=False,
+                    sanitize_names=True,
+                )
+        if root.xpath('descendant::p/descendant::p'):
+            from LiuXin_alpha.metadata.upstream_calibre._compat import html5_parse as parse
+
+            self.log.warning('Malformed markup, parsing using html5-parser')
+            self.processed_html = strip_encoding_declarations(self.processed_html)
+            # These trip up the html5 parser causing all content to be placed
+            # under the <guide> tag
+            # LiuXin: a failed try scans to the end of its line, as would every later
+            # try on that line; they are not made.
+            self.processed_html = _linear_time.sub_skipping_failures(  # LiuXin:
+                re.compile(r'<metadata>.+?</metadata>', re.I), '', self.processed_html, re.compile(r'<metadata>', re.I), '\n'
+            )
+            self.processed_html = _linear_time.sub_skipping_failures(  # LiuXin:
+                re.compile(r'<guide>.+?</guide>', re.I), '', self.processed_html, re.compile(r'<guide>', re.I), '\n'
+            )
+            try:
+                root = parse(self.processed_html, maybe_xhtml=False, keep_doctype=False, sanitize_names=True)
+            except Exception:
+                self.log.warning('MOBI markup appears to contain random bytes. Stripping.')
+                self.processed_html = self.remove_random_bytes(self.processed_html)
+                root = parse(self.processed_html, maybe_xhtml=False, keep_doctype=False, sanitize_names=True)
+            if len(root.xpath('body/descendant::*')) < 1:
+                # There are probably stray </html>s in the markup
+                self.processed_html = self.processed_html.replace('</html>', '')
+                root = parse(self.processed_html, maybe_xhtml=False, keep_doctype=False, sanitize_names=True)
+
+        if root.tag != 'html':
+            self.log.warn('File does not have opening <html> tag')
+            nroot = safe_html_fromstring('<html><head></head><body></body></html>')
+            bod = nroot.find('body')
+            assert bod is not None
+            for child in list(root):
+                parent = child.getparent()
+                assert parent is not None
+                parent.remove(child)
+                bod.append(child)
+            root = nroot
+
+        htmls = list(root.xpath('//html'))
+
+        if len(htmls) > 1:
+            self.log.warn('Markup contains multiple <html> tags, merging.')
+            # Merge all <head> and <body> sections
+            for h in htmls:
+                p = h.getparent()
+                if hasattr(p, 'remove'):
+                    p.remove(h)
+            bodies, heads = root.xpath('//body'), root.xpath('//head')
+            for x in root:
+                root.remove(x)
+            head, body = map(root.makeelement, ('head', 'body'))
+            for h in heads:
+                for x in h:
+                    h.remove(x)
+                    head.append(x)
+            for b in bodies:
+                for x in b:
+                    b.remove(x)
+                    body.append(x)
+            root.append(head), root.append(body)
+        for x in root.xpath('//script'):
+            x.getparent().remove(x)
+
+        head = root.xpath('//head')
+        if head:
+            head = head[0]
+        else:
+            head = root.makeelement('head', {})
+            root.insert(0, head)
+        head.text = '\n\t'
+        link = head.makeelement('link', {'type': 'text/css', 'href': 'styles.css', 'rel': 'stylesheet'})
+        head.insert(0, link)
+        link.tail = '\n\t'
+        title = head.xpath('descendant::title')
+        m = head.makeelement('meta', {'http-equiv': 'Content-Type', 'content': 'text/html; charset=utf-8'})
+        head.insert(0, m)
+        if not title:
+            title = head.makeelement('title', {})
+            try:
+                title.text = self.book_header.title
+            except ValueError:
+                title.text = clean_ascii_chars(self.book_header.title)
+            title.tail = '\n\t'
+            head.insert(0, title)
+            head.text = '\n\t'
+
+        self.upshift_markup(root, image_name_map)
+        guides = root.xpath('//guide')
+        guide = guides[0] if guides else None
+        metadata_elems = root.xpath('//metadata')
+        if metadata_elems and self.book_header.exth is None:
+            self.read_embedded_metadata(root, metadata_elems[0], guide)
+        for elem in guides + metadata_elems:
+            elem.getparent().remove(elem)
+        htmlfile = os.path.join(output_dir, 'index.html')
+        try:
+            if guide is not None:
+                for ref in guide.xpath('descendant::reference'):
+                    if 'href' in ref.attrib:
+                        ref.attrib['href'] = os.path.basename(htmlfile) + ref.attrib['href']
+        except AttributeError:
+            pass
+
+        def write_as_utf8(path: str, data: str | bytes) -> None:
+            if isinstance(data, str):
+                data = data.encode('utf-8')
+            with open(path, 'wb') as f:
+                f.write(data)
+
+        parse_cache[htmlfile] = root
+        self.htmlfile = htmlfile
+        ncx = io.BytesIO()
+        opf, ncx_manifest_entry = self.create_opf(htmlfile, guide, root)
+        self.created_opf_path = os.path.splitext(htmlfile)[0] + '.opf'
+        with open(self.created_opf_path, 'wb') as f:
+            opf.render(f, ncx, ncx_manifest_entry=ncx_manifest_entry)
+        ncx = ncx.getvalue()
+        if ncx:
+            ncx_path = os.path.join(os.path.dirname(htmlfile), 'toc.ncx')
+            write_as_utf8(ncx_path, ncx)
+
+        css = [self.base_css_rules, '\n\n']
+        for cls, rule in self.tag_css_rules.items():
+            css.append(f'.{cls} {{ {rule} }}\n\n')
+        write_as_utf8('styles.css', ''.join(css))
+
+        if self.book_header.exth is not None or self.embedded_mi is not None:
+            self.log.debug('Creating OPF...')
+            ncx = io.BytesIO()
+            opf, ncx_manifest_entry = self.create_opf(htmlfile, guide, root)
+            with open(os.path.splitext(htmlfile)[0] + '.opf', 'wb') as f:
+                opf.render(f, ncx, ncx_manifest_entry)
+            ncx = ncx.getvalue()
+            if ncx:
+                write_as_utf8(os.path.splitext(htmlfile)[0] + '.ncx', ncx)
+
+    def read_embedded_metadata(self, root: _Element, elem: _Element, guide: _Element | None) -> None:
+        raw = b'<?xml version="1.0" encoding="utf-8" ?>\n<package>' + html.tostring(elem, encoding='utf-8') + b'</package>'  # ty: ignore[no-matching-overload] works with any element
+        stream = io.BytesIO(raw)
+        opf = OPF(stream)
+        self.embedded_mi = opf.to_book_metadata()
+        if guide is not None:
+            for ref in guide.xpath('descendant::reference'):
+                if 'cover' in ref.get('type', '').lower():
+                    href = ref.get('href', '')
+                    href = href.removeprefix('#')
+                    # LiuXin: the href is passed as a value, not pasted into the XPath,
+                    # where a quote in it failed the read and the rest ran as XPath.
+                    anchors = root.xpath('//*[@id=$id]', id=href)  # LiuXin:
+                    if anchors:
+                        cpos = anchors[0]
+                        reached = False
+                        for elem in root.iter():
+                            if elem is cpos:
+                                reached = True
+                            if reached and elem.tag == 'img':
+                                cover = elem.get('src', None)
+                                self.embedded_mi.cover = cover
+                                elem.getparent().remove(elem)  # ty: ignore[missing-union-attribute] elem is a descendant of root
+                                break
+                    break
+
+    def cleanup_html(self) -> None:
+        self.log.debug('Cleaning up HTML...')
+        self.processed_html = re.sub(r'<div height="0(pt|px|ex|em|%){0,1}"></div>', '', cast('str', self.processed_html))
+        if self.book_header.ancient and b'<html' not in self.mobi_html[:300].lower():
+            self.processed_html = '<html><p>' + self.processed_html.replace('\n\n', '<p>') + '</html>'
+        self.processed_html = self.processed_html.replace('\r\n', '\n')
+        self.processed_html = self.processed_html.replace('> <', '>\n<')
+        self.processed_html = self.processed_html.replace('<mbp: ', '<mbp:')
+        # LiuXin: these passes give calibre's results in linear time; calibre's
+        # took hours on crafted books of a few megabytes. Its tries scanned to a
+        # '>' that never came, tried every tag of a long run, and split runs of
+        # spaces every way. Tries that must fail are not made, and the o:p
+        # pattern reads its spaces possessively.
+        self.processed_html = _linear_time.sub_before_last(re.compile(r'<\?xml[^>]*>'), '', self.processed_html, '>')  # LiuXin:
+        self.processed_html = _linear_time.sub_before_last(re.compile(r'<\s*+(/?)\s*+o:p[^>]*>'), '', self.processed_html, '>')  # LiuXin:
+        # Swap inline and block level elements, and order block level elements according to priority
+        # - lxml and beautifulsoup expect/assume a specific order based on xhtml spec
+        self.processed_html = _linear_time.sub_from_run_starts(  # LiuXin:
+            re.compile(r'(?i)(?P<styletags>(<(h\d+|i|b|u|em|small|big|strong|tt)>\s*){1,})(?P<para><p[^>]*>)'),
+            r'\g<para>\g<styletags>',
+            self.processed_html,
+            re.compile(r'(?i)(?:<(?:h\d+|i|b|u|em|small|big|strong|tt)>\s*)+'),
+        )
+        self.processed_html = _linear_time.sub_skipping_failures(  # LiuXin:
+            re.compile(r'(?i)(?P<para></p[^>]*>)\s*(?P<styletags>(</(h\d+|i|b|u|em|small|big|strong|tt)>\s*){1,})'),
+            r'\g<styletags>\g<para>',
+            self.processed_html,
+            re.compile(r'(?i)</p'),
+            '>',
+        )
+        self.processed_html = _linear_time.sub_from_run_starts(  # LiuXin:
+            re.compile(r'(?i)(?P<blockquote>(</(blockquote|div)[^>]*>\s*){1,})(?P<para></p[^>]*>)'),
+            r'\g<para>\g<blockquote>',
+            self.processed_html,
+            re.compile(r'(?i)(?:</(?:blockquote|div)[^>]*>\s*)+'),
+            '>',
+        )
+        self.processed_html = _linear_time.sub_skipping_failures(  # LiuXin:
+            re.compile(r'(?i)(?P<para><p[^>]*>)\s*(?P<blockquote>(<(blockquote|div)[^>]*>\s*){1,})'),
+            r'\g<blockquote>\g<para>',
+            self.processed_html,
+            re.compile(r'(?i)<p'),
+            '>',
+        )
+        bods = htmls = 0
+        for x in re.finditer(r'</body>|</html>', self.processed_html):
+            if x == '</body>':
+                bods += 1
+            else:
+                htmls += 1
+            if bods > 1 and htmls > 1:
+                break
+        if bods > 1:
+            self.processed_html = self.processed_html.replace('</body>', '')
+        if htmls > 1:
+            self.processed_html = self.processed_html.replace('</html>', '')
+
+    def remove_random_bytes(self, html: str) -> str:
+        return re.sub(r'\x14|\x15|\x19|\x1c|\x1d|\xef|\x12|\x13|\xec|\x08|\x01|\x02|\x03|\x04|\x05|\x06|\x07', '', html)
+
+    def ensure_unit(self, raw: str, unit: str = 'px') -> str:
+        if re.search(r'\d+$', raw) is not None:
+            raw += unit
+        return raw
+
+    def upshift_markup(self, root: _Element, image_name_map: dict[int, str] | None = None) -> None:
+        self.log.debug('Converting style information to CSS...')
+        image_name_map = image_name_map or {}
+        size_map = {
+            'xx-small': '0.5',
+            'x-small': '1',
+            'small': '2',
+            'medium': '3',
+            'large': '4',
+            'x-large': '5',
+            'xx-large': '6',
+        }
+
+        def barename(x: str) -> str:
+            return x.rpartition(':')[-1]
+
+        mobi_version = self.book_header.mobi_version
+        for x in root.xpath('//ncx'):
+            x.getparent().remove(x)
+        svg_tags = []
+        forwardable_anchors = []
+        pagebreak_anchors = []
+        BLOCK_TAGS = {'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'div', 'p'}
+        # LiuXin: the first class given each rule, for looking rules up below.
+        classes_by_rule: dict[str, str] = {}  # LiuXin:
+        for sel, srule in self.tag_css_rules.items():  # LiuXin:
+            classes_by_rule.setdefault(srule, sel)
+        for i, tag in enumerate(root.iter(etree.Element)):
+            tag.attrib.pop('xmlns', '')
+            for x in tag.attrib:
+                if ':' in x:
+                    del tag.attrib[x]
+            ttag = tag.tag
+            assert isinstance(ttag, str)  # iter(etree.Element) yields only elements
+            if ttag and barename(ttag) == 'svg':
+                svg_tags.append(tag)
+            if ttag and barename(ttag.lower()) in (
+                'country-region',
+                'place',
+                'placetype',
+                'placename',
+                'state',
+                'city',
+                'street',
+                'address',
+                'content',
+                'form',
+            ):
+                tag.tag = 'div' if tag.tag in ('content', 'form') else 'span'
+                for key in tag.attrib.keys():
+                    tag.attrib.pop(key)
+                continue
+            styles, attrib = [], tag.attrib
+            if 'style' in attrib:
+                style = attrib.pop('style').strip()
+                if style:
+                    styles.append(style)
+            if 'height' in attrib:
+                height = attrib.pop('height').strip()
+                if height and '<' not in height and '>' not in height and re.search(r'\d+', height):
+                    if tag.tag in ('table', 'td', 'tr'):
+                        pass
+                    elif tag.tag == 'img':
+                        tag.set('height', height)
+                    elif tag.tag == 'div' and not tag.text and (not tag.tail or not tag.tail.strip()) and not list(tag.iterdescendants()):
+                        # Paragraph spacer
+                        # Insert nbsp so that the element is never
+                        # discarded by a renderer
+                        tag.text = '\u00a0'  # nbsp
+                        styles.append(f'height: {self.ensure_unit(height)}')
+                    else:
+                        styles.append(f'margin-top: {self.ensure_unit(height)}')
+            if 'width' in attrib:
+                width = attrib.pop('width').strip()
+                if width and re.search(r'\d+', width):
+                    if tag.tag in ('table', 'td', 'tr'):
+                        pass
+                    elif tag.tag == 'img':
+                        tag.set('width', width)
+                    else:
+                        ewidth = self.ensure_unit(width)
+                        styles.append(f'text-indent: {ewidth}')
+                        try:
+                            ewidth_val = unit_convert(ewidth, 12, 500, 166)
+                            self.text_indents[tag] = ewidth_val
+                        except Exception:
+                            pass
+                        if width.startswith('-'):
+                            styles.append(f'margin-left: {self.ensure_unit(width[1:])}')
+                            try:
+                                ewidth_val = unit_convert(ewidth[1:], 12, 500, 166)
+                                self.left_margins[tag] = ewidth_val
+                            except Exception:
+                                pass
+
+            if 'align' in attrib:
+                align = attrib.pop('align').strip()
+                if align:
+                    align = align.lower()
+                    if align == 'baseline':
+                        styles.append('vertical-align: ' + align)
+                    else:
+                        styles.append(f'text-align: {align}')
+            if tag.tag == 'hr':
+                if mobi_version == 1:
+                    tag.tag = 'div'
+                    styles.append('page-break-before: always')
+                    styles.append('display: block')
+                    styles.append('margin: 0')
+            elif tag.tag == 'i':
+                tag.tag = 'span'
+                tag.attrib['class'] = 'italic'
+            elif tag.tag == 'u':
+                tag.tag = 'span'
+                tag.attrib['class'] = 'underline'
+            elif tag.tag == 'b':
+                tag.tag = 'span'
+                tag.attrib['class'] = 'bold'
+            elif tag.tag == 'font':
+                sz = tag.get('size', '').lower()
+                try:
+                    float(sz)
+                except ValueError:
+                    if sz in list(size_map.keys()):
+                        attrib['size'] = size_map[sz]
+            elif tag.tag == 'img':
+                recindex = None
+                for attr in self.IMAGE_ATTRS:
+                    recindex = attrib.pop(attr, None) or recindex
+                if recindex is not None:
+                    try:
+                        recindex = int(recindex)
+                    except Exception:
+                        pass
+                    else:
+                        attrib['src'] = 'images/' + image_name_map.get(recindex, f'{recindex:05}.jpg')
+                for attr in ('width', 'height'):
+                    if attr in attrib:
+                        val = attrib[attr]
+                        if val.lower().endswith('em'):
+                            try:
+                                nval = float(val[:-2])
+                                nval *= 16 * (168.451 / 72)  # Assume this was set using the Kindle profile
+                                attrib[attr] = f'{int(nval)}px'
+                            except Exception:
+                                del attrib[attr]
+                        elif val.lower().endswith('%'):
+                            del attrib[attr]
+            elif tag.tag == 'pre':
+                if not tag.text:
+                    tag.tag = 'div'
+
+            if attrib.get('class', None) == 'mbp_pagebreak' and tag.tag == 'div' and 'filepos-id' in attrib:
+                pagebreak_anchors.append(tag)
+
+            if 'color' in attrib:
+                styles.append('color: ' + attrib.pop('color'))
+            if 'bgcolor' in attrib:
+                styles.append('background-color: ' + attrib.pop('bgcolor'))
+
+            if 'filepos-id' in attrib:
+                attrib['id'] = attrib.pop('filepos-id')
+                if 'name' in attrib and attrib['name'] != attrib['id']:
+                    attrib['name'] = attrib['id']
+            if 'filepos' in attrib:
+                filepos = attrib.pop('filepos')
+                try:
+                    attrib['href'] = f'#filepos{int(filepos)}'
+                except ValueError:
+                    pass
+            if (
+                tag.tag == 'a'
+                and attrib.get('id', '').startswith('filepos')
+                and not tag.text
+                and len(tag) == 0
+                and (tag.tail is None or not tag.tail.strip())
+                and getattr(tag.getnext(), 'tag', None) in BLOCK_TAGS
+            ):
+                # This is an empty anchor immediately before a block tag, move
+                # the id onto the block tag instead
+                forwardable_anchors.append(tag)
+
+            if styles:
+                rule = '; '.join(styles)
+                # LiuXin: the rule is looked up, not compared with every rule so far,
+                # which took minutes for a book of many differently styled tags.
+                ncls = classes_by_rule.get(rule)  # LiuXin:
+                if ncls is None:
+                    ncls = f'calibre_{i}'
+                    self.tag_css_rules[ncls] = rule
+                    classes_by_rule.setdefault(rule, ncls)  # LiuXin:
+                cls = attrib.get('class', '')
+                cls = cls + (' ' if cls else '') + ncls
+                attrib['class'] = cls
+
+        for tag in svg_tags:
+            images = tag.xpath('descendant::img[@src]')
+            parent = tag.getparent()
+
+            if images and hasattr(parent, 'find'):
+                # LiuXin: each image goes where inserting it at the svg's index puts
+                # it, before the one put there last, without counting the svg's
+                # siblings again for each: books of many svgs took minutes.
+                before = tag  # LiuXin:
+                for img in images:
+                    img.getparent().remove(img)
+                    img.tail = img.text = None
+                    before.addprevious(img)  # LiuXin:
+                    before = img  # LiuXin:
+
+            if hasattr(parent, 'remove'):
+                parent.remove(tag)
+
+        for tag in pagebreak_anchors:
+            anchor = tag.attrib['id']
+            del tag.attrib['id']
+            if 'name' in tag.attrib:
+                del tag.attrib['name']
+            p = tag.getparent()
+            assert p is not None  # tag is a descendant of root
+            a = p.makeelement('a')
+            a.attrib['id'] = anchor
+            tag.addnext(a)  # LiuXin: where p.insert(p.index(tag) + 1, a) puts it, without counting siblings
+            if getattr(a.getnext(), 'tag', None) in BLOCK_TAGS:
+                forwardable_anchors.append(a)
+
+        for tag in forwardable_anchors:
+            block = tag.getnext()
+            assert block is not None  # forwardable anchors are always followed by a block tag
+            tag.getparent().remove(tag)  # ty: ignore[missing-union-attribute] tag was inserted into a parent above
+
+            if 'id' in block.attrib:
+                tag.tail = block.text
+                block.text = None
+                block.insert(0, tag)
+            else:
+                block.attrib['id'] = tag.attrib['id']
+
+        # WebKit fails to navigate to anchors located on <br> tags
+        for br in root.xpath('/body/br[@id]'):
+            br.tag = 'div'
+
+    def get_left_whitespace(self, tag: _Element) -> float:
+
+        def whitespace(tag: _Element) -> float:
+            lm = ti = 0.0
+            if tag.tag == 'p':
+                ti = unit_convert('1.5em', 12, 500, 166)
+            if tag.tag == 'blockquote':
+                lm = unit_convert('2em', 12, 500, 166)
+            lm = self.left_margins.get(tag, lm)
+            ti = self.text_indents.get(tag, ti)
+            try:
+                lm = float(lm)
+            except Exception:
+                lm = 0.0
+            try:
+                ti = float(ti)
+            except Exception:
+                ti = 0.0
+            return lm + ti
+
+        parent = tag
+        ans = 0.0
+        while parent is not None:
+            ans += whitespace(parent)
+            parent = parent.getparent()
+
+        return ans
+
+    def create_opf(self, htmlfile: str, guide: _Element | None = None, root: _Element | None = None) -> tuple[OPFCreator, str | None]:
+        mi = getattr(self.book_header.exth, 'mi', self.embedded_mi)
+        if mi is None:
+            mi = MetaInformation(self.book_header.title, [_('Unknown')])  # ty: ignore[invalid-argument-type] title is decoded to str by BookHeader
+        opf = OPFCreator(os.path.dirname(htmlfile), mi)
+        if hasattr(self.book_header.exth, 'cover_offset'):
+            opf.cover = f'images/{self.book_header.exth.cover_offset + 1:05}.jpg'
+        elif mi.cover is not None:
+            opf.cover = mi.cover
+        else:
+            opf.cover = f'images/{1:05}.jpg'
+            if not os.path.exists(os.path.join(os.path.dirname(htmlfile), *opf.cover.split('/'))):
+                opf.cover = None
+
+        cover = opf.cover
+        cover_copied = None
+        if cover is not None:
+            cover = cover.replace('/', os.sep)
+            if os.path.exists(cover):
+                ncover = 'images' + os.sep + 'calibre_cover.jpg'
+                if os.path.exists(ncover):
+                    os.remove(ncover)
+                shutil.copyfile(cover, ncover)
+                cover_copied = os.path.abspath(ncover)
+                opf.cover = ncover.replace(os.sep, '/')
+
+        manifest = [(htmlfile, 'application/xhtml+xml'), (os.path.abspath('styles.css'), 'text/css')]
+        bp = os.path.dirname(htmlfile)
+        added = set()
+        for i in getattr(self, 'image_names', []):
+            path = os.path.join(bp, 'images', i)
+            added.add(path)
+            manifest.append((path, guess_type(path)[0] or 'image/jpeg'))
+        if cover_copied is not None:
+            manifest.append((cover_copied, 'image/jpeg'))
+
+        opf.create_manifest(manifest)
+        opf.create_spine([os.path.basename(htmlfile)])
+        toc = None
+        if guide is not None:
+            opf.create_guide(guide)
+            assert opf.guide is not None
+            for ref in opf.guide:
+                if (ref.type or '').lower() == 'toc':
+                    toc = ref.href()
+
+        ncx_manifest_entry = None
+        if toc:
+            ncx_manifest_entry = 'toc.ncx'
+            assert root is not None
+            # LiuXin: the fragment is passed as a value, not pasted into the XPath.
+            elems = root.xpath('//*[@id=$id]', id=toc.partition('#')[-1])  # LiuXin:
+            tocobj = None
+            if elems:
+                tocobj = TOC()
+                found = False
+                reached = False
+                for x in root.iter():
+                    if x == elems[-1]:
+                        reached = True
+                        continue
+                    if reached and x.tag == 'a':
+                        href = x.get('href', '')
+                        if href and re.match(r'\w+://', href) is None:
+                            try:
+                                text = ' '.join([t.strip() for t in x.xpath('descendant::text()')])
+                            except Exception:
+                                text = ''
+                            text = replace_entities(text)
+                            item = tocobj.add_item(toc.partition('#')[0], href[1:], text)
+                            # left_space is a dynamic attribute used only by structure_toc()
+                            item.left_space = int(self.get_left_whitespace(x))  # ty: ignore[missing-attribute]
+                            found = True
+                    if reached and found and x.get('class', None) == 'mbp_pagebreak':
+                        break
+            if tocobj is not None:
+                tocobj = self.structure_toc(tocobj)
+                opf.set_toc(tocobj)
+
+        return opf, ncx_manifest_entry
+
+    def structure_toc(self, toc: TOC) -> TOC:
+        indent_vals = set()
+        for item in toc:
+            indent_vals.add(item.left_space)  # ty: ignore[missing-attribute] set in create_opf()
+        if len(indent_vals) > 6 or len(indent_vals) < 2:
+            # Too many or too few levels, give up
+            return toc
+        indent_vals = sorted(indent_vals)
+
+        last_found = [None for i in indent_vals]
+
+        newtoc = TOC()
+
+        def find_parent(level: int) -> TOC:
+            candidates = last_found[:level]
+            for x in reversed(candidates):
+                if x is not None:
+                    return x
+            return newtoc
+
+        for item in toc:
+            level = indent_vals.index(item.left_space)  # ty: ignore[missing-attribute] set in create_opf()
+            parent = find_parent(level)
+            last_found[level] = parent.add_item(item.href, item.fragment, item.text)
+
+        return newtoc
+
+    def sizeof_trailing_entries(self, data: bytes) -> int:
+        def sizeof_trailing_entry(ptr: bytes, psize: int) -> int:
+            bitpos, result = 0, 0
+            while True:
+                v = ord(ptr[psize - 1 : psize])
+                result |= (v & 0x7F) << bitpos
+                bitpos += 7
+                psize -= 1
+                if (v & 0x80) != 0 or (bitpos >= 28) or (psize == 0):
+                    return result
+
+        num = 0
+        size = len(data)
+        flags = self.book_header.extra_flags >> 1
+        while flags:
+            if flags & 1:
+                try:
+                    num += sizeof_trailing_entry(data, size - num)
+                except (IndexError, TypeError):
+                    self.warn_about_trailing_entry_corruption()
+                    return 0
+            flags >>= 1
+        if self.book_header.extra_flags & 1:
+            off = size - num - 1
+            try:
+                num += (ord(data[off : off + 1]) & 0x3) + 1
+            except TypeError:
+                self.log.warn('Invalid sizeof trailing entries')
+                num += 1
+        return num
+
+    def warn_about_trailing_entry_corruption(self) -> None:
+        if not self.warned_about_trailing_entry_corruption:
+            self.warned_about_trailing_entry_corruption = True
+            self.log.warn('The trailing data entries in this MOBI file are corrupted, you might see corrupted text in the output')
+
+    def text_section(self, index: int) -> bytes:
+        data = self.sections[index][0]
+        trail_size = self.sizeof_trailing_entries(data)
+        return data[: len(data) - trail_size]
+
+    def extract_text(self, offset: int = 1) -> list[int]:
+        self.log.debug('Extracting text...')
+        text_sections = [self.text_section(i) for i in range(offset, min(self.book_header.records + offset, len(self.sections)))]
+        processed_records = list(range(offset - 1, self.book_header.records + offset))
+
+        self.mobi_html = b''
+
+        if self.book_header.compression_type == b'DH':
+            huffs = [self.sections[i][0] for i in range(self.book_header.huff_offset, self.book_header.huff_offset + self.book_header.huff_number)]
+            processed_records += list(range(self.book_header.huff_offset, self.book_header.huff_offset + self.book_header.huff_number))
+            huff = HuffReader(huffs)
+            unpack = huff.unpack
+
+        elif self.book_header.compression_type == b'\x00\x02':
+            unpack = decompress_doc
+
+        elif self.book_header.compression_type == b'\x00\x01':
+
+            def unpack(x: bytes) -> bytes:
+                return x
+
+        else:
+            raise MobiError(f'Unknown compression algorithm: {self.book_header.compression_type!r}')
+        self.mobi_html = b''.join(map(unpack, text_sections))
+        if self.mobi_html.endswith(b'#'):
+            self.mobi_html = self.mobi_html[:-1]
+
+        if self.book_header.ancient and b'<html' not in self.mobi_html[:300].lower():
+            self.mobi_html = self.mobi_html.replace(b'\r ', b'\n\n ')
+        self.mobi_html = self.mobi_html.replace(b'\0', b'')
+        if self.book_header.codec == 'cp1252':
+            self.mobi_html = self.mobi_html.replace(b'\x1e', b'')  # record separator
+            self.mobi_html = self.mobi_html.replace(b'\x02', b'')  # start of text
+        return processed_records
+
+    def replace_page_breaks(self) -> None:
+        self.processed_html = _linear_time.sub_page_breaks(  # LiuXin: linear time
+            self.PAGE_BREAK_PAT, r'<div \1 class="mbp_pagebreak" />', cast('str', self.processed_html)
+        )
+
+    def add_anchors(self) -> None:
+        self.log.debug('Adding anchors...')
+        positions = set()
+        # LiuXin: calibre's pattern, first checking that the tag closes. An open
+        # tag was retried at every filepos= in it against the rest of the tag.
+        link_pattern = re.compile(rb'''<(?=[^<>]*>)[^<>]+filepos=['"]{0,1}(\d+)[^<>]*>''', re.IGNORECASE)  # LiuXin:
+        for match in link_pattern.finditer(self.mobi_html):
+            positions.add(int(match.group(1)))
+        pos = 0
+        processed_html = []
+        end_tag_re = re.compile(rb'<\s*/')
+        # LiuXin: link targets come in order, so a search from one reuses what the
+        # last found instead of crossing the same text again.
+        finder = _linear_time.ForwardFinder(self.mobi_html)  # LiuXin:
+        for end in sorted(positions):
+            if end == 0:
+                continue
+            oend = end
+            l = finder.find(b'<', end)  # LiuXin:
+            r = finder.find(b'>', end)  # LiuXin:
+            anchor = b'<a id="filepos%d"></a>'
+            if r > -1 and (r < l or l in {end, -1}):
+                p = finder.rfind(b'<', end + 1)  # LiuXin:
+                if pos < end and p > -1 and not end_tag_re.match(self.mobi_html[p:r]) and not self.mobi_html[p : r + 1].endswith(b'/>'):
+                    anchor = b' filepos-id="filepos%d"'
+                    end = r
+                else:
+                    end = r + 1
+            processed_html.append(self.mobi_html[pos:end] + (anchor % oend))
+            pos = end
+        processed_html.append(self.mobi_html[pos:])
+        processed_html = b''.join(processed_html)
+
+        # Remove anchors placed inside entities
+        # LiuXin: tries after the last ';' fail, as does every try between an '&'
+        # whose try failed and the next ';'; they are not made.
+        self.processed_html = _linear_time.sub_skipping_failures(  # LiuXin:
+            re.compile(rb'&([^;]*?)(<a id="filepos\d+"></a>)([^;]*);'), rb'&\1\3;\2', processed_html, re.compile(b'&'), b';', b';'
+        )
+
+    def extract_images(self, processed_records: list[int], output_dir: str) -> dict[int, str]:
+        self.log.debug('Extracting images...')
+        output_dir = os.path.abspath(os.path.join(output_dir, 'images'))
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
+        image_index = 0
+        self.image_names = []
+        image_name_map: dict[int, str] = {}
+        start = getattr(self.book_header, 'first_image_index', -1)
+        if start > self.num_sections or start < 0:
+            # BAEN PRC files have bad headers
+            start = 0
+        for i in range(start, self.num_sections):
+            if i in processed_records:
+                continue
+            processed_records.append(i)
+            data = self.sections[i][0]
+            image_index += 1
+            if data[:4] in {
+                b'FLIS',
+                b'FCIS',
+                b'SRCS',
+                b'\xe9\x8e\r\n',
+                b'RESC',
+                b'BOUN',
+                b'FDST',
+                b'DATP',
+                b'AUDI',
+                b'VIDE',
+            }:
+                # This record is a known non image type, no need to try to
+                # load the image
+                continue
+
+            try:
+                imgfmt = what(None, data)
+            except Exception:
+                continue
+            if imgfmt not in {'jpg', 'jpeg', 'gif', 'png', 'bmp'}:
+                continue
+            if imgfmt == 'jpeg':
+                imgfmt = 'jpg'
+            if imgfmt == 'gif':
+                try:
+                    data = gif_data_to_png_data(data)
+                    imgfmt = 'png'
+                except AnimatedGIF:
+                    pass
+                except OSError:
+                    self.log.warn(f'Ignoring undecodeable GIF image at index {image_index}')
+                    continue
+            path = os.path.join(output_dir, f'{image_index:05}.{imgfmt}')
+            image_name_map[image_index] = os.path.basename(path)
+            if imgfmt == 'png':
+                with open(path, 'wb') as f:
+                    f.write(data)
+            else:
+                try:
+                    save_cover_data_to(data, path, minify_to=(10000, 10000))
+                except Exception:
+                    continue
+            self.image_names.append(os.path.basename(path))
+        return image_name_map
+
+
+def test_mbp_regex() -> None:
+    for raw, m in {
+        '<mbp:pagebreak></mbp:pagebreak>': '',
+        '<mbp:pagebreak xxx></mbp:pagebreak>yyy': ' xxxyyy',
+        '<mbp:pagebreak> </mbp:pagebreak>': '',
+        '<mbp:pagebreak>xxx': 'xxx',
+        '<mbp:pagebreak/>xxx': 'xxx',
+        '<mbp:pagebreak sdf/ >xxx': ' sdfxxx',
+        '<mbp:pagebreak / >': ' ',
+        '</mbp:pagebreak>': '',
+        '</mbp:pagebreak sdf>': ' sdf',
+        '</mbp:pagebreak><mbp:pagebreak></mbp:pagebreak>xxx': 'xxx',
+    }.items():
+        ans = MobiReader.PAGE_BREAK_PAT.sub(r'\1', raw)
+        if ans != m:
+            raise Exception(f'{ans!r} != {m!r} for {raw!r}')
