@@ -316,9 +316,10 @@ a few megabytes would take years.
 - Search only the start of the file. The XML declaration must come first, and
   HTML's own prescan for a charset reads 1,024 bytes; at 1 KB even the cubic
   case takes milliseconds. Declarations further in would no longer be found.
-- Keep the exact matches, as LiuXin did: `_linear_time.linear_pattern`
-  (GPL-3, in PR #188) finds them by hand, scanning each stretch of the text
-  once, and returns the same match objects. A simpler rewrite such as `([^'"]*)`
+- Keep the exact matches, as LiuXin did: `xml_declarations` and
+  `html4_charsets` in `utils/linear_time.py` (GPL-3, PRs #188 and #190) find
+  them by hand, scanning each stretch of the text once, and return the same
+  match objects. A simpler rewrite such as `([^'"]*)`
   for `(.*?)` would still be quadratic, as each `encoding=` would still scan
   to the end of the tag.
 
@@ -638,7 +639,7 @@ the time grows with the square.
 
 **Suggested fix:** each has a small change that keeps calibre's results. LiuXin's
 are in `PATCHES` in `scripts/port_upstream_calibre.py`, PR #188, with the helpers
-in `metadata/upstream_calibre/_linear_time.py`:
+in `utils/linear_time.py`:
 
 - Read whitespace possessively where it can only end one way:
   `<\s*+/{0,1}\s*+mbp:pagebreak((?>(?:\s+[^/>]*){0,1}))…` and `<\s*+(/?)\s*+o:p[^>]*>`

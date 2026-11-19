@@ -192,8 +192,8 @@ def huff_book(records: int) -> bytes:
     Make a HUFF/CDIC book of one-byte text records, each unpacking to 4,096 bytes.
 
     Example:
-        >>> len(huff_book(2)) < 5000
-        True
+        >>> len(huff_book(20)) - len(huff_book(2))  # one byte and a section entry each
+        162
 
 
     :param records: How many text records.

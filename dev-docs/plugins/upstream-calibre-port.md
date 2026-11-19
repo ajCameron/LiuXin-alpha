@@ -52,7 +52,7 @@ turned up, and which readers are left.
 | `book_fields`, `book_base`, `field_metadata`, `json_codec` | `ebooks/metadata/book/`, `library/field_metadata.py` | calibre's own `Metadata` class, used by every ported reader |
 | `opf2`, `opf3`, `opf`, `metadata_utils`, `toc` | `ebooks/metadata/` | |
 | `date`, `iso8601`, `cleantext`, `chardet`, `imghdr` | `utils/`, `ebooks/chardet.py` | `chardet` carries a marked fix |
-| `_linear_time` | LiuXin's own | Linear-time stand-ins for calibre's backtracking patterns and repeated scans, which the marked fixes call |
+| `_linear_time` | LiuXin's own | Passes the marked fixes the linear-time stand-ins in `utils/linear_time.py`, which LiuXin's own readers share, and adds `linear_pattern`, which recognises calibre's encoding-declaration patterns by their source |
 | `pretty`, `config_base`, `meta` | parts of `ebooks/oeb/polish/pretty.py`, `utils/config_base.py`, `ebooks/metadata/meta.py` | only what the ported code uses |
 | `localunzip` | `utils/localunzip.py` | Reads ZIP files whose central directory is missing or damaged, from their local headers |
 | `ebooks`, `beautifulsoup` | `ebooks/__init__.py`, `ebooks/BeautifulSoup.py` | Finding a cover on a book's first page |

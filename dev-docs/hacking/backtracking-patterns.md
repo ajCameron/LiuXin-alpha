@@ -42,11 +42,12 @@ of size 0, which calibre's own reader does not.
 
 ## How they are fixed
 
-`LiuXin_alpha.utils.linear_time` holds stand-ins. A `LinearPattern` wraps the
-original compiled pattern and a function that finds the same matches in linear
-time; it offers `search`, `finditer` and `sub` (with `count`), which is what
-callers use. The original pattern stays written out as the definition of what
-must match.
+`LiuXin_alpha.utils.linear_time` holds stand-ins, for LiuXin's own code and,
+through `metadata/upstream_calibre/_linear_time.py`, for the ported calibre
+modules. A `LinearPattern` wraps the original compiled pattern and a function
+that finds the same matches in linear time; it offers `search`, `finditer` and
+`sub` (with `count`), which is what callers use. The original pattern stays
+written out as the definition of what must match.
 
 - The two declaration patterns are matched by hand, crossing each stretch of
   the text once, and each match is then made by a pattern with the found
