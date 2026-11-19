@@ -22,7 +22,8 @@ equivalent pattern that never scans the same text twice. The ``sub_*``
 helpers give exactly what ``pattern.sub`` gives, trying the pattern only where
 a match could begin and skipping tries whose failure is already known.
 ``ForwardFinder`` answers ``find`` and ``rfind`` for positions that only grow.
-The tests compare each with the original on random text.
+The tests compare each with the original on random text. The ported calibre
+modules reach the same helpers through ``metadata.upstream_calibre._linear_time``.
 
 Example:
     >>> entity = LinearPattern(re.compile(r"&(\\S+?);"), entities)
