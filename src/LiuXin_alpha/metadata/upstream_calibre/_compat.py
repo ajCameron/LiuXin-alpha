@@ -1908,6 +1908,10 @@ scale_image = _not_ported("scale_image")
 parse_color_string = _not_ported("parse_color_string")
 # calibre's MOBI tests build a whole OEB book.
 OEBBook = _not_ported("OEBBook")
+# calibre writes PDF metadata, and reads XMP from the command line, with its
+# podofo extension; reading goes through poppler or LiuXin's object reader.
+podofo_set_metadata = _not_ported("podofo set_metadata")
+podofo_get_xmp_metadata = _not_ported("podofo get_xmp_metadata")
 
 
 class AnimatedGIF(ValueError):

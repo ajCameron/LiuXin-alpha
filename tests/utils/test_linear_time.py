@@ -23,17 +23,20 @@ from LiuXin_alpha.utils.linear_time import (
     ENTITY_PATTERN,
     HTML4_CHARSET,
     XML_DECLARATION,
+    XML_NAMED_DECLARATION,
     ForwardFinder,
     LinearPattern,
     entities,
     html4_charsets,
     sub_until_failure,
     xml_declarations,
+    xml_named_declarations,
 )
 from LiuXin_alpha.utils.text import xml_utils
 
 ENTITY = r"&(\S+?);"
 XML_PIECES = ["<?", "<", ">", "?>", "encoding", "ENCODING", "encodıng", "=", " = ", "'", '"', "x", "utf-8", "\n", " "]
+XML_NAMED_PIECES = [*XML_PIECES, "<?xml", "<?XmL", "<?xm", "xml", "ml", "<?xml ", "<?xmlencoding"]
 META_PIECES = [
     "<meta", "<META", " ", "\n", "content", "CONTENT", "=", '"', "'", "charset=", "chaRSET=", "ſ", "utf-8", "K", "x", "<", ">",
     "</meta>", " </META>",
@@ -41,6 +44,7 @@ META_PIECES = [
 ENTITY_PIECES = ["&", ";", "amp", "#", "x41", " ", "\n", "\t", "a", "&;"]
 CASES: dict[str, tuple[str, int, Callable[[Any], Iterator[re.Match[Any]]], list[str]]] = {
     "xml declaration": (XML_DECLARATION, re.IGNORECASE, xml_declarations, XML_PIECES),
+    "named xml declaration": (XML_NAMED_DECLARATION, re.IGNORECASE, xml_named_declarations, XML_NAMED_PIECES),
     "html 4 charset": (HTML4_CHARSET, re.IGNORECASE, html4_charsets, META_PIECES),
     "entity": (ENTITY, 0, entities, ENTITY_PIECES),
 }
@@ -72,6 +76,7 @@ def test_the_stand_ins_wrap_the_patterns_as_written() -> None:
     :return: None; the assertions are the check.
     """
     assert XML_DECLARATION == r"<\?[^<>]+encoding\s*=\s*['\"](.*?)['\"][^<>]*>"
+    assert XML_NAMED_DECLARATION == r"<\?xml[^<>]+encoding\s*=\s*['\"](.*?)['\"][^<>]*>"
     assert HTML4_CHARSET == (
         r"""<meta\s+?[^<>]*?content\s*=\s*['\"][^'\"]*?charset=([-_a-z0-9]+)[^'\"]*?['\"][^<>]*>(?:\s*</meta>){0,1}"""
     )
@@ -160,6 +165,26 @@ def test_crafted_documents_decode_quickly(name: str) -> None:
     calibre_chardet.replace_encoding_declarations(raw)
     calibre_chardet.find_declared_encoding(raw)
     xml_utils.xml_replace_entities(text)
+    assert time.monotonic() - started < 5
+
+
+def test_named_declarations_are_quick_on_crafted_text() -> None:
+    """
+    Strip ``<?xml`` declarations from text that took the original pattern minutes.
+
+    ``<?xml`` and 2,000 ``encoding="`` (20 KB) took the pattern two minutes; this is 1 MB.
+
+    Example:
+        >>> test_named_declarations_are_quick_on_crafted_text()  # doctest: +SKIP
+
+
+    :return: None; the assertions are the check.
+    """
+    stand_in = LinearPattern(re.compile(XML_NAMED_DECLARATION, re.IGNORECASE), xml_named_declarations)
+    text = "<?xml " + 'encoding="' * 100_000
+    started = time.monotonic()
+    assert stand_in.sub("", text) == text
+    assert stand_in.sub("", text + ">") == ""
     assert time.monotonic() - started < 5
 
 

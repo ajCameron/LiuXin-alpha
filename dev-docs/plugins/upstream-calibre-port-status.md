@@ -1,16 +1,19 @@
 # Ported calibre readers: status and findings
 
 Written **2026-11-18** and updated **2026-11-19**, at calibre 9.18. The work is
-in PRs #177 to #188, #195, #197 and #200. [Porting calibre's metadata readers](upstream-calibre-port.md) explains
+in PRs #177 to #188, #195, #197, #200 and #202. [Porting calibre's metadata readers](upstream-calibre-port.md) explains
 how the ports are made; this page records what has been ported, how the ports
 compare with the readers LiuXin already had, what hostile input turned up, and
 what is left.
 
 ## What is ported
 
-Nineteen of calibre's metadata reader plugins run in process through
+Twenty of calibre's metadata reader plugins run in process through
 `file_formats.providers.ported_calibre`, at priority −50: above an installed
-calibre (−60), below native LiuXin providers (0).
+calibre (−60), below native LiuXin providers (0). The PDF port needs poppler's
+`pdfinfo`; a second PDF provider, at −55, runs the same calibre code on fields
+read by LiuXin's own PDF reader, so PDFs are read without poppler, though
+without a cover.
 
 | calibre plugin | Formats | Ported in | calibre's own tests run | LiuXin fixes |
 | --- | --- | --- | --- | --- |
@@ -28,6 +31,7 @@ calibre (−60), below native LiuXin providers (0).
 | Read PDB metadata | `pdb`, `updb` | #195 | — | a section table whose offsets go back and forth |
 | Read LRF metadata | `lrf` | #197 | — | meta info and image streams that unpack without limit |
 | Read DOCX metadata | `docx` | #200 | — | a cover search that slows down faster than the drawings squared |
+| Read PDF metadata | `pdf` | #202 | — | poppler run with limits, in its folder and without a worker; giant pages drawn at 3,000 pixels; a cubic XMP pattern; deeply nested XMP |
 
 The readers ported before the porting script (#177 and #179) were copied by
 hand; from #182 on, `scripts/port_upstream_calibre.py` makes every copy and
@@ -55,6 +59,11 @@ readers, not the conversion code.
 - **Pillow** stays optional. The MOBI reader converts GIF images with it while
   reading an old book's text; without it they are skipped, which the metadata
   does not need.
+- **poppler-utils** stays optional, as calibre bundles it. Where `pdfinfo` is
+  not on the PATH the PDF port reports itself unavailable and the provider
+  without poppler reads PDFs instead. CI installs poppler so that both run.
+- **cryptography** stays optional (the `encryption` extra). LiuXin's PDF reader
+  needs it for AES-encrypted files; poppler does not.
 
 ## How the ports compare
 
@@ -73,6 +82,7 @@ were the ones on the stacked branches, without #178's fixes for OPF 2 fields.
 | DOCX | a book with core and app properties in several scripts, and books whose drawings show a wide image then a portrait one | The same as LiuXin's reader for title, authors, publisher, tags and comments, and for the cover. The language comes out as calibre's `eng` where LiuXin's reader gives `en` twice |
 | LRF | a book with meta info, a thumbnail, and an image object whose stream is plain or zlib-packed | The same as LiuXin's reader: title, authors, sort fields, publisher, tags, comments and cover. Neither reads the language, which calibre leaves out too. |
 | PDB | eReader books with a metadata record and a cover; a Plucker book with a charset, authors, a title and a date; Haodoo books in cp950 and UTF-16; a PalmDOC book | The same as LiuXin's reader for eReader, Haodoo and other PDB books, covers included. LiuXin's reader found nothing in the Plucker book's metadata until #196 (see [found along the way](#found-along-the-way)); the port reads it all. |
+| PDF | the 25 files of `tests/fixtures/pdf_metadata`: object streams, incremental updates, hybrid cross-reference data, RC4 and AES encryption, XMP, UTF-16 and raw UTF-8 strings | With poppler, the same fields as without it, and a cover, except in the three layouts where poppler 24.02 reads less (see the [PDF notes](../file_formats/pdf/README.md)). Against LiuXin's own reader: both take XMP's title and authors over the Info ones, but calibre takes XMP's tags in place of the Info tags (unless the Info is newer), where LiuXin's reader adds them to the Info tags. A `pdfinfo` value with a line break keeps only its first line in calibre, and later lines shaped like `Name: value` become fields; the provider without poppler joins the lines |
 | MOBI, AZW3, PRC | books with EXTH and JPEG or PNG covers; an old book without EXTH, with metadata in its markup | Same titles, authors, publishers, identifiers and descriptions as the fork's reader. The port keeps the EXTH publication date, which the fork drops, and tags in the book's order where the fork sorts them; it returns languages as `fra` where the fork says `French`, and the cover's own bytes. From the old book it also reads the publisher. |
 
 ### Differences to decide on
@@ -129,14 +139,16 @@ patterns backtrack.
 | calibre's DOCX reader | The cover search is an XPath for the first image in each drawing, which libxml2 merges in time that grows faster than the drawings squared, and the image was read whole again for each drawing that named it: 64,000 drawings naming a 1 MB image took 16 s, and a 100 KB book can hold a million | The port (#200) finds the images in one pass with `linear_time.first_images` and reads each once; a million drawings take about 5 s, mostly parsing. The providers also apply LiuXin's archive limits to DOCX. LiuXin's own DOCX reader had both; #199 fixes it |
 | calibre's LRF reader | A book's meta info is zlib-packed XML of up to 64 KB, which can unpack to 64 MB, and calibre unpacked and parsed it with minidom once for every field it read: 1.6 million empty elements in a 6.4 KB book took 48 s. An image stream's zlib is unpacked whole before its declared size is checked: a 408 KB book took the process to 1.2 GB | The port (#197) unpacks the meta info to at most 1 MiB and parses it once, and unpacks an image stream to no more than it declares and no more than 32 MiB. LiuXin's own LRF reader had both; #198 fixes it |
 | calibre's PDB header reader | A section runs to the next section's offset, and `read()` of a negative length reads to the end of the file, so a table whose offsets go back names the whole file once per section. calibre's Haodoo reader keeps every section: 4,000 sections in a 536 KB book took 1.9 GB, and a table can name 65,535 | The port (#195) refuses sections that together hold more than twice the file, as the MOBI port does. LiuXin's own PDB header reader already refused offsets that do not increase |
+| calibre's XMP reader | Its XML-declaration pattern is bug 5's with `xml` after `<?`, and cubic: 10 KB took 8.2 s, 20 KB about a minute. Its lookups read every match's descendants, so a field nested in itself 250 deep is read 250 times: 0.9 MB took 4.3 s | The port (#202) finds the declarations by hand in linear time, and refuses packets nested more than 32 deep |
+| calibre's PDF reader | It runs `pdfinfo` and `pdftoppm` with no memory or output limit (its worker times out at 300 s), and draws the first page at 150 dpi whatever its size: a 172-inch page came out 25,834 pixels square, 2 GB of memory and a cover Pillow refuses | The port (#202) runs both tools with a timeout and memory, CPU and output limits (`utils/bounded_process.py`), and draws pages over 20 inches at 3,000 pixels. It runs them in their folder instead of changing the process's, and in process instead of a worker |
 | calibre's MOBI readers | See [the Kindle family](#the-kindle-family) | The port (#188). LiuXin's own MOBI 6 reader (`file_formats/mobi/reader/mobi6.py`) had the same patterns, XPath, scans and inserts; #191 fixes them on `main`. Its PalmDB reader already refused offsets that go back, its HUFF/CDIC reader caps each record's output, and its EXTH reader refuses a record of size 0 |
 
 The calibre problems are written up for reporting upstream, with reproducers
 and suggested fixes, in
 [upstream-calibre-bugs.md](../calibre_compat/upstream-calibre-bugs.md): bugs 1 to
 10 from these ports, 11 from LiuXin's conversion code (#193), 12, the PDB
-section table (#195), 13, LRF's unpacking (#197), and 14, the DOCX cover search
-(#200). None has been reported yet.
+section table (#195), 13, LRF's unpacking (#197), 14, the DOCX cover search
+(#200), and 15 to 17, the XMP and PDF readers (#202). None has been reported yet.
 
 ### The Kindle family
 
@@ -207,7 +219,6 @@ In rough order of value against effort:
 | Batch | calibre code | What it needs |
 | --- | --- | --- |
 | ZIP, RAR, comics | `ebooks/metadata/zip.py`, `rar.py`, `archive.py` | These hand each book inside an archive to the other readers. RAR needs calibre's unrar extension or a substitute. |
-| PDF | `ebooks/metadata/pdf.py`, `xmp.py` | Runs poppler's `pdfinfo` and `pdftoppm` in a worker process, so it needs those tools and a stand-in for the worker. |
 | CHM, LIT | `ebooks/chm/`, `ebooks/lit/` | C extensions (chmlib; `lzx` and `msdes`). The fork's readers still serve both. |
 | Metadata writers | `set_metadata` in each module | calibre's own `zipfile` writer (`safe_replace`) and an image library for covers; today these raise `NotImplementedError`. |
 

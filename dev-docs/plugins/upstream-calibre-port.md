@@ -55,6 +55,8 @@ turned up, and which readers are left.
 | `pdb_header`, `pdb_formatreader`, `pdb_ereader_reader132`, `pdb_plucker_reader`, `pdb_haodoo_reader`, `txt_processor` | `ebooks/pdb/`, `ebooks/txt/processor.py` | The PDB header reader, which carries a marked fix, and what the PDB readers use from calibre's conversion readers. `reader132` (its `HeaderRecord`), the Plucker reader (two constants and `SectionHeader`) and the TXT processor (`HTML_TEMPLATE`, `opf_writer`) are ported in part |
 | `docx`, `docx_container`, `docx_names`, `docx_package`, `docx_writer_container` | `ebooks/metadata/docx.py`, `ebooks/docx/container.py`, `names.py`, `__init__.py`, `writer/container.py` | The DOCX reader, which carries a marked fix, and the container it reads through. The namespace table (all but `generate_anchor`, which needs calibre's transliterator) and the writer's container (`xml2str`, `update_doc_props`) are ported in part |
 | `lrf`, `lrf_objects`, `lrf_tags`, `lrf_package`, `html_entities` | `ebooks/lrf/meta.py`, `objects.py`, `tags.py`, `__init__.py`, `ebooks/html_entities.py` | The LRF reader and the object and tag parsers its cover needs. `lrf` and `lrf_objects` carry marked fixes. The LRF package (`LRFParseError`, `PRS500_PROFILE`) and the entity table (`html5_entities`, `entity_to_unicode_in_python`) are ported in part |
+| `pdf`, `xmp` | `ebooks/metadata/pdf.py`, `xmp.py` | The PDF reader and calibre's XMP reader, both with marked fixes. `xmp` reads the packet `pdfinfo -meta` prints |
+| `_poppler` | LiuXin's own | Stands in for `ebooks/pdf/pdftohtml.py` (where poppler's tools are), and for the worker the PDF reader forks: runs `pdfinfo` and `pdftoppm` within limits, in their folder, in process. Inside `without_poppler()` it gives calibre's code the same fields from LiuXin's PDF reader |
 | `snbfile` | `ebooks/snb/snbfile.py` | |
 | `metadata_base` | `ebooks/metadata/__init__.py` | `MetaInformation`, `string_to_authors`, `check_isbn`, `title_sort` and so on |
 | `book_fields`, `book_base`, `field_metadata`, `json_codec` | `ebooks/metadata/book/`, `library/field_metadata.py` | calibre's own `Metadata` class, used by every ported reader |
@@ -89,6 +91,8 @@ and its docstring lists each difference from calibre. In short:
 | calibre's copy of odfpy | the copy LiuXin ships in `file_formats.odf` | The same library: the ODT reader uses it only to find the cover's frame |
 | The html2text package, which calibre bundles | not a LiuXin dependency | Only writing FB2 comments needs it; calibre's FB2 test runs where it is installed |
 | A worker process running Qt to draw a book's first page as its cover | not ported: `fork_job` raises `WorkerError`, as a failed worker does | A book with no cover image and a first page of text has no cover; calibre prints a line saying so |
+| A worker process running the PDF reader's `read_info`, with poppler's tools bundled | `_poppler.run_here`, in process; poppler from the PATH, run through `utils/bounded_process.py` | The same fields and cover where poppler is installed. Without it, the provider `calibre-port.read-pdf-metadata-without-poppler` gives calibre's code the fields LiuXin's PDF reader reads, and there is no cover |
+| podofo, which writes PDF metadata | not ported; raises `NotImplementedError` | Only writing calls it |
 | Qt re-encoding a MOBI cover as a JPEG of at most 1650x2200 | not ported: the cover is kept as the book stores it | The cover is the book's own image, named by its bytes |
 | Qt saving the JPEG and BMP images of an old MOBI book while reading its text; Pillow converting its GIFs | not ported; Pillow where installed | Those images are skipped (PNGs are written as they are); the metadata does not need them |
 | Qt image and date helpers, EPUB writing helpers, the MOBI writer's colour and guide helpers | not ported; raise `NotImplementedError` | Readers do not call them; calibre's tests of the MOBI writer helpers are not run |
@@ -116,6 +120,8 @@ rules around it:
   cover `jpg`, and its HTMLZ and TXTZ reader uses the file's extension, dot
   included; the provider names each cover by what calibre's `imghdr` finds in
   it, so a PNG cover is a `png`.
+- **Availability.** The PDF port reports itself unavailable where poppler's
+  `pdfinfo` is not on the PATH. The provider below it needs no poppler.
 
 ## Not ported yet
 

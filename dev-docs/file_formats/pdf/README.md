@@ -20,6 +20,28 @@ metadata record. The PDF itself is read by a bounded, pure-Python object reader:
 Writing metadata (`set_metadata`) still uses pypdf when it is installed. pypdf is not a
 declared dependency.
 
+calibre's own PDF reader is ported too (#202), as two providers:
+
+- **`calibre-port.read-pdf-metadata`** (priority −50) runs poppler's `pdfinfo`
+  for the fields and `pdftoppm` for a cover, as calibre does. It is available
+  where `pdfinfo` is on the PATH.
+- **`calibre-port.read-pdf-metadata-without-poppler`** (−55) runs the same
+  calibre code on fields this reader gives, shaped as `pdfinfo` prints them, so
+  PDFs are read everywhere, without a cover.
+
+The port runs poppler through `utils/bounded_process.py`, with these limits:
+
+| | `pdfinfo` | `pdftoppm` |
+| --- | --- | --- |
+| Timeout | 30 s | 60 s |
+| CPU time | 30 s | 60 s |
+| Address space | 1 GiB | 1 GiB |
+| Output | 8 MiB | 64 MiB |
+
+A page larger than 20 inches is drawn at 3,000 pixels on its longest side. See
+the [port status page](../../plugins/upstream-calibre-port-status.md#hostile-input)
+for what that fixes.
+
 ## How the reader finds objects
 
 The reader follows the cross-reference data as a viewer does. It handles:
@@ -151,10 +173,26 @@ encrypted file, and garbled PDFDocEncoding text.
   time bounds.
 - `tests/metadata/file_sources/test_pdf_storage_layouts.py`: the metadata source on
   every layout, by path and by stream.
+- `tests/file_formats/providers/test_ported_pdf_reader.py`: the calibre port with
+  and without poppler on every layout, covers, fake tools that hang, print
+  forever or crash, and the XMP fixes.
 - `tests/metadata/file_sources/test_pdf_edge_cases.py`,
   `tests/metadata/file_sources/test_pdf_metadata_source.py` and
   `tests/metadata/file_sources/test_pdf_golden_corpus_scaffold.py`: mapping, fallback
   policy and writing.
+
+## calibre's handling
+
+These are things the provider without poppler does differently from calibre with
+poppler:
+
+- **Values with a line break.** `pdfinfo` prints a value with a line break across
+  lines, and calibre reads its output line by line. A title keeps only its first
+  line, and a later line shaped like `Keywords: …` becomes that field. The
+  provider without poppler joins the lines with spaces.
+- **Date formats.** calibre reads dates in `pdfinfo -isodates` form; the provider
+  without poppler writes them the same way (`2019-06-01T12:00:00+02`), keeping
+  text that is not a date.
 
 ## Open follow-ups
 

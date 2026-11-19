@@ -301,6 +301,22 @@ def test_quality_job_owns_syntax_lint_and_closeout_contracts() -> None:
         assert f"tests/scripts/{path}" in contracts
 
 
+def test_pdf_reader_tests_run_with_poppler() -> None:
+    """
+    Install poppler where the ported PDF reader's tests run, so they are not skipped.
+
+    Example:
+        >>> test_pdf_reader_tests_run_with_poppler()
+
+
+    :return: None; the assertions are the check.
+    """
+    jobs = _workflow()["jobs"]
+    for name in ("file-formats-fast", "full"):
+        commands = [step.get("run", "") for step in jobs[name]["steps"]]
+        assert any("apt-get install" in command and "poppler-utils" in command for command in commands), name
+
+
 def test_quality_requires_live_readonly_mount_coverage() -> None:
     """Require privileged disposable-fixture coverage instead of accepting mount skips."""
     steps = _workflow()["jobs"]["quality-modern"]["steps"]
