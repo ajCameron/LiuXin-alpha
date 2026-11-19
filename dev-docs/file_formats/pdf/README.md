@@ -7,7 +7,9 @@ Reviewed **2026-11-19**. The metadata reader, its limits and the PDF metadata co
 PDF metadata reading enters through `get_metadata` in
 `src/LiuXin_alpha/metadata/file_sources/pdf.py`, registered as the
 "Read PDF metadata" reader plugin. That module maps Info and XMP onto LiuXin's
-metadata record. The PDF itself is read by a bounded, pure-Python object reader:
+metadata record, combining the two by a policy you choose (see
+[combining Info and XMP](#combining-info-and-xmp)). The PDF itself is read by a
+bounded, pure-Python object reader:
 
 | Module | Role |
 | --- | --- |
@@ -17,8 +19,10 @@ metadata record. The PDF itself is read by a bounded, pure-Python object reader:
 | `file_formats/pdf/security.py` | The Standard security handler, opened with an empty password |
 | `file_formats/pdf/errors.py` | `PdfReadError` and `PdfEncryptedError` |
 
-Writing metadata (`set_metadata`) still uses pypdf when it is installed. pypdf is not a
-declared dependency.
+Writing metadata (`set_metadata`) uses pypdf, from the `pdf` extra
+(`pip install 'liuxin-alpha[pdf]'`). The full test suite installs it, and uses it to
+check this reader against a second implementation (see
+[agreement with poppler and pypdf](#agreement-with-poppler-and-pypdf)).
 
 calibre's own PDF reader is ported too (#202), as two providers:
 
@@ -41,6 +45,46 @@ The port runs poppler through `utils/bounded_process.py`, with these limits:
 A page larger than 20 inches is drawn at 3,000 pixels on its longest side. See
 the [port status page](../../plugins/upstream-calibre-port-status.md#hostile-input)
 for what that fixes.
+
+## Combining Info and XMP
+
+A PDF can say the same things twice, in its Info dictionary and in its XMP packet.
+Writers that keep both write the same values, but an editor that updates one leaves the
+other stale, and the two disagree. `metadata/file_sources/pdf_merge.py` offers three
+ways to combine them. The `pdf_metadata_merge` preference chooses one for the
+"Read PDF metadata" plugin:
+
+| Policy | Which source wins | Info `Subject` | Tags |
+| --- | --- | --- | --- |
+| `newest` (default) | The one changed last wins every field it has; the other fills the gaps | The description (`dc:description`) | The winner's |
+| `calibre` | XMP, except that a newer Info dictionary wins the title, authors and tags | The first tag | The winner's |
+| `union` | XMP for title, authors, publisher and description | A tag | Info's and XMP's together |
+
+`newest` follows the specifications. The XMP specification maps `Subject` to
+`dc:description`, `Keywords` to `pdf:Keywords`, `Creator` to `xmp:CreatorTool` and
+the dates to `xmp:CreateDate` and `xmp:ModifyDate`. The PDF specification says to prefer
+XMP unless the Info dictionary's `ModDate` is later than the packet's
+`xmp:MetadataDate`. The packet's date is the later of `xmp:MetadataDate` and
+`xmp:ModifyDate`, as calibre takes it. When either date is missing, XMP wins, since
+PDF 2.0 makes it the main record.
+
+`calibre` is calibre's `consolidate_metadata`, applied to the fields LiuXin reads. A
+packet whose title is an escaped PDF string (Nitro PDF writes `\376\377…`) is ignored
+whole, as calibre ignores it; `newest` drops only the escaped fields. For calibre's own
+reading of the file, poppler included, use the ported providers.
+
+`union` is how LiuXin read PDFs before. It reads XMP properties written as elements
+only, and keeps dates as the file writes them.
+
+`newest` and `calibre` also read properties written as attributes of
+`rdf:Description`, a short form many writers use. They read `dc:language`, DOIs and
+ISBNs from `prism:` and `pdfx:` properties and `dc:identifier`, and give dates in ISO 8601.
+
+A preference set to anything else means `newest`. Each policy also has a reader plugin
+that is off by default: "Read PDF metadata (newest source wins)",
+"Read PDF metadata (calibre's rule)" and "Read PDF metadata (Info and XMP together)".
+Enabled, one runs before "Read PDF metadata" whatever the preference says. Callers can
+pass `merge=` to `get_metadata` too.
 
 ## How the reader finds objects
 
@@ -145,7 +189,7 @@ records what was lost, and the metadata source logs it at DEBUG.
 | A `/Prev` loop, a reference loop or chain, a table claiming 4 billion entries, an object stream claiming a billion objects | Not reachable (no xref support) | Each terminates; the file still reads where it can |
 | A file that looks encrypted but has no trailer | Returned ciphertext | `PdfEncryptedError` |
 
-## Agreement with poppler
+## Agreement with poppler and pypdf
 
 `tests/fixtures/pdf_metadata` holds one small PDF per storage layout. Each records what
 poppler's `pdfinfo` 24.02 read from it. `scripts/make_pdf_metadata_corpus.py` regenerates
@@ -175,6 +219,12 @@ cases where it reads more than poppler does:
 - **AES-128 with `/EncryptMetadata false`.** The XMP packet is stored in clear text, but
   poppler decrypts it anyway and returns garbage.
 
+pypdf 6 agrees with this reader on the Info dictionary and the XMP packet of every case
+but two, raw UTF-8 strings and cleartext XMP, where it reads as poppler does. It agrees
+on the hybrid file that poppler reads less of. Both refuse the file with a user
+password. `tests/file_formats/pdf/test_pdf_reader_agrees_with_pypdf.py` checks this
+when pypdf is installed.
+
 The old reader found nothing in files that keep their Info dictionary in an object
 stream, as many writers have done since PDF 1.5. It returned ciphertext for every
 encrypted file, and garbled PDFDocEncoding text.
@@ -184,15 +234,21 @@ encrypted file, and garbled PDFDocEncoding text.
 - `tests/file_formats/pdf/test_pdf_object_reader.py`: corpus agreement with `pdfinfo`,
   RC4, and AES through each layer of the `aes` plugin, the lexer, and hostile inputs with
   time bounds.
+- `tests/file_formats/pdf/test_pdf_reader_agrees_with_pypdf.py`: corpus agreement with
+  pypdf, when the `pdf` extra is installed.
 - `tests/metadata/file_sources/test_pdf_storage_layouts.py`: the metadata source on
   every layout, by path and by stream.
+- `tests/metadata/file_sources/test_pdf_merge_policies.py`: each merge policy on files
+  whose Info and XMP disagree and are dated either way, the preference, and the
+  plugins.
 - `tests/file_formats/providers/test_ported_pdf_reader.py`: the calibre port with
   and without poppler on every layout, covers, fake tools that hang, print
   forever or crash, and the XMP fixes.
 - `tests/metadata/file_sources/test_pdf_edge_cases.py`,
   `tests/metadata/file_sources/test_pdf_metadata_source.py` and
   `tests/metadata/file_sources/test_pdf_golden_corpus_scaffold.py`: mapping, fallback
-  policy and writing.
+  policy and writing. The golden manifest records what the default policy reads, and
+  what each other policy reads differently.
 
 ## calibre's handling
 
@@ -211,5 +267,7 @@ poppler:
 
 - The reader takes no cover. A scanned book's first page is often a single JPEG image
   XObject that could be returned as-is without rendering.
-- Writing still needs pypdf; see the project's open items about making it an optional
-  dependency.
+- `set_metadata` rebuilds the file from its pages, so the rewritten file loses the XMP
+  packet, outlines, forms and attachments. pypdf can clone the whole document
+  instead; the packet would then need updating too, or a reader would find stale XMP
+  beside the new Info.

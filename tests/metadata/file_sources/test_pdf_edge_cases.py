@@ -24,7 +24,7 @@ import pytest
 from LiuXin_alpha.metadata.containers.calibre_like_book_metadata import (
     CalibreLikeLiuXinBookMetaData as MetaData,
 )
-from LiuXin_alpha.metadata.file_sources import pdf
+from LiuXin_alpha.metadata.file_sources import pdf, pdf_merge
 
 
 def _values(raw):
@@ -573,9 +573,10 @@ def test_pdf_xmp_parser_no_rdf_and_parse_variants() -> None:
     assert parsed["urn:custom"]["value"] == "custom text"
 
 
-def test_pdf_get_metadata_defensive_fallbacks(monkeypatch) -> None:
+@pytest.mark.parametrize("merge", ["newest", "calibre", "union"])
+def test_pdf_get_metadata_defensive_fallbacks(monkeypatch, merge: str) -> None:
     """
-    Verify pdf get metadata defensive fallbacks.
+    Verify pdf get metadata defensive fallbacks, under every merge policy.
 
     Example:
         Exercise test pdf get metadata defensive fallbacks through its owning regression module::
@@ -585,6 +586,7 @@ def test_pdf_get_metadata_defensive_fallbacks(monkeypatch) -> None:
 
     :param monkeypatch: Pytest fixture used to isolate collaborators or environment
         state.
+    :param merge: The merge policy.
     :return: None; the function records state or raises through its assertions.
     """
     events = []
@@ -601,7 +603,7 @@ def test_pdf_get_metadata_defensive_fallbacks(monkeypatch) -> None:
     monkeypatch.setattr(pdf, "_default_metadata", lambda _source_name="": fake_md)
     monkeypatch.setattr(pdf, "process_metadata_info_dict", lambda _info, md: md)
 
-    def broken_xmp(_packet):
+    def broken_xmp(_packet, **_options):
         """
         Fail as an unparseable XMP packet does.
 
@@ -612,6 +614,7 @@ def test_pdf_get_metadata_defensive_fallbacks(monkeypatch) -> None:
 
 
         :param _packet: The packet.
+        :param _options: Parser options.
         :return: Never returns.
         """
         raise SyntaxError("broken XMP")
@@ -622,14 +625,14 @@ def test_pdf_get_metadata_defensive_fallbacks(monkeypatch) -> None:
         b"<< /Title (Fallback Title) /Keywords [(10.5555/fallback) (9780306406157)] >>",
         extra_objects=[xmp],
     ).replace(b"<< /Type /Catalog >>", b"<< /Type /Catalog /Metadata 3 0 R >>")
-    md = pdf.get_metadata(payload)
+    md = pdf.get_metadata(payload, merge=merge)
     assert md is fake_md
     assert fake_md.identifiers == {"doi": "10.5555/fallback", "isbn": "9780306406157"}
     assert fake_md.finalized
     assert _values(fake_md.authors) == ["Unknown Author"]
     assert any("embedded PDF XMP" in str(event[0]) for event in events)
 
-    def fail_info_dict(*_args):
+    def fail_info_dict(*_args, **_options):
         """
         Fail as a broken Info mapping does.
 
@@ -640,12 +643,14 @@ def test_pdf_get_metadata_defensive_fallbacks(monkeypatch) -> None:
 
 
         :param _args: Value supplied for args in the focused test operation.
+        :param _options: Reading options.
         :return: Never returns.
         """
         raise RuntimeError("info boom")
 
     monkeypatch.setattr(pdf, "process_metadata_info_dict", fail_info_dict)
-    pdf.get_metadata(_pdf_with_info(b"<< /Title (Ignored) >>"))
+    monkeypatch.setattr(pdf_merge, "info_fields", fail_info_dict)
+    pdf.get_metadata(_pdf_with_info(b"<< /Title (Ignored) >>"), merge=merge)
     assert any("PDF info dictionary" in str(event[0]) for event in events)
 
 

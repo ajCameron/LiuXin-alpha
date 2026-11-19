@@ -46,6 +46,10 @@ s3 = [
 encryption = [
   "cryptography>=43,<47",
 ]
+# Writes PDF metadata, and checks the PDF reader against a second implementation.
+pdf = [
+  "pypdf>=5,<7",
+]
 archives = [
   "py7zr>=1.1.3,<2",
   "pycdlib>=1.20,<2",

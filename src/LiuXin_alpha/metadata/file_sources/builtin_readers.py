@@ -903,6 +903,9 @@ else:
         """
         Parse pdfmetadatareader data into normalized ebook structures.
 
+        The Info dictionary and the XMP packet are combined as the
+        ``pdf_metadata_merge`` preference says; the variants below each fix one rule.
+
         Example:
             Exercise PDFMetadataReader through a consuming regression::
 
@@ -911,6 +914,8 @@ else:
         name = "Read PDF metadata"
         file_types = frozenset(["pdf"])
         description = _("Read metadata from %s files") % "PDF"
+        #: The merge policy; ``None`` follows the ``pdf_metadata_merge`` preference.
+        merge: str | None = None
 
         def get_metadata(self, stream, ftype):
             """
@@ -929,8 +934,8 @@ else:
                 described above.
             """
             if self.quick:
-                return pdf_get_quick_metadata(stream).finalize()
-            return pdf_get_metadata(stream).finalize()
+                return pdf_get_quick_metadata(stream, merge=self.merge).finalize()
+            return pdf_get_metadata(stream, merge=self.merge).finalize()
 
         def get_metadata_inplace(self, file_path, ftype):
             """
@@ -948,10 +953,59 @@ else:
                 described above.
             """
             if self.quick:
-                return pdf_get_metadata_inplace(file_path).finalize()
-            return pdf_get_metadata_inplace(file_path).finalize()
+                return pdf_get_metadata_inplace(file_path, merge=self.merge).finalize()
+            return pdf_get_metadata_inplace(file_path, merge=self.merge).finalize()
 
-    file_type_plugins += [PDFMetadataReader]
+    # One reader per merge policy, off by default. Enabled, each runs before
+    # "Read PDF metadata" (its priority is higher), whatever the preference says.
+    class PDFMetadataReaderNewest(PDFMetadataReader):
+
+        """
+        Read PDF metadata, letting the source changed last win each field.
+
+        Example:
+            >>> PDFMetadataReaderNewest.merge
+            'newest'
+        """
+        name = "Read PDF metadata (newest source wins)"
+        description = _("Read metadata from PDF files; where the Info dictionary and XMP differ, the newer wins")
+        priority = 2
+        merge = "newest"
+
+    class PDFMetadataReaderCalibre(PDFMetadataReader):
+
+        """
+        Read PDF metadata, combining the Info dictionary and XMP as calibre does.
+
+        Example:
+            >>> PDFMetadataReaderCalibre.merge
+            'calibre'
+        """
+        name = "Read PDF metadata (calibre's rule)"
+        description = _("Read metadata from PDF files, combining the Info dictionary and XMP as calibre does")
+        priority = 2
+        merge = "calibre"
+
+    class PDFMetadataReaderUnion(PDFMetadataReader):
+
+        """
+        Read PDF metadata as LiuXin did before: XMP over Info, with the tags of both.
+
+        Example:
+            >>> PDFMetadataReaderUnion.merge
+            'union'
+        """
+        name = "Read PDF metadata (Info and XMP together)"
+        description = _("Read metadata from PDF files, keeping the tags of both the Info dictionary and XMP")
+        priority = 2
+        merge = "union"
+
+    file_type_plugins += [
+        PDFMetadataReader,
+        PDFMetadataReaderNewest,
+        PDFMetadataReaderCalibre,
+        PDFMetadataReaderUnion,
+    ]
 
 # Todo: Add a call to finalize everywhere
 try:
