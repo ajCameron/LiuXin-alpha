@@ -1,10 +1,10 @@
 # Bugs to report to upstream calibre
 
 Status: **not yet reported.** Found **2026-11-17** to **2026-11-19** while porting
-calibre's metadata readers (PRs #179, #185 and #188) and hardening LiuXin's own
-readers and converters (PRs #180, #186 and #193).
+calibre's metadata readers (PRs #179, #185, #188 and #195) and hardening LiuXin's
+own readers and converters (PRs #180, #186 and #193).
 
-These are eleven ways a damaged or hostile file keeps a calibre metadata reader
+These are twelve ways a damaged or hostile file keeps a calibre metadata reader
 or conversion busy for minutes or for ever, or fills memory. Each section has the
 location, a reproducer to run with `calibre-debug`, what was measured, and a
 suggested fix.
@@ -21,15 +21,17 @@ suggested fix.
 - **Where to report:** calibre takes ordinary bugs on
   [Launchpad](https://bugs.launchpad.net/calibre). Recent security fixes have gone
   through [GitHub security advisories](https://github.com/kovidgoyal/calibre/security/advisories).
-  All eleven are denial of service from a crafted file; bug 9 also runs the
+  All twelve are denial of service from a crafted file; bug 9 also runs the
   book's text as XPath, though only within the book. That makes them candidates for a
   private advisory rather than a public bug, or for a public bug if calibre
   treats reader hangs as ordinary bugs. Choosing which is the reporter's call.
   Bugs 5 and 7 to 10 also reach calibre's conversion, not only its metadata
-  readers; bug 11 is in conversion alone.
+  readers; bug 11 is in conversion alone, and bug 12 reaches PDB conversion
+  too.
 - **Order:** bugs 2 and 3 should go together. Fixing 2 lets never-closed info
   blocks reach the patterns in 3, which are then cubic rather than quadratic.
-  Bugs 6 to 10 are all in the MOBI reader and could go as one report.
+  Bugs 6 to 10 are all in the MOBI reader and could go as one report. Bug 12
+  is bug 8's shape in the PDB header reader, and its fix could follow 8's.
 
 ## Summary
 
@@ -46,6 +48,7 @@ suggested fix.
 | 9 | `ebooks/mobi/reader/mobi6.py`, `read_embedded_metadata` and `create_opf` | A quote in the guide's cover or toc href | The read fails, or runs XPath of the book's choosing: 15 s on 50 KB |
 | 10 | `ebooks/mobi/reader/mobi6.py`, clean-up and anchor placement | Eight shapes of markup | Quadratic or worse: from 8.6 s on 3.4 KB to hours on 4 MB |
 | 11 | `ebooks/conversion/preprocess.py` and `utils.py`, the entity and `<pre>` patterns | A run of `&` with no `;` in any HTML file converted; any long text after the last `</pre>`, with heuristics on | Quadratic: 80 KB takes 33 s; 1 MB about an hour and a half |
+| 12 | `ebooks/pdb/header.py`, `PdbHeaderReader.section_data` | A section table whose offsets go back | Each section reads to the end of the file, and the Haodoo reader keeps them all: 1.9 GB for 4,000 sections in 536 KB; a table names up to 65,535 |
 
 ## 1. Topaz: counts past the end of the file
 
@@ -757,6 +760,96 @@ def sub_until_failure(pattern, repl, text):
 LiuXin's versions (`utils/linear_time.py`, PR #193) gave the same results as
 `sub` on random text, and read a megabyte on each path in well under a second.
 
+## 12. PDB: sections whose offsets go back
+
+`PdbHeaderReader.section_data` reads a section from its offset to the next
+section's:
+
+```python
+start = self.section_offset(number)
+if number == self.num_sections - 1:
+    self.stream.seek(0, 2)
+    end = self.stream.tell()
+else:
+    end = self.section_offset(number + 1)
+self.stream.seek(start)
+return self.stream.read(end - start)
+```
+
+When the next offset is lower, `end - start` is negative, and `read()` of a
+negative length reads to the end of the file. A table whose offsets go back
+names the rest of the file once per section, and the table can name 65,535
+sections. The Haodoo metadata reader (`ebooks/pdb/haodoo/reader.py`) keeps every
+section, so memory grows by the file's size for each one; the Plucker and
+eReader metadata readers read them one at a time. In conversion, the eReader,
+Haodoo, PalmDOC and zTXT readers keep every section too.
+
+```python
+# pdb_sections.py: run with calibre-debug -e pdb_sections.py
+# A Haodoo book whose section offsets go back, so each section reads to the end
+# of the file. Watch the memory: it grows by the file's size for every section.
+import io
+import resource
+import struct
+import time
+
+from calibre.ebooks.metadata.pdb import get_metadata
+
+
+def book(sections, size):
+    record0 = '書'.encode('cp950') + b'\x1b1\x1b' + '章'.encode('cp950')
+    first = 78 + 8 * (sections + 1) + 2
+    start = first + len(record0)
+    offsets = [first] + [start + sections - i for i in range(1, sections)] + [start + sections + 1]
+    header = b'T'.ljust(32, b'\0') + bytes(28) + b'BOOKMTIT' + struct.pack('>IIH', 0, 0, sections + 1)
+    table = b''.join(struct.pack('>LL', offset, 0) for offset in offsets)
+    return header + table + b'\0\0' + record0 + b'\0' * (sections + 1) + b'\0' * size
+
+
+for sections in (1_000, 2_000, 4_000):
+    data = book(sections, 500_000)
+    start = time.monotonic()
+    get_metadata(io.BytesIO(data))
+    rss = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss // 1024
+    print(f'{sections} sections, {len(data):,} bytes: {time.monotonic() - start:.2f} s, peak {rss} MB', flush=True)
+```
+
+**Measured** (calibre's PDB readers, as ported, with LiuXin's fix switched off):
+
+| Sections | Bytes | Time | Peak memory |
+|---|---|---|---|
+| 1,000 | 509,096 | 0.31 s | 507 MB |
+| 2,000 | 518,096 | 0.54 s | 985 MB |
+| 4,000 | 536,096 | 1.40 s | 1.9 GB |
+
+A table of 65,535 sections takes 524 KB, so a file of about a megabyte would
+hold over 60 GB (extrapolated, not run).
+
+**Suggested fix:** check the table once, as bug 8's fix does for MOBI. LiuXin's
+port adds this to `PdbHeaderReader` and calls it from `section_data`:
+
+```python
+def check_sections(self) -> None:
+    if getattr(self, 'sections_checked', False):
+        return
+    self.stream.seek(0, 2)
+    size = self.stream.tell()
+    self.stream.seek(78)
+    table = self.stream.read(8 * self.num_sections)
+    offsets = [struct.unpack_from('>L', table, 8 * i)[0] for i in range(len(table) // 8)]
+    held = 0
+    for i, start in enumerate(offsets):
+        end = offsets[i + 1] if i + 1 < len(offsets) else size
+        held += (size if end < start else min(end, size)) - min(start, size)
+    if held > 2 * size:
+        raise ValueError('PDB sections overlap')
+    self.sections_checked = True
+```
+
+Books whose sections are in order read exactly as before. Refusing any offset
+that goes back, as LiuXin's own PDB reader does, would also do, and would
+refuse damaged files calibre reads today.
+
 ## LiuXin's own fixes
 
 - PR #180 fixes LiuXin's readers on `main`: `metadata/file_sources/topaz.py`
@@ -776,5 +869,7 @@ LiuXin's versions (`utils/linear_time.py`, PR #193) gave the same results as
   offsets that go back.
 - PR #193 fixes bug 11 in LiuXin's conversion code on `main`: the HTML
   preprocessor, the heuristic processor and the LRF converter.
+- PR #195 carries the fix for bug 12 in the ported PDB reader. LiuXin's own
+  PDB header reader never had it: it refuses offsets that do not increase.
 
 Return to the [calibre compatibility index](README.md).

@@ -115,7 +115,26 @@ PORTS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
     ("ebooks/mobi/reader/headers.py", "mobi_headers.py", ()),
     ("ebooks/mobi/reader/mobi6.py", "mobi6.py", ()),
     ("ebooks/metadata/mobi.py", "mobi.py", ()),
+    ("ebooks/pdb/header.py", "pdb_header.py", ()),
+    ("ebooks/pdb/formatreader.py", "pdb_formatreader.py", ()),
+    ("ebooks/pdb/ereader/reader132.py", "pdb_ereader_reader132.py", ()),
+    ("ebooks/pdb/plucker/reader.py", "pdb_plucker_reader.py", ()),
+    ("ebooks/txt/processor.py", "txt_processor.py", ()),
+    ("ebooks/pdb/haodoo/reader.py", "pdb_haodoo_reader.py", ()),
+    ("ebooks/metadata/ereader.py", "ereader.py", ()),
+    ("ebooks/metadata/plucker.py", "plucker.py", ()),
+    ("ebooks/metadata/haodoo.py", "haodoo.py", ()),
+    ("ebooks/metadata/pdb.py", "pdb.py", ()),
 )
+
+# Modules of which only some top-level names are ported, by upstream path: the
+# rest is conversion code the metadata readers do not use. Imports the kept
+# names do not use are dropped with it.
+PARTS: dict[str, tuple[str, ...]] = {
+    "ebooks/pdb/ereader/reader132.py": ("HeaderRecord",),
+    "ebooks/pdb/plucker/reader.py": ("DATATYPE_METADATA", "MIBNUM_TO_NAME", "SectionHeader"),
+    "ebooks/txt/processor.py": ("HTML_TEMPLATE", "opf_writer"),
+}
 
 # LiuXin fixes, by upstream path: calibre's text and its replacement. They are
 # applied before the imports are rewritten, so they are written in calibre's
@@ -136,6 +155,43 @@ PATCHES: dict[str, tuple[tuple[str, str], ...]] = {
 
             if not is_existing_subpath(cpage, tdir):  # LiuXin:
                 return
+""",
+        ),
+    ),
+    "ebooks/pdb/header.py": (
+        (
+            """    def section_data(self, number: int) -> bytes:
+        if not (0 <= number < self.num_sections):
+            raise ValueError(f'Not a valid section number {number}')
+
+""",
+            """    def check_sections(self) -> None:  # LiuXin:
+        # LiuXin: a section runs to the next one's offset, and when that offset
+        # goes back, read() of the negative length reads to the end of the file.
+        # A table whose offsets go back and forth names the whole file once per
+        # section, up to 65,535 times, and the Haodoo reader keeps every
+        # section. Refuse sections that together hold more than twice the file,
+        # as the MOBI reader does.
+        if getattr(self, 'sections_checked', False):
+            return
+        self.stream.seek(0, 2)
+        size = self.stream.tell()
+        self.stream.seek(78)
+        table = self.stream.read(8 * self.num_sections)
+        offsets = [struct.unpack_from('>L', table, 8 * i)[0] for i in range(len(table) // 8)]
+        held = 0
+        for i, start in enumerate(offsets):
+            end = offsets[i + 1] if i + 1 < len(offsets) else size
+            held += (size if end < start else min(end, size)) - min(start, size)
+        if held > 2 * size:
+            raise ValueError('PDB sections overlap')
+        self.sections_checked = True
+
+    def section_data(self, number: int) -> bytes:
+        if not (0 <= number < self.num_sections):
+            raise ValueError(f'Not a valid section number {number}')
+        self.check_sections()  # LiuXin:
+
 """,
         ),
     ),
@@ -539,6 +595,16 @@ MODULES = {
     "calibre.ebooks.mobi.utils": f"{PKG}.mobi_utils",
     "calibre.utils.html2text": f"{PKG}.html_to_text",
     "calibre.utils.localunzip": f"{PKG}.localunzip",
+    "calibre.ebooks.pdb.header": f"{PKG}.pdb_header",
+    "calibre.ebooks.pdb.formatreader": f"{PKG}.pdb_formatreader",
+    "calibre.ebooks.pdb.ereader.reader132": f"{PKG}.pdb_ereader_reader132",
+    "calibre.ebooks.pdb.plucker.reader": f"{PKG}.pdb_plucker_reader",
+    "calibre.ebooks.pdb.haodoo.reader": f"{PKG}.pdb_haodoo_reader",
+    "calibre.ebooks.txt.processor": f"{PKG}.txt_processor",
+    "calibre.ebooks.metadata.ereader": f"{PKG}.ereader",
+    "calibre.ebooks.metadata.plucker": f"{PKG}.plucker",
+    "calibre.ebooks.metadata.haodoo": f"{PKG}.haodoo",
+    "calibre.ebooks.metadata.pdb": f"{PKG}.pdb",
 }
 
 # Helpers from modules that are not ported whole: the names _compat provides,
@@ -755,6 +821,144 @@ def drop_type_parameter_defaults(source: str) -> str:
     return "\n".join(lines)
 
 
+def _defined_names(node: ast.stmt) -> set[str]:
+    """
+    Name the module-level names a statement defines.
+
+    Example:
+        >>> sorted(_defined_names(ast.parse("A = B = 1").body[0]))
+        ['A', 'B']
+
+
+    :param node: A top-level statement.
+    :return: The names it binds, other than by importing.
+    """
+    if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
+        return {node.name}
+    if isinstance(node, ast.Assign):
+        return {target.id for target in node.targets if isinstance(target, ast.Name)}
+    if isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
+        return {node.target.id}
+    if isinstance(node, ast.TypeAlias) and isinstance(node.name, ast.Name):
+        return {node.name.id}
+    return set()
+
+
+def _used_names(node: ast.AST) -> set[str]:
+    """
+    Name what a statement refers to, in its code and in string annotations.
+
+    Example:
+        >>> sorted(_used_names(ast.parse("def f(x: 'Log') -> None: return g(x)")))
+        ['Log', 'g', 'x']
+
+
+    :param node: The statement.
+    :return: The names it reads.
+    """
+    used = set()
+    for child in ast.walk(node):
+        if isinstance(child, ast.Name):
+            used.add(child.id)
+        elif isinstance(child, ast.Constant) and isinstance(child.value, str):
+            try:
+                expression = ast.parse(child.value, mode="eval")
+            except SyntaxError:
+                continue
+            used.update(n.id for n in ast.walk(expression) if isinstance(n, ast.Name))
+    return used
+
+
+def keep_only(source: str, source_path: str, names: tuple[str, ...]) -> str:
+    """
+    Keep the named top-level definitions of a module and the imports they use.
+
+    The module's leading comments and docstring stay, and so do the comment
+    lines directly above each kept definition. Statements that are neither
+    kept definitions nor imports they use are dropped.
+
+    Example:
+        >>> source = "import os\\nimport re\\n\\nA = re.compile('a')\\n\\ndef f():\\n    return os\\n"
+        >>> print(keep_only(source, "x.py", ("A",)))
+        import re
+        <BLANKLINE>
+        <BLANKLINE>
+        A = re.compile('a')
+        <BLANKLINE>
+
+
+    :param source: The calibre module's source.
+    :param source_path: Its path under ``src/calibre``, for errors.
+    :param names: The top-level names to keep.
+    :return: The reduced source.
+    :raises SystemExit: If a name is not defined, or a kept definition uses a
+        module-level name that is not kept.
+    """
+    tree = ast.parse(source)
+    lines = source.split("\n")
+    wanted = set(names)
+    kept = [node for node in tree.body if _defined_names(node) & wanted]
+    defined = set().union(*(_defined_names(node) for node in tree.body))
+    if missing := wanted - defined:
+        raise SystemExit(f"{source_path} defines no {', '.join(sorted(missing))}")
+    used = set().union(*(_used_names(node) for node in kept))
+    if needed := (used & defined) - wanted:
+        raise SystemExit(f"{source_path}: keep {', '.join(sorted(needed))} too, which the kept names use")
+
+    def pruned(node: ast.Import | ast.ImportFrom) -> ast.Import | ast.ImportFrom | None:
+        aliases = [a for a in node.names if (a.asname or a.name).split(".")[0] in used or a.name == "annotations"]
+        if not aliases:
+            return None
+        if len(aliases) == len(node.names):
+            return node
+        if isinstance(node, ast.Import):
+            return ast.Import(names=aliases)
+        return ast.ImportFrom(module=node.module, names=aliases, level=node.level)
+
+    def text(node: ast.stmt, indent: str = "") -> str:
+        start = min([node.lineno] + [d.lineno for d in getattr(node, "decorator_list", [])])
+        while start > 1 and lines[start - 2].startswith(indent + "#"):
+            start -= 1
+        return "\n".join(lines[start - 1 : node.end_lineno])
+
+    typing_block: list[str] = []
+    for node in tree.body:
+        if isinstance(node, ast.If) and getattr(node.test, "id", None) == "TYPE_CHECKING":
+            for child in node.body:
+                if isinstance(child, ast.Import | ast.ImportFrom) and (kept_import := pruned(child)):
+                    typing_block.append("    " + (text(child) .strip() if kept_import is child else ast.unparse(kept_import)))
+    if typing_block:
+        used.add("TYPE_CHECKING")
+
+    first = tree.body[0] if tree.body else None
+    has_docstring = isinstance(first, ast.Expr) and isinstance(getattr(first, "value", None), ast.Constant)
+    head_end = first.end_lineno if has_docstring and first else 0
+    out = ["\n".join(lines[:head_end]).rstrip("\n")] if head_end else []
+    if not head_end:
+        leading = []
+        for row in lines:
+            if not row.startswith("#"):
+                break
+            leading.append(row)
+        if leading:
+            out.append("\n".join(leading))
+    imports: list[str] = []
+    previous_end = 0
+    for node in tree.body:
+        if isinstance(node, ast.Import | ast.ImportFrom) and (kept_import := pruned(node)):
+            statement = text(node) if kept_import is node else ast.unparse(kept_import)
+        elif isinstance(node, ast.If) and getattr(node.test, "id", None) == "TYPE_CHECKING" and typing_block:
+            statement = "if TYPE_CHECKING:\n" + "\n".join(typing_block)
+        else:
+            continue
+        if imports and any(not row.strip() for row in lines[previous_end : node.lineno - 1]):
+            imports.append("")
+        imports.append(statement)
+        previous_end = node.end_lineno or node.lineno
+    head = "\n\n".join(part for part in out + ["\n".join(imports)] if part)
+    return "\n\n\n".join(part for part in [head] + [text(node) for node in kept] if part) + "\n"
+
+
 def rewrite_import(node: ast.Import | ast.ImportFrom, line: str, typing_only: bool) -> list[str]:
     """
     Rewrite one import statement by the tables.
@@ -839,6 +1043,8 @@ def port_source(source: str, source_path: str, extra_header: tuple[str, ...] = (
     :param extra_header: More lines for the header comment.
     :return: The ported source.
     """
+    if source_path in PARTS:
+        source = keep_only(source, source_path, PARTS[source_path])
     patched = apply_patches(source, source_path)
     excepts_fixed = parenthesise_excepts(patched)
     fixed = drop_type_parameter_defaults(excepts_fixed)
@@ -883,6 +1089,12 @@ def port_source(source: str, source_path: str, extra_header: tuple[str, ...] = (
         "# Changes from upstream: calibre imports point at upstream_calibre and its _compat, and",
         "# 'from __future__ import annotations' is added.",
     ]
+    if source_path in PARTS:
+        kept = PARTS[source_path]
+        listed = kept[0] if len(kept) == 1 else ", ".join(kept[:-1]) + " and " + kept[-1]
+        verb, pronoun = ("is", "it uses") if len(kept) == 1 else ("are", "they use")
+        header.append(f"# Only {listed} {verb} ported, with the imports {pronoun};")
+        header.append("# the rest is conversion code the metadata readers do not use.")
     if excepts_fixed != patched:
         header.append("# Except clauses naming several exceptions are parenthesised, for Python before 3.14.")
     if fixed != excepts_fixed:

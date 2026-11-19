@@ -20,6 +20,11 @@ turned up, and which readers are left.
   from type parameters (`class C[T = str]`, Python 3.13 syntax), which only
   type checkers read. A header comment records the source path and the
   changes.
+- **Port only what the readers use.** Where a reader needs a few names from a
+  large module, `PARTS` in the porting script lists them. The script keeps
+  those top-level definitions, the comment lines just above them and the
+  imports they use, and stops if a kept definition uses another module-level
+  name that is not listed. The header comment says what was kept.
 - **Fix only what hangs or reaches outside the book.** A reader that upstream
   leaves running for minutes, or for ever, or filling memory, on a damaged
   file, that reads a file the book names outside itself, or that runs the
@@ -45,8 +50,9 @@ turned up, and which readers are left.
 
 | Ported | From calibre | Notes |
 | --- | --- | --- |
-| Readers `txt`, `imp`, `rb`, `lrx`, `snb`, `rtf`, `topaz`, `pml`, `opf`, `epub`, `extz`, `html`, `fb2`, `odt`, `mobi` | `ebooks/metadata/` | `rtf`, `topaz`, `epub`, `html` and `mobi` carry marked fixes; `epub` also reads KEPUB, `extz` reads HTMLZ and TXTZ, `fb2` reads FBZ, `mobi` reads PRC, AZW, AZW3, AZW4 and POBI |
+| Readers `txt`, `imp`, `rb`, `lrx`, `snb`, `rtf`, `topaz`, `pml`, `opf`, `epub`, `extz`, `html`, `fb2`, `odt`, `mobi`, `pdb`, `ereader`, `plucker`, `haodoo` | `ebooks/metadata/` | `rtf`, `topaz`, `epub`, `html` and `mobi` carry marked fixes; `epub` also reads KEPUB, `extz` reads HTMLZ and TXTZ, `fb2` reads FBZ, `mobi` reads PRC, AZW, AZW3, AZW4 and POBI, and `pdb` reads UPDB and hands eReader, Plucker and Haodoo books to their readers |
 | `mobi_headers`, `mobi6`, `huffcdic`, `palmdoc`, `mobi_package`, `mobi_utils`, `mobi_langcodes` | `ebooks/mobi/`, `ebooks/compression/palmdoc.py` | The MOBI and EXTH headers; the MOBI 6 reader, which reads the markup of books without EXTH; their decompressors. `mobi6`, `headers` and `huffcdic` carry marked fixes |
+| `pdb_header`, `pdb_formatreader`, `pdb_ereader_reader132`, `pdb_plucker_reader`, `pdb_haodoo_reader`, `txt_processor` | `ebooks/pdb/`, `ebooks/txt/processor.py` | The PDB header reader, which carries a marked fix, and what the PDB readers use from calibre's conversion readers. `reader132` (its `HeaderRecord`), the Plucker reader (two constants and `SectionHeader`) and the TXT processor (`HTML_TEMPLATE`, `opf_writer`) are ported in part |
 | `snbfile` | `ebooks/snb/snbfile.py` | |
 | `metadata_base` | `ebooks/metadata/__init__.py` | `MetaInformation`, `string_to_authors`, `check_isbn`, `title_sort` and so on |
 | `book_fields`, `book_base`, `field_metadata`, `json_codec` | `ebooks/metadata/book/`, `library/field_metadata.py` | calibre's own `Metadata` class, used by every ported reader |
