@@ -19,6 +19,21 @@ calibre behave this way.
 `xml_to_unicode` decodes OPF, NCX, HTML, FB2, CHM and LIT content, so each of
 these reached most readers and converters.
 
+Conversion resolved entities with its own copies of the entity pattern, and the
+heuristic processor had a second slow pattern beside one of them:
+
+| Pattern | Where | Crafted input | Before |
+| --- | --- | --- | --- |
+| `&(\S+?);` | `file_formats/conversion/preprocess.py` (`HTMLPreProcessor.PREPROCESS`), run on every HTML document converted | a run of `&` with no `;` | 80 KB: 33 s; 1 MB, extrapolated: about an hour and a half |
+| `&(\S+?);` | `file_formats/conversion/utils.py` (`HeuristicProcessor.markup_pre`), `file_formats/lrf/html/convert_from.py` (`HTMLConverter.MARKUP_MASSAGE`), `file_formats/lrf/pylrs/pylrs.py` (`TocLabel`) | the same | the same |
+| `.*?(?<=<pre>)(?P<text>.*?)</pre>` | `HeuristicProcessor.markup_pre`, for documents with few paragraph tags | any long text after the last `</pre>`, crafted or not | 40 KB: 8.9 s |
+
+All of these now share `linear_time.ENTITY_PATTERN`, as do the decoder, the
+XML helpers and the MOBI 6 reader. `file_formats/lrf/objects.py` reads LRF text
+with `&amp;(\S+?);`, which is already linear: a try fails only on a run with no
+`;` after its first character, and such a run holds no other `&amp;`, so failed
+tries never scan the same text twice.
+
 The MOBI 6 reader, `file_formats/mobi/reader/mobi6.py`, runs every MOBI 6 book's
 text through more patterns and scans in conversion, and so does metadata reading
 for books under 4 MB without an EXTH header. On crafted books of a few hundred
@@ -55,6 +70,10 @@ must match.
 - `&(\S+?);` is equivalent to `&(\S[^\s;]*);`, which reads a run once. When a
   try fails, a second branch takes the rest of the run, where every try fails
   the same way, and that match is not passed on.
+- `sub_until_failure` takes the `<pre>` blocks one after another with `match`
+  and stops at the first failure: a try after the last block lacks a `<pre>`
+  with a `</pre>` after it, and so does every later try, which `re.sub` made
+  anyway.
 
 `calibre_chardet` builds `ENCODING_PATS` and `ENTITY_PATTERN` on first use, so
 importing it does not load the helper module and the cold-import budgets are
@@ -71,17 +90,12 @@ unchanged.
   groups where a run can only end one way; prefer a hand-written scan when the
   pattern retries the same stretch from many starts.
 
-## Still to fix
-
-- `&(\S+?);` is also compiled in `file_formats/conversion/utils.py`,
-  `file_formats/conversion/preprocess.py`, `file_formats/lrf/objects.py`,
-  `file_formats/lrf/html/convert_from.py` and `file_formats/lrf/pylrs/pylrs.py`.
-  These are on conversion paths; `LinearPattern(re.compile(r"&(\S+?);"), entities)`
-  replaces each.
+## Upstream
 
 calibre 9.18 has the declaration patterns too (its `ebooks/chardet.py`), the
-same entity pattern in its conversion code, and the same MOBI 6 passes and XPath.
-The declaration and MOBI hangs are recorded for reporting upstream in
-`dev-docs/calibre_compat/upstream-calibre-bugs.md` (PR #181, bugs 5, 9 and 10).
+same entity and `<pre>` patterns in its conversion code, and the same MOBI 6
+passes and XPath. They are recorded for reporting upstream in
+[upstream-calibre-bugs.md](../calibre_compat/upstream-calibre-bugs.md): bugs 5,
+9 and 10 (PR #181), and bug 11, the conversion patterns.
 
 Return to [contributing and tools](README.md).

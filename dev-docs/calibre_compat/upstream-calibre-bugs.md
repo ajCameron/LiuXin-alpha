@@ -1,12 +1,13 @@
 # Bugs to report to upstream calibre
 
-Status: **not yet reported.** Found **2026-11-17** and **2026-11-18** while porting
+Status: **not yet reported.** Found **2026-11-17** to **2026-11-19** while porting
 calibre's metadata readers (PRs #179, #185 and #188) and hardening LiuXin's own
-readers (PRs #180 and #186).
+readers and converters (PRs #180, #186 and #193).
 
-These are ten ways a damaged or hostile file keeps a calibre metadata reader busy
-for minutes or for ever, or fills memory. Each section has the location, a
-reproducer to run with `calibre-debug`, what was measured, and a suggested fix.
+These are eleven ways a damaged or hostile file keeps a calibre metadata reader
+or conversion busy for minutes or for ever, or fills memory. Each section has the
+location, a reproducer to run with `calibre-debug`, what was measured, and a
+suggested fix.
 
 ## Before filing
 
@@ -20,12 +21,12 @@ reproducer to run with `calibre-debug`, what was measured, and a suggested fix.
 - **Where to report:** calibre takes ordinary bugs on
   [Launchpad](https://bugs.launchpad.net/calibre). Recent security fixes have gone
   through [GitHub security advisories](https://github.com/kovidgoyal/calibre/security/advisories).
-  All ten are denial of service from a crafted file; bug 9 also runs the book's
-  text as XPath, though only within the book. That makes them candidates for a
+  All eleven are denial of service from a crafted file; bug 9 also runs the
+  book's text as XPath, though only within the book. That makes them candidates for a
   private advisory rather than a public bug, or for a public bug if calibre
   treats reader hangs as ordinary bugs. Choosing which is the reporter's call.
   Bugs 5 and 7 to 10 also reach calibre's conversion, not only its metadata
-  readers.
+  readers; bug 11 is in conversion alone.
 - **Order:** bugs 2 and 3 should go together. Fixing 2 lets never-closed info
   blocks reach the patterns in 3, which are then cubic rather than quadratic.
   Bugs 6 to 10 are all in the MOBI reader and could go as one report.
@@ -44,6 +45,7 @@ reproducer to run with `calibre-debug`, what was measured, and a suggested fix.
 | 8 | `ebooks/mobi/reader/mobi6.py`, `MobiReader.__init__` | A section table whose offsets go back and forth | A 1 MB file holds 400 MB with 801 sections, 30 GB with 65,535 |
 | 9 | `ebooks/mobi/reader/mobi6.py`, `read_embedded_metadata` and `create_opf` | A quote in the guide's cover or toc href | The read fails, or runs XPath of the book's choosing: 15 s on 50 KB |
 | 10 | `ebooks/mobi/reader/mobi6.py`, clean-up and anchor placement | Eight shapes of markup | Quadratic or worse: from 8.6 s on 3.4 KB to hours on 4 MB |
+| 11 | `ebooks/conversion/preprocess.py` and `utils.py`, the entity and `<pre>` patterns | A run of `&` with no `;` in any HTML file converted; any long text after the last `</pre>`, with heuristics on | Quadratic: 80 KB takes 33 s; 1 MB about an hour and a half |
 
 ## 1. Topaz: counts past the end of the file
 
@@ -657,6 +659,104 @@ in `metadata/upstream_calibre/_linear_time.py`:
 Run against random input, each change gave exactly the original's results, and
 the patched reader read 9,000 random books exactly as calibre's does.
 
+## 11. Conversion: the entity and `<pre>` patterns backtrack
+
+`HTMLPreProcessor`, which conversion runs on every HTML document it reads,
+resolves entities with
+
+```python
+@lru_cache(2)
+def entity_regex() -> re.Pattern[str]:
+    return re.compile(r'&(\S+?);')
+```
+
+`sub` tries it at every `&`. In a run of `&` with no `;`, each try scans to the
+end of the run and fails, so the run costs its square. `parse_html` passes every
+document of the book to the preprocessor, and the polish container does the same
+outside tweak mode, so one crafted file in an EPUB is enough. The same pattern is
+in `HeuristicProcessor.markup_pre` (`ebooks/conversion/utils.py`), and
+`entity_regex()` is in the LRF converter's `MARKUP_MASSAGE`
+(`ebooks/lrf/html/convert_from.py`).
+
+`markup_pre`, which heuristic processing runs on documents with few paragraph
+tags, also takes their `<pre>` blocks with
+
+```python
+outerhtml = re.compile(r'.*?(?<=<pre>)(?P<text>.*?)</pre>', re.IGNORECASE | re.DOTALL)
+html = outerhtml.sub(self.txt_process, html)
+```
+
+After the last `</pre>`, each try scans to the end of the document and fails.
+This one needs no crafting: any long text after the last block will do.
+
+```python
+# conversion_patterns.py: run with calibre-debug -e conversion_patterns.py
+import time
+
+from calibre.ebooks.conversion.preprocess import HTMLPreProcessor
+from calibre.ebooks.conversion.utils import HeuristicProcessor
+
+for size in (20_000, 40_000, 80_000):
+    html = '<html><body><p>' + '&' * size + '</p></body></html>'
+    start = time.monotonic()
+    HTMLPreProcessor()(html)
+    print('entities', size, f'{time.monotonic() - start:.2f} s', flush=True)
+
+for size in (10_000, 20_000, 40_000):
+    html = '<html><body><pre>x</pre>' + 'a' * size
+    start = time.monotonic()
+    HeuristicProcessor().markup_pre(html)
+    print('after the last </pre>', size, f'{time.monotonic() - start:.2f} s', flush=True)
+```
+
+**Measured** (calibre's `preprocess.py` and `conversion/utils.py`, with stand-ins
+for the logger, the word count and the text processor that `markup_pre` calls
+once, for the one block; the time is the patterns'):
+
+| Characters | Run of `&` | Characters | Text after the last `</pre>` |
+|---|---|---|---|
+| 20,000 | 2.2 s | 10,000 | 0.52 s |
+| 40,000 | 8.5 s | 20,000 | 2.1 s |
+| 80,000 | 33 s | 40,000 | 8.6 s |
+
+At 1 MB each would take about an hour and a half (extrapolated, not run).
+
+**Suggested fix:**
+
+For the entities, `&(\S[^\s;]*);|&\S[^\s;]*`, keeping only the first branch's
+matches. The first branch is `&(\S+?);` read greedily: the first character may be
+a `;`, and the group ends at the first `;` after it. Where it fails, every later
+try in the run fails the same way, and the second branch takes the rest of the
+run. The first branch alone would still be tried from every `&`, and stay
+quadratic. This gave the same result as `entity_regex().sub` on 100,000 random
+texts, and takes 0.02 s on a megabyte of `&`:
+
+```python
+_entity_or_run = re.compile(r'&(\S[^\s;]*);|&\S[^\s;]*')
+
+
+def sub_entities(repl, html):
+    return _entity_or_run.sub(lambda m: m.group() if m.group(1) is None else repl(m), html)
+```
+
+For the `<pre>` blocks, once a try fails every later one does: it lacks a `<pre>`
+with a `</pre>` after it, and later tries lack it too. Taking the matches one
+after another with `match`, from the end of the last, and stopping at the first
+failure gives what `sub` gives:
+
+```python
+def sub_until_failure(pattern, repl, text):
+    out, pos = [], 0
+    while (match := pattern.match(text, pos)) is not None:
+        out.append(repl(match))
+        pos = match.end()
+    out.append(text[pos:])
+    return ''.join(out)
+```
+
+LiuXin's versions (`utils/linear_time.py`, PR #193) gave the same results as
+`sub` on random text, and read a megabyte on each path in well under a second.
+
 ## LiuXin's own fixes
 
 - PR #180 fixes LiuXin's readers on `main`: `metadata/file_sources/topaz.py`
@@ -674,5 +774,7 @@ the patched reader read 9,000 random books exactly as calibre's does.
   never had bugs 6 to 8: its EXTH reader refuses a record of size 0, its
   HUFF/CDIC reader caps each record's output, and its PalmDB reader refuses
   offsets that go back.
+- PR #193 fixes bug 11 in LiuXin's conversion code on `main`: the HTML
+  preprocessor, the heuristic processor and the LRF converter.
 
 Return to the [calibre compatibility index](README.md).
