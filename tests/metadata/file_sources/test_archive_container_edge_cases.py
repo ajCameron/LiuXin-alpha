@@ -665,7 +665,7 @@ def test_docx_fake_container_cover_read_and_write_edges(monkeypatch, tmp_path: P
 
                 python -m pytest -q tests/metadata/file_sources/test_archive_container_edge_cases.py
         """
-        namespaces = {"ep": "urn:extended"}
+        namespaces = {"ep": "urn:extended", "r": "urn:relationships"}
 
         @staticmethod
         def get(image, key):
@@ -685,24 +685,27 @@ def test_docx_fake_container_cover_read_and_write_edges(monkeypatch, tmp_path: P
             return image.get(key)
 
         @staticmethod
-        def XPath(_expr):
+        def images(_document, relationships):
             """
-            Perform the XPath test-helper operation with deterministic inputs.
+            Stand in for ``linear_time.first_images``: the drawings' images, as dictionaries.
 
             Example:
-                Exercise test docx fake container cover read and write edges.Namespace.XPath through its owning regression module::
+                Exercise test docx fake container cover read and write edges.Namespace.images through its owning regression module::
 
                     python -m pytest -q tests/metadata/file_sources/test_archive_container_edge_cases.py
 
 
-            :param _expr: Value supplied for expr in the focused test operation.
+            :param _document: Ignored.
+            :param relationships: The namespace the reader passes for ``r``.
             :return: The deterministic value, row, identity or collection described above.
             """
-            return lambda _document: [
+            assert relationships == "urn:relationships"
+            return [
                 {"r:embed": "missing"},
                 {"r:embed": "bad-read"},
                 {"r:embed": "tiny"},
                 {"r:id": "wide"},
+                {"r:embed": "tiny"},
                 {"r:embed": "valid"},
             ]
 
@@ -739,6 +742,7 @@ def test_docx_fake_container_cover_read_and_write_edges(monkeypatch, tmp_path: P
             :param name: Value supplied for name in the focused test operation.
             :return: The deterministic value, row, identity or collection described above.
             """
+            reads.append(name)
             if name == "bad.bin":
                 raise RuntimeError("read failed")
             return name.encode()
@@ -763,7 +767,10 @@ def test_docx_fake_container_cover_read_and_write_edges(monkeypatch, tmp_path: P
         return "png", 500, 400
 
     monkeypatch.setattr(docx_md, "identify", fake_identify)
+    monkeypatch.setattr("LiuXin_alpha.utils.linear_time.first_images", _Namespace.images)
+    reads: list[str] = []
     assert docx_md.get_cover(_CoverDocx()) == ("png", b"valid.png")
+    assert reads == ["bad.bin", "tiny.png", "wide.png", "valid.png"]  # "tiny" is named twice, read once
     assert docx_md._is_path_like(tmp_path / "book.docx")
     with pytest.raises(TypeError):
         docx_md.get_metadata(object())

@@ -153,18 +153,21 @@ def get_cover(docx: DOCX):
     :param docx: Value supplied for docx.
     :return: Parsed, normalized or updated value described above.
     """
+    from LiuXin_alpha.utils.linear_time import first_images
+
     document = docx.document
     get = docx.namespace.get
-    images = docx.namespace.XPath(
-        '//*[name()="w:drawing" or name()="w:pict"]/descendant::*[(name()="a:blip" and @r:embed) or '
-        '(name()="v:imagedata" and @r:id)][1]'
-    )
     rid_map = docx.document_relationships[0]
 
-    for image in images(document):
+    # first_images finds what calibre's XPath (linear_time.DOCX_FIRST_IMAGES)
+    # finds, in one pass where libxml2 took quadratic time or worse. A document
+    # can name one image in a million drawings, so each image is read once.
+    tried: set[str] = set()
+    for image in first_images(document, docx.namespace.namespaces["r"]):
         rid = get(image, "r:embed") or get(image, "r:id")
-        if rid not in rid_map:
+        if rid not in rid_map or rid_map[rid] in tried:
             continue
+        tried.add(rid_map[rid])
         try:
             raw = docx.read(rid_map[rid])
             fmt, width, height = identify(bytes(raw))

@@ -35,7 +35,10 @@ from __future__ import annotations
 
 import re
 from collections.abc import Callable, Iterator
-from typing import Any, AnyStr
+from typing import TYPE_CHECKING, Any, AnyStr
+
+if TYPE_CHECKING:
+    from lxml.etree import _Element
 
 __all__ = [
     "ENTITY",
@@ -43,6 +46,7 @@ __all__ = [
     "ForwardFinder",
     "LinearPattern",
     "entities",
+    "first_images",
     "html4_charsets",
     "sub_before_last",
     "sub_from_run_starts",
@@ -777,3 +781,81 @@ class ForwardFinder:
             found = self.text.rfind(needle, 0, end)
         self._found_before[needle] = (end, found)
         return found
+
+
+# The DOCX cover search, as calibre wrote it. libxml2 merges the per-drawing
+# results in quadratic time or worse: 64,000 drawings took 8 s, and a 100 KB
+# book can hold a million.
+DOCX_FIRST_IMAGES = (
+    '//*[name()="w:drawing" or name()="w:pict"]/descendant::*'
+    '[(name()="a:blip" and @r:embed) or (name()="v:imagedata" and @r:id)][1]'
+)
+
+
+def _qualified_name(element: _Element) -> str:
+    """
+    Give an element's name as XPath's ``name()`` does: the document's prefix, a colon, the local name.
+
+    Example:
+        >>> from lxml import etree
+        >>> _qualified_name(etree.fromstring('<w:p xmlns:w="urn:w"/>'))
+        'w:p'
+
+
+    :param element: The element.
+    :return: Its qualified name.
+    """
+    tag = element.tag
+    local = tag[tag.rfind("}") + 1 :]
+    prefix = element.prefix
+    return f"{prefix}:{local}" if prefix else local
+
+
+def first_images(document: _Element, relationships: str) -> list[_Element]:
+    """
+    Find what ``DOCX_FIRST_IMAGES`` finds, in one pass over the document.
+
+    For each ``w:drawing`` or ``w:pict`` the XPath takes the first descendant
+    that is an ``a:blip`` with ``r:embed`` or a ``v:imagedata`` with ``r:id``,
+    and gives the union in document order. Walking the document once, an image
+    is the first for every drawing still open around it that has none yet;
+    those are always the innermost open drawings, so each is marked once. The
+    names are matched as written, prefix included, as ``name()`` does.
+
+    Example:
+        >>> from lxml import etree
+        >>> doc = etree.fromstring(
+        ...     '<w:d xmlns:w="urn:w" xmlns:a="urn:a" xmlns:r="urn:r">'
+        ...     '<w:drawing><a:blip r:embed="x"/><a:blip r:embed="y"/></w:drawing></w:d>')
+        >>> [image.get("{urn:r}embed") for image in first_images(doc, "urn:r")]
+        ['x']
+
+
+    :param document: The document's root element.
+    :param relationships: The namespace the XPath's ``r`` prefix stands for.
+    :return: The images, in document order, each once.
+    """
+    from lxml import etree
+
+    embed, image_id = f"{{{relationships}}}embed", f"{{{relationships}}}id"
+    found: list[_Element] = []
+    waiting: list[bool] = []  # one per open drawing: whether it still has no image
+    unmatched = 0  # how many of the innermost open drawings have no image
+    for event, element in etree.iterwalk(document, events=("start", "end")):
+        if not isinstance(element.tag, str):
+            continue
+        name = _qualified_name(element)
+        if event == "start":
+            if unmatched and (
+                (name == "a:blip" and embed in element.attrib) or (name == "v:imagedata" and image_id in element.attrib)
+            ):
+                found.append(element)
+                for position in range(len(waiting) - unmatched, len(waiting)):
+                    waiting[position] = False
+                unmatched = 0
+            if name in ("w:drawing", "w:pict"):
+                waiting.append(True)
+                unmatched += 1
+        elif name in ("w:drawing", "w:pict") and waiting.pop():
+            unmatched -= 1
+    return found
