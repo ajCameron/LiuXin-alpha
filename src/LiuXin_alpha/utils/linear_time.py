@@ -37,6 +37,8 @@ from collections.abc import Callable, Iterator
 from typing import Any, AnyStr
 
 __all__ = [
+    "ENTITY",
+    "ENTITY_PATTERN",
     "ForwardFinder",
     "LinearPattern",
     "entities",
@@ -45,9 +47,11 @@ __all__ = [
     "sub_from_run_starts",
     "sub_page_breaks",
     "sub_skipping_failures",
+    "sub_until_failure",
     "xml_declarations",
 ]
 
+ENTITY = r"&(\S+?);"
 XML_DECLARATION = r"<\?[^<>]+encoding\s*=\s*['\"](.*?)['\"][^<>]*>"
 HTML4_CHARSET = (
     r"""<meta\s+?[^<>]*?content\s*=\s*['\"][^'\"]*?charset=([-_a-z0-9]+)[^'\"]*?['\"][^<>]*>(?:\s*</meta>){0,1}"""
@@ -238,6 +242,41 @@ def sub_before_last(pattern: re.Pattern[AnyStr], repl: AnyStr, text: AnyStr, ter
     """
     end = text.rfind(terminator) + 1
     return pattern.sub(repl, text[:end]) + text[end:]
+
+
+def sub_until_failure(pattern: re.Pattern[AnyStr], repl: Any, text: AnyStr) -> AnyStr:
+    """
+    Substitute a pattern for which a failed try means every later try fails too.
+
+    ``pattern.sub`` tries again at each position after a failure, and when each
+    try scans to the end of the text that costs its square. Here the matches
+    are taken one after another with ``match``, from the end of the last, and
+    the first failure ends the search. A pattern qualifies when each try from a
+    later position needs what an earlier one lacked: in
+    ``.*?(?<=<pre>)(?P<text>.*?)</pre>``, a try fails when no ``<pre>`` ends
+    at or after it with a ``</pre>`` later still, and then so does every later
+    one. Its matches must not be empty.
+
+    Example:
+        >>> pre = re.compile(r".*?(?<=<pre>)(?P<text>.*?)</pre>", re.DOTALL)
+        >>> sub_until_failure(pre, lambda m: m.group("text"), "a<pre>b</pre>c<pre>d</pre>e")
+        'bde'
+
+
+    :param pattern: The pattern.
+    :param repl: A template or a function of the match.
+    :param text: The text.
+    :return: The text with the matches replaced, as ``pattern.sub`` gives it.
+    """
+    out: list[Any] = []
+    pos = 0
+    while (match := pattern.match(text, pos)) is not None:
+        if match.end() == pos:
+            raise ValueError("sub_until_failure needs a pattern whose matches are not empty")
+        out.append(repl(match) if callable(repl) else match.expand(repl))
+        pos = match.end()
+    out.append(text[pos:])
+    return text[:0].join(out)
 
 
 def sub_page_breaks(pattern: re.Pattern[str], repl: str, text: str) -> str:
@@ -657,6 +696,12 @@ class LinearPattern:
                 break
         out.append(string[copied:])
         return string[:0].join(out)
+
+
+# The entity pattern, shared by every caller that resolves entities in text it
+# did not write: the chardet decoder, the XML helpers, the MOBI 6 reader, the
+# conversion preprocessors and the LRF converters.
+ENTITY_PATTERN = LinearPattern(re.compile(ENTITY), entities)
 
 
 class ForwardFinder:

@@ -18,13 +18,16 @@ from typing import Any
 import pytest
 
 from LiuXin_alpha.utils.libraries import calibre_chardet
+from LiuXin_alpha.utils import linear_time
 from LiuXin_alpha.utils.linear_time import (
+    ENTITY_PATTERN,
     HTML4_CHARSET,
     XML_DECLARATION,
     ForwardFinder,
     LinearPattern,
     entities,
     html4_charsets,
+    sub_until_failure,
     xml_declarations,
 )
 from LiuXin_alpha.utils.text import xml_utils
@@ -76,8 +79,10 @@ def test_the_stand_ins_wrap_the_patterns_as_written() -> None:
     assert isinstance(xml, LinearPattern) and xml.pattern == XML_DECLARATION
     assert isinstance(html5, re.Pattern)
     assert isinstance(html4, LinearPattern) and html4.pattern == HTML4_CHARSET
-    assert isinstance(calibre_chardet.ENTITY_PATTERN, LinearPattern)
-    assert calibre_chardet.ENTITY_PATTERN.pattern == ENTITY
+    assert linear_time.ENTITY == ENTITY
+    assert isinstance(ENTITY_PATTERN, LinearPattern) and ENTITY_PATTERN.pattern == ENTITY
+    assert calibre_chardet.ENTITY_PATTERN is ENTITY_PATTERN
+    assert xml_utils._ent_pat is ENTITY_PATTERN
 
 
 @pytest.mark.parametrize("binary", [False, True])
@@ -198,3 +203,76 @@ def test_forward_finder_answers_as_find_and_rfind() -> None:
             assert finder.find(b"<", pos) == text.find(b"<", pos)
             assert finder.find(b">", pos) == text.find(b">", pos)
             assert finder.rfind(b"<", pos + 1) == text.rfind(b"<", 0, pos + 1)
+
+
+PRE_BLOCK = r".*?(?<=<pre>)(?P<text>.*?)</pre>"
+PRE_PIECES = ["<pre>", "<PRE>", "</pre>", "</Pre>", "<pr", "e>", "</", "x", "\n", "<", ">"]
+
+
+@pytest.mark.parametrize("binary", [False, True])
+def test_sub_until_failure_substitutes_as_sub_does(binary: bool) -> None:
+    """
+    Give what ``pattern.sub`` gives for the pre-block pattern of the heuristic processor.
+
+    Example:
+        >>> test_sub_until_failure_substitutes_as_sub_does(False)  # doctest: +SKIP
+
+
+    :param binary: Whether the text is bytes.
+    :return: None; the assertions are the check.
+    """
+    flags = re.IGNORECASE | re.DOTALL
+    pattern: re.Pattern[Any] = re.compile(PRE_BLOCK.encode() if binary else PRE_BLOCK, flags)
+    alphabet: list[Any] = [piece.encode() for piece in PRE_PIECES] if binary else PRE_PIECES
+    template = rb"[\g<text>]" if binary else r"[\g<text>]"
+
+    def tagged(match: re.Match[Any]) -> Any:
+        """
+        Replace a match with its text and where it starts, as the processor's function uses them.
+
+        Example:
+            See the test.
+
+
+        :param match: The match.
+        :return: The replacement.
+        """
+        text = b"[%s|%d]" if binary else "[%s|%d]"
+        return text % (match.group("text"), match.start())
+
+    chooser = random.Random(str(binary))
+    for _ in range(3000):
+        text = alphabet[0][:0].join(chooser.choice(alphabet) for _ in range(chooser.randint(0, 30)))
+        assert sub_until_failure(pattern, tagged, text) == pattern.sub(tagged, text), text
+        assert sub_until_failure(pattern, template, text) == pattern.sub(template, text), text
+
+
+def test_sub_until_failure_is_quick_after_the_last_block() -> None:
+    """
+    Replace the blocks of a megabyte of text whose tail has none, where ``sub`` scanned the tail from every position.
+
+    Example:
+        >>> test_sub_until_failure_is_quick_after_the_last_block()  # doctest: +SKIP
+
+
+    :return: None; the assertions are the check.
+    """
+    pattern = re.compile(PRE_BLOCK, re.IGNORECASE | re.DOTALL)
+    text = "<pre>a</pre>" * 1_000 + "b" * 1_000_000
+    started = time.monotonic()
+    assert sub_until_failure(pattern, r"\g<text>", text) == "a" * 1_000 + "b" * 1_000_000
+    assert time.monotonic() - started < 5
+
+
+def test_sub_until_failure_refuses_empty_matches() -> None:
+    """
+    Refuse a pattern that matches nothing, for which the emulation would not hold.
+
+    Example:
+        >>> test_sub_until_failure_refuses_empty_matches()
+
+
+    :return: None; the assertions are the check.
+    """
+    with pytest.raises(ValueError, match="not empty"):
+        sub_until_failure(re.compile(r"x*"), "", "abc")

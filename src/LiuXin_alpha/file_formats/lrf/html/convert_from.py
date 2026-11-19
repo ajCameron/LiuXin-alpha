@@ -94,6 +94,7 @@ from LiuXin_alpha.utils.libraries.calibre_chardet import xml_to_unicode
 # Py2/Py3 compatibility layer
 from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 from LiuXin_alpha.utils.libraries.liuxin_six import six_urlparse as urlparse
+from LiuXin_alpha.utils.linear_time import ENTITY_PATTERN
 from LiuXin_alpha.utils.localization import trans as _
 from LiuXin_alpha.utils.ptempfiles import PersistentTemporaryFile
 from LiuXin_alpha.utils.storage.local.file_ops import load_file
@@ -252,8 +253,9 @@ class HTMLConverter(object):
         (re.compile(r"<p>(&nbsp;|\s)*</p>", re.IGNORECASE), lambda m: "<br />"),
         # Replace empty headers with line breaks
         (re.compile(r"<h[0-5]?>(&nbsp;|\s)*</h[0-5]?>", re.IGNORECASE), lambda m: "<br />"),
-        # Replace entities
-        (re.compile(r"&(\S+?);"), partial(entity_to_unicode, exceptions=["lt", "gt", "amp", "quot"])),
+        # Replace entities. Found in linear time: as a pattern, a run of '&' with
+        # no ';' took 33 s for 80 KB.
+        (ENTITY_PATTERN, partial(entity_to_unicode, exceptions=["lt", "gt", "amp", "quot"])),
         # Remove comments from within style tags as they can mess up BeatifulSoup
         (re.compile(r"(<style.*?</style>)", re.IGNORECASE | re.DOTALL), strip_style_comments),
         # Remove self closing script tags as they also mess up BeautifulSoup

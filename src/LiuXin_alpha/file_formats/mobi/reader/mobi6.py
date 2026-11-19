@@ -88,7 +88,7 @@ class MobiReader(object):
     )
     # Finds the matches of &(\S+?); in linear time: as a pattern, a run of '&'
     # with no ';' took 33 s for 80 KB.
-    ENTITY_PAT = linear_time.LinearPattern(re.compile(r"&(\S+?);"), linear_time.entities)
+    ENTITY_PAT = linear_time.ENTITY_PATTERN
     IMAGE_ATTRS = ("lowrecindex", "recindex", "hirecindex")
     MAX_TEXT_RECORD_UNCOMPRESSED_SIZE = 8 * 1024 * 1024
     MAX_TOTAL_TEXT_UNCOMPRESSED_SIZE = 128 * 1024 * 1024
