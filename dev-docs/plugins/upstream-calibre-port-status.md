@@ -68,7 +68,7 @@ were the ones on the stacked branches, without #178's fixes for OPF 2 fields.
 | HTML | the six real-world fixtures in `tests/fixtures/html_ingest`, a sample page | The same answers as LiuXin's reader, comment tags winning over meta tags in both. |
 | FB2, FBZ | sample books | The same fields as LiuXin's reader, and the cover. |
 | ODT | sample documents | The same as the fork's and LiuXin's readers, plus calibre's OPF rating. |
-| PDB | eReader books with a metadata record and a cover; a Plucker book with a charset, authors, a title and a date; Haodoo books in cp950 and UTF-16; a PalmDOC book | The same as LiuXin's reader for eReader, Haodoo and other PDB books, covers included. LiuXin's reader found nothing in the Plucker book's metadata (see [found along the way](#found-along-the-way)); the port reads it all. |
+| PDB | eReader books with a metadata record and a cover; a Plucker book with a charset, authors, a title and a date; Haodoo books in cp950 and UTF-16; a PalmDOC book | The same as LiuXin's reader for eReader, Haodoo and other PDB books, covers included. LiuXin's reader found nothing in the Plucker book's metadata until #196 (see [found along the way](#found-along-the-way)); the port reads it all. |
 | MOBI, AZW3, PRC | books with EXTH and JPEG or PNG covers; an old book without EXTH, with metadata in its markup | Same titles, authors, publishers, identifiers and descriptions as the fork's reader. The port keeps the EXTH publication date, which the fork drops, and tags in the book's order where the fork sorts them; it returns languages as `fra` where the fork says `French`, and the cover's own bytes. From the old book it also reads the publisher. |
 
 ### Differences to decide on
@@ -191,6 +191,7 @@ tests with external and nested entities.
   `metadata/file_sources/pdb/plucker.py` took the length to include the
   4-byte type and length, so on a standard book it stopped at the charset
   record, whose argument is one word, and found no title, author or date.
+  LiuXin's Plucker conversion reader refused the same record. #196 fixes both.
 
 ## What is left
 
