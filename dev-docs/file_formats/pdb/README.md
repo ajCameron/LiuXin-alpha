@@ -128,6 +128,15 @@ the section, PHTML control codes that lack enough following bytes, composite
 image layout overruns, and composite/PHTML image references to missing image
 records.
 
+Each metadata record is a type, a length and an argument, and the length counts
+the argument's 16-bit words, as the
+[Plucker document format](https://hwiegman.home.xs4all.nl/fileformats/P/pdb/The%20Plucker%20Document%20Format.htm)
+and calibre read it. Until 2026-11-19 both LiuXin readers took the length to
+include the 4-byte type and length: the metadata reader stopped at the one-word
+charset record and found no title, author or date, and the conversion reader
+refused the record outright. The tests' builders had the same reading, so they
+agreed with the readers.
+
 Haodoo has legacy CP950 and UTF-16LE variants. Current conversion coverage
 checks generated CP950 and unicode fixtures, plugin-path output, malformed
 header separators, non-integer record counts, chapter-title mismatches, and
