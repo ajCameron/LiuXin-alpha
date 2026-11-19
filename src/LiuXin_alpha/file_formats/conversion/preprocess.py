@@ -21,6 +21,7 @@ import typing as _typing
 
 # Py2/Py3
 from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.linear_time import ENTITY_PATTERN
 from LiuXin_alpha.utils.text import as_unicode, entity_to_unicode
 
 __license__ = "GPL v3"
@@ -572,8 +573,9 @@ class HTMLPreProcessor(object):
             re.compile(r"<head[^>]*>\n*(.*?)\n*</head>", re.IGNORECASE | re.DOTALL),
             sanitize_head,
         ),
-        # Convert all entities, since lxml doesn't handle them well
-        (re.compile(r"&(\S+?);"), convert_entities),
+        # Convert all entities, since lxml doesn't handle them well. Found in linear
+        # time: as a pattern, a run of '&' with no ';' took 33 s for 80 KB.
+        (ENTITY_PATTERN, convert_entities),
         # Remove the <![if/endif tags inserted by everybody's darling, MS Word
         (
             re.compile(r"</{0,1}!\[(end){0,1}if\]{0,1}>", re.IGNORECASE),

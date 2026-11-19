@@ -11,11 +11,10 @@ Example:
 
         python -m pytest -q tests/utils/text/test_text_core.py
 """
-import re
 
 from functools import partial
 
-from LiuXin_alpha.utils.linear_time import LinearPattern, entities
+from LiuXin_alpha.utils.linear_time import ENTITY_PATTERN
 
 
 def my_unichr(num):
@@ -110,7 +109,7 @@ def entity_to_unicode(match, exceptions=[], encoding="cp1252", result_exceptions
 
 
 # Found in linear time: as a pattern, a run of '&' with no ';' took 33 s for 80 KB.
-_ent_pat = LinearPattern(re.compile(r"&(\S+?);"), entities)
+_ent_pat = ENTITY_PATTERN
 xml_entity_to_unicode = partial(
     entity_to_unicode, result_exceptions={'"': "&quot;", "'": "&apos;", "<": "&lt;", ">": "&gt;", "&": "&amp;"}
 )

@@ -92,9 +92,9 @@ def _entity_pattern() -> LinearPattern:
     :return: The pattern's stand-in.
     """
     if not _ENTITY_PATTERN:
-        from LiuXin_alpha.utils.linear_time import LinearPattern, entities
+        from LiuXin_alpha.utils.linear_time import ENTITY_PATTERN
 
-        _ENTITY_PATTERN.append(LinearPattern(re.compile(r"&(\S+?);"), entities))
+        _ENTITY_PATTERN.append(ENTITY_PATTERN)
     return _ENTITY_PATTERN[0]
 
 

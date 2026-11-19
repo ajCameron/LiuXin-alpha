@@ -235,7 +235,7 @@ def entity_to_unicode(match, exceptions=[], encoding="cp1252", result_exceptions
         return check(html5_entities[ent])
     except KeyError:
         pass
-    from LiuXin_alpha.utils.calibre_utils.calibre_polyglot.html_entities import name2codepoint
+    from LiuXin_alpha.utils.libraries.calibre_polyglot.html_entities import name2codepoint
 
     try:
         return check(my_unichr(name2codepoint[ent]))

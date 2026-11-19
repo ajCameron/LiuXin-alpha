@@ -25,6 +25,7 @@ from LiuXin_alpha.utils.libraries.wordcount import get_wordcount_obj
 
 # Py2/Py3 compatibility layer
 from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.linear_time import ENTITY_PATTERN, sub_until_failure
 
 __license__ = "GPL v3"
 __copyright__ = "2010, Kovid Goyal <kovid@kovidgoyal.net>"
@@ -826,10 +827,12 @@ class HeuristicProcessor(object):
         if len(pre.findall(html)) >= 1:
             self.log.debug("Running Text Processing")
             outerhtml = re.compile(r".*?(?<=<pre>)(?P<text>.*?)</pre>", re.IGNORECASE | re.DOTALL)
-            html = outerhtml.sub(self.txt_process, html)
+            # Once a try fails, every later one does: re.sub's tries after the
+            # last </pre> each scanned to the end, 8.9 s for 40 KB of text.
+            html = sub_until_failure(outerhtml, self.txt_process, html)
             from LiuXin_alpha.file_formats.conversion.preprocess import convert_entities
 
-            html = re.sub(r"&(\S+?);", convert_entities, html)
+            html = ENTITY_PATTERN.sub(convert_entities, html)
         else:
             # Add markup naively
             # TODO - find out if there are cases where there are more than one <pre> tag or

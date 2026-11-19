@@ -90,6 +90,7 @@ from LiuXin_alpha.utils.date import isoformat
 # Py2/Py3 compatibility layer
 from LiuXin_alpha.utils.libraries.liuxin_six import six_string_types
 from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.linear_time import ENTITY_PATTERN
 
 basestring = six_string_types
 
@@ -1599,7 +1600,7 @@ class TocLabel(object):
         :param textBlock: Value supplied for textBlock under the utility contract.
         :return: None; validated state is stored on the receiving object.
         """
-        self.label = escape(re.sub(r"&(\S+?);", entity_to_unicode, label))
+        self.label = escape(ENTITY_PATTERN.sub(entity_to_unicode, label))
         self.textBlock = textBlock
 
     def toElement(self: _typing.Self, se: _typing.Any) -> _typing.Any:
