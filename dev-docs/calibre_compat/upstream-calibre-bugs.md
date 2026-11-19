@@ -1,10 +1,11 @@
 # Bugs to report to upstream calibre
 
 Status: **not yet reported.** Found **2026-11-17** to **2026-11-19** while porting
-calibre's metadata readers (PRs #179, #185, #188, #195 and #197) and hardening
-LiuXin's own readers and converters (PRs #180, #186, #193 and #198).
+calibre's metadata readers (PRs #179, #185, #188, #195, #197 and #200) and
+hardening LiuXin's own readers and converters (PRs #180, #186, #193, #198 and
+#199).
 
-These are thirteen ways a damaged or hostile file keeps a calibre metadata reader
+These are fourteen ways a damaged or hostile file keeps a calibre metadata reader
 or conversion busy for minutes or for ever, or fills memory. Each section has the
 location, a reproducer to run with `calibre-debug`, what was measured, and a
 suggested fix.
@@ -21,7 +22,7 @@ suggested fix.
 - **Where to report:** calibre takes ordinary bugs on
   [Launchpad](https://bugs.launchpad.net/calibre). Recent security fixes have gone
   through [GitHub security advisories](https://github.com/kovidgoyal/calibre/security/advisories).
-  All thirteen are denial of service from a crafted file; bug 9 also runs the
+  All fourteen are denial of service from a crafted file; bug 9 also runs the
   book's text as XPath, though only within the book. That makes them candidates for a
   private advisory rather than a public bug, or for a public bug if calibre
   treats reader hangs as ordinary bugs. Choosing which is the reporter's call.
@@ -33,6 +34,7 @@ suggested fix.
   Bugs 6 to 10 are all in the MOBI reader and could go as one report. Bug 12
   is bug 8's shape in the PDB header reader, and its fix could follow 8's.
   Bug 13 is bug 7's shape (unpacking without a limit) in the LRF reader.
+  Bug 14 is in the DOCX reader, which runs when a book is added.
 
 ## Summary
 
@@ -51,6 +53,7 @@ suggested fix.
 | 11 | `ebooks/conversion/preprocess.py` and `utils.py`, the entity and `<pre>` patterns | A run of `&` with no `;` in any HTML file converted; any long text after the last `</pre>`, with heuristics on | Quadratic: 80 KB takes 33 s; 1 MB about an hour and a half |
 | 12 | `ebooks/pdb/header.py`, `PdbHeaderReader.section_data` | A section table whose offsets go back | Each section reads to the end of the file, and the Haodoo reader keeps them all: 1.9 GB for 4,000 sections in 536 KB; a table names up to 65,535 |
 | 13 | `ebooks/lrf/meta.py`, `LRFMetaFile.info`; `ebooks/lrf/objects.py`, `LRFStream.read_stream` | Meta info of millions of empty elements; an image stream of zlib-packed zeros | 48 s for a 6.4 KB book; 1.2 GB for a 408 KB book |
+| 14 | `ebooks/metadata/docx.py`, `get_cover` | A million drawings naming one image that is not a cover | The XPath grows faster than the drawings squared, and the image is read once per drawing: 16 s for 64,000 drawings and a 1 MB image |
 
 ## 1. Topaz: counts past the end of the file
 
@@ -982,6 +985,116 @@ if not unpacker.eof and len(self.stream) <= decomp_size:
 Both keep `zlib.decompress`'s error for a truncated stream, and give the same
 results for every book within the limits.
 
+## 14. DOCX: the cover search grows faster than the drawings squared
+
+`get_cover` looks for the first image in each drawing:
+
+```python
+images = docx.namespace.XPath(
+    '//*[name()="w:drawing" or name()="w:pict"]/descendant::*[(name()="a:blip" and @r:embed) or (name()="v:imagedata" and @r:id)][1]'
+)
+rid_map = docx.document_relationships[0]
+for image in images(doc):
+    rid = get(image, 'r:embed') or get(image, 'r:id')
+    if rid in rid_map:
+        try:
+            raw = docx.read(rid_map[rid])
+            fmt, width, height = identify(raw)
+```
+
+libxml2 merges each drawing's result into the whole in time that grows faster
+than the square of the drawings: doubling them multiplies the time by six or
+more. Then the loop reads the image whole again for every drawing that names it,
+and turns it down again. A document of a million drawings compresses to about
+100 KB, so a small book keeps calibre busy for hours when it is added.
+
+```python
+# docx_drawings.py: run with calibre-debug -e docx_drawings.py
+# DOCX books whose drawings all show one wide image, which is not a cover: the
+# cover XPath slows down faster than the drawings squared, and the image is
+# read again for every drawing.
+import io
+import struct
+import time
+import zipfile
+import zlib
+
+from calibre.ebooks.metadata.docx import get_metadata
+
+W = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'
+A = 'http://schemas.openxmlformats.org/drawingml/2006/main'
+R = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships'
+P = 'http://schemas.openxmlformats.org/package/2006/relationships'
+
+
+def png(width, height, padding):
+    def chunk(kind, data):
+        return struct.pack('>I', len(data)) + kind + data + struct.pack('>I', zlib.crc32(kind + data))
+    return b'\x89PNG\r\n\x1a\n' + chunk(b'IHDR', struct.pack('>IIBBBBB', width, height, 8, 2, 0, 0, 0)) + chunk(b'tEXt', b'pad\0' + bytes(padding)) + chunk(b'IEND', b'')
+
+
+def book(drawings, image_size):
+    body = '<w:r><w:drawing><a:blip r:embed="rId9"/></w:drawing></w:r>' * drawings
+    out = io.BytesIO()
+    with zipfile.ZipFile(out, 'w', zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr('[Content_Types].xml', '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>')
+        zf.writestr('_rels/.rels', f'<Relationships xmlns="{P}"><Relationship Id="rId1" Type="{R}/officeDocument" Target="word/document.xml"/></Relationships>')
+        zf.writestr('word/_rels/document.xml.rels', f'<Relationships xmlns="{P}"><Relationship Id="rId9" Type="{R}/image" Target="media/wide.png"/></Relationships>')
+        zf.writestr('word/document.xml', f'<w:document xmlns:w="{W}" xmlns:a="{A}" xmlns:r="{R}"><w:body><w:p>{body}</w:p></w:body></w:document>')
+        zf.writestr('word/media/wide.png', png(4000, 10, image_size), compress_type=zipfile.ZIP_STORED)
+    return out.getvalue()
+
+
+for drawings in (16_000, 32_000, 64_000):
+    for image_size in (1_000, 1_000_000):
+        data = book(drawings, image_size)
+        start = time.monotonic()
+        get_metadata(io.BytesIO(data))
+        print(f'{drawings:,} drawings, {image_size:,}-byte image, {len(data):,}-byte book: {time.monotonic() - start:.2f} s', flush=True)
+```
+
+**Measured** (calibre's DOCX reader, as ported, without LiuXin's fix):
+
+| Drawings | 1 KB image | 1 MB image |
+|---|---|---|
+| 16,000 | 0.48 s (5 KB book) | 2.07 s |
+| 32,000 | 1.46 s (7.7 KB book) | 5.47 s |
+| 64,000 | 8.58 s (13 KB book) | 16.39 s |
+
+**Suggested fix:** find the images in one walk over the document, and read each
+image once. An image is the first for every drawing still open around it that has
+none yet, and those are always the innermost open drawings, so a stack of open
+drawings finds the XPath's result, in its order. LiuXin's version
+(`first_images` in `utils/linear_time.py`, GPL-3, #199) agreed with the XPath on
+20,000 random documents and takes about 5 s for a million drawings, most of it
+parsing:
+
+```python
+def first_images(document, relationships):
+    embed, image_id = f'{{{relationships}}}embed', f'{{{relationships}}}id'
+    found, waiting, unmatched = [], [], 0
+    for event, element in etree.iterwalk(document, events=('start', 'end')):
+        if not isinstance(element.tag, str):
+            continue
+        local = element.tag.rpartition('}')[2]
+        name = f'{element.prefix}:{local}' if element.prefix else local  # as name() gives it
+        if event == 'start':
+            if unmatched and ((name == 'a:blip' and embed in element.attrib) or (name == 'v:imagedata' and image_id in element.attrib)):
+                found.append(element)
+                for i in range(len(waiting) - unmatched, len(waiting)):
+                    waiting[i] = False
+                unmatched = 0
+            if name in ('w:drawing', 'w:pict'):
+                waiting.append(True)
+                unmatched += 1
+        elif name in ('w:drawing', 'w:pict') and waiting.pop():
+            unmatched -= 1
+    return found
+```
+
+and in `get_cover`, skip an image already tried (`tried = set()`, then
+`if rid in rid_map and rid_map[rid] not in tried: tried.add(rid_map[rid])`).
+
 ## LiuXin's own fixes
 
 - PR #180 fixes LiuXin's readers on `main`: `metadata/file_sources/topaz.py`
@@ -1005,5 +1118,7 @@ results for every book within the limits.
   PDB header reader never had it: it refuses offsets that do not increase.
 - PR #197 carries the fixes for bug 13 in the ported LRF reader, and PR #198
   makes the same fixes to LiuXin's own LRF reader, which had both halves.
+- PR #199 fixes bug 14 in LiuXin's own DOCX reader, which copied calibre's
+  search, and PR #200 carries the fix in the ported one.
 
 Return to the [calibre compatibility index](README.md).
