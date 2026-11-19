@@ -36,7 +36,7 @@ For short-term working notes and review findings, check:
 ## Runtime / environment
 
 - Python project with source layout under `src/`
-- `pyproject.toml` declares `requires-python = ">=3.12"`
+- `pyproject.toml` declares `requires-python = ">=3.14"`
 - minimal declared dependency is `lxml>=5.0`
 - optional test dependency is `pytest>=7.4`
 - there is no installed console script entrypoint in `pyproject.toml`

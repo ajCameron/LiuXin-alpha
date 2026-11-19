@@ -49,7 +49,7 @@ class ProjectionQueryEngine(CacheQueryEngine):
     def has_main_table(self, table: str) -> bool:
         return table == self.table_name
 
-    def get_main_table(self, table: str) -> "ProjectionQueryEngine":
+    def get_main_table(self, table: str) -> ProjectionQueryEngine:
         if not self.has_main_table(table):
             raise KeyError(table)
         return self

@@ -13,7 +13,7 @@ handoffs live in the [working-memory index](working-memory/index.md).
 
 ## Local Setup
 
-LiuXin-alpha expects Python 3.12 or newer.
+LiuXin-alpha expects Python 3.14 or newer.
 
 Create the repo-local virtual environment and install the common development extras with:
 

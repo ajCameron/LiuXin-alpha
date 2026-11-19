@@ -53,7 +53,7 @@ Coverage output:
 
 Examples:
   scripts/run_full_test_suite_cov.sh
-  scripts/run_full_test_suite_cov.sh --new-venv --python python3.12
+  scripts/run_full_test_suite_cov.sh --new-venv --python python3.14
   scripts/run_full_test_suite_cov.sh --workers 8 -- --maxfail=1
 EOF
 }

@@ -97,7 +97,7 @@ def _load_store_inventory(
                 store_id = (
                     None if store_id_raw in (None, "") else int(str(store_id_raw))
                 )
-            except (TypeError, ValueError):
+            except TypeError, ValueError:
                 store_id = None
             online_status = (
                 str(row_values.get("store_online_status") or "").strip().casefold()

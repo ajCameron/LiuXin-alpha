@@ -78,7 +78,7 @@ def prune_maintenance_history(
 def _obligation_identity(payload_json, library_uuid, journal_uuid):
     try:
         payload = json.loads(payload_json)
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return None
     if not isinstance(payload, dict):
         return None

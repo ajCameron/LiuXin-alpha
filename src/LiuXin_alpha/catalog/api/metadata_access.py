@@ -18,7 +18,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Literal, Protocol
+from typing import TYPE_CHECKING, Generic, Literal, Protocol, TypeVar
 
 if TYPE_CHECKING:
     from LiuXin_alpha.catalog.api.common import CreatedWemiStack, WemiLevel
@@ -51,8 +51,16 @@ class MetadataReference:
     entity_id: int
 
 
+# Declared covariant on purpose. From Python 3.13, type checkers give a dataclass a
+# synthesised ``__replace__`` that takes ``result``. Pyright's inferred (PEP 695)
+# variance then makes the receipt invariant, so a ``MetadataWriteReceipt[int]``
+# could no longer travel as ``MetadataWriteReceipt[object]``. The receipt is frozen
+# and ``replace`` returns a new value, so covariance holds.
+_ResultT_co = TypeVar("_ResultT_co", covariant=True)
+
+
 @dataclass(frozen=True, slots=True)
-class MetadataWriteReceipt[ResultT]:
+class MetadataWriteReceipt(Generic[_ResultT_co]):  # noqa: UP046 - explicit variance
     """Keep persistence and cache visibility explicit after a semantic write.
 
     ``pending`` means an outer transaction still controls commit or rollback; it
@@ -71,7 +79,7 @@ class MetadataWriteReceipt[ResultT]:
     it must not turn a committed write into an apparent persistence failure.
     """
 
-    result: ResultT
+    result: _ResultT_co
     changed: bool
     persistence: Literal["committed", "pending"]
     cache: Literal["not_configured", "current", "deferred", "dirty"]

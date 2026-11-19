@@ -21,13 +21,19 @@ import types
 from abc import ABC, abstractmethod
 from contextlib import contextmanager, redirect_stderr, redirect_stdout
 from dataclasses import dataclass, field
-from multiprocessing import Pipe, Process
+import multiprocessing
 
 from LiuXin_alpha.configuration import bound_preferences, use_preferences
 from typing import TYPE_CHECKING, Any, Callable, Iterator, Mapping
 
 if TYPE_CHECKING:
     from multiprocessing.connection import Connection
+
+# Start workers the same way on every platform and Python version. Spawn is the
+# default on Windows and macOS; Python 3.14 moved Linux from fork to forkserver,
+# whose long-lived server keeps the environment and temporary directory it
+# started with, so later workers miss changes and can lose its socket.
+PROCESS_CONTEXT = multiprocessing.get_context("spawn")
 
 
 @dataclass
@@ -387,9 +393,9 @@ class ProcessJobBackend(JobBackend):
         """
         effective_log_path = None if no_output else (str(log_path).strip() if log_path else allocate_job_log_path())
 
-        parent_conn, child_conn = Pipe(duplex=False)
+        parent_conn, child_conn = PROCESS_CONTEXT.Pipe(duplex=False)
         # Carry the selected store explicitly; spawn does not inherit ContextVars.
-        worker = Process(target=_process_entry, args=(child_conn, request, effective_log_path, bound_preferences()), daemon=True)
+        worker = PROCESS_CONTEXT.Process(target=_process_entry, args=(child_conn, request, effective_log_path, bound_preferences()), daemon=True)
         started = time.monotonic()
         worker.start()
         child_conn.close()

@@ -1396,7 +1396,7 @@ class _Interpreter:
             if self.break_reporter:
                 self.break_reporter("'with': block value", v, line_number)
             return v
-        except (StopException, ValueError, ReturnExecuted):
+        except StopException, ValueError, ReturnExecuted:
             raise
         except Exception as e:
             self.error(_("Unhandled exception '{0}'").format(e), line_number)
@@ -1451,7 +1451,7 @@ class _Interpreter:
                 self.break_reporter("'for' list value", "", line_number)
                 ret = ""
             return ret
-        except (StopException, ValueError, ReturnExecuted):
+        except StopException, ValueError, ReturnExecuted:
             raise
         except Exception as e:
             self.error(_("Unhandled exception '{0}'").format(e), line_number)
@@ -1518,7 +1518,7 @@ class _Interpreter:
             if self.break_reporter:
                 self.break_reporter("'for' block value", ret, line_number)
             return ret
-        except (StopException, ValueError):
+        except StopException, ValueError:
             raise
         except Exception as e:
             self.error(_("Unhandled exception '{0}'").format(e), line_number)
@@ -1693,7 +1693,7 @@ class _Interpreter:
                 raise
             except Exception:
                 self.error(_("Unknown field '{0}'").format(name), prog.line_number)
-        except (StopException, ValueError):
+        except StopException, ValueError:
             raise
         except Exception:
             self.error(
@@ -1726,7 +1726,7 @@ class _Interpreter:
             if self.break_reporter:
                 self.break_reporter(prog.node_name, res, prog.line_number)
             return res
-        except (StopException, ValueError):
+        except StopException, ValueError:
             raise
         except Exception:
             self.error(
@@ -1898,7 +1898,7 @@ class _Interpreter:
             if self.break_reporter:
                 self.break_reporter(prog.node_name, res, prog.line_number)
             return res
-        except (StopException, ValueError):
+        except StopException, ValueError:
             raise
         except Exception:
             self.error(
@@ -1934,7 +1934,7 @@ class _Interpreter:
             if self.break_reporter:
                 self.break_reporter(prog.node_name, res, prog.line_number)
             return res
-        except (StopException, ValueError):
+        except StopException, ValueError:
             raise
         except Exception:
             self.error(
@@ -1959,7 +1959,7 @@ class _Interpreter:
             if self.break_reporter:
                 self.break_reporter(prog.node_name, res, prog.line_number)
             return res
-        except (StopException, ValueError):
+        except StopException, ValueError:
             raise
         except Exception:
             self.error(
@@ -1980,7 +1980,7 @@ class _Interpreter:
             if self.break_reporter:
                 self.break_reporter(prog.node_name, res, prog.line_number)
             return res
-        except (StopException, ValueError):
+        except StopException, ValueError:
             raise
         except Exception:
             self.error(
@@ -2007,7 +2007,7 @@ class _Interpreter:
             if self.break_reporter:
                 self.break_reporter(prog.node_name, res, prog.line_number)
             return res
-        except (StopException, ValueError):
+        except StopException, ValueError:
             raise
         except Exception:
             self.error(
@@ -2029,7 +2029,7 @@ class _Interpreter:
             if self.break_reporter:
                 self.break_reporter(prog.node_name, res, prog.line_number)
             return res
-        except (StopException, ValueError):
+        except StopException, ValueError:
             raise
         except Exception:
             self.error(
@@ -2045,7 +2045,7 @@ class _Interpreter:
             if self.break_reporter:
                 self.break_reporter(prog.node_name, res, prog.line_number)
             return res
-        except (StopException, ValueError):
+        except StopException, ValueError:
             raise
         except Exception:
             self.error(
@@ -2124,7 +2124,7 @@ class _Interpreter:
             if isinstance(prog, list):
                 return self.expression_list(prog)
             return self.NODE_OPS[prog.node_type](self, prog)  # ty: ignore[invalid-argument-type]
-        except (ValueError, ExecutionBase, StopException):
+        except ValueError, ExecutionBase, StopException:
             raise
         except Exception as e:
             if DEBUG:

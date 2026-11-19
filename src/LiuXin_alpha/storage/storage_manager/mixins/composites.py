@@ -470,7 +470,7 @@ class CompositeDigitalAssetMixin(_StorageManagerState):
                     preferred_store_ref=preferred_store_ref,
                     require_verified=require_verified,
                 )
-            except (manager_api.DigitalAssetNotFound, manager_api.NoReadableReplica):
+            except manager_api.DigitalAssetNotFound, manager_api.NoReadableReplica:
                 if membership.required:
                     missing.append(membership.digital_asset_id)
                 continue
@@ -539,7 +539,7 @@ class CompositeDigitalAssetMixin(_StorageManagerState):
                     cache_store_ref=cache_store_ref,
                     verify=verify,
                 )
-            except (manager_api.DigitalAssetNotFound, manager_api.NoReadableReplica):
+            except manager_api.DigitalAssetNotFound, manager_api.NoReadableReplica:
                 if membership.required:
                     missing.append(membership.digital_asset_id)
                 continue

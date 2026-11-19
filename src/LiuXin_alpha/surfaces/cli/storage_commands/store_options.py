@@ -132,7 +132,7 @@ def _parse_backend_option(raw: str) -> tuple[str, object]:
     value_text = raw_value.strip()
     try:
         value: object = json.loads(value_text)
-    except (TypeError, ValueError, json.JSONDecodeError):
+    except TypeError, ValueError, json.JSONDecodeError:
         value = value_text
     if value is None or isinstance(value, (str, int, float, bool)):
         return key, value

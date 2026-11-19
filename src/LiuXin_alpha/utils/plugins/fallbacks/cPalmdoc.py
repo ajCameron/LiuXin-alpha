@@ -13,10 +13,10 @@ Example:
 
 from __future__ import annotations
 
-from typing import ByteString
+from collections.abc import Buffer
 
 
-def decompress(data: ByteString) -> bytes:
+def decompress(data: Buffer) -> bytes:
     """
     Decompress PalmDOC data as calibre's ``cPalmdoc`` C extension does.
 
@@ -72,7 +72,7 @@ def decompress(data: ByteString) -> bytes:
     return bytes(out)
 
 
-def compress(data: ByteString) -> bytes:
+def compress(data: Buffer) -> bytes:
     """
     Compress bytes to PalmDOC as calibre's ``cPalmdoc`` C extension does.
 

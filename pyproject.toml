@@ -9,7 +9,7 @@ description = "LiuXin alpha codebase"
 readme = "README.md"
 license = "GPL-3.0-only"
 license-files = ["LICENSE", "COPYRIGHT", "LICENSES/*.txt"]
-requires-python = ">=3.12"
+requires-python = ">=3.14"
 dependencies = [
   "chardet>=5.0",
   "cssselect>=1.2",
@@ -131,7 +131,7 @@ namespaces = true
 "LiuXin_alpha.utils.libraries.python_dateutil" = ["LICENSE"]
 
 [tool.ruff]
-target-version = "py312"
+target-version = "py314"
 line-length = 88
 required-version = "==0.16.5"
 
@@ -545,10 +545,10 @@ exclude = [
   "dist",
   "working-memory/test-results",
 ]
-pythonVersion = "3.12"
+pythonVersion = "3.14"
 
 [tool.mypy]
-python_version = "3.12"
+python_version = "3.14"
 files = [
   "src/LiuXin_alpha/errors.py",
   "src/LiuXin_alpha/databases",

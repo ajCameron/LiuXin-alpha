@@ -334,7 +334,7 @@ class DateSearch:  # {{{
                         qd, field_count = months_ago(now(), num), 2
                     else:
                         qd, field_count = months_ago(now(), 12 * num), 1
-                except (ValueError, OverflowError):
+                except ValueError, OverflowError:
                     raise ParseException(_("Date out of range: {0}").format(query))
             else:
                 if self.dotted_month_year_pat.fullmatch(query) is not None:
@@ -466,7 +466,7 @@ class NumericSearch:  # {{{
                 try:
                     q = round(q * 2)
                     cast = int
-                except (ValueError, OverflowError):
+                except ValueError, OverflowError:
                     # nan or inf cannot be rounded, compare them as floats so
                     # that nan matches nothing and inf compares as expected
                     q *= 2
@@ -1104,7 +1104,7 @@ class Parser(SearchQueryParser):  # {{{
                     int_query = int(float_query)
             try:
                 half_rating_query = round(float_query * 2)
-            except (ValueError, OverflowError):
+            except ValueError, OverflowError:
                 # nan or inf cannot match any rating
                 half_rating_query = None
 
