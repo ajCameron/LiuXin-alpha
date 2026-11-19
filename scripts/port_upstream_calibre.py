@@ -125,6 +125,11 @@ PORTS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
     ("ebooks/metadata/plucker.py", "plucker.py", ()),
     ("ebooks/metadata/haodoo.py", "haodoo.py", ()),
     ("ebooks/metadata/pdb.py", "pdb.py", ()),
+    ("ebooks/html_entities.py", "html_entities.py", ()),
+    ("ebooks/lrf/__init__.py", "lrf_package.py", ()),
+    ("ebooks/lrf/tags.py", "lrf_tags.py", ()),
+    ("ebooks/lrf/objects.py", "lrf_objects.py", ()),
+    ("ebooks/lrf/meta.py", "lrf.py", ()),
 )
 
 # Modules of which only some top-level names are ported, by upstream path: the
@@ -134,6 +139,8 @@ PARTS: dict[str, tuple[str, ...]] = {
     "ebooks/pdb/ereader/reader132.py": ("HeaderRecord",),
     "ebooks/pdb/plucker/reader.py": ("DATATYPE_METADATA", "MIBNUM_TO_NAME", "SectionHeader"),
     "ebooks/txt/processor.py": ("HTML_TEMPLATE", "opf_writer"),
+    "ebooks/html_entities.py": ("html5_entities", "entity_to_unicode_in_python"),
+    "ebooks/lrf/__init__.py": ("LRFParseError", "PRS500_PROFILE"),
 }
 
 # LiuXin fixes, by upstream path: calibre's text and its replacement. They are
@@ -193,6 +200,87 @@ PATCHES: dict[str, tuple[tuple[str, str], ...]] = {
         self.check_sections()  # LiuXin:
 
 """,
+        ),
+    ),
+    "ebooks/lrf/meta.py": (
+        (
+            """    #: The first 6 bytes of all valid LRF files
+    LRF_HEADER = 'LRF'.encode('utf-16le')
+""",
+            """    #: The first 6 bytes of all valid LRF files
+    LRF_HEADER = 'LRF'.encode('utf-16le')
+    # LiuXin: a book's meta info is a few kilobytes of XML. Its 64 KB of zlib
+    # could unpack to 64 MB, and every field read unpacked and parsed it again.
+    MAX_INFO = 1024 * 1024
+""",
+        ),
+        (
+            """        def fget(self: LRFMetaFile) -> dom.Document:
+            if self.compressed_info_size == 0:
+                raise LRFException('This document has no meta info')
+            size = self.compressed_info_size - 4
+            self._file.seek(self.info_start)
+            try:
+                src = zlib.decompress(self._file.read(size))
+                if len(src) != self.uncompressed_info_size:""",
+            """        def fget(self: LRFMetaFile) -> dom.Document:
+            if (parsed := getattr(self, 'parsed_info', None)) is not None:  # LiuXin: parse once
+                return parsed
+            if self.compressed_info_size == 0:
+                raise LRFException('This document has no meta info')
+            size = self.compressed_info_size - 4
+            self._file.seek(self.info_start)
+            try:
+                # LiuXin: unpack no more than MAX_INFO; zlib.decompress raises on a
+                # truncated stream, so this does too.
+                unpacker = zlib.decompressobj()
+                src = unpacker.decompress(self._file.read(size), self.MAX_INFO + 1)
+                if len(src) > self.MAX_INFO:
+                    raise LRFException('Document meta info unpacks to more than %d bytes' % self.MAX_INFO)
+                if not unpacker.eof:
+                    raise zlib.error('Error -5 while decompressing data: incomplete or truncated stream')
+                if len(src) != self.uncompressed_info_size:""",
+        ),
+        (
+            """                src = xml_to_unicode(src, strip_encoding_pats=True, resolve_entities=True, assume_utf8=True)[0]
+                return dom.parseString(clean_xml_chars(src))""",
+            """                src = xml_to_unicode(src, strip_encoding_pats=True, resolve_entities=True, assume_utf8=True)[0]
+                self.parsed_info = dom.parseString(clean_xml_chars(src))  # LiuXin: parse once
+                return self.parsed_info""",
+        ),
+        (
+            """        def fset(self: LRFMetaFile, document: dom.Document) -> None:
+            info = document.toxml('utf-8')""",
+            """        def fset(self: LRFMetaFile, document: dom.Document) -> None:
+            self.parsed_info = None  # LiuXin: parse once
+            info = document.toxml('utf-8')""",
+        ),
+    ),
+    "ebooks/lrf/objects.py": (
+        (
+            """class LRFStream(LRFObject):
+    tag_map = {""",
+            """class LRFStream(LRFObject):
+    # LiuXin: zlib unpacks up to about a thousand times its input, so a 4 MB
+    # stream could fill 4 GB. Refuse streams that unpack to more than this.
+    MAX_UNPACKED = 32 * 1024 * 1024
+    tag_map = {""",
+        ),
+        (
+            """            decomp_size = struct.unpack('<I', self.stream[:4])[0]
+            self.stream = zlib.decompress(self.stream[4:])
+            if len(self.stream) != decomp_size:""",
+            """            decomp_size = struct.unpack('<I', self.stream[:4])[0]
+            # LiuXin: unpack no more than the stream says, and no more than
+            # MAX_UNPACKED; zlib.decompress raises on a truncated stream, so
+            # this does too.
+            if decomp_size > self.MAX_UNPACKED:
+                raise LRFParseError('Stream unpacks to more than %d bytes' % self.MAX_UNPACKED)
+            unpacker = zlib.decompressobj()
+            self.stream = unpacker.decompress(self.stream[4:], decomp_size + 1)
+            if not unpacker.eof and len(self.stream) <= decomp_size:
+                raise zlib.error('Error -5 while decompressing data: incomplete or truncated stream')
+            if len(self.stream) != decomp_size:""",
         ),
     ),
     "ebooks/metadata/mobi.py": (
@@ -605,6 +693,11 @@ MODULES = {
     "calibre.ebooks.metadata.plucker": f"{PKG}.plucker",
     "calibre.ebooks.metadata.haodoo": f"{PKG}.haodoo",
     "calibre.ebooks.metadata.pdb": f"{PKG}.pdb",
+    "calibre.ebooks.html_entities": f"{PKG}.html_entities",
+    "calibre.ebooks.lrf": f"{PKG}.lrf_package",
+    "calibre.ebooks.lrf.tags": f"{PKG}.lrf_tags",
+    "calibre.ebooks.lrf.objects": f"{PKG}.lrf_objects",
+    "calibre.ebooks.lrf.meta": f"{PKG}.lrf",
 }
 
 # Helpers from modules that are not ported whole: the names _compat provides,
@@ -624,6 +717,7 @@ NAMES: dict[str, dict[str, str]] = {
             "prepare_string_for_xml",
             "relpath",
             "isbytestring",
+            "my_unichr",
         )
     },
     "calibre.constants": {

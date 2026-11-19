@@ -1,14 +1,14 @@
 # Ported calibre readers: status and findings
 
 Written **2026-11-18** and updated **2026-11-19**, at calibre 9.18. The work is
-in PRs #177 to #188 and #195. [Porting calibre's metadata readers](upstream-calibre-port.md) explains
+in PRs #177 to #188, #195 and #197. [Porting calibre's metadata readers](upstream-calibre-port.md) explains
 how the ports are made; this page records what has been ported, how the ports
 compare with the readers LiuXin already had, what hostile input turned up, and
 what is left.
 
 ## What is ported
 
-Seventeen of calibre's metadata reader plugins run in process through
+Eighteen of calibre's metadata reader plugins run in process through
 `file_formats.providers.ported_calibre`, at priority −50: above an installed
 calibre (−60), below native LiuXin providers (0).
 
@@ -26,6 +26,7 @@ calibre (−60), below native LiuXin providers (0).
 | Read ODT metadata | `odt` | #185 | — | — |
 | Read MOBI metadata | `mobi`, `prc`, `azw`, `azw3`, `azw4`, `pobi` | #188 | language codes (2), PalmDOC (4), page breaks (1) | see [the Kindle family](#the-kindle-family) |
 | Read PDB metadata | `pdb`, `updb` | #195 | — | a section table whose offsets go back and forth |
+| Read LRF metadata | `lrf` | #197 | — | meta info and image streams that unpack without limit |
 
 The readers ported before the porting script (#177 and #179) were copied by
 hand; from #182 on, `scripts/port_upstream_calibre.py` makes every copy and
@@ -68,6 +69,7 @@ were the ones on the stacked branches, without #178's fixes for OPF 2 fields.
 | HTML | the six real-world fixtures in `tests/fixtures/html_ingest`, a sample page | The same answers as LiuXin's reader, comment tags winning over meta tags in both. |
 | FB2, FBZ | sample books | The same fields as LiuXin's reader, and the cover. |
 | ODT | sample documents | The same as the fork's and LiuXin's readers, plus calibre's OPF rating. |
+| LRF | a book with meta info, a thumbnail, and an image object whose stream is plain or zlib-packed | The same as LiuXin's reader: title, authors, sort fields, publisher, tags, comments and cover. Neither reads the language, which calibre leaves out too. |
 | PDB | eReader books with a metadata record and a cover; a Plucker book with a charset, authors, a title and a date; Haodoo books in cp950 and UTF-16; a PalmDOC book | The same as LiuXin's reader for eReader, Haodoo and other PDB books, covers included. LiuXin's reader found nothing in the Plucker book's metadata until #196 (see [found along the way](#found-along-the-way)); the port reads it all. |
 | MOBI, AZW3, PRC | books with EXTH and JPEG or PNG covers; an old book without EXTH, with metadata in its markup | Same titles, authors, publishers, identifiers and descriptions as the fork's reader. The port keeps the EXTH publication date, which the fork drops, and tags in the book's order where the fork sorts them; it returns languages as `fra` where the fork says `French`, and the cover's own bytes. From the old book it also reads the publisher. |
 
@@ -122,14 +124,15 @@ patterns backtrack.
 | LiuXin's EPUB cover search | A cover page could name any image on the disk, which then became the book's cover, in metadata reading and in EPUB and OEB conversion. calibre 9.18 already confines these images to the book | #183 |
 | calibre's EPUB, HTMLZ, TXTZ, FBZ and ODT readers | They read the members they need whole, and the EPUB reader extracts the whole book to look for a first-page cover: a 1 GB OPF took 13 s and 5 GB of memory | The providers apply LiuXin's EPUB-input archive limits before calibre's code runs (#184, #185) |
 | calibre's encoding detection (`chardet.py`) | Two of its encoding-declaration patterns retry every quote after every `encoding=` or `content=` against the rest of the tag. 8 KB of unclosed `<?…encoding="` took 9 s, and the cost grows with the cube: 50 KB, the most calibre strips, over half an hour. `xml_to_unicode` searches the whole file, so every reader that decodes with it was exposed: OPF, EPUB, HTML, FB2, MOBI | The port (#188), which finds the same matches by hand. LiuXin's own `utils/libraries/calibre_chardet.py` had the same patterns (8 KB: 6.7 s), and a quadratic entity pattern too; #190 fixes them on `main` |
+| calibre's LRF reader | A book's meta info is zlib-packed XML of up to 64 KB, which can unpack to 64 MB, and calibre unpacked and parsed it with minidom once for every field it read: 1.6 million empty elements in a 6.4 KB book took 48 s. An image stream's zlib is unpacked whole before its declared size is checked: a 408 KB book took the process to 1.2 GB | The port (#197) unpacks the meta info to at most 1 MiB and parses it once, and unpacks an image stream to no more than it declares and no more than 32 MiB. LiuXin's own LRF reader had both; #198 fixes it |
 | calibre's PDB header reader | A section runs to the next section's offset, and `read()` of a negative length reads to the end of the file, so a table whose offsets go back names the whole file once per section. calibre's Haodoo reader keeps every section: 4,000 sections in a 536 KB book took 1.9 GB, and a table can name 65,535 | The port (#195) refuses sections that together hold more than twice the file, as the MOBI port does. LiuXin's own PDB header reader already refused offsets that do not increase |
 | calibre's MOBI readers | See [the Kindle family](#the-kindle-family) | The port (#188). LiuXin's own MOBI 6 reader (`file_formats/mobi/reader/mobi6.py`) had the same patterns, XPath, scans and inserts; #191 fixes them on `main`. Its PalmDB reader already refused offsets that go back, its HUFF/CDIC reader caps each record's output, and its EXTH reader refuses a record of size 0 |
 
 The calibre problems are written up for reporting upstream, with reproducers
 and suggested fixes, in
 [upstream-calibre-bugs.md](../calibre_compat/upstream-calibre-bugs.md): bugs 1 to
-10 from these ports, 11 from LiuXin's conversion code (#193) and 12, the PDB
-section table (#195). None has been reported yet.
+10 from these ports, 11 from LiuXin's conversion code (#193), 12, the PDB
+section table (#195), and 13, LRF's unpacking (#197). None has been reported yet.
 
 ### The Kindle family
 
@@ -199,7 +202,6 @@ In rough order of value against effort:
 
 | Batch | calibre code | What it needs |
 | --- | --- | --- |
-| LRF | `ebooks/lrf/meta.py` | About 800 lines, pure Python, few imports. |
 | DOCX | `ebooks/metadata/docx.py`, `ebooks/docx/container.py` | The DOCX container; the writer half needs `ebooks/docx/writer`. |
 | ZIP, RAR, comics | `ebooks/metadata/zip.py`, `rar.py`, `archive.py` | These hand each book inside an archive to the other readers. RAR needs calibre's unrar extension or a substitute. |
 | PDF | `ebooks/metadata/pdf.py`, `xmp.py` | Runs poppler's `pdfinfo` and `pdftoppm` in a worker process, so it needs those tools and a stand-in for the worker. |
