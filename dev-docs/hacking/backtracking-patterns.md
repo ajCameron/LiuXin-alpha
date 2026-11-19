@@ -91,6 +91,17 @@ unchanged.
   groups where a run can only end one way; prefer a hand-written scan when the
   pattern retries the same stretch from many starts.
 
+## An XPath that merges in quadratic time
+
+The DOCX cover search (calibre's, which LiuXin's reader copied) is the XPath
+`linear_time.DOCX_FIRST_IMAGES`: the first image in each `w:drawing` or `w:pict`.
+libxml2 merges each drawing's result into the whole in time that grows faster
+than the square of the drawings: 16,000 took 0.13 s, 64,000 took 8 s, and a
+100 KB book can hold a million. `linear_time.first_images` finds the same images
+in one walk over the document, keeping the open drawings that still have no
+image; it agreed with the XPath on 20,000 random documents. The reader also read
+an image again for every drawing that named it, and now reads each once.
+
 ## Upstream
 
 calibre 9.18 has the declaration patterns too (its `ebooks/chardet.py`), the
