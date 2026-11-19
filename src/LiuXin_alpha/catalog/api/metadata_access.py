@@ -54,9 +54,8 @@ class MetadataReference:
 # Declared covariant on purpose. From Python 3.13, type checkers give a dataclass a
 # synthesised ``__replace__`` that takes ``result``. Pyright's inferred (PEP 695)
 # variance then makes the receipt invariant, so a ``MetadataWriteReceipt[int]``
-# could no longer travel as ``MetadataWriteReceipt[object]``. Mypy, in turn,
-# rejects a covariant field because of that same ``__replace__`` parameter; the
-# receipt is frozen and ``replace`` returns a new value, so covariance holds here.
+# could no longer travel as ``MetadataWriteReceipt[object]``. The receipt is frozen
+# and ``replace`` returns a new value, so covariance holds.
 _ResultT_co = TypeVar("_ResultT_co", covariant=True)
 
 
@@ -80,7 +79,7 @@ class MetadataWriteReceipt(Generic[_ResultT_co]):  # noqa: UP046 - explicit vari
     it must not turn a committed write into an apparent persistence failure.
     """
 
-    result: _ResultT_co  # type: ignore[misc]  # mypy: covariant __replace__ parameter
+    result: _ResultT_co
     changed: bool
     persistence: Literal["committed", "pending"]
     cache: Literal["not_configured", "current", "deferred", "dirty"]
