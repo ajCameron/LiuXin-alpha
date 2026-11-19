@@ -44,7 +44,7 @@ from LiuXin_alpha.metadata.containers.calibre_like_book_metadata import (
 from LiuXin_alpha.utils.localization import trans as _
 
 # Py2/Py3 compatibility
-from LiuXin_alpha.utils.libraries.liuxin_six import six_cStringIO
+from LiuXin_alpha.utils.libraries.liuxin_six import six_BytesIO
 from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 
 __license__ = "GPL v3"
@@ -692,7 +692,7 @@ def insert_into_file(fileobj: _typing.Any, data: _typing.Any, start: _typing.Any
     :return: The normalized value, metadata record, path, stream result or collection
         described above.
     """
-    file_buffer = six_cStringIO()
+    file_buffer = six_BytesIO()
     fileobj.seek(end)
     copyfileobj(fileobj, file_buffer, -1)
     file_buffer.flush()
@@ -790,6 +790,11 @@ class LRFMetaFile(object):
 
     #: The first 6 bytes of all valid LRF files
     LRF_HEADER = "LRF".encode("utf-16le")
+    # A book's meta info is a few kilobytes of XML. Its 64 KB of zlib can unpack
+    # to 64 MB, and every field read used to unpack and parse it again: 1.6
+    # million empty elements in a 6.4 KB book took 44 s. Unpack at most this
+    # much, and parse it once.
+    MAX_INFO = 1024 * 1024
 
     lrf_header = fixed_stringfield(length=6, start=0x0)
     version = field(fmt=WORD, start=0x8)
@@ -964,12 +969,21 @@ class LRFMetaFile(object):
             :return: The normalized value, metadata record, path, stream result or collection
                 described above.
             """
+            parsed = getattr(self, "parsed_info", None)
+            if parsed is not None:
+                return parsed
             if self.compressed_info_size == 0:
                 raise LRFException("This document has no meta info")
             size = self.compressed_info_size - 4
             self._file.seek(self.info_start)
             try:
-                src = zlib.decompress(self._file.read(size))
+                # zlib.decompress raises on a truncated stream, so this does too.
+                unpacker = zlib.decompressobj()
+                src = unpacker.decompress(self._file.read(size), self.MAX_INFO + 1)
+                if len(src) > self.MAX_INFO:
+                    raise LRFException("Document meta info unpacks to more than %d bytes" % self.MAX_INFO)
+                if not unpacker.eof:
+                    raise zlib.error("Error -5 while decompressing data: incomplete or truncated stream")
                 if len(src) != self.uncompressed_info_size:
                     raise LRFException(
                         "Decompression of document meta info\
@@ -978,11 +992,13 @@ class LRFMetaFile(object):
                 src_bytes = src if isinstance(src, (bytes, bytearray)) else str(src).encode("utf-8", "replace")
                 for candidate in (src_bytes, src_bytes.replace(b"\x00", b"").strip()):
                     try:
-                        return dom.parseString(candidate)
+                        self.parsed_info = dom.parseString(candidate)
+                        return self.parsed_info
                     except Exception:
                         pass
                 repaired = src_bytes.replace(b"\x00", b"").strip().decode("latin1", "replace")
-                return dom.parseString(repaired.encode("utf-8"))
+                self.parsed_info = dom.parseString(repaired.encode("utf-8"))
+                return self.parsed_info
             except zlib.error:
                 raise LRFException("Unable to decompress document meta information")
 
@@ -1001,6 +1017,7 @@ class LRFMetaFile(object):
             :return: None; the operation mutates state, writes output or performs cleanup in
                 place.
             """
+            self.parsed_info = None
             info = document.toxml("utf-8")
             self.uncompressed_info_size = len(info)
             stream = zlib.compress(info)
