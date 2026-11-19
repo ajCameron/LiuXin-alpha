@@ -144,7 +144,7 @@ def _make_plucker_record(rtype: int, payload: bytes, *, length_words: int | None
     if length_words is None:
         if len(payload) % 2:
             payload += b"\x00"
-        length_words = (4 + len(payload)) // 2
+        length_words = len(payload) // 2  # the argument's words, not the 4-byte header
     return struct.pack(">HH", rtype, length_words) + payload
 
 

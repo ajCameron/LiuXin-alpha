@@ -624,13 +624,12 @@ class SectionMetadata(object):
             record_start = 2 + adv
             _require_slice(raw, record_start, 4, "metadata record header")
             record_type = _u16(raw, record_start, "metadata record type")
+            # The length counts the argument's 16-bit words, not this header.
             length = _u16(raw, record_start + 2, "metadata record length")
-            record_size = 2 * length
-            if record_size < 4:
-                raise PluckerError("Invalid Plucker metadata record length")
+            record_size = 4 + 2 * length
             _require_slice(raw, record_start, record_size, "metadata record")
             payload_start = record_start + 4
-            payload_length = record_size - 4
+            payload_length = 2 * length
 
             # CharSet
             if record_type == 1:

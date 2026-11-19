@@ -198,6 +198,36 @@ def test_plucker_reader_rejects_metadata_declared_size_overrun() -> None:
         _reader(payload)
 
 
+def test_plucker_metadata_section_reads_records_as_the_plucker_format_lays_them_out() -> None:
+    """
+    Read a charset and exceptional charsets whose lengths count the argument's 16-bit words.
+
+    The conversion reader used to take the length to include the 4-byte type
+    and length, and refused the one-word charset record every Plucker book's
+    metadata starts with.
+
+    Example:
+        Exercise test plucker metadata section reads records as the plucker format lays them out through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pdb/test_pdb_plucker_hostile.py
+
+
+    :return: None; the assertions are the check.
+    """
+    from LiuXin_alpha.file_formats.pdb.plucker.reader import SectionMetadata
+
+    raw = (
+        pack(">H", 3)
+        + pack(">HHH", 1, 1, 106)  # CharSet: one word, UTF-8
+        + pack(">HHHH", 2, 2, 7, 2252)  # ExceptionalCharSets: one record ID and MIBenum pair
+        + pack(">HHI", 3, 2, 0xDEADBEEF)  # OwnerID: two words
+    )
+    section = SectionMetadata(raw)
+    assert section.default_encoding == "utf-8"
+    assert section.exceptional_uid_encodings == {7: "cp1252"}
+    assert section.owner_id == 0xDEADBEEF
+
+
 def test_plucker_reader_rejects_malformed_metadata_record_length() -> None:
     """
     Perform the test plucker reader rejects malformed metadata record length operation under explicit file-format and conversion rules.

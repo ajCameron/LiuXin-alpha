@@ -55,6 +55,10 @@ def _iter_records(section_data: bytes):
     """
     Yield complete bounded Plucker metadata records and stop safely at malformed lengths.
 
+    Each record is a type, a length and an argument. The length counts the
+    argument's 16-bit words, not the 4-byte type and length, as the Plucker
+    document format describes and calibre reads it.
+
     Example:
         Exercise  iter records with the owning regression module::
 
@@ -77,10 +81,7 @@ def _iter_records(section_data: bytes):
 
         (rtype,) = struct.unpack(">H", section_data[start : start + 2])
         (length_words,) = struct.unpack(">H", section_data[start + 2 : start + 4])
-        record_size = 2 * length_words
-        if record_size < 4:
-            break
-
+        record_size = 4 + 2 * length_words
         end = start + record_size
         if end > len(section_data):
             break

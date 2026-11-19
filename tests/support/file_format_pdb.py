@@ -1003,7 +1003,7 @@ def build_plucker_record(record_type: int, payload: bytes, *, length_words: int 
     if length_words is None:
         if len(payload) % 2:
             payload += b"\0"
-        length_words = (4 + len(payload)) // 2
+        length_words = len(payload) // 2  # the argument's words, not the 4-byte header
     return pack(">HH", record_type, length_words) + payload
 
 

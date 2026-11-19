@@ -57,7 +57,7 @@ def _make_plucker_record(rtype: int, payload: bytes) -> bytes:
     """
     if len(payload) % 2:
         payload += b"\x00"
-    length_words = (4 + len(payload)) // 2
+    length_words = len(payload) // 2  # the argument's words, not the 4-byte header
     return struct.pack(">HH", rtype, length_words) + payload
 
 
@@ -149,6 +149,37 @@ def test_plucker_metadata_utf8_unicode_torture() -> None:
     assert mi.title == "Título — Καλημέρα — こんにちは 😀"
     assert mi.authors == ["Renée Faßbinder", "李白", "مريم", "👩🏽\u200d💻"]
     assert (mi.pubdate.year, mi.pubdate.month, mi.pubdate.day) == (2023, 11, 14)
+
+
+def test_plucker_metadata_records_are_read_as_the_plucker_format_lays_them_out() -> None:
+    """
+    Read records whose length counts the argument's 16-bit words, written byte by byte.
+
+    The Plucker document format gives each metadata record as a type, a length
+    in 16-bit words of the argument, and the argument. The reader used to take
+    the length to include the 4-byte type and length, and so stopped at the
+    one-word charset record and read nothing else.
+
+    Example:
+        Exercise test plucker metadata records are read as the plucker format lays them out through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_plucker_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
+    from LiuXin_alpha.metadata.file_sources.pdb.plucker import get_metadata
+
+    payload = (
+        b"\x00\x03"  # three records
+        + b"\x00\x01\x00\x01\x00\x6a"  # CharSet, one word: MIBenum 106, UTF-8
+        + b"\x00\x05\x00\x03Title\x00"  # Title, three words
+        + b"\x00\x04\x00\x02Ann\x00"  # Author, two words
+    )
+    section = struct.pack(">HHHBB", 1, 0, len(payload), DATATYPE_METADATA, 0) + payload
+    mi = get_metadata(_build_pdb("DataPlkr", "Fallback Header", [b"\x00" * 8, section]), extract_cover=False)
+    assert mi.title == "Title"
+    assert mi.authors == ["Ann"]
 
 
 def test_plucker_metadata_utf16be_charset_decode() -> None:
