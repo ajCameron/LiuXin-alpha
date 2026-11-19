@@ -381,6 +381,9 @@ class LRFStream(LRFObject):
 
             python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
     """
+    # zlib unpacks up to about a thousand times its input, so a 4 MB stream could
+    # fill 4 GB. Refuse streams that unpack to more than this.
+    MAX_UNPACKED = 32 * 1024 * 1024
     tag_map = {
         0xF504: ["", "read_stream_size"],
         0xF554: ["stream_flags", "W"],
@@ -485,7 +488,14 @@ class LRFStream(LRFObject):
             self.stream = self.descramble_buffer(self.stream, l, key)
         if self.stream_flags & 0x100 != 0:
             decomp_size = struct.unpack("<I", self.stream[:4])[0]
-            self.stream = zlib.decompress(self.stream[4:])
+            # Unpack no more than the stream says, and no more than MAX_UNPACKED;
+            # zlib.decompress raises on a truncated stream, so this does too.
+            if decomp_size > self.MAX_UNPACKED:
+                raise LRFParseError("Stream unpacks to more than %d bytes" % self.MAX_UNPACKED)
+            unpacker = zlib.decompressobj()
+            self.stream = unpacker.decompress(self.stream[4:], decomp_size + 1)
+            if not unpacker.eof and len(self.stream) <= decomp_size:
+                raise zlib.error("Error -5 while decompressing data: incomplete or truncated stream")
             if len(self.stream) != decomp_size:
                 raise LRFParseError("Stream decompressed size is wrong!")
         if stream.read(2) != b"\x06\xF5":
