@@ -12,7 +12,7 @@ def _rating_number(value: object) -> float:
         raise ValueError("Rating must be a finite number or null.")
     try:
         number = float(value)
-    except (ValueError, OverflowError):
+    except ValueError, OverflowError:
         raise ValueError("Rating must be a finite number or null.") from None
     if not math.isfinite(number) or number < 0:
         raise ValueError("Rating must be finite and nonnegative.")

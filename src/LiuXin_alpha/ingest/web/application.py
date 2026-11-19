@@ -323,7 +323,7 @@ class WebIngestApplication:
             self.budget.tick()
             try:
                 receipt, reused = acquisition.acquire(candidate)
-            except (WebIngestLimitError, WebRunBusyError):
+            except WebIngestLimitError, WebRunBusyError:
                 raise
             except Exception as error:
                 self._record_failure(candidate, error)

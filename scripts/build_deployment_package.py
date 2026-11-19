@@ -407,7 +407,7 @@ def build_source_metadata(
             "excluded_top_level": sorted(DEFAULT_EXCLUDED_TOP_LEVEL),
         },
         "runtime": {
-            "python": ">=3.12",
+            "python": ">=3.14",
             "default_install_extras": "postgres,search,archives,conversion",
             "cli_module": "LiuXin_alpha.surfaces.cli",
             "cli_executable": "liuxin",
@@ -589,7 +589,7 @@ if ! command -v "${PYTHON_BIN}" >/dev/null 2>&1; then
     exit 1
 fi
 
-"${PYTHON_BIN}" -c 'import sys; raise SystemExit(0 if sys.version_info >= (3, 12) else "LiuXin-alpha requires Python >= 3.12")'
+"${PYTHON_BIN}" -c 'import sys; raise SystemExit(0 if sys.version_info >= (3, 14) else "LiuXin-alpha requires Python >= 3.14")'
 
 if [[ ${RECREATE} -eq 1 && -d "${VENV_DIR}" ]]; then
     rm -rf "${VENV_DIR}"

@@ -1,14 +1,27 @@
 # Working Memory Index
 
-PR publication in progress, **2026-11-19**. The user requested publishing the
-metadata extensions and cache documentation pass. Existing PR #192 remains open
-on `metadata-search-api`, so update it rather than creating a duplicate. Fetched
-`origin/main` at `315dc47c`, which moves the project to Python 3.14 and conflicts
-with the old receipt declaration. Commit the validated pending work, then merge
-main and preserve its explicit covariant receipt type in the new
-`catalog/api/metadata_results.py` location. Validate the merged result before
-pushing and update the PR description to the complete final scope. The prior
-uncommitted checkpoints below are historical; the original checkout stays untouched.
+PR publication checkpoint, **2026-11-19**. The user requested publishing the
+metadata extensions and cache documentation pass to existing PR #192:
+https://github.com/ajCameron/LiuXin-alpha/pull/192 . Work remains on
+`metadata-search-api` in `/tmp/liuxin-metadata-pr-20261119`. Commit `2dc2c250`
+contains the feature/documentation work. The publication merge integrates main
+at `315dc47c`, preserves its Python 3.14 target and moves its explicit receipt
+covariance into `catalog/api/metadata_results.py`. The two conflicts are resolved;
+all 30 upstream files outside this work are preserved exactly. The merge and
+prepared PR title/body belong to this update. Check the remote head and CI state
+when resuming.
+
+Fresh publication artifacts: `/tmp/liuxin-pr-192-publication`. Full quality passes
+in `quality-final.log` (554 mypy files; negative cases 115/111). `runtime.log` has
+**143 passes, four expected capability skips**; `gate.json` confirms all **122
+selected mandatory cases** passed every phase. Tooling has **155 passes**, all
+**58** cache modules import independently, and **242** doctest examples pass.
+The worktree's `.venv` points to `/tmp/liuxin-pr-192-venv` (Python 3.14.10); the
+original checkout's environment is unchanged. `publication-verification.json`
+confirms saved source fingerprints except one import-spacing edit, separately
+verified AST-equivalent. The final PR payload is `pr-update.json`, with readable
+text in `pr-body.md`. Live PostgreSQL and long-running lanes were not repeated
+after the merge. Earlier uncommitted checkpoints below are historical.
 
 Cache comments/docstrings/typing pass completed and validated, **2026-11-19**.
 Latest user request: comments, docstrings, typing and docstring-format pass through

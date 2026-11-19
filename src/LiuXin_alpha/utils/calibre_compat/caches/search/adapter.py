@@ -846,7 +846,7 @@ class CalibreSearchAdapter:
                             if datatype in {"int", "float", "number", "rating"}:
                                 try:
                                     value = float(value)
-                                except (TypeError, ValueError):
+                                except TypeError, ValueError:
                                     value = 0.0
                             elif datatype in {"date", "datetime"}:
                                 from LiuXin_alpha.utils.date import parse_date

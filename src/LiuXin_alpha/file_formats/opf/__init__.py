@@ -1375,7 +1375,9 @@ class OPF(object):  # {{{
     xpn = NAMESPACES.copy()
     xpn.pop(None)
     xpn["re"] = "http://exslt.org/regular-expressions"
-    XPath = functools.partial(etree.XPath, namespaces=xpn)
+    # A partial stored on a class binds like a method from Python 3.14, so
+    # keep it static; staticmethod objects are callable in the class body.
+    XPath = staticmethod(functools.partial(etree.XPath, namespaces=xpn))
     CONTENT = XPath('self::*[re:match(name(), "meta$", "i")]/@content')
     TEXT = XPath("string()")
 

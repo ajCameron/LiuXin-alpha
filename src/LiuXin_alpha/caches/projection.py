@@ -89,7 +89,7 @@ class ProjectionQueryEngine(CacheQueryEngine):
         """
         return table == self.table_name
 
-    def get_main_table(self, table: str) -> "ProjectionQueryEngine":
+    def get_main_table(self, table: str) -> ProjectionQueryEngine:
         """
         Return this engine as the table view for its declared name.
 

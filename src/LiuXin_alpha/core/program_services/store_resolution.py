@@ -47,12 +47,12 @@ def _store(runtime: CoreRuntime, reference: Any) -> Any:
     storage = runtime.library.storage
     try:
         return storage.get_store(UUID(str(reference)))
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         pass
     if not isinstance(reference, bool):
         try:
             row = runtime.database.get_row_from_id("stores", int(reference))
-        except (TypeError, ValueError):
+        except TypeError, ValueError:
             row = None
         if row is not None:
             configuration = store_configuration_from_row(
@@ -97,7 +97,7 @@ def _durable_store_rows(
     rows: list[Any] = []
     try:
         store_uuid = UUID(str(reference))
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         store_uuid = None
     if store_uuid is not None:
         rows = list(
@@ -111,7 +111,7 @@ def _durable_store_rows(
     if not rows and not isinstance(reference, bool):
         try:
             store_id = int(reference)
-        except (TypeError, ValueError):
+        except TypeError, ValueError:
             store_id = None
         if store_id is not None:
             row = runtime.database.get_row_from_id("stores", store_id)
@@ -159,7 +159,7 @@ def _store_configuration(runtime: CoreRuntime, reference: Any) -> Any:
     row = rows[0]
     try:
         fallback_store_id = int(row["store_id"])
-    except (KeyError, TypeError, ValueError):
+    except KeyError, TypeError, ValueError:
         fallback_store_id = None
     try:
         return store_configuration_from_row(

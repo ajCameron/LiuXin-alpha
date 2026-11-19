@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from LiuXin_alpha.databases.api import DatabaseAPI
 
 
-def audit_preference_keys(database: "DatabaseAPI") -> dict[str | None, tuple[int, ...]]:
+def audit_preference_keys(database: DatabaseAPI) -> dict[str | None, tuple[int, ...]]:
     """Return duplicate or null keys and their row IDs without choosing a value."""
     rows = database.macros.get_rows("preferences", order_by=("preference_id",))
     groups: dict[str | None, list[int]] = {}
@@ -26,7 +26,7 @@ def audit_preference_keys(database: "DatabaseAPI") -> dict[str | None, tuple[int
 
 
 def migrate_preference_keys(
-    database: "DatabaseAPI", *, keep: Mapping[str, int] | None = None
+    database: DatabaseAPI, *, keep: Mapping[str, int] | None = None
 ) -> None:
     """Resolve exactly the audited conflicts and install key uniqueness atomically.
 

@@ -3,11 +3,16 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Literal
+from typing import Generic, Literal, TypeVar
+
+# Keep main's explicit covariance after moving the receipt to this module.
+# Synthesized dataclass __replace__ methods make inferred variance invariant on
+# Python 3.13+, but replacing a frozen receipt creates a new value.
+_ResultT_co = TypeVar("_ResultT_co", covariant=True)
 
 
 @dataclass(frozen=True, slots=True)
-class MetadataWriteReceipt[ResultT]:
+class MetadataWriteReceipt(Generic[_ResultT_co]):  # noqa: UP046 - explicit variance
     """Keep persistence and cache visibility explicit after a semantic write.
 
     ``pending`` means an outer transaction still controls commit or rollback; it
@@ -28,7 +33,7 @@ class MetadataWriteReceipt[ResultT]:
     it must not turn a committed write into an apparent persistence failure.
     """
 
-    result: ResultT
+    result: _ResultT_co
     changed: bool
     persistence: Literal["committed", "pending"]
     cache: Literal["not_configured", "current", "deferred", "dirty"]
