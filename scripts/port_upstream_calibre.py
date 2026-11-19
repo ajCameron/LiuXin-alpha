@@ -130,6 +130,11 @@ PORTS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
     ("ebooks/lrf/tags.py", "lrf_tags.py", ()),
     ("ebooks/lrf/objects.py", "lrf_objects.py", ()),
     ("ebooks/lrf/meta.py", "lrf.py", ()),
+    ("ebooks/docx/__init__.py", "docx_package.py", ()),
+    ("ebooks/docx/names.py", "docx_names.py", ()),
+    ("ebooks/docx/container.py", "docx_container.py", ()),
+    ("ebooks/docx/writer/container.py", "docx_writer_container.py", ()),
+    ("ebooks/metadata/docx.py", "docx.py", ()),
 )
 
 # Modules of which only some top-level names are ported, by upstream path: the
@@ -141,6 +146,19 @@ PARTS: dict[str, tuple[str, ...]] = {
     "ebooks/txt/processor.py": ("HTML_TEMPLATE", "opf_writer"),
     "ebooks/html_entities.py": ("html5_entities", "entity_to_unicode_in_python"),
     "ebooks/lrf/__init__.py": ("LRFParseError", "PRS500_PROFILE"),
+    "ebooks/docx/writer/container.py": ("xml2str", "update_doc_props"),
+    "ebooks/docx/names.py": (
+        "TRANSITIONAL_NAMES",
+        "STRICT_NAMES",
+        "TRANSITIONAL_NAMESPACES",
+        "STRICT_NAMESPACES",
+        "SVG_BLIP_URI",
+        "USE_LOCAL_DPI_URI",
+        "AttrGetter",
+        "barename",
+        "XML",
+        "DOCXNamespace",
+    ),
 }
 
 # LiuXin fixes, by upstream path: calibre's text and its replacement. They are
@@ -281,6 +299,44 @@ PATCHES: dict[str, tuple[tuple[str, str], ...]] = {
             if not unpacker.eof and len(self.stream) <= decomp_size:
                 raise zlib.error('Error -5 while decompressing data: incomplete or truncated stream')
             if len(self.stream) != decomp_size:""",
+        ),
+    ),
+    "ebooks/metadata/docx.py": (
+        (
+            """from calibre.utils.xml_parse import safe_xml_fromstring
+""",
+            """from calibre.utils.xml_parse import safe_xml_fromstring
+from LiuXin_alpha.metadata.upstream_calibre import _linear_time  # LiuXin:
+""",
+        ),
+        (
+            """    images = docx.namespace.XPath(
+        '//*[name()="w:drawing" or name()="w:pict"]/descendant::*[(name()="a:blip" and @r:embed) or (name()="v:imagedata" and @r:id)][1]'
+    )
+""",
+            """    images = docx.namespace.XPath(
+        '//*[name()="w:drawing" or name()="w:pict"]/descendant::*[(name()="a:blip" and @r:embed) or (name()="v:imagedata" and @r:id)][1]'
+    )
+    # LiuXin: libxml2 evaluates that in quadratic time or worse (64,000 drawings
+    # took 8 s); first_images finds the same images in one pass (#199).
+    images = lambda doc: _linear_time.first_images(doc, docx.namespace.namespaces['r'])  # noqa: E731
+""",
+        ),
+        (
+            """    rid_map = docx.document_relationships[0]
+    for image in images(doc):
+        rid = get(image, 'r:embed') or get(image, 'r:id')
+        if rid in rid_map:
+""",
+            """    rid_map = docx.document_relationships[0]
+    # LiuXin: a document can name one image in a million drawings, and each was
+    # read whole again and turned down again. Read each image once.
+    tried = set()
+    for image in images(doc):
+        rid = get(image, 'r:embed') or get(image, 'r:id')
+        if rid in rid_map and rid_map[rid] not in tried:
+            tried.add(rid_map[rid])
+""",
         ),
     ),
     "ebooks/metadata/mobi.py": (
@@ -698,6 +754,11 @@ MODULES = {
     "calibre.ebooks.lrf.tags": f"{PKG}.lrf_tags",
     "calibre.ebooks.lrf.objects": f"{PKG}.lrf_objects",
     "calibre.ebooks.lrf.meta": f"{PKG}.lrf",
+    "calibre.ebooks.docx": f"{PKG}.docx_package",
+    "calibre.ebooks.docx.names": f"{PKG}.docx_names",
+    "calibre.ebooks.docx.container": f"{PKG}.docx_container",
+    "calibre.ebooks.docx.writer.container": f"{PKG}.docx_writer_container",
+    "calibre.ebooks.metadata.docx": f"{PKG}.docx",
 }
 
 # Helpers from modules that are not ported whole: the names _compat provides,
@@ -718,6 +779,7 @@ NAMES: dict[str, dict[str, str]] = {
             "relpath",
             "isbytestring",
             "my_unichr",
+            "walk",
         )
     },
     "calibre.constants": {
@@ -798,6 +860,7 @@ NAMES: dict[str, dict[str, str]] = {
         "TemporaryDirectory": "TemporaryDirectory",
         "SpooledTemporaryFile": "SpooledTemporaryFile",
         "PersistentTemporaryFile": "PersistentTemporaryFile",
+        "PersistentTemporaryDirectory": "PersistentTemporaryDirectory",
     },
     "calibre.utils.logging": {"default_log": "default_log", "Log": "Log"},
     "calibre.utils.formatter": {"TEMPLATE_ERROR": "TEMPLATE_ERROR"},

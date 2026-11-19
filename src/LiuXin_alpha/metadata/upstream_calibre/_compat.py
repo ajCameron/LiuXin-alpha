@@ -73,6 +73,7 @@ import sys
 import tempfile
 import time
 import zipfile
+from collections.abc import Iterator
 from pathlib import Path
 from typing import IO, Any
 
@@ -697,6 +698,21 @@ def my_unichr(num: int) -> str:
         return chr(num)
     except (ValueError, OverflowError):
         return "?"
+def walk(dir: str) -> Iterator[str]:
+    """
+    Give the path of every file under a folder, as calibre's ``walk`` does.
+
+    Example:
+        >>> list(walk("/nonexistent"))
+        []
+
+
+    :param dir: The folder.
+    :return: The files' paths, folder by folder.
+    """
+    for root, _dirs, files in os.walk(dir):
+        for name in files:
+            yield os.path.join(root, name)
 
 
 def prepare_string_for_xml(raw: str, attribute: bool = False) -> str:
@@ -1875,6 +1891,10 @@ def _not_ported(name: str) -> Any:
 save_cover_data_to = _not_ported("save_cover_data_to")
 safe_replace = _not_ported("safe_replace")
 PersistentTemporaryFile = _not_ported("PersistentTemporaryFile")
+
+# The DOCX container extracts a book to a folder only for conversion; the reader
+# reads it from the zip file.
+PersistentTemporaryDirectory = _not_ported("PersistentTemporaryDirectory")
 
 # calibre draws covers and mastheads with Qt; no reader calls these.
 calibre_cover2 = _not_ported("calibre_cover2")

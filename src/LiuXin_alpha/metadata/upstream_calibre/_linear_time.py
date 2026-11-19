@@ -27,6 +27,7 @@ from typing import AnyStr, cast
 from LiuXin_alpha.utils.linear_time import (
     ForwardFinder,
     LinearPattern,
+    first_images,
     html4_charsets,
     sub_before_last,
     sub_from_run_starts,
@@ -37,6 +38,7 @@ from LiuXin_alpha.utils.linear_time import (
 
 __all__ = [
     "ForwardFinder",
+    "first_images",
     "linear_pattern",
     "sub_before_last",
     "sub_from_run_starts",
