@@ -678,6 +678,27 @@ def xml_replace_entities(raw: Any, encoding: str | None = None) -> Any:
     return replace_all_entities(raw, True)
 
 
+def my_unichr(num: int) -> str:
+    """
+    Give the character for a code point, or ``?`` for one out of range, as calibre does.
+
+    calibre asks ICU's ``safe_chr``, which gives what ``chr`` gives for every
+    code point ``chr`` accepts.
+
+    Example:
+        >>> my_unichr(0x263A), my_unichr(0x110000)
+        ('☺', '?')
+
+
+    :param num: The code point.
+    :return: The character.
+    """
+    try:
+        return chr(num)
+    except (ValueError, OverflowError):
+        return "?"
+
+
 def prepare_string_for_xml(raw: str, attribute: bool = False) -> str:
     """
     Replace entities, then escape the text for XML, as calibre does.
