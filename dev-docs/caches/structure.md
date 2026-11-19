@@ -10,6 +10,9 @@ LiuXin_alpha/
   caches/
     read_cache.py        lifecycle, reads, freshness and query indexes
     cache.py             Catalog writer bridge and reconciliation
+    metadata.py          native metadata service and semantic write coordination
+    metadata_reads.py    complete reads and detached metadata projections
+    metadata_search.py   semantic search execution, exact pages and provenance
     query.py             native queries, bounded plans/results and ID repair
     predicates.py        physical Boolean and relationship evaluation
     projection.py        explicit copied projection execution

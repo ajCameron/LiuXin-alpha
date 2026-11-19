@@ -107,6 +107,7 @@ class ReadCache(CacheAPI):
         self._dirty_ids: dict[str, set[int]] = {}
         self._dirty_links: set[tuple[str, str]] = set()
         self._dirty_fields: set[str] = set()
+        self._pending_refresh_transactions: set[object] = set()
         self._query_engine = CacheQueryEngine(
             self.storage,
             plan_cache_size=plan_cache_size,
@@ -259,6 +260,10 @@ class ReadCache(CacheAPI):
         final_state: CacheState = CacheState.READY,
     ) -> None:
         """Publish a complete lifecycle operation, or require recovery after failure."""
+        if final_state == CacheState.READY and self._pending_refresh_transactions:
+            raise CacheDirtyError(
+                "Cache refresh is deferred until its transaction finishes"
+            )
         self._pending_query_results = None
         self._state = CacheState.DIRTY
         self._full_reload_required = True
@@ -438,6 +443,24 @@ class ReadCache(CacheAPI):
             transaction_state is not None and getattr(transaction_state, "depth", 0)
         )
 
+    def _defer_refresh_until_transaction_ends(self) -> None:
+        """Block every thread's refresh until the owned SQL unit completes.
+
+        The caller holds the facade lock. Completion only releases its token;
+        the next read performs recovery after either commit or rollback. Closing
+        or clearing the facade does not make the callback reopen its storage.
+        """
+        from LiuXin_alpha.databases.transaction_participants import after_transaction
+
+        token = object()
+
+        def release() -> None:
+            with self._lock:
+                self._pending_refresh_transactions.discard(token)
+
+        after_transaction(self.database.macros, release)
+        self._pending_refresh_transactions.add(token)
+
     def _refresh_dirty(self) -> None:
         """
         Refresh accumulated snapshot dependencies before allowing a read.
@@ -459,7 +482,7 @@ class ReadCache(CacheAPI):
 
         if self._state != CacheState.DIRTY:
             return
-        if self._transaction_is_open():
+        if self._pending_refresh_transactions or self._transaction_is_open():
             raise CacheDirtyError(
                 "Cache dependencies are dirty while an outer transaction is open"
             )

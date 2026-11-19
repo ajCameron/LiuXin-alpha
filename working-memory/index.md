@@ -1,5 +1,78 @@
 # Working Memory Index
 
+Commit checkpoint, **2026-11-19**: the user requested committing the bound metadata
+adapter and typed search slice. This batch includes the services, transaction
+completion guard, strict hydration reads, public contracts, 91 new mandatory
+cases, typing checks and developer documentation. All 470 source/test/manifest
+hashes in the combined final adapter/search evidence still match; quality
+configuration and type fixtures also match their passing checks. Runtime evidence
+remains 249 adapter passes / six expected skips and 84 search/regression passes;
+the runs overlap and should not be added as unique test coverage.
+Core migration, older writer cross-thread deferral and measured refresh/capture
+optimization remain follow-ups. Unrelated review drafts/index and data-submodule
+changes are excluded. This checkpoint is for a local commit; no push is requested.
+
+Metadata search pages, **2026-11-18**, implementation and validation complete:
+`cache.metadata.search` adds `query`, `fields`, `sort_fields` and `validate` alongside
+`find`. Typed values live in `catalog.api.metadata_search`; Catalog's
+`search.metadata_requests` owns field/path meaning. The cache service executes
+the plan with exact totals and page provenance. SQL-capable database reads select
+matching roots then reuse native ordering; other drivers use an ephemeral capture.
+Text filters are literal, numeric ID/year filters support explicit WEMI scopes,
+and sort discovery describes scalar result fields separately. References remain
+available through `catalog.api.metadata_access`. No new top-level package.
+
+44 new mandatory cases bring the manifest to 2,918. Final fresh-source runtime
+run passed **84 tests**, with all **47 selected mandatory cases** passing setup,
+call and teardown; 459 saved source/test/manifest hashes match. Artifacts and
+quality evidence: `/tmp/liuxin-metadata-search-final`; runtime log:
+`/tmp/liuxin-search-final.log`; helper: `/tmp/liuxin-run-search-final.py`.
+Formatting/lint, dependency checks and implementation typing passed (mypy 533
+files). Both negative contract lanes passed after fixing two misplaced expected
+error comments: 113 basedpyright / 109 mypy cases. See
+`/tmp/liuxin-search-quality.log` and `/tmp/liuxin-search-contracts-{pyright,mypy}.log`.
+All 49 tooling/documentation tests passed; the proposed snapshot checks 224 guides
+and 1,918 local links (`/tmp/liuxin-search-docs-final.log`). Early runtime failures
+were test collection naming and an incorrect case-tie expectation; native sorting
+uses normalized text, then original text, then ID. No runtime implementation
+change was needed for those failures. Changes belong to the **2026-11-19** commit
+batch on `caches-calibre-compat-boundary`, alongside the metadata adapter slice.
+See [search contract](../dev-docs/caches/metadata-api.md#search-requests-and-pages).
+
+Native metadata adapter, **2026-11-18**, implementation and validation complete:
+`caches.metadata.MetadataAPI` implements the declared contract and `Cache.metadata`
+exposes it lazily. Standalone composition supports no cache and an explicitly chosen
+fallback policy; no new top-level package. WEMI CRUD, native metadata/search,
+compound Catalog writes, detached values and transaction/freshness receipts are
+implemented. ReadCache stays Catalog-independent. Core transport migration remains
+CACHE05 follow-up. See [adapter guide](../dev-docs/caches/metadata-api.md).
+
+New behavior tests cover all three native backends and uncached operation,
+SQLite/APSW transaction completion, receipt-bearing refresh failure, partial or
+corrupt reads, retained bindings and concurrent close/read. Deferred metadata
+writes now retain a shared refresh guard until the actual outer commit or rollback,
+including across threads and nested savepoint rollback. Completion only releases
+the guard; it never reopens a cleared or closed cache. The 47 new cases are
+mandatory (2,874 total). Final combined run: **249 passed, six expected capability
+skips**, all **61 selected mandatory setup/call/teardown audits passed**. Runtime
+evidence is in `/tmp/liuxin-metadata-final-v4`; all 464 saved source/test/manifest
+hashes match. Full quality passed in `/tmp/liuxin-metadata-quality-v4.log`
+(mypy 530 files; basedpyright clean; 110/106 negative contracts). All 49 tooling
+tests passed; proposed documentation has 224 guides, 1,915 valid local links and
+complete navigation. The earlier v3 run was interrupted and is not final evidence.
+
+Next: route Core metadata handlers through the adapter while preserving transport
+contracts; measure conservative full-refresh/live-capture costs before optimizing.
+An adjacent inspection found older schema-directed writer deferral still relies
+on thread-local macro depth. The new shared completion guard protects metadata
+operations; applying it to those older routes needs its own cross-thread review
+and tests. This is not whole-cache sign-off or live PostgreSQL validation.
+The earlier cache batch is committed as `ccec432b` and published in
+[PR #189](https://github.com/ajCameron/LiuXin-alpha/pull/189). This adapter work is
+included in the **2026-11-19** commit batch; unrelated drafts, their review index
+and the data submodule remain untouched.
+The older publication checkpoint below describes the state before that PR opened.
+
 Cache PR publication checkpoint, **2026-11-18**: the user requested a PR for
 `caches-calibre-compat-boundary`. The three earlier local commits and the accumulated
 optimization, lifecycle, typing and metadata-interface work form the publication

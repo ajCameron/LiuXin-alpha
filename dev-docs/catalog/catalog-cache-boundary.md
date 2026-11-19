@@ -105,7 +105,12 @@ refresh policy remain owned by the cache implementation. See
 
 ## Write contract
 
-With an attached cache, the preferred application write entry points are:
+With an attached cache, metadata-shaped writes use `cache.metadata`, for example
+`cache.metadata.works.update(work_id, {"title": "Revised title"})` or
+`cache.metadata.mutations.replace_metadata(...)`. These operations return explicit
+persistence/freshness receipts and coordinate complete metadata dependencies.
+
+Schema-directed field writes retain their existing entry points:
 
 ```python
 cache.create_writer(...)
@@ -211,14 +216,14 @@ a dependency on the cache layer.
 
 ## Metadata access interface direction — 2026-11-18
 
-**Interface declared; bound implementation and caller migration remain pending.**
+**Interface and bound cache adapter implemented; Core caller migration remains pending.**
 [MetadataAPIInterface](../../src/LiuXin_alpha/catalog/api/metadata_access.py) defines a
 native metadata-facing contract in `LiuXin_alpha.catalog.api.metadata_access`,
-alongside Catalog's existing public protocols. The future bound adapter belongs
+alongside Catalog's existing public protocols. The [bound adapter](../caches/metadata-api.md) lives
 in `caches`, alongside its existing Catalog write bridge. This uses existing
 top-level packages. Importing the contract does not construct Catalog, cache or
-metadata services. Neither the current Catalog nor Cache object claims to
-implement it.
+metadata services. Catalog and Cache retain their own APIs; `Cache.metadata` exposes the
+implementing service.
 
 The interface takes its vocabulary from Catalog: `works`, `expressions`,
 `manifestations`, `items`, `search` and `mutations`. Entity services offer
@@ -229,7 +234,7 @@ separate operation, not an implied shared snapshot. Compound mutations retain
 Catalog's `create_wemi_stack`, `attach_metadata`, `replace_metadata`, `link_wemi`
 and `unlink_wemi` vocabulary and semantic rules.
 
-The planned implementation borrows Catalog and an optional cache for the same
+The implementation borrows Catalog and an optional cache for the same
 database once; their composing caller retains ownership and shutdown duties.
 Core can construct and expose it, but the service must also be
 usable in process without Core's command dispatcher. Cache selection and database

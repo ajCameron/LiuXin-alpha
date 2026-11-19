@@ -1217,12 +1217,39 @@ def metadata_access_contracts() -> None:
         MetadataReference,
         MetadataWriteReceipt,
     )
+    from LiuXin_alpha.catalog.api.metadata_search import (
+        MetadataSearchField,
+        MetadataSearchFilter,
+        MetadataSearchPage,
+        MetadataSearchRequest,
+        MetadataSearchSort,
+        MetadataSortField,
+    )
 
     def consume(api: MetadataAPIInterface) -> None:
         assert_type(api.works, MetadataEntityInterface[WorkMetadataAPI])
         assert_type(api.works.get(7), WorkMetadataAPI | None)
         assert_type(api.items.require(9), ItemMetadataAPI)
         assert_type(api.search.find("author:Herbert"), tuple[MetadataReference, ...])
+        request = MetadataSearchRequest(
+            filters=(MetadataSearchFilter("year", "gte", 2000),),
+            sort=(MetadataSearchSort("title"),),
+        )
+        assert_type(api.search.query(request), MetadataSearchPage)
+        assert_type(api.search.fields(), tuple[MetadataSearchField, ...])
+        assert_type(api.search.sort_fields(), tuple[MetadataSortField, ...])
+        assert_type(api.search.query(request).generation, int | None)
+        api.search.validate(request)
+        api.search.query("title:Dune")  # expect-error: reportArgumentType arg-type
+        MetadataSearchFilter(
+            "year",
+            "between",  # expect-error: reportArgumentType arg-type
+            2000,
+        )
+        MetadataSearchSort(
+            "title",
+            "descending",  # expect-error: reportArgumentType arg-type
+        )
         receipt = api.works.update(7, {"title": "Dune"})
         assert_type(receipt, MetadataWriteReceipt[int])
         assert_type(receipt.result, int)
@@ -1236,6 +1263,15 @@ def metadata_access_contracts() -> None:
         work = api.works.require(7)
         item: ItemMetadataAPI = work  # expect-error: reportAssignmentType -
         del item
+
+    from LiuXin_alpha.caches.metadata import MetadataAPI
+    from LiuXin_alpha.caches.cache import Cache
+    from LiuXin_alpha.catalog.catalog import Catalog
+
+    def bind(catalog: Catalog, cache: Cache) -> MetadataAPIInterface:
+        bound: MetadataAPIInterface = MetadataAPI(catalog, cache=cache)
+        assert_type(cache.metadata, MetadataAPIInterface)
+        return bound
 
     receipt = MetadataWriteReceipt(
         result=7, changed=True, persistence="committed", cache="dirty", generation=3

@@ -15,6 +15,7 @@ from LiuXin_alpha.caches.api.cache_api import CacheState
 from LiuXin_alpha.caches.read_cache import ReadCache
 
 if TYPE_CHECKING:
+    from LiuXin_alpha.catalog.api.metadata_access import MetadataAPIInterface
     from LiuXin_alpha.catalog.api.common import DatabaseHandle
     from LiuXin_alpha.catalog.catalog import Catalog
     from LiuXin_alpha.catalog.write import (
@@ -194,6 +195,25 @@ class _CacheCatalogFacade:
 
 class Cache(ReadCache):
     """Add Catalog-mediated writes to the reusable read-cache facade."""
+
+    @property
+    def metadata(self) -> MetadataAPIInterface:
+        """Bind native metadata reads and coordinated writes to this loaded cache.
+
+        The service borrows this cache and retains its original database identity.
+        It uses complete cached reads with database fallback disabled. Use an
+        explicit MetadataAPI constructor to select a different fallback policy.
+        """
+        from LiuXin_alpha.caches.metadata import MetadataAPI
+        from LiuXin_alpha.catalog.catalog import Catalog
+
+        with self._lock:
+            self._assert_ready()
+            if not hasattr(self, "_metadata_service"):
+                self._metadata_service = MetadataAPI(
+                    Catalog(cast("DatabaseHandle", self.database)), cache=self
+                )
+            return self._metadata_service
 
     @staticmethod
     def _update_dependencies(
