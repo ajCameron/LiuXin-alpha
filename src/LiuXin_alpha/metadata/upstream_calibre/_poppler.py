@@ -18,7 +18,8 @@ The fixes marked ``# LiuXin:`` in the port call this module instead:
 
 It also stands in for ``calibre.ebooks.pdf.pdftohtml``. That module's
 ``PDFTOHTML`` tells calibre where poppler's tools are: here, next to the
-``pdfinfo`` on the PATH.
+``pdfinfo`` on the PATH. The limits and the lookup are shared with LiuXin's
+own reader, in :mod:`LiuXin_alpha.file_formats.pdf.poppler`.
 
 Example:
     >>> cover_scale({"Page size": "612 x 792 pts (letter)"})
@@ -31,13 +32,17 @@ from __future__ import annotations
 
 import os
 import re
-import shutil
 import subprocess
 import traceback
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from contextvars import ContextVar
 
+from LiuXin_alpha.file_formats.pdf.poppler import (
+    PDFINFO_LIMITS,
+    PDFTOPPM_LIMITS,
+    tool_directory,
+)
 from LiuXin_alpha.metadata.upstream_calibre._compat import (
     WorkerError,
     iswindows,
@@ -49,6 +54,7 @@ __all__ = [
     "COVER_PIXELS",
     "PDFINFO_LIMITS",
     "PDFTOPPM_LIMITS",
+    "ToolLimits",
     "check_call",
     "check_output",
     "cover_scale",
@@ -61,10 +67,6 @@ __all__ = [
     "without_poppler",
 ]
 
-#: Limits for ``pdfinfo``, whose output is the Info fields or the XMP packet.
-PDFINFO_LIMITS = ToolLimits(timeout=30.0, cpu_seconds=30, memory_bytes=1 << 30, output_bytes=8 << 20)
-#: Limits for ``pdftoppm``, which draws the first page as the cover.
-PDFTOPPM_LIMITS = ToolLimits(timeout=60.0, cpu_seconds=60, memory_bytes=1 << 30, output_bytes=64 << 20)
 #: The longest side of a cover drawn from a page too large for 150 dpi.
 COVER_PIXELS = 3000
 #: Windows process-creation flags, as calibre's ``pdftohtml`` module defines them.
@@ -77,21 +79,6 @@ _PDF_DATE = re.compile(
     r"\s*(?:D:)?(\d{4})(\d{2})?(\d{2})?(\d{2})?(\d{2})?(\d{2})?\s*(?:([Zz])|([+-])(\d{2})(?:'?(\d{2}))?'?)?"
 )
 _without_poppler: ContextVar[bool] = ContextVar("liuxin_pdf_without_poppler", default=False)
-
-
-def tool_directory() -> str | None:
-    """
-    Find the directory of the ``pdfinfo`` on the PATH, where poppler's other tools are too.
-
-    Example:
-        >>> tool_directory() is None or os.path.isdir(tool_directory())
-        True
-
-
-    :return: The directory, or ``None`` when poppler is not installed.
-    """
-    found = shutil.which("pdfinfo")
-    return os.path.dirname(found) if found else None
 
 
 def __getattr__(name: str) -> str:

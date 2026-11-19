@@ -14,16 +14,15 @@ Example:
 
 from __future__ import annotations
 
-import importlib.util
 import io
 from pathlib import Path
 
 import pytest
 
+import LiuXin_alpha.utils.plugins as plugin_package
 from LiuXin_alpha.metadata.file_sources import pdf
 
 FIXTURES = Path(__file__).resolve().parents[2] / "fixtures" / "pdf_metadata"
-HAVE_CRYPTOGRAPHY = importlib.util.find_spec("cryptography") is not None
 
 INFO = ("Corpus Title — café", ["Ann Author", "Bob Writer"], "9780306406157")
 XMP = ("XMP Title — 東京", ["Carol XMP", "Дмитрий XMP"], None)
@@ -88,11 +87,12 @@ def test_metadata_source_reads_each_storage_layout(name: str) -> None:
     :return: None; the function records state or raises through its assertions.
     """
     path = FIXTURES / f"{name}.pdf"
-    if name.startswith("aes") and not HAVE_CRYPTOGRAPHY:
-        with pytest.raises(pdf.PdfParseError, match="cryptography"):
-            pdf.get_metadata_inplace(path)
-        return
     title, authors, isbn = EXPECTED[name]
+    module, _ = plugin_package.plugins["aes"]
+    if name == "aes128_cleartext_xmp" and getattr(module, "SOURCE", None) == "poppler":
+        # Without cryptography the aes plugin hands AES files to pdfinfo, which garbles this
+        # packet (see dev-docs/file_formats/pdf), so the Info fields stand.
+        title, authors, isbn = INFO
     md = pdf.get_metadata_inplace(path)
     assert md.title == title
     assert _authors(md) == authors
@@ -117,8 +117,7 @@ def test_password_protected_pdf_is_a_parse_error_not_ciphertext() -> None:
     :return: None; the function records state or raises through its assertions.
     """
     path = FIXTURES / "aes256_user_password.pdf"
-    message = "needs a password" if HAVE_CRYPTOGRAPHY else "cryptography"
-    with pytest.raises(pdf.PdfParseError, match=message):
+    with pytest.raises(pdf.PdfParseError, match="needs a password"):
         pdf.get_metadata_inplace(path)
     md = pdf.get_metadata_inplace(path, fallback_on_parse_error=True)
     assert md.title == "aes256_user_password"

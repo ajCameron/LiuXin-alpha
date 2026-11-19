@@ -1,6 +1,7 @@
 # Utils plugins: native modules and their fallbacks
 
-Written **2026-11-18**, when the `dateutil_parser` plugin was added (PR #187).
+Written **2026-11-18**, when the `dateutil_parser` plugin was added (PR #187);
+the `aes` plugin was added on 2026-11-19 (PR #203).
 
 `LiuXin_alpha.utils.plugins` stands in for calibre's `calibre_extensions`: the
 compiled modules calibre ships (`speedup`, `lzx`, `msdes`, `chmlib`, `icu` and
@@ -101,6 +102,35 @@ The first row matters most for an archive: calibre fills in a default date, so
 1.5 would turn an empty or junk `<dc:date>` into an invented publication date.
 LiuXin's own date code still uses 1.5. Moving it onto the `dateutil_parser`
 plugin would remove these behaviours, and is a separate change.
+
+## `aes`: cryptography, then poppler, then pure Python
+
+Written **2026-11-19** (PR #203). The `aes` plugin gives LiuXin's PDF reader
+AES-CBC, for files encrypted with AES-128 or AES-256. Every layer exposes
+`cbc_encrypt(key, iv, data)`, `cbc_decrypt(key, iv, data)` (whole blocks, no
+padding) and `SOURCE`:
+
+| Layer | Module | Serves | Probe |
+| --- | --- | --- | --- |
+| `fallback_alpha` | `fallbacks/fallback_alpha/aes.py` | the `cryptography` package (the `encryption` extra) | it imports and gives FIPS 197's known answer |
+| `fallback_beta` | `fallbacks/fallback_beta/aes.py` | poppler: no cipher (`DECRYPTS_IN_PROCESS = False`); the PDF reader hands AES files to `pdfinfo`, which decrypts them | `cryptography` does not work, and `pdfinfo` is on the PATH |
+| `fallbacks` | `fallbacks/aes.py` | AES in pure Python (FIPS 197, with 32-bit lookup tables): about 12 µs a block | neither of the above can serve |
+
+As with `dateutil_parser`, each lower layer's probe declines while a better one
+can serve, so a choice remembered before `cryptography` or poppler was installed
+moves back up.
+
+Tests in `tests/utils/plugins/test_aes_plugin.py` check that:
+
+- the pure-Python layer gives FIPS 197's and SP 800-38A's answers, and agrees
+  with `cryptography` on 2,000 random keys and messages;
+- child processes that refuse `cryptography`, with and without `pdfinfo` on
+  the PATH, get the poppler and pure-Python layers, and the second reads an
+  AES-256 PDF;
+- `cryptography` replaces a remembered pure-Python choice once it imports.
+
+`tests/file_formats/pdf/test_pdf_object_reader.py` reads every AES file of the
+PDF corpus through each layer.
 
 ## Adding a plugin
 

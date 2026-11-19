@@ -5,7 +5,8 @@ The reader follows the file's cross-reference data as a PDF viewer does: classic
 and cross-reference streams, hybrid files, incremental updates chained by ``/Prev``,
 object streams, and files with junk before the header. When that data is missing or
 wrong it indexes the objects with one linear scan instead. It decrypts files that open
-with an empty password (see :mod:`LiuXin_alpha.file_formats.pdf.security`), decodes
+with an empty password (see :mod:`LiuXin_alpha.file_formats.pdf.security`; an AES file
+goes to poppler's ``pdfinfo`` when the ``aes`` utils plugin says so), decodes
 text strings as the PDF specification says (UTF-16 with a byte order mark, otherwise
 PDFDocEncoding, with raw UTF-8 accepted because many tools write it), and reads only
 the objects metadata needs, from a file or from bytes, without loading the whole file.
@@ -30,9 +31,13 @@ import re
 from collections import deque
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
-from typing import IO, Any, NamedTuple, Self, TypeVar
+from typing import IO, Any, NamedTuple, Self, TypeVar, cast
 
-from LiuXin_alpha.file_formats.pdf.errors import PdfEncryptedError, PdfReadError
+from LiuXin_alpha.file_formats.pdf.errors import (
+    PdfEncryptedError,
+    PdfNeedsPoppler,
+    PdfReadError,
+)
 from LiuXin_alpha.file_formats.pdf.filters import FILTER_NAMES, apply_filter
 from LiuXin_alpha.file_formats.pdf.security import StandardSecurityHandler
 from LiuXin_alpha.file_formats.pdf.syntax import (
@@ -52,6 +57,7 @@ __all__ = [
     "PdfLimits",
     "PdfMetadata",
     "PdfName",
+    "PdfNeedsPoppler",
     "PdfReadError",
     "PdfRef",
     "PdfStream",
@@ -131,6 +137,8 @@ class PdfMetadata:
     version: str | None
     #: Problems that cost part of the metadata, such as an unreadable XMP stream.
     problems: tuple[str, ...] = ()
+    #: What read the file: this reader, or poppler for AES files without ``cryptography``.
+    read_by: str = "LiuXin's object reader"
 
 
 class _Entry(NamedTuple):
@@ -1585,4 +1593,10 @@ def read_metadata(target: bytes | bytearray | memoryview | IO[bytes], *, limits:
     :raises PdfReadError: The file is not a PDF or holds no readable objects.
     :raises PdfEncryptedError: The file is encrypted and cannot be opened with an empty password.
     """
-    return PdfDocument(target, limits=limits).metadata()
+    try:
+        return PdfDocument(target, limits=limits).metadata()
+    except PdfNeedsPoppler:
+        # The aes plugin's poppler layer serves: pdfinfo decrypts the file itself.
+        from LiuXin_alpha.file_formats.pdf.poppler import read_with_poppler
+
+        return cast("PdfMetadata", read_with_poppler(target))

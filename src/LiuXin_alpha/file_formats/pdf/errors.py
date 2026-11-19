@@ -10,7 +10,7 @@ Example:
 
 from __future__ import annotations
 
-__all__ = ["PdfEncryptedError", "PdfReadError"]
+__all__ = ["PdfEncryptedError", "PdfNeedsPoppler", "PdfReadError"]
 
 
 class PdfReadError(ValueError):
@@ -30,4 +30,18 @@ class PdfEncryptedError(PdfReadError):
     Example:
         >>> str(PdfEncryptedError("this PDF needs a password to open"))
         'this PDF needs a password to open'
+    """
+
+
+class PdfNeedsPoppler(PdfEncryptedError):
+    """
+    Signal an AES-encrypted PDF that the ``aes`` plugin says to read with poppler.
+
+    Without the ``cryptography`` package, and with poppler's ``pdfinfo`` on the
+    PATH, the plugin's poppler layer serves: :func:`~LiuXin_alpha.file_formats.pdf.objects.read_metadata`
+    catches this and reads the file with ``pdfinfo``, which decrypts it itself.
+
+    Example:
+        >>> issubclass(PdfNeedsPoppler, PdfEncryptedError)
+        True
     """

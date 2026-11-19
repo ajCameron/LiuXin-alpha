@@ -63,7 +63,8 @@ readers, not the conversion code.
   not on the PATH the PDF port reports itself unavailable and the provider
   without poppler reads PDFs instead. CI installs poppler so that both run.
 - **cryptography** stays optional (the `encryption` extra). LiuXin's PDF reader
-  needs it for AES-encrypted files; poppler does not.
+  takes AES from the `aes` utils plugin: `cryptography`, else poppler, else
+  pure-Python AES (see [utils plugin layers](utils-plugin-layers.md)).
 
 ## How the ports compare
 

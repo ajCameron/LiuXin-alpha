@@ -50,7 +50,8 @@ UNIVERSAL_PLUGINS = [
     "bzzdec",
     "matcher",
     "tokenizer",
-    "dateutil_parser"]
+    "dateutil_parser",
+    "aes"]
 
 if iswindows:
     UNIVERSAL_PLUGINS.extend(["winutil", "wpd", "winfonts"])
