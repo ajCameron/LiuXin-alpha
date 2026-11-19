@@ -314,7 +314,10 @@ def test_pdf_reader_tests_run_with_poppler() -> None:
     jobs = _workflow()["jobs"]
     for name in ("file-formats-fast", "full"):
         commands = [step.get("run", "") for step in jobs[name]["steps"]]
-        assert any("apt-get install" in command and "poppler-utils" in command for command in commands), name
+        assert any(
+            "apt-get install" in command and "poppler-utils" in command
+            for command in commands
+        ), name
 
 
 def test_quality_requires_live_readonly_mount_coverage() -> None:
