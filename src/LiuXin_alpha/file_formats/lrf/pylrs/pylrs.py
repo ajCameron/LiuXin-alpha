@@ -5855,9 +5855,8 @@ class ImageStream(LrsObject, LrsContainer):
         :return: None; the operation mutates state, writes output or performs cleanup in
             place.
         """
-        imageFile = file(self.filename, "rb")
-        imageData = imageFile.read()
-        imageFile.close()
+        with open(self.filename, "rb") as imageFile:
+            imageData = imageFile.read()
 
         isObj = LrfObject("ImageStream", self.objId)
         if self.comment is not None:

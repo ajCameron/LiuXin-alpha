@@ -22,7 +22,7 @@ from LiuXin_alpha.file_formats.lrf.pylrs.pylrfopt import tagListOptimizer
 
 # Py2/Py3 compatibility
 from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems
-from LiuXin_alpha.utils.libraries.liuxin_six import six_cStringIO
+from LiuXin_alpha.utils.libraries.liuxin_six import six_BytesIO
 
 PYLRF_VERSION = "1.0"
 
@@ -937,7 +937,7 @@ class LrfTagStream(LrfStreamBase):
         :return: The normalized value, metadata record, path, stream result or collection
             described above.
         """
-        stream = six_cStringIO()
+        stream = six_BytesIO()
         if optimizeTags:
             tagListOptimizer(self.tags)
 
@@ -1203,7 +1203,7 @@ class LrfToc(LrfObject):
         :return: The normalized value, metadata record, path, stream result or collection
             described above.
         """
-        stream = six_cStringIO()
+        stream = six_BytesIO()
         nEntries = len(toc)
 
         writeDWord(stream, nEntries)
