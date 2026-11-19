@@ -27,10 +27,11 @@ request a reload. Those lifecycle calls do not give Catalog mutations ownership
 of cache contents or write reconciliation; the cache implementation performs
 the refresh.
 
-The next composition step is the declared
-[MetadataAPIInterface](../catalog/catalog-cache-boundary.md#metadata-access-interface-direction--2026-11-18):
-native metadata reads and semantic writes through a bound Catalog/cache service.
-The interface exists; its implementation remains [CACHE05](next_tasks.md#cache05-implement-the-bound-metadata-access-service).
+The bound [native metadata service](metadata-api.md) is available as
+`cache.metadata` or `MetadataAPI(catalog, cache=cache)`. It implements the declared
+[MetadataAPIInterface](../catalog/catalog-cache-boundary.md#metadata-access-interface-direction--2026-11-18)
+with detached metadata reads, semantic mutations and persistence/freshness receipts.
+Core command migration remains [CACHE05](next_tasks.md#cache05-implement-the-bound-metadata-access-service).
 
 ## Backend choice
 

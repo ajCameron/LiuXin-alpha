@@ -1,12 +1,12 @@
 """Specify native metadata access over a bound Catalog and optional cache.
 
-This is an interface-first contract, not a working facade. Catalog remains the
+The bound implementation lives in ``caches.metadata.MetadataAPI``. Catalog remains the
 semantic persistence authority; the implementing service must coordinate reads,
 writes and cache freshness. Names follow Catalog's WEMI repositories and mutation
 services, while reads return existing native metadata containers, not SQL rows.
 
-The contract belongs with Catalog's other public protocols. The future bound
-adapter belongs in caches alongside its Catalog write bridge; this declaration
+The contract belongs with Catalog's other public protocols. The bound
+adapter lives in caches alongside its Catalog write bridge; this declaration
 does not give Catalog mutations responsibility for cache reconciliation.
 
 Returned containers must be detached from mutable cache storage. Editing one does
@@ -20,8 +20,16 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Literal, Protocol
 
+from LiuXin_alpha.catalog.api.metadata_search import MetadataReference
+
 if TYPE_CHECKING:
     from LiuXin_alpha.catalog.api.common import CreatedWemiStack, WemiLevel
+    from LiuXin_alpha.catalog.api.metadata_search import (
+        MetadataSearchField,
+        MetadataSearchPage,
+        MetadataSearchRequest,
+        MetadataSortField,
+    )
     from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.expression_containers.expression_metadata_api import (
         ExpressionMetadataAPI,
     )
@@ -40,18 +48,6 @@ if TYPE_CHECKING:
 
 
 @dataclass(frozen=True, slots=True)
-class MetadataReference:
-    """Identify a persisted WEMI entity without a physical table name.
-
-    Adapters validate IDs and existence; this value supplies no runtime validation
-    or database binding. References belong to the service's bound database.
-    """
-
-    level: WemiLevel
-    entity_id: int
-
-
-@dataclass(frozen=True, slots=True)
 class MetadataWriteReceipt[ResultT]:
     """Keep persistence and cache visibility explicit after a semantic write.
 
@@ -63,7 +59,9 @@ class MetadataWriteReceipt[ResultT]:
     reconciliation and is carried by an error, never a successful write return.
     ``not_configured`` and a None generation describe operation without a cache.
 
-    ``changed`` describes effects within the transaction, not a durable commit.
+    ``changed`` describes an applied mutation request within the transaction, not
+    a durable commit or a whole-metadata equality comparison. Supplied replacements
+    may report true when values already match; known no-ops report false.
     A receipt captures return-time state; a pending receipt does not later become
     committed in place. Its generation is not evidence of transaction durability.
     This passive value does not validate state combinations or freeze result
@@ -134,6 +132,28 @@ class MetadataEntityInterface[MetadataT](Protocol):
 
 class MetadataSearchInterface(Protocol):
     """Apply Catalog's native WEMI search meaning through the bound read service."""
+
+    def query(self, request: MetadataSearchRequest) -> MetadataSearchPage:
+        """Return a complete page with totals, stable ordering and provenance."""
+        ...
+
+    def fields(self, *, level: WemiLevel = "work") -> tuple[MetadataSearchField, ...]:
+        """Discover semantic filters and aliases for this result level."""
+        ...
+
+    def sort_fields(
+        self, *, level: WemiLevel = "work"
+    ) -> tuple[MetadataSortField, ...]:
+        """Discover scalar ordering keys without implying relationship aggregation."""
+        ...
+
+    def validate(self, request: MetadataSearchRequest) -> None:
+        """Validate syntax and options without executing or hydrating matches.
+
+        Invalid input raises MetadataSearchValidationError with a parameter path.
+        Execution availability and database integrity are checked during query.
+        """
+        ...
 
     def find(
         self,
