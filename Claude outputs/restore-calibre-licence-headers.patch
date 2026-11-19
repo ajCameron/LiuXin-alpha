@@ -1,0 +1,291 @@
+From 4eb95a0bc1d6a00ec008f26ae02c9ab6ad153ab5 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Mon, 16 Nov 2026 02:39:21 +0000
+Subject: [PATCH] Restore upstream licence notices on 20 Calibre-derived
+ modules
+
+These modules carry no licence header but match a specific calibre source
+file on both defined names and code lines (compared against calibre 9.18).
+Add a provenance comment naming the upstream file and its terms as stated
+in calibre's COPYRIGHT file, with an SPDX identifier where upstream is
+GPL v3 or Apache 2.0. Comment-only change: each file's AST is unchanged.
+
+Co-Authored-By: Claude Fable 5.2 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01FxjxHSWayX529W5vLbxsjy
+---
+ src/LiuXin_alpha/file_formats/hyphenate.py                    | 3 +++
+ src/LiuXin_alpha/file_formats/lrf/pylrs/elements.py           | 4 ++++
+ src/LiuXin_alpha/file_formats/opf/opf3.py                     | 4 ++++
+ src/LiuXin_alpha/file_formats/readability/htmls.py            | 4 ++++
+ src/LiuXin_alpha/file_formats/readability/readability.py      | 4 ++++
+ src/LiuXin_alpha/file_formats/rtf2xml/configure_txt.py        | 3 +++
+ src/LiuXin_alpha/file_formats/rtf2xml/convert_to_tags.py      | 3 +++
+ src/LiuXin_alpha/file_formats/rtf2xml/inline.py               | 3 +++
+ src/LiuXin_alpha/file_formats/rtf2xml/options_trem.py         | 3 +++
+ src/LiuXin_alpha/metadata/book/json_codec.py                  | 4 ++++
+ src/LiuXin_alpha/metadata/book/serialize.py                   | 4 ++++
+ src/LiuXin_alpha/metadata/file_sources/mobi.py                | 4 ++++
+ src/LiuXin_alpha/resources/calibre/default_tweaks.py          | 4 ++++
+ src/LiuXin_alpha/utils/config/__init__.py                     | 4 ++++
+ src/LiuXin_alpha/utils/image_tools/_img_qt.py                 | 4 ++++
+ src/LiuXin_alpha/utils/libraries/calibre_polyglot/binary.py   | 4 ++++
+ src/LiuXin_alpha/utils/libraries/calibre_polyglot/builtins.py | 4 ++++
+ src/LiuXin_alpha/utils/libraries/calibre_zipfile.py           | 4 ++++
+ src/LiuXin_alpha/utils/libraries/wordcount.py                 | 4 ++++
+ src/LiuXin_alpha/utils/storage/local/filenames.py             | 4 ++++
+ 20 files changed, 75 insertions(+)
+
+diff --git a/src/LiuXin_alpha/file_formats/hyphenate.py b/src/LiuXin_alpha/file_formats/hyphenate.py
+index 3920054b..f7984d01 100644
+--- a/src/LiuXin_alpha/file_formats/hyphenate.py
++++ b/src/LiuXin_alpha/file_formats/hyphenate.py
+@@ -1,3 +1,6 @@
++# Derived from calibre (https://calibre-ebook.com): src/calibre/ebooks/hyphenate.py
++# Upstream: Ned Batchelder; public domain, per calibre COPYRIGHT.
++
+ """
+ Insert language-aware soft hyphens into words and document text.
+ 
+diff --git a/src/LiuXin_alpha/file_formats/lrf/pylrs/elements.py b/src/LiuXin_alpha/file_formats/lrf/pylrs/elements.py
+index 565c002c..844f5852 100644
+--- a/src/LiuXin_alpha/file_formats/lrf/pylrs/elements.py
++++ b/src/LiuXin_alpha/file_formats/lrf/pylrs/elements.py
+@@ -1,3 +1,7 @@
++# SPDX-License-Identifier: GPL-3.0-only
++# Derived from calibre (https://calibre-ebook.com): src/calibre/ebooks/lrf/pylrs/elements.py
++# Upstream: copyright Kovid Goyal and calibre contributors; licence GPL v3, per calibre COPYRIGHT.
++
+ """
+ Define reusable XML element descriptors for LRS document construction.
+ 
+diff --git a/src/LiuXin_alpha/file_formats/opf/opf3.py b/src/LiuXin_alpha/file_formats/opf/opf3.py
+index 0cee5d11..272a4b42 100644
+--- a/src/LiuXin_alpha/file_formats/opf/opf3.py
++++ b/src/LiuXin_alpha/file_formats/opf/opf3.py
+@@ -1,5 +1,9 @@
+ #!/usr/bin/env python2
+ # vim:fileencoding=utf-8
++# SPDX-License-Identifier: GPL-3.0-only
++# Derived from calibre (https://calibre-ebook.com): src/calibre/ebooks/metadata/opf3.py
++# Upstream: copyright 2016, Kovid Goyal <kovid at kovidgoyal.net>; licence GPL v3, per calibre COPYRIGHT.
++
+ # License: GPLv3 Copyright: 2016, Kovid Goyal <kovid at kovidgoyal.net>
+ 
+ """
+diff --git a/src/LiuXin_alpha/file_formats/readability/htmls.py b/src/LiuXin_alpha/file_formats/readability/htmls.py
+index ecc49db6..7d9b7b0d 100644
+--- a/src/LiuXin_alpha/file_formats/readability/htmls.py
++++ b/src/LiuXin_alpha/file_formats/readability/htmls.py
+@@ -1,3 +1,7 @@
++# SPDX-License-Identifier: Apache-2.0
++# Derived from calibre (https://calibre-ebook.com): src/calibre/ebooks/readability/htmls.py
++# Upstream: copyright holder unknown; licence Apache 2.0, per calibre COPYRIGHT.
++
+ """
+ Score and normalize HTML fragments for readability extraction.
+ 
+diff --git a/src/LiuXin_alpha/file_formats/readability/readability.py b/src/LiuXin_alpha/file_formats/readability/readability.py
+index db442ab1..1a686ad4 100644
+--- a/src/LiuXin_alpha/file_formats/readability/readability.py
++++ b/src/LiuXin_alpha/file_formats/readability/readability.py
+@@ -1,5 +1,9 @@
+ #!/usr/bin/env python
+ # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
++# SPDX-License-Identifier: Apache-2.0
++# Derived from calibre (https://calibre-ebook.com): src/calibre/ebooks/readability/readability.py
++# Upstream: copyright holder unknown; licence Apache 2.0, per calibre COPYRIGHT.
++
+ 
+ """
+ Extract the principal readable article from arbitrary HTML.
+diff --git a/src/LiuXin_alpha/file_formats/rtf2xml/configure_txt.py b/src/LiuXin_alpha/file_formats/rtf2xml/configure_txt.py
+index 6315214e..c5f91bdd 100644
+--- a/src/LiuXin_alpha/file_formats/rtf2xml/configure_txt.py
++++ b/src/LiuXin_alpha/file_formats/rtf2xml/configure_txt.py
+@@ -1,3 +1,6 @@
++# Derived from calibre (https://calibre-ebook.com): src/calibre/ebooks/rtf2xml/configure_txt.py
++# Upstream: copyright 2002 Paul Henry Tremblay; licence GPL (version not stated), per calibre COPYRIGHT.
++
+ """
+ Read retained RTF-to-XML configuration text.
+ 
+diff --git a/src/LiuXin_alpha/file_formats/rtf2xml/convert_to_tags.py b/src/LiuXin_alpha/file_formats/rtf2xml/convert_to_tags.py
+index 133b43bb..e27e1801 100644
+--- a/src/LiuXin_alpha/file_formats/rtf2xml/convert_to_tags.py
++++ b/src/LiuXin_alpha/file_formats/rtf2xml/convert_to_tags.py
+@@ -1,3 +1,6 @@
++# Derived from calibre (https://calibre-ebook.com): src/calibre/ebooks/rtf2xml/convert_to_tags.py
++# Upstream: copyright 2002 Paul Henry Tremblay; licence GPL (version not stated), per calibre COPYRIGHT.
++
+ """
+ Convert normalized RTF tokens into structured XML tags.
+ 
+diff --git a/src/LiuXin_alpha/file_formats/rtf2xml/inline.py b/src/LiuXin_alpha/file_formats/rtf2xml/inline.py
+index 3ffea25c..cec893b1 100644
+--- a/src/LiuXin_alpha/file_formats/rtf2xml/inline.py
++++ b/src/LiuXin_alpha/file_formats/rtf2xml/inline.py
+@@ -1,3 +1,6 @@
++# Derived from calibre (https://calibre-ebook.com): src/calibre/ebooks/rtf2xml/inline.py
++# Upstream: copyright 2002 Paul Henry Tremblay; licence GPL (version not stated), per calibre COPYRIGHT.
++
+ """
+ Group inline RTF formatting and emit normalized inline elements.
+ 
+diff --git a/src/LiuXin_alpha/file_formats/rtf2xml/options_trem.py b/src/LiuXin_alpha/file_formats/rtf2xml/options_trem.py
+index 97ee47e1..1794d70d 100644
+--- a/src/LiuXin_alpha/file_formats/rtf2xml/options_trem.py
++++ b/src/LiuXin_alpha/file_formats/rtf2xml/options_trem.py
+@@ -1,3 +1,6 @@
++# Derived from calibre (https://calibre-ebook.com): src/calibre/ebooks/rtf2xml/options_trem.py
++# Upstream: copyright 2002 Paul Henry Tremblay; licence GPL (version not stated), per calibre COPYRIGHT.
++
+ """
+ Trim unsupported retained RTF conversion options.
+ 
+diff --git a/src/LiuXin_alpha/metadata/book/json_codec.py b/src/LiuXin_alpha/metadata/book/json_codec.py
+index 7a736d16..5fa68a21 100644
+--- a/src/LiuXin_alpha/metadata/book/json_codec.py
++++ b/src/LiuXin_alpha/metadata/book/json_codec.py
+@@ -1,3 +1,7 @@
++# SPDX-License-Identifier: GPL-3.0-only
++# Derived from calibre (https://calibre-ebook.com): src/calibre/ebooks/metadata/book/json_codec.py
++# Upstream: copyright Kovid Goyal and calibre contributors; licence GPL v3, per calibre COPYRIGHT.
++
+ """
+ Encode device book lists as JSON-compatible metadata and restore their typed fields.
+ 
+diff --git a/src/LiuXin_alpha/metadata/book/serialize.py b/src/LiuXin_alpha/metadata/book/serialize.py
+index 814fb084..8988dd6f 100644
+--- a/src/LiuXin_alpha/metadata/book/serialize.py
++++ b/src/LiuXin_alpha/metadata/book/serialize.py
+@@ -1,5 +1,9 @@
+ #!/usr/bin/env python2
+ # vim:fileencoding=utf-8
++# SPDX-License-Identifier: GPL-3.0-only
++# Derived from calibre (https://calibre-ebook.com): src/calibre/ebooks/metadata/book/serialize.py
++# Upstream: copyright 2017, Kovid Goyal <kovid at kovidgoyal.net>; licence GPL v3, per calibre COPYRIGHT.
++
+ # License: GPLv3 Copyright: 2017, Kovid Goyal <kovid at kovidgoyal.net>
+ 
+ """
+diff --git a/src/LiuXin_alpha/metadata/file_sources/mobi.py b/src/LiuXin_alpha/metadata/file_sources/mobi.py
+index 747166b4..b0680c17 100644
+--- a/src/LiuXin_alpha/metadata/file_sources/mobi.py
++++ b/src/LiuXin_alpha/metadata/file_sources/mobi.py
+@@ -1,4 +1,8 @@
+ #!/usr/bin/env python
++# SPDX-License-Identifier: GPL-3.0-only
++# Derived from calibre (https://calibre-ebook.com): src/calibre/ebooks/metadata/mobi.py
++# Upstream: copyright 2009, Kovid Goyal <kovid at kovidgoyal.net>; licence GPL v3, per calibre COPYRIGHT.
++
+ # License: GPLv3 Copyright: 2009, Kovid Goyal <kovid at kovidgoyal.net>
+ 
+ 
+diff --git a/src/LiuXin_alpha/resources/calibre/default_tweaks.py b/src/LiuXin_alpha/resources/calibre/default_tweaks.py
+index 1b11afd5..84e5b7e5 100644
+--- a/src/LiuXin_alpha/resources/calibre/default_tweaks.py
++++ b/src/LiuXin_alpha/resources/calibre/default_tweaks.py
+@@ -1,5 +1,9 @@
+ #!/usr/bin/env python
+ # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
++# SPDX-License-Identifier: GPL-3.0-only
++# Derived from calibre (https://calibre-ebook.com): resources/default_tweaks.py
++# Upstream: copyright 2010, Kovid Goyal <kovid at kovidgoyal.net>; licence GPL v3, per calibre COPYRIGHT.
++
+ # License: GPLv3 Copyright: 2010, Kovid Goyal <kovid at kovidgoyal.net>
+ 
+ 
+diff --git a/src/LiuXin_alpha/utils/config/__init__.py b/src/LiuXin_alpha/utils/config/__init__.py
+index 075f66c5..01d473ec 100644
+--- a/src/LiuXin_alpha/utils/config/__init__.py
++++ b/src/LiuXin_alpha/utils/config/__init__.py
+@@ -1,3 +1,7 @@
++# SPDX-License-Identifier: GPL-3.0-only
++# Derived from calibre (https://calibre-ebook.com): src/calibre/utils/config.py
++# Upstream: copyright 2008, Kovid Goyal kovid@kovidgoyal.net; licence GPL v3, per calibre COPYRIGHT.
++
+ """
+ Expose the supported config compatibility surface.
+ 
+diff --git a/src/LiuXin_alpha/utils/image_tools/_img_qt.py b/src/LiuXin_alpha/utils/image_tools/_img_qt.py
+index ae661dca..bf0c238a 100644
+--- a/src/LiuXin_alpha/utils/image_tools/_img_qt.py
++++ b/src/LiuXin_alpha/utils/image_tools/_img_qt.py
+@@ -1,5 +1,9 @@
+ #!/usr/bin/env python2
+ # vim:fileencoding=utf-8
++# SPDX-License-Identifier: GPL-3.0-only
++# Derived from calibre (https://calibre-ebook.com): src/calibre/utils/img.py
++# Upstream: copyright 2015-2019, Kovid Goyal <kovid at kovidgoyal.net>; licence GPL v3, per calibre COPYRIGHT.
++
+ # License: GPLv3 Copyright: 2015, Kovid Goyal <kovid at kovidgoyal.net>
+ 
+ """
+diff --git a/src/LiuXin_alpha/utils/libraries/calibre_polyglot/binary.py b/src/LiuXin_alpha/utils/libraries/calibre_polyglot/binary.py
+index 5d9a0b27..fb6051c9 100644
+--- a/src/LiuXin_alpha/utils/libraries/calibre_polyglot/binary.py
++++ b/src/LiuXin_alpha/utils/libraries/calibre_polyglot/binary.py
+@@ -1,5 +1,9 @@
+ #!/usr/bin/env python
+ # vim:fileencoding=utf-8
++# SPDX-License-Identifier: GPL-3.0-only
++# Derived from calibre (https://calibre-ebook.com): src/polyglot/binary.py
++# Upstream: copyright 2019, Kovid Goyal <kovid at kovidgoyal.net>; licence GPL v3, per calibre COPYRIGHT.
++
+ # License: GPL v3 Copyright: 2019, Kovid Goyal <kovid at kovidgoyal.net>
+ 
+ 
+diff --git a/src/LiuXin_alpha/utils/libraries/calibre_polyglot/builtins.py b/src/LiuXin_alpha/utils/libraries/calibre_polyglot/builtins.py
+index 802d6874..c4666edd 100644
+--- a/src/LiuXin_alpha/utils/libraries/calibre_polyglot/builtins.py
++++ b/src/LiuXin_alpha/utils/libraries/calibre_polyglot/builtins.py
+@@ -1,5 +1,9 @@
+ #!/usr/bin/env python
+ # vim:fileencoding=utf-8
++# SPDX-License-Identifier: GPL-3.0-only
++# Derived from calibre (https://calibre-ebook.com): src/polyglot/builtins.py
++# Upstream: copyright 2018, Kovid Goyal <kovid at kovidgoyal.net>; licence GPL v3, per calibre COPYRIGHT.
++
+ # License: GPL v3 Copyright: 2018, Kovid Goyal <kovid at kovidgoyal.net>
+ 
+ """
+diff --git a/src/LiuXin_alpha/utils/libraries/calibre_zipfile.py b/src/LiuXin_alpha/utils/libraries/calibre_zipfile.py
+index 1632946b..43f02253 100644
+--- a/src/LiuXin_alpha/utils/libraries/calibre_zipfile.py
++++ b/src/LiuXin_alpha/utils/libraries/calibre_zipfile.py
+@@ -1,3 +1,7 @@
++# SPDX-License-Identifier: GPL-3.0-only
++# Derived from calibre (https://calibre-ebook.com): src/calibre/utils/zipfile.py
++# Upstream: copyright Kovid Goyal and calibre contributors; licence GPL v3, per calibre COPYRIGHT. Based in turn on the Python standard library zipfile module.
++
+ 
+ """
+ Read and write ZIP archives through the retained Calibre compatibility implementation.
+diff --git a/src/LiuXin_alpha/utils/libraries/wordcount.py b/src/LiuXin_alpha/utils/libraries/wordcount.py
+index 075cb1ee..ff47b700 100644
+--- a/src/LiuXin_alpha/utils/libraries/wordcount.py
++++ b/src/LiuXin_alpha/utils/libraries/wordcount.py
+@@ -1,4 +1,8 @@
+ #!/usr/bin/env python
++# SPDX-License-Identifier: GPL-3.0-only
++# Derived from calibre (https://calibre-ebook.com): src/calibre/utils/wordcount.py
++# Upstream: copyright Kovid Goyal and calibre contributors; licence GPL v3, per calibre COPYRIGHT.
++
+ 
+ """
+ Count normalized words in plain or markup-derived text.
+diff --git a/src/LiuXin_alpha/utils/storage/local/filenames.py b/src/LiuXin_alpha/utils/storage/local/filenames.py
+index b04edd39..97f5cd86 100644
+--- a/src/LiuXin_alpha/utils/storage/local/filenames.py
++++ b/src/LiuXin_alpha/utils/storage/local/filenames.py
+@@ -1,3 +1,7 @@
++# SPDX-License-Identifier: GPL-3.0-only
++# Derived from calibre (https://calibre-ebook.com): src/calibre/utils/filenames.py
++# Upstream: copyright Kovid Goyal and calibre contributors; licence GPL v3, per calibre COPYRIGHT.
++
+ """
+ Normalize and validate local storage filenames and extensions.
+ 
+-- 
+2.43.0
+
