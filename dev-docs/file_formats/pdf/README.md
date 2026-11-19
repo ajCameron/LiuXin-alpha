@@ -19,9 +19,10 @@ bounded, pure-Python object reader:
 | `file_formats/pdf/security.py` | The Standard security handler, opened with an empty password |
 | `file_formats/pdf/errors.py` | `PdfReadError` and `PdfEncryptedError` |
 
-Writing metadata (`set_metadata`) uses pypdf, from the `pdf` extra
-(`pip install 'liuxin-alpha[pdf]'`). The full test suite installs it, and uses it to
-check this reader against a second implementation (see
+Writing metadata (`set_metadata`) uses pypdf 6.1.3 or later, from the `pdf` extra
+(`pip install 'liuxin-alpha[pdf]'`), and keeps everything else the file holds (see
+[writing](#writing)). The full test suite installs it, and uses it to check this
+reader against a second implementation (see
 [agreement with poppler and pypdf](#agreement-with-poppler-and-pypdf)).
 
 calibre's own PDF reader is ported too (#202), as two providers:
@@ -85,6 +86,48 @@ that is off by default: "Read PDF metadata (newest source wins)",
 "Read PDF metadata (calibre's rule)" and "Read PDF metadata (Info and XMP together)".
 Enabled, one runs before "Read PDF metadata" whatever the preference says. Callers can
 pass `merge=` to `get_metadata` too.
+
+## Writing
+
+`set_metadata` is in `metadata/file_sources/pdf_write.py`. It writes the title, authors,
+comments (the Subject), tags (the Keywords), producer, publisher and series. Fields the
+metadata leaves empty keep what the file says.
+
+- **Appended, not rewritten.** The change is appended to the file as an incremental
+  update, the way PDF editors save. The original bytes stay as they were, so outlines,
+  forms, attachments and the earlier revision are kept, and so are the bytes a digital
+  signature over that revision covers. Given a path, only the update is written to the file.
+- **Info and XMP together.** The Info dictionary gets the new values and a new
+  `ModDate`. When the file has an XMP packet, the same fields are updated there, and
+  `xmp:MetadataDate` and `xmp:ModifyDate` get the same moment. No merge policy then
+  finds stale values in either source. The packet's other properties stay, as do a
+  title's or description's other languages. No packet is added to a file without one.
+- **Checked before it is written.** Every result is read back with this reader. It must
+  find what was written through the cross-reference data alone, without a repair scan.
+  Nothing is written to the file until a result passes.
+- **Damaged files are rewritten whole, with a warning.** An update appended to a file
+  whose cross-reference data is broken chains on to the damage. Given the corpus file
+  `broken_xref`, poppler could then no longer find the catalog at all. Such a file
+  (`broken_xref` and `leading_junk` in the corpus) is instead cloned whole by pypdf,
+  which keeps its pages and document structure but not its original bytes.
+- **Encrypted files are refused,** and left unchanged. pypdf's updates to them do not
+  read back reliably: some readers then see garbage, and one AES file became
+  unreadable to poppler.
+- **An XMP packet that cannot be edited safely is left, with a warning.** This covers a
+  packet that is malformed, declares a document type, is over 4 MiB, or is stored with
+  a filter other than Flate (pypdf cannot re-encode it). The Info dictionary is still
+  written.
+
+`set_metadata` returns a `PdfWriteReport` saying whether the file was appended to or
+rewritten, and whether the packet was updated. Each warning is also logged.
+
+The mapping is the one the reader reads back:
+
+- authors are joined with ` & `, as calibre joins them, an ampersand in a name
+  doubled;
+- the author sort is not written to `/Creator`, which names the application that made
+  the PDF;
+- the series index is the series' own, not its name.
 
 ## How the reader finds objects
 
@@ -238,6 +281,12 @@ encrypted file, and garbled PDFDocEncoding text.
   pypdf, when the `pdf` extra is installed.
 - `tests/metadata/file_sources/test_pdf_storage_layouts.py`: the metadata source on
   every layout, by path and by stream.
+- `tests/metadata/file_sources/test_pdf_safe_writing.py`: writing into every corpus
+  file, when the `pdf` extra is installed. It checks that each update is appended after
+  the original bytes, and that outlines, attachments and the earlier revision survive.
+  It checks that every merge policy reads the new values, and that poppler, pypdf and
+  this reader all read the result. It also covers damaged files rewritten with a
+  warning, encrypted files refused, and packets left with a warning.
 - `tests/metadata/file_sources/test_pdf_merge_policies.py`: each merge policy on files
   whose Info and XMP disagree and are dated either way, the preference, and the
   plugins.
@@ -267,7 +316,5 @@ poppler:
 
 - The reader takes no cover. A scanned book's first page is often a single JPEG image
   XObject that could be returned as-is without rendering.
-- `set_metadata` rebuilds the file from its pages, so the rewritten file loses the XMP
-  packet, outlines, forms and attachments. pypdf can clone the whole document
-  instead; the packet would then need updating too, or a reader would find stale XMP
-  beside the new Info.
+- Writing into encrypted PDFs would need the update encrypted with the file's key; pypdf
+  does not do that reliably yet.

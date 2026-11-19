@@ -13,8 +13,6 @@ from __future__ import annotations
 
 import base64
 import io
-import sys
-import types
 import zlib
 from pathlib import Path
 from types import SimpleNamespace
@@ -679,16 +677,17 @@ def test_pdf_writer_dict_tool_and_page_image_edges(tmp_path: Path, monkeypatch) 
     mi.publisher = "Publisher"
     mi.series = "Series"
     mi.series_index = {"Series": "2"}
+    # Authors are joined as the reader splits them; the author sort is not the /Creator
+    # (the application that made the PDF); the index is the series', not its name.
     assert pdf._metadata_to_pdf_dict(mi) == {
         "/Title": "Title",
-        "/Author": "Alice, Bob",
+        "/Author": "Alice & Bob",
         "/Subject": "Comments",
         "/Keywords": "tag-one, tag-two",
         "/Producer": "Producer",
-        "/Creator": "Creator",
         "/Publisher": "Publisher",
         "/Series": "Series",
-        "/SeriesIndex": "Series",
+        "/SeriesIndex": "2",
     }
 
     with pytest.raises(TypeError):
@@ -750,11 +749,11 @@ def test_pdf_metadata_dict_sanitizes_hostile_text_without_mutating_input() -> No
     out = pdf._metadata_to_pdf_dict(mi)
 
     assert out["/Title"] == "PDFTitle 😀"
-    assert out["/Author"] == "Alice One, Bob Two"
+    assert out["/Author"] == "Alice One & Bob Two"
     assert out["/Subject"] == "Comment with (paren) and \\ slash"
     assert out["/Keywords"] == "tagone, emoji 😀"
     assert out["/Producer"] == "ProducerName"
-    assert out["/Creator"] == "CreatorName"
+    assert "/Creator" not in out
     assert out["/Publisher"] == "Publisher"
     assert out["/Series"] == "SeriesName"
     assert out["/SeriesIndex"] == "2"
@@ -766,125 +765,22 @@ def test_pdf_metadata_dict_sanitizes_hostile_text_without_mutating_input() -> No
     assert mi.tags == tags
 
 
-def test_pdf_set_metadata_fake_backend_sanitizes_and_rewrites_stream(monkeypatch) -> None:
+def test_pdf_set_metadata_sanitizes_hostile_text_in_the_file() -> None:
     """
-    Verify pdf set metadata fake backend sanitizes and rewrites stream.
+    Verify hostile text is cleaned before pypdf writes it, and the caller's metadata is untouched.
 
     Example:
-        Exercise test pdf set metadata fake backend sanitizes and rewrites stream through its owning regression module::
+        Exercise test pdf set metadata sanitizes hostile text in the file through its owning regression module::
 
             python -m pytest -q tests/metadata/file_sources/test_pdf_edge_cases.py
 
 
-    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
-        state.
     :return: None; the function records state or raises through its assertions.
     """
-    captured = {}
+    pytest.importorskip("pypdf")
+    from LiuXin_alpha.file_formats.pdf.objects import read_metadata
 
-    class _FakeReader:
-        """
-        Provide the FakeReader test fixture or double with explicit deterministic behavior.
-
-        Example:
-            Exercise test pdf set metadata fake backend sanitizes and rewrites stream.FakeReader through its owning regression module::
-
-                python -m pytest -q tests/metadata/file_sources/test_pdf_edge_cases.py
-        """
-        def __init__(self, stream):
-            """
-            Initialize the FakeReader test double.
-
-            Example:
-                Exercise test pdf set metadata fake backend sanitizes and rewrites stream.FakeReader.init through its owning regression module::
-
-                    python -m pytest -q tests/metadata/file_sources/test_pdf_edge_cases.py
-
-
-            :param stream: Value supplied for stream in the focused test operation.
-            :return: None; the function records state or raises through its assertions.
-            """
-            captured["reader_payload"] = stream.read()
-            self.pages = ["page-one", "page-two"]
-            self.metadata = {"/Producer": "Existing Producer"}
-
-    class _FakeWriter:
-        """
-        Provide the FakeWriter test fixture or double with explicit deterministic behavior.
-
-        Example:
-            Exercise test pdf set metadata fake backend sanitizes and rewrites stream.FakeWriter through its owning regression module::
-
-                python -m pytest -q tests/metadata/file_sources/test_pdf_edge_cases.py
-        """
-        def __init__(self):
-            """
-            Initialize the FakeWriter test double.
-
-            Example:
-                Exercise test pdf set metadata fake backend sanitizes and rewrites stream.FakeWriter.init through its owning regression module::
-
-                    python -m pytest -q tests/metadata/file_sources/test_pdf_edge_cases.py
-
-
-            :return: None; the function records state or raises through its assertions.
-            """
-            captured["writer"] = self
-            self.pages = []
-            self.metadata = None
-
-        def add_page(self, page):
-            """
-            Perform the add page test-helper operation with deterministic inputs.
-
-            Example:
-                Exercise test pdf set metadata fake backend sanitizes and rewrites stream.FakeWriter.add page through its owning regression module::
-
-                    python -m pytest -q tests/metadata/file_sources/test_pdf_edge_cases.py
-
-
-            :param page: Value supplied for page in the focused test operation.
-            :return: The deterministic value, row, identity or collection described above.
-            """
-            self.pages.append(page)
-
-        def add_metadata(self, metadata):
-            """
-            Perform the add metadata test-helper operation with deterministic inputs.
-
-            Example:
-                Exercise test pdf set metadata fake backend sanitizes and rewrites stream.FakeWriter.add metadata through its owning regression module::
-
-                    python -m pytest -q tests/metadata/file_sources/test_pdf_edge_cases.py
-
-
-            :param metadata: Metadata container or mapping supplied to the assertion helper.
-            :return: The deterministic value, row, identity or collection described above.
-            """
-            self.metadata = metadata
-
-        def write(self, stream):
-            """
-            Record a batch mutation and return its configured result.
-
-            Example:
-                Exercise test pdf set metadata fake backend sanitizes and rewrites stream.FakeWriter.write through its owning regression module::
-
-                    python -m pytest -q tests/metadata/file_sources/test_pdf_edge_cases.py
-
-
-            :param stream: Value supplied for stream in the focused test operation.
-            :return: The deterministic value, row, identity or collection described above.
-            """
-            stream.write(b"%PDF-1.4\nrewritten")
-
-    fake_pypdf = types.ModuleType("pypdf")
-    fake_pypdf.PdfReader = _FakeReader
-    fake_pypdf.PdfWriter = _FakeWriter
-
-    monkeypatch.setattr(pdf.importlib.util, "find_spec", lambda name: object() if name == "pypdf" else None)
-    monkeypatch.setitem(sys.modules, "pypdf", fake_pypdf)
-
+    original = (Path(__file__).resolve().parents[2] / "fixtures" / "pdf_metadata" / "plain.pdf").read_bytes()
     title = "PDF\x00Title\ud800 😀"
     authors = ["Alice\x01 One", "Bob\udfff Two"]
     mi = MetaData()
@@ -892,22 +788,18 @@ def test_pdf_set_metadata_fake_backend_sanitizes_and_rewrites_stream(monkeypatch
     mi.authors = authors
     mi.comments = "Comment\x02"
     mi.tags = ["tag\x03one"]
-
-    stream = io.BytesIO(b"%PDF-1.4\noriginal payload")
+    stream = io.BytesIO(original)
     stream.seek(5)
-    pdf.set_metadata(stream, mi)
+    report = pdf.set_metadata(stream, mi)
 
-    writer = captured["writer"]
-    assert captured["reader_payload"].startswith(b"%PDF-1.4")
-    assert writer.pages == ["page-one", "page-two"]
-    assert writer.metadata["/Producer"] == "Existing Producer"
-    assert writer.metadata["/Title"] == "PDFTitle 😀"
-    assert writer.metadata["/Author"] == "Alice One, Bob Two"
-    assert writer.metadata["/Subject"] == "Comment"
-    assert writer.metadata["/Keywords"] == "tagone"
-    assert not any(_contains_forbidden_text_char(value) for value in writer.metadata.values())
-
-    assert stream.getvalue() == b"%PDF-1.4\nrewritten"
+    info = read_metadata(stream.getvalue()).info
+    assert not report.rewritten and stream.getvalue().startswith(original)
+    assert info["Producer"] == "Corpus Producer"
+    assert info["Title"] == "PDFTitle 😀"
+    assert info["Author"] == "Alice One & Bob Two"
+    assert info["Subject"] == "Comment"
+    assert info["Keywords"] == "tagone"
+    assert not any(_contains_forbidden_text_char(str(value)) for value in info.values())
     assert stream.tell() == 5
     assert mi.title == title
     assert _values(mi.authors) == authors
