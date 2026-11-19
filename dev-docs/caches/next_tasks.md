@@ -65,7 +65,7 @@ remain the named SEARCH02–SEARCH05 follow-ups.
 
 ## CACHE05. Implement the bound metadata access service
 
-**Bound adapter implemented, 2026-11-18; Core migration remains next.**
+**Bound adapter implemented, 2026-11-18; extensions validated, 2026-11-19.**
 [MetadataAPIInterface](../../src/LiuXin_alpha/catalog/api/metadata_access.py) is
 implemented under `caches` by [MetadataAPI](metadata-api.md), also exposed through
 `cache.metadata`. It supports native WEMI reads, search, CRUD, compound relationships
@@ -78,11 +78,19 @@ the cache engine owns ordering, execution and result provenance. See the
 [search contract](metadata-api.md#search-requests-and-pages). Facets, saved searches
 and content/note/annotation search remain later slices.
 
-Next, route Core's existing semantic metadata operations through this service,
+The current extension adds ordered batch hydration, typed WEMI scalar inputs,
+atomic edit callbacks, authoritative content preconditions, shared Agent/vocabulary
+administration and native custom-field lifecycle/value operations. A native Core
+search/display/edit workflow consumes the interface with explicit conflict and
+post-commit error receipts. See the [API guide](metadata-api.md) for the completed
+192-case regression run, overlapping 39-case current-source follow-up and six
+live PostgreSQL passes. All 38 new non-gated cases are mandatory; the manifest now
+requires 2,956 cases. This validates the extension, not the whole cache module.
+
+Next, route more of Core's existing semantic metadata operations through this service,
 preserving its transport authorization and public receipt conventions. Do not
-silently bypass existing injected service capabilities. Matching, merges,
-custom-field administration and dedicated Agent/vocabulary APIs remain explicit
-follow-up design work. Measure compound-write full-refresh costs before selecting
+silently bypass existing injected service capabilities. Matching and merges retain
+their dedicated Catalog services. Measure compound-write full-refresh costs before selecting
 narrower dependencies; complete relationship freshness is the correctness baseline.
 
 ## Validation and routing

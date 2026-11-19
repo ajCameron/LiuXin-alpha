@@ -39,7 +39,7 @@ neither resource and does not introduce a top-level package.
 ## Reads and writes
 
 `works`, `expressions`, `manifestations` and `items` provide `get`, `require`,
-ID-ordered `list`, `create`, `update` and `delete`. Reads return the existing native
+`get_many`, `read_for_edit`, ID-ordered `list`, `create`, `update` and `delete`. Reads return the existing native
 metadata containers. Identity, relation targets and nested link payloads are copied
 through the containers' serialization contract; returned values do not retain live
 database Rows. Editing a value is an in-memory operation, not a write.
@@ -48,8 +48,12 @@ database Rows. Editing a value is an in-memory operation, not a write.
 `MetadataReference` values. A subsequent hydration is a separate read. Cache
 operations hold the owning cache lock for the whole page or metadata projection.
 Live backends supporting `query_view` capture their read state once per operation,
-avoiding repeated catalogue rebuilds for every relationship. That capture does
-not add database transaction isolation against external writers. A live capture
+avoiding repeated catalogue rebuilds for every relationship. Composed metadata
+reads now borrow the caller's managed transaction or own a read-only snapshot,
+closing its connection on completion. This also prevents a standalone PostgreSQL
+search from retaining table locks that block later custom-field DDL. Composed
+reads reuse the driver's schema-discovery scope, validating its fingerprint at
+entry and exit instead of probing for every hydrated row. A live capture
 still reads the complete catalogue, and hydration traverses related metadata;
 these operations do not have the cost of an individual cached-row lookup.
 
@@ -59,7 +63,15 @@ miss never triggers fallback. Corrupt reads and missing referenced records raise
 The existing Catalog hydrators now offer opt-in strict error propagation; their
 older best-effort callers keep their previous behavior.
 
-Write payloads use Catalog's public aliases. `mutations` implements
+Write payloads use Catalog's public aliases. The public entity protocols now take
+the corresponding `WorkCreate`/`WorkUpdate`, `ExpressionCreate`/`ExpressionUpdate`,
+`ManifestationCreate`/`ManifestationUpdate` or `ItemCreate`/`ItemUpdate`
+[TypedDicts](../../src/LiuXin_alpha/catalog/api/metadata_payloads.py). Optional keys
+preserve omitted-versus-cleared intent: omission retains an existing value, while
+`None` requests NULL subject to schema constraints. Types describe portable scalar
+aliases; Catalog still validates dynamic callers and physical constraints at runtime.
+
+`mutations` implements
 `create_wemi_stack`, `attach_metadata`, `replace_metadata`, `link_wemi` and
 `unlink_wemi`, including the existing distinction between omitted and cleared
 attachment groups. It delegates those semantics to Catalog inside one supported
@@ -69,6 +81,123 @@ The initial adapter conservatively refreshes the complete snapshot after a
 committed semantic write. Live backends advance their query generation. Targeted
 refresh is a later optimization requiring evidence that every affected identity,
 relationship and projection is covered.
+
+## Batch reads and writes
+
+`works.get_many(ids)` hydrates one captured read source and returns values in the
+requested order. Duplicate IDs remain duplicate positions, with independently
+detached values. Missing roots occupy `None` positions; `missing="raise"` instead
+rejects the entire call with `CatalogNotFoundError`. Unavailable or corrupt data
+never becomes a missing result. An empty request avoids capturing the catalogue.
+The same method is available on all four WEMI families. Live capture cost is paid
+once per call, although each distinct root still requires its own hydration.
+
+`metadata.batch(callback)` runs dependent edits in one owned transaction and
+performs one final full schema/data reconciliation. The callback receives the
+same public interface and can use creation results in later writes:
+
+```python
+def create_and_describe(api):
+    work_id = api.works.create({"title": "A new work"}).result
+    api.mutations.attach_metadata(
+        level="work", entity_id=work_id, data={"notes": ["Initial description"]}
+    )
+    return work_id
+
+receipt = metadata.batch(create_and_describe)
+```
+
+Child receipts remain `pending`; the aggregate receipt reports commit and cache
+reconciliation. An escaping callback exception rolls back the whole batch. A
+caught failed child operation has its own savepoint, so the callback can choose
+to continue with other edits. Nested batches compose; an external managed outer
+transaction retains commit/rollback ownership. Cache reads after edits remain
+deferred until that outer unit completes. Use returned IDs rather than reading
+an uncommitted cache. Invalidations may advance the generation more than once;
+the guarantee is one final refresh, not one generation increment.
+
+## Optimistic editing
+
+`read_for_edit(id)` opens a consistent database snapshot and returns a
+[MetadataSnapshot](../../src/LiuXin_alpha/catalog/api/metadata_revisions.py):
+detached native metadata, public scalar `fields`, and a matching `revision` token.
+The explicit scalar mapping includes writable aliases not represented by older
+identity containers. This operation deliberately reads authoritative storage,
+even when ordinary metadata reads use a cache snapshot.
+Inside an existing managed transaction, it instead borrows that transaction and
+inherits its isolation and visibility. It does not upgrade the caller's isolation.
+
+```python
+observed = metadata.works.read_for_edit(work_id)
+metadata.works.update(work_id, {"title": "Edited title"},
+                      expected_revision=observed.revision)
+```
+
+`update` and `delete` accept optional `expected_revision`. For compound changes,
+use `metadata.batch(callback, expected=(observed.revision, ...))`. Every token is
+checked before invoking the callback. A changed or deleted root raises
+`MetadataConflictError` with expected and actual tokens; a mismatched entity token
+is invalid input. Checks always use the database, including when a direct Catalog
+write has left the cache stale. Tokens cover the complete root row and hydrated
+relationships. They are content fingerprints, not durable edit counters: changing
+and restoring the same complete content can produce the same token. They are
+scoped to the originating catalogue and current API encoding, and are not cache
+generations. Custom values retain their separate field-wide native revisions.
+
+The optional conditional-write path reserves the database writer before comparing
+content. SQLite already reserves a writer for owned macro writes. PostgreSQL
+reserves catalogue tables in a deterministic order until the transaction ends;
+this also blocks uncooperating row writes and relationship inserts. PostgreSQL
+preconditions require READ COMMITTED isolation; a pre-existing repeatable-read
+snapshot is rejected. This coarse initial reservation prioritizes correctness
+and can reduce write concurrency. It does not reserve external file bytes.
+
+## Shared identities and custom fields
+
+`metadata.agents` provides detached public-field reads, CRUD, person/organisation
+creation and explicit name/sort-policy renaming. `metadata.vocabulary(kind)`
+selects `tags`, `labels`, `genres`, `subjects`, `series`, `languages` or `ratings`.
+These services retain Catalog's normalization and deletion rules; Languages stay
+read-only seeded constants. Tags and Series additionally expose `link_to_work`
+and `unlink_from_work`, preserving retained membership metadata. Shared edits
+reconcile affected WEMI projections and search. No implicit matching or merging
+is introduced. Detailed Agent subtype editing remains with Catalog's existing
+aggregate services.
+
+`metadata.custom_fields` exposes native field definitions, stored values, atomic
+patches, queries, inventories, shared-value rename/delete, migration planning and
+application, retirement, purge planning/application and audit. It preserves native
+`FieldDefinition`, `OwnerRef`, `FieldPatch`, `ChangePlan` and field-wide revision
+semantics. Those native reads use authoritative native-service snapshots. Writes
+return a `MetadataWriteReceipt` containing the native result; schema changes
+perform a full cache reload. A plan is revalidated by the native service when it
+is applied. Retirement retains values; applying an explicit purge permanently
+removes them. Composite template evaluation remains Catalog-owned.
+
+Native service listeners can fail after SQL commits. The transaction owner now
+reports that condition as `CommittedTransactionError`; the metadata adapter
+retains its completed result in `MetadataReconciliationError` and marks any bound
+cache dirty. This is a committed write, including without a cache, and must not
+be repeated merely because publication failed.
+
+## Core consumer workflow
+
+`CoreServices.metadata` lazily binds the interface to Core's existing Catalog,
+cache and fallback policy. Four named routes exercise native search/display/edit:
+
+| Route | Result |
+| --- | --- |
+| `metadata.search` | Typed-filter search page, exact total and provenance |
+| `metadata.read_many` | Ordered native metadata mappings, including missing slots |
+| `metadata.read_for_edit` | Authoritative metadata, scalar fields and revision |
+| `metadata.update` | Partial scalar edit with optional revision precondition |
+
+The read routes require the existing `read` transport capability and updates
+require `write`. Core reports `metadata_conflict` with both tokens, and preserves
+the receipt and actual durability flag for `metadata_reconciliation_failed`.
+These writes do not pass through Core's older reconciler for a second refresh.
+The existing item-centred `metadata.get`/OPF payload remains a separate contract;
+other Catalog endpoints have not yet migrated to this interface.
 
 ## Search requests and pages
 
@@ -131,9 +260,10 @@ root rows, then the shared query engine orders/counts/pages that population. Thi
 avoids duplicating collation and missing-value rules but retains memory
 proportional to the matches. Other drivers use one ephemeral database capture;
 live cache backends retain their existing whole-catalogue capture cost. These are
-initial correctness choices, not bounded-memory SQL pagination. Separate page
-requests do not pin a snapshot. A generation is an invalidation counter, not a
-database revision or a guarantee of isolation against external writers.
+initial correctness choices, not bounded-memory SQL pagination. Database execution
+uses the metadata owner's read scope; separate page
+requests do not pin a shared snapshot. A generation is an invalidation counter,
+not a database revision.
 
 ## Receipts and recovery
 
@@ -182,12 +312,41 @@ The [search tests](../../tests/databases/caches/test_metadata_search.py) add
 SQLite/APSW and native backend parity, exact totals and stable sorting, numeric
 and literal text filters, WEMI path isolation, discovery without data access,
 structured validation errors, complete-page fallback and transaction guards.
-All 44 search cases are mandatory; the manifest now requires **2,918 cases**,
-preserving all earlier requirements.
+All 44 search cases are mandatory. That slice raised the manifest to 2,918 cases;
+the extensions below preserve those requirements and raise it to **2,956 cases**.
 
 The shared metadata fixture skips APSW cases when that optional driver is absent.
 The mandatory database CI lane installs APSW and requires those cases to pass;
 the ordinary full-suite lane can still run without it.
+
+The **2026-11-19** extension adds 38 mandatory cases covering ordered batch
+hydration, atomic edits, shared metadata, native custom-field lifecycles,
+authoritative edit tokens, independent writers and the Core consumer workflow.
+Six additional PostgreSQL cases are gated by `LIUXIN_TEST_POSTGRES_URL`; they use
+disposable schemas and cover the four cache modes, blocking an independent raw
+SQL writer during a checked edit, and rejecting an older repeatable-read snapshot.
+Final validation on **2026-11-19**:
+
+- The combined metadata, search, custom-field, transaction and Core regression
+  suite passed **192 tests**; all **149 selected mandatory cases** passed setup,
+  call and teardown.
+- After the schema-read scope improvement, a current-source follow-up passed
+  **39 tests**, with all 39 mandatory phase audits passing. Its 539 saved source,
+  test and manifest hashes match the final tree. This run overlaps the broad run;
+  its count is not additional unique coverage.
+- All **six live PostgreSQL 16 tests** passed, including raw-writer blocking and
+  isolation rejection. The disposable test server was shut down afterward.
+- Formatting, lint, architecture/import checks and both type checkers passed
+  (mypy: 554 files), including 115 basedpyright and 111 mypy rejected invalid
+  examples. The tooling run passed 279 checks with one initial untracked-link
+  failure; after tracking the new paths, all 16 documentation checks passed.
+
+Local evidence is retained under `/tmp/liuxin-metadata-extensions-validation` and
+`/tmp/liuxin-metadata-extensions-current`, with PostgreSQL output in
+`/tmp/liuxin-metadata-postgres-final.log`. These temporary artifacts are not part
+of the portable documentation. These are correctness checks, not performance
+benchmarks or whole-module sign-off. Older results below describe their original
+slices, not these additions.
 
 Search validation on **2026-11-18**: **84 tests passed** across the new search
 cases, retained metadata read/fallback contracts and existing Catalog search
@@ -214,10 +373,9 @@ type-contract lanes. All **49 tooling/documentation tests** passed. The final ru
 retains matching hashes for 464 source, test and manifest files. These are
 correctness results, not performance measurements or live PostgreSQL validation.
 
-Core command migration remains separate: existing Core semantic handlers retain
-their transport and receipt conventions until explicitly routed through this
-adapter. Matching, merges, custom-field administration and dedicated Agent or
-vocabulary services remain outside this first interface. The new transaction guard
+The native Core workflow now consumes this interface; other Core semantic handlers
+retain their existing transport and receipt conventions. Matching and merges remain
+separate Catalog services. The new transaction guard
 protects this adapter; older schema-directed writer deferral needs its own
 cross-thread follow-up. This is not whole-cache or whole-Catalog sign-off.
 See [next tasks](next_tasks.md).

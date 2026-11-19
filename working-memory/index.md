@@ -1,5 +1,109 @@
 # Working Memory Index
 
+PR publication in progress, **2026-11-19**. The user requested publishing the
+metadata extensions and cache documentation pass. Existing PR #192 remains open
+on `metadata-search-api`, so update it rather than creating a duplicate. Fetched
+`origin/main` at `315dc47c`, which moves the project to Python 3.14 and conflicts
+with the old receipt declaration. Commit the validated pending work, then merge
+main and preserve its explicit covariant receipt type in the new
+`catalog/api/metadata_results.py` location. Validate the merged result before
+pushing and update the PR description to the complete final scope. The prior
+uncommitted checkpoints below are historical; the original checkout stays untouched.
+
+Cache comments/docstrings/typing pass completed and validated, **2026-11-19**.
+Latest user request: comments, docstrings, typing and docstring-format pass through
+`caches`. Work remains in `/tmp/liuxin-metadata-pr-20261119`, branch
+`metadata-search-api`, above `52f643a3` / PR #192. All previous metadata extension
+changes are preserved. This pass is **uncommitted and unpushed**; no commit or PR
+was requested. The original checkout's submodule, review-index and untracked user
+edits remain untouched.
+
+Audited all 58 cache modules, 133 classes and 1,210 functions. Resolved 274
+declaration-level documentation findings, including 92 missing function
+docstrings. All cache functions have parameter/return annotations. Clarified
+ownership, fallback, transaction/receipt durability, publication and mutable-value
+limits. Changed 30 cache source files; executable AST changes are confined to
+annotation/import work in `metadata_reads.py`, `updates/field_updates.py` and
+`updates/table_updates.py`. Query, refresh, transaction and mutation algorithms
+are unchanged. The update payload modules now import independently: postponed
+annotations fix unresolved database aliases, and a TYPE_CHECKING-only link
+annotation import fixes a cold-import cycle. Both cases are mandatory regressions.
+
+Final evidence lives at `/tmp/liuxin-cache-doc-pass-20261119`:
+- `audit-final.json` / `structure-final.json`: no docstring findings, known filler,
+  parse failures or normalization differences; exact task-start cache snapshots
+  are under `before/`.
+- `doctests-final.json`: **232 examples passed** across all 58 modules;
+  `cold-imports.json`: **58 independent imports passed**.
+- `focused-tests-final.log` / `ratchet.json`: **136 passed, 4 expected capability
+  skips**, all **71 selected mandatory cases** passed every phase. The complete
+  manifest now contains **2,958 cases**.
+- `docs-tests.log`: **80 documentation/architecture-tooling tests passed**.
+- `quality-complete.log`: full configured runner passed, including basedpyright
+  zero errors/warnings, mypy **554 files**, negative fixtures **115/111**, formatting
+  441 files, annotation coverage 476, protected imports 263, layer modules 2,036
+  and 31 import budgets. Registry dynamic-import allowances only moved lines.
+- `final-source-sha256.json`: 58 current cache fingerprints, rechecked unchanged.
+  Earlier failed intermediate logs are superseded by the final evidence above.
+
+The pass is recorded in `dev-docs/caches/typing-2026-11-18.md` under its dated
+2026-11-19 follow-up and linked from the cache README. No long-running or live-PG
+lane was repeated for this pass. Prior metadata implementation evidence follows;
+its older raw source hashes predate these documentation/annotation edits.
+
+Metadata API extensions completed and validated, **2026-11-19**. Previous request:
+implement the identified interface gaps and update the API. Work is in
+`/tmp/liuxin-metadata-pr-20261119`, branch `metadata-search-api`, above published
+`52f643a3` / PR #192. This extension is **uncommitted and unpushed**. New paths have
+git intent-to-add entries for documentation portability checks; no contents are
+staged. The original checkout and unrelated user edits remain untouched.
+
+Implemented: ordered/detached `get_many`; WEMI create/update TypedDicts; atomic
+callback batches with one final reconciliation; Agent/vocabulary administration
+and Tag/Series memberships; native custom-field definitions, values, plans and
+queries; authoritative edit snapshots with full-root and hydrated-content tokens;
+optional checked update/delete/batches. PostgreSQL preconditions reserve catalogue
+tables under READ COMMITTED, SQLite uses its writer reservation. Tokens compare
+content, not edit history; custom fields retain their own native revisions. Core
+now exposes search/read_many/read_for_edit/update through `CoreServices.metadata`.
+Contracts stay under catalog.api and implementations under caches; no new top-level
+package or Calibre compatibility added.
+
+Correctness follow-ups: `CommittedTransactionError` preserves after-commit failure
+receipts, including without a cache. Composed reads own or borrow a transaction;
+live PostgreSQL exposed retained read locks blocking custom-field DDL. Hydration
+now reuses `schema_read_scope` to bound schema-fingerprint probes. An existing
+caller transaction retains its own isolation and visibility.
+
+Final runtime evidence:
+- `/tmp/liuxin-metadata-extensions-validation`: **192 passed**, all **149 selected
+  mandatory cases** passed setup/call/teardown; log
+  `/tmp/liuxin-metadata-extensions-final.log`. This broad run started before the
+  final schema-scope improvement; remaining deltas are two docstrings and scalar
+  payload annotations.
+- `/tmp/liuxin-metadata-extensions-current`: **39 passed**, all 39 mandatory phase
+  audits passed, **539 saved hashes match**; log
+  `/tmp/liuxin-metadata-extensions-current.log`. This overlaps the broad run and
+  verifies the final implementation, including independent SQLite/APSW writers.
+- `/tmp/liuxin-metadata-postgres-final.log`: **6 passed** against PostgreSQL16,
+  including all cache modes, raw SQL writer blocking, and isolation rejection.
+  The disposable server at `/tmp/liuxin-metadata-pg-0x80BJ` was stopped successfully.
+  Earlier superseded/blocked PG runs exited143 and are not final evidence.
+- Quality `/tmp/liuxin-metadata-extensions-quality-final.log`: 441 formatted files,
+  476 annotation-covered files, 263 import-cycle modules, 2,036 layer modules,
+  31 cold-import budgets; basedpyright clean; mypy 554 files; negative contracts
+  **115/111**. Tooling had 279 passes and one untracked-link failure; after intent
+  to add, all **16 documentation checks passed** in
+  `/tmp/liuxin-metadata-extensions-docs-final.log`.
+
+The mandatory manifest preserves all previous requirements and now contains
+**2,956 cases** (38 new non-gated cases). The API guide and cache next-tasks contain
+current architecture, usage, limitations and validation. These are correctness
+results, not performance measurements or whole-module sign-off. Next priorities:
+more Core consumer migration and measured full-refresh/live-capture optimization;
+coarse PostgreSQL reservations and content-based tokens remain explicit limits.
+No new commit or PR was requested for this extension.
+
 PR preparation checkpoint, **2026-11-19**: the user requested publication of the
 metadata/search work. PR #189 was already merged, so `9fb61096` was applied cleanly
 to `metadata-search-api`, based on `origin/main` at `990ff8ed`, in the isolated

@@ -1,4 +1,5 @@
-"""Compose the writable cache facade over the Catalog-independent read cache.
+"""
+Compose the writable cache facade over the Catalog-independent read cache.
 
 ``ReadCache`` owns lifecycle and structured reads without importing Catalog. This
 module adds the explicit Catalog mutation bridge used by the public ``Cache`` API.
@@ -55,6 +56,8 @@ class _CacheCatalogFacade:
 
 
         :param owner: Cache whose database, lock and reconciliation methods will be used.
+        :param catalog: Catalog delegate providing normalized write operations for this
+            database.
         :return: None; retains the owner, Catalog delegate and original database object.
         """
 
@@ -194,15 +197,29 @@ class _CacheCatalogFacade:
 
 
 class Cache(ReadCache):
-    """Add Catalog-mediated writes to the reusable read-cache facade."""
+    """
+    Add Catalog-mediated writes to the reusable read-cache facade.
+
+    Example:
+        >>> cache = create_cache(database)  # doctest: +SKIP
+        >>> receipt = cache.metadata.works.create({"title": "Dune"})  # doctest: +SKIP
+    """
 
     @property
     def metadata(self) -> MetadataAPIInterface:
-        """Bind native metadata reads and coordinated writes to this loaded cache.
+        """
+        Bind native metadata reads and coordinated writes to this loaded cache.
 
         The service borrows this cache and retains its original database identity.
         It uses complete cached reads with database fallback disabled. Use an
         explicit MetadataAPI constructor to select a different fallback policy.
+
+        Example:
+            ``cache.metadata.search.find("work.title:Dune")`` returns native references.
+
+
+        :return: Lazily retained metadata service; use rechecks the original database
+            binding.
         """
         from LiuXin_alpha.caches.metadata import MetadataAPI
         from LiuXin_alpha.catalog.catalog import Catalog
@@ -219,7 +236,17 @@ class Cache(ReadCache):
     def _update_dependencies(
         update: object,
     ) -> tuple[set[str], set[tuple[str, str]], set[str]]:
-        """Derive cache refresh dependencies from one normalized Catalog update."""
+        """
+        Derive cache refresh dependencies from one normalized Catalog update.
+
+        Example:
+            A scalar column update identifies both its owning table and canonical field.
+
+
+        :param update: Normalized Catalog column, owned-row or link update.
+        :return: Sets of affected main tables, directed table pairs and canonical
+            fields.
+        """
         from LiuXin_alpha.catalog.write import (
             CatalogColumnUpdate,
             CatalogOwnedRowUpdate,
@@ -253,11 +280,16 @@ class Cache(ReadCache):
         force_refresh: bool = False,
         destination_owned: bool | None = None,
     ) -> SchemaCatalogWriter:
-        """Bind a schema-resolved Catalog writer to this cache for reconciliation.
+        """
+        Bind a schema-resolved Catalog writer to this cache for reconciliation.
 
         The cache must be ready when the writer is created. Applying the writer checks
         attachment again, delegates semantic validation and persistence to Catalog, and
         reconciles the affected cache dependencies after a successful commit.
+
+        Example:
+            ``cache.create_writer("works", "work_title")`` resolves a scalar writer.
+
 
         :param src_table: Table whose row IDs key updates.
         :param dst_column: Destination value column resolved through schema discovery.
@@ -291,10 +323,15 @@ def create_cache(
     load: bool = True,
     **storage_kwargs: Any,
 ) -> Cache:
-    """Construct the writable application cache and load it by default.
+    """
+    Construct the writable application cache and load it by default.
 
     Construction and loading errors propagate. This factory does not close a
     partially initialized backend if loading fails.
+
+    Example:
+        >>> cache = create_cache(database, "schema_backed", load=False)  # doctest: +SKIP
+
 
     :param database: Attached database object required by Cache.
     :param storage_type: Registered storage plugin name or alias.

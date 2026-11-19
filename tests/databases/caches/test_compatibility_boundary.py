@@ -43,6 +43,8 @@ def test_retired_path_has_no_source_or_import_shim(path, tmp_path):
         "caches.read_cache",
         "caches.cache",
         "caches.api",
+        "caches.updates.field_updates",
+        "caches.updates.table_updates",
         "caches.cache_plugins.schema_backed",
         "caches.cache_plugins.database_backed",
         "caches.cache_plugins.numpy_vectorized",

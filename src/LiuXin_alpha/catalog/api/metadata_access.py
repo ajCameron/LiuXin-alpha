@@ -16,19 +16,42 @@ services: that would bypass the required cache reconciliation on writes.
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from collections.abc import Callable, Mapping, Sequence
 from typing import TYPE_CHECKING, Literal, Protocol
 
+from LiuXin_alpha.catalog.api.metadata_results import (
+    MetadataReconciliationError,
+    MetadataWriteReceipt,
+)
+from LiuXin_alpha.catalog.api.metadata_revisions import (
+    MetadataRevision,
+    MetadataSnapshot,
+)
 from LiuXin_alpha.catalog.api.metadata_search import MetadataReference
 
 if TYPE_CHECKING:
     from LiuXin_alpha.catalog.api.common import CreatedWemiStack, WemiLevel
+    from LiuXin_alpha.catalog.api.metadata_fields import MetadataCustomFieldsInterface
+    from LiuXin_alpha.catalog.api.metadata_payloads import (
+        ExpressionCreate,
+        ExpressionUpdate,
+        ItemCreate,
+        ItemUpdate,
+        ManifestationCreate,
+        ManifestationUpdate,
+        WorkCreate,
+        WorkUpdate,
+    )
     from LiuXin_alpha.catalog.api.metadata_search import (
         MetadataSearchField,
         MetadataSearchPage,
         MetadataSearchRequest,
         MetadataSortField,
+    )
+    from LiuXin_alpha.catalog.api.metadata_shared import (
+        AgentMetadataInterface,
+        VocabularyKind,
+        VocabularyMetadataInterface,
     )
     from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.expression_containers.expression_metadata_api import (
         ExpressionMetadataAPI,
@@ -47,50 +70,7 @@ if TYPE_CHECKING:
     )
 
 
-@dataclass(frozen=True, slots=True)
-class MetadataWriteReceipt[ResultT]:
-    """Keep persistence and cache visibility explicit after a semantic write.
-
-    ``pending`` means an outer transaction still controls commit or rollback; it
-    must never be reported as durable success. ``deferred`` requires the owner to
-    refresh after that transaction closes, including after rollback. ``current``
-    means the bound cache can safely serve the completed change. A configured
-    cache cannot be current for a pending write. ``dirty`` records failed cache
-    reconciliation and is carried by an error, never a successful write return.
-    ``not_configured`` and a None generation describe operation without a cache.
-
-    ``changed`` describes an applied mutation request within the transaction, not
-    a durable commit or a whole-metadata equality comparison. Supplied replacements
-    may report true when values already match; known no-ops report false.
-    A receipt captures return-time state; a pending receipt does not later become
-    committed in place. Its generation is not evidence of transaction durability.
-    This passive value does not validate state combinations or freeze result
-    payloads. A reconciliation failure must preserve this receipt in the error;
-    it must not turn a committed write into an apparent persistence failure.
-    """
-
-    result: ResultT
-    changed: bool
-    persistence: Literal["committed", "pending"]
-    cache: Literal["not_configured", "current", "deferred", "dirty"]
-    generation: int | None
-
-
-class MetadataReconciliationError(RuntimeError):
-    """Preserve a completed Catalog operation whose cache reconciliation failed.
-
-    Inspect receipt.persistence before deciding how an enclosing transaction must
-    finish. A committed receipt must not trigger an automatic repeat of the write.
-    The implementing owner must leave the cache dirty and recoverable.
-    """
-
-    def __init__(self, message: str, *, receipt: MetadataWriteReceipt[object]) -> None:
-        """Retain the authoritative receipt without changing persistence state."""
-        super().__init__(message)
-        self.receipt = receipt
-
-
-class MetadataEntityInterface[MetadataT](Protocol):
+class MetadataEntityInterface[MetadataT, CreateT, UpdateT](Protocol):
     """Read and mutate one WEMI family using native metadata values.
 
     The service binds the database, optional cache and fallback policy once.
@@ -113,19 +93,47 @@ class MetadataEntityInterface[MetadataT](Protocol):
         """Return metadata or raise CatalogNotFoundError for a confirmed miss."""
         ...
 
+    def get_many(
+        self, entity_ids: Sequence[int], *, missing: Literal["none", "raise"] = "none"
+    ) -> tuple[MetadataT | None, ...]:
+        """Hydrate one capture in input order, retaining duplicates and missing slots.
+
+        Each returned value is independently detached. With missing='raise', any
+        confirmed absent root raises CatalogNotFoundError instead of returning a
+        partial tuple. Unavailable or corrupt reads always raise.
+        """
+        ...
+
+    def read_for_edit(self, entity_id: int) -> MetadataSnapshot[MetadataT]:
+        """Read an authoritative database snapshot with a matching content token.
+
+        This explicitly bypasses cached values and requires an existing root.
+        The token covers this hydrated projection, including its relationships;
+        custom fields retain separate native revision checks.
+        """
+        ...
+
     def list(self, *, limit: int = 100, offset: int = 0) -> tuple[MetadataT, ...]:
         """Return an ID-ordered page; negative limits or offsets are invalid."""
         ...
 
-    def create(self, data: MetadataRecord) -> MetadataWriteReceipt[int]:
+    def create(self, data: CreateT) -> MetadataWriteReceipt[int]:
         """Create a new entity through Catalog without implicitly matching one."""
         ...
 
-    def update(self, entity_id: int, data: MetadataRecord) -> MetadataWriteReceipt[int]:
+    def update(
+        self,
+        entity_id: int,
+        data: UpdateT,
+        *,
+        expected_revision: MetadataRevision | None = None,
+    ) -> MetadataWriteReceipt[int]:
         """Update supplied public fields, preserving omitted fields."""
         ...
 
-    def delete(self, entity_id: int) -> MetadataWriteReceipt[int]:
+    def delete(
+        self, entity_id: int, *, expected_revision: MetadataRevision | None = None
+    ) -> MetadataWriteReceipt[int]:
         """Delete through Catalog policy and reconcile affected relationships too."""
         ...
 
@@ -244,30 +252,38 @@ class MetadataAPIInterface(Protocol):
     These properties must return coordinating services, never raw repositories.
     Catalog alone and Cache alone do not implement this interface.
 
-    This first contract covers WEMI reads, search, CRUD and compound writes.
-    Matching, merges, custom-field administration and dedicated Agent/vocabulary
-    services remain explicit follow-up design work. Calibre views stay in their
+    This contract covers WEMI reads, search, CRUD, compound and batch writes,
+    edit preconditions, shared metadata and native custom-field administration.
+    Matching and merges remain Catalog services. Calibre views stay in their
     compatibility layer. No raw database, SQL rows or physical writer routes are
     part of this interface.
     """
 
     @property
-    def works(self) -> MetadataEntityInterface[WorkMetadataAPI]:
+    def works(self) -> MetadataEntityInterface[WorkMetadataAPI, WorkCreate, WorkUpdate]:
         """Access abstract Works and their native metadata."""
         ...
 
     @property
-    def expressions(self) -> MetadataEntityInterface[ExpressionMetadataAPI]:
+    def expressions(
+        self,
+    ) -> MetadataEntityInterface[
+        ExpressionMetadataAPI, ExpressionCreate, ExpressionUpdate
+    ]:
         """Access realizations, translations and revisions of Works."""
         ...
 
     @property
-    def manifestations(self) -> MetadataEntityInterface[ManifestationMetadataAPI]:
+    def manifestations(
+        self,
+    ) -> MetadataEntityInterface[
+        ManifestationMetadataAPI, ManifestationCreate, ManifestationUpdate
+    ]:
         """Access publication and edition metadata."""
         ...
 
     @property
-    def items(self) -> MetadataEntityInterface[ItemMetadataAPI]:
+    def items(self) -> MetadataEntityInterface[ItemMetadataAPI, ItemCreate, ItemUpdate]:
         """Access individual copies and their native metadata."""
         ...
 
@@ -279,6 +295,39 @@ class MetadataAPIInterface(Protocol):
     @property
     def mutations(self) -> MetadataMutationsInterface:
         """Apply coordinated compound mutations through Catalog."""
+        ...
+
+    @property
+    def agents(self) -> AgentMetadataInterface:
+        """Read and administer shared Agent identities with cache reconciliation."""
+        ...
+
+    def vocabulary(self, kind: VocabularyKind) -> VocabularyMetadataInterface:
+        """Select a native vocabulary; Languages retain Catalog's immutable policy."""
+        ...
+
+    @property
+    def custom_fields(self) -> MetadataCustomFieldsInterface:
+        """Manage native definitions, stored values, revisions and migration plans."""
+        ...
+
+    def batch[ResultT](
+        self,
+        operation: Callable[[MetadataAPIInterface], ResultT],
+        *,
+        expected: Sequence[MetadataRevision] = (),
+    ) -> MetadataWriteReceipt[ResultT]:
+        """Run related edits atomically and reconcile the cache once on success.
+
+        The callback uses this same interface and may use created IDs in later
+        writes. Child receipts are pending; the returned aggregate receipt owns
+        the final persistence/cache outcome. An escaping exception rolls back all
+        edits in the batch. Caller-owned outer transactions remain pending.
+        Cache reads after edits defer until transaction completion; callbacks
+        should use mutation results rather than rehydrate uncommitted snapshots.
+        All expected content tokens are checked before the callback under a
+        database writer reservation. A mismatch raises MetadataConflictError.
+        """
         ...
 
 

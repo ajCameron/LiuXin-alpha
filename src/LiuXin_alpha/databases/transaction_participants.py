@@ -11,6 +11,14 @@ from LiuXin_alpha.databases.database_driver_plugins._macro_state import (
 )
 
 
+class CommittedTransactionError(ExceptionGroup):
+    """Report completion/publication failures after SQL has durably committed.
+
+    Callers may retain their operation result without guessing commit status from
+    an exception message. This error never denotes a failed or rolled-back write.
+    """
+
+
 @dataclass
 class CompletionFrame:
     """Collect publication and completion callbacks for a managed SQL scope."""
@@ -112,6 +120,6 @@ def completion_frame(provider: object, *, owned: bool) -> Iterator[None]:
                     )
                     failures.append(error)
             if failures:
-                raise ExceptionGroup(
+                raise CommittedTransactionError(
                     "Committed transaction publication failed", failures
                 )

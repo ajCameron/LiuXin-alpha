@@ -323,6 +323,7 @@ class StorageCacheOneManyGetterAPI(abc.ABC):
 
         :param dst_value: Value matched against the specified destination-table column.
         :param dst_column: Destination column to search or project, according to the getter.
+        :param require_ordering: Preserve the backend's association ordering when true.
         :param type_filter: Optional exact link-type restriction interpreted by the backend.
         :return: Sequence of linked source identities; repeated links/value matches may remain repeated.
         """
@@ -371,6 +372,7 @@ class StorageCacheOneManyGetterAPI(abc.ABC):
 
         :param dst_value: Value matched against the specified destination-table column.
         :param dst_column: Destination column to search or project, according to the getter.
+        :param require_ordering: Preserve the backend's association ordering when true.
         :param type_filter: Optional exact link-type restriction interpreted by the backend.
         :return: Sequence of linked source Rows; repeated links/value matches may remain repeated.
         """

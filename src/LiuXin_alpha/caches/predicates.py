@@ -1,4 +1,6 @@
-"""Evaluate physical predicates over storage reads without bibliographic policy."""
+"""
+Evaluate physical predicates over storage reads without bibliographic policy.
+"""
 
 from __future__ import annotations
 
@@ -41,7 +43,24 @@ COMPARISONS = {
 
 
 def compare(value: Any, op: str, expected: Any) -> bool:
-    """Evaluate a typed comparison; missing or incomparable ordered values fail."""
+    """
+    Evaluate a typed comparison; missing or incomparable ordered values fail.
+
+    Callers validate operators and regular expressions before evaluation. Invalid
+    containment operands or regex patterns can still raise; this helper is not a
+    general exception-suppressing comparison boundary.
+
+    Example:
+        >>> compare(None, "gte", 10), compare("Dune", "prefix", "Du")
+        (False, True)
+
+
+    :param value: Observed scalar or collection.
+    :param op: Validated comparison operator.
+    :param expected: Operand interpreted according to the chosen operator.
+    :return: Comparison result; only ordered TypeError comparisons are converted to
+        False.
+    """
     if op == "is_null":
         return (value is not None) if expected is False else (value is None)
     if op == "eq":
@@ -65,15 +84,42 @@ def compare(value: Any, op: str, expected: Any) -> bool:
 
 
 class PredicateEvaluator:
-    """Validate a complete tree, check references and narrow candidate sets."""
+    """
+    Validate a complete tree, check references and narrow candidate sets.
+
+    Example:
+        Validate and check references before evaluating a predicate against candidate IDs.
+    """
 
     def __init__(self, engine: PredicateReadEngine) -> None:
+        """
+        Retain one read engine and start empty per-execution row/relation memoization.
+
+        Example:
+            Reusing one evaluator across a Boolean tree avoids duplicate row snapshots.
+
+
+        :param engine: Query engine supplying validated storage, fields and identity
+            sets.
+        :return: None; performs no row reads.
+        """
         self.engine = engine
         self.edges: dict[tuple[str, int, frozenset[int]], dict[int, set[int]]] = {}
         self._rows: dict[tuple[str, int], Mapping[str, Any]] = {}
 
     def value(self, table: str, row_id: int, field: str) -> Any:
-        """Share one row observation among predicates within this execution."""
+        """
+        Share one row observation among predicates within this execution.
+
+        Example:
+            Two scalar predicates on one row share its physical snapshot.
+
+
+        :param table: Owning main table.
+        :param row_id: Existing candidate identity.
+        :param field: Physical column or canonical relationship field key.
+        :return: Observed cell value, with physical rows memoized for this execution.
+        """
         column = field.removeprefix(table + ".")
         cached_table = self.engine._table(table)
         if column not in cached_table.column_headings:
@@ -84,9 +130,30 @@ class PredicateEvaluator:
         return self._rows[key].get(column)
 
     def validate(self, table: str, node: RowPredicate) -> None:
+        """
+        Validate the full predicate tree against declared fields and topology.
+
+        Example:
+            A linked predicate must agree with the cached link's physical endpoint columns.
+
+
+        :param table: Main table at the current predicate level.
+        :param node: Native physical predicate subtree.
+        :return: None when valid; invalid operators, fields, topology and regexes raise.
+        """
         self.engine._table(table)
 
         def field(name: str) -> str:
+            """
+            Resolve a field in the current validation table.
+
+            Example:
+                A field belonging to another table is rejected before evaluation.
+
+
+            :param name: Bare or qualified field name from the predicate.
+            :return: Validated canonical field key.
+            """
             return self.engine._canonical_field(table, name)
 
         if isinstance(node, ProvidedMatch):
@@ -159,6 +226,19 @@ class PredicateEvaluator:
     def relations(
         self, table: str, node: LinkedMatch | ForeignMatch, ids: set[int]
     ) -> dict[int, set[int]]:
+        """
+        Resolve candidate-to-target memberships and reject required missing targets.
+
+        Example:
+            A non-null foreign key with require_target=True raises when its target is absent.
+
+
+        :param table: Current source table.
+        :param node: Linked or foreign-key predicate defining traversal.
+        :param ids: Source candidate identities whose targets are needed.
+        :return: Source-ID-to-target-ID sets memoized for this node and candidate
+            population.
+        """
         key = (table, id(node), frozenset(ids))
         if key in self.edges:
             return self.edges[key]
@@ -211,7 +291,19 @@ class PredicateEvaluator:
         return result
 
     def check_references(self, table: str, node: RowPredicate, ids: set[int]) -> None:
-        """Match SQL integrity guards even in Boolean branches that cannot match."""
+        """
+        Match SQL integrity guards even in Boolean branches that cannot match.
+
+        Example:
+            A false Boolean sibling does not hide a broken required relationship.
+
+
+        :param table: Current predicate owner table.
+        :param node: Validated predicate subtree.
+        :param ids: Source identities whose reference integrity must be checked.
+        :return: None when required references exist; dangling targets raise
+            MissingSearchReference.
+        """
         if isinstance(node, BooleanMatch):
             for child in node.operands:
                 self.check_references(table, child, ids)
@@ -225,6 +317,18 @@ class PredicateEvaluator:
             self.check_references(target, node.predicate, set().union(*edges.values()))
 
     def evaluate(self, table: str, node: RowPredicate, ids: set[int]) -> set[int]:
+        """
+        Narrow validated candidates using Boolean, relationship and scalar predicates.
+
+        Example:
+            An AND tree progressively narrows candidates; NOT subtracts from its input set.
+
+
+        :param table: Current predicate owner table.
+        :param node: Validated native predicate subtree.
+        :param ids: Allowed candidate population; provider results must stay within it.
+        :return: Matching identity set without mutating the supplied candidate set.
+        """
         if isinstance(node, ProvidedMatch):
             result = set(node.provider.match(table, frozenset(ids)))
             if not result <= ids:
@@ -261,6 +365,16 @@ class PredicateEvaluator:
         if isinstance(node, TextMatch):
 
             def matches(row_id: int) -> bool:
+                """
+                Match normalized text in any declared column.
+
+                Example:
+                    Exact text compares the normalized whole string; nonexact text uses containment.
+
+
+                :param row_id: Candidate identity in the current predicate table.
+                :return: True when this predicate leaf matches the candidate.
+                """
                 for column in node.columns:
                     text = text_key(value(table, row_id, column))
                     if text is not None and (
@@ -274,6 +388,16 @@ class PredicateEvaluator:
             )
 
             def matches(row_id: int) -> bool:
+                """
+                Compare normalized identifier scheme/value pairs.
+
+                Example:
+                    Identifier matching uses the same normalization helpers as database search.
+
+
+                :param row_id: Candidate identity in the current predicate table.
+                :return: True when this predicate leaf matches the candidate.
+                """
                 return (
                     identifier_key(
                         value(table, row_id, node.scheme_column),
@@ -284,6 +408,16 @@ class PredicateEvaluator:
         else:
 
             def matches(row_id: int) -> bool:
+                """
+                Apply a scalar comparison or collection-count predicate.
+
+                Example:
+                    CountMatch treats None as zero, a collection by length, and another value as one.
+
+
+                :param row_id: Candidate identity in the current predicate table.
+                :return: True when this predicate leaf matches the candidate.
+                """
                 item = value(table, row_id, node.column)
                 if isinstance(node, CountMatch):
                     item = (

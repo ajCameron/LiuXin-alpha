@@ -1,4 +1,6 @@
-"""Execute Catalog-owned metadata search plans with explicit page provenance."""
+"""
+Execute Catalog-owned metadata search plans with explicit page provenance.
+"""
 
 from __future__ import annotations
 
@@ -25,14 +27,37 @@ if TYPE_CHECKING:
 
 
 class MetadataSearch:
-    """Bind search to the metadata owner's attachment, lock and fallback policy."""
+    """
+    Bind search to the metadata owner's attachment, lock and fallback policy.
+
+    Example:
+        ``metadata.search.query(request)`` returns references, totals and provenance.
+    """
 
     def __init__(self, owner: MetadataAPI) -> None:
-        """Borrow the enclosing metadata service without loading another cache."""
+        """
+        Borrow the enclosing metadata service without loading another cache.
+
+        Example:
+            A retained search service rechecks attachment at each operation.
+
+
+        :param owner: Metadata service providing Catalog semantics and source policy.
+        :return: None; retains the owner without reading rows.
+        """
         self._owner = owner
 
     def fields(self, *, level: WemiLevel = "work") -> tuple[MetadataSearchField, ...]:
-        """Discover supported semantic filters without executing a search."""
+        """
+        Discover supported semantic filters without executing a search.
+
+        Example:
+            Field discovery does not execute a catalogue query.
+
+
+        :param level: WEMI result family whose semantic filters are requested.
+        :return: Tuple of supported semantic filter descriptors.
+        """
         with self._owner._lock():
             self._owner._assert_attached()
             return metadata_requests.fields(level)
@@ -40,24 +65,52 @@ class MetadataSearch:
     def sort_fields(
         self, *, level: WemiLevel = "work"
     ) -> tuple[MetadataSortField, ...]:
-        """Discover scalar ordering keys for this result family."""
+        """
+        Discover scalar ordering keys for this result family.
+
+        Example:
+            Relationship filter paths need not be valid scalar sort keys.
+
+
+        :param level: WEMI result family whose scalar ordering keys are requested.
+        :return: Tuple of sortable field descriptors.
+        """
         with self._owner._lock():
             self._owner._assert_attached()
             return metadata_requests.sort_fields(level)
 
     def validate(self, request: MetadataSearchRequest) -> None:
-        """Validate semantic options and syntax without cache or database row reads."""
+        """
+        Validate semantic options and syntax without cache or database row reads.
+
+        Example:
+            A numeric ID filter rejects a boolean operand before execution.
+
+
+        :param request: Typed search request to validate without reading schema or rows.
+        :return: None for a valid request; structured validation errors identify the
+            invalid parameter.
+        """
         with self._owner._lock():
             self._owner._assert_attached()
             metadata_requests.validate(self._owner._catalog.search, request)
 
     def _database_page(self, plan: CacheQuery) -> CacheQueryResult:
-        """Filter through existing SQL macros, then reuse native sorting and paging.
+        """
+        Filter through existing SQL macros, then reuse native sorting and paging.
 
         SQL-capable backends materialize all matching root rows to obtain one
         count and ordering population. Other backends use one ephemeral database
         capture. Neither route retains results or borrows a configured cache's
-        generation; neither opens a transaction to strengthen read isolation.
+        generation. The metadata owner supplies the surrounding read transaction.
+
+        Example:
+            SQL filters matching roots before native sorting and paging.
+
+
+        :param plan: Compiled physical query plan under the owner's read transaction.
+        :return: Complete physical query result with counts and ordering from one
+            population.
         """
         database = self._owner._database
         if database.macros.supports_normalized_search():
@@ -89,14 +142,32 @@ class MetadataSearch:
 
     @staticmethod
     def _identity(value: object) -> int:
-        """Refuse malformed identities instead of coercing broken search results."""
+        """
+        Refuse malformed identities instead of coercing broken search results.
+
+        Example:
+            A malformed physical ID never becomes a coerced reference.
+
+
+        :param value: Candidate identity from a physical search result.
+        :return: Integer identity; booleans and non-integers raise TypeError.
+        """
         if type(value) is not int:
             raise TypeError(f"Invalid metadata search identity: {value!r}")
         return value
 
     def query(self, request: MetadataSearchRequest) -> MetadataSearchPage:
-        """Return complete count and page from the same execution population."""
-        with self._owner._lock():
+        """
+        Return complete count and page from the same execution population.
+
+        Example:
+            A page of 20 references can report total_count=100 without changing its limit.
+
+
+        :param request: Typed filters, query text, ordering and pagination.
+        :return: Native reference page with exact totals and execution provenance.
+        """
+        with self._owner._reading():
             self._owner._assert_attached()
             plan = metadata_requests.compile_request(
                 self._owner._catalog.search, request
@@ -117,7 +188,18 @@ class MetadataSearch:
     def _page(
         self, request: MetadataSearchRequest, result: CacheQueryResult, *, cached: bool
     ) -> MetadataSearchPage:
-        """Discard physical rows while preserving execution counts and provenance."""
+        """
+        Discard physical rows while preserving execution counts and provenance.
+
+        Example:
+            Database fallback reports source=database and no cache generation.
+
+
+        :param request: Original semantic request describing level and paging.
+        :param result: Complete physical execution result.
+        :param cached: Whether the configured cache produced the result.
+        :return: Metadata page with physical row payloads removed.
+        """
         cache = self._owner._cache
         return MetadataSearchPage(
             level=request.level,
@@ -145,9 +227,21 @@ class MetadataSearch:
         limit: int | None = 100,
         offset: int = 0,
     ) -> tuple[MetadataReference, ...]:
-        """Retain the ID-ordered reference convenience without requiring a total."""
+        """
+        Retain the ID-ordered reference convenience without requiring a total.
+
+        Example:
+            ``metadata.search.find("work.title:Dune")`` is the reference-only convenience.
+
+
+        :param query: Native Catalog query text.
+        :param level: WEMI result family.
+        :param limit: Maximum references, or None for no cap.
+        :param offset: Nonnegative number of identity-ordered results to skip.
+        :return: Tuple of matching metadata references in identity order.
+        """
         BaseRepository._validate_page(0 if limit is None else limit, offset)
-        with self._owner._lock():
+        with self._owner._reading():
             source = self._owner._reads()
             search = self._owner._catalog.search
             plan = replace(

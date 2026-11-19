@@ -1226,9 +1226,31 @@ def metadata_access_contracts() -> None:
         MetadataSortField,
     )
 
+    from LiuXin_alpha.catalog.api.metadata_payloads import WorkCreate, WorkUpdate
+    from LiuXin_alpha.catalog.api.metadata_revisions import MetadataSnapshot
+
     def consume(api: MetadataAPIInterface) -> None:
-        assert_type(api.works, MetadataEntityInterface[WorkMetadataAPI])
+        assert_type(
+            api.works, MetadataEntityInterface[WorkMetadataAPI, WorkCreate, WorkUpdate]
+        )
         assert_type(api.works.get(7), WorkMetadataAPI | None)
+        assert_type(api.works.get_many((7, 8)), tuple[WorkMetadataAPI | None, ...])
+        assert_type(api.works.read_for_edit(7), MetadataSnapshot[WorkMetadataAPI])
+        patch: WorkUpdate = {"title": None, "original_date": 1700000000}
+        api.works.update(7, patch)
+        api.works.update(
+            7,
+            {"title": 123},  # expect-error: reportArgumentType typeddict-item
+        )
+        api.items.create(
+            {"title": "x"},  # expect-error: reportArgumentType typeddict-unknown-key
+        )
+        assert_type(
+            api.batch(
+                lambda metadata: metadata.works.create({"title": "Batch"}).result
+            ),
+            MetadataWriteReceipt[int],
+        )
         assert_type(api.items.require(9), ItemMetadataAPI)
         assert_type(api.search.find("author:Herbert"), tuple[MetadataReference, ...])
         request = MetadataSearchRequest(
@@ -1255,7 +1277,7 @@ def metadata_access_contracts() -> None:
         assert_type(receipt.result, int)
         assert_type(api.works.delete(7), MetadataWriteReceipt[int])
         api.works.get("7")  # expect-error: reportArgumentType arg-type
-        api.items = api.works  # expect-error: reportAttributeAccessIssue misc
+        api.items = api.items  # expect-error: reportAttributeAccessIssue misc
         # These legacy imported types are outside mypy's checked source scope;
         # basedpyright also checks their WEMI level and container distinctions.
         find = api.search.find
@@ -1286,3 +1308,12 @@ def metadata_access_contracts() -> None:
         "current",
         3,
     )
+
+
+def metadata_cache_link_read_contracts(row: RowAPI) -> None:
+    """Cached association reads preserve the native metadata row protocol."""
+    from LiuXin_alpha.caches.metadata_reads import MetadataReadSource
+    from LiuXin_alpha.catalog.api.retrieval.hydration import MetadataLinkRowSequence
+
+    def consume(source: MetadataReadSource) -> None:
+        assert_type(source.get_interlink_rows(row, "agents"), MetadataLinkRowSequence)
