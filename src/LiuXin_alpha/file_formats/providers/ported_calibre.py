@@ -60,6 +60,7 @@ PORTED_READERS: Mapping[str, tuple[str, frozenset[str]]] = {
     "Read FB2 metadata": ("fb2", frozenset({"fb2", "fbz"})),
     "Read ODT metadata": ("odt", frozenset({"odt"})),
     "Read MOBI metadata": ("mobi", frozenset({"mobi", "prc", "azw", "azw3", "azw4", "pobi"})),
+    "Read PDB metadata": ("pdb", frozenset({"pdb", "updb"})),
 }
 """calibre's reader plugins that have been ported: module and formats."""
 
@@ -194,6 +195,12 @@ def ported_reader(module: str) -> Callable[..., Any]:
         )
 
         return get_mobi_metadata
+    if module == "pdb":
+        from LiuXin_alpha.metadata.upstream_calibre.pdb import (
+            get_metadata as get_pdb_metadata,
+        )
+
+        return get_pdb_metadata
     raise KeyError(f"no calibre reader named {module!r} has been ported")
 
 
@@ -433,7 +440,7 @@ def register_ported_calibre_readers(
     Example:
         >>> from LiuXin_alpha.file_formats.providers.registry import ProviderRegistry
         >>> [p.provider_id for p in register_ported_calibre_readers(ProviderRegistry())]
-        ['calibre-port.read-txt-metadata', 'calibre-port.read-imp-metadata', 'calibre-port.read-rb-metadata', 'calibre-port.read-lrx-metadata', 'calibre-port.read-snb-metadata', 'calibre-port.read-rtf-metadata', 'calibre-port.read-topaz-metadata', 'calibre-port.read-pml-metadata', 'calibre-port.read-opf-metadata', 'calibre-port.read-epub-metadata', 'calibre-port.read-htmlz-metadata', 'calibre-port.read-txtz-metadata', 'calibre-port.read-html-metadata', 'calibre-port.read-fb2-metadata', 'calibre-port.read-odt-metadata', 'calibre-port.read-mobi-metadata']
+        ['calibre-port.read-txt-metadata', 'calibre-port.read-imp-metadata', 'calibre-port.read-rb-metadata', 'calibre-port.read-lrx-metadata', 'calibre-port.read-snb-metadata', 'calibre-port.read-rtf-metadata', 'calibre-port.read-topaz-metadata', 'calibre-port.read-pml-metadata', 'calibre-port.read-opf-metadata', 'calibre-port.read-epub-metadata', 'calibre-port.read-htmlz-metadata', 'calibre-port.read-txtz-metadata', 'calibre-port.read-html-metadata', 'calibre-port.read-fb2-metadata', 'calibre-port.read-odt-metadata', 'calibre-port.read-mobi-metadata', 'calibre-port.read-pdb-metadata']
 
 
     :param registry: The registry to add the providers to.

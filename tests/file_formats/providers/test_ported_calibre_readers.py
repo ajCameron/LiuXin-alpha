@@ -203,7 +203,7 @@ def test_every_port_registers_above_the_installed_calibre() -> None:
     registry = ProviderRegistry()
     register_upstream_calibre_readers(registry)
     made = register_ported_calibre_readers(registry)
-    assert len(made) == len(PORTED_READERS) == 16
+    assert len(made) == len(PORTED_READERS) == 17
     assert PORTED_PRIORITY > UPSTREAM_PRIORITY
     for provider in made:
         file_format = next(iter(provider.calibre_read_formats))
@@ -323,9 +323,9 @@ def test_unknown_ports_are_refused() -> None:
     :return: None after both lookups are refused.
     """
     with pytest.raises(KeyError):
-        ported_reader("pdb")
+        ported_reader("lrf")
     with pytest.raises(KeyError):
-        adapt_ported_reader("Read PDB metadata")
+        adapt_ported_reader("Read LRF metadata")
 
 
 @pytest.mark.parametrize(

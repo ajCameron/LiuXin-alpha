@@ -1,0 +1,156 @@
+# License: GPLv3 Copyright: 2012, Kan-Ru Chen <kanru@kanru.info>
+# Ported from calibre (https://calibre-ebook.com) 9.18: src/calibre/ebooks/pdb/haodoo/reader.py
+# Changes from upstream: calibre imports point at upstream_calibre and its _compat, and
+# 'from __future__ import annotations' is added.
+# SPDX-License-Identifier: GPL-3.0-only
+
+"""
+Read content from Haodoo.net pdb file.
+"""
+
+from __future__ import annotations
+
+import os
+import struct
+from typing import IO, TYPE_CHECKING, cast
+
+from LiuXin_alpha.metadata.upstream_calibre._compat import prepare_string_for_xml
+from LiuXin_alpha.metadata.upstream_calibre.metadata_base import MetaInformation
+from LiuXin_alpha.metadata.upstream_calibre.pdb_formatreader import FormatReader
+from LiuXin_alpha.metadata.upstream_calibre.txt_processor import HTML_TEMPLATE
+from LiuXin_alpha.metadata.upstream_calibre.txt_processor import opf_writer
+
+if TYPE_CHECKING:
+    from optparse import Values
+
+    from LiuXin_alpha.metadata.upstream_calibre.book_base import Metadata
+    from LiuXin_alpha.metadata.upstream_calibre.pdb_header import PdbHeaderReader
+    from LiuXin_alpha.metadata.upstream_calibre._compat import Log
+
+BPDB_IDENT = 'BOOKMTIT'
+UPDB_IDENT = 'BOOKMTIU'
+
+punct_table = {
+    '︵': '（',
+    '︶': '）',
+    '︷': '｛',
+    '︸': '｝',
+    '︹': '〔',
+    '︺': '〕',
+    '︻': '【',
+    '︼': '】',
+    '︗': '〖',
+    '︘': '〗',
+    '﹇': '［］',
+    '﹈': '［］',
+    '︽': '《',
+    '︾': '》',
+    '︿': '〈',
+    '﹀': '〉',
+    '﹁': '「',
+    '﹂': '」',
+    '﹃': '『',
+    '﹄': '』',
+    '｜': '—',
+    '︙': '…',
+    'ⸯ': '～',
+    '│': '…',
+    '￤': '…',
+    '　': '  ',
+}
+
+
+def fix_punct(line: str) -> str:
+    for key, value in punct_table.items():
+        line = line.replace(key, value)
+    return line
+
+
+class LegacyHeaderRecord:
+    def __init__(self, raw: bytes) -> None:
+        fields = raw.lstrip().replace(b'\x1b\x1b\x1b', b'\x1b').split(b'\x1b')
+        self.title = fix_punct(fields[0].decode('cp950', 'replace'))
+        self.num_records = int(fields[1])
+        self.chapter_titles = [fix_punct(x.decode('cp950', 'replace').rstrip('\x00')) for x in fields[2:]]
+
+
+class UnicodeHeaderRecord:
+    def __init__(self, raw: bytes) -> None:
+        fields = raw.lstrip().replace(b'\x1b\x00\x1b\x00\x1b\x00', b'\x1b\x00').split(b'\x1b\x00')
+        self.title = fix_punct(fields[0].decode('utf_16_le', 'ignore'))
+        self.num_records = int(fields[1])
+        self.chapter_titles = [fix_punct(x.decode('utf_16_le', 'replace').rstrip('\x00')) for x in fields[2].split(b'\r\x00\n\x00')]
+
+
+class Reader(FormatReader):
+    def __init__(self, header: PdbHeaderReader, stream: IO[bytes], log: Log | None, options: Values | None) -> None:
+        self.stream = stream
+        # log is None only when constructed by metadata/haodoo.py, which never calls extract_content()
+        self.log = cast('Log', log)
+
+        self.sections = []
+        for i in range(header.num_sections):
+            self.sections.append(header.section_data(i))
+
+        if header.ident == BPDB_IDENT:
+            self.header_record = LegacyHeaderRecord(self.section_data(0))
+            self.encoding = 'cp950'
+        else:
+            self.header_record = UnicodeHeaderRecord(self.section_data(0))
+            self.encoding = 'utf_16_le'
+
+    def author(self) -> str:
+        self.stream.seek(35)
+        version = struct.unpack('>b', self.stream.read(1))[0]
+        if version == 2:
+            self.stream.seek(0)
+            author = self.stream.read(35).rstrip(b'\x00').decode(self.encoding, 'replace')
+            return author
+        else:
+            return 'Unknown'
+
+    def get_metadata(self) -> Metadata:
+        mi = MetaInformation(self.header_record.title, [self.author()])
+        mi.language = 'zh-tw'
+
+        return mi
+
+    def section_data(self, number: int) -> bytes:
+        return self.sections[number]
+
+    def decompress_text(self, number: int) -> str:
+        return self.section_data(number).decode(self.encoding, 'replace').rstrip('\x00')
+
+    def extract_content(self, output_dir: str) -> str:
+        txt = ''
+
+        self.log.info('Decompressing text...')
+        for i in range(1, self.header_record.num_records + 1):
+            self.log.debug(f'\tDecompressing text section {i}')
+            title = self.header_record.chapter_titles[i - 1]
+            lines = []
+            title_added = False
+            for line in self.decompress_text(i).splitlines():
+                line = fix_punct(line)
+                line = line.strip()
+                if not title_added and title in line:
+                    line = '<h1 class="chapter">' + line + '</h1>\n'
+                    title_added = True
+                else:
+                    line = prepare_string_for_xml(line)
+                lines.append(f'<p>{line}</p>')
+            if not title_added:
+                lines.insert(0, '<h1 class="chapter">' + title + '</h1>\n')
+            txt += '\n'.join(lines)
+
+        self.log.info('Converting text to OEB...')
+        html = HTML_TEMPLATE % (self.header_record.title, txt)
+        with open(os.path.join(output_dir, 'index.html'), 'wb') as index:
+            index.write(html.encode('utf-8'))
+
+        mi = self.get_metadata()
+        manifest = [('index.html', None)]
+        spine = ['index.html']
+        opf_writer(output_dir, 'metadata.opf', manifest, spine, mi)
+
+        return os.path.join(output_dir, 'metadata.opf')
