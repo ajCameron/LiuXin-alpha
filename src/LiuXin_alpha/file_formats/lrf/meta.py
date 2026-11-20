@@ -1461,7 +1461,7 @@ def option_parser() -> _typing.Any:
         described above.
     """
     from LiuXin_alpha.utils.config import OptionParser
-    from LiuXin_alpha.utils.calibre.constants import __appname__, __version__
+    from LiuXin_alpha.constants import __appname__, __version__
 
     parser = OptionParser(
         usage=_(
