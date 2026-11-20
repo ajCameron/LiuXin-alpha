@@ -193,7 +193,9 @@ def _load_data():
         :return: The normalized value, metadata record, path, stream result or collection
             described above.
         """
-        data = line.strip().split("|")
+        # The shipped file begins with two byte-order marks, which would otherwise stay
+        # in the first code and leave Afar ("aar") unfindable.
+        data = line.lstrip("\ufeff").strip().split("|")
         return {
             "iso639_2_b": data[0],
             "iso639_2_t": data[1],
@@ -213,7 +215,7 @@ def _load_data():
     # appear in our fixtures and metadata tests.
     try:
         with codecs.open(data_file, "r", "UTF-8") as f:
-            return [parse_line(line) for line in f]
+            return [parse_line(line) for line in f if line.strip("\ufeff \t\r\n")]
     except FileNotFoundError:
         # Minimal corpus: iso639_2_b | iso639_2_t | iso639_1 | English name
         minimal = [

@@ -263,7 +263,7 @@ def test_overdrive_metadata_from_detail_html_parses_fields() -> None:
     assert mi.series == "Middle-earth Universe"
     assert mi.series_index == 1
     assert mi.tags == ["Fantasy", "Classics"]
-    assert mi.language == "en"
+    assert mi.language == "eng"
     assert mi.pubdate.year == 1937
     assert plugin.cached_identifier_to_cover_url("1234567").endswith("ImageType-100/cover.jpg")
 
@@ -686,7 +686,7 @@ def test_overdrive_metadata_parser_uses_fallbacks_and_defaults() -> None:
     assert mi.pubdate.month == 4 and mi.pubdate.day == 15
     assert mi.series == "Cycle"
     assert mi.series_index == 3.5
-    assert mi.language == "en"
+    assert mi.language == "eng"
     assert mi.tags == ["fiction", "adventure"]
     assert mi.get_identifiers()["overdrive"] == "1234567"
     assert mi.get_identifiers()["isbn"] == "9780261102217"

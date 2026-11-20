@@ -701,7 +701,7 @@ def test_opf_extract_generic_metadata_unicode_identifiers_and_overrides(monkeypa
 
     assert mi.title == "Καφές — 世界 — café 😀"
     assert mi.authors == ["Renée Faßbinder", "李白"]
-    assert mi.language == "fr"
+    assert mi.language == "fra"
     assert mi.publisher == "გამომცემელი"
     assert set(mi.tags) >= {"naïve", "δοκιμή", "テスト", "résumé", "追加"}
     assert mi.series == "Σειρά 世界"

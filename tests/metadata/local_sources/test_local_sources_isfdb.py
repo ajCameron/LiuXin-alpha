@@ -493,7 +493,7 @@ def test_isfdb_identify_direct_title_maps_metadata(tmp_path: Path) -> None:
     assert mi.authors == ["Frank Herbert"]
     assert mi.publisher == "Chilton Books"
     assert mi.pubdate.year == 1965
-    assert mi.language == "en"
+    assert mi.language == "eng"
     assert mi.series == "Dune"
     assert mi.rating == 4.5
     assert "Science Fiction" in mi.tags

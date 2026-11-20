@@ -23,7 +23,8 @@ modules that are not ported, and says where LiuXin differs from calibre;
 :mod:`._speedups` ports the C functions the code calls. Three data files come
 with them: calibre's ``default_tweaks.py`` and ``mime.types``, and
 ``iso_codes.json.gz``, the language and country maps calibre builds from
-iso-codes, rebuilt by ``scripts/build_upstream_calibre_iso_codes.py``.
+iso-codes, rebuilt by ``scripts/build_upstream_calibre_iso_codes.py``. That last
+one lives in ``utils/libraries/iso639``, as LiuXin's own language functions read it.
 calibre's own tests for the OPF code and author sorting are ported too
 (``opf3_test``, ``author_sort_test``, and the suite in ``opf2``).
 

@@ -175,7 +175,7 @@ def test_exth_fixture_helpers_support_unicode_and_malformed_sizes() -> None:
 
     assert parsed.mi.title == "EXTH Title — 😀"
     assert set(_values(parsed.mi.authors)) == {"Renée Faßbinder", "李白"}
-    assert str(parsed.mi.language).lower() in {"fr", "french"}
+    assert parsed.mi.language == "fra"
 
     malformed = build_mobi_exth([mobi_exth_record(100, b"payload", declared_size=7)], item_count=1)
     assert malformed.startswith(b"EXTH")

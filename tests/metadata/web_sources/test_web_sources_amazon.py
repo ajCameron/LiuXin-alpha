@@ -607,7 +607,7 @@ def test_amazon_low_level_helpers_handle_odd_inputs() -> None:
     assert amazon._safe_isbn_from_identifiers({"isbn": ["bad", "9780306406157"]}) is None
     assert amazon._safe_isbn_from_identifiers({"isbn13": b"9780306406157"}) == "9780306406157"
     assert amazon._canonicalize_language("") is None
-    assert amazon._canonicalize_language("Unknown-Language") == "unknown"
+    assert amazon._canonicalize_language("Unknown-Language") is None
     assert amazon._parse_pubdate("") is None
     assert amazon._parse_pubdate("January 2nd, 2021") == datetime(2021, 1, 2)
     assert amazon._parse_pubdate("Published (2020)") == datetime(2020, 6, 15)

@@ -538,25 +538,39 @@ for k in _extra_lang_codes:
     _lcase_map[k.lower()] = k
 
 
-# Todo: Crack open a calibre prefs folder and extract this method
 def _load_iso639():
     """
-    Perform the load iso639 utility operation under explicit compatibility rules.
+    Load the ISO 639 language table: calibre's ``iso639.pickle`` if present, else LiuXin's copy of calibre's.
+
+    calibre generates its pickle when it is built and LiuXin does not ship it, so the
+    table is normally built from the copy of calibre's maps that LiuXin ships, with
+    ISO 639-2's bibliographic and collective codes added (see
+    :mod:`LiuXin_alpha.utils.libraries.iso639.calibre_table`). A pickle without the
+    lookups this module uses is ignored the same way.
 
     Example:
-        Exercise  load iso639 through a consuming regression::
+        >>> table = _load_iso639()
+        >>> table["2to3"]["fr"], table["3to2"]["deu"], table["by_3t"]["eng"], table["3bto3t"]["ger"]
+        ('fra', 'de', 'English', 'deu')
 
-            python -m pytest -q tests/utils/language_tools/test_pluralizers.py
 
-
-    :return: The normalized value, metadata record, path, stream result or collection
-        described above.
+    :return: The table, built once and then cached.
     """
     global _iso639
     if _iso639 is None:
-        ip = P("localization/iso639.pickle", allow_user_override=False)
-        with open(ip, "rb") as f:
-            _iso639 = cPickle.load(f)
+        table = None
+        try:
+            ip = P("localization/iso639.pickle", allow_user_override=False)
+            with open(ip, "rb") as f:
+                table = cPickle.load(f)
+        except Exception:
+            table = None
+        if not isinstance(table, dict) or not {"by_3b", "by_3t", "3bto3t", "name_map"} <= set(table):
+            from LiuXin_alpha.utils.libraries.iso639 import data
+            from LiuXin_alpha.utils.libraries.iso639.calibre_table import build_iso639_table, read_iso_codes
+
+            table = build_iso639_table(read_iso_codes()["iso639"], data)
+        _iso639 = table
     return _iso639
 
 
@@ -620,20 +634,23 @@ def calibre_langcode_to_name(lc, localize=True):
     return lc
 
 
-# Todo: Need to do a lot more work on this - as it isn't currently very good - should be a plugin?
 def canonicalize_lang(raw):
     """
-    Attempts to bring a language into a given, useful form.
+    Bring a language code or English name to the three-letter code calibre stores (ISO 639-3).
+
+    Only the first word of the text counts, as in calibre: ``en-GB`` and ``pt_BR``
+    are ``eng`` and ``por``. A two-letter code, an ISO 639-3 code (``cmn``) or a
+    one-word English name (``French``) gives what calibre gives. Unlike calibre, an
+    ISO 639-2 bibliographic code (``fre``) gives its terminologic code (``fra``), and
+    ISO 639-2's collective codes (``bnt``) are known. Anything else gives ``None``.
 
     Example:
-        Exercise canonicalize lang through a consuming regression::
+        >>> [canonicalize_lang(x) for x in ("fr", "fre", "fra", "French", "en-GB", "pt_BR", "cmn", "bnt", "qqq", "")]
+        ['fra', 'fra', 'fra', 'fra', 'eng', 'por', 'cmn', 'bnt', None, None]
 
-            python -m pytest -q tests/utils/language_tools/test_pluralizers.py
 
-
-    :param raw: Value supplied for raw under the utility contract.
-    :return: The normalized value, metadata record, path, stream result or collection
-        described above.
+    :param raw: A language code, tag or English name.
+    :return: The three-letter code, or ``None``.
     """
     # If None, returning None
     if not raw:
@@ -652,12 +669,7 @@ def canonicalize_lang(raw):
     if not raw:
         return None
 
-    # Todo: For the moment if something goes wrong it's ignored - fix this
-    try:
-        iso639 = _load_iso639()
-    except:
-        return raw
-
+    iso639 = _load_iso639()
     m2to3 = iso639["2to3"]
 
     if len(raw) == 2:
@@ -693,7 +705,7 @@ def lang_map():
     translate = _
     global _lang_map
     if _lang_map is None:
-        _lang_map = {k: translate(v) for k, v in iso639["by_3t"].iteritems()}
+        _lang_map = {k: translate(v) for k, v in iso639["by_3t"].items()}
     return _lang_map
 
 
@@ -715,7 +727,7 @@ def langnames_to_langcodes(names):
     translate = _
     ans = {}
     names = set(names)
-    for k, v in iso639["by_3t"].iteritems():
+    for k, v in iso639["by_3t"].items():
         tv = translate(v)
         if tv in names:
             names.remove(tv)
@@ -732,8 +744,7 @@ def lang_as_iso639_1(name_or_code):
     """
     Takes a language as a iso639_2 code and tries to return it as an iso639_1 code. Seems to just run a lookup against a map of the 3 digit iso639_2 codes to the 2 digit iso639_1 codes and returns a iso_639_1 code if found.
 
-    calibre's ISO 639 table (``iso639.pickle``) is built with calibre and does not ship
-    with LiuXin, so the lookup falls back to the ISO 639-2 table LiuXin does ship.
+    The table is LiuXin's copy of calibre's (see :func:`_load_iso639`).
 
     Example:
         >>> lang_as_iso639_1("fra"), lang_as_iso639_1("ger"), lang_as_iso639_1("en"), lang_as_iso639_1("xyz")
@@ -745,15 +756,7 @@ def lang_as_iso639_1(name_or_code):
     """
     code = canonicalize_lang(name_or_code)
     if code is not None:
-        try:
-            iso639 = _load_iso639()
-        except IOError:
-            from LiuXin_alpha.utils.libraries.iso639.iso639_tools import (
-                lang_as_iso639_1 as fallback_lang_as_iso639_1,
-            )
-
-            return fallback_lang_as_iso639_1(code) or None
-        return iso639["3to2"].get(code, None)
+        return _load_iso639()["3to2"].get(code, None)
 
 
 _udc = None

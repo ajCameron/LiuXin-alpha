@@ -167,7 +167,7 @@ def test_opf_get_metadata_default_returns_liuxin_metadata() -> None:
     md = get_metadata(io.BytesIO(_opf2_unicode_bytes()))
     assert "主題" in md.title
     assert _values(md.authors) == ["Renée Faßbinder"]
-    assert getattr(md, "language", None) == "ja"
+    assert getattr(md, "language", None) == "jpn"
     assert "Combining: cafe" in (_values(getattr(md, "comments", None))[0])
     assert set(_values(getattr(md, "tags", None))) >= {"タグ", "Κατηγορία"}
     assert _values(getattr(md, "series", None)) == ["シリーズΩ"]
