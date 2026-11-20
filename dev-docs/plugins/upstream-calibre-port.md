@@ -63,7 +63,11 @@ turned up, and which readers are left.
 | `opf2`, `opf3`, `opf`, `metadata_utils`, `toc` | `ebooks/metadata/` | |
 | `date`, `iso8601`, `cleantext`, `chardet`, `imghdr` | `utils/`, `ebooks/chardet.py` | `chardet` carries a marked fix |
 | `_linear_time` | LiuXin's own | Passes the marked fixes the linear-time stand-ins in `utils/linear_time.py`, which LiuXin's own readers share, and adds `linear_pattern`, which recognises calibre's encoding-declaration patterns by their source |
-| `pretty`, `config_base`, `meta` | parts of `ebooks/oeb/polish/pretty.py`, `utils/config_base.py`, `ebooks/metadata/meta.py` | only what the ported code uses |
+| `pretty`, `config_base` | parts of `ebooks/oeb/polish/pretty.py`, `utils/config_base.py` | only what the ported code uses |
+| `meta` | `ebooks/metadata/meta.py`, in part | `get_metadata`, with its filename pattern, and `opf_metadata`: what the archive readers and calibre's OPF 2 tests use |
+| `comic`, `zip`, `rar`, `archive`, `libunzip`, `seven_zip` | the comic reader plugin in `customize/builtins.py`, `ebooks/metadata/zip.py`, `rar.py`, `archive.py` (in part), `libunzip.py` (in part), `utils/seven_zip.py` | The comic, ZIP and RAR readers. `comic` is the plugin's `get_metadata`, ported by hand as a function; the plugin's setting (volume or issue as the series index) is its argument |
+| `_readers` | LiuXin's own | Stands in for `customize.ui.get_file_type_metadata`: the archive readers hand each book inside to the ported reader for its type, as calibre's plugin for it calls it |
+| `_unrar` | LiuXin's own | Stands in for `utils/unrar.py`, which wraps calibre's `unrardll`: the same functions on `rarfile`, refusing members past LiuXin's archive limits |
 | `localunzip` | `utils/localunzip.py` | Reads ZIP files whose central directory is missing or damaged, from their local headers |
 | `ebooks`, `beautifulsoup` | `ebooks/__init__.py`, `ebooks/BeautifulSoup.py` | Finding a cover on a book's first page |
 | `fb2_package`, `html_to_text` | `ebooks/fb2/__init__.py`, `utils/html2text.py` | FB2's tolerant base64 decoder; HTML to text, which only FB2 writing uses |
@@ -96,6 +100,12 @@ and its docstring lists each difference from calibre. In short:
 | Qt re-encoding a MOBI cover as a JPEG of at most 1650x2200 | not ported: the cover is kept as the book stores it | The cover is the book's own image, named by its bytes |
 | Qt saving the JPEG and BMP images of an old MOBI book while reading its text; Pillow converting its GIFs | not ported; Pillow where installed | Those images are skipped (PNGs are written as they are); the metadata does not need them |
 | Qt image and date helpers, EPUB writing helpers, the MOBI writer's colour and guide helpers | not ported; raise `NotImplementedError` | Readers do not call them; calibre's tests of the MOBI writer helpers are not run |
+| `unrardll`, calibre's binding to RARLAB's library | `_unrar`, on the `rarfile` package (the `archives` extra) or LiuXin's vendored copy | Names are read the same way; contents need an extraction tool on the PATH, so the RAR port is unavailable without one, and a CBR's cover cannot be read |
+| `py7zr`, which calibre bundles | optional (the `archives` extra) | Without it a CB7 is not read |
+| ICU's numeric collation, for page order | `_compat.numeric_sort_key`: numbers by value, the rest case-folded | The same order for page names; accented letters can sort differently |
+| calibre's plugin dispatch (`customize.ui`) | `_readers.get_file_type_metadata`, which runs the ported readers; `file_formats.providers.ported_calibre` gives it the readers when it runs one | Books inside archives are read by the ported readers only |
+| calibre's preferences (`prefs`) | `_compat.prefs`, at calibre's defaults | File names are matched against calibre's default pattern; author names are not swapped |
+| The `regex` package | used where installed (the `search` and `conversion` extras), else `re` | calibre's default filename pattern reads the same either way |
 
 The ported readers parse dates with `python-dateutil`'s parser, as calibre
 does. It comes through the utils plugin system's `dateutil_parser` plugin:
@@ -108,10 +118,11 @@ otherwise the copy LiuXin vendors, which gives the same answers. See
 The providers run calibre's code as calibre's plugins do, with two LiuXin
 rules around it:
 
-- **Archive limits.** Before calibre's EPUB, HTMLZ, TXTZ, FBZ or ODT reader
-  opens a book, the provider applies the member-count, size and
+- **Archive limits.** Before calibre's EPUB, HTMLZ, TXTZ, FBZ, ODT, DOCX, ZIP or
+  comic reader opens a book, the provider applies the member-count, size and
   compression-ratio limits of LiuXin's own EPUB input
-  (`file_formats.archive_preflight`). calibre reads the members it needs
+  (`file_formats.archive_preflight`), to 7-Zip comics as well as ZIP files; RAR
+  members are checked against the same limits before they are read. calibre reads the members it needs
   whole, and the EPUB reader extracts the whole book when it looks for a cover
   on the first page, so a small file that expands enormously would otherwise
   fill memory or disk. Books whose central directory Python cannot read go to
@@ -121,7 +132,8 @@ rules around it:
   included; the provider names each cover by what calibre's `imghdr` finds in
   it, so a PNG cover is a `png`.
 - **Availability.** The PDF port reports itself unavailable where poppler's
-  `pdfinfo` is not on the PATH. The provider below it needs no poppler.
+  `pdfinfo` is not on the PATH. The provider below it needs no poppler. The RAR
+  port reports itself unavailable where `rarfile` finds no tool to extract with.
 
 ## Not ported yet
 
