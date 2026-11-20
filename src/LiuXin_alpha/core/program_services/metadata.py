@@ -224,6 +224,63 @@ def _existing_metadata(data: bytes, file_type: str) -> Any:
     return metadata
 
 
+def _supplied_authors(values: dict[str, Any]) -> tuple[bool, list[str]]:
+    """
+    Take the authors out of a metadata mapping, under either of their keys.
+
+    Example:
+        >>> _supplied_authors({"author": "Ann"}), _supplied_authors({"title": "T"})
+        ((True, ['Ann']), (False, []))
+
+
+    :param values: The mapping; ``authors`` and ``author`` are removed from it.
+    :return: Whether authors were given, and the names; a string is one name.
+    :raises CoreDispatchError: If the authors are neither a string nor a sequence.
+    """
+    given = "authors" in values or "author" in values
+    raw = values.pop("authors", values.pop("author", ()))
+    if isinstance(raw, str):
+        return given, [raw]
+    if isinstance(raw, Sequence):
+        return given, [str(value) for value in raw]
+    raise CoreDispatchError("`metadata.authors` must be a string or array.")
+
+
+def _plain_metadata(values: dict[str, Any], existing: Any) -> Any:
+    """
+    Build the record for a plain metadata mapping: the file's own fields, with the supplied ones over them.
+
+    Example:
+        >>> _plain_metadata({"title": "T"}, None).authors
+        ['Unknown']
+
+
+    :param values: A copy of the mapping; it is consumed.
+    :param existing: The file's current metadata, or ``None`` if it could not be read.
+    :return: calibre's metadata, ready for a writer.
+    :raises CoreDispatchError: If the authors are neither a string nor a sequence.
+    """
+    from LiuXin_alpha.metadata.book.base import calibreMetadata
+
+    given_authors, authors = _supplied_authors(values)
+    title = str(values.pop("title", "") or "")
+    if existing is None:
+        metadata = calibreMetadata(title or "Unknown", authors or ["Unknown"])
+    else:
+        metadata = existing
+        metadata.title = title or metadata.title or "Unknown"
+        if given_authors or not metadata.authors:
+            metadata.authors = authors or ["Unknown"]
+    for key, value in values.items():
+        if key == "identifiers":
+            setter = getattr(metadata, "set_identifiers", None)
+            if callable(setter) and isinstance(value, Mapping):
+                setter(dict(value))
+                continue
+        setattr(metadata, str(key), value)
+    return metadata
+
+
 def _metadata_for_write(
     runtime: CoreRuntime, payload: Mapping[str, Any], existing: Any = None
 ) -> Any:
@@ -273,34 +330,7 @@ def _metadata_for_write(
 
             metadata = LiuXinWEMIMetadata.from_mapping(values).to_calibre()
         else:
-            from LiuXin_alpha.metadata.book.base import calibreMetadata
-
-            given_authors = "authors" in values or "author" in values
-            authors_raw = values.pop("authors", values.pop("author", ()))
-            if isinstance(authors_raw, str):
-                authors = [authors_raw]
-            elif isinstance(authors_raw, Sequence):
-                authors = [str(value) for value in authors_raw]
-            else:
-                raise CoreDispatchError("`metadata.authors` must be a string or array.")
-            title = str(values.pop("title", "") or "")
-            if existing is None:
-                metadata = calibreMetadata(title or "Unknown", authors or ["Unknown"])
-            else:
-                metadata = existing
-                if title:
-                    metadata.title = title
-                elif not metadata.title:
-                    metadata.title = "Unknown"
-                if given_authors or not metadata.authors:
-                    metadata.authors = authors or ["Unknown"]
-            for key, value in values.items():
-                if key == "identifiers":
-                    setter = getattr(metadata, "set_identifiers", None)
-                    if callable(setter) and isinstance(value, Mapping):
-                        setter(dict(value))
-                        continue
-                setattr(metadata, str(key), value)
+            metadata = _plain_metadata(values, existing)
 
     return metadata
 
