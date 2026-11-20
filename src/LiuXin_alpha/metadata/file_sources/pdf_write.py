@@ -15,6 +15,12 @@ damage, and other readers may then not find the catalog at all; when the read-ba
 needs a repair scan, the whole document is cloned into a new file instead, and the
 report says so. Encrypted files are refused.
 
+A failure part-way through writing leaves the file as it was. On disk
+(:func:`write_file`), an appended update that fails is cut off again, and a whole
+rewrite goes to a new file beside the old one that replaces it only once complete,
+so the old file is never half-overwritten. A stream (:func:`write_stream`) cannot be
+swapped like that, so after a failure its original bytes are put back.
+
 pypdf comes from the ``pdf`` extra.
 
 Example:
@@ -24,7 +30,11 @@ Example:
 
 from __future__ import annotations
 
+import contextlib
 import io
+import os
+import shutil
+import tempfile
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
@@ -41,7 +51,9 @@ __all__ = [
     "XmpNotEditable",
     "pdf_date",
     "updated_packet",
+    "write_file",
     "write_metadata",
+    "write_stream",
     "xmp_date",
 ]
 
@@ -614,3 +626,212 @@ def write_metadata(
     raise PdfWriteError(
         "LiuXin could not write metadata that reads back from this PDF. The file is unchanged."
     )
+
+
+def _same_file(before: os.stat_result, now: os.stat_result) -> bool:
+    """
+    Tell whether a file is unchanged since it was read, by its size and modification time.
+
+    Example:
+        >>> _same_file(os.stat(__file__), os.stat(__file__))
+        True
+
+
+    :param before: Its status when it was read.
+    :param now: Its status now.
+    :return: Whether both match.
+    """
+    return (before.st_size, before.st_mtime_ns) == (now.st_size, now.st_mtime_ns)
+
+
+def _changed_meanwhile() -> PdfWriteError:
+    """
+    Build the error for a file that changed while its update was being prepared.
+
+    Example:
+        >>> "changed" in str(_changed_meanwhile())
+        True
+
+
+    :return: The error.
+    """
+    return PdfWriteError(
+        "The PDF changed while its metadata was being prepared, so nothing was written; "
+        "it was left as it now is."
+    )
+
+
+def _append_to_file(
+    target: str, before: os.stat_result, length: int, addition: bytes
+) -> None:
+    """
+    Append an update to a file, cutting it back to its old length if the write fails.
+
+    Example:
+        Append an update to a file read as ``original``::
+
+            _append_to_file(target, before, len(original), payload[len(original):])
+
+
+    :param target: The file's real path.
+    :param before: Its status when it was read.
+    :param length: Its length then, where the update begins.
+    :param addition: The update.
+    :return: None.
+    :raises PdfWriteError: The file changed meanwhile, or the write failed and was undone.
+    """
+    descriptor = os.open(target, os.O_RDWR | getattr(os, "O_BINARY", 0))
+    try:
+        if not _same_file(before, os.fstat(descriptor)):
+            raise _changed_meanwhile()
+        try:
+            view = memoryview(addition)
+            os.lseek(descriptor, length, os.SEEK_SET)
+            while view:
+                view = view[os.write(descriptor, view) :]
+            os.fsync(descriptor)
+        except BaseException as error:
+            with contextlib.suppress(OSError):
+                os.ftruncate(descriptor, length)
+                os.fsync(descriptor)
+            if isinstance(error, OSError):
+                raise PdfWriteError(
+                    f"Writing the update failed ({error}); it was cut off again, so the PDF "
+                    "is as it was."
+                ) from error
+            raise
+    finally:
+        os.close(descriptor)
+
+
+def _replace_file(target: str, before: os.stat_result, payload: bytes) -> None:
+    """
+    Replace a file by writing the new one beside it and renaming it into place once complete.
+
+    The new file takes the old one's permissions. It is a new file, so other hard links
+    to the old one keep the old version.
+
+    Example:
+        Rewrite a file read as ``original``::
+
+            _replace_file(target, before, payload)
+
+
+    :param target: The file's real path.
+    :param before: Its status when it was read.
+    :param payload: The new file.
+    :return: None.
+    :raises PdfWriteError: The file changed meanwhile, or the new file could not be
+        written; the old one is untouched either way.
+    """
+    directory, name = os.path.split(target)
+    descriptor, staged = tempfile.mkstemp(
+        dir=directory or ".", prefix=f".{name}.", suffix=".tmp"
+    )
+    try:
+        with os.fdopen(descriptor, "wb") as handle:
+            handle.write(payload)
+            handle.flush()
+            os.fsync(handle.fileno())
+        shutil.copymode(target, staged)
+        if not _same_file(before, os.stat(target)):
+            raise _changed_meanwhile()
+        os.replace(staged, target)
+    except BaseException as error:
+        with contextlib.suppress(OSError):
+            os.unlink(staged)
+        if isinstance(error, OSError):
+            raise PdfWriteError(
+                f"Writing the new PDF failed ({error}); the old one is untouched."
+            ) from error
+        raise
+    with contextlib.suppress(OSError, AttributeError):
+        folder = os.open(directory or ".", os.O_RDONLY)
+        try:
+            os.fsync(folder)
+        finally:
+            os.close(folder)
+
+
+def write_file(
+    path: str | os.PathLike[str],
+    update: MetadataUpdate,
+    *,
+    moment: datetime | None = None,
+) -> PdfWriteReport:
+    """
+    Write metadata into a PDF on disk, so that a failure part-way leaves it as it was.
+
+    A symbolic link is followed, and the file it names is written.
+
+    Example:
+        Retitle a file::
+
+            report = write_file("book.pdf", MetadataUpdate(title="New"))
+
+
+    :param path: The file.
+    :param update: The fields to write.
+    :param moment: When the metadata changed; now, by default.
+    :return: The report.
+    :raises PdfWriteError: As for :func:`write_metadata`; also when the file changed while
+        the update was prepared, or the write failed. The file is as it was.
+    """
+    target = os.path.realpath(path)
+    with open(target, "rb") as handle:
+        before = os.fstat(handle.fileno())
+        original = handle.read()
+    payload, report = write_metadata(original, update, moment=moment)
+    if report.rewritten:
+        _replace_file(target, before, payload)
+    else:
+        _append_to_file(target, before, len(original), payload[len(original) :])
+    return report
+
+
+def write_stream(
+    stream: Any, update: MetadataUpdate, *, moment: datetime | None = None
+) -> PdfWriteReport:
+    """
+    Write metadata into a PDF held in a readable, writable, seekable binary stream.
+
+    The stream is read from its start. If the write fails, the original bytes are put
+    back before the error is raised. The stream's position afterwards is unspecified.
+
+    Example:
+        Retitle a PDF held in memory::
+
+            stream = io.BytesIO(original)
+            report = write_stream(stream, MetadataUpdate(title="New"))
+
+
+    :param stream: The stream.
+    :param update: The fields to write.
+    :param moment: When the metadata changed; now, by default.
+    :return: The report.
+    :raises PdfWriteError: As for :func:`write_metadata`, or the write failed and the
+        original bytes were put back.
+    """
+    stream.seek(0)
+    original = stream.read()
+    payload, report = write_metadata(original, update, moment=moment)
+    start = 0 if report.rewritten else len(original)
+    try:
+        stream.seek(start)
+        stream.truncate()
+        stream.write(payload[start:])
+        stream.flush()
+        with contextlib.suppress(AttributeError, OSError, io.UnsupportedOperation):
+            os.fsync(stream.fileno())
+    except BaseException as error:
+        with contextlib.suppress(Exception):
+            stream.seek(start)
+            stream.truncate()
+            stream.write(original[start:])
+            stream.flush()
+        if isinstance(error, (OSError, ValueError)):
+            raise PdfWriteError(
+                f"Writing the PDF failed ({error}); its original bytes were put back."
+            ) from error
+        raise
+    return report

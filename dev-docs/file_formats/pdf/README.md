@@ -110,6 +110,16 @@ metadata leaves empty keep what the file says.
   `broken_xref`, poppler could then no longer find the catalog at all. Such a file
   (`broken_xref` and `leading_junk` in the corpus) is instead cloned whole by pypdf,
   which keeps its pages and document structure but not its original bytes.
+- **A failure part-way leaves the file as it was.** A full disk or an error mid-write
+  must not cost the file we were careful with.
+  - **Appended update to a path:** one that fails is cut off again.
+  - **Whole rewrite of a path:** it goes to a new file beside the old one, which is
+    renamed into place only once complete and synced. It keeps the old file's
+    permissions. A symbolic link stays a link, and the file it names is the one
+    written. Other hard links keep the old version.
+  - **A file changed by another program meanwhile:** it is not written.
+  - **A stream:** it cannot be swapped like that, so after a failed write its original
+    bytes are put back.
 - **Encrypted files are refused,** and left unchanged. pypdf's updates to them do not
   read back reliably: some readers then see garbage, and one AES file became
   unreadable to poppler.

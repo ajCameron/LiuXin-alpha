@@ -31,7 +31,7 @@ from LiuXin_alpha.file_formats.pdf.objects import (
 from LiuXin_alpha.metadata.containers.calibre_like_book_metadata import (
     CalibreLikeLiuXinBookMetaData as MetaData,
 )
-from LiuXin_alpha.metadata.file_sources import pdf, pdf_merge
+from LiuXin_alpha.metadata.file_sources import pdf, pdf_merge, pdf_write
 from LiuXin_alpha.metadata.file_sources.pdf_write import (
     MetadataUpdate,
     PdfWriteError,
@@ -392,6 +392,243 @@ def test_a_path_is_appended_to_in_place(tmp_path: Path) -> None:
     assert not report.rewritten
     assert path.read_bytes().startswith(original)
     assert pdf.get_metadata(path).title == "Nouveau — Title"
+
+
+def test_a_damaged_file_on_disk_is_replaced_whole_and_keeps_its_permissions(
+    tmp_path: Path,
+) -> None:
+    """
+    A rewrite goes to a new file beside the old one, renamed into place; nothing is left over.
+
+    Example:
+        >>> test_a_damaged_file_on_disk_is_replaced_whole_and_keeps_its_permissions(Path("/tmp"))  # doctest: +SKIP
+
+
+    :param tmp_path: The folder.
+    :return: None after the file and folder are checked.
+    """
+    folder = tmp_path / "books"
+    folder.mkdir()
+    path = folder / "book.pdf"
+    path.write_bytes(_corpus("broken_xref"))
+    path.chmod(0o640)
+    report = pdf.set_metadata(path, _metadata())
+    assert report.rewritten
+    assert pdf.get_metadata(path).title == "Nouveau — Title"
+    assert path.stat().st_mode & 0o777 == 0o640
+    assert [entry.name for entry in folder.iterdir()] == ["book.pdf"]
+
+
+def test_a_failed_rewrite_leaves_the_file_untouched(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """
+    If the new file cannot be put in place, the old one is as it was and the new one is gone.
+
+    Example:
+        >>> test_a_failed_rewrite_leaves_the_file_untouched(Path("/tmp"), None)  # doctest: +SKIP
+
+
+    :param tmp_path: The folder.
+    :param monkeypatch: Makes the rename fail.
+    :return: None after the file and folder are checked.
+    """
+    folder = tmp_path / "books"
+    folder.mkdir()
+    path = folder / "book.pdf"
+    original = _corpus("broken_xref")
+    path.write_bytes(original)
+
+    def refuse(_source: str, _target: str) -> None:
+        """
+        Fail as a full or read-only disk would.
+
+        Example:
+            >>> refuse("a", "b")  # doctest: +SKIP
+
+
+        :param _source: The new file.
+        :param _target: The old one.
+        :return: Never returns.
+        :raises OSError: Always.
+        """
+        raise OSError(28, "No space left on device")
+
+    monkeypatch.setattr(pdf_write.os, "replace", refuse)
+    with pytest.raises(PdfWriteError, match="untouched"):
+        pdf.set_metadata(path, _metadata())
+    assert path.read_bytes() == original
+    assert [entry.name for entry in folder.iterdir()] == ["book.pdf"]
+
+
+def test_a_failed_append_is_cut_off_again(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """
+    If an appended update cannot be completed, the file goes back to its old length.
+
+    Example:
+        >>> test_a_failed_append_is_cut_off_again(Path("/tmp"), None)  # doctest: +SKIP
+
+
+    :param tmp_path: The folder.
+    :param monkeypatch: Makes the write stop part-way, then fail.
+    :return: None after the file is checked.
+    """
+    path = tmp_path / "book.pdf"
+    original = _corpus("plain")
+    path.write_bytes(original)
+    real_write = pdf_write.os.write
+    calls: list[int] = []
+
+    def partly(descriptor: int, data: Any) -> int:
+        """
+        Write a few bytes, then fail as a full disk would.
+
+        Example:
+            >>> partly(1, b"")  # doctest: +SKIP
+
+
+        :param descriptor: The file.
+        :param data: The bytes.
+        :return: How many were written, the first time.
+        :raises OSError: The second time.
+        """
+        calls.append(len(data))
+        if len(calls) > 1:
+            raise OSError(28, "No space left on device")
+        return real_write(descriptor, bytes(data[:7]))
+
+    monkeypatch.setattr(pdf_write.os, "write", partly)
+    with pytest.raises(PdfWriteError, match="cut off again"):
+        pdf.set_metadata(path, _metadata())
+    assert path.read_bytes() == original
+
+
+def test_a_file_that_changes_meanwhile_is_not_written(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """
+    If another program changes the file while the update is prepared, nothing is written.
+
+    Example:
+        >>> test_a_file_that_changes_meanwhile_is_not_written(Path("/tmp"), None)  # doctest: +SKIP
+
+
+    :param tmp_path: The folder.
+    :param monkeypatch: Changes the file during the write.
+    :return: None after the file is checked.
+    """
+    path = tmp_path / "book.pdf"
+    path.write_bytes(_corpus("plain"))
+    real = pdf_write.write_metadata
+
+    def meanwhile(original: bytes, update: MetadataUpdate, **options: Any) -> Any:
+        """
+        Prepare the update, while another program appends to the file.
+
+        Example:
+            >>> meanwhile(b"", MetadataUpdate())  # doctest: +SKIP
+
+
+        :param original: The file.
+        :param update: The fields.
+        :param options: The other arguments.
+        :return: The prepared update.
+        """
+        with path.open("ab") as other:
+            other.write(b"% another program's change\n")
+        return real(original, update, **options)
+
+    monkeypatch.setattr(pdf_write, "write_metadata", meanwhile)
+    with pytest.raises(PdfWriteError, match="changed"):
+        pdf.set_metadata(path, _metadata())
+    assert path.read_bytes() == _corpus("plain") + b"% another program's change\n"
+
+
+def test_a_symbolic_link_is_followed_and_kept(tmp_path: Path) -> None:
+    """
+    Given a link, the file it names is written, and the link stays a link, even for a rewrite.
+
+    Example:
+        >>> test_a_symbolic_link_is_followed_and_kept(Path("/tmp"))  # doctest: +SKIP
+
+
+    :param tmp_path: The folder.
+    :return: None after the link and file are checked.
+    """
+    target = tmp_path / "book.pdf"
+    target.write_bytes(_corpus("broken_xref"))
+    link = tmp_path / "link.pdf"
+    try:
+        link.symlink_to(target)
+    except OSError:
+        pytest.skip("this system cannot make symbolic links here")
+    pdf.set_metadata(link, _metadata())
+    assert link.is_symlink()
+    assert pdf.get_metadata(target).title == "Nouveau — Title"
+
+
+class _FailingStream(io.BytesIO):
+    """
+    A stream whose writes fail after the first few bytes, as a full disk would.
+
+    Example:
+        >>> _FailingStream(b"x").getvalue()
+        b'x'
+    """
+
+    def __init__(self: _FailingStream, data: bytes) -> None:
+        """
+        Hold the data, and allow writes until one is attempted.
+
+        Example:
+            >>> _FailingStream(b"x").fail
+            False
+
+
+        :param data: The stream's bytes.
+        :return: None.
+        """
+        super().__init__(data)
+        self.fail = False
+
+    def write(self: _FailingStream, data: Any) -> int:
+        """
+        Write a few bytes and fail, the first time; then write normally, so a rollback works.
+
+        Example:
+            >>> _FailingStream(b"").write(b"")  # doctest: +SKIP
+
+
+        :param data: The bytes.
+        :return: How many were written.
+        :raises OSError: The first time.
+        """
+        if not self.fail:
+            self.fail = True
+            super().write(bytes(data[:7]))
+            raise OSError(28, "No space left on device")
+        return super().write(data)
+
+
+@pytest.mark.parametrize("name", ["plain", "broken_xref"])
+def test_a_failed_write_to_a_stream_puts_the_original_back(name: str) -> None:
+    """
+    After a failed write, whether appended or whole, a stream holds its original bytes again.
+
+    Example:
+        >>> test_a_failed_write_to_a_stream_puts_the_original_back("plain")
+
+
+    :param name: The case: one appended to, one rewritten.
+    :return: None after the stream is checked.
+    """
+    original = _corpus(name)
+    stream = _FailingStream(original)
+    with pytest.raises(PdfWriteError, match="put back"):
+        pdf.set_metadata(stream, _metadata())
+    assert stream.getvalue() == original
 
 
 def test_the_stream_position_is_restored() -> None:

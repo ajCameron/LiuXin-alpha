@@ -1021,7 +1021,9 @@ def set_metadata(stream, mi):
     and with them outlines, forms, attachments and signatures, are kept; an XMP packet
     is updated alongside the Info dictionary. A file whose cross-reference data is
     damaged is rewritten whole instead, keeping its document structure, and the
-    report says so. Each warning is also logged. See
+    report says so. Each warning is also logged. A failure part-way through leaves the
+    file as it was: a path's file is only replaced once the new one is complete, and a
+    stream gets its original bytes back. See
     :mod:`LiuXin_alpha.metadata.file_sources.pdf_write`.
 
     Example:
@@ -1039,10 +1041,7 @@ def set_metadata(stream, mi):
     """
     if isinstance(stream, os.PathLike):
         stream = os.fspath(stream)
-    if isinstance(stream, str):
-        with open(stream, "r+b") as f:
-            return set_metadata(f, mi)
-    if not hasattr(stream, "read") or not hasattr(stream, "write"):
+    if not isinstance(stream, str) and not (hasattr(stream, "read") and hasattr(stream, "write")):
         raise TypeError("set_metadata expects a writable binary stream or filesystem path.")
 
     if importlib.util.find_spec("pypdf") is None:
@@ -1051,42 +1050,32 @@ def set_metadata(stream, mi):
             " (pip install 'liuxin-alpha[pdf]'), which provides pypdf."
         )
 
-    from LiuXin_alpha.metadata.file_sources.pdf_write import write_metadata
+    from LiuXin_alpha.metadata.file_sources.pdf_write import write_file, write_stream
 
-    pos = None
-    if hasattr(stream, "tell"):
-        try:
-            pos = stream.tell()
-        except Exception:
-            pos = None
-
-    stream.seek(0)
-    original = stream.read()
-    payload, report = write_metadata(original, _metadata_update(mi))
-
-    if report.rewritten:
-        stream.seek(0)
-        stream.truncate()
-        stream.write(payload)
+    if isinstance(stream, str):
+        report = write_file(stream, _metadata_update(mi))
+        source = stream
     else:
-        # The original bytes stay where they are; only the update is written, after them.
-        stream.seek(len(original))
-        stream.write(payload[len(original) :])
-    if hasattr(stream, "flush"):
-        stream.flush()
+        pos = None
+        if hasattr(stream, "tell"):
+            try:
+                pos = stream.tell()
+            except Exception:
+                pos = None
+        report = write_stream(stream, _metadata_update(mi))
+        source = _source_name(stream)
+        if pos is not None:
+            try:
+                stream.seek(min(pos, stream.seek(0, os.SEEK_END)))
+            except Exception:
+                pass
     for warning in report.warnings:
         default_log.log_variables(
             "PDF metadata was written with a caveat.",
             "WARNING",
-            ("source", _source_name(stream) or "<stream>"),
+            ("source", source or "<stream>"),
             ("warning", warning),
         )
-
-    if pos is not None and hasattr(stream, "seek"):
-        try:
-            stream.seek(min(pos, len(payload)))
-        except Exception:
-            pass
     return report
 
 
