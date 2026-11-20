@@ -1,0 +1,340 @@
+{
+  "plain": {
+    "description": "Info dictionary as a plain object, classic xref table",
+    "sha256": "0437c41639692896634484a24ce2ea3f358edd0f53135c4f0ba85faabeb0ae0e",
+    "pdfinfo": {
+      "Title": "Corpus Title — café",
+      "Subject": "Corpus subject",
+      "Keywords": "alpha, beta, 9780306406157",
+      "Author": "Ann Author & Bob Writer",
+      "Creator": "Corpus Creator",
+      "Producer": "Corpus Producer",
+      "Encrypted": "no",
+      "Page size": "300 x 400 pts",
+      "xmp": false
+    }
+  },
+  "object_streams": {
+    "description": "Info dictionary inside a compressed object stream, with an xref stream (PDF 1.5)",
+    "sha256": "f4797b99a31a820d438892a2603aaadb47f799f5821dd6d53e14305b9eba6696",
+    "pdfinfo": {
+      "Title": "Corpus Title — café",
+      "Subject": "Corpus subject",
+      "Keywords": "alpha, beta, 9780306406157",
+      "Author": "Ann Author & Bob Writer",
+      "Creator": "Corpus Creator",
+      "Producer": "Corpus Producer",
+      "Encrypted": "no",
+      "Page size": "300 x 400 pts",
+      "xmp": false
+    }
+  },
+  "incremental_update": {
+    "description": "An incremental update after the original changes the title; the newer Info wins",
+    "sha256": "bac1e4b79fccdb9c5e0e3ffd01719f5e702d89e368c489fc90e67ee25e8571aa",
+    "pdfinfo": {
+      "Title": "Updated Title",
+      "Subject": "Corpus subject",
+      "Keywords": "alpha, beta, 9780306406157",
+      "Author": "Ann Author & Bob Writer",
+      "Creator": "Corpus Creator",
+      "Producer": "Corpus Producer",
+      "Encrypted": "no",
+      "Page size": "300 x 400 pts",
+      "xmp": false
+    }
+  },
+  "incremental_object_streams": {
+    "description": "An incremental update to a PDF with object streams",
+    "sha256": "c960603d37f73192e7018a10b65ba4251f5e2480e404da7c4a3fc79cf11cdfa8",
+    "pdfinfo": {
+      "Title": "Updated Title",
+      "Subject": "Corpus subject",
+      "Keywords": "alpha, beta, 9780306406157",
+      "Author": "Ann Author & Bob Writer",
+      "Creator": "Corpus Creator",
+      "Producer": "Corpus Producer",
+      "Encrypted": "no",
+      "Page size": "300 x 400 pts",
+      "xmp": false
+    }
+  },
+  "linearized": {
+    "description": "Linearized with object streams",
+    "sha256": "bd61f7e105991960de5f40928273c19901961f1bb1142341b21c5c04cea7fc6a",
+    "pdfinfo": {
+      "Title": "Corpus Title — café",
+      "Subject": "Corpus subject",
+      "Keywords": "alpha, beta, 9780306406157",
+      "Author": "Ann Author & Bob Writer",
+      "Creator": "Corpus Creator",
+      "Producer": "Corpus Producer",
+      "Encrypted": "no",
+      "Page size": "300 x 400 pts",
+      "xmp": false
+    }
+  },
+  "aes256_no_password": {
+    "description": "AES-256 (R6) with an empty user password: anyone may open it",
+    "sha256": "daeb54318608c2a255c596c969c4e69a806530588e1fc5d58a5d01a839da93a8",
+    "pdfinfo": {
+      "Title": "Corpus Title — café",
+      "Subject": "Corpus subject",
+      "Keywords": "alpha, beta, 9780306406157",
+      "Author": "Ann Author & Bob Writer",
+      "Creator": "Corpus Creator",
+      "Producer": "Corpus Producer",
+      "Encrypted": "yes (print:yes copy:yes change:yes addNotes:yes algorithm:AES-256)",
+      "Page size": "300 x 400 pts",
+      "xmp": false
+    }
+  },
+  "aes128_no_password": {
+    "description": "AES-128 (R4) with an empty user password",
+    "sha256": "7ab40291b09d02c3a496907ee1371cf9b121523ac0b0fd850274c7b0f5ec111b",
+    "pdfinfo": {
+      "Title": "Corpus Title — café",
+      "Subject": "Corpus subject",
+      "Keywords": "alpha, beta, 9780306406157",
+      "Author": "Ann Author & Bob Writer",
+      "Creator": "Corpus Creator",
+      "Producer": "Corpus Producer",
+      "Encrypted": "yes (print:yes copy:yes change:yes addNotes:yes algorithm:AES)",
+      "Page size": "300 x 400 pts",
+      "xmp": false
+    }
+  },
+  "rc4_128_no_password": {
+    "description": "RC4 128-bit (R3) with an empty user password",
+    "sha256": "482ddf38b37059b60ecd181e1699ae9cfe94804758b2a7db460fbdafc91d47b2",
+    "pdfinfo": {
+      "Title": "Corpus Title — café",
+      "Subject": "Corpus subject",
+      "Keywords": "alpha, beta, 9780306406157",
+      "Author": "Ann Author & Bob Writer",
+      "Creator": "Corpus Creator",
+      "Producer": "Corpus Producer",
+      "Encrypted": "yes (print:yes copy:yes change:yes addNotes:yes algorithm:RC4)",
+      "Page size": "300 x 400 pts",
+      "xmp": false
+    }
+  },
+  "rc4_40_no_password": {
+    "description": "RC4 40-bit (R2) with an empty user password",
+    "sha256": "693889611feeff12ce9dc5df4d48ff649e79be428278f253e2bfdaf862385631",
+    "pdfinfo": {
+      "Title": "Corpus Title — café",
+      "Subject": "Corpus subject",
+      "Keywords": "alpha, beta, 9780306406157",
+      "Author": "Ann Author & Bob Writer",
+      "Creator": "Corpus Creator",
+      "Producer": "Corpus Producer",
+      "Encrypted": "yes (print:yes copy:yes change:yes addNotes:yes algorithm:RC4)",
+      "Page size": "300 x 400 pts",
+      "xmp": false
+    }
+  },
+  "aes256_user_password": {
+    "description": "AES-256 with a user password: the metadata cannot be read without it",
+    "sha256": "62841ed692b9c334aae54657be3a5aeea8d66e4d4cd62975d46a2b72f2615621",
+    "pdfinfo": {
+      "error": "Command Line Error: Incorrect password"
+    }
+  },
+  "aes256_object_streams": {
+    "description": "AES-256 with object streams: the Info dictionary is inside an encrypted stream",
+    "sha256": "ef263c8f0ab6aa8ca9d649eadfa23df0bde9e202426521fffd9da0547d6a233a",
+    "pdfinfo": {
+      "Title": "Corpus Title — café",
+      "Subject": "Corpus subject",
+      "Keywords": "alpha, beta, 9780306406157",
+      "Author": "Ann Author & Bob Writer",
+      "Creator": "Corpus Creator",
+      "Producer": "Corpus Producer",
+      "Encrypted": "yes (print:yes copy:yes change:yes addNotes:yes algorithm:AES-256)",
+      "Page size": "300 x 400 pts",
+      "xmp": false
+    }
+  },
+  "utf16_strings": {
+    "description": "Info strings that PDFDocEncoding cannot hold, stored as UTF-16BE",
+    "sha256": "c3b952fec137a05192a0d512587463888514738dc196670fc5adaefbc65feed7",
+    "pdfinfo": {
+      "Title": "書名 — Книга",
+      "Subject": "Corpus subject",
+      "Keywords": "alpha, beta, 9780306406157",
+      "Author": "金庸",
+      "Creator": "Corpus Creator",
+      "Producer": "Corpus Producer",
+      "Encrypted": "no",
+      "Page size": "300 x 400 pts",
+      "xmp": false
+    }
+  },
+  "xmp_only": {
+    "description": "XMP metadata and no Info dictionary",
+    "sha256": "956bb38cf9cb2452ca29939fded94721315c31ff98ca2cefea6b9caffc113bfc",
+    "pdfinfo": {
+      "Encrypted": "no",
+      "Page size": "300 x 400 pts",
+      "xmp": true
+    }
+  },
+  "xmp_and_info": {
+    "description": "Both XMP and an Info dictionary",
+    "sha256": "970e04a733d929aed2d5bc4130a29b53e23e7f1039b503fc5f674e1036651f32",
+    "pdfinfo": {
+      "Title": "Corpus Title — café",
+      "Subject": "Corpus subject",
+      "Keywords": "alpha, beta, 9780306406157",
+      "Author": "Ann Author & Bob Writer",
+      "Creator": "Corpus Creator",
+      "Producer": "Corpus Producer",
+      "Encrypted": "no",
+      "Page size": "300 x 400 pts",
+      "xmp": true
+    }
+  },
+  "broken_xref": {
+    "description": "startxref points at nothing; readers must rebuild",
+    "sha256": "73cd9f66cc5595ebda1349c018a5b94eb97b7431ad4d31e21bde7f3351390de4",
+    "pdfinfo": {
+      "Title": "Corpus Title — café",
+      "Subject": "Corpus subject",
+      "Keywords": "alpha, beta, 9780306406157",
+      "Author": "Ann Author & Bob Writer",
+      "Creator": "Corpus Creator",
+      "Producer": "Corpus Producer",
+      "Encrypted": "no",
+      "Page size": "300 x 400 pts",
+      "xmp": false
+    }
+  },
+  "huge_page": {
+    "description": "A 200 by 200 inch page, which calibre renders at 150 dpi",
+    "sha256": "86082f439165dad8164203cb8c084d0b090b57a7b95b536564898f1d37c4e456",
+    "pdfinfo": {
+      "Title": "Corpus Title — café",
+      "Subject": "Corpus subject",
+      "Keywords": "alpha, beta, 9780306406157",
+      "Author": "Ann Author & Bob Writer",
+      "Creator": "Corpus Creator",
+      "Producer": "Corpus Producer",
+      "Encrypted": "no",
+      "Page size": "14400 x 14400 pts",
+      "xmp": false
+    }
+  },
+  "hybrid_xref": {
+    "description": "A classic table plus /XRefStm, with the Info dictionary in an object stream",
+    "sha256": "870274c42e6c8218be4827b32bef08cae7ed405e516f3aa8f926e9844a6d8d2d",
+    "pdfinfo": {
+      "Title": "Hybrid Title",
+      "Author": "Hybrid Author",
+      "Producer": "Corpus Producer",
+      "Encrypted": "no",
+      "Page size": "300 x 400 pts",
+      "xmp": false
+    }
+  },
+  "hybrid_xref_free_entry": {
+    "description": "A hybrid file whose table lists the compressed Info object as free; poppler 24.02 does not then consult /XRefStm, qpdf and pypdf do",
+    "sha256": "eb784c5af6132b78dc69e6645bed951de814def008ed0066042a68a343c6b983",
+    "pdfinfo": {
+      "Encrypted": "no",
+      "Page size": "300 x 400 pts",
+      "xmp": false
+    }
+  },
+  "indirect_info_values": {
+    "description": "An Info value that is an indirect reference to a string object",
+    "sha256": "c325fda88772f58d460ef38915a5115157d050dd7a1150530df1ea42066de9f8",
+    "pdfinfo": {
+      "Title": "Indirect Title",
+      "Author": "Indirect Author",
+      "Encrypted": "no",
+      "Page size": "300 x 400 pts",
+      "xmp": false
+    }
+  },
+  "utf8_without_bom": {
+    "description": "Info strings in raw UTF-8 without a byte order mark (not allowed, but common)",
+    "sha256": "b74665b51e72c671ecdd6bc84b4bbba9b88b5e10b389b70e8607c0dc9b4fea21",
+    "pdfinfo": {
+      "Title": "TÃ�tulo â•ﬂ æš±äº¬",
+      "Author": "ZoÃ« Writer",
+      "Encrypted": "no",
+      "Page size": "300 x 400 pts",
+      "xmp": false
+    }
+  },
+  "leading_junk": {
+    "description": "300 bytes before %PDF-, as a MacBinary header leaves: every xref offset is off by 300",
+    "sha256": "8ce3c31d1d09e3a6d71508ef30147025a3b1d3f1e1a80aad657122a3d0787999",
+    "pdfinfo": {
+      "Title": "Corpus Title — café",
+      "Subject": "Corpus subject",
+      "Keywords": "alpha, beta, 9780306406157",
+      "Author": "Ann Author & Bob Writer",
+      "Creator": "Corpus Creator",
+      "Producer": "Corpus Producer",
+      "Encrypted": "no",
+      "Page size": "300 x 400 pts",
+      "xmp": false
+    }
+  },
+  "trailing_junk": {
+    "description": "4 KiB after %%EOF",
+    "sha256": "fe2719e65870ecc070a11fe35cfde6aa457165f0ba55345e8707107f1c5e0f4a",
+    "pdfinfo": {
+      "Title": "Corpus Title — café",
+      "Subject": "Corpus subject",
+      "Keywords": "alpha, beta, 9780306406157",
+      "Author": "Ann Author & Bob Writer",
+      "Creator": "Corpus Creator",
+      "Producer": "Corpus Producer",
+      "Encrypted": "no",
+      "Page size": "300 x 400 pts",
+      "xmp": false
+    }
+  },
+  "wrong_stream_length": {
+    "description": "The XMP stream's /Length is too short",
+    "sha256": "eb25651e0b8bc44f5a17f70eb04df47746ffe97493cdd9fdcec0275b297f66ac",
+    "pdfinfo": {
+      "Encrypted": "no",
+      "Page size": "300 x 400 pts",
+      "xmp": true
+    }
+  },
+  "aes128_cleartext_xmp": {
+    "description": "AES-128 with an empty user password and /EncryptMetadata false: the XMP stream is plain",
+    "sha256": "9750a15ba856c3fbf3d5450c7858b4df3b2b6a9a16c8f22917a8c16b192635e6",
+    "pdfinfo": {
+      "Title": "Corpus Title — café",
+      "Subject": "Corpus subject",
+      "Keywords": "alpha, beta, 9780306406157",
+      "Author": "Ann Author & Bob Writer",
+      "Creator": "Corpus Creator",
+      "Producer": "Corpus Producer",
+      "Encrypted": "yes (print:yes copy:yes change:yes addNotes:yes algorithm:AES)",
+      "Page size": "300 x 400 pts",
+      "xmp": false
+    }
+  },
+  "aes256_empty_owner": {
+    "description": "AES-256 with a user password and an empty owner password: the empty owner password opens it",
+    "sha256": "c958eee936ccc30f491f8d5a4132358912b7d06173a6b98a37da8640365949a9",
+    "pdfinfo": {
+      "Title": "Corpus Title — café",
+      "Subject": "Corpus subject",
+      "Keywords": "alpha, beta, 9780306406157",
+      "Author": "Ann Author & Bob Writer",
+      "Creator": "Corpus Creator",
+      "Producer": "Corpus Producer",
+      "Encrypted": "yes (print:yes copy:yes change:yes addNotes:yes algorithm:AES-256)",
+      "Page size": "300 x 400 pts",
+      "xmp": false
+    }
+  }
+}

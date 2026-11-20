@@ -11,6 +11,7 @@ Example:
 """
 from __future__ import annotations
 
+import base64
 import io
 import sys
 import types
@@ -329,105 +330,112 @@ def _contains_forbidden_text_char(text: str) -> bool:
     return False
 
 
-def test_pdf_low_level_token_parser_unicode_and_malformed_edges() -> None:
+def test_pdf_text_decoding_unicode_and_malformed_edges() -> None:
     """
-    Verify pdf low level token parser unicode and malformed edges.
+    Verify that Info strings decode as the PDF specification says, and that nothing raises.
+
+    Strings with a byte order mark are UTF-16 or UTF-8; others are PDFDocEncoding,
+    except that valid non-ASCII UTF-8 is read as UTF-8 because many tools write it.
 
     Example:
-        Exercise test pdf low level token parser unicode and malformed edges through its owning regression module::
+        Exercise test pdf text decoding unicode and malformed edges through its owning regression module::
 
             python -m pytest -q tests/metadata/file_sources/test_pdf_edge_cases.py
 
 
     :return: None; the function records state or raises through its assertions.
     """
+    from LiuXin_alpha.file_formats.pdf.objects import decode_text
+
     assert pdf._normalize_text(None) == ""
-    assert pdf._safe_decode(None) == ""
-    assert pdf._safe_decode("  café\t世界  ") == "café 世界"
-    assert pdf._safe_decode(b"") == ""
-    assert pdf._safe_decode(b"\xff\xfeA\x00B\x00") == "AB"
-    assert pdf._safe_decode(b"\xfe\xff\x03\xa9") == "Ω"
-
-    data = b" \t%comment here\r\n/name"
-    assert pdf._skip_ws_and_comments(data, 0) == data.index(b"/")
-    assert pdf._read_balanced(b"<< /A [1 2] /B << /C 3 >>", 0, b"<<", b">>")[0].startswith(b"<<")
-
-    literal, pos = pdf._read_literal_string(
-        rb"(line\n tab\t paren\( nested(inner) octal\101 cont\ \
-done)",
-        0,
-    )
-    assert b"line\n" in literal
-    assert b"tab\t" in literal
-    assert b"paren(" in literal
-    assert b"nested(inner)" in literal
-    assert b"octalA" in literal
-    assert pos > 0
-
-    assert pdf._read_literal_string(rb"(dangling\)", 0)[0] == b"dangling)"
-    assert pdf._read_hex_string(b"<4142F> trailing", 0)[0] == b"AB\xf0"
-    assert pdf._read_hex_string(b"<not-hex>", 0)[0] == b"not-hex0"
-    assert pdf._read_name(b"/A#20Name#ZZ rest", 0)[0] == "A Name#ZZ"
-
-    assert pdf._read_token(b"   ", 0)[0] == "eof"
-    assert pdf._read_token(b"/Name", 0)[:2] == ("name", "Name")
-    assert pdf._read_token(b"(Value)", 0)[:2] == ("string", b"Value")
-    assert pdf._read_token(b"<< /A /B >>", 0)[0] == "dict"
-    assert pdf._read_token(b"<4142>", 0)[:2] == ("hex", b"AB")
-    assert pdf._read_token(b"[/Name (String) bare]", 0)[0] == "array"
-    assert pdf._read_token(b"bare-token", 0)[0] == "bare"
-
-    parsed = pdf._parse_array(b"[/Name (String) <4142> bare-token]")
-    assert parsed == ["Name", "String", "AB", "bare-token"]
-    assert pdf._parse_array(b"") == []
-
-    assert pdf._parse_pdf_dict(b"no dictionary") == {}
-    pdf._parse_pdf_dict(b"<< garbage /Skipped (value) >>")
-    parsed_dict = pdf._parse_pdf_dict(b"<< /Title (T) /Mode /UseOutlines /Tags [(a) /b bare] /Nested << /X 1 >> >>")
-    assert parsed_dict["Title"] == "T"
-    assert parsed_dict["Mode"] == "UseOutlines"
-    assert parsed_dict["Tags"] == ["a", "b", "bare"]
-    assert parsed_dict["Nested"].startswith(b"<<")
+    assert pdf._normalize_text("  café\t世界  ") == "café 世界"
+    assert decode_text(b"") == ""
+    assert decode_text(b"\xff\xfeA\x00B\x00") == "AB"
+    assert decode_text(b"\xfe\xff\x03\xa9") == "Ω"
+    assert decode_text(b"\xfe\xff\x03") == "\ufffd"
+    assert decode_text(b"\xfe\xff\x00T\x00\x00") == "T"
+    assert decode_text(b"\xfe\xff\x00\x1bfr\x00\x1b\x00T") == "T"
+    assert decode_text(b"\xef\xbb\xbfcaf\xc3\xa9") == "café"
+    assert decode_text("世界".encode()) == "世界"
+    # PDFDocEncoding differs from Latin-1 in 0x18-0x1F and 0x80-0xA0.
+    assert decode_text(b"caf\xe9 \x84 \x8dq\x8e \x93 \xa0 \x18") == "café — \u201cq\u201d \ufb01 \u20ac \u02d8"
 
 
-def test_pdf_object_info_stream_and_xmp_extraction_edges() -> None:
+def test_pdf_info_stream_and_xmp_extraction_edges() -> None:
     """
-    Verify pdf object info stream and xmp extraction edges.
+    Verify Info and XMP reading from files without a trailer, with filter chains and with corrupt streams.
 
     Example:
-        Exercise test pdf object info stream and xmp extraction edges through its owning regression module::
+        Exercise test pdf info stream and xmp extraction edges through its owning regression module::
 
             python -m pytest -q tests/metadata/file_sources/test_pdf_edge_cases.py
 
 
     :return: None; the function records state or raises through its assertions.
     """
-    info_obj = b"<< /Title (Heuristic Title) /Author (A) >>"
-    payload = _pdf_with_info(info_obj, trailer=False)
-    objects = pdf._extract_objects(payload)
-    assert pdf._find_info_ref(_pdf_with_info(info_obj)) == (2, 0)
-    assert pdf._find_info_ref(b"%PDF /Info 9 2 R") == (9, 2)
-    assert pdf._extract_info_dict(payload, objects)["Title"] == "Heuristic Title"
-    assert pdf._extract_info_dict(b"%PDF no info", {}) == {}
+    from LiuXin_alpha.file_formats.pdf.objects import read_metadata
 
-    assert pdf._extract_stream_data(b"<< /Length 3 >>") is None
-    compressed = zlib.compress(b"<xmp>compressed</xmp>")
-    assert pdf._extract_stream_data(b"<< /Filter /FlateDecode >>\nstream\n" + compressed + b"\nendstream") == b"<xmp>compressed</xmp>"
-    assert pdf._extract_stream_data(b"<< /Filter /FlateDecode >>\nstream\nnot-zlib\nendstream") == b"not-zlib"
-    assert pdf._extract_stream_data(b"<< /Filter [/ASCII85Decode /FlateDecode] >>\nstream\n" + compressed + b"\nendstream") == b"<xmp>compressed</xmp>"
-    assert pdf._extract_stream_data(b"<< /Filter [/FlateDecode] >>\nstream\nnot-zlib\nendstream") == b"not-zlib"
-    assert pdf._extract_stream_data(b"<< /Filter /Other >>\nstream\nraw\nendstream") == b"raw"
+    # No trailer at all: a scan finds the catalog and a dictionary that looks like Info.
+    payload = _pdf_with_info(b"<< /Title (Heuristic Title) /Author (A) >>", trailer=False)
+    assert read_metadata(payload).info == {"Title": "Heuristic Title", "Author": "A"}
+    assert pdf.get_metadata(payload).title == "Heuristic Title"
+    # An outline item has a /Title too, but it is not Info.
+    outline_only = _pdf_with_info(b"<< /Title (Chapter 1) /Parent 1 0 R /Dest [3 0 R /Fit] >>", trailer=False)
+    assert read_metadata(outline_only).info == {}
 
-    xmp = b"<rdf:RDF><rdf:Description /></rdf:RDF>"
-    assert pdf._extract_xmp_packet(xmp, {}) == xmp
-    xmp_meta = b"<x:xmpmeta><rdf:RDF /></x:xmpmeta>"
-    assert pdf._extract_xmp_packet(b"prefix" + xmp_meta + b"suffix", {}) == xmp_meta
-    metadata_obj = {  # explicit metadata stream wins
-        (4, 0): b"<< /Type /Metadata /Filter /FlateDecode >>\nstream\n"
-        + zlib.compress(xmp_meta)
-        + b"\nendstream"
-    }
-    assert pdf._extract_xmp_packet(b"fallback" + xmp + b"tail", metadata_obj) == xmp_meta
+    xmp_meta = b"<x:xmpmeta xmlns:x='adobe:ns:meta/'><rdf:RDF xmlns:rdf='http://www.w3.org/1999/02/22-rdf-syntax-ns#'/></x:xmpmeta>"
+    compressed = zlib.compress(xmp_meta)
+    ascii85 = base64.a85encode(compressed) + b"~>"
+
+    def with_metadata(stream: bytes) -> bytes:
+        """
+        Build a PDF whose catalog points to a metadata stream.
+
+        Example:
+            Exercise with metadata through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_pdf_edge_cases.py
+
+
+        :param stream: The metadata stream object's source.
+        :return: The PDF.
+        """
+        objects = [b"<< /Type /Catalog /Metadata 3 0 R >>", b"<< /Title (T) >>", stream]
+        out = bytearray(b"%PDF-1.4\n")
+        for number, body in enumerate(objects, start=1):
+            out += f"{number} 0 obj\n".encode() + body + b"\nendobj\n"
+        out += b"trailer\n<< /Size 4 /Root 1 0 R /Info 2 0 R >>\n%%EOF\n"
+        return bytes(out)
+
+    def stream(header: bytes, data: bytes) -> bytes:
+        """
+        Build a stream object's source with a correct /Length.
+
+        Example:
+            Exercise stream through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_pdf_edge_cases.py
+
+
+        :param header: The dictionary's entries other than /Length.
+        :param data: The stream's data.
+        :return: The source.
+        """
+        return b"<< " + header + b" /Length %d >>\nstream\n" % len(data) + data + b"\nendstream"
+
+    assert read_metadata(with_metadata(stream(b"/Type /Metadata /Filter /FlateDecode", compressed))).xmp == xmp_meta
+    chained = stream(b"/Type /Metadata /Filter [/ASCII85Decode /FlateDecode]", ascii85)
+    assert read_metadata(with_metadata(chained)).xmp == xmp_meta
+    # Corrupt or unknown filters cost the XMP packet, not the Info dictionary.
+    for broken in (
+        stream(b"/Type /Metadata /Filter /FlateDecode", b"not-zlib"),
+        stream(b"/Type /Metadata /Filter /JBIG2Decode", b"raw"),
+    ):
+        metadata = read_metadata(with_metadata(broken))
+        assert metadata.xmp is None
+        assert metadata.info == {"Title": "T"}
+        assert metadata.problems and metadata.problems[0].startswith("XMP packet:")
+    assert pdf.get_metadata(with_metadata(stream(b"/Filter /JBIG2Decode", b"raw"))).title == "T"
 
 
 def test_pdf_source_reading_defaults_and_field_value_helpers(tmp_path: Path) -> None:
@@ -589,12 +597,31 @@ def test_pdf_get_metadata_defensive_fallbacks(monkeypatch) -> None:
     assert empty.title == "Unknown"
     assert _values(empty.authors) == ["Unknown Author"]
 
-    payload = _pdf_with_info(b"<< /Title (Fallback Title) /Keywords [(10.5555/fallback) (9780306406157)] >>")
     fake_md = _FakeMetadata()
     monkeypatch.setattr(pdf, "_default_metadata", lambda _source_name="": fake_md)
     monkeypatch.setattr(pdf, "process_metadata_info_dict", lambda _info, md: md)
-    monkeypatch.setattr(pdf, "_extract_xmp_packet", lambda *_args: b"<broken")
 
+    def broken_xmp(_packet):
+        """
+        Fail as an unparseable XMP packet does.
+
+        Example:
+            Exercise test pdf get metadata defensive fallbacks.broken xmp through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_pdf_edge_cases.py
+
+
+        :param _packet: The packet.
+        :return: Never returns.
+        """
+        raise SyntaxError("broken XMP")
+
+    monkeypatch.setattr(pdf, "xmp_to_dict", broken_xmp)
+    xmp = b"<< /Type /Metadata /Length 6 >>\nstream\n<broke\nendstream"
+    payload = _pdf_with_info(
+        b"<< /Title (Fallback Title) /Keywords [(10.5555/fallback) (9780306406157)] >>",
+        extra_objects=[xmp],
+    ).replace(b"<< /Type /Catalog >>", b"<< /Type /Catalog /Metadata 3 0 R >>")
     md = pdf.get_metadata(payload)
     assert md is fake_md
     assert fake_md.identifiers == {"doi": "10.5555/fallback", "isbn": "9780306406157"}
@@ -602,27 +629,22 @@ def test_pdf_get_metadata_defensive_fallbacks(monkeypatch) -> None:
     assert _values(fake_md.authors) == ["Unknown Author"]
     assert any("embedded PDF XMP" in str(event[0]) for event in events)
 
-    info_calls = {"count": 0}
-
-    def fail_once_info_dict(*_args):
+    def fail_info_dict(*_args):
         """
-        Perform the fail once info dict test-helper operation with deterministic inputs.
+        Fail as a broken Info mapping does.
 
         Example:
-            Exercise test pdf get metadata defensive fallbacks.fail once info dict through its owning regression module::
+            Exercise test pdf get metadata defensive fallbacks.fail info dict through its owning regression module::
 
                 python -m pytest -q tests/metadata/file_sources/test_pdf_edge_cases.py
 
 
         :param _args: Value supplied for args in the focused test operation.
-        :return: The deterministic value, row, identity or collection described above.
+        :return: Never returns.
         """
-        info_calls["count"] += 1
-        if info_calls["count"] == 1:
-            raise RuntimeError("info boom")
-        return {}
+        raise RuntimeError("info boom")
 
-    monkeypatch.setattr(pdf, "_extract_info_dict", fail_once_info_dict)
+    monkeypatch.setattr(pdf, "process_metadata_info_dict", fail_info_dict)
     pdf.get_metadata(_pdf_with_info(b"<< /Title (Ignored) >>"))
     assert any("PDF info dictionary" in str(event[0]) for event in events)
 
