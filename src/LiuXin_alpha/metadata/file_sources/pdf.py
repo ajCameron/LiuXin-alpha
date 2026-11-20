@@ -925,78 +925,123 @@ def _first_value(raw: Any) -> str | None:
     return None
 
 
+def _series_index(mi, series: str) -> str | None:
+    """
+    Find the series index, which LiuXin's metadata keeps by series name.
+
+    Example:
+        >>> from types import SimpleNamespace
+        >>> _series_index(SimpleNamespace(series_index={"Saga": 2.0}), "Saga"), _series_index(SimpleNamespace(series_index="3"), "Saga")
+        ('2.0', '3')
+
+
+    :param mi: The metadata.
+    :param series: The series written.
+    :return: The index as text, or ``None``.
+    """
+    raw = getattr(mi, "series_index", None)
+    if isinstance(raw, dict):
+        values = list(raw.values())
+        raw = raw.get(series, values[0] if values else None)
+    return _first_value(raw) if raw is not None else None
+
+
+def _metadata_update(mi):
+    """
+    Collect the fields to write into a PDF, as cleaned text.
+
+    Example:
+        >>> from types import SimpleNamespace
+        >>> _metadata_update(SimpleNamespace(title="T", authors=["Ann", ""], tags=["a"])).authors
+        ('Ann',)
+
+
+    :param mi: Metadata object supplying the supported fields.
+    :return: A :class:`~LiuXin_alpha.metadata.file_sources.pdf_write.MetadataUpdate`.
+    """
+    from LiuXin_alpha.metadata.file_sources.pdf_write import MetadataUpdate
+
+    def texts(raw: Any) -> tuple[str, ...]:
+        """
+        Clean each value, dropping the empty ones.
+
+        Example:
+            >>> texts(["a ", ""])  # doctest: +SKIP
+            ('a',)
+
+
+        :param raw: The values.
+        :return: The cleaned values.
+        """
+        return tuple(text for text in (_normalize_text(str(value)) for value in _field_values(raw)) if text)
+
+    extra: dict[str, str] = {}
+    series = _first_value(getattr(mi, "series", None))
+    if series:
+        extra["/Series"] = series
+        series_index = _series_index(mi, series)
+        if series_index:
+            extra["/SeriesIndex"] = series_index
+    return MetadataUpdate(
+        title=_first_value(getattr(mi, "title", None)),
+        authors=texts(getattr(mi, "authors", None)),
+        comments=_first_value(getattr(mi, "comments", None)),
+        tags=texts(getattr(mi, "tags", None)),
+        producer=_first_value(getattr(mi, "producers", None)),
+        publisher=_first_value(getattr(mi, "publisher", None)),
+        extra=extra,
+    )
+
+
 def _metadata_to_pdf_dict(mi) -> dict[str, str]:
     """
     Serialize supported metadata fields into sanitized PDF Info dictionary strings.
 
-    Example:
-        Exercise  metadata to pdf dict with pytest::
+    The authors are joined as LiuXin's reader splits them (`` & ``); the comments are the
+    Subject. The author sort is not written: ``/Creator`` names the application that
+    made the PDF.
 
-            python -m pytest -q tests/metadata/file_sources/test_pdf_metadata_source.py
+    Example:
+        Exercise metadata to pdf dict with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdf_edge_cases.py
 
 
     :param mi: Metadata object supplying or receiving the supported fields.
     :return: Parsed, normalized or serialized value described above.
     """
-    out: dict[str, str] = {}
-    title = _first_value(getattr(mi, "title", None))
-    if title:
-        out["/Title"] = title
-
-    authors = _field_values(getattr(mi, "authors", None))
-    if authors:
-        out["/Author"] = ", ".join(_normalize_text(x) for x in authors if _normalize_text(x))
-
-    comments = _first_value(getattr(mi, "comments", None))
-    if comments:
-        out["/Subject"] = comments
-
-    tags = _field_values(getattr(mi, "tags", None))
-    if tags:
-        out["/Keywords"] = ", ".join(_normalize_text(x) for x in tags if _normalize_text(x))
-
-    producer = _first_value(getattr(mi, "producers", None))
-    if producer:
-        out["/Producer"] = producer
-
-    creator = _first_value(getattr(mi, "creator_sort", None))
-    if creator:
-        out["/Creator"] = creator
-
-    publisher = _first_value(getattr(mi, "publisher", None))
-    if publisher:
-        out["/Publisher"] = publisher
-
-    series = _first_value(getattr(mi, "series", None))
-    if series:
-        out["/Series"] = series
-        series_index = _first_value(getattr(mi, "series_index", None))
-        if series_index:
-            out["/SeriesIndex"] = series_index
-    return out
+    return _metadata_update(mi).info()
 
 
 def set_metadata(stream, mi):
     """
-    Rewrite supported metadata fields without taking ownership of a caller-supplied stream.
+    Write supported metadata fields into a PDF without losing anything else it holds.
+
+    The change is appended to the file as an incremental update, so the original bytes,
+    and with them outlines, forms, attachments and signatures, are kept; an XMP packet
+    is updated alongside the Info dictionary. A file whose cross-reference data is
+    damaged is rewritten whole instead, keeping its document structure, and the
+    report says so. Each warning is also logged. A failure part-way through leaves the
+    file as it was: a path's file is only replaced once the new one is complete, and a
+    stream gets its original bytes back. See
+    :mod:`LiuXin_alpha.metadata.file_sources.pdf_write`.
 
     Example:
         Exercise set metadata with pytest::
 
-            python -m pytest -q tests/metadata/file_sources/test_pdf_metadata_source.py
+            python -m pytest -q tests/metadata/file_sources/test_pdf_safe_writing.py
 
 
     :param stream: Caller-supplied path, path-like object or stream described by this
         operation.
     :param mi: Metadata object supplying or receiving the supported fields.
-    :return: None.
+    :return: A :class:`~LiuXin_alpha.metadata.file_sources.pdf_write.PdfWriteReport`.
+    :raises PdfWriteError: The file is encrypted or cannot be written so that it reads
+        back; it is left unchanged.
     """
     if isinstance(stream, os.PathLike):
         stream = os.fspath(stream)
-    if isinstance(stream, str):
-        with open(stream, "r+b") as f:
-            return set_metadata(f, mi)
-    if not hasattr(stream, "read") or not hasattr(stream, "write"):
+    if not isinstance(stream, str) and not (hasattr(stream, "read") and hasattr(stream, "write")):
         raise TypeError("set_metadata expects a writable binary stream or filesystem path.")
 
     if importlib.util.find_spec("pypdf") is None:
@@ -1005,45 +1050,33 @@ def set_metadata(stream, mi):
             " (pip install 'liuxin-alpha[pdf]'), which provides pypdf."
         )
 
-    from pypdf import PdfReader, PdfWriter
+    from LiuXin_alpha.metadata.file_sources.pdf_write import write_file, write_stream
 
-    pos = None
-    if hasattr(stream, "tell"):
-        try:
-            pos = stream.tell()
-        except Exception:
-            pos = None
-
-    stream.seek(0)
-    reader = PdfReader(stream)
-    writer = PdfWriter()
-    for page in reader.pages:
-        writer.add_page(page)
-
-    existing = {}
-    try:
-        existing = dict(reader.metadata or {})
-    except Exception:
-        existing = {}
-    existing.update(_metadata_to_pdf_dict(mi))
-    if existing:
-        writer.add_metadata(existing)
-
-    tmp = io.BytesIO()
-    writer.write(tmp)
-    payload = tmp.getvalue()
-
-    stream.seek(0)
-    stream.truncate()
-    stream.write(payload)
-    if hasattr(stream, "flush"):
-        stream.flush()
-
-    if pos is not None and hasattr(stream, "seek"):
-        try:
-            stream.seek(min(pos, len(payload)))
-        except Exception:
-            pass
+    if isinstance(stream, str):
+        report = write_file(stream, _metadata_update(mi))
+        source = stream
+    else:
+        pos = None
+        if hasattr(stream, "tell"):
+            try:
+                pos = stream.tell()
+            except Exception:
+                pos = None
+        report = write_stream(stream, _metadata_update(mi))
+        source = _source_name(stream)
+        if pos is not None:
+            try:
+                stream.seek(min(pos, stream.seek(0, os.SEEK_END)))
+            except Exception:
+                pass
+    for warning in report.warnings:
+        default_log.log_variables(
+            "PDF metadata was written with a caveat.",
+            "WARNING",
+            ("source", source or "<stream>"),
+            ("warning", warning),
+        )
+    return report
 
 
 get_quick_metadata = get_metadata

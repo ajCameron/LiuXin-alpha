@@ -1561,6 +1561,28 @@ class PdfDocument:
             problems.append(f"XMP packet: {err}")
         return PdfMetadata(info, xmp, self.security is not None, self.version, tuple(problems))
 
+    @property
+    def repaired(self: Self) -> bool:
+        """
+        Tell whether the cross-reference data was wrong for what has been read, so a scan found it.
+
+        A writer appending an update to such a file would chain it to the broken data.
+
+        Example:
+            >>> document = PdfDocument(minimal_pdf(b"<< /Title (T) >>"))
+            >>> _ = document.metadata()
+            >>> document.repaired
+            False
+            >>> broken = PdfDocument(minimal_pdf(b"<< /Title (T) >>").replace(b"startxref\\n", b"startxref\\n9"))
+            >>> _ = broken.metadata()
+            >>> broken.repaired
+            True
+
+
+        :return: Whether a scan was needed.
+        """
+        return self._index is not None
+
 
 def _looks_like_info(value: Any) -> bool:
     """
