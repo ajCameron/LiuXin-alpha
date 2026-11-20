@@ -11,9 +11,8 @@ Example:
 """
 from __future__ import annotations
 
+import base64
 import io
-import sys
-import types
 import zlib
 from pathlib import Path
 from types import SimpleNamespace
@@ -23,7 +22,7 @@ import pytest
 from LiuXin_alpha.metadata.containers.calibre_like_book_metadata import (
     CalibreLikeLiuXinBookMetaData as MetaData,
 )
-from LiuXin_alpha.metadata.file_sources import pdf
+from LiuXin_alpha.metadata.file_sources import pdf, pdf_merge
 
 
 def _values(raw):
@@ -329,105 +328,112 @@ def _contains_forbidden_text_char(text: str) -> bool:
     return False
 
 
-def test_pdf_low_level_token_parser_unicode_and_malformed_edges() -> None:
+def test_pdf_text_decoding_unicode_and_malformed_edges() -> None:
     """
-    Verify pdf low level token parser unicode and malformed edges.
+    Verify that Info strings decode as the PDF specification says, and that nothing raises.
+
+    Strings with a byte order mark are UTF-16 or UTF-8; others are PDFDocEncoding,
+    except that valid non-ASCII UTF-8 is read as UTF-8 because many tools write it.
 
     Example:
-        Exercise test pdf low level token parser unicode and malformed edges through its owning regression module::
+        Exercise test pdf text decoding unicode and malformed edges through its owning regression module::
 
             python -m pytest -q tests/metadata/file_sources/test_pdf_edge_cases.py
 
 
     :return: None; the function records state or raises through its assertions.
     """
+    from LiuXin_alpha.file_formats.pdf.objects import decode_text
+
     assert pdf._normalize_text(None) == ""
-    assert pdf._safe_decode(None) == ""
-    assert pdf._safe_decode("  café\t世界  ") == "café 世界"
-    assert pdf._safe_decode(b"") == ""
-    assert pdf._safe_decode(b"\xff\xfeA\x00B\x00") == "AB"
-    assert pdf._safe_decode(b"\xfe\xff\x03\xa9") == "Ω"
-
-    data = b" \t%comment here\r\n/name"
-    assert pdf._skip_ws_and_comments(data, 0) == data.index(b"/")
-    assert pdf._read_balanced(b"<< /A [1 2] /B << /C 3 >>", 0, b"<<", b">>")[0].startswith(b"<<")
-
-    literal, pos = pdf._read_literal_string(
-        rb"(line\n tab\t paren\( nested(inner) octal\101 cont\ \
-done)",
-        0,
-    )
-    assert b"line\n" in literal
-    assert b"tab\t" in literal
-    assert b"paren(" in literal
-    assert b"nested(inner)" in literal
-    assert b"octalA" in literal
-    assert pos > 0
-
-    assert pdf._read_literal_string(rb"(dangling\)", 0)[0] == b"dangling)"
-    assert pdf._read_hex_string(b"<4142F> trailing", 0)[0] == b"AB\xf0"
-    assert pdf._read_hex_string(b"<not-hex>", 0)[0] == b"not-hex0"
-    assert pdf._read_name(b"/A#20Name#ZZ rest", 0)[0] == "A Name#ZZ"
-
-    assert pdf._read_token(b"   ", 0)[0] == "eof"
-    assert pdf._read_token(b"/Name", 0)[:2] == ("name", "Name")
-    assert pdf._read_token(b"(Value)", 0)[:2] == ("string", b"Value")
-    assert pdf._read_token(b"<< /A /B >>", 0)[0] == "dict"
-    assert pdf._read_token(b"<4142>", 0)[:2] == ("hex", b"AB")
-    assert pdf._read_token(b"[/Name (String) bare]", 0)[0] == "array"
-    assert pdf._read_token(b"bare-token", 0)[0] == "bare"
-
-    parsed = pdf._parse_array(b"[/Name (String) <4142> bare-token]")
-    assert parsed == ["Name", "String", "AB", "bare-token"]
-    assert pdf._parse_array(b"") == []
-
-    assert pdf._parse_pdf_dict(b"no dictionary") == {}
-    pdf._parse_pdf_dict(b"<< garbage /Skipped (value) >>")
-    parsed_dict = pdf._parse_pdf_dict(b"<< /Title (T) /Mode /UseOutlines /Tags [(a) /b bare] /Nested << /X 1 >> >>")
-    assert parsed_dict["Title"] == "T"
-    assert parsed_dict["Mode"] == "UseOutlines"
-    assert parsed_dict["Tags"] == ["a", "b", "bare"]
-    assert parsed_dict["Nested"].startswith(b"<<")
+    assert pdf._normalize_text("  café\t世界  ") == "café 世界"
+    assert decode_text(b"") == ""
+    assert decode_text(b"\xff\xfeA\x00B\x00") == "AB"
+    assert decode_text(b"\xfe\xff\x03\xa9") == "Ω"
+    assert decode_text(b"\xfe\xff\x03") == "\ufffd"
+    assert decode_text(b"\xfe\xff\x00T\x00\x00") == "T"
+    assert decode_text(b"\xfe\xff\x00\x1bfr\x00\x1b\x00T") == "T"
+    assert decode_text(b"\xef\xbb\xbfcaf\xc3\xa9") == "café"
+    assert decode_text("世界".encode()) == "世界"
+    # PDFDocEncoding differs from Latin-1 in 0x18-0x1F and 0x80-0xA0.
+    assert decode_text(b"caf\xe9 \x84 \x8dq\x8e \x93 \xa0 \x18") == "café — \u201cq\u201d \ufb01 \u20ac \u02d8"
 
 
-def test_pdf_object_info_stream_and_xmp_extraction_edges() -> None:
+def test_pdf_info_stream_and_xmp_extraction_edges() -> None:
     """
-    Verify pdf object info stream and xmp extraction edges.
+    Verify Info and XMP reading from files without a trailer, with filter chains and with corrupt streams.
 
     Example:
-        Exercise test pdf object info stream and xmp extraction edges through its owning regression module::
+        Exercise test pdf info stream and xmp extraction edges through its owning regression module::
 
             python -m pytest -q tests/metadata/file_sources/test_pdf_edge_cases.py
 
 
     :return: None; the function records state or raises through its assertions.
     """
-    info_obj = b"<< /Title (Heuristic Title) /Author (A) >>"
-    payload = _pdf_with_info(info_obj, trailer=False)
-    objects = pdf._extract_objects(payload)
-    assert pdf._find_info_ref(_pdf_with_info(info_obj)) == (2, 0)
-    assert pdf._find_info_ref(b"%PDF /Info 9 2 R") == (9, 2)
-    assert pdf._extract_info_dict(payload, objects)["Title"] == "Heuristic Title"
-    assert pdf._extract_info_dict(b"%PDF no info", {}) == {}
+    from LiuXin_alpha.file_formats.pdf.objects import read_metadata
 
-    assert pdf._extract_stream_data(b"<< /Length 3 >>") is None
-    compressed = zlib.compress(b"<xmp>compressed</xmp>")
-    assert pdf._extract_stream_data(b"<< /Filter /FlateDecode >>\nstream\n" + compressed + b"\nendstream") == b"<xmp>compressed</xmp>"
-    assert pdf._extract_stream_data(b"<< /Filter /FlateDecode >>\nstream\nnot-zlib\nendstream") == b"not-zlib"
-    assert pdf._extract_stream_data(b"<< /Filter [/ASCII85Decode /FlateDecode] >>\nstream\n" + compressed + b"\nendstream") == b"<xmp>compressed</xmp>"
-    assert pdf._extract_stream_data(b"<< /Filter [/FlateDecode] >>\nstream\nnot-zlib\nendstream") == b"not-zlib"
-    assert pdf._extract_stream_data(b"<< /Filter /Other >>\nstream\nraw\nendstream") == b"raw"
+    # No trailer at all: a scan finds the catalog and a dictionary that looks like Info.
+    payload = _pdf_with_info(b"<< /Title (Heuristic Title) /Author (A) >>", trailer=False)
+    assert read_metadata(payload).info == {"Title": "Heuristic Title", "Author": "A"}
+    assert pdf.get_metadata(payload).title == "Heuristic Title"
+    # An outline item has a /Title too, but it is not Info.
+    outline_only = _pdf_with_info(b"<< /Title (Chapter 1) /Parent 1 0 R /Dest [3 0 R /Fit] >>", trailer=False)
+    assert read_metadata(outline_only).info == {}
 
-    xmp = b"<rdf:RDF><rdf:Description /></rdf:RDF>"
-    assert pdf._extract_xmp_packet(xmp, {}) == xmp
-    xmp_meta = b"<x:xmpmeta><rdf:RDF /></x:xmpmeta>"
-    assert pdf._extract_xmp_packet(b"prefix" + xmp_meta + b"suffix", {}) == xmp_meta
-    metadata_obj = {  # explicit metadata stream wins
-        (4, 0): b"<< /Type /Metadata /Filter /FlateDecode >>\nstream\n"
-        + zlib.compress(xmp_meta)
-        + b"\nendstream"
-    }
-    assert pdf._extract_xmp_packet(b"fallback" + xmp + b"tail", metadata_obj) == xmp_meta
+    xmp_meta = b"<x:xmpmeta xmlns:x='adobe:ns:meta/'><rdf:RDF xmlns:rdf='http://www.w3.org/1999/02/22-rdf-syntax-ns#'/></x:xmpmeta>"
+    compressed = zlib.compress(xmp_meta)
+    ascii85 = base64.a85encode(compressed) + b"~>"
+
+    def with_metadata(stream: bytes) -> bytes:
+        """
+        Build a PDF whose catalog points to a metadata stream.
+
+        Example:
+            Exercise with metadata through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_pdf_edge_cases.py
+
+
+        :param stream: The metadata stream object's source.
+        :return: The PDF.
+        """
+        objects = [b"<< /Type /Catalog /Metadata 3 0 R >>", b"<< /Title (T) >>", stream]
+        out = bytearray(b"%PDF-1.4\n")
+        for number, body in enumerate(objects, start=1):
+            out += f"{number} 0 obj\n".encode() + body + b"\nendobj\n"
+        out += b"trailer\n<< /Size 4 /Root 1 0 R /Info 2 0 R >>\n%%EOF\n"
+        return bytes(out)
+
+    def stream(header: bytes, data: bytes) -> bytes:
+        """
+        Build a stream object's source with a correct /Length.
+
+        Example:
+            Exercise stream through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_pdf_edge_cases.py
+
+
+        :param header: The dictionary's entries other than /Length.
+        :param data: The stream's data.
+        :return: The source.
+        """
+        return b"<< " + header + b" /Length %d >>\nstream\n" % len(data) + data + b"\nendstream"
+
+    assert read_metadata(with_metadata(stream(b"/Type /Metadata /Filter /FlateDecode", compressed))).xmp == xmp_meta
+    chained = stream(b"/Type /Metadata /Filter [/ASCII85Decode /FlateDecode]", ascii85)
+    assert read_metadata(with_metadata(chained)).xmp == xmp_meta
+    # Corrupt or unknown filters cost the XMP packet, not the Info dictionary.
+    for broken in (
+        stream(b"/Type /Metadata /Filter /FlateDecode", b"not-zlib"),
+        stream(b"/Type /Metadata /Filter /JBIG2Decode", b"raw"),
+    ):
+        metadata = read_metadata(with_metadata(broken))
+        assert metadata.xmp is None
+        assert metadata.info == {"Title": "T"}
+        assert metadata.problems and metadata.problems[0].startswith("XMP packet:")
+    assert pdf.get_metadata(with_metadata(stream(b"/Filter /JBIG2Decode", b"raw"))).title == "T"
 
 
 def test_pdf_source_reading_defaults_and_field_value_helpers(tmp_path: Path) -> None:
@@ -565,9 +571,10 @@ def test_pdf_xmp_parser_no_rdf_and_parse_variants() -> None:
     assert parsed["urn:custom"]["value"] == "custom text"
 
 
-def test_pdf_get_metadata_defensive_fallbacks(monkeypatch) -> None:
+@pytest.mark.parametrize("merge", ["newest", "calibre", "union"])
+def test_pdf_get_metadata_defensive_fallbacks(monkeypatch, merge: str) -> None:
     """
-    Verify pdf get metadata defensive fallbacks.
+    Verify pdf get metadata defensive fallbacks, under every merge policy.
 
     Example:
         Exercise test pdf get metadata defensive fallbacks through its owning regression module::
@@ -577,6 +584,7 @@ def test_pdf_get_metadata_defensive_fallbacks(monkeypatch) -> None:
 
     :param monkeypatch: Pytest fixture used to isolate collaborators or environment
         state.
+    :param merge: The merge policy.
     :return: None; the function records state or raises through its assertions.
     """
     events = []
@@ -589,41 +597,58 @@ def test_pdf_get_metadata_defensive_fallbacks(monkeypatch) -> None:
     assert empty.title == "Unknown"
     assert _values(empty.authors) == ["Unknown Author"]
 
-    payload = _pdf_with_info(b"<< /Title (Fallback Title) /Keywords [(10.5555/fallback) (9780306406157)] >>")
     fake_md = _FakeMetadata()
     monkeypatch.setattr(pdf, "_default_metadata", lambda _source_name="": fake_md)
     monkeypatch.setattr(pdf, "process_metadata_info_dict", lambda _info, md: md)
-    monkeypatch.setattr(pdf, "_extract_xmp_packet", lambda *_args: b"<broken")
 
-    md = pdf.get_metadata(payload)
+    def broken_xmp(_packet, **_options):
+        """
+        Fail as an unparseable XMP packet does.
+
+        Example:
+            Exercise test pdf get metadata defensive fallbacks.broken xmp through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_pdf_edge_cases.py
+
+
+        :param _packet: The packet.
+        :param _options: Parser options.
+        :return: Never returns.
+        """
+        raise SyntaxError("broken XMP")
+
+    monkeypatch.setattr(pdf, "xmp_to_dict", broken_xmp)
+    xmp = b"<< /Type /Metadata /Length 6 >>\nstream\n<broke\nendstream"
+    payload = _pdf_with_info(
+        b"<< /Title (Fallback Title) /Keywords [(10.5555/fallback) (9780306406157)] >>",
+        extra_objects=[xmp],
+    ).replace(b"<< /Type /Catalog >>", b"<< /Type /Catalog /Metadata 3 0 R >>")
+    md = pdf.get_metadata(payload, merge=merge)
     assert md is fake_md
     assert fake_md.identifiers == {"doi": "10.5555/fallback", "isbn": "9780306406157"}
     assert fake_md.finalized
     assert _values(fake_md.authors) == ["Unknown Author"]
     assert any("embedded PDF XMP" in str(event[0]) for event in events)
 
-    info_calls = {"count": 0}
-
-    def fail_once_info_dict(*_args):
+    def fail_info_dict(*_args, **_options):
         """
-        Perform the fail once info dict test-helper operation with deterministic inputs.
+        Fail as a broken Info mapping does.
 
         Example:
-            Exercise test pdf get metadata defensive fallbacks.fail once info dict through its owning regression module::
+            Exercise test pdf get metadata defensive fallbacks.fail info dict through its owning regression module::
 
                 python -m pytest -q tests/metadata/file_sources/test_pdf_edge_cases.py
 
 
         :param _args: Value supplied for args in the focused test operation.
-        :return: The deterministic value, row, identity or collection described above.
+        :param _options: Reading options.
+        :return: Never returns.
         """
-        info_calls["count"] += 1
-        if info_calls["count"] == 1:
-            raise RuntimeError("info boom")
-        return {}
+        raise RuntimeError("info boom")
 
-    monkeypatch.setattr(pdf, "_extract_info_dict", fail_once_info_dict)
-    pdf.get_metadata(_pdf_with_info(b"<< /Title (Ignored) >>"))
+    monkeypatch.setattr(pdf, "process_metadata_info_dict", fail_info_dict)
+    monkeypatch.setattr(pdf_merge, "info_fields", fail_info_dict)
+    pdf.get_metadata(_pdf_with_info(b"<< /Title (Ignored) >>"), merge=merge)
     assert any("PDF info dictionary" in str(event[0]) for event in events)
 
 
@@ -652,16 +677,17 @@ def test_pdf_writer_dict_tool_and_page_image_edges(tmp_path: Path, monkeypatch) 
     mi.publisher = "Publisher"
     mi.series = "Series"
     mi.series_index = {"Series": "2"}
+    # Authors are joined as the reader splits them; the author sort is not the /Creator
+    # (the application that made the PDF); the index is the series', not its name.
     assert pdf._metadata_to_pdf_dict(mi) == {
         "/Title": "Title",
-        "/Author": "Alice, Bob",
+        "/Author": "Alice & Bob",
         "/Subject": "Comments",
         "/Keywords": "tag-one, tag-two",
         "/Producer": "Producer",
-        "/Creator": "Creator",
         "/Publisher": "Publisher",
         "/Series": "Series",
-        "/SeriesIndex": "Series",
+        "/SeriesIndex": "2",
     }
 
     with pytest.raises(TypeError):
@@ -723,11 +749,11 @@ def test_pdf_metadata_dict_sanitizes_hostile_text_without_mutating_input() -> No
     out = pdf._metadata_to_pdf_dict(mi)
 
     assert out["/Title"] == "PDFTitle 😀"
-    assert out["/Author"] == "Alice One, Bob Two"
+    assert out["/Author"] == "Alice One & Bob Two"
     assert out["/Subject"] == "Comment with (paren) and \\ slash"
     assert out["/Keywords"] == "tagone, emoji 😀"
     assert out["/Producer"] == "ProducerName"
-    assert out["/Creator"] == "CreatorName"
+    assert "/Creator" not in out
     assert out["/Publisher"] == "Publisher"
     assert out["/Series"] == "SeriesName"
     assert out["/SeriesIndex"] == "2"
@@ -739,125 +765,22 @@ def test_pdf_metadata_dict_sanitizes_hostile_text_without_mutating_input() -> No
     assert mi.tags == tags
 
 
-def test_pdf_set_metadata_fake_backend_sanitizes_and_rewrites_stream(monkeypatch) -> None:
+def test_pdf_set_metadata_sanitizes_hostile_text_in_the_file() -> None:
     """
-    Verify pdf set metadata fake backend sanitizes and rewrites stream.
+    Verify hostile text is cleaned before pypdf writes it, and the caller's metadata is untouched.
 
     Example:
-        Exercise test pdf set metadata fake backend sanitizes and rewrites stream through its owning regression module::
+        Exercise test pdf set metadata sanitizes hostile text in the file through its owning regression module::
 
             python -m pytest -q tests/metadata/file_sources/test_pdf_edge_cases.py
 
 
-    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
-        state.
     :return: None; the function records state or raises through its assertions.
     """
-    captured = {}
+    pytest.importorskip("pypdf")
+    from LiuXin_alpha.file_formats.pdf.objects import read_metadata
 
-    class _FakeReader:
-        """
-        Provide the FakeReader test fixture or double with explicit deterministic behavior.
-
-        Example:
-            Exercise test pdf set metadata fake backend sanitizes and rewrites stream.FakeReader through its owning regression module::
-
-                python -m pytest -q tests/metadata/file_sources/test_pdf_edge_cases.py
-        """
-        def __init__(self, stream):
-            """
-            Initialize the FakeReader test double.
-
-            Example:
-                Exercise test pdf set metadata fake backend sanitizes and rewrites stream.FakeReader.init through its owning regression module::
-
-                    python -m pytest -q tests/metadata/file_sources/test_pdf_edge_cases.py
-
-
-            :param stream: Value supplied for stream in the focused test operation.
-            :return: None; the function records state or raises through its assertions.
-            """
-            captured["reader_payload"] = stream.read()
-            self.pages = ["page-one", "page-two"]
-            self.metadata = {"/Producer": "Existing Producer"}
-
-    class _FakeWriter:
-        """
-        Provide the FakeWriter test fixture or double with explicit deterministic behavior.
-
-        Example:
-            Exercise test pdf set metadata fake backend sanitizes and rewrites stream.FakeWriter through its owning regression module::
-
-                python -m pytest -q tests/metadata/file_sources/test_pdf_edge_cases.py
-        """
-        def __init__(self):
-            """
-            Initialize the FakeWriter test double.
-
-            Example:
-                Exercise test pdf set metadata fake backend sanitizes and rewrites stream.FakeWriter.init through its owning regression module::
-
-                    python -m pytest -q tests/metadata/file_sources/test_pdf_edge_cases.py
-
-
-            :return: None; the function records state or raises through its assertions.
-            """
-            captured["writer"] = self
-            self.pages = []
-            self.metadata = None
-
-        def add_page(self, page):
-            """
-            Perform the add page test-helper operation with deterministic inputs.
-
-            Example:
-                Exercise test pdf set metadata fake backend sanitizes and rewrites stream.FakeWriter.add page through its owning regression module::
-
-                    python -m pytest -q tests/metadata/file_sources/test_pdf_edge_cases.py
-
-
-            :param page: Value supplied for page in the focused test operation.
-            :return: The deterministic value, row, identity or collection described above.
-            """
-            self.pages.append(page)
-
-        def add_metadata(self, metadata):
-            """
-            Perform the add metadata test-helper operation with deterministic inputs.
-
-            Example:
-                Exercise test pdf set metadata fake backend sanitizes and rewrites stream.FakeWriter.add metadata through its owning regression module::
-
-                    python -m pytest -q tests/metadata/file_sources/test_pdf_edge_cases.py
-
-
-            :param metadata: Metadata container or mapping supplied to the assertion helper.
-            :return: The deterministic value, row, identity or collection described above.
-            """
-            self.metadata = metadata
-
-        def write(self, stream):
-            """
-            Record a batch mutation and return its configured result.
-
-            Example:
-                Exercise test pdf set metadata fake backend sanitizes and rewrites stream.FakeWriter.write through its owning regression module::
-
-                    python -m pytest -q tests/metadata/file_sources/test_pdf_edge_cases.py
-
-
-            :param stream: Value supplied for stream in the focused test operation.
-            :return: The deterministic value, row, identity or collection described above.
-            """
-            stream.write(b"%PDF-1.4\nrewritten")
-
-    fake_pypdf = types.ModuleType("pypdf")
-    fake_pypdf.PdfReader = _FakeReader
-    fake_pypdf.PdfWriter = _FakeWriter
-
-    monkeypatch.setattr(pdf.importlib.util, "find_spec", lambda name: object() if name == "pypdf" else None)
-    monkeypatch.setitem(sys.modules, "pypdf", fake_pypdf)
-
+    original = (Path(__file__).resolve().parents[2] / "fixtures" / "pdf_metadata" / "plain.pdf").read_bytes()
     title = "PDF\x00Title\ud800 😀"
     authors = ["Alice\x01 One", "Bob\udfff Two"]
     mi = MetaData()
@@ -865,22 +788,18 @@ def test_pdf_set_metadata_fake_backend_sanitizes_and_rewrites_stream(monkeypatch
     mi.authors = authors
     mi.comments = "Comment\x02"
     mi.tags = ["tag\x03one"]
-
-    stream = io.BytesIO(b"%PDF-1.4\noriginal payload")
+    stream = io.BytesIO(original)
     stream.seek(5)
-    pdf.set_metadata(stream, mi)
+    report = pdf.set_metadata(stream, mi)
 
-    writer = captured["writer"]
-    assert captured["reader_payload"].startswith(b"%PDF-1.4")
-    assert writer.pages == ["page-one", "page-two"]
-    assert writer.metadata["/Producer"] == "Existing Producer"
-    assert writer.metadata["/Title"] == "PDFTitle 😀"
-    assert writer.metadata["/Author"] == "Alice One, Bob Two"
-    assert writer.metadata["/Subject"] == "Comment"
-    assert writer.metadata["/Keywords"] == "tagone"
-    assert not any(_contains_forbidden_text_char(value) for value in writer.metadata.values())
-
-    assert stream.getvalue() == b"%PDF-1.4\nrewritten"
+    info = read_metadata(stream.getvalue()).info
+    assert not report.rewritten and stream.getvalue().startswith(original)
+    assert info["Producer"] == "Corpus Producer"
+    assert info["Title"] == "PDFTitle 😀"
+    assert info["Author"] == "Alice One & Bob Two"
+    assert info["Subject"] == "Comment"
+    assert info["Keywords"] == "tagone"
+    assert not any(_contains_forbidden_text_char(str(value)) for value in info.values())
     assert stream.tell() == 5
     assert mi.title == title
     assert _values(mi.authors) == authors

@@ -54,10 +54,13 @@ __all__ = [
     "sub_skipping_failures",
     "sub_until_failure",
     "xml_declarations",
+    "xml_named_declarations",
 ]
 
 ENTITY = r"&(\S+?);"
 XML_DECLARATION = r"<\?[^<>]+encoding\s*=\s*['\"](.*?)['\"][^<>]*>"
+# The same, for declarations named ``xml``: calibre's XMP reader strips these.
+XML_NAMED_DECLARATION = r"<\?xml[^<>]+encoding\s*=\s*['\"](.*?)['\"][^<>]*>"
 HTML4_CHARSET = (
     r"""<meta\s+?[^<>]*?content\s*=\s*['\"][^'\"]*?charset=([-_a-z0-9]+)[^'\"]*?['\"][^<>]*>(?:\s*</meta>){0,1}"""
 )
@@ -496,16 +499,57 @@ def xml_declarations(text: AnyStr) -> Iterator[re.Match[AnyStr]]:
     :param text: The text.
     :return: The matches.
     """
+    return _declarations(text, "")
+
+
+def xml_named_declarations(text: AnyStr) -> Iterator[re.Match[AnyStr]]:
+    """
+    Find the matches of the pattern ``XML_NAMED_DECLARATION``, as ``finditer`` would.
+
+    The pattern differs from ``XML_DECLARATION`` only in naming the
+    declaration ``xml``, in any case: a try at ``<?`` that is not ``<?xml``
+    fails, and the rest is as :func:`xml_declarations` finds it. The original
+    pattern takes cubic time on ``<?xml`` and many ``encoding="``: 20 KB took
+    two minutes.
+
+    Example:
+        >>> [m.group(1) for m in xml_named_declarations('<?xml encoding="a"?><?x encoding="c"?><?XML encoding="d"?>')]
+        ['a', 'd']
+
+
+    :param text: The text.
+    :return: The matches.
+    """
+    return _declarations(text, "xml")
+
+
+def _declarations(text: AnyStr, name: str) -> Iterator[re.Match[AnyStr]]:
+    """
+    Find the matches of a declaration pattern whose ``<?`` is followed by ``name``.
+
+    Example:
+        >>> [m.group(1) for m in _declarations('<?x encoding="c"?>', "")]
+        ['c']
+
+
+    :param text: The text.
+    :param name: What follows ``<?``, matched in any case; ``""`` for any declaration.
+    :return: The matches.
+    """
     pieces = _Pieces(text)
     closed = _ClosedQuotes(text, pieces)
+    opening = re.compile(pieces.typed(r"<\?" + name), re.IGNORECASE)
     pos = 0
     while True:
         start = text.find(pieces.xml_open, pos)
         if start < 0:
             return
+        if name and opening.match(text, start) is None:
+            pos = start + 1
+            continue
         found = pieces.angle.search(text, start + 2)
         stop = len(text) if found is None else found.start()
-        heads = list(pieces.encoding_head.finditer(text, start + 3, stop))
+        heads = list(pieces.encoding_head.finditer(text, start + 3 + len(name), stop))
         span: tuple[int, int, int] | None = None
         if heads:
             quote, close = closed.first_after(heads[-1].end())
@@ -525,8 +569,8 @@ def xml_declarations(text: AnyStr) -> Iterator[re.Match[AnyStr]]:
         value_start = pieces.encoding_head.match(text, head_start)
         assert value_start is not None
         exact = re.compile(
-            pieces.typed(r"<\?[^<>]{%d}encoding\s*=\s*['\"](.{%d})['\"][^<>]*>")
-            % (head_start - start - 2, quote - value_start.end()),
+            pieces.typed(r"<\?%s[^<>]{%d}encoding\s*=\s*['\"](.{%d})['\"][^<>]*>")
+            % (pieces.typed(name), head_start - start - 2 - len(name), quote - value_start.end()),
             re.IGNORECASE,
         )
         match = exact.match(text, start)

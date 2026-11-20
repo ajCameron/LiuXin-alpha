@@ -11,6 +11,11 @@ is preferred over the provider that runs an installed calibre for the same
 reader: :data:`PORTED_PRIORITY` is above :data:`upstream_calibre.UPSTREAM_PRIORITY`.
 Formats not ported yet are left to that provider.
 
+calibre's PDF reader runs poppler's ``pdfinfo`` and ``pdftoppm``. Its port is
+available where ``pdfinfo`` is on the PATH. Below it,
+:class:`PortedPdfReaderWithoutPoppler` runs the same calibre code on fields read
+by LiuXin's own PDF object reader, so PDFs are read everywhere, without a cover.
+
 Importing this module loads no reader.
 """
 
@@ -22,6 +27,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar, Self, cast
 
 from LiuXin_alpha.file_formats.providers.base import (
+    ProviderAvailability,
     ProviderContext,
     provider_id_from_name,
 )
@@ -63,11 +69,15 @@ PORTED_READERS: Mapping[str, tuple[str, frozenset[str]]] = {
     "Read PDB metadata": ("pdb", frozenset({"pdb", "updb"})),
     "Read LRF metadata": ("lrf", frozenset({"lrf"})),
     "Read DOCX metadata": ("docx", frozenset({"docx"})),
+    "Read PDF metadata": ("pdf", frozenset({"pdf"})),
 }
 """calibre's reader plugins that have been ported: module and formats."""
 
 PORTED_PRIORITY = -50
 """Priority of every ported reader: above running an installed calibre."""
+
+WITHOUT_POPPLER_PRIORITY = -55
+"""Priority of the PDF reader that needs no poppler: below the port, which draws a cover."""
 
 PASSES_FORMAT: frozenset[str] = frozenset({"epub"})
 """Ported modules whose ``get_metadata`` calibre's plugin calls with the format."""
@@ -215,6 +225,12 @@ def ported_reader(module: str) -> Callable[..., Any]:
         )
 
         return get_docx_metadata
+    if module == "pdf":
+        from LiuXin_alpha.metadata.upstream_calibre.pdf import (
+            get_metadata as get_pdf_metadata,
+        )
+
+        return get_pdf_metadata
     raise KeyError(f"no calibre reader named {module!r} has been ported")
 
 
@@ -380,15 +396,7 @@ class PortedCalibreReader(CalibreMetadataReader, CoverExtractor):
 
             :return: The fields and the cover.
             """
-            module = self.ported_module
-            if module in ZIP_CONTAINERS:
-                check_zip_container(source, source_format)
-            get_metadata = ported_reader(module)
-            with source.open("rb") as stream:
-                if module in PASSES_FORMAT:
-                    metadata = get_metadata(stream, ftype=source_format)
-                else:
-                    metadata = get_metadata(stream)
+            metadata = run_ported_reader(self.ported_module, source, source_format)
             if metadata is None:
                 return CalibreFields({}), None
             values, cover = serialised_calibre(metadata, context)
@@ -400,6 +408,127 @@ class PortedCalibreReader(CalibreMetadataReader, CoverExtractor):
         return cast("CalibreFields", fields), cover
 
 
+def run_ported_reader(module: str, source: Path, source_format: str) -> Any:
+    """
+    Open a file and run a ported reader's ``get_metadata`` on it, as calibre's plugin calls it.
+
+    Example:
+        >>> run_ported_reader("txt", Path(__file__), "txt").title  # doctest: +SKIP
+        'ported_calibre'
+
+
+    :param module: The ported module.
+    :param source: The file.
+    :param source_format: Its format.
+    :return: calibre's metadata object, or ``None``.
+    """
+    if module in ZIP_CONTAINERS:
+        check_zip_container(source, source_format)
+    get_metadata = ported_reader(module)
+    with source.open("rb") as stream:
+        if module in PASSES_FORMAT:
+            return get_metadata(stream, ftype=source_format)
+        return get_metadata(stream)
+
+
+class PortedPdfReader(PortedCalibreReader):
+    """
+    Run calibre's PDF reader, which needs poppler's ``pdfinfo`` (and ``pdftoppm`` for the cover).
+
+    Example:
+        >>> provider = adapt_ported_reader("Read PDF metadata")
+        >>> issubclass(provider, PortedPdfReader), provider.requires
+        (True, ('poppler',))
+    """
+
+    requires: ClassVar[tuple[str, ...]] = ("poppler",)
+
+    @classmethod
+    def availability(cls: type[Self]) -> ProviderAvailability:
+        """
+        Report whether poppler's ``pdfinfo`` is on the PATH.
+
+        Example:
+            >>> import os
+            >>> saved = os.environ.get("PATH", "")
+            >>> os.environ["PATH"] = "/no/such/folder"
+            >>> PortedPdfReader.availability().available
+            False
+            >>> os.environ["PATH"] = saved
+
+
+        :return: Ready if ``pdfinfo`` was found, otherwise why not.
+        """
+        from LiuXin_alpha.metadata.upstream_calibre._poppler import tool_directory
+
+        if tool_directory() is None:
+            return ProviderAvailability.missing(
+                "poppler's pdfinfo was not found on the PATH; install poppler-utils, or "
+                "read PDFs with calibre-port.read-pdf-metadata-without-poppler"
+            )
+        return ProviderAvailability.ready()
+
+
+class PortedPdfReaderWithoutPoppler(CalibreMetadataReader):
+    """
+    Run calibre's PDF reader on fields read by LiuXin's own object reader, so no poppler is needed.
+
+    calibre's ``get_metadata`` turns what ``pdfinfo`` prints into metadata. Here
+    the same fields come from :mod:`LiuXin_alpha.file_formats.pdf.objects`, and
+    calibre's code does the rest. Drawing a cover needs poppler, so there is none.
+
+    Example:
+        >>> PortedPdfReaderWithoutPoppler.provider_id, PortedPdfReaderWithoutPoppler.priority
+        ('calibre-port.read-pdf-metadata-without-poppler', -55)
+    """
+
+    provider_id: ClassVar[str] = "calibre-port.read-pdf-metadata-without-poppler"
+    version: ClassVar[str] = UPSTREAM_CALIBRE_VERSION
+    licence: ClassVar[str] = "GPL-3.0-only"
+    priority: ClassVar[int] = WITHOUT_POPPLER_PRIORITY
+    calibre_read_formats: ClassVar[frozenset[str]] = frozenset({"pdf"})
+
+    def read_calibre_metadata(
+        self: Self, source: Path, source_format: str, context: ProviderContext
+    ) -> CalibreFields:
+        """
+        Return what calibre's PDF reader says about the file, without poppler.
+
+        Example:
+            Called by a metadata run::
+
+                fields = provider().read_calibre_metadata(path, "pdf", context)
+
+
+        :param source: The file to read. It is not changed.
+        :param source_format: ``pdf``.
+        :param context: Options, log, report and work folder for this call.
+        :return: The metadata, in calibre's names and shapes.
+        """
+
+        def read() -> tuple[object, CoverImage | None]:
+            """
+            Run the reader with LiuXin's fields in place of poppler's.
+
+            Example:
+                Called once per unchanged file::
+
+                    fields, _ = read()
+
+
+            :return: The fields, and no cover.
+            """
+            from LiuXin_alpha.metadata.upstream_calibre._poppler import without_poppler
+
+            with without_poppler():
+                metadata = run_ported_reader("pdf", source, source_format)
+            values, _ = serialised_calibre(metadata, context)
+            return CalibreFields(values), None
+
+        fields, _ = remember_reading(reading_key(type(self), source, source_format), read)
+        return cast("CalibreFields", fields)
+
+
 def adapt_ported_reader(plugin_name: str) -> type[PortedCalibreReader]:
     """
     Make a provider class for one ported calibre reader.
@@ -409,7 +538,8 @@ def adapt_ported_reader(plugin_name: str) -> type[PortedCalibreReader]:
         -50
 
 
-    :param plugin_name: The reader plugin's name in calibre.
+    :param plugin_name: The reader plugin's name in calibre. The PDF reader's
+        class derives from :class:`PortedPdfReader`, which needs poppler.
     :return: A new provider class; register it to use it.
     :raises KeyError: If that reader has not been ported.
     """
@@ -441,26 +571,31 @@ def adapt_ported_reader(plugin_name: str) -> type[PortedCalibreReader]:
         namespace.update(attributes)
 
     name = "".join(word.capitalize() for word in plugin_name.split()[1:-1]) + "Ported"
-    made = types.new_class(name, (PortedCalibreReader,), exec_body=fill)
+    base = PortedPdfReader if module == "pdf" else PortedCalibreReader
+    made = types.new_class(name, (base,), exec_body=fill)
     return cast("type[PortedCalibreReader]", made)
 
 
 def register_ported_calibre_readers(
     registry: ProviderRegistry,
-) -> tuple[type[PortedCalibreReader], ...]:
+) -> tuple[type[PortedCalibreReader] | type[PortedPdfReaderWithoutPoppler], ...]:
     """
     Register a provider for every ported calibre reader.
 
     Example:
         >>> from LiuXin_alpha.file_formats.providers.registry import ProviderRegistry
         >>> [p.provider_id for p in register_ported_calibre_readers(ProviderRegistry())]
-        ['calibre-port.read-txt-metadata', 'calibre-port.read-imp-metadata', 'calibre-port.read-rb-metadata', 'calibre-port.read-lrx-metadata', 'calibre-port.read-snb-metadata', 'calibre-port.read-rtf-metadata', 'calibre-port.read-topaz-metadata', 'calibre-port.read-pml-metadata', 'calibre-port.read-opf-metadata', 'calibre-port.read-epub-metadata', 'calibre-port.read-htmlz-metadata', 'calibre-port.read-txtz-metadata', 'calibre-port.read-html-metadata', 'calibre-port.read-fb2-metadata', 'calibre-port.read-odt-metadata', 'calibre-port.read-mobi-metadata', 'calibre-port.read-pdb-metadata', 'calibre-port.read-lrf-metadata', 'calibre-port.read-docx-metadata']
+        ['calibre-port.read-txt-metadata', 'calibre-port.read-imp-metadata', 'calibre-port.read-rb-metadata', 'calibre-port.read-lrx-metadata', 'calibre-port.read-snb-metadata', 'calibre-port.read-rtf-metadata', 'calibre-port.read-topaz-metadata', 'calibre-port.read-pml-metadata', 'calibre-port.read-opf-metadata', 'calibre-port.read-epub-metadata', 'calibre-port.read-htmlz-metadata', 'calibre-port.read-txtz-metadata', 'calibre-port.read-html-metadata', 'calibre-port.read-fb2-metadata', 'calibre-port.read-odt-metadata', 'calibre-port.read-mobi-metadata', 'calibre-port.read-pdb-metadata', 'calibre-port.read-lrf-metadata', 'calibre-port.read-docx-metadata', 'calibre-port.read-pdf-metadata', 'calibre-port.read-pdf-metadata-without-poppler']
 
 
     :param registry: The registry to add the providers to.
-    :return: The provider classes registered.
+    :return: The provider classes registered, ending with the PDF reader that
+        needs no poppler.
     """
-    made = tuple(adapt_ported_reader(name) for name in PORTED_READERS)
+    made: tuple[type[PortedCalibreReader] | type[PortedPdfReaderWithoutPoppler], ...] = (
+        *(adapt_ported_reader(name) for name in PORTED_READERS),
+        PortedPdfReaderWithoutPoppler,
+    )
     for provider in made:
         registry.register(provider)
     return made

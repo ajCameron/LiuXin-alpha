@@ -172,7 +172,7 @@ def _identifier_value(md: Any, scheme: str) -> str | None:
     return None
 
 
-def _extract_expected(pdf_mod, pdf_path: Path) -> dict[str, Any]:
+def _extract_expected(pdf_mod, pdf_path: Path, merge: str = "newest") -> dict[str, Any]:
     """
     Perform the extract expected test-helper operation with deterministic inputs.
 
@@ -184,9 +184,10 @@ def _extract_expected(pdf_mod, pdf_path: Path) -> dict[str, Any]:
 
     :param pdf_mod: Value supplied for pdf mod in the focused test operation.
     :param pdf_path: Value supplied for pdf path in the focused test operation.
+    :param merge: The merge policy to read with.
     :return: The deterministic value, row, identity or collection described above.
     """
-    md = pdf_mod.get_metadata_inplace(pdf_path)
+    md = pdf_mod.get_metadata_inplace(pdf_path, merge=merge)
     return {
         "title": _normalize_text(getattr(md, "title", "") or ""),
         "authors": _normalized_list(getattr(md, "authors", None)),
@@ -234,8 +235,9 @@ def pdf_md_mod():
     return importlib.import_module("LiuXin_alpha.metadata.file_sources.pdf")
 
 
+@pytest.mark.parametrize("merge", ["newest", "calibre", "union"])
 @pytest.mark.parametrize("case_name", _case_ids())
-def test_golden_pdf_corpus_scaffold(case_name: str, pdf_md_mod) -> None:
+def test_golden_pdf_corpus_scaffold(case_name: str, merge: str, pdf_md_mod) -> None:
     """
     Verify golden pdf corpus scaffold.
 
@@ -246,20 +248,21 @@ def test_golden_pdf_corpus_scaffold(case_name: str, pdf_md_mod) -> None:
 
 
     :param case_name: Value supplied for case name in the focused test operation.
+    :param merge: The merge policy; the manifest lists where it differs from the default.
     :param pdf_md_mod: Value supplied for pdf md mod in the focused test operation.
     :return: None; the function records state or raises through its assertions.
     """
     manifest = _load_manifest()
     cases = {str(case["name"]): case for case in manifest.get("cases", [])}
     case = cases[case_name]
-    expected = case.get("expected", {})
+    expected = {**case.get("expected", {}), **case.get("differs_by_policy", {}).get(merge, {})}
 
     path = _GOLDEN_DIR / str(case["path"])
     assert path.exists(), f"Missing golden PDF fixture: {path}"
     assert case.get("sha256") == _sha256_file(path)
 
-    actual_1 = _extract_expected(pdf_md_mod, path)
-    actual_2 = _extract_expected(pdf_md_mod, path)
+    actual_1 = _extract_expected(pdf_md_mod, path, merge)
+    actual_2 = _extract_expected(pdf_md_mod, path, merge)
     assert actual_1 == actual_2
     assert actual_1 == expected
 

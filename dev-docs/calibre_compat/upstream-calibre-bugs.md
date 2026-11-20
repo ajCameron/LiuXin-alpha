@@ -1,11 +1,11 @@
 # Bugs to report to upstream calibre
 
 Status: **not yet reported.** Found **2026-11-17** to **2026-11-19** while porting
-calibre's metadata readers (PRs #179, #185, #188, #195, #197 and #200) and
-hardening LiuXin's own readers and converters (PRs #180, #186, #193, #198 and
-#199).
+calibre's metadata readers (PRs #179, #185, #188, #195, #197, #200 and #202) and
+hardening LiuXin's own readers and converters (PRs #180, #186, #193, #198, #199
+and #201).
 
-These are fourteen ways a damaged or hostile file keeps a calibre metadata reader
+These are seventeen ways a damaged or hostile file keeps a calibre metadata reader
 or conversion busy for minutes or for ever, or fills memory. Each section has the
 location, a reproducer to run with `calibre-debug`, what was measured, and a
 suggested fix.
@@ -22,7 +22,7 @@ suggested fix.
 - **Where to report:** calibre takes ordinary bugs on
   [Launchpad](https://bugs.launchpad.net/calibre). Recent security fixes have gone
   through [GitHub security advisories](https://github.com/kovidgoyal/calibre/security/advisories).
-  All fourteen are denial of service from a crafted file; bug 9 also runs the
+  All seventeen are denial of service from a crafted file; bug 9 also runs the
   book's text as XPath, though only within the book. That makes them candidates for a
   private advisory rather than a public bug, or for a public bug if calibre
   treats reader hangs as ordinary bugs. Choosing which is the reporter's call.
@@ -34,7 +34,9 @@ suggested fix.
   Bugs 6 to 10 are all in the MOBI reader and could go as one report. Bug 12
   is bug 8's shape in the PDB header reader, and its fix could follow 8's.
   Bug 13 is bug 7's shape (unpacking without a limit) in the LRF reader.
-  Bug 14 is in the DOCX reader, which runs when a book is added.
+  Bug 14 is in the DOCX reader, which runs when a book is added. Bugs 15
+  and 16 are in the XMP reader, which reads every PDF's packet, and 15 is
+  bug 5's pattern with `xml` after `<?`. Bug 17 is in the PDF reader.
 
 ## Summary
 
@@ -54,6 +56,9 @@ suggested fix.
 | 12 | `ebooks/pdb/header.py`, `PdbHeaderReader.section_data` | A section table whose offsets go back | Each section reads to the end of the file, and the Haodoo reader keeps them all: 1.9 GB for 4,000 sections in 536 KB; a table names up to 65,535 |
 | 13 | `ebooks/lrf/meta.py`, `LRFMetaFile.info`; `ebooks/lrf/objects.py`, `LRFStream.read_stream` | Meta info of millions of empty elements; an image stream of zlib-packed zeros | 48 s for a 6.4 KB book; 1.2 GB for a 408 KB book |
 | 14 | `ebooks/metadata/docx.py`, `get_cover` | A million drawings naming one image that is not a cover | The XPath grows faster than the drawings squared, and the image is read once per drawing: 16 s for 64,000 drawings and a 1 MB image |
+| 15 | `ebooks/metadata/xmp.py`, `_xml_declaration` | An XMP packet with `<?xml` and many `encoding="` that never close | Cubic: 10 KB takes 8.2 s, 20 KB about a minute |
+| 16 | `ebooks/metadata/xmp.py`, `first_alt`, `multiple_sequences` and the other lookups | An XMP packet nesting a field in itself, 250 deep | Each level reads all the descendants again: 0.9 MB takes 4.3 s |
+| 17 | `ebooks/metadata/pdf.py`, `read_info` | A PDF whose first page is 172 inches square | `pdftoppm` draws the cover at 25,834 by 25,834 pixels: 2 GB of memory, and a cover Pillow refuses to open |
 
 ## 1. Topaz: counts past the end of the file
 
@@ -1095,6 +1100,144 @@ def first_images(document, relationships):
 and in `get_cover`, skip an image already tried (`tried = set()`, then
 `if rid in rid_map and rid_map[rid] not in tried: tried.add(rid_map[rid])`).
 
+## 15. XMP: the XML-declaration pattern is cubic
+
+`parse_xmp_packet` removes encoding declarations before parsing a packet that
+names its encoding in `<?xpacket begin=…?>`:
+
+```python
+_xml_declaration = re.compile(r'<\?xml[^<>]+encoding\s*=\s*[\'"](.*?)[\'"][^<>]*>', re.IGNORECASE)
+…
+raw = _xml_declaration.sub('', raw_bytes.decode(enc))
+```
+
+This is bug 5's pattern with `xml` after `<?`, and it backtracks the same way:
+for each `encoding="`, every quote after it on its line is tried against the
+rest of the tag. Every PDF's XMP packet goes through it when the book is added,
+and again when metadata is written (`merge_xmp_packet`).
+
+```python
+# xmp_declaration.py: run with calibre-debug -e xmp_declaration.py
+import time
+
+from calibre.ebooks.metadata.xmp import metadata_from_xmp_packet
+
+for count in (250, 500, 1000):
+    packet = ('<?xpacket begin="﻿" id="W5M0MpCehiHzreSzNTczkc9d"?><?xml ' + 'encoding="' * count
+              + '\n<x:xmpmeta xmlns:x="adobe:ns:meta/"/>').encode()
+    start = time.monotonic()
+    try:
+        metadata_from_xmp_packet(packet)
+    except Exception:
+        pass
+    print(f'{len(packet):,} bytes: {time.monotonic() - start:.2f} s', flush=True)
+```
+
+**Measured** (the pattern alone, on the decoded packet): 2.6 KB 0.15 s, 5.1 KB
+1.05 s, 10 KB 8.2 s; with nothing after the declaration, 20 KB took 124 s.
+
+**Suggested fix:** as for bug 5. LiuXin finds the same matches by hand in linear
+time (`xml_named_declarations` in `utils/linear_time.py`), checked against the
+pattern on random text.
+
+## 16. XMP: nested fields are read once per level
+
+The lookups take every match of an expression such as `//dc:title`, then read
+each match's descendants:
+
+```python
+def first_alt(expr: str, root: _Element) -> str | None:
+    for item in XPath(expr)(root):
+        q = read_simple_property(read_lang_alt(item))  # descendant::rdf:li, twice
+        if q:
+            return q
+```
+
+A packet that nests `dc:title` in itself puts every descendant inside every
+level, so the lookups read them once per level. `first_alt`, `multiple_sequences`
+(authors, tags, publishers, languages), `read_series` and the identifier reader
+all do this. libxml2 stops at 256 levels, so the cost is bounded, but at 250×.
+
+```python
+# xmp_nesting.py: run with calibre-debug -e xmp_nesting.py
+import time
+
+from calibre.ebooks.metadata.xmp import metadata_from_xmp_packet
+
+head = ('<?xpacket begin="﻿" id="W5M0MpCehiHzreSzNTczkc9d"?><x:xmpmeta xmlns:x="adobe:ns:meta/">'
+        '<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">'
+        '<rdf:Description rdf:about="" xmlns:dc="http://purl.org/dc/elements/1.1/">')
+tail = '</rdf:Description></rdf:RDF></x:xmpmeta>'
+for field in ('title', 'creator', 'subject'):
+    packet = (head + f'<dc:{field}>' * 250 + '<rdf:li></rdf:li>' * 50_000 + f'</dc:{field}>' * 250 + tail).encode()
+    start = time.monotonic()
+    metadata_from_xmp_packet(packet)
+    print(f'{field}, {len(packet):,} bytes: {time.monotonic() - start:.2f} s', flush=True)
+```
+
+**Measured:** 0.9 MB packets took 4.3 s (titles) and 3.4 s (authors, tags); a
+4 MB packet would take about 20 s.
+
+**Suggested fix:** refuse packets nested deeper than real ones (LiuXin refuses
+more than 32 levels; real packets nest about ten), or skip matches that lie
+inside another match, whose values `uniq()` drops anyway.
+
+## 17. PDF: covers of giant pages are drawn whole
+
+`read_info` draws the first page as the cover at `pdftoppm`'s default 150 dpi:
+
+```python
+check_call(pdftoppm, '-singlefile', '-jpeg', '-cropbox', 'src.pdf', 'cover')
+```
+
+A page may be up to 200 inches square. Pages over about 172 inches fail
+poppler's own allocation check ("Bogus memory allocation size") and leave a 1 by
+1 cover. Pages just under that are drawn: 25,834 pixels square, about 2 GB of
+memory. calibre then keeps the 10 MB JPEG as the cover, and Pillow
+refuses to open it as a decompression bomb. A page with content takes
+correspondingly longer. The worker that runs `read_info` has a 300 s timeout,
+but neither tool has a memory or output limit.
+
+```python
+# pdf_giant_page.py: run with calibre-debug -e pdf_giant_page.py
+import io
+import resource
+import time
+
+from calibre.ebooks.metadata.pdf import get_metadata
+
+
+def pdf(side):
+    objects = [b'<< /Type /Catalog /Pages 2 0 R >>', b'<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+               b'<< /Type /Page /Parent 2 0 R /MediaBox [0 0 %d %d] >>' % (side, side)]
+    out = bytearray(b'%PDF-1.4\n')
+    offsets = []
+    for number, body in enumerate(objects, 1):
+        offsets.append(len(out))
+        out += b'%d 0 obj\n%s\nendobj\n' % (number, body)
+    table = len(out)
+    out += b'xref\n0 4\n0000000000 65535 f \n' + b''.join(b'%010d 00000 n \n' % o for o in offsets)
+    out += b'trailer\n<< /Size 4 /Root 1 0 R >>\nstartxref\n%d\n%%%%EOF\n' % table
+    return bytes(out)
+
+
+for side in (8000, 12400):
+    start = time.monotonic()
+    mi = get_metadata(io.BytesIO(pdf(side)))
+    peak = resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss // 1024
+    print(f'{side} points: {time.monotonic() - start:.1f} s, cover {len(mi.cover_data[1]):,} bytes, '
+          f'largest child {peak:,} MB', flush=True)
+```
+
+**Measured** (`pdftoppm` 24.02 alone, blank page): 8,000 points drew 16,667
+pixels square in 1.4 s (a 4.3 MB JPEG); 12,400 points drew 25,834 pixels square
+in 3.4 s (a 10 MB JPEG).
+
+**Suggested fix:** draw with `-scale-to` when the page is large: `read_info` has
+`pdfinfo`'s `Page size` before it calls `pdftoppm`. LiuXin draws pages larger
+than 20 inches (3,000 pixels at 150 dpi) at 3,000 pixels on their longest side,
+and runs both tools with memory, CPU and output limits.
+
 ## LiuXin's own fixes
 
 - PR #180 fixes LiuXin's readers on `main`: `metadata/file_sources/topaz.py`
@@ -1120,5 +1263,9 @@ and in `get_cover`, skip an image already tried (`tried = set()`, then
   makes the same fixes to LiuXin's own LRF reader, which had both halves.
 - PR #199 fixes bug 14 in LiuXin's own DOCX reader, which copied calibre's
   search, and PR #200 carries the fix in the ported one.
+- PR #202 carries the fixes for bugs 15 to 17 in the ported XMP and PDF
+  readers. LiuXin's own PDF reader (#201) parses XMP with ElementTree and draws
+  no cover; its old object scanner had a quadratic pattern of its own, which
+  #201 replaces.
 
 Return to the [calibre compatibility index](README.md).

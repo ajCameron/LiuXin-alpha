@@ -31,6 +31,7 @@ Current dossiers:
 - [MOBI](mobi/README.md)
 - [ODT](odt/README.md)
 - [PDB](pdb/README.md)
+- [PDF](pdf/README.md)
 
 Across formats:
 

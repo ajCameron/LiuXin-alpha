@@ -309,8 +309,15 @@ def test_pdf_get_metadata_parses_info_dict_unicode() -> None:
     assert "Info Title" in md.title
     assert _values(md.authors) == ["Renée Faßbinder", "李白"]
     tags = {x.lower() for x in _values(md.tags)}
-    assert tags >= {"tag-one", "κατηγορία", "emoji😀", "info subject"}
+    assert tags >= {"tag-one", "κατηγορία", "emoji😀"}
+    # The XMP specification maps the Subject to the description, not to a tag.
+    assert "info subject" not in tags
+    assert _values(md.comments) == ["Info Subject"]
     assert _values(getattr(md, "isbn", None)) == ["9780306406157"]
+
+    # LiuXin's earlier rule kept the Subject as a tag.
+    union = get_metadata(io.BytesIO(payload), merge="union")
+    assert "info subject" in {x.lower() for x in _values(union.tags)}
 
 
 def test_pdf_get_metadata_prefers_xmp_when_present() -> None:
@@ -448,8 +455,9 @@ def test_pdf_set_metadata_roundtrip_unicode_torture_if_backend_available() -> No
     assert any("Alice" in str(author) for author in _values(getattr(md, "authors", None)))
     tags = {str(tag).casefold() for tag in _values(getattr(md, "tags", None))}
     assert "rt-tag" in tags
-    # The lightweight local parser treats PDF /Subject as a tag-like field.
-    assert any("comments" in str(tag).casefold() for tag in tags)
+    # The comments are written to /Subject, and read back from it as comments.
+    assert not any("comments" in str(tag).casefold() for tag in tags)
+    assert any("Comments" in str(comment) for comment in _values(md.comments))
 
 
 def test_pdf_set_metadata_invalid_payload_raises_if_backend_available() -> None:
@@ -501,7 +509,8 @@ def test_pdf_unicode_torture_info_dict_literal_strings() -> None:
     assert md.title == "(Torture) \\ path — é vs é — 👩🏽‍💻🚀"
     assert _values(md.authors) == ["Zoë Δ", "李白", "مريم"]
     tags = {x.casefold() for x in _values(md.tags)}
-    assert {"café", "καλημέρα", "こんにちは", "emoji😀", "موضوع"} <= tags
+    assert {"café", "καλημέρα", "こんにちは", "emoji😀"} <= tags
+    assert _values(md.comments) == ["موضوع"]
     assert _values(getattr(md, "isbn", None)) == ["9780306406157"]
     assert "10.5555/12345678" in {str(x) for x in md.get_identifiers().get("doi", set())}
 

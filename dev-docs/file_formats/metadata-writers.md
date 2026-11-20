@@ -99,7 +99,7 @@ These match calibre's writers, so they are left as they are:
   `OEBPS/` goes to `OEBPS/OEBPS/cover.jpg`. The OPF points to it correctly and both
   readers find it; calibre puts it beside the OPF.
 - **calibre's RTF reader and negative `\u` escapes.** RTF writes characters above
-  U+7FFF as negative numbers (`測試` is `⠠4?\u-30106?`). calibre's reader leaves
+  U+7FFF as negative numbers (`測試` is `\u28204?\u-30106?`). calibre's reader leaves
   those undecoded. LiuXin's reader and writer are right; this is a calibre bug.
 - **Author names holding `&`.** LiuXin's metadata record splits such a name when it is
   set, so "Bob & Co" becomes two authors, though the files carry it correctly.

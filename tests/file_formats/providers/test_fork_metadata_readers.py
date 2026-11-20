@@ -191,7 +191,8 @@ def test_both_sets_register_from_the_fork_readers() -> None:
     plugins = get_metadata_reader_plugins()
 
     assert len(fork) == len(FORK_CALIBRE_READERS) == 12
-    assert len(liuxin) == len(plugins) == 25
+    # 25 formats' readers, and three PDF readers that each fix one merge rule.
+    assert len(liuxin) == len(plugins) == 28
     assert {provider.fork_plugin.name for provider in fork} == set(FORK_CALIBRE_READERS)
     assert all(provider.provider_id.startswith("fork.") for provider in fork)
     assert all(provider.provider_id.startswith("liuxin.") for provider in liuxin)
