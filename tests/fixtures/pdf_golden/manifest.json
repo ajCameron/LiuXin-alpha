@@ -1,4 +1,5 @@
 {
+  "policies": "expected is read with the default policy (newest); differs_by_policy lists the fields another policy reads differently",
   "cases": [
     {
       "name": "fake_realworld_001_info",
@@ -11,11 +12,10 @@
           "Bob Example"
         ],
         "tags": [
-          "golden subject",
           "tag-one",
           "tag-two"
         ],
-        "comments": null,
+        "comments": "Golden Subject",
         "publisher": null,
         "producers": [
           "LiuXin Golden Creator",
@@ -25,6 +25,24 @@
           "isbn": "9780306406157",
           "doi": "10.1000/182",
           "uuid": null
+        }
+      },
+      "differs_by_policy": {
+        "calibre": {
+          "tags": [
+            "golden subject",
+            "tag-one",
+            "tag-two"
+          ],
+          "comments": null
+        },
+        "union": {
+          "tags": [
+            "golden subject",
+            "tag-one",
+            "tag-two"
+          ],
+          "comments": null
         }
       }
     },
@@ -39,8 +57,6 @@
           "Дмитрий XMP"
         ],
         "tags": [
-          "info subject",
-          "info-tag",
           "tag-xmp",
           "タグ"
         ],
@@ -54,6 +70,16 @@
           "isbn": null,
           "doi": "10.4242/xmp-golden",
           "uuid": "12345678-9abc-def0-1234-56789abcdef0"
+        }
+      },
+      "differs_by_policy": {
+        "union": {
+          "tags": [
+            "info subject",
+            "info-tag",
+            "tag-xmp",
+            "タグ"
+          ]
         }
       }
     }

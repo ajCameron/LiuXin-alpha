@@ -110,7 +110,9 @@ def test_workflow_preserves_event_selection_and_dependency_extras() -> None:
     assert jobs["smoke"]["if"] == "github.event_name == 'push'"
     for name in ("full", "smoke", "file-formats-fast", "file-formats-heavy"):
         commands = [step.get("run", "") for step in jobs[name]["steps"]]
-        extras = "test,conversion,encryption" if name == "full" else "test,conversion"
+        extras = (
+            "test,conversion,encryption,pdf" if name == "full" else "test,conversion"
+        )
         assert any(f'python -m pip install ".[{extras}]"' in cmd for cmd in commands)
     quality_commands = [step.get("run", "") for step in jobs["quality-modern"]["steps"]]
     assert any(
@@ -299,6 +301,25 @@ def test_quality_job_owns_syntax_lint_and_closeout_contracts() -> None:
         "test_developer_documentation_links.py",
     ):
         assert f"tests/scripts/{path}" in contracts
+
+
+def test_pdf_reader_tests_run_with_poppler() -> None:
+    """
+    Install poppler where the ported PDF reader's tests run, so they are not skipped.
+
+    Example:
+        >>> test_pdf_reader_tests_run_with_poppler()
+
+
+    :return: None; the assertions are the check.
+    """
+    jobs = _workflow()["jobs"]
+    for name in ("file-formats-fast", "full"):
+        commands = [step.get("run", "") for step in jobs[name]["steps"]]
+        assert any(
+            "apt-get install" in command and "poppler-utils" in command
+            for command in commands
+        ), name
 
 
 def test_quality_requires_live_readonly_mount_coverage() -> None:

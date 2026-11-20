@@ -3,8 +3,11 @@
 """
 Read and update PDF Info/XMP metadata with bounded token parsing and optional external-tool fallbacks.
 
-The module keeps malformed-input, optional dependency and resource ownership
-behavior explicit for registry callers.
+Reading goes through :mod:`LiuXin_alpha.file_formats.pdf.objects`, which follows the
+file's cross-reference data (object streams, incremental updates and hybrid files
+included), opens files encrypted with an empty password, and bounds its work; this
+module maps what it finds onto LiuXin's metadata. The module keeps malformed-input,
+optional dependency and resource ownership behavior explicit for registry callers.
 
 Example:
     Exercise pdf with pytest::
@@ -20,7 +23,6 @@ import os
 import re
 import shutil
 import subprocess
-import zlib
 from collections import defaultdict
 from typing import Any
 from xml.etree import ElementTree as ET
@@ -45,11 +47,6 @@ from LiuXin_alpha.utils.python_tools import (
 VALID_FOR = ["PDF"]
 PRIORITY_FOR = ["PDF"]
 RUN_COST = ["LOW"]
-
-_WS = b" \t\r\n\f\x00"
-_OBJ_RE = re.compile(rb"(\d+)\s+(\d+)\s+obj\b(.*?)\bendobj\b", re.DOTALL)
-_TRAILER_RE = re.compile(rb"trailer\s*<<(.*?)>>", re.DOTALL | re.IGNORECASE)
-
 
 class PdfParseError(Exception):
     """
@@ -78,520 +75,6 @@ def _normalize_text(raw: str | None) -> str:
     if not raw:
         return ""
     return re.sub(r"\s+", " ", clean_xml_chars(str(raw))).strip()
-
-
-def _safe_decode(data: bytes | str | None) -> str:
-    """
-    Perform decode without propagating optional or recovery failures.
-
-    Example:
-        Exercise  safe decode with pytest::
-
-            python -m pytest -q tests/metadata/file_sources/test_pdf_metadata_source.py
-
-
-    :param data: Raw value or payload to normalize, parse or serialize.
-    :return: Parsed, normalized or serialized value described above.
-    """
-    if data is None:
-        return ""
-    if isinstance(data, str):
-        return _normalize_text(data)
-    if not data:
-        return ""
-
-    # PDF Unicode strings are often UTF-16BE with BOM.
-    if data.startswith(b"\xfe\xff"):
-        try:
-            return _normalize_text(data[2:].decode("utf-16-be", "replace"))
-        except Exception:
-            pass
-    if data.startswith(b"\xff\xfe"):
-        try:
-            return _normalize_text(data[2:].decode("utf-16-le", "replace"))
-        except Exception:
-            pass
-    for enc in ("utf-8", "latin-1"):
-        try:
-            return _normalize_text(data.decode(enc, "replace"))
-        except Exception:
-            continue
-    return _normalize_text(data.decode("utf-8", "replace"))
-
-
-def _skip_ws_and_comments(data: bytes, i: int) -> int:
-    """
-    Advance over PDF whitespace and percent comments from the supplied byte offset.
-
-    Example:
-        Exercise  skip ws and comments with pytest::
-
-            python -m pytest -q tests/metadata/file_sources/test_pdf_metadata_source.py
-
-
-    :param data: Raw value or payload to normalize, parse or serialize.
-    :param i: Offset, bound or scalar value used by the operation.
-    :return: Parsed, normalized or serialized value described above.
-    """
-    n = len(data)
-    while i < n:
-        c = data[i : i + 1]
-        if c in _WS:
-            i += 1
-            continue
-        if c == b"%":
-            while i < n and data[i : i + 1] not in (b"\n", b"\r"):
-                i += 1
-            continue
-        break
-    return i
-
-
-def _read_balanced(data: bytes, i: int, start: bytes, end: bytes) -> tuple[bytes, int]:
-    """
-    Read a nested balanced PDF token while respecting escapes and return the following offset.
-
-    Example:
-        Exercise  read balanced with pytest::
-
-            python -m pytest -q tests/metadata/file_sources/test_pdf_metadata_source.py
-
-
-    :param data: Raw value or payload to normalize, parse or serialize.
-    :param i: Offset, bound or scalar value used by the operation.
-    :param start: Offset, bound or scalar value used by the operation.
-    :param end: Value supplied for end.
-    :return: Parsed, normalized or serialized value described above.
-    """
-    n = len(data)
-    depth = 0
-    out = bytearray()
-    while i < n:
-        if data[i : i + len(start)] == start:
-            depth += 1
-            out.extend(start)
-            i += len(start)
-            continue
-        if data[i : i + len(end)] == end:
-            depth -= 1
-            out.extend(end)
-            i += len(end)
-            if depth <= 0:
-                return bytes(out), i
-            continue
-        out.append(data[i])
-        i += 1
-    return bytes(out), i
-
-
-def _read_literal_string(data: bytes, i: int) -> tuple[bytes, int]:
-    """
-    Read and decode one PDF literal string, including escapes and nested parentheses.
-
-    Example:
-        Exercise  read literal string with pytest::
-
-            python -m pytest -q tests/metadata/file_sources/test_pdf_metadata_source.py
-
-
-    :param data: Raw value or payload to normalize, parse or serialize.
-    :param i: Offset, bound or scalar value used by the operation.
-    :return: Parsed, normalized or serialized value described above.
-    """
-    assert data[i : i + 1] == b"("
-    i += 1
-    n = len(data)
-    depth = 1
-    out = bytearray()
-    while i < n:
-        ch = data[i : i + 1]
-        if ch == b"\\":
-            i += 1
-            if i >= n:
-                break
-            esc = data[i : i + 1]
-            if esc in b"nrtbf":
-                out.extend(
-                    {
-                        b"n": b"\n",
-                        b"r": b"\r",
-                        b"t": b"\t",
-                        b"b": b"\b",
-                        b"f": b"\f",
-                    }[esc]
-                )
-            elif esc in (b"(", b")", b"\\"):
-                out.extend(esc)
-            elif esc in b"\r\n":
-                # Line continuation.
-                if esc == b"\r" and i + 1 < n and data[i + 1 : i + 2] == b"\n":
-                    i += 1
-            elif esc[:1].isdigit():
-                oct_digits = bytes(esc)
-                for _ in range(2):
-                    if i + 1 < n and data[i + 1 : i + 2].isdigit():
-                        i += 1
-                        oct_digits += data[i : i + 1]
-                    else:
-                        break
-                try:
-                    out.append(int(oct_digits, 8) & 0xFF)
-                except Exception:
-                    out.extend(esc)
-            else:
-                out.extend(esc)
-            i += 1
-            continue
-        if ch == b"(":
-            depth += 1
-            out.extend(ch)
-            i += 1
-            continue
-        if ch == b")":
-            depth -= 1
-            i += 1
-            if depth <= 0:
-                break
-            out.extend(ch)
-            continue
-        out.extend(ch)
-        i += 1
-    return bytes(out), i
-
-
-def _read_hex_string(data: bytes, i: int) -> tuple[bytes, int]:
-    """
-    Read and decode one PDF hexadecimal string and return the following byte offset.
-
-    Example:
-        Exercise  read hex string with pytest::
-
-            python -m pytest -q tests/metadata/file_sources/test_pdf_metadata_source.py
-
-
-    :param data: Raw value or payload to normalize, parse or serialize.
-    :param i: Offset, bound or scalar value used by the operation.
-    :return: Parsed, normalized or serialized value described above.
-    """
-    assert data[i : i + 1] == b"<"
-    i += 1
-    n = len(data)
-    out = bytearray()
-    while i < n and data[i : i + 1] != b">":
-        out.extend(data[i : i + 1])
-        i += 1
-    if i < n and data[i : i + 1] == b">":
-        i += 1
-    cleaned = re.sub(rb"\s+", b"", bytes(out))
-    if len(cleaned) % 2:
-        cleaned += b"0"
-    try:
-        return bytes.fromhex(cleaned.decode("ascii")), i
-    except Exception:
-        return cleaned, i
-
-
-def _read_name(data: bytes, i: int) -> tuple[str, int]:
-    """
-    Decode one PDF name token, including hexadecimal name escapes.
-
-    Example:
-        Exercise  read name with pytest::
-
-            python -m pytest -q tests/metadata/file_sources/test_pdf_metadata_source.py
-
-
-    :param data: Raw value or payload to normalize, parse or serialize.
-    :param i: Offset, bound or scalar value used by the operation.
-    :return: Parsed, normalized or serialized value described above.
-    """
-    assert data[i : i + 1] == b"/"
-    i += 1
-    n = len(data)
-    out = bytearray()
-    while i < n:
-        ch = data[i : i + 1]
-        if ch in _WS or ch in b"()<>[]{}/%":
-            break
-        if ch == b"#" and i + 2 < n:
-            maybe_hex = data[i + 1 : i + 3]
-            try:
-                out.append(int(maybe_hex.decode("ascii"), 16))
-                i += 3
-                continue
-            except Exception:
-                pass
-        out.extend(ch)
-        i += 1
-    return _safe_decode(bytes(out)), i
-
-
-def _read_token(data: bytes, i: int) -> tuple[str, Any, int]:
-    """
-    Parse one PDF scalar, string, name, array or dictionary token from the supplied offset.
-
-    Example:
-        Exercise  read token with pytest::
-
-            python -m pytest -q tests/metadata/file_sources/test_pdf_metadata_source.py
-
-
-    :param data: Raw value or payload to normalize, parse or serialize.
-    :param i: Offset, bound or scalar value used by the operation.
-    :return: Parsed, normalized or serialized value described above.
-    """
-    i = _skip_ws_and_comments(data, i)
-    if i >= len(data):
-        return "eof", None, i
-
-    ch = data[i : i + 1]
-    if ch == b"/":
-        name, i = _read_name(data, i)
-        return "name", name, i
-    if ch == b"(":
-        val, i = _read_literal_string(data, i)
-        return "string", val, i
-    if ch == b"<":
-        if data[i : i + 2] == b"<<":
-            val, i = _read_balanced(data, i, b"<<", b">>")
-            return "dict", val, i
-        val, i = _read_hex_string(data, i)
-        return "hex", val, i
-    if ch == b"[":
-        val, i = _read_balanced(data, i, b"[", b"]")
-        return "array", val, i
-
-    n = len(data)
-    start = i
-    while i < n and data[i : i + 1] not in _WS + b"()<>[]{}/%":
-        i += 1
-    return "bare", data[start:i], i
-
-
-def _parse_array(raw: bytes) -> list[str]:
-    """
-    Parse a raw PDF array into normalized string values.
-
-    Example:
-        Exercise  parse array with pytest::
-
-            python -m pytest -q tests/metadata/file_sources/test_pdf_metadata_source.py
-
-
-    :param raw: Raw value or payload to normalize, parse or serialize.
-    :return: Parsed, normalized or serialized value described above.
-    """
-    if not raw:
-        return []
-    body = raw[1:-1] if raw.startswith(b"[") and raw.endswith(b"]") else raw
-    i = 0
-    out: list[str] = []
-    while i < len(body):
-        kind, val, i = _read_token(body, i)
-        if kind == "eof":
-            break
-        if kind in {"string", "hex"}:
-            text = _safe_decode(val)
-            if text:
-                out.append(text)
-        elif kind == "name":
-            if val:
-                out.append(_normalize_text(str(val)))
-        elif kind == "bare":
-            text = _safe_decode(val)
-            if text:
-                out.append(text)
-    return out
-
-
-def _parse_pdf_dict(raw: bytes) -> dict[str, Any]:
-    """
-    Parse a raw PDF dictionary body into key/value pairs used by metadata extraction.
-
-    Example:
-        Exercise  parse pdf dict with pytest::
-
-            python -m pytest -q tests/metadata/file_sources/test_pdf_metadata_source.py
-
-
-    :param raw: Raw value or payload to normalize, parse or serialize.
-    :return: Parsed, normalized or serialized value described above.
-    """
-    raw = raw or b""
-    start = raw.find(b"<<")
-    if start < 0:
-        return {}
-    i = start + 2
-    out: dict[str, Any] = {}
-    while i < len(raw):
-        i = _skip_ws_and_comments(raw, i)
-        if raw[i : i + 2] == b">>":
-            break
-        k_kind, key, i = _read_token(raw, i)
-        if k_kind != "name" or not key:
-            # Try to recover by consuming one value-like token.
-            _kind, _val, i = _read_token(raw, i)
-            continue
-        v_kind, val, i = _read_token(raw, i)
-        if v_kind in {"string", "hex"}:
-            out[key] = _safe_decode(val)
-        elif v_kind == "name":
-            out[key] = _normalize_text(str(val))
-        elif v_kind == "array":
-            out[key] = _parse_array(val)
-        elif v_kind == "bare":
-            out[key] = _safe_decode(val)
-        else:
-            out[key] = val
-    return out
-
-
-def _extract_objects(pdf_bytes: bytes) -> dict[tuple[int, int], bytes]:
-    """
-    Index direct PDF objects by object and generation number.
-
-    Example:
-        Exercise  extract objects with pytest::
-
-            python -m pytest -q tests/metadata/file_sources/test_pdf_metadata_source.py
-
-
-    :param pdf_bytes: Raw value or payload to normalize, parse or serialize.
-    :return: Parsed, normalized or serialized value described above.
-    """
-    objects: dict[tuple[int, int], bytes] = {}
-    for match in _OBJ_RE.finditer(pdf_bytes):
-        num = int(match.group(1))
-        gen = int(match.group(2))
-        body = match.group(3).strip()
-        objects[(num, gen)] = body
-    return objects
-
-
-def _find_info_ref(pdf_bytes: bytes) -> tuple[int, int] | None:
-    """
-    Find the most recent trailer Info indirect reference when present.
-
-    Example:
-        Exercise  find info ref with pytest::
-
-            python -m pytest -q tests/metadata/file_sources/test_pdf_metadata_source.py
-
-
-    :param pdf_bytes: Raw value or payload to normalize, parse or serialize.
-    :return: Parsed, normalized or serialized value described above.
-    """
-    trailers = list(_TRAILER_RE.finditer(pdf_bytes))
-    for trailer in reversed(trailers):
-        body = trailer.group(1)
-        match = re.search(rb"/Info\s+(\d+)\s+(\d+)\s+R", body)
-        if match:
-            return int(match.group(1)), int(match.group(2))
-    # Fallback: global search.
-    match = re.search(rb"/Info\s+(\d+)\s+(\d+)\s+R", pdf_bytes)
-    if match:
-        return int(match.group(1)), int(match.group(2))
-    return None
-
-
-def _extract_info_dict(pdf_bytes: bytes, objects: dict[tuple[int, int], bytes]) -> dict[str, Any]:
-    """
-    Resolve and parse the PDF Info dictionary from indexed objects or direct trailer data.
-
-    Example:
-        Exercise  extract info dict with pytest::
-
-            python -m pytest -q tests/metadata/file_sources/test_pdf_metadata_source.py
-
-
-    :param pdf_bytes: Raw value or payload to normalize, parse or serialize.
-    :param objects: Value supplied for objects.
-    :return: Parsed, normalized or serialized value described above.
-    """
-    info_ref = _find_info_ref(pdf_bytes)
-    if info_ref and info_ref in objects:
-        return _parse_pdf_dict(objects[info_ref])
-
-    # Heuristic fallback if trailer /Info is absent: choose an object containing
-    # at least one common info key.
-    candidate_keys = {b"/Title", b"/Author", b"/Creator", b"/Producer", b"/Subject", b"/Keywords"}
-    for _obj_ref, body in objects.items():
-        if b"<<" not in body or b">>" not in body:
-            continue
-        if any(key in body for key in candidate_keys):
-            parsed = _parse_pdf_dict(body)
-            if parsed:
-                return parsed
-    return {}
-
-
-def _extract_stream_data(obj_body: bytes) -> bytes | None:
-    """
-    Return a PDF object's stream payload, inflating supported Flate streams when required.
-
-    Example:
-        Exercise  extract stream data with pytest::
-
-            python -m pytest -q tests/metadata/file_sources/test_pdf_metadata_source.py
-
-
-    :param obj_body: Parsed XML, PDF or metadata node used as the operation context.
-    :return: Parsed, normalized or serialized value described above.
-    """
-    match = re.search(rb"stream\r?\n(.*?)\r?\nendstream", obj_body, flags=re.DOTALL)
-    if not match:
-        return None
-    data = match.group(1)
-    header = _parse_pdf_dict(obj_body)
-    filters = header.get("Filter")
-    if isinstance(filters, str):
-        if filters.lower() == "flatedecode":
-            try:
-                return zlib.decompress(data)
-            except Exception:
-                return data
-    elif isinstance(filters, list):
-        low = [x.lower() for x in filters if isinstance(x, str)]
-        if "flatedecode" in low:
-            try:
-                return zlib.decompress(data)
-            except Exception:
-                return data
-    return data
-
-
-def _extract_xmp_packet(pdf_bytes: bytes, objects: dict[tuple[int, int], bytes]) -> bytes | None:
-    # Prefer explicit metadata streams.
-    """
-    Locate the preferred XMP metadata packet in PDF objects or the raw payload.
-
-    Example:
-        Exercise  extract xmp packet with pytest::
-
-            python -m pytest -q tests/metadata/file_sources/test_pdf_metadata_source.py
-
-
-    :param pdf_bytes: Raw value or payload to normalize, parse or serialize.
-    :param objects: Value supplied for objects.
-    :return: Parsed, normalized or serialized value described above.
-    """
-    for _obj_ref, body in objects.items():
-        if b"/Type" in body and b"/Metadata" in body and b"stream" in body:
-            data = _extract_stream_data(body)
-            if data and b"<" in data:
-                return data
-
-    # Fallback: scan raw payload for an xmp packet.
-    for start_pat, end_pat in (
-        (b"<x:xmpmeta", b"</x:xmpmeta>"),
-        (b"<rdf:RDF", b"</rdf:RDF>"),
-    ):
-        start = pdf_bytes.find(start_pat)
-        if start >= 0:
-            end = pdf_bytes.find(end_pat, start)
-            if end >= 0:
-                return pdf_bytes[start : end + len(end_pat)]
-    return None
 
 
 def _source_name(target_file) -> str:
@@ -668,6 +151,66 @@ def _read_source_bytes(target_file) -> tuple[bytes, str]:
     raise TypeError("PDF metadata reader expects a path, bytes, or readable binary stream.")
 
 
+def _seekable_binary(stream) -> bool:
+    """
+    Tell whether a stream is a seekable binary file the object reader can read ranges from.
+
+    Example:
+        >>> _seekable_binary(io.BytesIO(b"%PDF")), _seekable_binary(io.StringIO("%PDF"))
+        (True, False)
+
+
+    :param stream: The caller's stream.
+    :return: Whether it is binary and seekable.
+    """
+    if not isinstance(stream, (io.BufferedIOBase, io.RawIOBase)):
+        return False
+    try:
+        return bool(stream.seekable())
+    except Exception:
+        return False
+
+
+def _read_pdf(target_file):
+    """
+    Read a PDF's Info dictionary and XMP packet with the bounded object reader.
+
+    Paths are opened and read range by range, as are seekable binary streams, whose
+    position is restored; anything else is read whole first.
+
+    Example:
+        Exercise  read pdf with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdf_metadata_source.py
+
+
+    :param target_file: A path, bytes, or a readable stream.
+    :return: The :class:`~LiuXin_alpha.file_formats.pdf.objects.PdfMetadata` and the source name.
+    :raises PdfParseError: The payload is not a readable PDF, or is encrypted with a password.
+    """
+    from LiuXin_alpha.file_formats.pdf.objects import PdfReadError, read_metadata
+
+    source_name = _source_name(target_file)
+    if isinstance(target_file, os.PathLike):
+        target_file = os.fspath(target_file)
+    try:
+        if isinstance(target_file, str):
+            with open(target_file, "rb") as stream:
+                return read_metadata(stream), source_name
+        if _seekable_binary(target_file):
+            position = target_file.tell()
+            try:
+                return read_metadata(target_file), source_name
+            finally:
+                target_file.seek(position)
+        payload, source_name = _read_source_bytes(target_file)
+        if not payload:
+            raise PdfParseError("Empty PDF payload")
+        return read_metadata(payload), source_name
+    except PdfReadError as err:
+        raise PdfParseError(str(err)) from err
+
+
 def _default_metadata(source_name: str = "") -> MetaData:
     """
     Build minimally usable metadata for missing or explicitly tolerated malformed input.
@@ -690,22 +233,6 @@ def _default_metadata(source_name: str = "") -> MetaData:
     md = MetaData()
     md.title = title
     return md
-
-
-def _payload_looks_like_pdf(payload: bytes) -> bool:
-    """
-    Perform the format-specific payload looks like pdf operation used by this metadata source.
-
-    Example:
-        Exercise  payload looks like pdf with pytest::
-
-            python -m pytest -q tests/metadata/file_sources/test_pdf_metadata_source.py
-
-
-    :param payload: Raw value or payload to normalize, parse or serialize.
-    :return: Parsed, normalized or serialized value described above.
-    """
-    return b"%PDF-" in payload[:1024]
 
 
 def _field_values(raw: Any) -> list[str]:
@@ -959,9 +486,16 @@ class XmpParser:
         "http://purl.org/dc/elements/1.1/": "dc",
         "http://ns.adobe.com/xap/1.0/mm/": "xapmm",
         "http://www.w3.org/XML/1998/namespace": "xml",
+        "http://ns.adobe.com/xap/1.0/": "xmp",
+        "http://ns.adobe.com/pdf/1.3/": "pdf",
+        "http://ns.adobe.com/pdfx/1.3/": "pdfx",
+        "http://prismstandard.org/namespaces/basic/1.2/": "prism",
+        "http://prismstandard.org/namespaces/basic/2.0/": "prism",
+        "http://prismstandard.org/namespaces/basic/2.1/": "prism",
+        "http://prismstandard.org/namespaces/basic/3.0/": "prism",
     }
 
-    def __init__(self, xmp: bytes | str):
+    def __init__(self, xmp: bytes | str, *, attributes: bool = False):
         """
         Implement init for the bound metadata helper while preserving its container invariants.
 
@@ -972,12 +506,33 @@ class XmpParser:
 
 
         :param xmp: Raw value or payload to normalize, parse or serialize.
+        :param attributes: Also read properties written as attributes of
+            ``rdf:Description``, the short form many writers use for simple values.
         :return: None.
         """
         if isinstance(xmp, bytes):
             xmp = xmp.decode("utf-8", "replace")
         self.tree = ET.XML(xmp)
         self.rdftree = self.tree.find(self.RDF_NS + "RDF")
+        self.attributes = attributes
+
+    def _split_name(self, name):
+        """
+        Split a qualified XML name into its namespace's prefix and its local name.
+
+        Example:
+            >>> XmpParser("<x/>")._split_name("{http://purl.org/dc/elements/1.1/}title")
+            ('dc', 'title')
+
+
+        :param name: The name, as ElementTree writes it.
+        :return: The prefix (or the namespace, if it has no known prefix) and the name.
+        """
+        ns = None
+        if name.startswith("{"):
+            ns, name = name[1:].split("}", 1)
+            ns = self.NS_MAP.get(ns, ns)
+        return ns, name
 
     def _parse_tag(self, el):
         """
@@ -992,12 +547,7 @@ class XmpParser:
         :param el: Parsed XML, PDF or metadata node used as the operation context.
         :return: Parsed, normalized or serialized value described above.
         """
-        ns = None
-        tag = el.tag
-        if tag.startswith("{"):
-            ns, tag = tag[1:].split("}", 1)
-            ns = self.NS_MAP.get(ns, ns)
-        return ns, tag
+        return self._split_name(el.tag)
 
     def _parse_value(self, el):
         """
@@ -1047,74 +597,53 @@ class XmpParser:
                 ns, tag = self._parse_tag(el)
                 if ns:
                     meta[ns][tag] = self._parse_value(el)
+            if self.attributes:
+                for name, value in desc.attrib.items():
+                    ns, tag = self._split_name(name)
+                    if ns and ns not in ("rdf", "xml"):
+                        meta[ns].setdefault(tag, value)
         return dict(meta)
 
 
-def xmp_to_dict(xmp):
+def xmp_to_dict(xmp, *, attributes: bool = False):
     """
     Parse XMP XML into the simplified property mapping used by the PDF reader.
 
     Example:
-        Exercise xmp to dict with pytest::
-
-            python -m pytest -q tests/metadata/file_sources/test_pdf_metadata_source.py
+        >>> packet = (
+        ...     '<x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">'
+        ...     '<rdf:Description xmlns:xmp="http://ns.adobe.com/xap/1.0/" xmp:MetadataDate="2021-01-01"/>'
+        ...     "</rdf:RDF></x:xmpmeta>"
+        ... )
+        >>> xmp_to_dict(packet), xmp_to_dict(packet, attributes=True)
+        ({}, {'xmp': {'MetadataDate': '2021-01-01'}})
 
 
     :param xmp: Raw value or payload to normalize, parse or serialize.
+    :param attributes: Also read properties written as attributes of ``rdf:Description``;
+        LiuXin's earlier ``union`` rule does not.
     :return: Parsed, normalized or serialized value described above.
     """
-    return XmpParser(xmp).meta
+    return XmpParser(xmp, attributes=attributes).meta
 
 
-def get_metadata(stream, *, fallback_on_parse_error: bool = False):
+def _apply_union(md, pdf_metadata, source_name: str):
     """
-    Read metadata from the supported path, bytes or stream input while applying module ownership and fallback policy.
+    Apply LiuXin's earlier ``union`` rule: the Info dictionary, then the packet over it.
 
     Example:
-        Exercise get metadata with pytest::
+        Exercise apply union with pytest::
 
-            python -m pytest -q tests/metadata/file_sources/test_pdf_metadata_source.py
+            python -m pytest -q tests/metadata/file_sources/test_pdf_merge_policies.py
 
 
-    :param stream: Caller-supplied path, path-like object or stream described by this
-        operation.
-    :param fallback_on_parse_error: Return safe default metadata after parse errors when
-        true; otherwise raise the format error.
-    :return: Parsed, normalized or serialized value described above.
+    :param md: The metadata to fill.
+    :param pdf_metadata: What the object reader found.
+    :param source_name: The file's name, for the log.
+    :return: The metadata.
     """
-    source_name = _source_name(stream)
+    info_dict = pdf_metadata.info
     try:
-        pdf_bytes, source_name = _read_source_bytes(stream)
-        if not pdf_bytes:
-            raise PdfParseError("Empty PDF payload")
-        if not _payload_looks_like_pdf(pdf_bytes):
-            raise PdfParseError("PDF payload does not contain a PDF header.")
-        objects = _extract_objects(pdf_bytes)
-        if not objects:
-            raise PdfParseError("PDF payload does not contain parseable PDF objects.")
-    except Exception as err:
-        default_log.log_exception(
-            "Failed to read PDF metadata source.",
-            err,
-            "ERROR",
-            ("source", source_name or "<stream>"),
-        )
-        if not fallback_on_parse_error:
-            if isinstance(err, PdfParseError):
-                raise
-            raise PdfParseError("Failed to read PDF metadata source.") from err
-        md = _default_metadata(source_name)
-        try:
-            md.finalize()
-        except Exception:
-            pass
-        if not getattr(md, "authors", None):
-            md.authors = _("Unknown Author")
-        return md
-
-    md = _default_metadata(source_name)
-    try:
-        info_dict = _extract_info_dict(pdf_bytes, objects)
         if info_dict:
             md = process_metadata_info_dict(info_dict, md)
     except Exception as err:
@@ -1126,9 +655,8 @@ def get_metadata(stream, *, fallback_on_parse_error: bool = False):
         )
 
     try:
-        xmp_packet = _extract_xmp_packet(pdf_bytes, objects)
-        if xmp_packet:
-            xmp_metadata_dict = xmp_to_dict(xmp_packet)
+        if pdf_metadata.xmp:
+            xmp_metadata_dict = xmp_to_dict(pdf_metadata.xmp)
             md = process_xmp_metadata_dict(xmp_metadata_dict, md)
     except Exception as err:
         default_log.log_exception(
@@ -1137,13 +665,194 @@ def get_metadata(stream, *, fallback_on_parse_error: bool = False):
             "DEBUG",
             ("source", source_name or "<stream>"),
         )
+    return md
+
+
+def _set_identifier(md, scheme: str, value: str) -> None:
+    """
+    Set one identifier, through whichever setter the metadata object offers.
+
+    Example:
+        >>> md = _default_metadata()
+        >>> _set_identifier(md, "doi", "10.1000/1")
+        >>> sorted(md.get_identifiers()["doi"])
+        ['10.1000/1']
+
+
+    :param md: The metadata.
+    :param scheme: The identifier's scheme.
+    :param value: The identifier.
+    :return: None.
+    """
+    try:
+        md.set_identifier(scheme, value)
+    except Exception:
+        try:
+            md.set_identifiers({scheme: value})
+        except Exception:
+            pass
+
+
+def _apply_fields(md, fields):
+    """
+    Write combined fields into a metadata object.
+
+    Example:
+        >>> from LiuXin_alpha.metadata.file_sources.pdf_merge import PdfFields
+        >>> md = _apply_fields(_default_metadata("book.pdf"), PdfFields(tags=("a", "b")))
+        >>> md.title, list(md.tags)
+        ('book', ['a', 'b'])
+
+
+    :param md: The metadata to fill; fields it already has are added to.
+    :param fields: The fields.
+    :return: The metadata.
+    """
+    if fields.title:
+        md.title = fields.title
+    for author in fields.authors:
+        md.authors = author
+    if fields.comments:
+        md.comments = fields.comments
+    if fields.tags:
+        md.tags = list(fields.tags)
+    if fields.publisher:
+        md.publisher = fields.publisher
+    for producer in fields.producers:
+        md.producers = producer
+    if fields.created:
+        md.timestamp = fields.created
+    if fields.modified:
+        md.last_modified = fields.modified
+    if fields.uuid:
+        md.uuid = fields.uuid
+    if fields.languages:
+        md.languages = list(fields.languages)
+    for scheme, value in fields.identifiers.items():
+        _set_identifier(md, scheme, value)
+    return md
+
+
+def _apply_combined(md, pdf_metadata, source_name: str, policy: str):
+    """
+    Read both sources into fields, combine them by the policy, and write the result.
+
+    Example:
+        Exercise apply combined with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdf_merge_policies.py
+
+
+    :param md: The metadata to fill.
+    :param pdf_metadata: What the object reader found.
+    :param source_name: The file's name, for the log.
+    :param policy: ``newest`` or ``calibre``.
+    :return: The metadata.
+    """
+    from LiuXin_alpha.metadata.file_sources import pdf_merge
+
+    info = pdf_merge.PdfFields()
+    try:
+        info = pdf_merge.info_fields(pdf_metadata.info or {}, subject_is_tag=policy == "calibre")
+    except Exception as err:
+        default_log.log_exception(
+            "Failed while parsing PDF info dictionary.",
+            err,
+            "DEBUG",
+            ("source", source_name or "<stream>"),
+        )
+
+    xmp = None
+    try:
+        if pdf_metadata.xmp:
+            xmp = pdf_merge.xmp_fields(xmp_to_dict(pdf_metadata.xmp, attributes=True))
+    except Exception as err:
+        default_log.log_exception(
+            "Failed while parsing embedded PDF XMP metadata.",
+            err,
+            "DEBUG",
+            ("source", source_name or "<stream>"),
+        )
+    try:
+        md = _apply_fields(md, pdf_merge.combine(info, xmp, policy))
+    except Exception as err:
+        default_log.log_exception(
+            "Failed while applying PDF metadata.",
+            err,
+            "DEBUG",
+            ("source", source_name or "<stream>"),
+            ("policy", policy),
+        )
+    return md
+
+
+def get_metadata(stream, *, fallback_on_parse_error: bool = False, merge: str | None = None):
+    """
+    Read metadata from the supported path, bytes or stream input while applying module ownership and fallback policy.
+
+    The Info dictionary and the XMP packet are combined by ``merge``, a policy named in
+    :mod:`LiuXin_alpha.metadata.file_sources.pdf_merge`; when it is ``None`` the
+    ``pdf_metadata_merge`` preference chooses.
+
+    Example:
+        Exercise get metadata with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdf_metadata_source.py
+
+
+    :param stream: Caller-supplied path, path-like object or stream described by this
+        operation.
+    :param fallback_on_parse_error: Return safe default metadata after parse errors when
+        true; otherwise raise the format error.
+    :param merge: ``newest``, ``calibre`` or ``union``; ``None`` for the preference.
+    :return: Parsed, normalized or serialized value described above.
+    """
+    from LiuXin_alpha.metadata.file_sources.pdf_merge import merge_policy
+
+    policy = merge_policy(merge)
+    source_name = _source_name(stream)
+    try:
+        pdf_metadata, source_name = _read_pdf(stream)
+    except Exception as err:
+        default_log.log_exception(
+            "Failed to read PDF metadata source.",
+            err,
+            "ERROR",
+            ("source", source_name or "<stream>"),
+        )
+        if not fallback_on_parse_error:
+            if isinstance(err, PdfParseError):
+                raise
+            raise PdfParseError(f"Failed to read PDF metadata source: {err}") from err
+        md = _default_metadata(source_name)
+        try:
+            md.finalize()
+        except Exception:
+            pass
+        if not getattr(md, "authors", None):
+            md.authors = _("Unknown Author")
+        return md
+
+    for problem in pdf_metadata.problems:
+        default_log.log_variables(
+            "Part of a PDF's metadata could not be read.",
+            "DEBUG",
+            ("source", source_name or "<stream>"),
+            ("problem", problem),
+        )
+
+    md = _default_metadata(source_name)
+    info_dict = pdf_metadata.info
+    if policy == "union":
+        md = _apply_union(md, pdf_metadata, source_name)
+    else:
+        md = _apply_combined(md, pdf_metadata, source_name, policy)
 
     # Scan Info fields for recognizable identifiers if still missing.
     try:
         ids = md.get_identifiers() if hasattr(md, "get_identifiers") else {}
     except Exception:
         ids = {}
-    info_dict = _extract_info_dict(pdf_bytes, objects)
     for scheme, check_func in (("doi", check_doi), ("isbn", check_isbn)):
         if scheme in ids and ids.get(scheme):
             continue
@@ -1158,13 +867,7 @@ def get_metadata(stream, *, fallback_on_parse_error: bool = False):
                     continue
                 found = check_func(tok)
                 if found:
-                    try:
-                        md.set_identifier(scheme, found)
-                    except Exception:
-                        try:
-                            md.set_identifiers({scheme: found})
-                        except Exception:
-                            pass
+                    _set_identifier(md, scheme, found)
                     break
 
     try:
@@ -1179,7 +882,7 @@ def get_metadata(stream, *, fallback_on_parse_error: bool = False):
     return md
 
 
-def get_metadata_inplace(target_file, *, fallback_on_parse_error: bool = False):
+def get_metadata_inplace(target_file, *, fallback_on_parse_error: bool = False, merge: str | None = None):
     """
     Read metadata through the path-oriented adapter exposed to registry plugins.
 
@@ -1193,10 +896,12 @@ def get_metadata_inplace(target_file, *, fallback_on_parse_error: bool = False):
         this operation.
     :param fallback_on_parse_error: Return safe default metadata after parse errors when
         true; otherwise raise the format error.
+    :param merge: How to combine the Info dictionary and the packet, as for
+        :func:`get_metadata`.
     :return: Parsed, normalized or serialized value described above.
     """
     with open(target_file, "rb") as target_pdf_stream:
-        return get_metadata(target_pdf_stream, fallback_on_parse_error=fallback_on_parse_error)
+        return get_metadata(target_pdf_stream, fallback_on_parse_error=fallback_on_parse_error, merge=merge)
 
 
 def _first_value(raw: Any) -> str | None:
@@ -1220,124 +925,158 @@ def _first_value(raw: Any) -> str | None:
     return None
 
 
+def _series_index(mi, series: str) -> str | None:
+    """
+    Find the series index, which LiuXin's metadata keeps by series name.
+
+    Example:
+        >>> from types import SimpleNamespace
+        >>> _series_index(SimpleNamespace(series_index={"Saga": 2.0}), "Saga"), _series_index(SimpleNamespace(series_index="3"), "Saga")
+        ('2.0', '3')
+
+
+    :param mi: The metadata.
+    :param series: The series written.
+    :return: The index as text, or ``None``.
+    """
+    raw = getattr(mi, "series_index", None)
+    if isinstance(raw, dict):
+        values = list(raw.values())
+        raw = raw.get(series, values[0] if values else None)
+    return _first_value(raw) if raw is not None else None
+
+
+def _metadata_update(mi):
+    """
+    Collect the fields to write into a PDF, as cleaned text.
+
+    Example:
+        >>> from types import SimpleNamespace
+        >>> _metadata_update(SimpleNamespace(title="T", authors=["Ann", ""], tags=["a"])).authors
+        ('Ann',)
+
+
+    :param mi: Metadata object supplying the supported fields.
+    :return: A :class:`~LiuXin_alpha.metadata.file_sources.pdf_write.MetadataUpdate`.
+    """
+    from LiuXin_alpha.metadata.file_sources.pdf_write import MetadataUpdate
+
+    def texts(raw: Any) -> tuple[str, ...]:
+        """
+        Clean each value, dropping the empty ones.
+
+        Example:
+            >>> texts(["a ", ""])  # doctest: +SKIP
+            ('a',)
+
+
+        :param raw: The values.
+        :return: The cleaned values.
+        """
+        return tuple(text for text in (_normalize_text(str(value)) for value in _field_values(raw)) if text)
+
+    extra: dict[str, str] = {}
+    series = _first_value(getattr(mi, "series", None))
+    if series:
+        extra["/Series"] = series
+        series_index = _series_index(mi, series)
+        if series_index:
+            extra["/SeriesIndex"] = series_index
+    return MetadataUpdate(
+        title=_first_value(getattr(mi, "title", None)),
+        authors=texts(getattr(mi, "authors", None)),
+        comments=_first_value(getattr(mi, "comments", None)),
+        tags=texts(getattr(mi, "tags", None)),
+        producer=_first_value(getattr(mi, "producers", None)),
+        publisher=_first_value(getattr(mi, "publisher", None)),
+        extra=extra,
+    )
+
+
 def _metadata_to_pdf_dict(mi) -> dict[str, str]:
     """
     Serialize supported metadata fields into sanitized PDF Info dictionary strings.
 
-    Example:
-        Exercise  metadata to pdf dict with pytest::
+    The authors are joined as LiuXin's reader splits them (`` & ``); the comments are the
+    Subject. The author sort is not written: ``/Creator`` names the application that
+    made the PDF.
 
-            python -m pytest -q tests/metadata/file_sources/test_pdf_metadata_source.py
+    Example:
+        Exercise metadata to pdf dict with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdf_edge_cases.py
 
 
     :param mi: Metadata object supplying or receiving the supported fields.
     :return: Parsed, normalized or serialized value described above.
     """
-    out: dict[str, str] = {}
-    title = _first_value(getattr(mi, "title", None))
-    if title:
-        out["/Title"] = title
-
-    authors = _field_values(getattr(mi, "authors", None))
-    if authors:
-        out["/Author"] = ", ".join(_normalize_text(x) for x in authors if _normalize_text(x))
-
-    comments = _first_value(getattr(mi, "comments", None))
-    if comments:
-        out["/Subject"] = comments
-
-    tags = _field_values(getattr(mi, "tags", None))
-    if tags:
-        out["/Keywords"] = ", ".join(_normalize_text(x) for x in tags if _normalize_text(x))
-
-    producer = _first_value(getattr(mi, "producers", None))
-    if producer:
-        out["/Producer"] = producer
-
-    creator = _first_value(getattr(mi, "creator_sort", None))
-    if creator:
-        out["/Creator"] = creator
-
-    publisher = _first_value(getattr(mi, "publisher", None))
-    if publisher:
-        out["/Publisher"] = publisher
-
-    series = _first_value(getattr(mi, "series", None))
-    if series:
-        out["/Series"] = series
-        series_index = _first_value(getattr(mi, "series_index", None))
-        if series_index:
-            out["/SeriesIndex"] = series_index
-    return out
+    return _metadata_update(mi).info()
 
 
 def set_metadata(stream, mi):
     """
-    Rewrite supported metadata fields without taking ownership of a caller-supplied stream.
+    Write supported metadata fields into a PDF without losing anything else it holds.
+
+    The change is appended to the file as an incremental update, so the original bytes,
+    and with them outlines, forms, attachments and signatures, are kept; an XMP packet
+    is updated alongside the Info dictionary. A file whose cross-reference data is
+    damaged is rewritten whole instead, keeping its document structure, and the
+    report says so. Each warning is also logged. A failure part-way through leaves the
+    file as it was: a path's file is only replaced once the new one is complete, and a
+    stream gets its original bytes back. See
+    :mod:`LiuXin_alpha.metadata.file_sources.pdf_write`.
 
     Example:
         Exercise set metadata with pytest::
 
-            python -m pytest -q tests/metadata/file_sources/test_pdf_metadata_source.py
+            python -m pytest -q tests/metadata/file_sources/test_pdf_safe_writing.py
 
 
     :param stream: Caller-supplied path, path-like object or stream described by this
         operation.
     :param mi: Metadata object supplying or receiving the supported fields.
-    :return: None.
+    :return: A :class:`~LiuXin_alpha.metadata.file_sources.pdf_write.PdfWriteReport`.
+    :raises PdfWriteError: The file is encrypted or cannot be written so that it reads
+        back; it is left unchanged.
     """
     if isinstance(stream, os.PathLike):
         stream = os.fspath(stream)
-    if isinstance(stream, str):
-        with open(stream, "r+b") as f:
-            return set_metadata(f, mi)
-    if not hasattr(stream, "read") or not hasattr(stream, "write"):
+    if not isinstance(stream, str) and not (hasattr(stream, "read") and hasattr(stream, "write")):
         raise TypeError("set_metadata expects a writable binary stream or filesystem path.")
 
     if importlib.util.find_spec("pypdf") is None:
         raise RuntimeError(
-            "PDF metadata writing backend is unavailable. Install optional dependency `pypdf`."
+            "PDF metadata writing backend is unavailable. Install the `pdf` extra"
+            " (pip install 'liuxin-alpha[pdf]'), which provides pypdf."
         )
 
-    from pypdf import PdfReader, PdfWriter
+    from LiuXin_alpha.metadata.file_sources.pdf_write import write_file, write_stream
 
-    pos = None
-    if hasattr(stream, "tell"):
-        try:
-            pos = stream.tell()
-        except Exception:
-            pos = None
-
-    stream.seek(0)
-    reader = PdfReader(stream)
-    writer = PdfWriter()
-    for page in reader.pages:
-        writer.add_page(page)
-
-    existing = {}
-    try:
-        existing = dict(reader.metadata or {})
-    except Exception:
-        existing = {}
-    existing.update(_metadata_to_pdf_dict(mi))
-    if existing:
-        writer.add_metadata(existing)
-
-    tmp = io.BytesIO()
-    writer.write(tmp)
-    payload = tmp.getvalue()
-
-    stream.seek(0)
-    stream.truncate()
-    stream.write(payload)
-    if hasattr(stream, "flush"):
-        stream.flush()
-
-    if pos is not None and hasattr(stream, "seek"):
-        try:
-            stream.seek(min(pos, len(payload)))
-        except Exception:
-            pass
+    if isinstance(stream, str):
+        report = write_file(stream, _metadata_update(mi))
+        source = stream
+    else:
+        pos = None
+        if hasattr(stream, "tell"):
+            try:
+                pos = stream.tell()
+            except Exception:
+                pos = None
+        report = write_stream(stream, _metadata_update(mi))
+        source = _source_name(stream)
+        if pos is not None:
+            try:
+                stream.seek(min(pos, stream.seek(0, os.SEEK_END)))
+            except Exception:
+                pass
+    for warning in report.warnings:
+        default_log.log_variables(
+            "PDF metadata was written with a caveat.",
+            "WARNING",
+            ("source", source or "<stream>"),
+            ("warning", warning),
+        )
+    return report
 
 
 get_quick_metadata = get_metadata

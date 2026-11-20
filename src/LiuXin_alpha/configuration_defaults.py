@@ -45,6 +45,9 @@ GLOBAL_DEFAULTS = {
     "limit_search_columns_to": ["title", "authors", "tags", "series", "publisher"],
     "use_primary_find_in_search": True,
     "migrated": False,
+    # How a PDF's Info dictionary and XMP packet are combined: "newest", "calibre" or
+    # "union"; see LiuXin_alpha.metadata.file_sources.pdf_merge.
+    "pdf_metadata_merge": "newest",
 }
 
 TWEAK_DEFAULT_OVERRIDES = {

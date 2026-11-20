@@ -23,6 +23,8 @@ from LiuXin_alpha.file_formats.providers.base import ProviderContext
 from LiuXin_alpha.file_formats.providers.ported_calibre import (
     PORTED_PRIORITY,
     PORTED_READERS,
+    WITHOUT_POPPLER_PRIORITY,
+    PortedPdfReaderWithoutPoppler,
     adapt_ported_reader,
     ported_reader,
     register_ported_calibre_readers,
@@ -203,15 +205,27 @@ def test_every_port_registers_above_the_installed_calibre() -> None:
     registry = ProviderRegistry()
     register_upstream_calibre_readers(registry)
     made = register_ported_calibre_readers(registry)
-    assert len(made) == len(PORTED_READERS) == 19
-    assert PORTED_PRIORITY > UPSTREAM_PRIORITY
-    for provider in made:
+    ported, without_poppler = made[:-1], made[-1]
+    assert len(ported) == len(PORTED_READERS) == 20
+    assert without_poppler is PortedPdfReaderWithoutPoppler
+    assert PORTED_PRIORITY > WITHOUT_POPPLER_PRIORITY > UPSTREAM_PRIORITY
+    for provider in ported:
         file_format = next(iter(provider.calibre_read_formats))
-        found = registry.calibre_metadata_readers(file_format)
+        found = [
+            reader
+            for reader in registry.calibre_metadata_readers(file_format)
+            if reader is not PortedPdfReaderWithoutPoppler
+        ]
         assert found[0] is provider
         assert found[1].provider_id == provider.provider_id.replace(
             "calibre-port.", "calibre."
         )
+    pdf_readers = [reader.provider_id for reader in registry.calibre_metadata_readers("pdf")]
+    assert pdf_readers == [
+        "calibre-port.read-pdf-metadata",
+        "calibre-port.read-pdf-metadata-without-poppler",
+        "calibre.read-pdf-metadata",
+    ]
 
 
 def test_ported_txt_reads_title_and_authors(tmp_path: Path) -> None:
@@ -323,9 +337,9 @@ def test_unknown_ports_are_refused() -> None:
     :return: None after both lookups are refused.
     """
     with pytest.raises(KeyError):
-        ported_reader("pdf")
+        ported_reader("chm")
     with pytest.raises(KeyError):
-        adapt_ported_reader("Read PDF metadata")
+        adapt_ported_reader("Read CHM metadata")
 
 
 @pytest.mark.parametrize(
