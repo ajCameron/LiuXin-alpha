@@ -486,9 +486,16 @@ class XmpParser:
         "http://purl.org/dc/elements/1.1/": "dc",
         "http://ns.adobe.com/xap/1.0/mm/": "xapmm",
         "http://www.w3.org/XML/1998/namespace": "xml",
+        "http://ns.adobe.com/xap/1.0/": "xmp",
+        "http://ns.adobe.com/pdf/1.3/": "pdf",
+        "http://ns.adobe.com/pdfx/1.3/": "pdfx",
+        "http://prismstandard.org/namespaces/basic/1.2/": "prism",
+        "http://prismstandard.org/namespaces/basic/2.0/": "prism",
+        "http://prismstandard.org/namespaces/basic/2.1/": "prism",
+        "http://prismstandard.org/namespaces/basic/3.0/": "prism",
     }
 
-    def __init__(self, xmp: bytes | str):
+    def __init__(self, xmp: bytes | str, *, attributes: bool = False):
         """
         Implement init for the bound metadata helper while preserving its container invariants.
 
@@ -499,12 +506,33 @@ class XmpParser:
 
 
         :param xmp: Raw value or payload to normalize, parse or serialize.
+        :param attributes: Also read properties written as attributes of
+            ``rdf:Description``, the short form many writers use for simple values.
         :return: None.
         """
         if isinstance(xmp, bytes):
             xmp = xmp.decode("utf-8", "replace")
         self.tree = ET.XML(xmp)
         self.rdftree = self.tree.find(self.RDF_NS + "RDF")
+        self.attributes = attributes
+
+    def _split_name(self, name):
+        """
+        Split a qualified XML name into its namespace's prefix and its local name.
+
+        Example:
+            >>> XmpParser("<x/>")._split_name("{http://purl.org/dc/elements/1.1/}title")
+            ('dc', 'title')
+
+
+        :param name: The name, as ElementTree writes it.
+        :return: The prefix (or the namespace, if it has no known prefix) and the name.
+        """
+        ns = None
+        if name.startswith("{"):
+            ns, name = name[1:].split("}", 1)
+            ns = self.NS_MAP.get(ns, ns)
+        return ns, name
 
     def _parse_tag(self, el):
         """
@@ -519,12 +547,7 @@ class XmpParser:
         :param el: Parsed XML, PDF or metadata node used as the operation context.
         :return: Parsed, normalized or serialized value described above.
         """
-        ns = None
-        tag = el.tag
-        if tag.startswith("{"):
-            ns, tag = tag[1:].split("}", 1)
-            ns = self.NS_MAP.get(ns, ns)
-        return ns, tag
+        return self._split_name(el.tag)
 
     def _parse_value(self, el):
         """
@@ -574,28 +597,202 @@ class XmpParser:
                 ns, tag = self._parse_tag(el)
                 if ns:
                     meta[ns][tag] = self._parse_value(el)
+            if self.attributes:
+                for name, value in desc.attrib.items():
+                    ns, tag = self._split_name(name)
+                    if ns and ns not in ("rdf", "xml"):
+                        meta[ns].setdefault(tag, value)
         return dict(meta)
 
 
-def xmp_to_dict(xmp):
+def xmp_to_dict(xmp, *, attributes: bool = False):
     """
     Parse XMP XML into the simplified property mapping used by the PDF reader.
 
     Example:
-        Exercise xmp to dict with pytest::
-
-            python -m pytest -q tests/metadata/file_sources/test_pdf_metadata_source.py
+        >>> packet = (
+        ...     '<x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">'
+        ...     '<rdf:Description xmlns:xmp="http://ns.adobe.com/xap/1.0/" xmp:MetadataDate="2021-01-01"/>'
+        ...     "</rdf:RDF></x:xmpmeta>"
+        ... )
+        >>> xmp_to_dict(packet), xmp_to_dict(packet, attributes=True)
+        ({}, {'xmp': {'MetadataDate': '2021-01-01'}})
 
 
     :param xmp: Raw value or payload to normalize, parse or serialize.
+    :param attributes: Also read properties written as attributes of ``rdf:Description``;
+        LiuXin's earlier ``union`` rule does not.
     :return: Parsed, normalized or serialized value described above.
     """
-    return XmpParser(xmp).meta
+    return XmpParser(xmp, attributes=attributes).meta
 
 
-def get_metadata(stream, *, fallback_on_parse_error: bool = False):
+def _apply_union(md, pdf_metadata, source_name: str):
+    """
+    Apply LiuXin's earlier ``union`` rule: the Info dictionary, then the packet over it.
+
+    Example:
+        Exercise apply union with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdf_merge_policies.py
+
+
+    :param md: The metadata to fill.
+    :param pdf_metadata: What the object reader found.
+    :param source_name: The file's name, for the log.
+    :return: The metadata.
+    """
+    info_dict = pdf_metadata.info
+    try:
+        if info_dict:
+            md = process_metadata_info_dict(info_dict, md)
+    except Exception as err:
+        default_log.log_exception(
+            "Failed while parsing PDF info dictionary.",
+            err,
+            "DEBUG",
+            ("source", source_name or "<stream>"),
+        )
+
+    try:
+        if pdf_metadata.xmp:
+            xmp_metadata_dict = xmp_to_dict(pdf_metadata.xmp)
+            md = process_xmp_metadata_dict(xmp_metadata_dict, md)
+    except Exception as err:
+        default_log.log_exception(
+            "Failed while parsing embedded PDF XMP metadata.",
+            err,
+            "DEBUG",
+            ("source", source_name or "<stream>"),
+        )
+    return md
+
+
+def _set_identifier(md, scheme: str, value: str) -> None:
+    """
+    Set one identifier, through whichever setter the metadata object offers.
+
+    Example:
+        >>> md = _default_metadata()
+        >>> _set_identifier(md, "doi", "10.1000/1")
+        >>> sorted(md.get_identifiers()["doi"])
+        ['10.1000/1']
+
+
+    :param md: The metadata.
+    :param scheme: The identifier's scheme.
+    :param value: The identifier.
+    :return: None.
+    """
+    try:
+        md.set_identifier(scheme, value)
+    except Exception:
+        try:
+            md.set_identifiers({scheme: value})
+        except Exception:
+            pass
+
+
+def _apply_fields(md, fields):
+    """
+    Write combined fields into a metadata object.
+
+    Example:
+        >>> from LiuXin_alpha.metadata.file_sources.pdf_merge import PdfFields
+        >>> md = _apply_fields(_default_metadata("book.pdf"), PdfFields(tags=("a", "b")))
+        >>> md.title, list(md.tags)
+        ('book', ['a', 'b'])
+
+
+    :param md: The metadata to fill; fields it already has are added to.
+    :param fields: The fields.
+    :return: The metadata.
+    """
+    if fields.title:
+        md.title = fields.title
+    for author in fields.authors:
+        md.authors = author
+    if fields.comments:
+        md.comments = fields.comments
+    if fields.tags:
+        md.tags = list(fields.tags)
+    if fields.publisher:
+        md.publisher = fields.publisher
+    for producer in fields.producers:
+        md.producers = producer
+    if fields.created:
+        md.timestamp = fields.created
+    if fields.modified:
+        md.last_modified = fields.modified
+    if fields.uuid:
+        md.uuid = fields.uuid
+    if fields.languages:
+        md.languages = list(fields.languages)
+    for scheme, value in fields.identifiers.items():
+        _set_identifier(md, scheme, value)
+    return md
+
+
+def _apply_combined(md, pdf_metadata, source_name: str, policy: str):
+    """
+    Read both sources into fields, combine them by the policy, and write the result.
+
+    Example:
+        Exercise apply combined with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdf_merge_policies.py
+
+
+    :param md: The metadata to fill.
+    :param pdf_metadata: What the object reader found.
+    :param source_name: The file's name, for the log.
+    :param policy: ``newest`` or ``calibre``.
+    :return: The metadata.
+    """
+    from LiuXin_alpha.metadata.file_sources import pdf_merge
+
+    info = pdf_merge.PdfFields()
+    try:
+        info = pdf_merge.info_fields(pdf_metadata.info or {}, subject_is_tag=policy == "calibre")
+    except Exception as err:
+        default_log.log_exception(
+            "Failed while parsing PDF info dictionary.",
+            err,
+            "DEBUG",
+            ("source", source_name or "<stream>"),
+        )
+
+    xmp = None
+    try:
+        if pdf_metadata.xmp:
+            xmp = pdf_merge.xmp_fields(xmp_to_dict(pdf_metadata.xmp, attributes=True))
+    except Exception as err:
+        default_log.log_exception(
+            "Failed while parsing embedded PDF XMP metadata.",
+            err,
+            "DEBUG",
+            ("source", source_name or "<stream>"),
+        )
+    try:
+        md = _apply_fields(md, pdf_merge.combine(info, xmp, policy))
+    except Exception as err:
+        default_log.log_exception(
+            "Failed while applying PDF metadata.",
+            err,
+            "DEBUG",
+            ("source", source_name or "<stream>"),
+            ("policy", policy),
+        )
+    return md
+
+
+def get_metadata(stream, *, fallback_on_parse_error: bool = False, merge: str | None = None):
     """
     Read metadata from the supported path, bytes or stream input while applying module ownership and fallback policy.
+
+    The Info dictionary and the XMP packet are combined by ``merge``, a policy named in
+    :mod:`LiuXin_alpha.metadata.file_sources.pdf_merge`; when it is ``None`` the
+    ``pdf_metadata_merge`` preference chooses.
 
     Example:
         Exercise get metadata with pytest::
@@ -607,8 +804,12 @@ def get_metadata(stream, *, fallback_on_parse_error: bool = False):
         operation.
     :param fallback_on_parse_error: Return safe default metadata after parse errors when
         true; otherwise raise the format error.
+    :param merge: ``newest``, ``calibre`` or ``union``; ``None`` for the preference.
     :return: Parsed, normalized or serialized value described above.
     """
+    from LiuXin_alpha.metadata.file_sources.pdf_merge import merge_policy
+
+    policy = merge_policy(merge)
     source_name = _source_name(stream)
     try:
         pdf_metadata, source_name = _read_pdf(stream)
@@ -642,28 +843,10 @@ def get_metadata(stream, *, fallback_on_parse_error: bool = False):
 
     md = _default_metadata(source_name)
     info_dict = pdf_metadata.info
-    try:
-        if info_dict:
-            md = process_metadata_info_dict(info_dict, md)
-    except Exception as err:
-        default_log.log_exception(
-            "Failed while parsing PDF info dictionary.",
-            err,
-            "DEBUG",
-            ("source", source_name or "<stream>"),
-        )
-
-    try:
-        if pdf_metadata.xmp:
-            xmp_metadata_dict = xmp_to_dict(pdf_metadata.xmp)
-            md = process_xmp_metadata_dict(xmp_metadata_dict, md)
-    except Exception as err:
-        default_log.log_exception(
-            "Failed while parsing embedded PDF XMP metadata.",
-            err,
-            "DEBUG",
-            ("source", source_name or "<stream>"),
-        )
+    if policy == "union":
+        md = _apply_union(md, pdf_metadata, source_name)
+    else:
+        md = _apply_combined(md, pdf_metadata, source_name, policy)
 
     # Scan Info fields for recognizable identifiers if still missing.
     try:
@@ -684,13 +867,7 @@ def get_metadata(stream, *, fallback_on_parse_error: bool = False):
                     continue
                 found = check_func(tok)
                 if found:
-                    try:
-                        md.set_identifier(scheme, found)
-                    except Exception:
-                        try:
-                            md.set_identifiers({scheme: found})
-                        except Exception:
-                            pass
+                    _set_identifier(md, scheme, found)
                     break
 
     try:
@@ -705,7 +882,7 @@ def get_metadata(stream, *, fallback_on_parse_error: bool = False):
     return md
 
 
-def get_metadata_inplace(target_file, *, fallback_on_parse_error: bool = False):
+def get_metadata_inplace(target_file, *, fallback_on_parse_error: bool = False, merge: str | None = None):
     """
     Read metadata through the path-oriented adapter exposed to registry plugins.
 
@@ -719,10 +896,12 @@ def get_metadata_inplace(target_file, *, fallback_on_parse_error: bool = False):
         this operation.
     :param fallback_on_parse_error: Return safe default metadata after parse errors when
         true; otherwise raise the format error.
+    :param merge: How to combine the Info dictionary and the packet, as for
+        :func:`get_metadata`.
     :return: Parsed, normalized or serialized value described above.
     """
     with open(target_file, "rb") as target_pdf_stream:
-        return get_metadata(target_pdf_stream, fallback_on_parse_error=fallback_on_parse_error)
+        return get_metadata(target_pdf_stream, fallback_on_parse_error=fallback_on_parse_error, merge=merge)
 
 
 def _first_value(raw: Any) -> str | None:
@@ -822,7 +1001,8 @@ def set_metadata(stream, mi):
 
     if importlib.util.find_spec("pypdf") is None:
         raise RuntimeError(
-            "PDF metadata writing backend is unavailable. Install optional dependency `pypdf`."
+            "PDF metadata writing backend is unavailable. Install the `pdf` extra"
+            " (pip install 'liuxin-alpha[pdf]'), which provides pypdf."
         )
 
     from pypdf import PdfReader, PdfWriter

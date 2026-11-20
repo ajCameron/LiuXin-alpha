@@ -44,6 +44,10 @@ default_disabled_plugins = frozenset(
         "Edelweiss",
         "Google Images",
         "Big Book Search",
+        # Fixed-rule PDF readers; "Read PDF metadata" follows the preference instead.
+        "Read PDF metadata (newest source wins)",
+        "Read PDF metadata (calibre's rule)",
+        "Read PDF metadata (Info and XMP together)",
     ]
 )
 
