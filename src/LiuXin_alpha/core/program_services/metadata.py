@@ -212,6 +212,7 @@ def _existing_metadata(data: bytes, file_type: str) -> Any:
     """
     from LiuXin_alpha.metadata.file_sources import get_metadata
 
+    metadata: Any
     try:
         metadata = get_metadata(io.BytesIO(data), force_type=file_type)
         # Most readers give LiuXin's record; some (MOBI) already give calibre's.
@@ -219,6 +220,8 @@ def _existing_metadata(data: bytes, file_type: str) -> Any:
         if callable(convert):
             metadata = convert()
     except Exception:
+        return None
+    if metadata is None:
         return None
     metadata.cover_data = (None, None)
     return metadata
@@ -443,6 +446,7 @@ def metadata_file_write(
         )
 
     before: os.stat_result | None = None
+    target = ""
     if path:
         target = os.path.realpath(path)
         with open(target, "rb") as handle:
