@@ -5,10 +5,11 @@ Many PDFs are encrypted only to carry permission flags: their user password is e
 so anyone may open them, but every string and stream in the file is still ciphertext.
 This module derives the file key from the empty user password, or from an empty owner
 password when only the user password is set, and decrypts strings and streams with it:
-RC4 (revisions 2 to 4) in pure Python, AES-128 and AES-256 (revisions 4 to 6) with the
-optional ``cryptography`` package. When no empty password opens the file, or AES is
-needed and ``cryptography`` is not installed, :class:`PdfEncryptedError` says so, so a
-caller never mistakes ciphertext for text.
+RC4 (revisions 2 to 4) in pure Python, AES-128 and AES-256 (revisions 4 to 6) through
+the ``aes`` utils plugin: the ``cryptography`` package where it is installed, otherwise
+poppler (the reader then hands the file to ``pdfinfo``, see :class:`PdfNeedsPoppler`),
+otherwise AES in pure Python. When no empty password opens the file,
+:class:`PdfEncryptedError` says so, so a caller never mistakes ciphertext for text.
 
 Example:
     RC4 is its own inverse::
@@ -22,9 +23,9 @@ from __future__ import annotations
 import hashlib
 import struct
 from collections.abc import Callable, Mapping
-from typing import Any, Self
+from typing import Any, Protocol, Self, cast
 
-from LiuXin_alpha.file_formats.pdf.errors import PdfEncryptedError
+from LiuXin_alpha.file_formats.pdf.errors import PdfEncryptedError, PdfNeedsPoppler
 
 __all__ = ["StandardSecurityHandler", "rc4"]
 
@@ -81,9 +82,52 @@ def _md5(*parts: bytes) -> bytes:
     return digest.digest()
 
 
+class _AesLayer(Protocol):
+    """
+    What every layer of the ``aes`` utils plugin offers.
+
+    Example:
+        >>> from LiuXin_alpha.utils.plugins.fallbacks import aes
+        >>> isinstance(aes.SOURCE, str)
+        True
+    """
+
+    SOURCE: str
+
+    def cbc_encrypt(self: Self, key: bytes, iv: bytes, data: bytes) -> bytes:
+        """
+        Encrypt whole blocks with AES-CBC.
+
+        Example:
+            See ``LiuXin_alpha.utils.plugins.fallbacks.aes.cbc_encrypt``.
+
+
+        :param key: The key.
+        :param iv: The initialisation vector.
+        :param data: Whole 16-byte blocks.
+        :return: The ciphertext.
+        """
+        ...
+
+    def cbc_decrypt(self: Self, key: bytes, iv: bytes, data: bytes) -> bytes:
+        """
+        Decrypt whole blocks with AES-CBC.
+
+        Example:
+            See ``LiuXin_alpha.utils.plugins.fallbacks.aes.cbc_decrypt``.
+
+
+        :param key: The key.
+        :param iv: The initialisation vector.
+        :param data: Whole 16-byte blocks.
+        :return: The plaintext.
+        """
+        ...
+
+
 def _aes_backend() -> Callable[[bytes, bytes, bytes, bool], bytes]:
     """
-    Load AES-CBC from the optional ``cryptography`` package, or say that it is missing.
+    Load AES-CBC from the ``aes`` utils plugin: ``cryptography``, else poppler, else pure Python.
 
     Example:
         >>> callable(_aes_backend())  # doctest: +SKIP
@@ -91,19 +135,24 @@ def _aes_backend() -> Callable[[bytes, bytes, bytes, bool], bytes]:
 
 
     :return: A function ``(key, iv, data, encrypt)`` that runs AES-CBC without padding.
-    :raises PdfEncryptedError: ``cryptography`` is not installed.
+    :raises PdfNeedsPoppler: The plugin's poppler layer serves: read the file with ``pdfinfo``.
+    :raises PdfEncryptedError: No layer of the plugin could be loaded.
     """
-    try:
-        from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
-    except ImportError as err:  # pragma: no cover - exercised by monkeypatching in tests
-        raise PdfEncryptedError(
-            "this PDF is encrypted with AES, which needs the optional 'cryptography' package "
-            "(install LiuXin with the 'encryption' extra)"
-        ) from err
+    from LiuXin_alpha.utils.plugins import plugins
+
+    module, error = plugins["aes"]
+    if module is None:
+        raise PdfEncryptedError(f"this PDF is encrypted with AES, and no AES implementation loads: {error}")
+    if not getattr(module, "DECRYPTS_IN_PROCESS", True):
+        raise PdfNeedsPoppler(
+            "this PDF is encrypted with AES; without the cryptography package LiuXin reads it with poppler"
+        )
+    layer = cast("_AesLayer", module)
+    encrypt_blocks, decrypt_blocks = layer.cbc_encrypt, layer.cbc_decrypt
 
     def run(key: bytes, iv: bytes, data: bytes, encrypt: bool) -> bytes:
         """
-        Run AES-CBC over whole blocks.
+        Run AES-CBC over whole blocks with the plugin's cipher.
 
         Example:
             >>> run(bytes(16), bytes(16), bytes(16), True).hex()  # doctest: +SKIP
@@ -116,9 +165,7 @@ def _aes_backend() -> Callable[[bytes, bytes, bytes, bool], bytes]:
         :param encrypt: Encrypt when true, decrypt otherwise.
         :return: The transformed blocks.
         """
-        cipher = Cipher(algorithms.AES(key), modes.CBC(iv))
-        context = cipher.encryptor() if encrypt else cipher.decryptor()
-        return context.update(data) + context.finalize()
+        return bytes((encrypt_blocks if encrypt else decrypt_blocks)(key, iv, data))
 
     return run
 
@@ -167,8 +214,9 @@ class StandardSecurityHandler:
 
     The handler tries the empty user password, then the empty owner password, as PDF
     viewers do before asking for one. It raises :class:`PdfEncryptedError` when neither
-    opens the file, when the dictionary names a security handler or method this module
-    does not know, and when AES is needed but ``cryptography`` is not installed.
+    opens the file and when the dictionary names a security handler or method this
+    module does not know, and :class:`PdfNeedsPoppler` when the file needs AES and the
+    ``aes`` plugin says to read it with poppler.
 
     Example:
         A revision 2 dictionary needs only RC4::
@@ -191,9 +239,10 @@ class StandardSecurityHandler:
 
         :param encrypt: The trailer's Encrypt dictionary, with references resolved.
         :param file_id: The first string of the trailer's ``/ID`` array, or ``b""``.
-        :param aes: An AES-CBC function to use instead of loading ``cryptography``, for tests.
+        :param aes: An AES-CBC function to use instead of the ``aes`` plugin, for tests.
         :return: None.
-        :raises PdfEncryptedError: The file cannot be opened without a password or a backend.
+        :raises PdfNeedsPoppler: The file needs AES, which the plugin says poppler should do.
+        :raises PdfEncryptedError: The file cannot be opened without a password.
         """
         handler = encrypt.get("Filter")
         if handler != "Standard":
@@ -211,6 +260,9 @@ class StandardSecurityHandler:
         if owner is None or user is None or not 2 <= self.revision <= 6:
             raise PdfEncryptedError("this PDF's Encrypt dictionary is malformed")
         self.owner, self.user = owner[:o_size], user[:u_size]
+        if self.revision >= 5 or "AES" in self.string_method + self.stream_method:
+            # Ask for AES now, so a file to read with poppler is known before any reading.
+            self._aes_cbc()
         if self.revision >= 5:
             self.key = self._open_aes256(encrypt)
         else:
@@ -236,7 +288,7 @@ class StandardSecurityHandler:
 
     def _aes_cbc(self: Self) -> Callable[..., bytes]:
         """
-        Return the AES-CBC function, loading ``cryptography`` the first time it is needed.
+        Return the AES-CBC function, loading the ``aes`` plugin the first time it is needed.
 
         Example:
             >>> callable(StandardSecurityHandler.for_test_vector()._aes_cbc())  # doctest: +SKIP
@@ -244,7 +296,8 @@ class StandardSecurityHandler:
 
 
         :return: The AES-CBC function.
-        :raises PdfEncryptedError: ``cryptography`` is not installed.
+        :raises PdfNeedsPoppler: The plugin's poppler layer serves.
+        :raises PdfEncryptedError: No layer of the plugin loads.
         """
         if self._aes is None:
             self._aes = _aes_backend()

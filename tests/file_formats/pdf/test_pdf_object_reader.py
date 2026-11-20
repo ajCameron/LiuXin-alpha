@@ -22,13 +22,15 @@ import importlib
 import importlib.util
 import io
 import json
+import shutil
 import time
 import zlib
 from pathlib import Path
+from typing import Any
 
 import pytest
 
-from LiuXin_alpha.file_formats.pdf import security
+import LiuXin_alpha.utils.plugins as plugin_package
 from LiuXin_alpha.file_formats.pdf.objects import (
     PdfDocument,
     PdfEncryptedError,
@@ -50,7 +52,7 @@ FIXTURES = Path(__file__).resolve().parents[2] / "fixtures" / "pdf_metadata"
 CASES: dict[str, dict] = json.loads((FIXTURES / "cases.json").read_text(encoding="utf-8"))
 FIELDS = ("Title", "Author", "Subject", "Keywords", "Creator", "Producer")
 HAVE_CRYPTOGRAPHY = importlib.util.find_spec("cryptography") is not None
-#: Cases encrypted with AES, which needs the optional ``cryptography`` package.
+#: Cases encrypted with AES, which the ``aes`` plugin decrypts (or hands to poppler).
 AES_CASES = frozenset(name for name in CASES if name.startswith("aes"))
 #: Where LiuXin reads Info fields that poppler 24.02 does not.
 INFO_DIVERGENCES = {
@@ -126,7 +128,7 @@ def _bounded(seconds: float):
     return _Timer()
 
 
-@pytest.mark.parametrize("module", ["errors", "security", "syntax", "filters", "objects"])
+@pytest.mark.parametrize("module", ["errors", "security", "syntax", "filters", "objects", "poppler"])
 def test_reader_module_doctests_pass(module: str) -> None:
     """
     Run each reader module's examples.
@@ -164,10 +166,6 @@ def test_reader_agrees_with_pdfinfo(name: str) -> None:
     assert hashlib.sha256(path.read_bytes()).hexdigest() == case["sha256"]
     expected = case["pdfinfo"]
     with path.open("rb") as stream:
-        if name in AES_CASES and not HAVE_CRYPTOGRAPHY:
-            with pytest.raises(PdfEncryptedError, match="cryptography"):
-                read_metadata(stream)
-            return
         if "error" in expected:
             with pytest.raises(PdfEncryptedError, match="needs a password"):
                 read_metadata(stream)
@@ -175,7 +173,11 @@ def test_reader_agrees_with_pdfinfo(name: str) -> None:
         metadata = read_metadata(stream)
     wanted = INFO_DIVERGENCES.get(name) or {key: expected[key] for key in FIELDS if key in expected}
     assert {key: metadata.info[key] for key in FIELDS if key in metadata.info} == wanted
-    assert bool(metadata.xmp and b"XMP Title" in metadata.xmp) == XMP_DIVERGENCES.get(name, expected["xmp"])
+    # Without cryptography, AES files may go to poppler (the aes plugin's second layer), which reads as pdfinfo does.
+    by_poppler = metadata.read_by == "poppler's pdfinfo"
+    assert by_poppler == (name in AES_CASES and aes_layer() == "poppler")
+    xmp_expected = expected["xmp"] if by_poppler else XMP_DIVERGENCES.get(name, expected["xmp"])
+    assert bool(metadata.xmp and b"XMP Title" in metadata.xmp) == xmp_expected
     assert metadata.encrypted == expected["Encrypted"].startswith("yes")
     assert metadata.problems == ()
 
@@ -201,37 +203,105 @@ def test_file_and_bytes_read_the_same_and_xmp_is_whole() -> None:
     assert packet.startswith(b"<?xpacket begin=") and packet.endswith(b'<?xpacket end="w"?>')
 
 
-def test_aes_without_cryptography_refuses_instead_of_returning_ciphertext(monkeypatch) -> None:
+def aes_layer() -> str | None:
     """
-    Check that AES files are refused, and RC4 files still read, when ``cryptography`` is missing.
+    Name the layer of the ``aes`` plugin that serves in this process.
 
     Example:
-        Exercise test aes without cryptography refuses instead of returning ciphertext through its owning regression module::
+        >>> aes_layer() in ("cryptography", "poppler", "pure-python", None)
+        True
 
-            python -m pytest -q tests/file_formats/pdf/test_pdf_object_reader.py
 
-
-    :param monkeypatch: Pytest fixture used to isolate collaborators or environment state.
-    :return: None; the function records state or raises through its assertions.
+    :return: ``cryptography``, ``poppler`` or ``pure-python``, or ``None`` if none loads.
     """
-
-    def missing():
-        """
-        Fail as the backend loader does without ``cryptography``.
-
-        Example:
-            Exercise missing through its owning regression module::
-
-                python -m pytest -q tests/file_formats/pdf/test_pdf_object_reader.py
+    module, _ = plugin_package.plugins["aes"]
+    return getattr(module, "SOURCE", None)
 
 
-        :return: Never returns.
-        """
-        raise PdfEncryptedError("this PDF is encrypted with AES, which needs the optional 'cryptography' package")
+def use_aes_layer(monkeypatch: pytest.MonkeyPatch, module: object) -> None:
+    """
+    Make the PDF reader take AES from one layer of the plugin, or from none.
 
-    monkeypatch.setattr(security, "_aes_backend", missing)
+    Example:
+        >>> use_aes_layer  # doctest: +SKIP
+
+
+    :param monkeypatch: Pytest fixture used to replace the plugin table.
+    :param module: The layer's module, or ``None``.
+    :return: None.
+    """
+    error = None if module is not None else "no layer loads"
+    monkeypatch.setattr(plugin_package, "plugins", {"aes": (module, error)})
+
+
+def layer_modules() -> list[Any]:
+    """
+    List the layers this machine can run, for parametrizing.
+
+    Example:
+        >>> [param.id for param in layer_modules()][-1]
+        'pure-python'
+
+
+    :return: ``pytest.param`` entries, skipped where a layer cannot run here.
+    """
+    from LiuXin_alpha.utils.plugins.fallbacks import aes as pure
+    from LiuXin_alpha.utils.plugins.fallbacks.fallback_beta import aes as beta
+
+    alpha: Any = None
+    if HAVE_CRYPTOGRAPHY:
+        from LiuXin_alpha.utils.plugins.fallbacks.fallback_alpha import aes as alpha
+    return [
+        pytest.param(alpha, id="cryptography", marks=pytest.mark.skipif(alpha is None, reason="no cryptography")),
+        pytest.param(beta, id="poppler", marks=pytest.mark.skipif(shutil.which("pdfinfo") is None, reason="no poppler")),
+        pytest.param(pure, id="pure-python"),
+    ]
+
+
+@pytest.mark.parametrize("layer", layer_modules())
+def test_every_aes_layer_reads_the_aes_corpus(monkeypatch: pytest.MonkeyPatch, layer: Any) -> None:
+    """
+    Read every AES file with each layer of the ``aes`` plugin, as pdfinfo reads it.
+
+    Example:
+        >>> test_every_aes_layer_reads_the_aes_corpus  # doctest: +SKIP
+
+
+    :param monkeypatch: Pytest fixture used to choose the layer.
+    :param layer: The layer's module.
+    :return: None; the assertions are the check.
+    """
+    use_aes_layer(monkeypatch, layer)
+    for name in sorted(AES_CASES):
+        expected = CASES[name]["pdfinfo"]
+        data = (FIXTURES / f"{name}.pdf").read_bytes()
+        if "error" in expected:
+            with pytest.raises(PdfEncryptedError, match="needs a password"):
+                read_metadata(data)
+            continue
+        with _bounded(10.0):
+            metadata = read_metadata(data)
+        assert {key: metadata.info[key] for key in FIELDS if key in metadata.info} == {
+            key: expected[key] for key in FIELDS if key in expected
+        }
+        assert metadata.encrypted
+        assert metadata.read_by == ("poppler's pdfinfo" if layer.SOURCE == "poppler" else "LiuXin's object reader")
+
+
+def test_with_no_aes_layer_aes_files_are_refused(monkeypatch: pytest.MonkeyPatch) -> None:
+    """
+    Refuse AES files, rather than return ciphertext, when no layer of the plugin loads; RC4 still reads.
+
+    Example:
+        >>> test_with_no_aes_layer_aes_files_are_refused  # doctest: +SKIP
+
+
+    :param monkeypatch: Pytest fixture used to empty the plugin.
+    :return: None; the assertions are the check.
+    """
+    use_aes_layer(monkeypatch, None)
     for name in ("aes128_no_password", "aes256_no_password", "aes256_object_streams"):
-        with pytest.raises(PdfEncryptedError, match="cryptography"):
+        with pytest.raises(PdfEncryptedError, match="no AES implementation loads"):
             read_metadata((FIXTURES / f"{name}.pdf").read_bytes())
     for name in ("rc4_40_no_password", "rc4_128_no_password"):
         assert read_metadata((FIXTURES / f"{name}.pdf").read_bytes()).info["Title"] == "Corpus Title — café"

@@ -75,17 +75,30 @@ as the title and authors. `security.py` derives the file key as a viewer does:
 1. It tries the empty user password.
 2. If that fails, it tries the empty owner password.
 
-| Revision | Cipher | Needs |
+| Revision | Cipher | How |
 | --- | --- | --- |
-| 2–4 | RC4, 40 to 128 bits | nothing (pure Python, at most `rc4_stream_bytes` per stream) |
-| 4 | AES-128 | the `cryptography` package (the `encryption` extra) |
-| 5–6 | AES-256 | the `cryptography` package |
+| 2–4 | RC4, 40 to 128 bits | pure Python, at most `rc4_stream_bytes` per stream |
+| 4 | AES-128 | the `aes` utils plugin |
+| 5–6 | AES-256 | the `aes` utils plugin |
+
+The `aes` plugin (see [utils plugin layers](../../plugins/utils-plugin-layers.md#aes-cryptography-then-poppler-then-pure-python))
+has three layers, best first:
+
+1. **The `cryptography` package** (the `encryption` extra).
+2. **Poppler.** Where `cryptography` is missing and `pdfinfo` is on the PATH, the
+   reader hands an AES file to `pdfinfo` (`file_formats/pdf/poppler.py`), which
+   decrypts it itself; `PdfMetadata.read_by` then says so. `pdfinfo` runs within the
+   same limits as the ported calibre reader's, on a copy of the file.
+3. **Pure-Python AES**, checked against FIPS 197, NIST SP 800-38A and `cryptography`.
+   Deriving an AES-256 key takes 0.3 to 0.8 s; the few strings and streams the reader
+   decrypts take milliseconds.
 
 When no empty password opens the file, the reader raises `PdfEncryptedError`, which the
-metadata source turns into `PdfParseError`. It does the same when AES is needed and
-`cryptography` is missing. It never returns ciphertext. Metadata streams are left alone
-when `/EncryptMetadata` is false, as are streams whose first filter is the Identity crypt
-filter, and cross-reference streams.
+metadata source turns into `PdfParseError`; `pdfinfo` reports the same. It never returns
+ciphertext. Metadata streams are left alone when `/EncryptMetadata` is false, as are
+streams whose first filter is the Identity crypt filter, and cross-reference streams.
+Poppler decrypts such a cleartext packet anyway (see below), so on the poppler layer
+that file's XMP is lost.
 
 ## Text strings
 
@@ -169,7 +182,7 @@ encrypted file, and garbled PDFDocEncoding text.
 ## Tests
 
 - `tests/file_formats/pdf/test_pdf_object_reader.py`: corpus agreement with `pdfinfo`,
-  RC4 and AES paths with and without `cryptography`, the lexer, and hostile inputs with
+  RC4, and AES through each layer of the `aes` plugin, the lexer, and hostile inputs with
   time bounds.
 - `tests/metadata/file_sources/test_pdf_storage_layouts.py`: the metadata source on
   every layout, by path and by stream.
@@ -196,9 +209,6 @@ poppler:
 
 ## Open follow-ups
 
-- AES without `cryptography` is refused. A pure-Python AES would read those files
-  everywhere, at the cost of carrying cipher code; the provider that runs poppler covers
-  them when poppler is installed.
 - The reader takes no cover. A scanned book's first page is often a single JPEG image
   XObject that could be returned as-is without rendering.
 - Writing still needs pypdf; see the project's open items about making it an optional

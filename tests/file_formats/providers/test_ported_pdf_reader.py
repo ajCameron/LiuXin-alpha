@@ -44,6 +44,7 @@ from typing import Any
 
 import pytest
 
+import LiuXin_alpha.utils.plugins as plugin_package
 from LiuXin_alpha.file_formats.conversion.report import ConversionReport
 from LiuXin_alpha.file_formats.providers import fork_metadata
 from LiuXin_alpha.file_formats.providers.base import ProviderContext
@@ -57,7 +58,6 @@ from LiuXin_alpha.metadata.upstream_calibre import _poppler, pdf, xmp
 FIXTURES = Path(__file__).resolve().parents[2] / "fixtures" / "pdf_metadata"
 CASES = sorted(json.loads((FIXTURES / "cases.json").read_text(encoding="utf-8")))
 HAVE_POPPLER = shutil.which("pdfinfo") is not None and shutil.which("pdftoppm") is not None
-HAVE_CRYPTOGRAPHY = importlib.util.find_spec("cryptography") is not None
 needs_poppler = pytest.mark.skipif(not HAVE_POPPLER, reason="poppler's pdfinfo and pdftoppm are not installed")
 needs_posix = pytest.mark.skipif(os.name != "posix", reason="the fake tools are shell scripts")
 
@@ -204,11 +204,17 @@ def test_without_poppler_calibre_reads_every_layout(name: str) -> None:
     """
     provider = PortedPdfReaderWithoutPoppler()
     book = FIXTURES / f"{name}.pdf"
-    if name == "aes256_user_password" or (name.startswith("aes") and not HAVE_CRYPTOGRAPHY):
+    if name == "aes256_user_password":
         with pytest.raises(ValueError, match="Could not read info dict"):
             provider.read_calibre_metadata(book, "pdf", context(book.parent))
         return
-    assert fields_of(provider, book) == EXPECTED[name]
+    expected = EXPECTED[name]
+    module, _ = plugin_package.plugins["aes"]
+    if name == "aes128_cleartext_xmp" and getattr(module, "SOURCE", None) == "poppler":
+        # Without cryptography the aes plugin hands AES files to pdfinfo, which garbles this
+        # packet (see dev-docs/file_formats/pdf), so calibre's code keeps the Info fields.
+        expected = INFO
+    assert fields_of(provider, book) == expected
 
 
 @needs_poppler
