@@ -1,0 +1,227 @@
+# License: GPLv3 Copyright: 2008, Kovid Goyal <kovid at kovidgoyal.net>
+# Ported from calibre (https://calibre-ebook.com) 9.18: src/calibre/ebooks/metadata/pdf.py
+# Changes from upstream: calibre imports point at upstream_calibre and its _compat, and
+# 'from __future__ import annotations' is added.
+# LiuXin fixes are marked '# LiuXin:'.
+# SPDX-License-Identifier: GPL-3.0-only
+
+"""Read meta information from PDF files"""
+
+from __future__ import annotations
+
+import os
+import re
+import shutil
+import subprocess
+from functools import partial
+from typing import IO, TYPE_CHECKING
+
+from LiuXin_alpha.metadata.upstream_calibre._compat import prints
+from LiuXin_alpha.metadata.upstream_calibre._compat import iswindows
+from LiuXin_alpha.metadata.upstream_calibre.metadata_base import MetaInformation
+from LiuXin_alpha.metadata.upstream_calibre.metadata_base import check_doi
+from LiuXin_alpha.metadata.upstream_calibre.metadata_base import check_isbn
+from LiuXin_alpha.metadata.upstream_calibre.metadata_base import string_to_authors
+from LiuXin_alpha.metadata.upstream_calibre._compat import TemporaryDirectory
+from LiuXin_alpha.metadata.upstream_calibre._compat import WorkerError
+from LiuXin_alpha.metadata.upstream_calibre._compat import fork_job
+from LiuXin_alpha.metadata.upstream_calibre._compat import _
+from LiuXin_alpha.metadata.upstream_calibre import _poppler  # LiuXin:
+
+if TYPE_CHECKING:
+    from LiuXin_alpha.metadata.upstream_calibre.book_base import Metadata
+
+
+def get_tools() -> tuple[str, str]:
+    from LiuXin_alpha.metadata.upstream_calibre._poppler import PDFTOHTML
+
+    base = os.path.dirname(PDFTOHTML)
+    suffix = '.exe' if iswindows else ''
+    pdfinfo = os.path.join(base, 'pdfinfo') + suffix
+    pdftoppm = os.path.join(base, 'pdftoppm') + suffix
+    return pdfinfo, pdftoppm
+
+
+def check_output(*a: str) -> bytes:
+    from LiuXin_alpha.metadata.upstream_calibre._poppler import creationflags
+
+    # LiuXin: poppler parses untrusted files; run it with a timeout and with
+    # memory, CPU and output limits.
+    return _poppler.check_output(list(a), creationflags=creationflags)
+
+
+def check_call(*a: str) -> None:
+    from LiuXin_alpha.metadata.upstream_calibre._poppler import creationflags
+
+    _poppler.check_call(list(a), creationflags=creationflags)  # LiuXin: limited, as above
+
+
+def read_info(outputdir: str, get_cover: bool) -> dict[str, str | bytes] | None:
+    """Read info dict and cover from a pdf file named src.pdf in outputdir.
+    Note that this function changes the cwd to outputdir and is therefore not
+    thread safe. Run it using fork_job. This is necessary as there is no safe
+    way to pass unicode paths via command line arguments. This also ensures
+    that if poppler crashes, no stale file handles are left for the original
+    file, only for src.pdf."""
+    # LiuXin: run the tools in outputdir rather than changing directory, which
+    # all of LiuXin's threads share; nothing forks a worker to run this.
+    check_output, check_call = _poppler.in_directory(outputdir)
+    pdfinfo, pdftoppm = get_tools()
+    ans: dict[str, str | bytes] = {}
+
+    try:
+        raw = check_output(pdfinfo, '-enc', 'UTF-8', '-isodates', 'src.pdf')
+    except subprocess.CalledProcessError as e:
+        prints(f'pdfinfo errored out with return code: {e.returncode}')
+        return None
+    try:
+        info_raw = raw.decode('utf-8')
+    except UnicodeDecodeError:
+        prints('pdfinfo returned no UTF-8 data')
+        return None
+
+    for line in info_raw.splitlines():
+        if ':' not in line:
+            continue
+        field, val = line.partition(':')[::2]
+        val = val.strip()
+        if field and val:
+            ans[field] = val.strip()
+
+    # Now read XMP metadata
+    # Versions of poppler before 0.47.0 used to print out both the Info dict and
+    # XMP metadata packet together. However, since that changed in
+    # https://cgit.freedesktop.org/poppler/poppler/commit/?id=c91483aceb1b640771f572cb3df9ad707e5cad0d
+    # we can no longer rely on it.
+    try:
+        raw = check_output(pdfinfo, '-meta', 'src.pdf').strip()
+    except subprocess.CalledProcessError as e:
+        prints(f'pdfinfo failed to read XML metadata with return code: {e.returncode}')
+    else:
+        parts = re.split(rb'^Metadata:', raw, maxsplit=1, flags=re.MULTILINE)
+        if len(parts) > 1:
+            # old poppler < 0.47.0
+            raw = parts[1].strip()
+        if raw:
+            ans['xmp_metadata'] = raw
+
+    if get_cover:
+        try:
+            # LiuXin: at 150 dpi a 200-inch page is 30,000 pixels square; draw a
+            # page that large no more than 3,000 pixels on its longest side.
+            check_call(pdftoppm, '-singlefile', '-jpeg', '-cropbox', *_poppler.cover_scale(ans), 'src.pdf', 'cover')
+        except subprocess.CalledProcessError as e:
+            prints(f'pdftoppm errored out with return code: {e.returncode}')
+
+    return ans
+
+
+def page_images(pdfpath: str, outputdir: str = '.', first: int = 1, last: int = 1, image_format: str = 'jpeg', prefix: str = 'page-images') -> None:
+    pdftoppm = get_tools()[1]
+    outputdir = os.path.abspath(outputdir)
+    try:
+        check_call(
+            pdftoppm,
+            '-cropbox',
+            '-' + image_format,
+            '-f',
+            str(first),
+            '-l',
+            str(last),
+            pdfpath,
+            os.path.join(outputdir, prefix),
+        )
+    except subprocess.CalledProcessError as e:
+        raise ValueError(f'Failed to render PDF, pdftoppm errorcode: {e.returncode}')
+
+
+def is_pdf_encrypted(path_to_pdf: str) -> bool:
+    pdfinfo = get_tools()[0]
+    raw = check_output(pdfinfo, path_to_pdf)
+    q = re.search(rb'^Encrypted:\s*(\S+)', raw, flags=re.MULTILINE)
+    if q is not None:
+        return q.group(1) == b'yes'
+    return False
+
+
+def get_metadata(stream: IO[bytes], cover: bool = True) -> Metadata:
+    with TemporaryDirectory('_pdf_metadata_read') as pdfpath:
+        stream.seek(0)
+        with open(os.path.join(pdfpath, 'src.pdf'), 'wb') as f:
+            shutil.copyfileobj(stream, f)
+        try:
+            # LiuXin: run read_info here, or, for the provider used without
+            # poppler, read the same fields with LiuXin's own PDF reader.
+            res = _poppler.run_here(read_info, pdfpath, bool(cover))
+        except WorkerError as e:
+            prints(e.orig_tb)
+            raise RuntimeError('Failed to run pdfinfo')
+        info = res['result']
+        with open(res['stdout_stderr'], 'rb') as f:
+            raw = f.read().strip()
+            if raw:
+                prints(raw)
+        if info is None:
+            raise ValueError('Could not read info dict from PDF')
+        covpath = os.path.join(pdfpath, 'cover.jpg')
+        cdata = None
+        if cover and os.path.exists(covpath):
+            with open(covpath, 'rb') as f:
+                cdata = f.read()
+
+    title = info.get('Title', None) or _('Unknown')
+    au = info.get('Author', None)
+    if au is None:
+        au = [_('Unknown')]
+    else:
+        au = string_to_authors(au)
+    mi = MetaInformation(title, au)
+    # if isbn is not None:
+    #     mi.isbn = isbn
+
+    creator = info.get('Creator', None)
+    if creator:
+        mi.book_producer = creator
+
+    keywords = info.get('Keywords', None)
+    mi.tags = []
+    if keywords:
+        mi.tags = [x.strip() for x in keywords.split(',')]
+        isbn = [check_isbn(x) for x in mi.tags if check_isbn(x)]
+        if isbn:
+            mi.isbn = isbn = isbn[0]
+        mi.tags = [x for x in mi.tags if check_isbn(x) != isbn]
+
+    subject = info.get('Subject', None)
+    if subject:
+        mi.tags.insert(0, subject)
+
+    if 'xmp_metadata' in info:
+        from LiuXin_alpha.metadata.upstream_calibre.xmp import consolidate_metadata
+
+        mi = consolidate_metadata(mi, info)
+
+    # Look for recognizable identifiers in the info dict, if they were not
+    # found in the XMP metadata
+    for scheme, check_func in {'doi': check_doi, 'isbn': check_isbn}.items():
+        if scheme not in mi.get_identifiers():
+            for k, v in info.items():
+                if k != 'xmp_metadata':
+                    val = check_func(v)
+                    if val:
+                        mi.set_identifier(scheme, val)
+                        break
+
+    if cdata:
+        mi.cover_data = ('jpeg', cdata)
+    return mi
+
+
+get_quick_metadata = partial(get_metadata, cover=False)
+
+from LiuXin_alpha.metadata.upstream_calibre._compat import podofo_set_metadata
+
+
+def set_metadata(stream: IO[bytes], mi: Metadata) -> None:
+    stream.seek(0)
+    return podofo_set_metadata(stream, mi)

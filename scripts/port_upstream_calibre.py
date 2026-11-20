@@ -135,6 +135,8 @@ PORTS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
     ("ebooks/docx/container.py", "docx_container.py", ()),
     ("ebooks/docx/writer/container.py", "docx_writer_container.py", ()),
     ("ebooks/metadata/docx.py", "docx.py", ()),
+    ("ebooks/metadata/xmp.py", "xmp.py", ()),
+    ("ebooks/metadata/pdf.py", "pdf.py", ()),
 )
 
 # Modules of which only some top-level names are ported, by upstream path: the
@@ -696,6 +698,87 @@ def _comment_matches(pat: re.Pattern[str], data: str) -> list[re.Match[str]]:  #
 """,
         ),
     ),
+    "ebooks/metadata/xmp.py": (
+        (
+            """from calibre.utils.xml_parse import safe_xml_fromstring
+""",
+            """from calibre.utils.xml_parse import safe_xml_fromstring
+from LiuXin_alpha.metadata.upstream_calibre import _linear_time  # LiuXin:
+""",
+        ),
+        (
+            """_xml_declaration = re.compile(r'<\\?xml[^<>]+encoding\\s*=\\s*[\\'"](.*?)[\\'"][^<>]*>', re.IGNORECASE)
+""",
+            """_xml_declaration = re.compile(r'<\\?xml[^<>]+encoding\\s*=\\s*[\\'"](.*?)[\\'"][^<>]*>', re.IGNORECASE)
+# LiuXin: the pattern takes cubic time on '<?xml' and many 'encoding="': an XMP
+# packet of 20 KB took two minutes. The stand-in finds the same matches in
+# linear time.
+_xml_declaration = _linear_time.linear_pattern(_xml_declaration)  # LiuXin:
+""",
+        ),
+        (
+            """def metadata_from_xmp_packet(raw_bytes: bytes) -> Metadata:
+    root = parse_xmp_packet(raw_bytes)
+""",
+            """def metadata_from_xmp_packet(raw_bytes: bytes) -> Metadata:
+    root = parse_xmp_packet(raw_bytes)
+    # LiuXin: each lookup below reads all of every match's descendants, so
+    # matches nested in matches are read once per level: 250 nested titles in
+    # 0.9 MB took 4 s. Real packets nest about ten deep; refuse more than 32.
+    if _linear_time.nested_deeper_than(root, 32):  # LiuXin:
+        raise ValueError('XMP metadata packet is nested too deeply')
+""",
+        ),
+    ),
+    "ebooks/metadata/pdf.py": (
+        (
+            """from calibre.utils.localization import _
+""",
+            """from calibre.utils.localization import _
+from LiuXin_alpha.metadata.upstream_calibre import _poppler  # LiuXin:
+""",
+        ),
+        (
+            """    return subprocess.check_output(list(a), creationflags=creationflags)
+""",
+            """    # LiuXin: poppler parses untrusted files; run it with a timeout and with
+    # memory, CPU and output limits.
+    return _poppler.check_output(list(a), creationflags=creationflags)
+""",
+        ),
+        (
+            """    subprocess.check_call(list(a), creationflags=creationflags)
+""",
+            """    _poppler.check_call(list(a), creationflags=creationflags)  # LiuXin: limited, as above
+""",
+        ),
+        (
+            """    os.chdir(outputdir)
+    pdfinfo, pdftoppm = get_tools()
+""",
+            """    # LiuXin: run the tools in outputdir rather than changing directory, which
+    # all of LiuXin's threads share; nothing forks a worker to run this.
+    check_output, check_call = _poppler.in_directory(outputdir)
+    pdfinfo, pdftoppm = get_tools()
+""",
+        ),
+        (
+            """            check_call(pdftoppm, '-singlefile', '-jpeg', '-cropbox', 'src.pdf', 'cover')
+""",
+            """            # LiuXin: at 150 dpi a 200-inch page is 30,000 pixels square; draw a
+            # page that large no more than 3,000 pixels on its longest side.
+            check_call(pdftoppm, '-singlefile', '-jpeg', '-cropbox', *_poppler.cover_scale(ans), 'src.pdf', 'cover')
+""",
+        ),
+        (
+            """            res = fork_job('calibre.ebooks.metadata.pdf', 'read_info', (pdfpath, bool(cover)))
+""",
+            """            # LiuXin: run read_info here, or, for the provider used without
+            # poppler, read the same fields with LiuXin's own PDF reader.
+            res = _poppler.run_here(read_info, pdfpath, bool(cover))
+""",
+        ),
+    ),
 }
 
 # calibre modules ported whole: every name imported from them maps to the same
@@ -759,6 +842,10 @@ MODULES = {
     "calibre.ebooks.docx.container": f"{PKG}.docx_container",
     "calibre.ebooks.docx.writer.container": f"{PKG}.docx_writer_container",
     "calibre.ebooks.metadata.docx": f"{PKG}.docx",
+    "calibre.ebooks.metadata.xmp": f"{PKG}.xmp",
+    "calibre.ebooks.metadata.pdf": f"{PKG}.pdf",
+    # Where poppler's tools are: LiuXin's helper module stands in for calibre's.
+    "calibre.ebooks.pdf.pdftohtml": f"{PKG}._poppler",
 }
 
 # Helpers from modules that are not ported whole: the names _compat provides,
@@ -852,6 +939,10 @@ NAMES: dict[str, dict[str, str]] = {
         )
     },
     "calibre.utils.ipc.simple_worker": {"fork_job": "fork_job", "WorkerError": "WorkerError"},
+    "calibre.utils.podofo": {
+        "set_metadata": "podofo_set_metadata",
+        "get_xmp_metadata": "podofo_get_xmp_metadata",
+    },
     "calibre.utils.zipfile": {
         name: name
         for name in ("ZipFile", "BadZipfile", "safe_replace", "ZIP_DEFLATED", "ZIP_STORED", "ZipInfo")
