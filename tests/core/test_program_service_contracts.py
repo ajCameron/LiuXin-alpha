@@ -478,21 +478,22 @@ def test_job_log_offsets_count_bytes_and_eof_is_read_time(tmp_path: Path) -> Non
     assert later["text"] == "!" and later["next_offset"] == 4
 
 
-def test_metadata_writer_error_can_follow_partial_file_change(
+def test_metadata_writer_error_leaves_the_file_unchanged(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     """
-    Expose a callback-reported writer failure without claiming that an in-place metadata edit was rolled back.
+    A writer that changes the file and then reports a failure leaves the file on disk as it was.
 
-    A test-local writer modifies only a temporary file; real format plugins are not run.
+    The writer works on a copy in memory, and the file is only replaced when it succeeds.
+    A test-local writer stands in for the format plugins.
 
     Example:
-        >>> test_metadata_writer_error_can_follow_partial_file_change(patch, directory)  # doctest: +SKIP
+        >>> test_metadata_writer_error_leaves_the_file_unchanged(patch, directory)  # doctest: +SKIP
 
 
     :param monkeypatch: Fixture replacing writer capability, metadata hydration, and writer implementation.
     :param tmp_path: Isolated pytest directory holding the disposable book file.
-    :return: None after checking the reported error and retained partial bytes on disk.
+    :return: None after checking the reported error and the unchanged bytes on disk.
     """
     from LiuXin_alpha.file_formats import plugin_runtime as ui
 
@@ -530,7 +531,8 @@ def test_metadata_writer_error_can_follow_partial_file_change(
         )
     assert caught.value.code == "metadata_file_write_failed"
     assert caught.value.details["errors"] == ["simulated partial rewrite"]
-    assert path.read_bytes() == b"Xriginal"
+    assert path.read_bytes() == b"original"
+    assert not [entry.name for entry in tmp_path.iterdir() if entry.name.endswith(".tmp")]
 
 
 def test_reconcile_reload_failure_consumes_budget_but_not_final_health() -> None:

@@ -272,10 +272,9 @@ def update_doc_props(root: _typing.Any, mi: _typing.Any, namespace: _typing.Any)
     setm("creator", authors_to_string(mi.authors))
 
     if mi.tags:
-        # Tags written out without encoded spaces are split on those space. So encode the spaces
-        tags_str = ", ".join(mi.tags)
-        tags_str = tags_str.replace(" ", "_-_")
-        setm("keywords", tags_str, ns="cp")
+        # Plain commas, as calibre writes them and Word shows them. LiuXin's reader splits
+        # on the commas, so a tag may hold spaces; it once wrote those spaces as "_-_".
+        setm("keywords", ", ".join(mi.tags), ns="cp")
 
     if mi.comments:
         setm("description", mi.comments)

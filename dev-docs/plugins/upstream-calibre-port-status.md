@@ -77,6 +77,11 @@ were the ones on the stacked branches, without #178's fixes for OPF 2 fields.
 
 ### Differences to decide on
 
+- **DOCX keywords.** calibre splits a DOCX's keywords on spaces as well as commas, so
+  a tag holding a space comes back as two. LiuXin's reader splits on commas or
+  semicolons when the keywords have any, and on spaces only otherwise (see
+  [metadata writers](../file_formats/metadata-writers.md)). The ported provider keeps
+  calibre's reading.
 - **Language codes.** The ports return calibre's ISO 639-3 codes (`fra`,
   `deu`); the fork's and LiuXin's readers return what the file says (`fr`,
   `de`), or, for MOBI, a language name (`French`). The WEMI mapping, or the pool, should settle on one form.

@@ -813,7 +813,8 @@ class ContentWorkflowsHandlers(Protocol):
         :param runtime: Runtime supplying optional Item metadata hydration; arbitrary supplied paths are not confined here.
         :param command: Command with path or base64, optional/inferred file_type, and item_id or metadata for the writer.
         :return: Type, path-or-None, rewritten bytes for byte input or content=None for path input, byte size, and updated=True.
-        :raises CoreDispatchError: For input/type/base64/metadata validation, unavailable writers, or collected writer failures.
+        :raises CoreDispatchError: For input/type/base64/metadata validation, unavailable writers, collected writer
+            failures (the file is then unchanged), or a file that changed while being rewritten.
         """
         ...
 
