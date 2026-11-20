@@ -82,6 +82,10 @@ class ReadCache(CacheAPI):
         :param storage: Existing backend; a false-valued value triggers plugin construction.
         :param storage_type: Registered plugin name used when no truthy storage is supplied.
         :param storage_kwargs: Options shallow-copied into plugin construction; ignored for supplied storage.
+        :param plan_cache_size: Maximum query validation plans retained; zero disables
+            plan retention.
+        :param result_cache_size: Maximum query candidate populations retained; zero
+            disables result retention.
         :return: None; creates the lock, dependency sets and common query engine.
         :raises ValueError: The database is None or storage.db is not the same database object.
         """
@@ -107,6 +111,7 @@ class ReadCache(CacheAPI):
         self._dirty_ids: dict[str, set[int]] = {}
         self._dirty_links: set[tuple[str, str]] = set()
         self._dirty_fields: set[str] = set()
+        self._pending_refresh_transactions: set[object] = set()
         self._query_engine = CacheQueryEngine(
             self.storage,
             plan_cache_size=plan_cache_size,
@@ -258,7 +263,23 @@ class ReadCache(CacheAPI):
         *,
         final_state: CacheState = CacheState.READY,
     ) -> None:
-        """Publish a complete lifecycle operation, or require recovery after failure."""
+        """
+        Publish a complete lifecycle operation, or require recovery after failure.
+
+        Example:
+            A failed reload cannot leave the facade claiming a complete READY snapshot.
+
+
+        :param operation: Full storage load/reload operation executed under the facade
+            lifecycle boundary.
+        :param final_state: State to publish after successful completion; defaults to
+            READY.
+        :return: None; publishes success or retains dirty recovery state on failure.
+        """
+        if final_state == CacheState.READY and self._pending_refresh_transactions:
+            raise CacheDirtyError(
+                "Cache refresh is deferred until its transaction finishes"
+            )
         self._pending_query_results = None
         self._state = CacheState.DIRTY
         self._full_reload_required = True
@@ -438,6 +459,41 @@ class ReadCache(CacheAPI):
             transaction_state is not None and getattr(transaction_state, "depth", 0)
         )
 
+    def _defer_refresh_until_transaction_ends(self) -> None:
+        """
+        Block every thread's refresh until the owned SQL unit completes.
+
+        The caller holds the facade lock. Completion only releases its token;
+        the next read performs recovery after either commit or rollback. Closing
+        or clearing the facade does not make the callback reopen its storage.
+
+        Example:
+            A read on another thread stays blocked while a caller-owned metadata write is pending.
+
+
+        :return: None; registers a completion callback and retains its cross-thread
+            refresh guard.
+        """
+        from LiuXin_alpha.databases.transaction_participants import after_transaction
+
+        token = object()
+
+        def release() -> None:
+            """
+            Release only this transaction's refresh guard under the facade lock.
+
+            Example:
+                Completion after cache.close() does not reopen or reload storage.
+
+
+            :return: None; the next permitted read performs any required recovery.
+            """
+            with self._lock:
+                self._pending_refresh_transactions.discard(token)
+
+        after_transaction(self.database.macros, release)
+        self._pending_refresh_transactions.add(token)
+
     def _refresh_dirty(self) -> None:
         """
         Refresh accumulated snapshot dependencies before allowing a read.
@@ -459,7 +515,7 @@ class ReadCache(CacheAPI):
 
         if self._state != CacheState.DIRTY:
             return
-        if self._transaction_is_open():
+        if self._pending_refresh_transactions or self._transaction_is_open():
             raise CacheDirtyError(
                 "Cache dependencies are dirty while an outer transaction is open"
             )

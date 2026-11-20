@@ -677,18 +677,47 @@ class CacheQueryResult:
 
 
 class CacheWriter(Protocol):
-    """Schema-selected writer with row-ID-keyed receipts.
+    """
+    Schema-selected writer with row-ID-keyed receipts.
 
     Payload arguments depend on the selected column/relation writer. The common
     cache surface preserves those dynamic payloads while typing identities and
     receipt containers; Cache.create_writer exposes the concrete writer union.
+
+    Example:
+        ``cache.create_writer("works", "work_title")`` selects a scalar writer.
     """
 
-    def write(self, *args: Any, **kwargs: Any) -> Mapping[int, object]: ...
+    def write(self, *args: Any, **kwargs: Any) -> Mapping[int, object]:
+        """
+        Apply the selected writer's batch payload and return row-keyed receipts.
+
+        Example:
+            The scalar writer accepts a mapping from owner IDs to replacement values.
+
+
+        :param args: Positional payload arguments defined by the concrete writer.
+        :param kwargs: Named policy or payload arguments defined by the concrete writer.
+        :return: Owner-ID-keyed receipt mapping after persistence and reconciliation.
+        """
+        ...
 
     def write_one(
         self, src_id: int, dst_value: Any, **kwargs: Any
-    ) -> Mapping[int, object]: ...
+    ) -> Mapping[int, object]:
+        """
+        Apply one owner's scalar or relationship payload.
+
+        Example:
+            ``writer.write_one(7, "Revised title")`` updates one scalar owner.
+
+
+        :param src_id: Owner row identity.
+        :param dst_value: Payload interpreted by the selected writer.
+        :param kwargs: Writer-specific policy options.
+        :return: Receipt mapping keyed by the affected owner identity.
+        """
+        ...
 
 
 class CacheAPI(abc.ABC):
