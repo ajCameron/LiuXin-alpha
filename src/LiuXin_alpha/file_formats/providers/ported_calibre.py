@@ -643,7 +643,7 @@ class PortedChmReader(PortedCalibreReader):
         """
         from LiuXin_alpha.metadata.upstream_calibre import _compat
 
-        if _compat.chmlib is None:
+        if not _compat.chm_available():
             return ProviderAvailability.missing(
                 "pychm, the Python binding to chmlib, is not installed"
             )

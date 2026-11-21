@@ -2105,6 +2105,20 @@ except ImportError:
     chmlib = None
 
 
+def chm_available() -> bool:
+    """
+    Tell whether pychm, the Python binding to chmlib that calibre's CHM reader needs, is installed.
+
+    Example:
+        >>> chm_available() in (True, False)
+        True
+
+
+    :return: True when it is.
+    """
+    return chmlib is not None
+
+
 # --- not ported yet ------------------------------------------------------------
 
 
