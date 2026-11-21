@@ -98,9 +98,11 @@ were the ones on the stacked branches, without #178's fixes for OPF 2 fields.
   as the description (see [combining Info and XMP](../file_formats/pdf/README.md#combining-info-and-xmp)).
   The ported providers keep calibre's reading, so the two give different tags and
   comments for most PDFs with a Subject.
-- **Language codes.** The ports return calibre's ISO 639-3 codes (`fra`,
-  `deu`); the fork's and LiuXin's readers return what the file says (`fr`,
-  `de`), or, for MOBI, a language name (`French`). The WEMI mapping, or the pool, should settle on one form.
+- **Language codes (settled in #207).** The ports return calibre's ISO 639-3 codes
+  (`fra`, `deu`). LiuXin's readers used to return what the file said (`fr`, `de`),
+  or for MOBI a name (`French`), because LiuXin had no language table. They now share
+  calibre's and report the same codes on every book in `LiuXin_alpha_data`; see
+  [language codes](../metadata/languages.md).
 - **calibre's "undefined" date.** calibre writes `0101-01-01` into books for an
   unknown date, and reads it back as a date. Every calibre-model provider
   passes it on as a real date, because `serialised_calibre` does not treat it

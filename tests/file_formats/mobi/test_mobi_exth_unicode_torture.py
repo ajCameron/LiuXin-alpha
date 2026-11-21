@@ -112,7 +112,7 @@ def test_exth_header_unicode_torture_roundtrip() -> None:
     assert exth.mi.publisher == "Éditions Δ"
     assert exth.mi.comments == comments
     assert set(_values(exth.mi.tags)) == {"タグ", "Κατηγορία", "Тег", "العربية"}
-    assert str(exth.mi.language).lower() in {"ja", "japanese"}
+    assert exth.mi.language == "jpn"
     assert exth.page_progression_direction == "rtl"
 
 
@@ -168,4 +168,4 @@ def test_exth_header_cp1252_payload_decodes_accents() -> None:
     assert exth.mi.publisher == "Café Press"
     assert exth.mi.title == "Café naïve"
     assert exth.mi.comments == "Résumé"
-    assert str(exth.mi.language).lower() in {"en", "english"}
+    assert exth.mi.language == "eng"

@@ -80,7 +80,7 @@ and its docstring lists each difference from calibre. In short:
 | ICU collation and case mapping | Python's `casefold`, `lower`, `upper` | Sort order can differ from calibre's for some scripts |
 | uchardet | the `chardet` package | Encoding guesses can differ; calibre only guesses when a file declares no encoding and is not UTF-8 |
 | `mime.types` added to Python's global table, with the system's files | a private table of Python's built-in types plus calibre's `mime.types` | The same answers on every machine; other code is unaffected |
-| ISO 639 and 3166 maps built at calibre's build time | `iso_codes.json.gz`, built from iso-codes 4.16.0 by `scripts/build_upstream_calibre_iso_codes.py` with calibre's rules | Languages read as ISO 639-3 codes, as calibre stores them (`fra`, not `fr`) |
+| ISO 639 and 3166 maps built at calibre's build time | `utils/libraries/iso639/iso_codes.json.gz`, built from iso-codes 4.16.0 by `scripts/build_upstream_calibre_iso_codes.py` with calibre's rules; LiuXin's own language functions read it too | Languages read as ISO 639-3 codes, as calibre stores them (`fra`, not `fr`) |
 | python-dateutil, imported directly | the `dateutil_parser` utils plugin: the installed package, or LiuXin's vendored copy | None: the same parser either way |
 | The `tzlocal` package, and `zoneinfo` with calibre's bundled tz data | `TZ` or `/etc/localtime`, falling back to UTC | Only dates written without a time zone are affected |
 | Interface language from preferences or the system | English | Only the default language of OPF files the code writes |

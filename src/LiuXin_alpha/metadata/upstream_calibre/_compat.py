@@ -22,7 +22,8 @@ What differs from calibre, and why:
   use Python's case rules, as LiuXin has no ICU.
 - Languages and countries: the ISO 639 and 3166 maps are built from iso-codes
   with calibre's own rules (``scripts/build_upstream_calibre_iso_codes.py``)
-  and shipped as ``iso_codes.json.gz``. ``get_lang`` returns English: LiuXin
+  and shipped as ``utils/libraries/iso639/iso_codes.json.gz``, which LiuXin's own
+  language functions read too. ``get_lang`` returns English: LiuXin
   has no interface-language setting.
 - Media types: calibre's ``mime.types`` is loaded into a private table on top
   of Python's built-in types, rather than into Python's global table with the
@@ -1403,8 +1404,9 @@ def _load_iso_codes() -> dict[str, Any]:
         import gzip
         import json
 
-        raw = (Path(__file__).with_name("iso_codes.json.gz")).read_bytes()
-        _iso_codes = json.loads(gzip.decompress(raw))
+        from LiuXin_alpha.utils.libraries.iso639.calibre_table import ISO_CODES
+
+        _iso_codes = json.loads(gzip.decompress(ISO_CODES.read_bytes()))
         for key in ("codes2", "codes3"):
             _iso_codes["iso639"][key] = frozenset(_iso_codes["iso639"][key])
         _iso_codes["iso3166"]["codes"] = frozenset(_iso_codes["iso3166"]["codes"])

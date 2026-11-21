@@ -91,15 +91,10 @@ These match calibre's writers, so they are left as they are:
 
 ## Found, not fixed
 
-- **Language handling without `iso639.pickle`.** Every language function in
-  `utils/localization` depends on calibre's table, which LiuXin does not ship. Without it:
-  - `canonicalize_lang` returns its input lowercased (`French` becomes `french`, not `fra`);
-  - `get_language` raises `FileNotFoundError` for most codes;
-  - LiuXin's readers report one language as `fr`, `fra` or `French`, depending on the format.
-
-  The ISO 639-2 table LiuXin ships (`utils/libraries/iso639`) has what these need.
-  Building their table from it would fix them, but it changes what every reader
-  reports, so it is left for its own change.
+- **Language handling without `iso639.pickle`** (fixed in #207). Every language
+  function in `utils/localization` depended on calibre's table, which LiuXin did not
+  ship, so readers reported one language as `fr`, `fra` or `French`. See
+  [language codes](../metadata/languages.md).
 - **EPUB covers added at a doubled folder.** A cover added to an EPUB whose OPF is in
   `OEBPS/` goes to `OEBPS/OEBPS/cover.jpg`. The OPF points to it correctly and both
   readers find it; calibre puts it beside the OPF.

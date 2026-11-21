@@ -293,7 +293,7 @@ def test_ozon_metadata_from_detail_html_parses_fields_and_caches() -> None:
     assert mi.series == "Путешествия"
     assert mi.series_index == 2
     assert mi.rating == 4.5
-    assert mi.language == "ru"
+    assert mi.language == "rus"
     assert "Путешествия" in (mi.tags or [])
     assert plugin.cached_identifier_to_cover_url("1009493080").endswith("/books_covers/1005748980.jpg")
     assert plugin.cached_isbn_to_identifier("9785916572629") == "1009493080"
@@ -782,7 +782,7 @@ def test_ozon_metadata_parser_uses_fallbacks_and_defaults() -> None:
     assert mi.series == "Cycle"
     assert mi.series_index == 3.5
     assert mi.rating == 4.2
-    assert mi.language == "en"
+    assert mi.language == "eng"
     assert mi.tags == ["fiction", "adventure"]
     assert mi.get_identifiers()["isbn"] == "9785916572629"
     assert plugin.cached_identifier_to_cover_url("1009493080").endswith("/books_covers/json-cover.jpg")

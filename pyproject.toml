@@ -126,12 +126,12 @@ namespaces = true
   "trigger_sql/*/*.sql",
 ]
 "LiuXin_alpha.file_formats.oeb.display" = ["*.coffee"]
-"LiuXin_alpha.metadata.upstream_calibre" = ["iso_codes.json.gz", "mime.types"]
+"LiuXin_alpha.metadata.upstream_calibre" = ["mime.types"]
 "LiuXin_alpha.file_formats.oeb.polish" = ["*.coffee"]
 "LiuXin_alpha.file_formats.epub.cfi" = ["epubcfi.ebnf"]
 "LiuXin_alpha.file_formats.unihandecode.pykakasi" = ["*.utf8"]
 "LiuXin_alpha.startup_scripts" = ["LX_folders", "lx_folders.json"]
-"LiuXin_alpha.utils.libraries.iso639" = ["ISO-639-2_utf-8.txt"]
+"LiuXin_alpha.utils.libraries.iso639" = ["ISO-639-2_utf-8.txt", "iso_codes.json.gz"]
 "LiuXin_alpha.utils.libraries.liuxin_dateutil.zoneinfo" = ["zoneinfo-*.tar.gz"]
 "LiuXin_alpha.utils.libraries.python_dateutil" = ["LICENSE"]
 
