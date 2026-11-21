@@ -206,7 +206,7 @@ def test_every_port_registers_above_the_installed_calibre() -> None:
     register_upstream_calibre_readers(registry)
     made = register_ported_calibre_readers(registry)
     ported, without_poppler = made[:-1], made[-1]
-    assert len(ported) == len(PORTED_READERS) == 20
+    assert len(ported) == len(PORTED_READERS) == 23
     assert without_poppler is PortedPdfReaderWithoutPoppler
     assert PORTED_PRIORITY > WITHOUT_POPPLER_PRIORITY > UPSTREAM_PRIORITY
     for provider in ported:

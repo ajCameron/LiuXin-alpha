@@ -137,12 +137,63 @@ PORTS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
     ("ebooks/metadata/docx.py", "docx.py", ()),
     ("ebooks/metadata/xmp.py", "xmp.py", ()),
     ("ebooks/metadata/pdf.py", "pdf.py", ()),
+    (
+        "ebooks/metadata/meta.py",
+        "meta.py",
+        (
+            "calibre's plugin dispatch (customize.ui) is _readers.get_file_type_metadata, which",
+            "runs the ported readers; its preferences are calibre's defaults (_compat.prefs);",
+            "the regex package is used where installed, else _compat's stand-in on re.",
+        ),
+    ),
+    (
+        "libunzip.py",
+        "libunzip.py",
+        (
+            "ICU's numeric collation is _compat.numeric_sort_key, a natural sort on Python's case folding;",
+            "calibre's zipfile is Python's, which reads archives alike.",
+        ),
+    ),
+    ("utils/seven_zip.py", "seven_zip.py", ("py7zr, which it uses, is optional (the archives extra).",)),
+    (
+        "ebooks/metadata/archive.py",
+        "archive.py",
+        ("calibre.utils.unrar, which wraps the unrardll extension, is _unrar, on rarfile.",),
+    ),
+    ("ebooks/metadata/zip.py", "zip.py", ()),
+    (
+        "ebooks/metadata/rar.py",
+        "rar.py",
+        ("calibre.utils.unrar, which wraps the unrardll extension, is _unrar, on rarfile.",),
+    ),
 )
 
 # Modules of which only some top-level names are ported, by upstream path: the
 # rest is conversion code the metadata readers do not use. Imports the kept
 # names do not use are dropped with it.
 PARTS: dict[str, tuple[str, ...]] = {
+    "ebooks/metadata/meta.py": ("get_metadata", "_get_metadata", "metadata_from_filename", "opf_metadata"),
+    "libunzip.py": ("extract", "sort_key", "extract_member", "comic_exts", "name_ok", "extract_cover_image"),
+    "utils/seven_zip.py": (
+        "open_archive",
+        "names",
+        "DataSavingWriter",
+        "Writer",
+        "read_file",
+        "extract_member",
+        "extract_cover_image",
+        "extract",
+    ),
+    "ebooks/metadata/archive.py": (
+        "is_comic",
+        "archive_type",
+        "RAR",
+        "SevenZip",
+        "fname_ok",
+        "get_comic_book_info",
+        "parse_comic_comment",
+        "get_comic_metadata",
+    ),
     "ebooks/pdb/ereader/reader132.py": ("HeaderRecord",),
     "ebooks/pdb/plucker/reader.py": ("DATATYPE_METADATA", "MIBNUM_TO_NAME", "SectionHeader"),
     "ebooks/txt/processor.py": ("HTML_TEMPLATE", "opf_writer"),
@@ -846,6 +897,13 @@ MODULES = {
     "calibre.ebooks.metadata.pdf": f"{PKG}.pdf",
     # Where poppler's tools are: LiuXin's helper module stands in for calibre's.
     "calibre.ebooks.pdf.pdftohtml": f"{PKG}._poppler",
+    "calibre.libunzip": f"{PKG}.libunzip",
+    "calibre.utils.seven_zip": f"{PKG}.seven_zip",
+    # calibre's binding to RARLAB's library: LiuXin's stand-in, on rarfile.
+    "calibre.utils.unrar": f"{PKG}._unrar",
+    "calibre.ebooks.metadata.archive": f"{PKG}.archive",
+    "calibre.ebooks.metadata.zip": f"{PKG}.zip",
+    "calibre.ebooks.metadata.rar": f"{PKG}.rar",
 }
 
 # Helpers from modules that are not ported whole: the names _compat provides,
@@ -906,7 +964,12 @@ NAMES: dict[str, dict[str, str]] = {
     "calibre.ebooks.oeb.polish.utils": {"guess_type": "polish_guess_type"},
     "calibre.spell": {"parse_lang_code": "parse_lang_code", "DictionaryLocale": "DictionaryLocale"},
     "calibre.utils": {"StreamOrPath": "StreamOrPath"},
-    "calibre.utils.icu": {"lower": "icu_lower", "upper": "icu_upper", "sort_key": "sort_key"},
+    "calibre.utils.icu": {
+        "lower": "icu_lower",
+        "upper": "icu_upper",
+        "sort_key": "sort_key",
+        "numeric_sort_key": "numeric_sort_key",
+    },
     "calibre.utils.localization": {
         name: name
         for name in (
@@ -945,7 +1008,15 @@ NAMES: dict[str, dict[str, str]] = {
     },
     "calibre.utils.zipfile": {
         name: name
-        for name in ("ZipFile", "BadZipfile", "safe_replace", "ZIP_DEFLATED", "ZIP_STORED", "ZipInfo")
+        for name in (
+            "ZipFile",
+            "BadZipfile",
+            "safe_replace",
+            "ZIP_DEFLATED",
+            "ZIP_STORED",
+            "ZipInfo",
+            "stringFileHeader",
+        )
     },
     "calibre.ptempfile": {
         "TemporaryDirectory": "TemporaryDirectory",
@@ -991,10 +1062,19 @@ EXTERNAL: dict[tuple[str, str], tuple[str, str]] = {
     ("tinycss.color4", "parse_color_string"): (COMPAT, "parse_color_string"),
     ("calibre_extensions.usbobserver", "date_format"): (COMPAT, "macos_date_format"),
     ("zoneinfo", "ZoneInfo"): (COMPAT, "ZoneInfo"),
+    ("calibre.utils.config", "prefs"): (COMPAT, "prefs"),
+    # calibre's plugin dispatch: the ported readers, run in process.
+    ("calibre.customize.ui", "get_file_type_metadata"): (f"{PKG}._readers", "get_file_type_metadata"),
+    ("calibre.customize.ui", "set_file_type_metadata"): (COMPAT, "set_file_type_metadata"),
+    # libunzip's kept functions only read archives, which Python's zipfile reads alike.
+    ("calibre.utils", "zipfile"): ("", "zipfile"),
 }
 
 # Whole-module imports LiuXin replaces.
-IMPORT_MODULES = {"tzlocal": f"from {COMPAT} import tzlocal"}
+IMPORT_MODULES = {
+    "tzlocal": f"from {COMPAT} import tzlocal",
+    "regex": f"from {COMPAT} import regex",
+}
 
 # Imports left as they are: only functions the readers do not call use them.
 LEAVE = frozenset({"qt.core"})
@@ -1011,6 +1091,7 @@ REWRITTEN_ROOTS = frozenset(
         "odf",
         "dateutil",
         "tinycss",
+        "regex",
     }
 )
 
@@ -1142,7 +1223,8 @@ def keep_only(source: str, source_path: str, names: tuple[str, ...]) -> str:
     :raises SystemExit: If a name is not defined, or a kept definition uses a
         module-level name that is not kept.
     """
-    tree = ast.parse(source)
+    # Parse with the clauses parenthesised, so Python before 3.14 can; lines are unchanged.
+    tree = ast.parse(parenthesise_excepts(source))
     lines = source.split("\n")
     wanted = set(names)
     kept = [node for node in tree.body if _defined_names(node) & wanted]
