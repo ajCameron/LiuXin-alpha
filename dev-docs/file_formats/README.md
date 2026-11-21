@@ -33,6 +33,11 @@ Current dossiers:
 - [PDB](pdb/README.md)
 - [PDF](pdf/README.md)
 
+Across formats:
+
+- [Metadata writers](metadata-writers.md): what the writers keep, the audit that
+  checked them, and the format limits they share with calibre.
+
 Shared types:
 
 - [HTMLBook specification](html-book-spec.md): draft definition of the HTML

@@ -25,8 +25,9 @@ DESTINATION = (
     Path(__file__).resolve().parent.parent
     / "src"
     / "LiuXin_alpha"
-    / "metadata"
-    / "upstream_calibre"
+    / "utils"
+    / "libraries"
+    / "iso639"
     / "iso_codes.json.gz"
 )
 

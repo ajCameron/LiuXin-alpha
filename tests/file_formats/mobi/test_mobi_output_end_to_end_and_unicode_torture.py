@@ -530,5 +530,7 @@ def test_mobi_output_old_mode_is_deterministic_with_frozen_runtime(
     # The source OPF's description and language reach the EXTH records since the OPF 2
     # book metadata stopped dropping them; the language no longer follows the locale.
     # The text is PalmDOC-compressed, so the digest also moves with the cPalmdoc codec.
+    # The language record (EXTH 524) holds the two-letter code, "en", as calibre writes it,
+    # since lang_as_iso639_1 stopped returning ISO 639-2 codes.
     digest = sha256_hex(first)
-    assert digest == "6d6093c570c0dd5d3011f782318fa3452bf7edbd19d00fd584380f8112bb673a", f"sha256 {digest}"
+    assert digest == "18a069b34d324cba722f9ae87faa7eb497e42ff103324e20b9f52041a39460d8", f"sha256 {digest}"

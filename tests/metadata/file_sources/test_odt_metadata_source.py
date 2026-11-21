@@ -249,7 +249,7 @@ def test_odt_metadata_extracts_core_fields_and_opf_overrides(tmp_path: Path) -> 
     assert mi.authors == ["Carol", "Dan"]
     assert mi.comments and "Καλημέρα" in mi.comments
     assert set(mi.tags) == {"tag-one", "tag-two", "tag-three"}
-    assert mi.language == "en"
+    assert mi.language == "eng"
     assert mi.title_sort == "Title, Main"
     assert mi.series == "Series A"
     assert float(mi.series_index) == 3.0

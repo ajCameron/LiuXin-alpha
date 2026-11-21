@@ -608,7 +608,7 @@ def test_isbndb_metadata_from_record_fallbacks_and_rejections() -> None:
     assert mi.comments == "<p>Overview text</p>"
     assert mi.pubdate.year == 2023
     assert mi.pubdate.day == 15
-    assert mi.language == "fr"
+    assert mi.language == "fra"
     assert mi.get_identifiers()["isbn"] == "9780312621360"
     assert mi.all_isbns == ["9780306406157", "0306406152", "9780312621360"]
 

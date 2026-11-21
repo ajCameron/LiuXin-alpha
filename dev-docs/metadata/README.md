@@ -22,6 +22,7 @@ Catalog write validation.
 - [Projection views](metadata-projection-views.md): display-neutral read shapes.
 - [Dirtied queue](metadata_dirtied_queue.md): persistence-related update tracking.
 - [Writer coverage](metadata-writer-coverage-contract.md): file metadata write behaviour.
+- [Language codes](languages.md): the language table, and which code form each layer uses.
 - [Metadata CLI](metadata-cli.md): operator entry points.
 
 [WEMI container hardening](metadata-wemi-container-hardening.md) records the

@@ -117,6 +117,24 @@ def core_error_details(exc: BaseException) -> tuple[str, dict[str, Any]]:
         CoreServiceReconciliationError,
     )
 
+    from dataclasses import asdict
+    from LiuXin_alpha.catalog.api.metadata_access import MetadataReconciliationError
+    from LiuXin_alpha.catalog.api.metadata_revisions import MetadataConflictError
+    from LiuXin_alpha.catalog.api.metadata_search import MetadataSearchValidationError
+
+    if isinstance(exc, MetadataReconciliationError):
+        return "metadata_reconciliation_failed", {
+            "receipt": asdict(exc.receipt),
+            "canonical_write_committed": exc.receipt.persistence == "committed",
+        }
+    if isinstance(exc, MetadataConflictError):
+        return "metadata_conflict", {
+            "expected": asdict(exc.expected),
+            "actual": None if exc.actual is None else asdict(exc.actual),
+        }
+    if isinstance(exc, MetadataSearchValidationError):
+        return "invalid_payload", {"parameter": exc.parameter}
+
     if isinstance(exc, CoreServiceReconciliationError):
         return (
             "cache_reconciliation_failed",

@@ -31,7 +31,8 @@ from LiuXin_alpha.utils.text.xml_utils import replace_entities
 from LiuXin_alpha.utils.date import parse_date
 from LiuXin_alpha.utils.config.config_base import tweaks
 from LiuXin_alpha.utils.libraries.cleantext import clean_ascii_chars, clean_xml_chars
-from LiuXin_alpha.utils.libraries.iso639.iso639_tools import canonicalize_lang
+# calibre's canonicalize_lang, which gives a language code; iso639_tools' gives its name.
+from LiuXin_alpha.utils.localization import canonicalize_lang
 
 from LiuXin_alpha.utils.localization import trans as _
 

@@ -11,7 +11,11 @@ restore is provided. Online start operations return job receipts, not fetched re
 from __future__ import annotations
 
 import base64
+import contextlib
 import io
+import os
+import shutil
+import tempfile
 from collections.abc import Iterable, Mapping, Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -170,16 +174,132 @@ def metadata_online_sources(
     }
 
 
-def _metadata_for_write(runtime: CoreRuntime, payload: Mapping[str, Any]) -> Any:
+def _plain_metadata_mapping(payload: Mapping[str, Any]) -> bool:
+    """
+    Tell whether a write supplies its own fields as a plain mapping, rather than an Item or WEMI record.
+
+    Example:
+        >>> _plain_metadata_mapping({"metadata": {"title": "T"}}), _plain_metadata_mapping({"item_id": 7})
+        (True, False)
+
+
+    :param payload: The write request.
+    :return: Whether the fields given are all the caller means to change.
+    """
+    raw = payload.get("metadata")
+    return (
+        payload.get("item_id") is None
+        and isinstance(raw, Mapping)
+        and not ("wemi" in raw or "liuxin" in raw)
+    )
+
+
+def _existing_metadata(data: bytes, file_type: str) -> Any:
+    """
+    Read a file's current metadata in calibre's form, without its cover, or ``None`` if it cannot be read.
+
+    The cover is left out so that writing the record back does not re-encode an
+    unchanged cover.
+
+    Example:
+        >>> _existing_metadata(b"not a book", "epub") is None
+        True
+
+
+    :param data: The file.
+    :param file_type: Its format.
+    :return: The metadata, or ``None``.
+    """
+    from LiuXin_alpha.metadata.file_sources import get_metadata
+
+    metadata: Any
+    try:
+        metadata = get_metadata(io.BytesIO(data), force_type=file_type)
+        # Most readers give LiuXin's record; some (MOBI) already give calibre's.
+        convert = getattr(metadata, "to_calibre", None)
+        if callable(convert):
+            metadata = convert()
+    except Exception:
+        return None
+    if metadata is None:
+        return None
+    metadata.cover_data = (None, None)
+    return metadata
+
+
+def _supplied_authors(values: dict[str, Any]) -> tuple[bool, list[str]]:
+    """
+    Take the authors out of a metadata mapping, under either of their keys.
+
+    Example:
+        >>> _supplied_authors({"author": "Ann"}), _supplied_authors({"title": "T"})
+        ((True, ['Ann']), (False, []))
+
+
+    :param values: The mapping; ``authors`` and ``author`` are removed from it.
+    :return: Whether authors were given, and the names; a string is one name.
+    :raises CoreDispatchError: If the authors are neither a string nor a sequence.
+    """
+    given = "authors" in values or "author" in values
+    raw = values.pop("authors", values.pop("author", ()))
+    if isinstance(raw, str):
+        return given, [raw]
+    if isinstance(raw, Sequence):
+        return given, [str(value) for value in raw]
+    raise CoreDispatchError("`metadata.authors` must be a string or array.")
+
+
+def _plain_metadata(values: dict[str, Any], existing: Any) -> Any:
+    """
+    Build the record for a plain metadata mapping: the file's own fields, with the supplied ones over them.
+
+    Example:
+        >>> _plain_metadata({"title": "T"}, None).authors
+        ['Unknown']
+
+
+    :param values: A copy of the mapping; it is consumed.
+    :param existing: The file's current metadata, or ``None`` if it could not be read.
+    :return: calibre's metadata, ready for a writer.
+    :raises CoreDispatchError: If the authors are neither a string nor a sequence.
+    """
+    from LiuXin_alpha.metadata.book.base import calibreMetadata
+
+    given_authors, authors = _supplied_authors(values)
+    title = str(values.pop("title", "") or "")
+    if existing is None:
+        metadata = calibreMetadata(title or "Unknown", authors or ["Unknown"])
+    else:
+        metadata = existing
+        metadata.title = title or metadata.title or "Unknown"
+        if given_authors or not metadata.authors:
+            metadata.authors = authors or ["Unknown"]
+    for key, value in values.items():
+        if key == "identifiers":
+            setter = getattr(metadata, "set_identifiers", None)
+            if callable(setter) and isinstance(value, Mapping):
+                setter(dict(value))
+                continue
+        setattr(metadata, str(key), value)
+    return metadata
+
+
+def _metadata_for_write(
+    runtime: CoreRuntime, payload: Mapping[str, Any], existing: Any = None
+) -> Any:
     """
     Prefer a non-None Item ID for hydration, otherwise normalize supplied metadata into a Calibre-compatible value.
 
     Mapping keys wemi/liuxin select LiuXinWEMIMetadata conversion. Other mappings
-    use title plus authors/author, defaulting falsey title and empty author lists to
-    Unknown. Author strings remain single unstripped entries; other Sequences are
-    stringified elementwise, including bytes. The authors key wins and both aliases
-    are removed. Remaining fields are assigned without an adapter allowlist; Mapping
-    identifiers use set_identifiers when available. Errors propagate before writing.
+    change only the fields they name: they start from ``existing``, the file's
+    current metadata, when it could be read, so a field left out keeps what the file
+    says rather than being cleared or set to Unknown. Without ``existing``, a falsey
+    title and empty authors default to Unknown. An explicitly empty author list is
+    Unknown either way. Author strings remain single unstripped entries; other
+    Sequences are stringified elementwise, including bytes. The authors key wins and
+    both aliases are removed. Remaining fields are assigned without an adapter
+    allowlist; Mapping identifiers use set_identifiers when available. Errors
+    propagate before writing.
 
     Example:
         >>> metadata = _metadata_for_write(runtime, {"item_id": 7})  # doctest: +SKIP
@@ -187,7 +307,8 @@ def _metadata_for_write(runtime: CoreRuntime, payload: Mapping[str, Any]) -> Any
 
     :param runtime: Runtime whose selected read source is used only for Item hydration.
     :param payload: Request with non-None item_id or a metadata Mapping; supplied metadata is ignored for Item hydration.
-    :return: Hydrated/converted metadata or a new calibreMetadata object populated from a shallow Mapping copy.
+    :param existing: The file's current metadata in calibre's form, from :func:`_existing_metadata`.
+    :return: Hydrated/converted metadata, or calibreMetadata holding the file's fields with the supplied ones over them.
     :raises CoreDispatchError: If Item ID validation fails, metadata is absent/non-Mapping, or authors is not str/Sequence.
     """
     if payload.get("item_id") is not None:
@@ -212,28 +333,62 @@ def _metadata_for_write(runtime: CoreRuntime, payload: Mapping[str, Any]) -> Any
 
             metadata = LiuXinWEMIMetadata.from_mapping(values).to_calibre()
         else:
-            from LiuXin_alpha.metadata.book.base import calibreMetadata
-
-            authors_raw = values.pop("authors", values.pop("author", ()))
-            if isinstance(authors_raw, str):
-                authors = [authors_raw]
-            elif isinstance(authors_raw, Sequence):
-                authors = [str(value) for value in authors_raw]
-            else:
-                raise CoreDispatchError("`metadata.authors` must be a string or array.")
-            metadata = calibreMetadata(
-                str(values.pop("title", "") or "Unknown"),
-                authors or ["Unknown"],
-            )
-            for key, value in values.items():
-                if key == "identifiers":
-                    setter = getattr(metadata, "set_identifiers", None)
-                    if callable(setter) and isinstance(value, Mapping):
-                        setter(dict(value))
-                        continue
-                setattr(metadata, str(key), value)
+            metadata = _plain_metadata(values, existing)
 
     return metadata
+
+
+def _replace_file(target: str, before: os.stat_result, payload: bytes) -> None:
+    """
+    Replace a file with new contents by writing them beside it and renaming them into place once complete.
+
+    Example:
+        Replace a file read with status ``before``::
+
+            _replace_file("/books/a.epub", before, rewritten)
+
+
+    :param target: The file's real path.
+    :param before: Its status when it was read.
+    :param payload: The new contents.
+    :return: None.
+    :raises CoreDispatchError: If the file changed since it was read, or the new file could not be written;
+        the old file is untouched either way.
+    """
+    directory, name = os.path.split(target)
+    descriptor, staged = tempfile.mkstemp(
+        dir=directory or ".", prefix=f".{name}.", suffix=".tmp"
+    )
+    try:
+        with os.fdopen(descriptor, "wb") as handle:
+            handle.write(payload)
+            handle.flush()
+            os.fsync(handle.fileno())
+        shutil.copymode(target, staged)
+        now = os.stat(target)
+        if (now.st_size, now.st_mtime_ns) != (before.st_size, before.st_mtime_ns):
+            raise CoreDispatchError(
+                "The file changed while its metadata was being rewritten, so nothing was written.",
+                code="metadata_file_changed",
+                details={"path": target},
+            )
+        os.replace(staged, target)
+    except BaseException as error:
+        with contextlib.suppress(OSError):
+            os.unlink(staged)
+        if isinstance(error, OSError):
+            raise CoreDispatchError(
+                f"Writing the rewritten file failed ({error}); the original is untouched.",
+                code="metadata_file_write_failed",
+                details={"path": target},
+            ) from error
+        raise
+    with contextlib.suppress(OSError, AttributeError):
+        folder = os.open(directory or ".", os.O_RDONLY)
+        try:
+            os.fsync(folder)
+        finally:
+            os.close(folder)
 
 
 def metadata_file_write(
@@ -245,13 +400,17 @@ def metadata_file_write(
 
     Exactly one nonblank path/base64 is required. Type is supplied lowercased text
     or a path suffix; writer capability is checked before metadata hydration and
-    base64 decoding. Path writes use r+b with no temporary replacement or rollback,
-    then read file size; byte writes return the complete rewritten buffer.
+    base64 decoding. A plain metadata mapping changes only the fields it names (see
+    :func:`_metadata_for_write`). The writer always works on a copy in memory; byte
+    writes return the complete rewritten buffer.
 
-    Reported writer traces are checked after the write and size observation, so
-    failure can follow partial file modification. Unreported writer/I/O errors
-    propagate directly. updated=True means the writer returned without reported
-    traces, not that metadata was compared before/after or independently validated.
+    A path is only replaced once the rewritten file is complete and the writer
+    reported nothing: the new file is written beside the old one, synced, given its
+    permissions, and renamed over it, so a failure part-way leaves the file as it
+    was. A symbolic link is followed and stays a link; other hard links keep the old
+    file. If the file changed while it was being rewritten, nothing is written.
+    updated=True means the writer returned without reported traces, not that
+    metadata was compared before/after or independently validated.
 
     Example:
         >>> receipt = metadata_file_write(runtime, command)  # doctest: +SKIP
@@ -260,7 +419,8 @@ def metadata_file_write(
     :param runtime: Runtime supplying optional Item metadata hydration; arbitrary supplied paths are not confined here.
     :param command: Command with path or base64, optional/inferred file_type, and item_id or metadata for the writer.
     :return: Type, path-or-None, rewritten bytes for byte input or content=None for path input, byte size, and updated=True.
-    :raises CoreDispatchError: For input/type/base64/metadata validation, unavailable writers, or collected writer failures.
+    :raises CoreDispatchError: For input/type/base64/metadata validation, unavailable writers, collected writer
+        failures (the file is then unchanged), or a file that changed while being rewritten.
     """
     payload = _payload(command)
     path = str(payload.get("path") or "").strip()
@@ -285,7 +445,25 @@ def metadata_file_write(
             details={"file_type": file_type},
         )
 
-    metadata = _metadata_for_write(runtime, payload)
+    before: os.stat_result | None = None
+    target = ""
+    if path:
+        target = os.path.realpath(path)
+        with open(target, "rb") as handle:
+            before = os.fstat(handle.fileno())
+            initial = handle.read()
+    else:
+        try:
+            initial = base64.b64decode(encoded, validate=True)
+        except Exception as exc:
+            raise CoreDispatchError("`base64` is not valid base64 data.") from exc
+
+    existing = (
+        _existing_metadata(initial, file_type)
+        if _plain_metadata_mapping(payload)
+        else None
+    )
+    metadata = _metadata_for_write(runtime, payload, existing)
 
     errors: list[str] = []
 
@@ -304,36 +482,25 @@ def metadata_file_write(
         """
         errors.append(str(trace))
 
-    if path:
-        with open(path, "r+b") as path_stream:
-            set_file_type_metadata(
-                path_stream,
-                metadata,
-                file_type,
-                report_error=report_error,
-            )
-        content: bytes | None = None
-        size = Path(path).stat().st_size
-    else:
-        try:
-            initial = base64.b64decode(encoded, validate=True)
-        except Exception as exc:
-            raise CoreDispatchError("`base64` is not valid base64 data.") from exc
-        memory_stream = io.BytesIO(initial)
-        set_file_type_metadata(
-            memory_stream,
-            metadata,
-            file_type,
-            report_error=report_error,
-        )
-        content = memory_stream.getvalue()
-        size = len(content)
+    memory_stream = io.BytesIO(initial)
+    set_file_type_metadata(
+        memory_stream,
+        metadata,
+        file_type,
+        report_error=report_error,
+    )
+    rewritten = memory_stream.getvalue()
     if errors:
         raise CoreDispatchError(
             f"The `{file_type}` metadata writer failed.",
             code="metadata_file_write_failed",
             details={"file_type": file_type, "errors": errors},
         )
+    content: bytes | None = rewritten
+    if path and before is not None:
+        _replace_file(target, before, rewritten)
+        content = None
+    size = len(rewritten)
     return {
         "file_type": file_type,
         "path": path or None,

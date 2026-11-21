@@ -76,7 +76,7 @@ def test_calibre_book_metadata_keeps_every_package_field() -> None:
     assert mi.get_identifiers() == {"isbn": "9780000000002"}
     assert mi.publisher == "Pub Co"
     assert mi.tags == ["Fiction", "Sea; Ships"]
-    assert mi.languages == ["fr"]
+    assert mi.languages == ["fra"]
     assert mi.comments == "A blurb."
     assert isinstance(mi.pubdate, datetime)
     assert (mi.pubdate.year, mi.pubdate.month, mi.pubdate.day) == (2001, 2, 3)
@@ -101,7 +101,7 @@ def test_liuxin_book_metadata_keeps_every_package_field() -> None:
     assert list(md.authors) == ["Jane Doe"]
     assert list(md.publisher) == ["Pub Co"]
     assert list(md.tags) == ["Fiction", "Sea; Ships"]
-    assert md.languages == ["fr"]
+    assert md.languages == ["fra"]
     assert list(md.comments) == ["A blurb."]
     assert list(md.series) == ["Saga"]
     assert dict(md.series_index) == {"Saga": 2.0}
@@ -171,7 +171,7 @@ def test_conversion_reads_the_book_metadata_from_an_opf2_package() -> None:
     assert values("title") == ["Field Test"]
     assert values("publisher") == ["Pub Co"]
     assert values("subject") == ["Fiction", "Sea; Ships"]
-    assert values("language") == ["fr"]
+    assert values("language") == ["fra"]
     assert values("description") == ["A blurb."]
     assert values("rights") == ["CC-BY"]
     assert values("date")[0].startswith("2001-02-03")

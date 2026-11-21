@@ -497,7 +497,8 @@ def test_mobi_metadata_updater_update_writes_broad_exth_records(monkeypatch) -> 
     assert records[501] == [b"EBOK"]
     assert records[503] == ["Unicode MOBI — café — 世界 😀".encode()]
     assert records[504] == [b"ASIN-123"]
-    assert records[524] == [b"eng"]
+    # The language is written as calibre writes it, as a two-letter code where one exists.
+    assert records[524] == [b"en"]
     assert records[999] == [b"keep"]
     assert any(call[0] == "fetchEXTHFields" for call in updater.calls)
     assert updater.record0[92:96] != b"\0\0\0\0"

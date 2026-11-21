@@ -110,7 +110,7 @@ def test_epub_calibre_metadata_keeps_the_package_fields() -> None:
     assert mi.author_sort == "Doe, Jane"
     assert mi.publisher == "Pub Co"
     assert mi.tags == ["Fiction"]
-    assert mi.languages == ["de"]
+    assert mi.languages == ["deu"]
     assert mi.comments == "A blurb."
     assert mi.rights == "CC-BY"
     assert (mi.series, mi.series_index) == ("Saga", 3.0)
@@ -132,7 +132,7 @@ def test_epub_liuxin_metadata_keeps_the_package_fields() -> None:
     assert md.creator_sort == "Doe, Jane"
     assert list(md.publisher) == ["Pub Co"]
     assert list(md.tags) == ["Fiction"]
-    assert md.languages == ["de"]
+    assert md.languages == ["deu"]
     assert list(md.comments) == ["A blurb."]
     assert md.rights == "CC-BY"
     assert dict(md.series_index) == {"Saga": 3.0}
@@ -169,7 +169,7 @@ def test_extz_metadata_keeps_the_package_fields(
     assert list(md.authors) == ["Jane Doe"]
     assert list(md.publisher) == ["Pub Co"]
     assert list(md.tags) == ["Fiction"]
-    assert md.languages == ["de"]
+    assert md.languages == ["deu"]
     assert list(md.comments) == ["A blurb."]
     assert md.rights == "CC-BY"
     assert dict(md.series_index) == {"Saga": 3.0}

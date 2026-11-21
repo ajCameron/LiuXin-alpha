@@ -123,6 +123,16 @@ class PortableMacrosAPI(abc.ABC):
         """
 
     @abc.abstractmethod
+    def lock_metadata_snapshot(self) -> None:
+        """Reserve catalogue tables before checking an optimistic edit precondition.
+
+        Require an owned managed write transaction. SQLite already reserves its
+        writer; PostgreSQL locks catalogue tables against concurrent row writes
+        through transaction completion. This deliberately coarse boundary covers
+        direct SQL writers as well as cooperating Catalog services.
+        """
+
+    @abc.abstractmethod
     def inspect_repair_references(self, table: str) -> list[PhysicalReference]:
         """Inventory inbound physical and polymorphic references without changing data."""
 

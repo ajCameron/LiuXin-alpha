@@ -496,7 +496,7 @@ def test_google_item_to_metadata_parses_volume_info(monkeypatch) -> None:
     assert mi.authors == ["Alice Example", "Bob Example"]
     assert mi.publisher == "Example House"
     assert mi.tags == ["Fiction", "Sci;Fi"]
-    assert mi.language == "en"
+    assert mi.language == "eng"
     assert mi.pubdate == datetime(2020, 2, 3)
     assert mi.get_identifiers()["google"] == "gid-1"
     assert mi.get_identifiers()["isbn"] == "9780306406157"
@@ -576,7 +576,7 @@ def test_google_legacy_feed_helpers_parse_metadata(monkeypatch) -> None:
     assert mi.title == "Feed Title: Feed Subtitle"
     assert mi.authors == ["Alice Feed"]
     assert mi.publisher == "Feed House"
-    assert mi.language == "en"
+    assert mi.language == "eng"
     assert mi.pubdate == datetime(2021, 4, 5)
     assert mi.tags == ["Fiction", "Science; Fiction"]
     assert mi.get_identifiers()["google"] == "gid-feed"

@@ -47,7 +47,18 @@ from LiuXin_alpha.databases.db_types.query_types import (
 
 
 def _freeze_key(value: Any) -> Hashable:
-    """Snapshot supported query operands without identity- or repr-based keys."""
+    """
+    Snapshot supported query operands without identity- or repr-based keys.
+
+    Example:
+        >>> _freeze_key([1, 2]) == _freeze_key([1, 2])
+        True
+
+
+    :param value: Supported scalar, dataclass or nested container of query operands.
+    :return: Hashable structural snapshot; providers and unsupported values raise
+        TypeError.
+    """
     if value is LINK_TYPE_UNSET:
         return ("link-type-unset",)
     if isinstance(value, ProvidedMatch):
@@ -135,16 +146,38 @@ def _trigrams(value: str) -> frozenset[str]:
 
 
 class _UnorderedSortValue(ValueError):
-    """A NaN requires the existing stable full sort instead of heap selection."""
+    """
+    A NaN requires the existing stable full sort instead of heap selection.
+
+    Example:
+        A floating NaN selects the stable full-sort path instead of heap paging.
+    """
 
 
 @dataclass(frozen=True, slots=True)
 class _DescendingSortKey:
-    """Reverse one present-value component without reversing nulls or row-ID ties."""
+    """
+    Reverse one present-value component without reversing nulls or row-ID ties.
+
+    Example:
+        >>> _DescendingSortKey((1, 2)) < _DescendingSortKey((1, 1))
+        True
+    """
 
     value: tuple[int, Any]
 
     def __lt__(self, other: _DescendingSortKey) -> bool:
+        """
+        Reverse comparison of present-value sort components.
+
+        Example:
+            Wrapped keys reverse the value component while row-ID ties stay ascending.
+
+
+        :param other: Another wrapped present-value key.
+        :return: True when this underlying value sorts after the other in ascending
+            order.
+        """
         return self.value > other.value
 
 
@@ -214,7 +247,12 @@ class CacheQueryEngine:
 
 
         :param storage: Backend implementing cached tables, fields and relation reads.
-        :return: None; retains the backend without reading or validating it.
+        :param plan_cache_size: Maximum query validation plans retained; zero disables
+            plan retention.
+        :param result_cache_size: Maximum query candidate populations retained; zero
+            disables result retention.
+        :return: None; retains storage and empty memoization/index state after
+            validating nonnegative limits.
         """
 
         self.storage = storage
@@ -235,7 +273,7 @@ class CacheQueryEngine:
 
     def reset(self, *, keep_plans: bool = False) -> None:
         """
-        Discard normalized text values and trigram indexes for every field.
+        Discard derived indexes and results, optionally retaining validated plans.
 
         Example:
             >>> engine = CacheQueryEngine(object())
@@ -245,7 +283,9 @@ class CacheQueryEngine:
             {}
 
 
-        :return: None; clears both index dictionaries without changing storage.
+        :param keep_plans: Keep validation-plan entries when true; result populations
+            are always cleared.
+        :return: None; clears derived query state without changing storage.
         """
 
         self._text_values.clear()
@@ -257,6 +297,20 @@ class CacheQueryEngine:
 
     @staticmethod
     def _remember[K, V](cache: OrderedDict[K, V], key: K, value: V, limit: int) -> None:
+        """
+        Retain one most-recently-used entry within the configured bound.
+
+        Example:
+            An entry hit by insertion moves to the newest end before eviction.
+
+
+        :param cache: Ordered dictionary owned by this query engine.
+        :param key: Structural lookup key for the new or refreshed entry.
+        :param value: Value retained without copying.
+        :param limit: Maximum retained entries; zero disables insertion.
+        :return: None; inserts or updates the entry and evicts the oldest excess
+            entries.
+        """
         if limit:
             cache[key] = value
             cache.move_to_end(key)
@@ -265,6 +319,17 @@ class CacheQueryEngine:
 
     @staticmethod
     def _result_key(query: CacheQuery, generation: int) -> Hashable:
+        """
+        Key a matching population independently of sorting, projection and paging.
+
+        Example:
+            Two pages with identical filters share candidates but still sort/project independently.
+
+
+        :param query: Query whose filters define candidate membership.
+        :param generation: Visible cache generation to which membership belongs.
+        :return: Structural key for the generation and matching criteria.
+        """
         return _freeze_key(
             (
                 generation,
@@ -278,11 +343,19 @@ class CacheQueryEngine:
         )
 
     def row_local_results(self) -> list[tuple[CacheQuery, set[int]]]:
-        """Transfer row-local membership to a pending repair before resetting.
+        """
+        Transfer row-local membership to a pending repair before resetting.
 
         The caller must reset this engine before changing the saved sets, and
         serialize the complete invalidate/refresh/repair boundary. These private
         sets are not immutable snapshots or part of the public query result.
+
+        Example:
+            A scalar equality filter can be repaired for changed IDs without rescanning all rows.
+
+
+        :return: Query/set pairs whose privately owned populations can be transferred
+            for repair.
         """
         result = []
         for key, ids in self._results.items():
@@ -292,9 +365,34 @@ class CacheQueryEngine:
             def physical(
                 name: str, query: CacheQuery = query, columns: Sequence[str] = columns
             ) -> bool:
+                """
+                Check that a repair operand resolves to a physical column.
+
+                Example:
+                    A relationship field is excluded from row-local repair.
+
+
+                :param name: Bare or table-qualified field name.
+                :param query: Captured query whose owner table defines the allowed
+                    prefix.
+                :param columns: Captured physical columns of that owner table.
+                :return: True when the field belongs to the captured physical column
+                    set.
+                """
                 return name.removeprefix(query.table + ".") in columns
 
             def local(node: RowPredicate | None) -> bool:
+                """
+                Recognize predicate trees whose truth depends only on one physical row.
+
+                Example:
+                    Foreign, linked and provider predicates require fresh execution rather than repair.
+
+
+                :param node: Optional physical predicate subtree to classify.
+                :return: True for supported row-local leaves and Boolean combinations
+                    only.
+                """
                 if node is None:
                     return True
                 if isinstance(node, BooleanMatch):
@@ -323,12 +421,24 @@ class CacheQueryEngine:
         *,
         generation: int,
     ) -> None:
-        """Repair proven row-local membership only within a bounded work budget.
+        """
+        Repair proven row-local membership only within a bounded work budget.
 
         Call after resetting the old generation and a successful bounded refresh.
         Saved membership is exclusively owned and edited in place, avoiding a
         population-sized copy. Graph, text-index and provider queries are excluded
         by row_local_results; larger updates remain evicted.
+
+        Example:
+            Removing one matching row deletes its ID from a retained scalar query population.
+
+
+        :param saved: Privately owned candidate sets transferred before the old
+            generation reset.
+        :param changes: Changed IDs by table, including inserted and deleted identities.
+        :param generation: New cache generation to associate with repaired memberships.
+        :return: None; repairs bounded local populations or leaves oversized work
+            evicted.
         """
         if sum(len(changes.get(query.table, ())) for query, _ in saved) > 50:
             return
@@ -346,6 +456,18 @@ class CacheQueryEngine:
             self.repaired_results += 1
 
     def _validate_query(self, query: CacheQuery, evaluator: PredicateEvaluator) -> None:
+        """
+        Validate every field, relationship and predicate branch before candidate filtering.
+
+        Example:
+            An invalid field still raises when another predicate would make the result empty.
+
+
+        :param query: Structured physical query to check.
+        :param evaluator: Evaluator used for validating the native predicate tree.
+        :return: None when all declarations resolve; invalid fields/operators/topology
+            raise.
+        """
         self._table(query.table)
         for predicate in query.predicates:
             self._canonical_field(query.table, predicate.field)
@@ -784,7 +906,8 @@ class CacheQueryEngine:
         offset: int,
         limit: int | None,
     ) -> list[int]:
-        """Select a small prefix or suffix; use stable full sorting for larger pages.
+        """
+        Select a small prefix or suffix; use stable full sorting for larger pages.
 
         Keep at most the smaller of the requested prefix and remaining suffix,
         only when it is less than a quarter of the matches. Every requested sort
@@ -792,6 +915,18 @@ class CacheQueryEngine:
         last in each direction, with ascending row identity breaking complete ties.
         NaNs lack a total ordering, so preserve their legacy stable-sort behaviour.
         Bounds are integer-normalized and fields validated by the caller first.
+
+        Example:
+            A small first page may use a heap while a large middle page uses stable sorting.
+
+
+        :param table: Owning main table for sort-field resolution.
+        :param ids: Complete matching identity population.
+        :param sort_specs: Validated ordering definitions; empty means ascending IDs.
+        :param offset: Integer-normalized nonnegative page start.
+        :param limit: Integer-normalized page size, or None for the remaining
+            population.
+        :return: Ordered visible identity list, using bounded selection only when safe.
         """
         total = len(ids)
         if limit == 0 or offset >= total:
@@ -810,6 +945,16 @@ class CacheQueryEngine:
         reverse = not resolved[0][1] if resolved else False
 
         def key(row_id: int) -> tuple[Any, ...]:
+            """
+            Build one total-order heap key with null placement and stable identity ties.
+
+            Example:
+                A nested NaN raises the internal fallback signal instead of entering the heap.
+
+
+            :param row_id: Candidate whose declared sort values are read.
+            :return: Mixed-direction key ending in an ascending row-ID tie breaker.
+            """
             parts: list[Any] = []
             for field, ascending in resolved:
                 value = self.storage.get_cached_value(row_id, field)
@@ -968,7 +1113,21 @@ class CacheQueryEngine:
         evaluator: PredicateEvaluator,
         candidates: set[int] | None = None,
     ) -> set[int]:
-        """Evaluate filters once; result caching never retains mutable records."""
+        """
+        Evaluate filters once; result caching never retains mutable records.
+
+        Example:
+            A repair can evaluate only the changed owner IDs instead of every row.
+
+
+        :param query: Validated query defining physical predicates, relation and text
+            criteria.
+        :param evaluator: Per-execution predicate evaluator with shared row
+            observations.
+        :param candidates: Optional restricted candidates for a bounded repair; None
+            starts from all IDs.
+        :return: Independent set of matching identities after reference checks.
+        """
         if candidates is None:
             ids = self._all_ids(query.table)
         else:
