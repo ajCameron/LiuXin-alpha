@@ -206,7 +206,7 @@ def test_every_port_registers_above_the_installed_calibre() -> None:
     register_upstream_calibre_readers(registry)
     made = register_ported_calibre_readers(registry)
     ported, without_poppler = made[:-1], made[-1]
-    assert len(ported) == len(PORTED_READERS) == 23
+    assert len(ported) == len(PORTED_READERS) == 25
     assert without_poppler is PortedPdfReaderWithoutPoppler
     assert PORTED_PRIORITY > WITHOUT_POPPLER_PRIORITY > UPSTREAM_PRIORITY
     for provider in ported:
@@ -337,9 +337,9 @@ def test_unknown_ports_are_refused() -> None:
     :return: None after both lookups are refused.
     """
     with pytest.raises(KeyError):
-        ported_reader("chm")
+        ported_reader("djvu")
     with pytest.raises(KeyError):
-        adapt_ported_reader("Read CHM metadata")
+        adapt_ported_reader("Read DJVU metadata")
 
 
 @pytest.mark.parametrize(

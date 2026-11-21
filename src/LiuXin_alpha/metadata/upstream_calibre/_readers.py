@@ -49,6 +49,8 @@ READER_MODULES: dict[str, str] = {
     **dict.fromkeys(("cbz", "cbr", "cb7", "cbc"), "comic"),
     **dict.fromkeys(("zip", "oebzip"), "zip"),
     "rar": "rar",
+    "lit": "lit",
+    "chm": "chm",
 }
 
 #: Modules whose ``get_metadata`` calibre's plugin calls with the file type.
