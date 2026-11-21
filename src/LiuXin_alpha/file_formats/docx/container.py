@@ -180,12 +180,13 @@ def read_doc_props(raw: _typing.Any, mi: _typing.Any, XPath: _typing.Any) -> Non
         if subject.text and subject.text.strip():
             tags.append(subject.text.strip().replace(",", "_"))
     for keywords in XPath("//cp:keywords")(root):
-        if keywords.text and keywords.text.strip():
-            for x in keywords.text.split():
-                # When writing tags out this encoding is used to replace spaces - otherwise the above will split the
-                # tags on spaces
-                x = re.sub(r"_-_", " ", x)
-                tags.extend(y.strip() for y in x.split(",") if y.strip())
+        text = (keywords.text or "").strip()
+        if text:
+            # Keywords with commas or semicolons are split there, so a tag may hold
+            # spaces; others are split on spaces, as calibre splits them. "_-_" is how
+            # LiuXin once wrote a space inside a tag.
+            parts = re.split(r"[,;]", text) if re.search(r"[,;]", text) else text.split()
+            tags.extend(tag for tag in (re.sub(r"_-_", " ", part).strip() for part in parts) if tag)
     if tags:
         mi.tags = tags
 

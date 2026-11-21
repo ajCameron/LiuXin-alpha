@@ -88,6 +88,11 @@ were the ones on the stacked branches, without #178's fixes for OPF 2 fields.
 
 ### Differences to decide on
 
+- **DOCX keywords.** calibre splits a DOCX's keywords on spaces as well as commas, so
+  a tag holding a space comes back as two. LiuXin's reader splits on commas or
+  semicolons when the keywords have any, and on spaces only otherwise (see
+  [metadata writers](../file_formats/metadata-writers.md)). The ported provider keeps
+  calibre's reading.
 - **PDF Subject.** calibre makes a PDF's Subject its first tag. The XMP
   specification maps it to `dc:description`, and LiuXin's default PDF policy reads it
   as the description (see [combining Info and XMP](../file_formats/pdf/README.md#combining-info-and-xmp)).

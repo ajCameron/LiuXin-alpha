@@ -1585,7 +1585,9 @@ def set_metadata(stream: _typing.Any, mi: _typing.Any) -> None:
         lrf.title = mi.title
 
     if mi.authors:
-        lrf.author = authors_to_string(authors=mi.authors, xml_safe=True)
+        # The XML field escapes the ampersand itself. LiuXin once wrote it as the private
+        # token ",0420,", which other readers show as written; its reader still decodes it.
+        lrf.author = authors_to_string(authors=mi.authors)
 
     # Tags are stored in category and classification - nullify the classification and store them as a csv in category
     if mi.tags:

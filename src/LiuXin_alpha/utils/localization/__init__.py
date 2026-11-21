@@ -732,15 +732,16 @@ def lang_as_iso639_1(name_or_code):
     """
     Takes a language as a iso639_2 code and tries to return it as an iso639_1 code. Seems to just run a lookup against a map of the 3 digit iso639_2 codes to the 2 digit iso639_1 codes and returns a iso_639_1 code if found.
 
+    calibre's ISO 639 table (``iso639.pickle``) is built with calibre and does not ship
+    with LiuXin, so the lookup falls back to the ISO 639-2 table LiuXin does ship.
+
     Example:
-        Exercise lang as iso639 1 through a consuming regression::
+        >>> lang_as_iso639_1("fra"), lang_as_iso639_1("ger"), lang_as_iso639_1("en"), lang_as_iso639_1("xyz")
+        ('fr', 'de', 'en', None)
 
-            python -m pytest -q tests/utils/language_tools/test_pluralizers.py
 
-
-    :param name_or_code: Value supplied for name or code under the utility contract.
-    :return: The normalized value, metadata record, path, stream result or collection
-        described above.
+    :param name_or_code: A language code of two or three letters, either ISO 639-2 form.
+    :return: The two-letter code, or ``None`` when the language has none.
     """
     code = canonicalize_lang(name_or_code)
     if code is not None:
@@ -748,10 +749,10 @@ def lang_as_iso639_1(name_or_code):
             iso639 = _load_iso639()
         except IOError:
             from LiuXin_alpha.utils.libraries.iso639.iso639_tools import (
-                canonicalize_lang as fallback_canonicalize_lang,
+                lang_as_iso639_1 as fallback_lang_as_iso639_1,
             )
 
-            return fallback_canonicalize_lang(code, iso_639_2=True)
+            return fallback_lang_as_iso639_1(code) or None
         return iso639["3to2"].get(code, None)
 
 

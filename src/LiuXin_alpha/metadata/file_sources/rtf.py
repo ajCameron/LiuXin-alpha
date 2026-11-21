@@ -779,7 +779,8 @@ def set_metadata(stream, options):
 
     authors = getattr(options, "authors", None)
     if authors is not None:
-        author_text = authors if isinstance(authors, str) else "& ".join(str(x) for x in authors)
+        # Commas, as calibre writes and reads RTF authors; LiuXin's reader splits on them too.
+        author_text = authors if isinstance(authors, str) else ", ".join(str(x) for x in authors)
         src_text = replace_or_create(src_text, "author", author_text)
 
     tags = getattr(options, "tags", None)
