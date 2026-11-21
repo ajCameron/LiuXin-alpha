@@ -214,8 +214,8 @@ tests with external and nested entities.
   frame with `svg:width` and an image with `xlink:href` through
   `file_formats.odf` leaves the `svg` and `xlink` prefixes undeclared in
   `content.xml`. odfpy 1.4.1 from PyPI declares them. No LiuXin code writes ODT
-  through it today; the ODT reader and converter only load. See the
-  [ODT notes](../file_formats/odt/README.md).
+  through it today; the ODT reader and converter only load, and the ODT metadata
+  writer edits `meta.xml` with lxml. See the [ODT notes](../file_formats/odt/README.md).
 
 - **LiuXin's own Plucker reader misread the metadata records.** Each record
   is a type, a length and an argument, and the length counts the argument's

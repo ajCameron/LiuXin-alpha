@@ -41,7 +41,8 @@ from tests.support.file_format_docx import build_unicode_docx
 from tests.support.file_format_lrf import lrf_book
 
 PORTED = {"docx": "docx", "epub": "epub", "fb2": "fb2", "htmlz": "extz", "txtz": "extz", "lrf": "lrf",
-          "mobi": "mobi", "azw": "mobi", "azw3": "mobi", "prc": "mobi", "pdb": "pdb", "rtf": "rtf"}  # fmt: skip
+          "mobi": "mobi", "azw": "mobi", "azw3": "mobi", "prc": "mobi", "pdb": "pdb", "rtf": "rtf",
+          "odt": "odt"}  # fmt: skip
 
 
 def _values(raw: Any) -> list[str]:
@@ -276,13 +277,15 @@ def _outside_metadata(ftype: str, data: bytes) -> Any:
     :param data: The book.
     :return: Something equal before and after a write that changed only the metadata.
     """
-    if ftype in ("docx", "epub", "htmlz", "txtz"):
+    if ftype in ("docx", "epub", "htmlz", "txtz", "odt"):
         with zipfile.ZipFile(io.BytesIO(data)) as archive:
             names = [item.filename for item in archive.infolist()]
             kept = {
                 name: archive.read(name)
                 for name in names
-                if not name.endswith(".opf") and not name.startswith("docProps/")
+                if not name.endswith(".opf")
+                and not name.startswith("docProps/")
+                and not (ftype == "odt" and name == "meta.xml")
             }
         return names, kept
     if ftype in ("mobi", "azw", "azw3", "prc", "pdb"):
@@ -380,4 +383,4 @@ def test_every_real_book_keeps_its_contents_and_reads_back_in_both_readers(
                     )
             else:
                 checked += 1
-    assert checked >= 10
+    assert checked >= 17

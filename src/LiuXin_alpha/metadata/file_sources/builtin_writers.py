@@ -311,6 +311,50 @@ else:
 
 
 try:
+    from LiuXin_alpha.metadata.file_sources.odt import set_metadata as odt_set_metadata
+except Exception as e:
+    debug_str = (
+        "Cannot import set_metadata from LiuXin.metadata.file_sources.odt - ODTMetadataWriter cannot be initialized."
+    )
+    default_log.log_exception(debug_str, e, "DEBUG")
+else:
+    default_log.info("ODTMetadataWriter components imported successfully")
+
+    class ODTMetadataWriter(MetadataWriterPlugin):
+
+        """
+        Write metadata into an ODT's ``meta.xml``, as calibre's ODT writer does.
+
+        Example:
+            >>> ODTMetadataWriter.name, sorted(ODTMetadataWriter.file_types)
+            ('Set ODT metadata', ['odt'])
+        """
+        name = "Set ODT metadata"
+        file_types = frozenset(["odt"])
+        description = _("Set metadata in %s files") % "ODT"
+
+        def set_metadata(self, stream, mi, type):
+            """
+            Replace the book's ``meta.xml``, leaving every other member of the package as it was.
+
+            Example:
+                Every field, and what the file keeps, is checked in
+                ``tests/metadata/file_sources/test_odt_metadata_writer.py``; it runs
+                :func:`LiuXin_alpha.metadata.file_sources.odt.set_metadata`, whose
+                example writes a small ODT.
+
+
+            :param stream: The ODT, open for reading and writing; it is rewritten in place.
+            :param mi: The metadata to write.
+            :param type: The file type, ``odt``.
+            :return: None.
+            """
+            odt_set_metadata(stream, mi)
+
+    plugins += [ODTMetadataWriter]
+
+
+try:
     from LiuXin_alpha.metadata.file_sources.pdb import set_metadata as set_pdb_metadata
 except RuntimeError as e:
     debug_str = (
