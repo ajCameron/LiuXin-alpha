@@ -1351,12 +1351,38 @@ class _SchemaBackedRelationFieldBase(FieldBasicInterfaceAPI[T]):
 
     @property
     def src_table_name(self) -> str:
+        """
+        Read the source table name from this field's directed link.
+
+        Example:
+            A reverse field reports its own source endpoint orientation.
+
+
+        :return: Physical source endpoint table name.
+        """
         return self.src_table.table
 
     @property
     def dst_table_name(self) -> str:
+        """
+        Read the destination table name from this field's directed link.
+
+        Example:
+            A reverse field reports its own destination endpoint orientation.
+
+
+        :return: Physical destination endpoint table name.
+        """
         return self.dst_table.table
 
     def _link_table(self) -> SchemaBackedLinkTable:
-        """Narrow the link installed by this backend's cardinality constructor."""
+        """
+        Narrow the link installed by this backend's cardinality constructor.
+
+        Example:
+            Cardinality-specific getters use the link installed during construction.
+
+
+        :return: Installed backend-specific directed link table.
+        """
         return cast(SchemaBackedLinkTable, getattr(self, "link_table"))

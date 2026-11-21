@@ -319,7 +319,7 @@ class CoreApplicationAPI:
 
     def install(self, runtime: "CoreRuntime") -> None:
         """
-        Register 21 application queries followed by 25 commands with explicit transport metadata.
+        Register application queries and commands with explicit transport metadata.
 
         Registration invokes no subsystem operation and performs no capability
         probes. Earlier bindings remain after a later registration error, and
@@ -334,6 +334,9 @@ class CoreApplicationAPI:
         """
         query = runtime.register_query_handler
         command = runtime.register_command_handler
+        from LiuXin_alpha.core.program_services.native_metadata import install as install_native_metadata
+
+        install_native_metadata(runtime)
 
         query(
             "schema.tables",
