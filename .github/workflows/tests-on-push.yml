@@ -281,7 +281,7 @@ jobs:
         run: |
           args=()
           if [[ -n "$BASELINE_REF" && "$BASELINE_REF" != 0000000000000000000000000000000000000000 ]]; then
-            args+=(--baseline-ref "$BASELINE_REF")
+            args+=(--baseline-ref "$BASELINE_REF" --fallback-branch "origin/${{ github.event.repository.default_branch }}")
           fi
           python scripts/run_database_regression_ratchet.py "${args[@]}" --artifacts "${{ runner.temp }}/database-regressions"
       - name: Preserve database regression results

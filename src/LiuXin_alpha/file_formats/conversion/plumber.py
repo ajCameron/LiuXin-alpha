@@ -20,6 +20,7 @@ import re
 import shutil
 import sys
 from functools import partial
+from io import BytesIO
 
 try:
     from past.builtins import unicode
@@ -47,7 +48,6 @@ from LiuXin_alpha.utils.logging import default_log
 # Py2/Py3 compatibility layer
 from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 from LiuXin_alpha.utils.libraries.liuxin_six import six_string_types
-from LiuXin_alpha.utils.libraries.liuxin_six import six_cStringIO
 
 __license__ = "GPL 3"
 __copyright__ = "2009, Kovid Goyal <kovid@kovidgoyal.net>"
@@ -1379,7 +1379,7 @@ class Plumber(object):
         self.log("Downloading cover from %r" % url)
         br = browser()
         raw = br.open_novisit(url).read()
-        buf = six_cStringIO(raw)
+        buf = BytesIO(raw)
         pt = PersistentTemporaryFile(".jpg")
         pt.close()
         img = Image.open(buf)
