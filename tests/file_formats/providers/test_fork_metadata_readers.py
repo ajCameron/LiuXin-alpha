@@ -385,7 +385,8 @@ def test_liuxin_providers_place_calibre_results_too(tmp_path: Path) -> None:
     fields = adapt_liuxin_reader(plugin_for("opf"))().read_wemi_metadata(
         sample(tmp_path, "opf"), "opf", context(tmp_path)
     )
-    assert fields.levels["work"]["subjects"] == ("Fiction",)
+    assert fields.levels["work"]["tags"] == ("Fiction",)
+    assert "subjects" not in fields.levels["work"]
     assert fields.levels["manifestation"]["publishers"] == ("Pub Co",)
 
 
@@ -499,7 +500,8 @@ def test_the_mapping_places_each_field() -> None:
     assert work["titles"] == ("A Book",)
     assert work["title_sort"] == "Book, A"
     assert work["series"] == ({"name": "Saga", "index": 2.0},)
-    assert work["subjects"] == ("Fiction",)
+    assert work["tags"] == ("Fiction",)
+    assert "subjects" not in work
     assert work["creators"] == (
         {"name": "Ann", "role": "authors", "sort": "A, Ann"},
         {"name": "Bob", "role": "authors", "link": "https://example.org/bob"},

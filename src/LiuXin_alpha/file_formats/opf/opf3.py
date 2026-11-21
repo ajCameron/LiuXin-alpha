@@ -32,6 +32,7 @@ from LiuXin_alpha.utils.libraries.liuxin_etree import etree
 from LiuXin_alpha.file_formats.oeb.base import OPF2_NSMAP, OPF, DC
 
 from LiuXin_alpha.utils.calibre_compat.ebooks.metadata.book.base import Metadata as calibreMetadata
+from LiuXin_alpha.metadata.book.base import tags_and_subjects
 
 from LiuXin_alpha.metadata.containers.calibre_like_book_metadata import CalibreLikeLiuXinBookMetaData as MetaData
 
@@ -2241,8 +2242,9 @@ def apply_metadata(
         set_comments(root, prefixes, refines, mi.comments)
     if ok("publisher"):
         set_publisher(root, prefixes, refines, mi.publisher)
-    if ok("tags"):
-        set_tags(root, prefixes, refines, mi.tags)
+    # OPF has one field for tags and subjects: dc:subject holds both.
+    if ok("tags") or tags_and_subjects(mi):
+        set_tags(root, prefixes, refines, tags_and_subjects(mi))
     if ok("rating") and mi.rating > 0.1:
         set_rating(root, prefixes, refines, mi.rating)
     if ok("series"):
