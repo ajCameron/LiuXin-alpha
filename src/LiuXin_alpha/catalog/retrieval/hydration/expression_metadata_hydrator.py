@@ -45,7 +45,7 @@ class ExpressionMetadataHydrator:
             python -m pytest -q tests/catalog/retrieval/test_expression_metadata_hydrator.py
     """
 
-    def __init__(self, database: Any) -> None:
+    def __init__(self, database: Any, *, strict: bool = False) -> None:
         """
         Adapt the caller source and cache its table and column snapshots.
 
@@ -61,18 +61,26 @@ class ExpressionMetadataHydrator:
 
         :param database: Caller-owned database or compatible metadata read source; must not
             be None.
+        :param strict: Propagate source and schema failures instead of omitting optional metadata.
         :return: None.
         """
         if database is None:
             raise ValueError("ExpressionMetadataHydrator requires a database instance.")
+        # Strict callers require complete metadata; legacy best-effort callers
+        # retain their existing optional-source behavior.
+        self.strict = strict
         self.db = metadata_read_source_from(database)
         try:
             self._tables = set(self.db.get_tables(force_refresh=False))
         except Exception:
+            if self.strict:
+                raise
             self._tables = set()
         try:
             self._tables_and_columns = dict(self.db.get_tables_and_columns())
         except Exception:
+            if self.strict:
+                raise
             self._tables_and_columns = {}
 
     def from_expression_id(self, expression_id: int) -> ExpressionMetadata:
@@ -674,6 +682,11 @@ class ExpressionMetadataHydrator:
                 )
             )
         except Exception:
+            if self.strict:
+                raise
+            return []
+
+        if not link_rows:
             return []
 
         try:
@@ -683,6 +696,8 @@ class ExpressionMetadataHydrator:
                 self.db.driver_wrapper.get_id_column(secondary_table),
             )
         except Exception:
+            if self.strict:
+                raise
             secondary_id_column = None
 
         prefix = None
@@ -693,6 +708,8 @@ class ExpressionMetadataHydrator:
             if link_table:
                 prefix = self.db.driver_wrapper.get_column_base(link_table)
         except Exception:
+            if self.strict:
+                raise
             prefix = None
 
         out: list[ExpressionRelationLink] = []
@@ -708,8 +725,12 @@ class ExpressionMetadataHydrator:
                 try:
                     target = self.db.get_row_from_id(secondary_table, int(target_id))
                 except Exception:
+                    if self.strict:
+                        raise
                     target = None
             if target is None:
+                if self.strict:
+                    raise ValueError("Relationship has no resolvable target identity")
                 continue
 
             extra = {"source_entity_type": source_entity_type}
@@ -787,6 +808,8 @@ class ExpressionMetadataHydrator:
                 )
             )
         except Exception:
+            if self.strict:
+                raise
             return []
 
     def _collect_identifier_rows(
@@ -836,6 +859,8 @@ class ExpressionMetadataHydrator:
                         )
                     )
                 except Exception:
+                    if self.strict:
+                        raise
                     continue
                 for row in rows:
                     links.append(
@@ -876,6 +901,8 @@ class ExpressionMetadataHydrator:
                         )
                     )
                 except Exception:
+                    if self.strict:
+                        raise
                     continue
                 for row in rows:
                     mapping = row.row_dict if isinstance(row, Row) else dict(row)

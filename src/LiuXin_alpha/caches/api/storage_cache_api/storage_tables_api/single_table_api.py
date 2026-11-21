@@ -36,23 +36,57 @@ class StorageCacheSingleTableAPI(StorageCacheBaseTableAPI):
     @property
     @abc.abstractmethod
     def row_ids(self) -> Sequence[int]:
-        """Row identities in the same order as column values."""
+        """
+        Row identities in the same order as column values.
+
+        Example:
+            Zip row_ids with get_column_values("work_title") to retain identity alignment.
+
+
+        :return: Identities aligned with this view's column sequences.
+        """
         raise NotImplementedError
 
     @property
     @abc.abstractmethod
     def id_column(self) -> str:
-        """Physical identity column of this table."""
+        """
+        Physical identity column of this table.
+
+        Example:
+            A Works table uses work_id as its identity column.
+
+
+        :return: Physical identity-column name.
+        """
         raise NotImplementedError
 
     @abc.abstractmethod
     def has_id(self, table_id: int) -> bool:
-        """Whether the current view contains this identity."""
+        """
+        Whether the current view contains this identity.
+
+        Example:
+            Membership can be checked before requesting a detached row snapshot.
+
+
+        :param table_id: Identity to test in the current table view.
+        :return: True when the identity is present.
+        """
         raise NotImplementedError
 
     @abc.abstractmethod
     def get_row_snapshot(self, table_id: int) -> dict[str, Any]:
-        """Return an independent snapshot of this row's values."""
+        """
+        Return an independent snapshot of this row's values.
+
+        Example:
+            Mutating the returned row must not change later cache reads.
+
+
+        :param table_id: Existing row identity in this table.
+        :return: Independent physical row mapping; unknown IDs raise KeyError.
+        """
         raise NotImplementedError
 
     # -----------------

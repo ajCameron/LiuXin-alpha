@@ -20,6 +20,12 @@ invalidation. This does not add global observation of raw SQL or arbitrary
 Catalog methods. The review names those boundaries and the existing destructive
 lifecycle/descriptor recovery coverage.
 
+The metadata adapter adds an outer-transaction completion guard shared across
+threads. A follow-up inspection should extend that protection to the older
+schema-directed writer routes: their deferred-refresh check still depends on the
+calling thread's macro depth. Their existing same-thread tests do not establish
+cross-thread safety while an enclosing transaction remains open.
+
 The [2026-11-16 review](../architectural_reviews/caches-review-2026-11-16.md)
 provides the first concrete repair slice: CR01 orders native custom-field
 publication across reentrant receipt listeners; CR02 makes partial refresh failure
@@ -59,23 +65,33 @@ remain the named SEARCH02–SEARCH05 follow-ups.
 
 ## CACHE05. Implement the bound metadata access service
 
-**Next, 2026-11-18. Interface-first contract declared.**
-[MetadataAPIInterface](../../src/LiuXin_alpha/catalog/api/metadata_access.py) adopts
-Catalog's native WEMI vocabulary with metadata-shaped reads and coordinated write
-receipts. The [ownership decision](../catalog/catalog-cache-boundary.md#metadata-access-interface-direction--2026-11-18)
-records placement, transaction/freshness obligations and initial scope.
+**Bound adapter implemented, 2026-11-18; extensions validated, 2026-11-19.**
+[MetadataAPIInterface](../../src/LiuXin_alpha/catalog/api/metadata_access.py) is
+implemented under `caches` by [MetadataAPI](metadata-api.md), also exposed through
+`cache.metadata`. It supports native WEMI reads, search, CRUD, compound relationships
+and metadata replacement, with detached values and transaction/freshness receipts.
+The contract stays in `catalog.api`; no new top-level package is needed.
 
-Implement the adapter under `caches`, binding Catalog and an optional cache for
-one database, then route Core's existing metadata operations through it. The
-contract stays in `catalog.api`; no new top-level package is needed. Reuse Catalog
-validation and the cache's reconciliation mechanisms. Cover CRUD, compound relationships and
-metadata replacement before claiming the interface is implemented; do not expose
-raw repositories through otherwise cache-aware properties.
+Its search service now adds typed requests, exact-count reference pages, scalar
+sorting, filter/sort discovery and validation. Catalog owns the field/path plan;
+the cache engine owns ordering, execution and result provenance. See the
+[search contract](metadata-api.md#search-requests-and-pages). Facets, saved searches
+and content/note/annotation search remain later slices.
 
-Done when typed consumer tests exercise cached and uncached reads/writes, detached
-metadata, all three native backends, binding validation, missing/unsupported
-distinctions, commit/rollback and failed refresh with retained write receipts.
-The declared interface alone does not close this gap or sign off the module.
+The current extension adds ordered batch hydration, typed WEMI scalar inputs,
+atomic edit callbacks, authoritative content preconditions, shared Agent/vocabulary
+administration and native custom-field lifecycle/value operations. A native Core
+search/display/edit workflow consumes the interface with explicit conflict and
+post-commit error receipts. See the [API guide](metadata-api.md) for the completed
+192-case regression run, overlapping 39-case current-source follow-up and six
+live PostgreSQL passes. All 38 new non-gated cases are mandatory; the manifest now
+requires 2,956 cases. This validates the extension, not the whole cache module.
+
+Next, route more of Core's existing semantic metadata operations through this service,
+preserving its transport authorization and public receipt conventions. Do not
+silently bypass existing injected service capabilities. Matching and merges retain
+their dedicated Catalog services. Measure compound-write full-refresh costs before selecting
+narrower dependencies; complete relationship freshness is the correctness baseline.
 
 ## Validation and routing
 

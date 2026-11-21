@@ -120,7 +120,18 @@ class StorageCacheAPI(abc.ABC):
     @property
     @abc.abstractmethod
     def main_tables(self) -> Mapping[str, StorageCacheSingleTableAPI]:
-        """Loaded main-table registry owned by this backend."""
+        """
+        Loaded main-table registry owned by this backend.
+
+        Treat the returned registry as read-only. This property does not copy or
+        freeze the concrete backend mapping.
+
+        Example:
+            ``storage.main_tables["works"]`` resolves a loaded main table.
+
+
+        :return: Backend-owned mapping from table names to main-table views.
+        """
         raise NotImplementedError
 
     #: All cached link tables, keyed however the implementation prefers.
@@ -128,22 +139,52 @@ class StorageCacheAPI(abc.ABC):
     @property
     @abc.abstractmethod
     def link_tables(self) -> Mapping[LinkTableKey, StorageCacheLinkTableBaseAPI[Any]]:
-        """Loaded directed-link registry owned by this backend."""
+        """
+        Loaded directed-link registry owned by this backend.
+
+        Treat the returned registry as read-only. This property does not copy or
+        freeze the concrete backend mapping.
+
+        Example:
+            A directed table pair selects its loaded association view.
+
+
+        :return: Backend-owned mapping of link keys to directed link-table views.
+        """
         raise NotImplementedError
 
     #: Storage-facing fields, keyed by field name.
     @property
     @abc.abstractmethod
     def fields(self) -> Mapping[FieldKey, FieldBasicInterfaceAPI[Any]]:
-        """Loaded field registry owned by this backend."""
+        """
+        Loaded field registry owned by this backend.
+
+        Treat the returned registry as read-only. This property does not copy or
+        freeze the concrete backend mapping.
+
+        Example:
+            ``storage.fields["works.work_title"]`` resolves a scalar field.
+
+
+        :return: Backend-owned mapping from canonical keys to field views.
+        """
         raise NotImplementedError
 
     def query_view(self) -> StorageCacheAPI:
-        """Return the read view for one composed query.
+        """
+        Return the read view for one composed query.
 
         Snapshot plugins reuse themselves. A live plugin may capture an ephemeral
         view to avoid rebuilding state for every field read. This method adds no
         transaction, and the caller must not close the returned borrowed view.
+
+        Example:
+            A query reuses this view for every predicate and sort-field read.
+
+
+        :return: Borrowed snapshot backend by default; live overrides return a bounded
+            capture.
         """
         return self
 

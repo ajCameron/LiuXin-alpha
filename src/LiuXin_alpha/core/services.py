@@ -10,7 +10,10 @@ reconciliation, or shutdown an atomic operation.
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from LiuXin_alpha.catalog.api.metadata_access import MetadataAPIInterface
 
 
 class CoreServiceReconciliationError(RuntimeError):
@@ -135,6 +138,7 @@ class CoreServices:
         self.library = library
         self.database = database
         self._catalog = catalog
+        self._metadata: MetadataAPIInterface | None = None
         self._cache = cache
         self._read_source = read_source
         self._preferences = preferences
@@ -237,6 +241,21 @@ class CoreServices:
                     allow_database_fallback=self.cache_allow_database_fallback,
                 )
         return self._read_source
+
+    @property
+    def metadata(self) -> MetadataAPIInterface:
+        """Bind native metadata workflows to this Core's Catalog and cache policy.
+
+        The metadata service owns reconciliation for its writes. Callers must not
+        pass its receipts through reconcile() for a second cache refresh.
+        """
+        if self._closed:
+            raise RuntimeError("Core services are closed")
+        if self._metadata is None:
+            from LiuXin_alpha.caches.metadata import MetadataAPI
+
+            self._metadata = MetadataAPI(self.catalog, cache=self.cache, allow_database_fallback=self.cache_allow_database_fallback)
+        return self._metadata
 
     @property
     def preferences(self) -> Any:

@@ -23,6 +23,7 @@ Catalog write validation.
 - [Dirtied queue](metadata_dirtied_queue.md): persistence-related update tracking.
 - [Writer coverage](metadata-writer-coverage-contract.md): file metadata write behaviour.
 - [Language codes](languages.md): the language table, and which code form each layer uses.
+- [Author names](author-names.md): author strings and name lists, and how each format keeps a name whole.
 - [Metadata CLI](metadata-cli.md): operator entry points.
 
 [WEMI container hardening](metadata-wemi-container-hardening.md) records the

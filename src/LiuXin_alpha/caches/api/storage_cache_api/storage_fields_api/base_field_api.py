@@ -36,7 +36,6 @@ if TYPE_CHECKING:
 T = TypeVar("T")
 
 
-# Todo: We should include metadata...
 class FieldBasicInterfaceAPI(abc.ABC, Generic[T]):
     """
     Define field loading and cache-maintenance hooks without owner-row deletion.
@@ -57,7 +56,15 @@ class FieldBasicInterfaceAPI(abc.ABC, Generic[T]):
     @property
     @abc.abstractmethod
     def field_key(self) -> str:
-        """Canonical physical or relationship field identity."""
+        """
+        Canonical physical or relationship field identity.
+
+        Example:
+            ``field.field_key`` is the key used for canonical lookup in storage.fields.
+
+
+        :return: Canonical field identity within the owning storage backend.
+        """
         raise NotImplementedError
 
     name: Union[

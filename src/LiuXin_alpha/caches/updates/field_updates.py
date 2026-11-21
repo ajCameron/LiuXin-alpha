@@ -10,16 +10,19 @@ table/database APIs. Consumers apply creation, uniqueness and refresh policy.
 from __future__ import annotations
 
 import dataclasses
-from typing import Generic, Optional, Sequence, TypeVar
+from typing import TYPE_CHECKING, Generic, Optional, Sequence, TypeVar
 
-from LiuXin_alpha.caches.api.storage_cache_api.storage_fields_api.util_mixins import (
-    LinkDstUpdate,
-)
 from LiuXin_alpha.databases.db_types.database_types import (
     MainTableColumnName,
     MainTableID,
     MainTableName,
 )
+
+if TYPE_CHECKING:
+    # Loading the field API here would cycle back through these payload classes.
+    from LiuXin_alpha.caches.api.storage_cache_api.storage_fields_api.util_mixins import (
+        LinkDstUpdate,
+    )
 
 T = TypeVar("T")
 

@@ -21,7 +21,6 @@ from typing import Any
 from LiuXin_alpha.metadata.containers.calibre_like_book_metadata import (
     CalibreLikeLiuXinBookMetaData as MetaInformation,
 )
-from LiuXin_alpha.metadata.utils import string_to_authors
 from LiuXin_alpha.utils.calibre import force_unicode
 from LiuXin_alpha.utils.libraries.cleantext import clean_xml_chars
 from LiuXin_alpha.utils.localization import trans as _
@@ -455,6 +454,35 @@ def decode(raw, codec):
     return _normalize_text(clean_xml_chars(text))
 
 
+#: How LiuXin's writer joined authors before it used commas: ``Ann Writer& Bob Writer``.
+_OLD_LIUXIN_AUTHOR_SEPARATOR = re.compile(r"(?<=\S)& ")
+
+
+def _split_authors(raw_author: str) -> list[str]:
+    """
+    Split an RTF author field into names, as calibre does: on commas.
+
+    Without a comma the field is one name, so "Smith & Sons" stays whole. The one
+    exception is the ``"& "`` LiuXin's writer once joined authors with, which no name
+    is likely to hold, so books it wrote still read as several authors.
+
+    Example:
+        >>> _split_authors("Ann Writer, Smith & Sons")
+        ['Ann Writer', 'Smith & Sons']
+        >>> _split_authors("Smith & Sons"), _split_authors("Ann Writer& Bob Writer")
+        (['Smith & Sons'], ['Ann Writer', 'Bob Writer'])
+
+
+    :param raw_author: The decoded ``\\author`` field.
+    :return: The names, stripped, without empty ones.
+    """
+    if "," in raw_author:
+        parts = raw_author.split(",")
+    else:
+        parts = _OLD_LIUXIN_AUTHOR_SEPARATOR.split(raw_author)
+    return [part.strip() for part in parts if part.strip()]
+
+
 def _set_authors(mi, raw_author: str) -> None:
     """
     Set authors while preserving unrelated metadata state.
@@ -469,9 +497,7 @@ def _set_authors(mi, raw_author: str) -> None:
     :param raw_author: Raw value or payload to normalize, parse or serialize.
     :return: None.
     """
-    authors = [x.strip() for x in string_to_authors(raw_author) if x and x.strip()]
-    if len(authors) <= 1 and "," in raw_author:
-        authors = [x.strip() for x in raw_author.split(",") if x.strip()]
+    authors = _split_authors(raw_author)
     if authors:
         try:
             # Avoid keeping the default Unknown author when real authors exist.

@@ -1381,17 +1381,50 @@ class SchemaBackedStorageCache(StorageCacheAPI):
 
     @property
     def main_tables(self) -> dict[str, SchemaBackedMainTableCache]:
-        """Return the backend-owned main tables registry."""
+        """
+        Return the backend-owned main tables registry.
+
+        Treat the returned registry as read-only. This property does not copy or
+        freeze the concrete backend mapping.
+
+        Example:
+            ``storage.main_tables["works"]`` resolves a loaded main table.
+
+
+        :return: Backend-owned mapping from table names to main-table views.
+        """
         return self._main_tables
 
     @property
     def link_tables(self) -> dict[tuple[str, str], SchemaBackedLinkTable]:
-        """Return the backend-owned link tables registry."""
+        """
+        Return the backend-owned link tables registry.
+
+        Treat the returned registry as read-only. This property does not copy or
+        freeze the concrete backend mapping.
+
+        Example:
+            A directed table pair selects its loaded association view.
+
+
+        :return: Backend-owned mapping of link keys to directed link-table views.
+        """
         return self._link_tables
 
     @property
     def fields(self) -> dict[str, FieldBasicInterfaceAPI[Any]]:
-        """Return the backend-owned fields registry."""
+        """
+        Return the backend-owned fields registry.
+
+        Treat the returned registry as read-only. This property does not copy or
+        freeze the concrete backend mapping.
+
+        Example:
+            ``storage.fields["works.work_title"]`` resolves a scalar field.
+
+
+        :return: Backend-owned mapping from canonical keys to field views.
+        """
         return self._fields
 
 

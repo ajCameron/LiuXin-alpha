@@ -70,12 +70,36 @@ _REGISTRY_LOCK = RLock()
 
 
 def _required_text(value: str, label: str) -> str:
+    """
+    Validate and strip one registry name or import-target string.
+
+    Example:
+        >>> _required_text("  backend  ", "Name")
+        'backend'
+
+
+    :param value: String that must contain at least one non-whitespace character.
+    :param label: Field label included in a CachePluginError.
+    :return: Surrounding-whitespace-stripped text; invalid input raises
+        CachePluginError.
+    """
     if not isinstance(value, str) or not value.strip():
         raise CachePluginError(f"{label} must be a nonempty string")
     return value.strip()
 
 
 def _name(value: str) -> str:
+    """
+    Normalize a nonempty plugin name for case-insensitive lookup.
+
+    Example:
+        >>> _name("  FAST  ")
+        'fast'
+
+
+    :param value: Canonical name or alias to normalize.
+    :return: Stripped and casefolded name; invalid input raises CachePluginError.
+    """
     return _required_text(value, "Cache plugin name").casefold()
 
 

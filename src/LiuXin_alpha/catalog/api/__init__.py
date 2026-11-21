@@ -9,8 +9,8 @@ namespace. Calibre field-descriptor contracts live in
 utils.calibre_compat.metadata.field_metadata_api; native descriptor snapshots live
 in caches.field_metadata. Importing these values creates no database or Catalog.
 
-The separate api.metadata_access module declares MetadataAPIInterface for a future
-cache-aware metadata adapter. Its placement here supplies the semantic contract;
+The separate api.metadata_access module declares MetadataAPIInterface, implemented
+by caches.metadata.MetadataAPI and exposed through Cache.metadata. Its placement here supplies the semantic contract;
 the existing Catalog facade does not implement its reconciliation obligations.
 
 Example:

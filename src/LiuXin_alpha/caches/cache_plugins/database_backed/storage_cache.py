@@ -616,11 +616,18 @@ class DatabaseBackedStorageCache(SchemaBackedStorageCache):
     plugin_name = "database_backed"
 
     def query_view(self) -> SchemaBackedStorageCache:
-        """Capture fresh table state once for one composed query.
+        """
+        Capture fresh table state once for one composed query.
 
         Ordinary child proxies remain live. This ephemeral view avoids rebuilding
         every table for each predicate field access. Its capture uses normal
         database reads and does not establish a transaction snapshot.
+
+        Example:
+            One metadata get_many call can reuse the capture for all requested roots.
+
+
+        :return: Ephemeral captured storage; it does not own or close the database.
         """
         view = SchemaBackedStorageCache(self.db)
         view.read()
