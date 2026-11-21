@@ -8,9 +8,12 @@ calibre reading is mapped when its values are accepted, and the LiuXin readers
 use the same mapping to produce WEMI readings.
 
 **The mapping is provisional.** It follows FRBR's usual split: what a work is
-called and who created it at the Work; language, description and contributors
-to a particular text (translators, editors, illustrators) at the Expression;
-publisher, date, identifiers and producers at the Manifestation. Fields the
+called, who created it, its tags and its subject headings at the Work;
+language, description and contributors to a particular text (translators,
+editors, illustrators) at the Expression; publisher, date, identifiers and
+producers at the Manifestation. LiuXin keeps tags and subjects in separate
+tables, so they stay apart: calibre's ``tags`` are tags, and only a LiuXin
+reader's ``subjects`` are subjects. Fields the
 mapping does not place are kept, not dropped, under ``unplaced`` at the
 Manifestation, so a reading never loses what its source said.
 
@@ -46,7 +49,8 @@ ROLE_LEVELS: Mapping[str, WEMILevel] = {
 FIELD_LEVELS: Mapping[str, tuple[WEMILevel, str]] = {
     "title_sort": ("work", "title_sort"),
     "author_sort": ("work", "author_sort"),
-    "tags": ("work", "subjects"),
+    "tags": ("work", "tags"),
+    "subjects": ("work", "subjects"),
     "languages": ("expression", "languages"),
     "comments": ("expression", "description"),
     "pubdate": ("manifestation", "publication_date"),

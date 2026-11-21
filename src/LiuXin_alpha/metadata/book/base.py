@@ -18,12 +18,13 @@ import traceback
 
 from LiuXin_alpha.constants import VERBOSE_DEBUG as DEBUG
 
+from LiuXin_alpha.metadata.book import LIUXIN_METADATA_FIELDS
 from LiuXin_alpha.utils.calibre_compat.metadata.calibre_metadata_constants import (
-    SC_COPYABLE_FIELDS,
+    SC_COPYABLE_FIELDS as _CALIBRE_SC_COPYABLE_FIELDS,
     SC_FIELDS_COPY_NOT_NULL,
-    STANDARD_METADATA_FIELDS,
+    STANDARD_METADATA_FIELDS as _CALIBRE_STANDARD_METADATA_FIELDS,
     TOP_LEVEL_IDENTIFIERS,
-    ALL_METADATA_FIELDS,
+    ALL_METADATA_FIELDS as _CALIBRE_ALL_METADATA_FIELDS,
 )
 
 from LiuXin_alpha.utils.calibre_compat.metadata.field_metadata import FieldMetadata
@@ -39,6 +40,13 @@ from LiuXin_alpha.utils.libraries.liuxin_six import (
     dict_iteritems as iteritems, dict_iterkeys as iterkeys,
     six_unicode, basestring)
 
+
+# calibre's fields, and LiuXin's own (``subjects``); the calibre compatibility
+# constants stay calibre's. Like the tags, the subjects are merged by smart_update,
+# not copied.
+SC_COPYABLE_FIELDS = _CALIBRE_SC_COPYABLE_FIELDS
+STANDARD_METADATA_FIELDS = _CALIBRE_STANDARD_METADATA_FIELDS | LIUXIN_METADATA_FIELDS
+ALL_METADATA_FIELDS = _CALIBRE_ALL_METADATA_FIELDS | LIUXIN_METADATA_FIELDS
 
 # Special sets used to optimize the performance of getting and setting
 # attributes on Metadata objects
@@ -70,6 +78,7 @@ NULL_VALUES = {
     "user_metadata": {},
     "cover_data": (None, None),
     "tags": [],
+    "subjects": [],
     "identifiers": {},
     "languages": [],
     "device_collections": [],
@@ -956,6 +965,35 @@ class calibreMetadata(object):
                 prints(x, meta)
         prints("--------------")
 
+    def _merge_terms(self, field, others):
+        """
+        Merge another record's tags or subjects into this one's, ignoring case but keeping it.
+
+        A term both hold takes the other's spelling; the other's new terms follow.
+
+        Example:
+            >>> book = calibreMetadata("Example")
+            >>> book.tags = ["history", "to-read"]
+            >>> book._merge_terms("tags", ["History", "Sea"])
+            >>> book.tags
+            ['History', 'to-read', 'Sea']
+
+
+        :param field: ``tags`` or ``subjects``.
+        :param others: The other record's terms.
+        :return: None.
+        """
+        others = list(others)
+        if not others:
+            return
+        mine = list(getattr(self, field) or [])
+        lothers = [t.lower() for t in others]
+        lmine = [t.lower() for t in mine]
+        ot, st = map(frozenset, (lothers, lmine))
+        for t in st.intersection(ot):
+            mine[lmine.index(t)] = others[lothers.index(t)]
+        setattr(self, field, mine + [t for t in others if t.lower() in ot - st])
+
     def smart_update(self, other, replace_metadata=False):
         """
         Merge another book into this one using field-specific replacement rules.
@@ -1032,6 +1070,7 @@ class calibreMetadata(object):
                     getattr(other, attr, 1.0 if attr == "series_index" else None),
                 )
             self.tags = other.tags
+            self.subjects = list(getattr(other, "subjects", None) or [])
             self.cover_data = getattr(other, "cover_data", NULL_VALUES["cover_data"])
             self.set_all_user_metadata(other.get_all_user_metadata(make_copy=True))
             for x in SC_FIELDS_COPY_NOT_NULL:
@@ -1045,16 +1084,8 @@ class calibreMetadata(object):
             for x in SC_FIELDS_COPY_NOT_NULL:
                 copy_not_none(self, other, x)
 
-            if other.tags:
-                # Case-insensitive but case preserving merging
-                lotags = [t.lower() for t in other.tags]
-                lstags = [t.lower() for t in self.tags]
-                ot, st = map(frozenset, (lotags, lstags))
-                for t in st.intersection(ot):
-                    sidx = lstags.index(t)
-                    oidx = lotags.index(t)
-                    self.tags[sidx] = other.tags[oidx]
-                self.tags += [t for t in other.tags if t.lower() in ot - st]
+            for field in ("tags", "subjects"):
+                self._merge_terms(field, getattr(other, field, None) or [])
 
             if getattr(other, "cover_data", False):
                 other_cover = other.cover_data[-1]
@@ -1388,6 +1419,8 @@ class calibreMetadata(object):
             fmt("Book Producer", self.book_producer)
         if self.tags:
             fmt("Tags", ", ".join([six_unicode(t) for t in self.tags]))
+        if self.subjects:
+            fmt("Subjects", "; ".join([six_unicode(t) for t in self.subjects]))
         if self.series:
             fmt("Series", self.series + " #%s" % self.format_series_index())
         if not self.is_null("languages"):
@@ -1463,6 +1496,35 @@ class calibreMetadata(object):
         return bool(self.title or self.author or self.comments or self.tags)
 
     # }}}
+
+
+def tags_and_subjects(mi):
+    """
+    List a record's tags, then its subjects not already among them, for a format with one field for both.
+
+    calibre's record has only tags; LiuXin's keeps subject headings apart, in
+    ``subjects``. Formats that hold both in one field (OPF and EPUB ``dc:subject``,
+    MOBI's subject records, DOCX and PDF keywords) get both there. Case is ignored
+    when looking for a subject among the tags.
+
+    Example:
+        >>> book = calibreMetadata("Example")
+        >>> book.tags, book.subjects = ["to-read", "History"], ["history", "Sea stories"]
+        >>> tags_and_subjects(book)
+        ['to-read', 'History', 'Sea stories']
+
+
+    :param mi: A record with ``tags`` and, perhaps, ``subjects``.
+    :return: The combined list.
+    """
+    combined = [six_unicode(t) for t in (getattr(mi, "tags", None) or [])]
+    seen = {t.lower() for t in combined}
+    for subject in getattr(mi, "subjects", None) or []:
+        subject = six_unicode(subject)
+        if subject.lower() not in seen:
+            seen.add(subject.lower())
+            combined.append(subject)
+    return combined
 
 
 def calibreMetaInformation(title, authors=_DEFAULT_AUTHORS):

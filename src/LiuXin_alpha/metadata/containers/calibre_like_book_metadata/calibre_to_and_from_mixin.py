@@ -83,8 +83,8 @@ class ToAndFromCalibreMetadataMixin:
         Read title/authors, sort and publication-date aliases, known external/internal
         identifiers, application-id aliases, languages, producer, and cover path. A supplied
         get_identifiers method is also read. The descriptive fields that to_calibre
-        exports are imported when set: publisher, tags, comments, series with its index,
-        the calibre rating, title sort, and rights. Fields not enumerated here are not
+        exports are imported when set: publisher, tags, subjects, comments, series with
+        its index, the calibre rating, title sort, and rights. Fields not enumerated here are not
         imported; no finalize call is made.
 
         Example:
@@ -157,6 +157,9 @@ class ToAndFromCalibreMetadataMixin:
         if tags:
             # A list rather than a string, so a tag containing ";" stays one tag.
             md.tags = [tags] if isinstance(tags, six_string_types) else list(tags)
+        subjects = getattr(calibre_md, "subjects", None)
+        if subjects:
+            md.subject = [subjects] if isinstance(subjects, six_string_types) else list(subjects)
         comments = getattr(calibre_md, "comments", None)
         if comments:
             md.comments = comments
@@ -194,8 +197,9 @@ class ToAndFromCalibreMetadataMixin:
         Project stored values into a new Calibre book metadata object.
 
         Prepend editors to authors, join comments and synopses, and choose the first cover,
-        publisher, series, and identifier value per scheme. Combine tags with subjects and
-        use the calibre rating only; rights copy across when set. An available
+        publisher, series, and identifier value per scheme. Keep the subjects apart from
+        the tags, in the record's ``subjects``, and use the calibre rating only; rights
+        copy across when set. An available
         get_database_id(item_id) result becomes
         db_id/application_id. Field setters on the Calibre object determine identifier
         exposure.
@@ -276,8 +280,9 @@ class ToAndFromCalibreMetadataMixin:
             if md_series in self.series_index:
                 calibre_md.series_index = self.series_index[md_series]
 
-        # TAGS
-        calibre_md.tags = list(self.tags.keys()) + list(self.subject.keys())
+        # TAGS AND SUBJECTS, kept apart: LiuXin has a table for each.
+        calibre_md.tags = list(self.tags.keys())
+        calibre_md.subjects = list(self.subject.keys())
 
         # TTITLESORT
         calibre_md.title_sort = self.titlesort

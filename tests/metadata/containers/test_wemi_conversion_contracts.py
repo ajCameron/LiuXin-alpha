@@ -123,11 +123,10 @@ def test_direct_wemi_relations_project_to_calibre_without_mutating_legacy_fields
     calibre_metadata = metadata.as_calibre_metadata()
 
     assert calibre_metadata.title == "Legacy Projection Title"
-    assert set(calibre_metadata.tags) >= {
-        "legacy-tag",
-        "标签-タグ",
-        "主题-日本語",
-    }
+    assert set(calibre_metadata.tags) >= {"legacy-tag", "标签-タグ"}
+    # Subjects stay apart from tags in calibre's form (dev-docs/metadata/subjects.md).
+    assert "主题-日本語" in calibre_metadata.subjects
+    assert "主题-日本語" not in calibre_metadata.tags
     assert calibre_metadata.series == "系列-シリーズ"
     assert calibre_metadata.languages == ["zh-Hans"]
     assert "10.5555/图書-本" in _identifier_values(calibre_metadata, "doi")
