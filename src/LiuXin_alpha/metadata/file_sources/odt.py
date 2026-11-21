@@ -188,6 +188,24 @@ def _first_ns_text(root, namespace: str, local_name: str) -> str | None:
     return None
 
 
+def _split_subjects(raw: str) -> list[str]:
+    """
+    Split the document's Subject into subject headings, at semicolons only.
+
+    ODF allows one Subject element, so several headings share it. A heading may hold
+    commas (``History, Modern -- 20th century``), so only semicolons separate them.
+
+    Example:
+        >>> _split_subjects("History, Modern -- 20th century; Sea stories;")
+        ['History, Modern -- 20th century', 'Sea stories']
+
+
+    :param raw: The Subject's text.
+    :return: The headings, trimmed, without empty ones.
+    """
+    return [x for x in (_normalize_text(p) for p in raw.split(";")) if x]
+
+
 def _split_tags(raw: str) -> list[str]:
     """
     Perform the format-specific split tags operation used by this metadata source.
@@ -680,13 +698,17 @@ def get_metadata(stream, extract_cover: bool = True, *, fallback_on_parse_error:
     if opf_subject:
         tags.extend(_split_tags(opf_subject))
     else:
-        for value in _iter_ns_text(root, DCNS, "subject"):
-            tags.extend(_split_tags(value))
         for value in _iter_ns_text(root, METANS, "keyword"):
             tags.extend(_split_tags(value))
     tags = _stable_dedupe(tags)
     if tags:
         mi.tags = tags
+    # The document's Subject holds subject headings, which LiuXin keeps apart from tags.
+    subjects = _stable_dedupe(
+        subject for value in _iter_ns_text(root, DCNS, "subject") for subject in _split_subjects(value)
+    )
+    if subjects:
+        mi.subjects = subjects
 
     series = user_defined.get("opf.series") or user_defined.get("series")
     if series:
@@ -767,6 +789,7 @@ _ELEMENTS = {
     "description": f"{{{DCNS}}}description",
     "creator": f"{{{DCNS}}}creator",
     "language": f"{{{DCNS}}}language",
+    "subject": f"{{{DCNS}}}subject",
     "initial-creator": f"{{{METANS}}}initial-creator",
     "keyword": f"{{{METANS}}}keyword",
     "keywords": f"{{{METANS}}}keywords",
@@ -935,12 +958,12 @@ def _write_title_and_authors(meta: _MetaXml, mi: Any, changed: frozenset[str]) -
 
 def _write_description(meta: _MetaXml, mi: Any, changed: frozenset[str]) -> None:
     """
-    Write the comments, the tags and the language, where they change.
+    Write the comments, the tags, the subjects and the language, where they change.
 
-    LiuXin's reader counts the document's Subject (``dc:subject``) as tags as well as
-    its keywords; calibre's reads the keywords alone. So the keywords get the tags the
-    Subject does not already supply, and the Subject is left as it is: each reader
-    then reads the tags it read before, unless the record changes them.
+    The keywords hold the tags, as calibre writes them. The document's Subject
+    (``dc:subject``) holds the subject headings, which LiuXin keeps apart from tags
+    and calibre does not read. ODF allows one Subject, so several headings are joined
+    with semicolons.
 
     The language is written as ISO 639-1, as calibre writes it; one with no such code
     is not written.
@@ -957,14 +980,10 @@ def _write_description(meta: _MetaXml, mi: Any, changed: frozenset[str]) -> None
     if "comments" in changed:
         meta.replace("description", _xml_text(mi.comments))
     if "tags" in changed:
-        in_subject = {
-            tag for element in meta.meta.iter(f"{{{DCNS}}}subject") for tag in _split_tags("".join(element.itertext()))
-        }
-        keywords = [tag for tag in (_xml_text(t) for t in mi.tags if t) if tag and tag not in in_subject]
-        meta.remove("keyword", "keywords")
-        if keywords:
-            meta.replace("keyword", ", ".join(keywords))
+        meta.replace("keyword", ", ".join(_xml_text(t) for t in mi.tags if t), "keywords")
         meta.remove_properties("opf.subject")
+    if "subjects" in changed:
+        meta.replace("subject", "; ".join(_xml_text(s) for s in mi.subjects if s))
     if "languages" in changed:
         from LiuXin_alpha.utils.localization import lang_as_iso639_1
 
@@ -1016,6 +1035,7 @@ _WRITTEN_FIELDS = (
     "author_sort",
     "comments",
     "tags",
+    "subjects",
     "languages",
     "pubdate",
     "publisher",
@@ -1056,12 +1076,12 @@ def _same(field: str, new: Any, old: Any) -> bool:
     :param field: The field.
     :param new: The record being written.
     :param old: The record read from the file.
-    :return: True when they agree; tags in any order, a series with its index.
+    :return: True when they agree; tags and subjects in any order, a series with its index.
     """
     if field == "series":
         return new.series == old.series and _series_index(new) == _series_index(old)
     a, b = getattr(new, field, None), getattr(old, field, None)
-    if field == "tags":
+    if field in ("tags", "subjects"):
         return sorted(a or []) == sorted(b or [])
     if field in ("authors", "languages"):
         return list(a or []) == list(b or [])
@@ -1076,9 +1096,9 @@ def _changed_fields(mi: Any, current: Any | None) -> frozenset[str]:
 
     A field whose value is what LiuXin's reader reads from the file is left as the
     file has it. LiuXin's reader takes some values from places calibre's writer does
-    not write (the last-saved ``dc:date`` as the publication date, the Subject as
-    tags, plain ``series`` properties); copying them into calibre's properties would
-    change what calibre reads, though the caller changed nothing.
+    not write (the last-saved ``dc:date`` as the publication date, the creator before
+    the initial creator, plain ``series`` properties); copying them into calibre's
+    properties would change what calibre reads, though the caller changed nothing.
 
     Example:
         >>> mi = calibreMetaInformation("T", ["A"])
@@ -1140,13 +1160,12 @@ def set_metadata(stream, mi) -> None:
     Only ``meta.xml`` is replaced; every other member is copied as it was. A field the
     record leaves null, or holds as LiuXin already reads it from the file, is left as
     the file has it (see :func:`_changed_fields`). The title, authors, comments, tags
-    and language go into the ODF elements; the rest into calibre's ``opf.*``
-    user-defined properties, with ``opf.metadata`` set so calibre's reader reads them.
-    Properties a reader would read in place of a written field are replaced with it:
+    (the keywords), subjects (the Subject, which calibre does not read) and language
+    go into the ODF elements; the rest into calibre's ``opf.*`` user-defined
+    properties, with ``opf.metadata`` set so calibre's reader reads them. Properties
+    a reader would read in place of a written field are replaced with it:
     ``opf.title``, ``opf.subject``, ``opf.language``, ``opf.isbn`` and
-    ``opf.series_index``. Tags the document's Subject already supplies (LiuXin's
-    reader counts it as tags) are not copied into the keywords. As in calibre, no
-    cover is written.
+    ``opf.series_index``. As in calibre, no cover is written.
 
     Example:
         >>> buffer = io.BytesIO()

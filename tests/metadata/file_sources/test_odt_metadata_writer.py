@@ -92,6 +92,7 @@ def _full_record() -> Any:
     mi.title_sort = "Title, A"
     mi.author_sort = "Writer, Ann & Ölmann, Jürgen"
     mi.tags = ["alpha", "beta gamma"]
+    mi.subjects = ["History, Modern -- 20th century", "Sea stories"]
     mi.languages = ["fra"]
     mi.pubdate = datetime.datetime(2020, 5, 17, 12, 0, tzinfo=datetime.UTC)
     mi.publisher = "Éditions X"
@@ -119,6 +120,7 @@ def _fields(mi: Any) -> dict[str, Any]:
         "title": mi.title,
         "authors": list(mi.authors),
         "tags": sorted(mi.tags or []),
+        "subjects": sorted(getattr(mi, "subjects", None) or []),
         "languages": list(mi.languages or []),
         "pubdate": str(mi.pubdate)[:10] if mi.pubdate else None,
         "publisher": mi.publisher,
@@ -130,6 +132,21 @@ def _fields(mi: Any) -> dict[str, Any]:
         "title_sort": mi.title_sort,
         "author_sort": mi.author_sort,
     }
+
+
+def _calibre_sees(fields: dict[str, Any]) -> dict[str, Any]:
+    """
+    Take what calibre's reader gives for written fields: everything but the subjects, which it does not read.
+
+    Example:
+        >>> _calibre_sees({"title": "T", "subjects": ["S"]})
+        {'title': 'T', 'subjects': []}
+
+
+    :param fields: The fields written.
+    :return: The fields calibre reads back.
+    """
+    return {**fields, "subjects": []}
 
 
 def _write(data: bytes, mi: Any, errors: list[str] | None = None) -> bytes:
@@ -241,7 +258,8 @@ def test_every_field_reads_back_in_both_readers() -> None:
         data = _write(data, _full_record(), errors)
         assert not errors
     ours, calibre = _both(data)
-    assert ours == calibre == _fields(_full_record())
+    assert ours == _fields(_full_record())
+    assert calibre == _calibre_sees(_fields(_full_record()))
 
 
 def test_only_meta_xml_changes() -> None:
@@ -316,7 +334,8 @@ def test_properties_a_reader_prefers_are_replaced() -> None:
     )
     written = _write(original, _full_record())
     ours, calibre = _both(written)
-    assert ours == calibre == _fields(_full_record())
+    assert ours == _fields(_full_record())
+    assert calibre == _calibre_sees(_fields(_full_record()))
     names = [
         (x.get(f"{{{META}}}name") or "").lower()
         for x in _meta(written).iter(f"{{{META}}}user-defined")
@@ -332,16 +351,16 @@ def test_properties_a_reader_prefers_are_replaced() -> None:
     assert not list(_meta(written).iter(f"{{{META}}}keywords"))
 
 
-def test_tags_the_subject_supplies_stay_in_the_subject() -> None:
+def test_the_subject_holds_the_subjects_and_the_keywords_the_tags() -> None:
     """
-    Keep each reader's tags as they were when a record repeats the tags read from the file.
+    Read and write the document's Subject as subject headings and its keywords as tags.
 
-    LiuXin's reader counts the document's Subject as tags; calibre's does not. A
-    title-only write through the service starts from LiuXin's reading, Subject included.
-    Copying that into the keywords would give calibre a tag it never had.
+    LiuXin keeps tags and subjects in separate tables; calibre reads the keywords as
+    tags and ignores the Subject. Headings share the one Subject, joined by semicolons,
+    so a heading may hold commas but not a semicolon.
 
     Example:
-        >>> test_tags_the_subject_supplies_stay_in_the_subject()  # doctest: +SKIP
+        >>> test_the_subject_holds_the_subjects_and_the_keywords_the_tags()  # doctest: +SKIP
 
 
     :return: None; the assertions are the check.
@@ -349,24 +368,26 @@ def test_tags_the_subject_supplies_stay_in_the_subject() -> None:
     original = _odt(
         "<dc:title>Old</dc:title><dc:subject>Fiction; Sea</dc:subject><meta:keyword>whales</meta:keyword>"
     )
-    ours_before, calibre_before = _both(original)
-    assert ours_before["tags"] == ["Fiction", "Sea", "whales"] and calibre_before[
-        "tags"
-    ] == ["whales"]
+    ours, calibre = _both(original)
+    assert ours["tags"] == calibre["tags"] == ["whales"]
+    assert ours["subjects"] == ["Fiction", "Sea"] and calibre["subjects"] == []
 
-    mi = calibreMetaInformation("New", [])
-    mi.tags = ["Fiction", "Sea", "whales"]
-    ours, calibre = _both(_write(original, mi))
-    assert (
-        ours["tags"] == ours_before["tags"]
-        and calibre["tags"] == calibre_before["tags"]
-    )
-
-    mi.tags = ["Fiction", "Sea"]
-    written = _write(original, mi)
-    assert not list(_meta(written).iter(f"{{{META}}}keyword"))
+    tags_only = calibreMetaInformation("New", [])
+    tags_only.tags = ["new", "whales"]
+    written = _write(original, tags_only)
+    ours, calibre = _both(written)
+    assert ours["tags"] == calibre["tags"] == ["new", "whales"]
     assert [x.text for x in _meta(written).iter(f"{{{DC}}}subject")] == ["Fiction; Sea"]
-    assert _both(written)[1]["tags"] == []
+
+    subjects_only = calibreMetaInformation("New", [])
+    subjects_only.subjects = ["History, Modern -- 20th century", "Sea"]
+    written = _write(original, subjects_only)
+    assert [x.text for x in _meta(written).iter(f"{{{DC}}}subject")] == [
+        "History, Modern -- 20th century; Sea"
+    ]
+    ours, calibre = _both(written)
+    assert ours["subjects"] == ["History, Modern -- 20th century", "Sea"]
+    assert ours["tags"] == calibre["tags"] == ["whales"]
 
 
 def test_a_title_only_write_through_the_service_changes_only_the_title(
@@ -390,8 +411,9 @@ def test_a_title_only_write_through_the_service_changes_only_the_title(
     from LiuXin_alpha.core.program_services import metadata as service
 
     book = tmp_path / "book.odt"
-    # LiuXin's reader takes the creator, the last-saved date, the Subject and plain
-    # series properties where calibre's takes the initial creator or nothing.
+    # LiuXin's reader takes the creator, the last-saved date and plain series
+    # properties where calibre's takes the initial creator or nothing; calibre
+    # does not read the Subject.
     book.write_bytes(
         _odt(
             "<dc:title>Old</dc:title><meta:initial-creator>Ann Writer</meta:initial-creator>"
@@ -431,6 +453,7 @@ def test_hostile_text_is_written_as_well_formed_xml() -> None:
     mi = calibreMetaInformation(title, [f"Ann{nul} Writer"])
     mi.comments = "x" * 100_000 + "]]>"
     mi.tags = [f"t{surrogate}ag", "<b>"]
+    mi.subjects = [f"Se{nul}a <&> stories"]
     errors: list[str] = []
     written = _write(_odt(), mi, errors)
     assert not errors
@@ -441,6 +464,7 @@ def test_hostile_text_is_written_as_well_formed_xml() -> None:
         assert fields["authors"] == ["Ann Writer"]
         assert fields["comments"] == "x" * 100_000 + "]]>"
         assert fields["tags"] == ["<b>", "tag"]
+    assert ours["subjects"] == ["Sea <&> stories"]
 
 
 @pytest.mark.parametrize(
@@ -535,8 +559,7 @@ def test_the_data_repository_odts_keep_everything_but_meta_xml(
     """
     Write every field into each ODT in ``LiuXin_alpha_data``, twice; check the package and both readers.
 
-    LiuXin's reader also counts the document's Subject (``dc:subject``) as a tag,
-    which calibre's does not, so its tags are the written ones plus the Subject.
+    calibre's reader does not read the Subject, where the subjects go.
 
     Example:
         >>> test_the_data_repository_odts_keep_everything_but_meta_xml({})  # doctest: +SKIP
@@ -556,20 +579,10 @@ def test_the_data_repository_odts_keep_everything_but_meta_xml(
             m for m in before if m[0] != "meta.xml"
         ], path.name
         assert [m[0] for m in after] == [m[0] for m in before], path.name
-        subjects = sorted(
-            {
-                part.strip()
-                for x in _meta(written).iter(f"{{{DC}}}subject")
-                for part in (x.text or "").split(",")
-                if part.strip()
-            }
-        )
         ours, calibre = _both(written)
         expected = _fields(_full_record())
-        assert calibre == expected, path.name
-        assert ours == {**expected, "tags": sorted({*expected["tags"], *subjects})}, (
-            path.name
-        )
+        assert ours == expected, path.name
+        assert calibre == _calibre_sees(expected), path.name
     assert len(paths) >= 7
 
 

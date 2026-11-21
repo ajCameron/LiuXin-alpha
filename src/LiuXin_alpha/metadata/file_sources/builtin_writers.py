@@ -331,6 +331,8 @@ else:
         """
         name = "Set ODT metadata"
         file_types = frozenset(["odt"])
+        #: The document's Subject holds the subjects; the keywords hold the tags.
+        writes_subjects = True
         description = _("Set metadata in %s files") % "ODT"
 
         def set_metadata(self, stream, mi, type):

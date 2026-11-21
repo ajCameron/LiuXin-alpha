@@ -90,16 +90,14 @@ These match calibre's writers, so they are left as they are:
 | DOCX | No series, ISBN or cover is written. A missing publisher clears the document's company. |
 | HTMLZ | A book without an OPF is refused and left unchanged. |
 | RTF | The comments go into `\subject`, the publisher into `\manager`. |
-| ODT | No cover is written. The language is written as ISO 639-1; one with no such code is not written. The publication date is written as a date, in UTC. A tag holding a comma is split when read (by LiuXin's reader, a semicolon too). |
+| ODT | No cover is written. The language is written as ISO 639-1; one with no such code is not written. The publication date is written as a date, in UTC. A tag holding a comma is split when read (by LiuXin's reader, a semicolon too). Subjects share the one Subject, joined by semicolons, so a subject holding a semicolon is split when read; calibre does not read the Subject. |
 
 ## Found, not fixed
 
 - **LiuXin's ODT reader reads some fields from other places than calibre's.** It
-  counts the document's Subject as tags, takes the last-saved date as the publication
-  date, and prefers the creator to the initial creator. Its tests pin the Subject as
-  tags. The writer leaves such values as they are unless the caller changes them, so
-  each reader keeps its own reading. Making the reader match calibre would change how
-  existing ODT books read.
+  takes the last-saved date as the publication date and prefers the creator to the
+  initial creator, where calibre reads neither. The writer leaves such values as they
+  are unless the caller changes them, so each reader keeps its own reading.
 
 - **Language handling without `iso639.pickle`** (fixed in #207). Every language
   function in `utils/localization` depended on calibre's table, which LiuXin did not
@@ -125,11 +123,18 @@ and the file is left as it was.
 
 It writes as calibre's ODT writer does:
 
-- the title, authors, comments, tags and language go into the ODF elements;
+- the title, authors, comments, tags (the keywords) and language go into the ODF
+  elements;
 - the rest goes into calibre's `opf.*` user-defined properties, with `opf.metadata` set.
 
-Both LiuXin's reader and calibre's read every field back. LiuXin's reader now also reads
-`opf.identifiers` and `opf.rating`, which calibre writes and reads.
+It also writes the subjects, which calibre's record does not have: LiuXin keeps
+subject headings apart from tags (see [subjects](../metadata/subjects.md)). They go
+into the document's Subject, joined by semicolons, and LiuXin's reader reads the
+Subject as subjects; it used to count it as tags. calibre does not read the Subject.
+
+Both LiuXin's reader and calibre's read every field back, apart from the subjects,
+which calibre does not read. LiuXin's reader now also reads `opf.identifiers` and
+`opf.rating`, which calibre writes and reads.
 
 Two rules keep a write to the fields it names:
 
@@ -149,13 +154,11 @@ Two rules keep a write to the fields it names:
 
   - the creator before the initial creator;
   - the last-saved `dc:date` as the publication date;
-  - the Subject as tags;
   - plain `series` properties;
   - `dc:identifier`.
 
   The service fills omitted fields from that reading. Without this rule, a title-only
-  write would have copied those values where calibre reads them. Tags the Subject
-  already supplies are likewise not copied into the keywords.
+  write would have copied those values where calibre reads them.
 
 ## Tests
 
@@ -169,7 +172,7 @@ Two rules keep a write to the fields it names:
 - `tests/metadata/file_sources/test_odt_metadata_writer.py`: the ODT writer.
   - Every field in both readers.
   - What the package keeps.
-  - Null and unchanged fields; replaced properties; the Subject.
+  - Null and unchanged fields; replaced properties; subjects in the Subject.
   - Characters XML cannot hold; refusals; entities.
   - Title-only writes through the service, on built books and on every data-repository
     ODT.
