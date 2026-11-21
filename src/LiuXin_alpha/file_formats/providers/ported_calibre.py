@@ -27,6 +27,7 @@ Importing this module loads no reader.
 
 from __future__ import annotations
 
+import dataclasses
 import types
 from collections.abc import Callable, Mapping
 from pathlib import Path
@@ -314,6 +315,25 @@ def check_zip_container(source: Path, source_format: str) -> None:
     )
 
 
+@dataclasses.dataclass
+class _SevenZipMember:
+    """
+    One 7-Zip member, in the fields LiuXin's archive limits read.
+
+    Example:
+        >>> _SevenZipMember("page.jpg", 10, 4).file_size
+        10
+
+    :param filename: The member's name, with ``/`` after a directory.
+    :param file_size: Its size when unpacked.
+    :param compress_size: Its packed size, or its unpacked size where 7-Zip keeps none.
+    """
+
+    filename: str
+    file_size: int
+    compress_size: int
+
+
 def check_seven_zip_container(source: Path, source_format: str) -> None:
     """
     Refuse a 7-Zip comic LiuXin's archive limits would refuse.
@@ -342,7 +362,7 @@ def check_seven_zip_container(source: Path, source_format: str) -> None:
 
     with SevenZipFile(source, "r") as archive:
         infos = [
-            types.SimpleNamespace(
+            _SevenZipMember(
                 filename=info.filename + ("/" if info.is_directory else ""),
                 file_size=info.uncompressed or 0,
                 compress_size=info.compressed or info.uncompressed or 0,
