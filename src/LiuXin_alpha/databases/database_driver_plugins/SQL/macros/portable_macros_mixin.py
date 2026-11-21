@@ -666,6 +666,36 @@ class SQLPortableMacrosMixin(MacroHostState):
                 connection, previous = restore
                 connection.execute(f"PRAGMA query_only={int(previous)}").close()
 
+    def lock_metadata_snapshot(self) -> None:
+        """Protect composed metadata checks against writes until transaction completion.
+
+        SQLite write transactions already reserve the writer before reads. On
+        PostgreSQL, lock existing catalogue tables in deterministic order. A
+        table reservation also covers inserts and relation changes, which a root
+        row lock alone cannot protect. This is intentionally a coarse first
+        implementation for optional optimistic edits.
+        """
+        from LiuXin_alpha.databases.transaction_participants import owned_transaction_active
+
+        if not owned_transaction_active(self):
+            raise RuntimeError("Metadata preconditions require an owned managed transaction")
+        connection = self.current_transaction_connection()
+        if connection is None:
+            raise RuntimeError("Metadata preconditions require an active transaction")
+        if hasattr(self._macro_driver(), "schema"):
+            cursor = connection.execute("SHOW transaction_isolation")
+            try:
+                isolation = cursor.fetchone()
+            finally:
+                cursor.close()
+            if isolation is None or _row_value(isolation, 0, "transaction_isolation") != "read committed":
+                raise RuntimeError("Metadata preconditions require PostgreSQL READ COMMITTED isolation")
+            tables = sorted(self._macro_database.get_tables(force_refresh=True))
+            for table in tables:
+                connection.execute(
+                    f"LOCK TABLE {self._macro_table_sql(table)} IN SHARE ROW EXCLUSIVE MODE"
+                ).close()
+
     def inspect_repair_references(self, table: str) -> list[PhysicalReference]:
         """Read physical inbound constraints and polymorphic reference declarations."""
         from .repair_storage import references

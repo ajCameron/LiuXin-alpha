@@ -25,15 +25,14 @@ from enum import Enum
 
 class TableTypes(Enum):
     """
-        Represent relation cardinality with the established integer-valued enum members.
+    Name the established integer values for relationship cardinality.
 
-        These are Enum members rather than integer aliases. Use .value when
-        interoperating with the module's legacy integer constants; cardinality
-        declarations do not validate physical rows by themselves.
+    These are Enum members rather than integer aliases. Use .value when
+    interoperating with the module-level cardinality constants.
 
-        Example:
-    import LiuXin_alpha.databases.db_types.database_types        >>> LiuXin_alpha.databases.db_types.database_types.ONE_ONE.value == ONE_ONE
-            True
+    Example:
+        >>> TableTypes.ONE_ONE.value == ONE_ONE
+        True
     """
 
     ONE_ONE = ONE_ONE
@@ -99,18 +98,44 @@ class StorageCacheBaseTableAPI(abc.ABC):
         self.metadata = metadata
 
     def _require_attachment(self) -> DatabaseAPI:
-        """Return the borrowed database, rejecting SQL access after detach."""
+        """
+        Return the borrowed database, rejecting SQL access after detach.
+
+        Example:
+            A detached table can retain snapshot rows while rejecting later SQL reads.
+
+
+        :return: Borrowed database handle; raises RuntimeError when detached.
+        """
         if self.db is None:
             raise RuntimeError("No database is attached to this cache table")
         return self.db
 
     @property
     def catalog(self) -> DatabaseAPI | None:
-        """Alias the borrowed database attachment."""
+        """
+        Alias the borrowed database attachment.
+
+        Example:
+            ``table.catalog is table.db`` tests the attachment alias.
+
+
+        :return: Current borrowed database, or None after detachment.
+        """
         return self.db
 
     @catalog.setter
     def catalog(self, db: DatabaseAPI | None) -> None:
+        """
+        Replace the borrowed database reference without loading rows.
+
+        Example:
+            ``table.catalog = None`` detaches SQL access without clearing snapshots.
+
+
+        :param db: Replacement database handle, or None to detach.
+        :return: None; only changes the stored attachment reference.
+        """
         self.db = db
 
     @abc.abstractmethod

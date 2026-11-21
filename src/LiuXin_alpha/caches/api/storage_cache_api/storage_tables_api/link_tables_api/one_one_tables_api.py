@@ -162,6 +162,7 @@ class StorageCacheOneOneGetterAPI(abc.ABC):
 
         :param src_id: Source row identity for directed link selection.
         :param dst_id: Destination row identity for reverse link selection.
+        :param insist_on_singular: Raise on an ambiguous accepted association when true.
         :param type_filter: Optional exact link-type restriction interpreted by the backend.
         :return: OneOneLink value, or None when no accepted link exists.
         """
@@ -234,6 +235,7 @@ class StorageCacheOneOneGetterAPI(abc.ABC):
 
         :param src_id: Source row identity for directed link selection.
         :param dst_id: Destination row identity for reverse link selection.
+        :param insist_on_singular: Raise on an ambiguous accepted association when true.
         :param type_filter: Optional exact link-type restriction interpreted by the backend.
         :return: Physical link Row, or None when no accepted link exists.
         """
@@ -374,6 +376,7 @@ class StorageCacheOneOneGetterAPI(abc.ABC):
 
         :param dst_value: Value matched against the specified destination-table column.
         :param dst_column: Destination column to search or project, according to the getter.
+        :param require_ordering: Preserve the backend's association ordering when true.
         :param type_filter: Optional exact link-type restriction interpreted by the backend.
         :return: Sequence of linked source identities; repeated links/value matches may remain repeated.
         """
@@ -400,6 +403,7 @@ class StorageCacheOneOneGetterAPI(abc.ABC):
 
         :param dst_value: Value matched against the specified destination-table column.
         :param dst_column: Destination column to search or project, according to the getter.
+        :param require_ordering: Preserve the backend's association ordering when true.
         :param type_filter: Optional exact link-type restriction interpreted by the backend.
         :return: Sequence of linked source Rows; repeated links/value matches may remain repeated.
         """
@@ -496,6 +500,7 @@ class StorageCacheOneOneGetterAPI(abc.ABC):
 
         :param src_value: Value matched against the specified source-table column.
         :param src_column: Source column to search or project, according to the getter.
+        :param require_ordering: Preserve the backend's association ordering when true.
         :param type_filter: Optional exact link-type restriction interpreted by the backend.
         :return: Sequence of linked destination identities; repeated links/value matches may remain repeated.
         """
@@ -522,6 +527,7 @@ class StorageCacheOneOneGetterAPI(abc.ABC):
 
         :param src_value: Value matched against the specified source-table column.
         :param src_column: Source column to search or project, according to the getter.
+        :param require_ordering: Preserve the backend's association ordering when true.
         :param type_filter: Optional exact link-type restriction interpreted by the backend.
         :return: Sequence of linked destination Rows; repeated links/value matches may remain repeated.
         """
