@@ -1071,6 +1071,26 @@ class SQLPortableMacrosMixin(MacroHostState):
             after_id=after_id,
         )
 
+    def get_tree_children_page(
+        self, table: str, parent_id: int | None, *, position_column: str,
+        limit: int = 100, offset: int = 0,
+    ) -> tuple[Mapping[str, Any], ...]:
+        """Read one ordered parent-linked page without materializing its siblings."""
+        table = self._physical_table(table)
+        if parent_id is not None:
+            self._batch_row_ids((parent_id,))
+        parent_column = self._macro_driver().direct_get_parent_column_name(table)
+        if not parent_column:
+            raise InputIntegrityError("Tree reads require a physical parent column")
+        self._validate_columns(table, (parent_column, position_column))
+        rows, _ = read_page(
+            self._macro_connection(), table_sql=self._macro_table_sql(table),
+            columns=self._column_names(table), id_column=self._row_id_column(table, None),
+            where={parent_column: parent_id}, limit=limit, offset=offset,
+            position_column=position_column,
+        )
+        return rows
+
     def audit_query_indexes(self) -> QueryIndexReport:
         """Inspect known query indexes without changing schema or stored data."""
         from LiuXin_alpha.databases.query_indexes import audit_query_indexes

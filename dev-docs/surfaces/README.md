@@ -30,4 +30,17 @@ capability enforcement.
 
 Use the [Core API](../core/core-api.md) when adding an operation and [test streams](../hacking/test-streams.md) to choose checks.
 
+## Progress feedback
+
+User preference recorded **2026-11-21**: prefer progress bars with a countdown
+showing **estimated time remaining**, wherever a meaningful estimate is available.
+Apply this to CLI, terminal and GUI displays, and developer tooling with progress
+output, when those displays are added or revised.
+
+Estimate from measured progress when the total work is known. Label the value as
+an estimate, update it as throughput changes, and make clear whether it covers the
+current phase or the whole operation. When the total or processing rate is unknown,
+show activity or elapsed time until an estimate becomes useful. This is a design
+preference, not a claim that existing progress displays already implement it.
+
 Return to the [developer index](../README.md).

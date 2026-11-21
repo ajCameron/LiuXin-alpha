@@ -26,8 +26,9 @@ class AnnotationRepositoryAPI(ExactEntityRepositoryAPI, Protocol):
     also constrain identity. Kind, anchor type, and source comparisons case-fold. Scalar exact uses
     only anchor start plus required Item scope, without the full candidate-identity check.
 
-    Presence checks in matching do not validate Item existence; list_for_item does. Mutable direct
-    CRUD is available, but inherited match_or_create rejects this non-reusable spec before lookup.
+    Presence checks in matching do not validate Item existence; list_for_item does.
+    Creates and updates require a live Item, nonblank kind, anchor type and start.
+    Both ensure and match_or_create reject this non-reusable spec before lookup.
     No approximate policy field is configured.
 
     This structural protocol describes the concrete repository behavior and adds no runtime

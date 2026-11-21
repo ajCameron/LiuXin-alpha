@@ -1,40 +1,139 @@
 # Native metadata access
 
 Implemented **2026-11-18**. The bound
-[MetadataAPI](../../src/LiuXin_alpha/caches/metadata.py) implements
+[MetadataAPI](../../src/LiuXin_alpha/caches/metadata/service.py) implements
 [MetadataAPIInterface](../../src/LiuXin_alpha/catalog/api/metadata_access.py)
-under the existing `caches` package. Catalog owns validation and persistence;
+under the existing `caches.metadata` package. Catalog owns validation and persistence;
 the adapter coordinates metadata reads, mutations and cache freshness.
+
+The implementation is grouped under `caches.metadata` as of **2026-11-20**:
+
+- `cache.py`: `CatalogCache`, requiring and borrowing a loaded generic cache.
+- `writers.py`: schema-directed Catalog writer binding and physical dependencies.
+- `service.py`: the bound `MetadataAPI`, WEMI services and coordinated mutations.
+- `reads.py`: complete reads and detached metadata projections.
+- `search.py`: semantic search execution, exact pages and provenance.
+- `shared.py`: Agent and vocabulary services and Work memberships.
+- `trees.py`: vocabulary traversal and coordinated hierarchy mutations.
+- `records.py`: identifiers, text attachments and Item-scoped annotation services.
+- `custom_fields.py`: native custom-field administration and reconciliation.
+
+The package exports `CatalogCache` and `MetadataAPI`. As of **2026-11-21**,
+`CatalogCache(catalog, cache=core)` is the explicit metadata-aware facade. The
+former `Cache.metadata` and core writer methods are removed; the core remains
+metadata-independent. `MetadataAPI(catalog)` still supports uncached operation,
+and its explicit optional-cache constructor remains available.
+The metadata contracts remain under `catalog.api`. The cache-wide descriptor registry and its
+publication coordinator remain in `caches.field_metadata` and
+`caches.custom_fields`.
 
 ## Composition
 
 ```python
 from LiuXin_alpha.caches.cache import create_cache
-from LiuXin_alpha.caches.metadata import MetadataAPI
+from LiuXin_alpha.caches.metadata import CatalogCache, MetadataAPI
 from LiuXin_alpha.catalog.catalog import Catalog
 
 cache = create_cache(database, "schema_backed")
-metadata = cache.metadata
+catalog = Catalog(database)
+metadata = CatalogCache(catalog, cache=cache)
 
 created = metadata.works.create({"title": "The Metadata Garden"})
 work = metadata.works.require(created.result)
 matches = metadata.search.find("work.title:Garden")
 
 # Explicit composition can reuse an existing Catalog and select fallback once.
-metadata = MetadataAPI(Catalog(database), cache=cache,
+metadata = CatalogCache(catalog, cache=cache,
                        allow_database_fallback=True)
 
 # The same interface is available without a cache.
-uncached = MetadataAPI(Catalog(database))
+uncached = MetadataAPI(catalog)
 ```
 
-`cache.metadata` is retained lazily and requires a loaded cache. It disables
-database fallback. The explicit constructor accepts a loaded `ReadCache` as well
-as a writable `Cache`; the adapter itself supplies the Catalog mutation bridge.
-Both objects must refer to the same database instance. Every operation checks
-attachment and readiness again, including calls through retained entity services.
-The composing caller closes the cache and database. The metadata adapter owns
-neither resource and does not introduce a top-level package.
+`CatalogCache` requires a loaded `Cache` or `ReadCache` for the same database
+instance as Catalog. It implements `MetadataAPIInterface` and exposes entity
+services directly: `metadata.works`, `metadata.search`, `metadata.vocabulary(...)`
+and the other existing members. `metadata.cache` returns the exact borrowed core
+for physical queries and explicit lifecycle operations. No second snapshot,
+index set or lock is created.
+
+Database fallback is disabled by default and selected once at construction.
+Every operation checks attachment and readiness again, including calls through
+retained entity services and schema writers. The composing caller closes the core
+and database; the facade owns neither resource. Direct Catalog writes continue
+to need explicit invalidation of snapshots. CoreServices constructs `CatalogCache`
+when a cache is configured and `MetadataAPI` otherwise.
+
+Schema-directed writes have moved to `metadata.create_writer(...)`,
+`metadata.write(...)` and `metadata.write_one(...)`. Generic `CacheAPI` now exposes
+`reconcile(receipt, tables=..., links=..., fields=...)`; the upper layer supplies
+those physical dependencies after interpreting Catalog's result. See the
+[Catalog/cache boundary](../catalog/catalog-cache-boundary.md) for the architecture
+and migration rationale.
+
+## Core metadata coverage
+
+Expanded **2026-11-21**. Named properties cover every metadata repository whose
+records have independent identities; embedded titles are edited through their
+WEMI owners. The interface is a semantic boundary, not a mirror of every SQL
+relation. Physical link tables, workflow state, storage, provenance infrastructure
+and schema bookkeeping do not receive generic metadata CRUD services.
+
+| Domain | Entry point | Operations and identity policy |
+| --- | --- | --- |
+| Works, Expressions, Manifestations, Items | `works`, `expressions`, `manifestations`, `items` | Existing native hydration, CRUD, edit preconditions and batch reads |
+| Agents, person/organisation aggregates | `agents` | CRUD, typed aggregate creation and explicit rename; names alone never imply reuse |
+| Tags, Labels | `tags`, `labels`; `ensure_tag(text)`, `ensure_label(text)` | Named CRUD; ensure uses exact normalized identity, retaining punctuation |
+| Genres, Subjects, Series | `genres`, `subjects`, `series`; corresponding `ensure_*` | Named CRUD; ensure accepts `parent_id`, with `None` explicitly selecting a root; schema uniqueness still applies |
+| Ratings | `ratings`; `ensure_rating(value, out_of=..., source=...)` | CRUD; ensure requires a scale and a nonblank source to avoid accidental reuse across contexts |
+| Languages | `languages` | Detached `get`, `require`, `list`; seeded constants are read-only |
+| Curated identifiers | `identifiers` | CRUD, `list_for_wemi`, `list_for_agent`, `link_to_wemi`, `link_to_agent`; assignment may copy a row and return a different ID |
+| Item identifier observations | `item_identifiers` | CRUD and `list_for_item`; require a live Item and nonblank raw scheme/value; preserve observed spelling |
+| Notes, Comments, Synopses | `notes`, `comments`, `synopses` | CRUD, atomic `add_for_wemi`, and `list_for_wemi`; attachment creates fresh text under Catalog cardinality rules |
+| Annotations | `annotations` | CRUD and `list_for_item`, optionally filtered by user/kind; require a live Item, kind and anchor; equal text is not automatically reused |
+| Logical titles | WEMI scalar updates | Titles belong to Works, Expressions or Manifestations; no independent title identity or writable compatibility view is introduced |
+| Native custom fields | `custom_fields` | Existing schema, value, revision and migration services |
+
+`vocabulary(kind)` remains the dynamic selector for the same named vocabulary
+services. Its language writes still raise Catalog's read-only error. Other record
+reads return detached `SharedMetadataRecord` values containing the kind, integer
+identity and public field aliases. Text attachment lists contain distinct records
+in ID order; use WEMI hydration for relationship order and link attributes.
+All owner-scoped reads require an existing owner, distinguish unavailable cache
+coverage from an empty result, and share one captured read source.
+
+```python
+tag = metadata.ensure_tag("History")
+metadata.tags.link_to_work(entity_id=tag.result, work_id=work_id)
+note = metadata.notes.add_for_wemi(
+    level="work", entity_id=work_id, text="Check the publication date."
+)
+metadata.annotations.create({
+    "item_id": item_id,
+    "kind": "bookmark",
+    "anchor_type": "page_offset",
+    "anchor_start": "12",
+})
+observations = metadata.item_identifiers.list_for_item(item_id)
+```
+
+Ensure operations use Catalog's authoritative exact matcher under a serialized
+writer reservation. They never decide to create from a cached miss, apply fuzzy
+reuse, merge Agents, or overwrite an existing row's spelling/attributes. Reuse
+returns `changed=False` and does not advance the cache generation. Ambiguity or
+conflicting evidence raises before insertion. `metadata.batch(...)` supplies the
+required serialized boundary; an ordinary caller-owned transaction cannot be
+upgraded for ensure and is rejected. Cooperating callers share that reservation;
+arbitrary external SQL writers remain outside the application locking contract.
+Direct Catalog/SQL writes still require their own cache invalidation, including
+when a subsequent ensure reuses the externally created row.
+
+Core-record writes retain the existing receipt, pending transaction, rollback and
+post-commit reconciliation contracts. Catalog validates Item-owned writes even
+though the physical schema permits incomplete placeholder rows. Matching and
+normalization stay in Catalog; the generic cache remains metadata-independent.
+This extension does not optimize Catalog's exact matcher or the conservative
+full-refresh write policy.
 
 ## Reads and writes
 
@@ -199,6 +298,82 @@ These writes do not pass through Core's older reconciler for a second refresh.
 The existing item-centred `metadata.get`/OPF payload remains a separate contract;
 other Catalog endpoints have not yet migrated to this interface.
 
+## Vocabulary trees
+
+Genres, Subjects and Series expose `HierarchicalVocabularyMetadataInterface` on
+their named properties and on literal `vocabulary(...)` selections. Catalog owns
+the tree rules and durable writes; the metadata facade supplies cached reads and
+reconciliation. WEMI graph construction remains on `mutations`.
+
+```python
+from LiuXin_alpha.catalog.api.metadata_trees import VocabularyTreeInput
+
+path = metadata.genres.ensure_path(("Fiction", "Science fiction", "Space opera"))
+fiction, science_fiction, space_opera = path.result
+
+created = metadata.subjects.create_tree(VocabularyTreeInput(
+    {"name": "History"},
+    children=(VocabularyTreeInput({"name": "Ancient history"}),),
+))
+root_id = created.result[0]
+branch = metadata.subjects.subtree(root_id)
+metadata.genres.move(space_opera, parent_id=fiction, before_id=science_fiction)
+metadata.genres.reorder(parent_id=fiction, entity_ids=(science_fiction, space_opera))
+```
+
+`ensure_path` takes literal name components, never a separator-delimited string.
+It reuses exact matches within each parent scope, preserves reused attributes and
+ordering, and returns component IDs. `create_tree` creates every supplied node
+fresh and returns preorder IDs. Nested payloads cannot specify parent or position;
+the input structure supplies them. Both operations are atomic, default to root
+scope (`parent_id=None`), and accept `max_nodes=10000`. Series names remain globally
+unique: a Series in another branch is a conflict, never an implicit move.
+
+`roots(limit=100, offset=0)` and `children(id, limit=100, offset=0)` return ordered
+pages. `ancestors(id, max_nodes=10000)` returns root-to-parent records, excluding
+the starting node; `subtree(id, max_nodes=10000)` includes the selected root and
+returns depth-first preorder. Records are detached. An overflow raises
+`HierarchyLimitError` without a partial result. Missing parents and cycles raise
+integrity errors. Cached traversals capture one source; explicit fallback reruns
+the entire traversal against the database. Known misses do not cause fallback.
+The node budget bounds traversal and output; a live backend still incurs its
+existing catalogue-capture cost before traversal begins.
+
+Sibling reads sort by stored position, nulls last, then ID. Structural writes
+compact affected siblings to zero-based positions. New children append; input
+child order is preserved. `move(id, parent_id=..., before_id=None)` appends unless
+a destination sibling is named. `reorder` requires the complete sibling set,
+including root ordering when its parent is None. Ordinary `create` and `update`
+share parent validation and cycle checks; position aliases are insertion indices.
+Stored `full` labels and `tree_id` values remain caller-supplied metadata and are
+not authoritative paths or automatically maintained ancestry. Moving a node does
+not rewrite imported labels. Series membership priorities remain separate from
+Series sibling positions.
+
+Deletion is deliberately explicit and tighter than the physical schema:
+
+- `delete(id, detach=False)` accepts leaves only; children are neither cascaded
+  nor promoted. Move children first or use `delete_subtree`.
+- `delete_subtree(id, detach=False, max_nodes=10000)` removes a complete bounded
+  subtree and returns deleted IDs child-first.
+- Existing metadata attachments block both operations. `detach=True` removes
+  declared relationship rows atomically, retaining their other endpoint entities.
+  Unsupported references and references to attachment rows block deletion.
+  Reference inspection also has a 100,000-row safety budget.
+
+All writes retain normal receipts, batch/outer-transaction ownership and committed
+refresh-failure handling. No-op path reuse, moves, reorders and equal-value edits
+report `changed=False`. Direct Catalog writes still require explicit cache
+invalidation. These contracts do not migrate stored rows or change schema-level
+foreign keys; physical database access remains a separate lower-level API.
+
+Validation on **2026-11-21**: all 47 mandatory tree regressions passed, covering
+the three vocabularies, four read modes, SQLite/APSW mutations and independent
+database handles. Four gated stress smoke cases passed; ordinary runs skip them.
+The combined affected-runtime and documentation/tooling checks passed 203 distinct
+cases. Formatting, lint, architecture/import budgets, mypy, basedpyright and both
+negative-contract suites passed. Full-size stress and live PostgreSQL were not run.
+
 ## Search requests and pages
 
 `search.find()` remains the ID-ordered reference convenience. The richer
@@ -301,12 +476,23 @@ Catalog or SQL writes made outside this adapter still need explicit invalidation
 
 ## Scope and validation
 
+The **2026-11-21** core-record expansion adds [25 mandatory cases](../../tests/databases/caches/test_metadata_core_records.py).
+They pass across uncached, schema-backed, database-backed and NumPy caches, with
+SQLite/APSW coverage for contextual CRUD and independent-handle concurrency.
+Checks include normalized reuse, ambiguity, parent/scale/source scope, detached
+records, owner validation, rollback, pending receipts, post-commit recovery and
+explicit fallback. The current manifest requires **2,983 cases**.
+The affected Catalog suite passes **89 cases**, documentation/tooling checks pass
+**38**, and the full quality runner passes both type checkers, positive/negative
+contracts, formatting, lint and architecture guards. No live PostgreSQL or long
+soak lane was rerun for this expansion.
+
 [Behavior tests](../../tests/databases/caches/test_metadata_api.py) cover the same
 typed consumer with no cache and each native backend, detached values, CRUD,
 attachment replacement, hierarchy links, transaction commit/rollback, failed
 refresh, unavailable reads and retained bindings. The
 [static contracts](../../tests/typing/internal_contracts.py) check both the
-standalone adapter and `Cache.metadata` against the public protocol.
+standalone adapter and `CatalogCache` against the public protocol.
 
 The [search tests](../../tests/databases/caches/test_metadata_search.py) add
 SQLite/APSW and native backend parity, exact totals and stable sorting, numeric

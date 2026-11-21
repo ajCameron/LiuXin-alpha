@@ -21,7 +21,7 @@ from LiuXin_alpha.databases.custom_columns.native_types import (
 )
 
 if TYPE_CHECKING:
-    from LiuXin_alpha.caches.metadata import MetadataAPI
+    from LiuXin_alpha.caches.metadata.service import MetadataAPI
     from LiuXin_alpha.catalog.api.metadata_access import MetadataWriteReceipt
 
 

@@ -8,7 +8,7 @@ from dataclasses import replace
 from typing import TYPE_CHECKING, cast
 
 from LiuXin_alpha.caches.api import CacheConsistency, CacheQuery, CacheQueryResult
-from LiuXin_alpha.caches.metadata_reads import UNAVAILABLE, MetadataReadSource
+from LiuXin_alpha.caches.metadata.reads import UNAVAILABLE, MetadataReadSource
 from LiuXin_alpha.caches.projection import ProjectionQueryEngine
 from LiuXin_alpha.catalog.api.metadata_access import MetadataReference
 from LiuXin_alpha.catalog.api.metadata_search import (
@@ -21,7 +21,7 @@ from LiuXin_alpha.catalog.repositories.base import BaseRepository
 from LiuXin_alpha.catalog.search import metadata_requests
 
 if TYPE_CHECKING:
-    from LiuXin_alpha.caches.metadata import MetadataAPI
+    from LiuXin_alpha.caches.metadata.service import MetadataAPI
     from LiuXin_alpha.catalog.api.common import WemiLevel
     from LiuXin_alpha.databases.api.database_api import DatabaseAPI
 

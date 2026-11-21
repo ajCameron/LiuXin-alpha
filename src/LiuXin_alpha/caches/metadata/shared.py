@@ -19,7 +19,7 @@ from LiuXin_alpha.catalog.repositories.base import BaseRepository
 from LiuXin_alpha.catalog.repositories.work_memberships import WorkMembershipRepository
 
 if TYPE_CHECKING:
-    from LiuXin_alpha.caches.metadata import MetadataAPI
+    from LiuXin_alpha.caches.metadata.service import MetadataAPI
     from LiuXin_alpha.catalog.api.metadata_access import MetadataWriteReceipt
 
 

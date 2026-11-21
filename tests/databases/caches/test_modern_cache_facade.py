@@ -17,6 +17,8 @@ from types import SimpleNamespace
 
 import pytest
 
+from LiuXin_alpha.caches.metadata import CatalogCache
+from LiuXin_alpha.catalog.catalog import Catalog
 from LiuXin_alpha.caches.api import (
     CacheClosedError,
     CacheDirtyError,
@@ -267,10 +269,22 @@ def test_modern_cache_write_reconciles_and_advances_generation(modern_cache) -> 
     cache, _database = modern_cache
     before = cache.generation
 
-    assert cache.write_one("books", "title", 1, "Updated") == {1: "Updated"}
+    assert CatalogCache(Catalog(cache.database), cache=cache).write_one("books", "title", 1, "Updated") == {1: "Updated"}
 
     assert cache.get("books", 1).value["title"] == "Updated"
     assert cache.generation > before
+    assert cache.state == CacheState.READY
+
+
+def test_physical_reconciliation_preserves_earlier_invalidation(modern_cache) -> None:
+    """A generic refresh receipt must not discard unrelated dirty dependencies."""
+    cache, database = modern_cache
+    database.driver_wrapper.update_column("tags", 10, "name", "External tag")
+    cache.invalidate(tables=("tags",))
+    database.driver_wrapper.update_column("books", 1, "title", "External book")
+    cache.reconcile({1: "External book"}, tables=iter(("books",)))
+    assert cache.get("tags", 10).value["name"] == "External tag"
+    assert cache.get("books", 1).value["title"] == "External book"
     assert cache.state == CacheState.READY
 
 
@@ -393,7 +407,7 @@ def test_cache_bound_writer_preserves_preexisting_dirty_dependencies(
     cache, database = modern_cache
     if cache.capabilities.consistency.value == "live":
         pytest.skip("live backend has no pending snapshot dependencies")
-    writer = cache.create_writer("books", "title")
+    writer = CatalogCache(Catalog(cache.database), cache=cache).create_writer("books", "title")
 
     database.driver_wrapper.update_column("tags", 10, "name", "External tag")
     cache.invalidate(tables=("tags",))
@@ -447,7 +461,7 @@ def test_modern_cache_reconciliation_failure_preserves_receipt_and_recovers(
 
     monkeypatch.setattr(cache.storage, "reload_main_table", fail_reload)
     with pytest.raises(CacheReconciliationError) as caught:
-        cache.write_one("books", "title", 1, "Committed")
+        CatalogCache(Catalog(cache.database), cache=cache).write_one("books", "title", 1, "Committed")
 
     assert caught.value.receipt == {1: "Committed"}
     assert "books" in caught.value.dependencies
@@ -479,7 +493,7 @@ def test_snapshot_cache_defers_dirty_reads_until_outer_transaction_closes(
         pytest.skip("live backend does not require deferred snapshot refresh")
 
     database.macros._macro_transaction_state = SimpleNamespace(depth=1)
-    cache.write_one("books", "title", 1, "Transaction")
+    CatalogCache(Catalog(cache.database), cache=cache).write_one("books", "title", 1, "Transaction")
 
     assert cache.state == CacheState.DIRTY
     with pytest.raises(CacheDirtyError):

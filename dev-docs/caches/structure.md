@@ -1,6 +1,6 @@
 # Native caches and Calibre compatibility
 
-Updated **2026-11-18**. This is the implemented package boundary following the
+Updated **2026-11-21**. This is the implemented package boundary following the
 [compatibility review](calibre-compatibility-review-2026-11-16.md).
 
 ## Native owners
@@ -9,10 +9,17 @@ Updated **2026-11-18**. This is the implemented package boundary following the
 LiuXin_alpha/
   caches/
     read_cache.py        lifecycle, reads, freshness and query indexes
-    cache.py             Catalog writer bridge and reconciliation
-    metadata.py          native metadata service and semantic write coordination
-    metadata_reads.py    complete reads and detached metadata projections
-    metadata_search.py   semantic search execution, exact pages and provenance
+    cache.py             generic Cache constructor; no metadata/persistence API
+    metadata/            Catalog-cache composition; exports CatalogCache and MetadataAPI
+      cache.py           required-cache semantic facade; borrows the core
+      writers.py         Catalog update interpretation and writer coordination
+      service.py         WEMI services and semantic write coordination
+      reads.py           complete reads and detached metadata projections
+      search.py          semantic search execution, exact pages and provenance
+      trees.py           vocabulary hierarchy reads and coordinated structural writes
+      shared.py          Agent, vocabulary and Work membership services
+      records.py         identifiers, text attachments and Item annotations
+      custom_fields.py   native custom-field administration and reconciliation
     query.py             native queries, bounded plans/results and ID repair
     predicates.py        physical Boolean and relationship evaluation
     projection.py        explicit copied projection execution
@@ -30,6 +37,13 @@ The `schema_backed`, `database_backed` and `numpy_vectorized` backends remain
 native. Catalog owns bibliographic mutation policy; databases owns persistence
 and physical SQL execution; caches owns derived state and recovery. Low-level
 efficient SQL can remain in databases without moving field semantics there.
+
+As of **2026-11-21**, `CatalogCache(catalog, cache=core)` is the explicit upper
+layer. It inherits the metadata service implementation, composes the generic
+cache, and shares its lock and indexes. `Cache` and `ReadCache` expose physical
+queries and reconciliation, with no `metadata`, `create_writer`, `write` or
+`write_one` entry points. The [boundary decision](../catalog/catalog-cache-boundary.md)
+records migration and ownership. Import-direction checks enforce the separation.
 
 ## Compatibility owners
 

@@ -10,7 +10,7 @@ utils.calibre_compat.metadata.field_metadata_api; native descriptor snapshots li
 in caches.field_metadata. Importing these values creates no database or Catalog.
 
 The separate api.metadata_access module declares MetadataAPIInterface, implemented
-by caches.metadata.MetadataAPI and exposed through Cache.metadata. Its placement here supplies the semantic contract;
+by caches.metadata.MetadataAPI and its CatalogCache composition. Its placement here supplies the semantic contract;
 the existing Catalog facade does not implement its reconciliation obligations.
 
 Example:

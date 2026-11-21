@@ -7,13 +7,27 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Literal, Protocol, TypedDict
 
 if TYPE_CHECKING:
+    from LiuXin_alpha.catalog.api.common import WemiLevel
     from LiuXin_alpha.catalog.api.metadata_results import MetadataWriteReceipt
 
 type VocabularyKind = Literal[
     "tags", "labels", "genres", "subjects", "series", "languages", "ratings"
 ]
 type SharedMetadataKind = Literal[
-    "agents", "tags", "labels", "genres", "subjects", "series", "languages", "ratings"
+    "agents",
+    "tags",
+    "labels",
+    "genres",
+    "subjects",
+    "series",
+    "languages",
+    "ratings",
+    "identifiers",
+    "item_identifiers",
+    "notes",
+    "comments",
+    "synopses",
+    "annotations",
 ]
 
 
@@ -30,19 +44,15 @@ class AgentInput(TypedDict, total=False):
 
 @dataclass(frozen=True, slots=True)
 class SharedMetadataRecord:
-    """Detached shared identity and public field aliases, without live SQL Rows."""
+    """Detached metadata record identity and public aliases, without live SQL Rows."""
 
     kind: SharedMetadataKind
     entity_id: int
     fields: Mapping[str, object]
 
 
-class SharedMetadataInterface[InputT](Protocol):
-    """Read shared values through the bound source; coordinate every mutation.
-
-    Languages retain Catalog's read-only constant policy. Vocabulary payload keys
-    follow that repository's public aliases. list() is ordered by identity.
-    """
+class MetadataRecordsReader(Protocol):
+    """Read detached public aliases through the bound source, ordered by identity."""
 
     def get(self, entity_id: int) -> SharedMetadataRecord | None:
         """Return a detached value or None for a confirmed miss."""
@@ -57,6 +67,14 @@ class SharedMetadataInterface[InputT](Protocol):
     ) -> tuple[SharedMetadataRecord, ...]:
         """Return an ID-ordered page from the bound read source."""
         ...
+
+
+class SharedMetadataInterface[InputT](MetadataRecordsReader, Protocol):
+    """Coordinate record mutations using Catalog validation and public aliases.
+
+    Languages retain Catalog's read-only constant policy, even through the older
+    vocabulary selector. Context-owned records require their owner in the payload.
+    """
 
     def create(self, data: InputT) -> MetadataWriteReceipt[int]:
         """Create through Catalog without implicit reuse or merging."""
@@ -108,4 +126,125 @@ class VocabularyMetadataInterface(
         self, *, entity_id: int, work_id: int
     ) -> MetadataWriteReceipt[int]:
         """Detach a Tag or Series while retaining both endpoint identities."""
+        ...
+
+
+class TextMetadataInput(TypedDict, total=False):
+    """Note, Comment or Synopsis text; omitted fields remain unchanged on update."""
+
+    text: str
+
+
+class IdentifierInput(TypedDict, total=False):
+    """Curated scheme/value and optional WEMI or Agent ownership."""
+
+    scheme: str
+    value: str
+    source: str | None
+    is_primary: bool | int | None
+    level: WemiLevel | Literal["agent"] | None
+    entity_id: int | None
+
+
+class ItemIdentifierInput(TypedDict, total=False):
+    """Raw identifier observation; creation requires item_id, scheme and value."""
+
+    item_id: int
+    scheme: str
+    value: str
+    source: str | None
+
+
+class AnnotationInput(TypedDict, total=False):
+    """Item-scoped annotation fields, preserving independent equal-text records."""
+
+    item_id: int
+    user_id: int | None
+    kind: str
+    anchor_type: str
+    anchor_start: str
+    anchor_end: str | None
+    selected_text: str | None
+    note_text: str | None
+    source: str | None
+    device_id: int | None
+    extra_json: str | None
+
+
+class TextMetadataInterface(SharedMetadataInterface[TextMetadataInput], Protocol):
+    """Administer text records and create fresh attachments to WEMI owners."""
+
+    def add_for_wemi(
+        self, *, level: WemiLevel, entity_id: int, text: str
+    ) -> MetadataWriteReceipt[int]:
+        """Atomically create and attach fresh text, retaining Catalog cardinality rules."""
+        ...
+
+    def list_for_wemi(
+        self, *, level: WemiLevel, entity_id: int
+    ) -> tuple[SharedMetadataRecord, ...]:
+        """Return distinct attached records in ID order; require the owner.
+
+        These are record projections. WEMI hydration supplies relationship
+        attributes and ordering when those are needed.
+        """
+        ...
+
+
+class IdentifierMetadataInterface(SharedMetadataInterface[IdentifierInput], Protocol):
+    """Administer curated identifiers, preserving owner-specific copy semantics."""
+
+    def list_for_wemi(
+        self, *, level: WemiLevel, entity_id: int
+    ) -> tuple[SharedMetadataRecord, ...]:
+        """Return ID-ordered identifiers directly owned by an existing WEMI entity."""
+        ...
+
+    def list_for_agent(self, agent_id: int) -> tuple[SharedMetadataRecord, ...]:
+        """Return ID-ordered identifiers owned by an existing Agent."""
+        ...
+
+    def link_to_wemi(
+        self,
+        *,
+        identifier_id: int,
+        level: WemiLevel,
+        entity_id: int,
+        priority: int | None = None,
+    ) -> MetadataWriteReceipt[int]:
+        """Assign or copy to the owner; the receipt contains the assigned row ID."""
+        ...
+
+    def link_to_agent(
+        self,
+        *,
+        identifier_id: int,
+        agent_id: int,
+        priority: int | None = None,
+    ) -> MetadataWriteReceipt[int]:
+        """Assign or copy to an Agent; preserve the original owner when copying."""
+        ...
+
+
+class ItemIdentifierMetadataInterface(
+    SharedMetadataInterface[ItemIdentifierInput], Protocol
+):
+    """Administer raw observations independently of curated entity identifiers."""
+
+    def list_for_item(self, item_id: int) -> tuple[SharedMetadataRecord, ...]:
+        """Require the Item and return its observations in ID order."""
+        ...
+
+
+class AnnotationMetadataInterface(SharedMetadataInterface[AnnotationInput], Protocol):
+    """Administer annotations by row identity, without global text reuse."""
+
+    def list_for_item(
+        self,
+        item_id: int,
+        *,
+        user_id: int | None = None,
+        kind: str | None = None,
+    ) -> tuple[SharedMetadataRecord, ...]:
+        """Require the Item and filter annotations by optional user and exact kind."""
         ...

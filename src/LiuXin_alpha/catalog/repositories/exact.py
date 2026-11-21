@@ -35,8 +35,9 @@ class ExactEntityRepository(BaseRepository):
 
     Persistence derives keys from the database identity declarations. Mutable
     controls create/update/delete and match_or_create; reusable additionally controls
-    match_or_create, not direct reads or matching. The class adds no encompassing transaction around
-    matching and creation and does not acquire ownership of the database.
+    match_or_create and ensure, not direct reads or matching. Only ensure reserves
+    a serialized transaction around exact matching and creation. The repository
+    does not acquire ownership of the database.
 
     Example:
         >>> repository = catalog.labels  # doctest: +SKIP
@@ -257,6 +258,42 @@ class ExactEntityRepository(BaseRepository):
 
         result = self.exact(value, **scope)
         return result.candidate if result.is_match else None
+
+    def ensure(self, data: RowInput) -> tuple[EntityId, bool]:
+        """Reuse an exact identity or create it under a serialized writer reservation.
+
+        Validate the payload even when reusing an existing row. Reuse preserves
+        stored spelling and attributes; ambiguity and conflicting evidence raise.
+        Approximate matching is never enabled. Explicit parent scope, including
+        None for a root, is retained. Immutable and contextual entities reject
+        this operation. Nested callers must already own a serialized transaction.
+
+        Example:
+            >>> tag_id, created = catalog.tags.ensure({"name": "Travel"})  # doctest: +SKIP
+
+        :param data: Public aliases or physical fields describing an exact identity.
+        :return: Existing/new identity and whether a row was created.
+        """
+        self._require_mutable()
+        if not self.match_spec.reusable:
+            raise CatalogMutationError(
+                f"{self.match_spec.entity_name} rows require contextual creation"
+            )
+        with self._macros.transaction(serialized=True):
+            prepared = self._prepare_write(data)
+            primary = prepared.get(self.match_spec.primary_field)
+            if primary is None or isinstance(primary, str) and not primary.strip():
+                raise CatalogMutationError("ensure requires a nonblank primary identity")
+            # Derived storage keys validate persistence; they must not add new
+            # matching evidence that hides older rows with an absent key.
+            identity = {key: prepared[key] for key in self.normalise_input(data)}
+            result = self.match(MetadataCandidate(identity), use_policy=False)
+            if result.is_match:
+                assert result.entity_id is not None
+                self._prepare_reference(prepared, existing=self.require(result.entity_id))
+                return result.entity_id, False
+            raise_for_unresolved(result)
+            return self.create(prepared), True
 
     def match_or_create(
         self,

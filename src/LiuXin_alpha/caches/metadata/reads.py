@@ -1,5 +1,5 @@
 """
-Supply complete reads and detached values to the bound metadata service.
+Supply complete reads and detached values within the metadata service package.
 
 Catalog's existing hydrators own the projection. This source opts into their
 strict mode and only falls back for explicitly unavailable cache operations.

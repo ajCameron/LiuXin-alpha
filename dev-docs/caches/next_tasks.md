@@ -67,8 +67,8 @@ remain the named SEARCH02–SEARCH05 follow-ups.
 
 **Bound adapter implemented, 2026-11-18; extensions validated, 2026-11-19.**
 [MetadataAPIInterface](../../src/LiuXin_alpha/catalog/api/metadata_access.py) is
-implemented under `caches` by [MetadataAPI](metadata-api.md), also exposed through
-`cache.metadata`. It supports native WEMI reads, search, CRUD, compound relationships
+implemented under `caches.metadata` by [MetadataAPI and CatalogCache](metadata-api.md).
+`CatalogCache(catalog, cache=core)` supplies the explicit cached composition. It supports native WEMI reads, search, CRUD, compound relationships
 and metadata replacement, with detached values and transaction/freshness receipts.
 The contract stays in `catalog.api`; no new top-level package is needed.
 
@@ -86,6 +86,19 @@ post-commit error receipts. See the [API guide](metadata-api.md) for the complet
 192-case regression run, overlapping 39-case current-source follow-up and six
 live PostgreSQL passes. All 38 new non-gated cases are mandatory; the manifest now
 requires 2,956 cases. This validates the extension, not the whole cache module.
+
+**Core-record coverage expanded, 2026-11-21.** Named vocabulary services, six
+exact ensure conveniences, curated and Item identifiers, Notes/Comments/Synopses
+and Item annotations now share the same coordinator. Catalog owns serialized
+exact reuse and complete Item-owned record validation. Titles remain embedded
+WEMI metadata; language constants remain read-only. See the [coverage table](metadata-api.md#core-metadata-coverage).
+
+**Vocabulary trees added, 2026-11-21.** Genre, Subject and Series services now
+provide atomic path/nested-tree creation, bounded traversal, branch movement,
+sibling ordering and explicit leaf/subtree deletion. Catalog owns hierarchy and
+attachment rules; the metadata facade coordinates cached reads and publication.
+See [vocabulary trees](metadata-api.md#vocabulary-trees) for the stricter deletion
+contract and [gated stress coverage](long-running-tests.md) for deep/wide workloads.
 
 Next, route more of Core's existing semantic metadata operations through this service,
 preserving its transport authorization and public receipt conventions. Do not

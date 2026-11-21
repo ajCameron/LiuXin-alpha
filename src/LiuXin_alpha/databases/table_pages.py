@@ -18,6 +18,7 @@ def read_page(
     limit: int,
     offset: int = 0,
     after_id: int | None = None,
+    position_column: str | None = None,
 ) -> tuple[tuple[dict[str, Any], ...], bool]:
     """Read at most limit+1 rows using validated physical names and bound data.
 
@@ -28,6 +29,8 @@ def read_page(
         if isinstance(value, bool) or not isinstance(value, int) or value < 0:
             raise InputIntegrityError(f"{name} must be a nonnegative integer")
     if after_id is not None:
+        if position_column is not None:
+            raise InputIntegrityError("after_id requires ID ordering")
         if isinstance(after_id, bool) or not isinstance(after_id, int):
             raise InputIntegrityError("after_id must be an integer")
         if offset:
@@ -48,7 +51,13 @@ def read_page(
     sql = f"SELECT {', '.join(quote_identifier(column) for column in columns)} FROM {table_sql}"
     if conditions:
         sql += " WHERE " + " AND ".join(conditions)
-    sql += f" ORDER BY {quote_identifier(id_column)} LIMIT ? OFFSET ?"
+    ordering = quote_identifier(id_column)
+    if position_column is not None:
+        position = quote_identifier(position_column)
+        ordering = (
+            f"CASE WHEN {position} IS NULL THEN 1 ELSE 0 END, {position}, {ordering}"
+        )
+    sql += f" ORDER BY {ordering} LIMIT ? OFFSET ?"
     cursor = connection.execute(sql, (*values, limit + 1, offset))
     try:
         result = tuple(

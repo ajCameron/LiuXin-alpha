@@ -19,7 +19,7 @@ from LiuXin_alpha.caches.api import (
     UnsupportedCacheQueryError,
 )
 from LiuXin_alpha.caches.cache import Cache, create_cache
-from LiuXin_alpha.caches.metadata import MetadataAPI
+from LiuXin_alpha.caches.metadata import CatalogCache, MetadataAPI
 from LiuXin_alpha.catalog.api.common import CatalogMutationError, CatalogNotFoundError
 from LiuXin_alpha.catalog.api.metadata_access import (
     MetadataAPIInterface,
@@ -70,7 +70,12 @@ def metadata_db(metadata_template, tmp_path, request):
 
 def service(db, mode):
     cache = None if mode is None else create_cache(db, mode)
-    return MetadataAPI(Catalog(db), cache=cache), cache
+    api = (
+        MetadataAPI(Catalog(db))
+        if cache is None
+        else CatalogCache(Catalog(db), cache=cache)
+    )
+    return api, cache
 
 
 def stack(api):
@@ -475,10 +480,14 @@ def test_metadata_dangling_relationship_is_a_read_failure(metadata_db, monkeypat
 def test_metadata_cache_binding_and_retained_services(metadata_db):
     cache = Cache(metadata_db)
     with pytest.raises(CacheNotReadyError):
-        _ = cache.metadata
+        CatalogCache(Catalog(metadata_db), cache=cache)
     cache.load()
-    assert cache.metadata is cache.metadata
-    entities = cache.metadata.works
+    api = CatalogCache(Catalog(metadata_db), cache=cache)
+    assert api.cache is cache
+    assert not isinstance(api, Cache)
+    for metadata_method in ("metadata", "works", "create_writer", "write", "write_one"):
+        assert not hasattr(cache, metadata_method)
+    entities = api.works
     with pytest.raises(RuntimeError, match="another database"):
         MetadataAPI(Catalog(object()), cache=cache)
     original = cache.storage.db
@@ -490,6 +499,12 @@ def test_metadata_cache_binding_and_retained_services(metadata_db):
     with pytest.raises(CacheClosedError):
         entities.list()
     assert Catalog(metadata_db).works.list() == ()
+
+
+def test_catalog_cache_requires_a_loaded_core(metadata_db):
+    """Cached composition cannot silently become an uncached service."""
+    with pytest.raises(TypeError, match="requires a loaded cache"):
+        CatalogCache(Catalog(metadata_db), cache=None)
 
 
 def test_metadata_unavailable_partial_and_failed_reads_are_distinct(
