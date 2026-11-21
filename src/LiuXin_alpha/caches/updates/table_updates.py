@@ -5,15 +5,15 @@ These mutable payloads describe intentions/results only. They retain
 supplied containers, add no validation or normalization, and neither execute
 writes nor certify that a database transaction succeeded.
 
-Runtime import currently depends on annotation names that are imported only
-under TYPE_CHECKING without postponed annotation evaluation. The first
-MainTableName annotation therefore cannot resolve in an ordinary import.
-The declarations are retained for compatibility/source review; this module
-does not provide executable update coordination.
+Database identity aliases are imported only during type checking. Postponed
+annotations keep these passive requests importable without loading database
+implementations. Persistence and cache reconciliation belong to their consumers.
 """
 
+from __future__ import annotations
+
 import dataclasses
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from LiuXin_alpha.databases.db_types.database_types import (
@@ -37,20 +37,21 @@ class MainTableUpdate:
     and persistence belong to a consumer, not this dataclass.
 
     Example:
-        A request can carry one new row dictionary and a set of obsolete row IDs
-        for a consumer to validate before writing.
+        >>> request = MainTableUpdate("works", [{"work_title": "Dune"}], [], {7})
+        >>> request.create_these_row_dicts
+        [{'work_title': 'Dune'}]
     """
 
-    # We're targeting this table
+    # Physical table whose row lifecycle is described by this request.
     main_table: MainTableName
 
-    # These columns will be created
-    create_these_row_dicts: List[Dict[str, Any]]
+    # New rows, expressed as physical column-to-value mappings.
+    create_these_row_dicts: list[dict[str, Any]]
 
-    # These columns will be "updated" (with checks to see if they need to be)
-    update_these_row_dicts: List[Dict[str, Any]]
+    # Existing rows to edit; consumers own validation and no-op detection.
+    update_these_row_dicts: list[dict[str, Any]]
 
-    # These ids will be removed from the table.
+    # Owner rows to delete, rather than field values to clear.
     delete_these_ids: set[MainTableID]
 
 
@@ -72,7 +73,7 @@ class MainTableUpdateResults:
     # The ids of rows affected by this update
     dirtied_ids: set[MainTableID]
 
-    changed_row_dicts: List[Dict[str, Any]]
+    changed_row_dicts: list[dict[str, Any]]
 
 
 @dataclasses.dataclass
@@ -94,8 +95,8 @@ class OneOneInterLinkTableUpdate:
 
     interlink_table: InterLinkTableName
 
-    # Keyed with the src table id and valued with the dst table id
-    create_these_links: dict[SrcTableID, Union[DstTableID, Any]]
+    # Source IDs mapped to destination IDs or consumer-defined destination values.
+    create_these_links: dict[SrcTableID, Any]
 
     update_for_dst: dict[str, Any]
 
@@ -187,12 +188,12 @@ class OneManyInterlinkTableUpdate:
     set_link_policy: dict[tuple[SrcTableID, DstTableID], str]
 
     # data
-    set_link_data: Optional[dict[tuple[SrcTableID, DstTableID], str]] = None
+    set_link_data: dict[tuple[SrcTableID, DstTableID], str] | None = None
 
     # index
-    set_link_index: Optional[
-        dict[tuple[SrcTableID, DstTableID], Optional[Union[int, float]]]
-    ] = None
+    set_link_index: dict[tuple[SrcTableID, DstTableID], int | float | None] | None = (
+        None
+    )
 
 
 @dataclasses.dataclass
@@ -242,7 +243,7 @@ class OneManyInterLinkTableUpdateResults:
     data_updates: dict[tuple[SrcTableID, DstTableID], str]
 
     # index
-    index_updates: dict[tuple[SrcTableID, DstTableID], Union[int, float]]
+    index_updates: dict[tuple[SrcTableID, DstTableID], int | float]
 
 
 @dataclasses.dataclass
@@ -296,12 +297,12 @@ class ManyOneInterlinkTableUpdate:
     set_link_policy: dict[tuple[SrcTableID, DstTableID], str]
 
     # data
-    set_link_data: Optional[dict[tuple[SrcTableID, DstTableID], str]] = None
+    set_link_data: dict[tuple[SrcTableID, DstTableID], str] | None = None
 
     # index
-    set_link_index: Optional[
-        dict[tuple[SrcTableID, DstTableID], Optional[Union[int, float]]]
-    ] = None
+    set_link_index: dict[tuple[SrcTableID, DstTableID], int | float | None] | None = (
+        None
+    )
 
 
 class ManyOneInterLinkTableUpdateResults(OneManyInterLinkTableUpdateResults):
@@ -374,12 +375,12 @@ class ManyManyInterlinkTableUpdate:
     set_link_policy: dict[tuple[SrcTableID, DstTableID], str]
 
     # data
-    set_link_data: Optional[dict[tuple[SrcTableID, DstTableID], str]] = None
+    set_link_data: dict[tuple[SrcTableID, DstTableID], str] | None = None
 
     # index
-    set_link_index: Optional[
-        dict[tuple[SrcTableID, DstTableID], Optional[Union[int, float]]]
-    ] = None
+    set_link_index: dict[tuple[SrcTableID, DstTableID], int | float | None] | None = (
+        None
+    )
 
 
 class ManyManyInterLinkTableUpdateResults(OneManyInterLinkTableUpdateResults):
