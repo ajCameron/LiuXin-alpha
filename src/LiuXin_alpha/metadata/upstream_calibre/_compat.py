@@ -2009,6 +2009,7 @@ class TemporaryFile:
         :param prefix: Its start.
         :param dir: The folder; the system's temporary folder if ``None``.
         :param mode: Ignored: the file is closed before its name is given.
+        :return: None.
         """
         self.suffix, self.prefix, self.dir = suffix or "", prefix or "", dir
         self._name = ""
@@ -2036,6 +2037,7 @@ class TemporaryFile:
 
 
         :param args: The exception, if any; not suppressed.
+        :return: None.
         """
         try:
             os.remove(self._name)
@@ -2088,6 +2090,7 @@ class _NoCHMFile:
 
         :param args: Ignored.
         :param kwargs: Ignored.
+        :return: None.
         :raises ImportError: Always.
         """
         raise ImportError(

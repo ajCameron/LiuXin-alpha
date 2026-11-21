@@ -249,6 +249,7 @@ def deskey(key: bytes, edf: int) -> None:
 
     :param key: Eight bytes.
     :param edf: ``EN0`` or ``DE1``.
+    :return: None; the key schedule is kept for :func:`des`.
     :raises TypeError: If the key is not bytes.
     :raises MsDesError: For a key that is not eight bytes, or another direction.
     """
