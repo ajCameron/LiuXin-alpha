@@ -30,7 +30,7 @@ def test_lookup_creation_and_deletion_use_catalog_identity_and_transactions(
         == entity_id
     )
     with pytest.raises(RuntimeError, match="rollback"):
-        with catalog.db.macros.transaction():
+        with catalog.db.macros.transaction(serialized=True):
             repo.delete(entity_id)
             assert repo.resolve("Café History") is None
             raise RuntimeError("rollback")

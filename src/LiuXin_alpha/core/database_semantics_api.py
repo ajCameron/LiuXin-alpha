@@ -1020,7 +1020,7 @@ class CoreDatabaseSemanticsAPI:
         """
         Validate requested parent/children and cycle safety, then set every listed child's parent and reconcile.
 
-        Tree validation and row updates share a portable transaction. Catalog-owned
+        Tree validation and row updates share a serialized portable transaction. Catalog-owned
         tables use their repositories. IDs are converted via int(str(value)); booleans are
         rejected and duplicates retained. An empty sequence still yields a nested
         receipt and reconciliation. A later update failure rolls back earlier writes;
@@ -1039,7 +1039,7 @@ class CoreDatabaseSemanticsAPI:
         table = _required_text(payload, "table")
         parent_id = _required_int(payload, "parent_id")
         macros = _macros(runtime)
-        with macros.transaction():
+        with macros.transaction(serialized=True):
             _tree_get(runtime, table, parent_id)
             raw_ids = payload.get("child_ids")
             if not isinstance(raw_ids, Sequence) or isinstance(raw_ids, (str, bytes)):
