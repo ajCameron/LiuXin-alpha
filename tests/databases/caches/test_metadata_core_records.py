@@ -67,8 +67,7 @@ def test_named_vocabularies_ensure_exact_identity_and_noop_receipts(metadata_db,
     ):
         with pytest.raises(ValueError):
             ensure(" ")
-    with pytest.raises(CatalogMutationError):
-        api.vocabulary("languages").create({"code": "invented"})
+    assert not hasattr(api.vocabulary("languages"), "create")
     if cache is not None:
         cache.close()
 

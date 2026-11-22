@@ -1,5 +1,12 @@
 # Working Memory Index
 
+Metadata cache ergonomics, **2026-11-22**: the approved follow-up is implemented
+on `cache-metadata-ergonomics` in an isolated worktree. The current scope,
+validation evidence and delivery checkpoint are recorded in
+[`cache-metadata-ergonomics-2026-11-22.md`](cache-metadata-ergonomics-2026-11-22.md).
+This supersedes the earlier cache milestone's delivery status below. Foundation
+PR #213 remains open; the follow-up targets `cache-review` until it merges.
+
 Cache milestone commit checkpoint, **2026-11-21**, on `cache-review`.
 The user requested committing the completed metadata package regrouping,
 generic Cache / CatalogCache separation, core metadata operations, vocabulary

@@ -173,3 +173,24 @@ local artifact paths and the final audit. The manual GitHub workflow was added
 and checked locally; it has not been dispatched remotely.
 
 Return to the [cache guide](README.md).
+
+## Metadata picker and relationship stress
+
+`test_metadata_ergonomics_long.py` exercises shared suggestions and bulk reads,
+hydrated pages against reference-search results, and repeated Tag/Agent credit
+changes. It covers uncached reads and all three cache backends. The shared long
+workload uses 128 shared records and 12 Works for smoke; full uses 10,000 shared
+records and 1,000 Works, with twelve relationship cycles. Measurements report
+operation times without imposing machine-specific thresholds.
+
+```bash
+LIUXIN_RUN_CACHE_LONG_TESTS=1 LIUXIN_CACHE_LONG_SIZE=smoke \
+  LIUXIN_CACHE_LONG_ARTIFACTS=/tmp/liuxin-metadata-ergonomics-timings \
+  PYTHONPATH=src .venv/bin/python -m pytest -q \
+  tests/databases/caches/test_metadata_ergonomics_long.py
+```
+
+Set `LIUXIN_CACHE_LONG_SIZE=full` for the full workload. PostgreSQL workflows
+and shared-token writer contention are separate opt-in tests in
+`test_metadata_ergonomics_postgres_live.py`, using `LIUXIN_TEST_POSTGRES_URL` and
+private disposable schemas. A gate skip is not a passing live-backend result.

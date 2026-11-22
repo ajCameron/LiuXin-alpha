@@ -4,6 +4,13 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from LiuXin_alpha.catalog.api.metadata_shared_values import (
+        SharedMetadataKind,
+        SharedMetadataRecord,
+    )
 
 from LiuXin_alpha.catalog.api.metadata_search import MetadataReference
 
@@ -34,11 +41,39 @@ class MetadataSnapshot[MetadataT]:
     fields: Mapping[str, object]
 
 
+@dataclass(frozen=True, slots=True)
+class SharedMetadataReference:
+    """Identify one shared record without conflating its kind with a WEMI level."""
+
+    kind: SharedMetadataKind
+    entity_id: int
+
+
+@dataclass(frozen=True, slots=True)
+class SharedMetadataRevision:
+    """Fingerprint the complete shared row, excluding incoming relationships."""
+
+    reference: SharedMetadataReference
+    digest: str
+
+
+@dataclass(frozen=True, slots=True)
+class SharedMetadataSnapshot:
+    """Carry detached shared aliases and a matching full-row edit token."""
+
+    value: SharedMetadataRecord
+    revision: SharedMetadataRevision
+    fields: Mapping[str, object]
+
+
+type MetadataEditRevision = MetadataRevision | SharedMetadataRevision
+
+
 class MetadataConflictError(RuntimeError):
     """Reject an edit before mutation because its observed content has changed."""
 
     def __init__(
-        self, expected: MetadataRevision, actual: MetadataRevision | None
+        self, expected: MetadataEditRevision, actual: MetadataEditRevision | None
     ) -> None:
         super().__init__(f"Metadata changed since it was read: {expected.reference}")
         self.expected = expected

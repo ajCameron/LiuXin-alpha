@@ -10,7 +10,11 @@ from decimal import Decimal
 from typing import TYPE_CHECKING
 from uuid import UUID
 
-from LiuXin_alpha.catalog.api.metadata_revisions import MetadataRevision
+from LiuXin_alpha.catalog.api.metadata_revisions import (
+    MetadataRevision,
+    SharedMetadataReference,
+    SharedMetadataRevision,
+)
 from LiuXin_alpha.catalog.api.metadata_search import MetadataReference
 
 if TYPE_CHECKING:
@@ -45,4 +49,22 @@ def revision(
     )
     return MetadataRevision(
         reference, "metadata-v1:" + hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+    )
+
+
+def shared_revision(
+    reference: SharedMetadataReference, root: Mapping[str, object]
+) -> SharedMetadataRevision:
+    """Hash one complete stored row; incoming relationships are outside this token."""
+    encoded = json.dumps(
+        dict(root),
+        default=_encode,
+        sort_keys=True,
+        ensure_ascii=True,
+        separators=(",", ":"),
+        allow_nan=False,
+    )
+    return SharedMetadataRevision(
+        reference,
+        "shared-metadata-v1:" + hashlib.sha256(encoded.encode("utf-8")).hexdigest(),
     )

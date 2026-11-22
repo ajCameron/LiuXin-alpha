@@ -305,8 +305,9 @@ class AgentRepositoryAPI(BaseRepositoryAPI, Protocol):
 
         Validate level, role, and optional integer priority before delegating endpoint
         checks and upsert to the transactional link helper. An existing identical ordered
-        credit keeps its priority when none is supplied; a new one receives a derived
-        priority. Explicit priorities pass through, including negative integers. Portable
+        credit keeps its priority when none is supplied; a new one receives a priority
+        above the link table maximum under the metadata writer reservation. Explicit
+        priorities pass through, including negative integers. Portable
         SQL traversal places larger priorities first. No Agent or WEMI row is created.
 
         Example:
@@ -321,6 +322,7 @@ class AgentRepositoryAPI(BaseRepositoryAPI, Protocol):
         :return: None after the credit upsert succeeds.
         :raises ValueError: If level is unknown or role is not a nonblank string.
         :raises TypeError: If explicit priority is not a non-boolean integer, or an ID is invalid.
+        :raises CatalogMutationError: If the link schema does not include role in its identity.
         :raises CatalogNotFoundError: If either endpoint is missing.
         """
 
@@ -346,6 +348,18 @@ class AgentRepositoryAPI(BaseRepositoryAPI, Protocol):
         :raises CatalogNotFoundError: If the source or any linked Agent is missing.
         """
 
+    def unlink_from_wemi(
+        self, *, agent_id: EntityId, level: WemiLevel, entity_id: EntityId, role: str
+    ) -> bool:
+        """Remove only this Agent/role inside a transaction, retaining other credits.
+
+        :param agent_id: Existing Agent identity.
+        :param level: WEMI level owning the credit.
+        :param entity_id: Existing WEMI owner identity.
+        :param role: Nonblank role, stripped before exact comparison.
+        :return: Whether the selected credit existed and was deleted.
+        """
+
     def replace_for_wemi(
         self,
         *,
@@ -358,10 +372,10 @@ class AgentRepositoryAPI(BaseRepositoryAPI, Protocol):
         Replace one role's Agent credits while preserving credits under other roles.
 
         Validate level, role, and a non-text Sequence, then require every Agent in order
-        before requiring the WEMI endpoint and resolving its link spec. Delegate replacement
-        to the macro transaction; these preflight reads are outside it. Empty input clears
-        the selected role. Portable SQL macros reject duplicate logical credits and assign
-        missing ordered priorities from count down to one, so the first ID sorts first.
+        before requiring the WEMI endpoint and resolving its link spec. Validation and
+        replacement share a transaction and metadata writer reservation. Empty input
+        clears the selected role. Unique descending priorities above the table maximum
+        preserve supplied order without colliding with credits on other WEMI owners.
         No Agent rows are created or deleted.
 
         Example:
@@ -375,6 +389,7 @@ class AgentRepositoryAPI(BaseRepositoryAPI, Protocol):
         :return: None after replacing the chosen role's links.
         :raises ValueError: If level/role or a nonnegative ID check fails.
         :raises TypeError: If agent_ids is not an accepted sequence or an ID has an invalid type.
+        :raises CatalogMutationError: If the link schema does not include role in its identity.
         :raises CatalogNotFoundError: If any required Agent or the source entity is missing.
         :raises Exception: Link-spec, role, duplicate-credit, and database failures propagate.
         """

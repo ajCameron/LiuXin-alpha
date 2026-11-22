@@ -1,6 +1,6 @@
 # Native caches and Calibre compatibility
 
-Updated **2026-11-21**. This is the implemented package boundary following the
+Updated **2026-11-22**. This is the implemented package boundary following the
 [compatibility review](calibre-compatibility-review-2026-11-16.md).
 
 ## Native owners
@@ -17,7 +17,10 @@ LiuXin_alpha/
       reads.py           complete reads and detached metadata projections
       search.py          semantic search execution, exact pages and provenance
       trees.py           vocabulary hierarchy reads and coordinated structural writes
-      shared.py          Agent, vocabulary and Work membership services
+      read_operations.py complete reads, temporary captures and whole-operation fallback
+      record_reads.py    shared bulk reads, literal lookup and suggestions
+      shared.py          Agent/vocabulary mutations and shared edit snapshots
+      relationships.py   WEMI credits and Work Tag/Series membership conveniences
       records.py         identifiers, text attachments and Item annotations
       custom_fields.py   native custom-field administration and reconciliation
     query.py             native queries, bounded plans/results and ID repair

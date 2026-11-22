@@ -1,6 +1,6 @@
 # Next cache tasks
 
-Updated: **2026-11-18**. Completed slices and remaining cross-module work.
+Updated: **2026-11-22**. Completed slices and remaining cross-module work.
 
 Preserve the ReadCache/Cache split and shared Catalog write ownership. Optimize measured workloads without inventing another catalogue authority.
 
@@ -99,6 +99,18 @@ sibling ordering and explicit leaf/subtree deletion. Catalog owns hierarchy and
 attachment rules; the metadata facade coordinates cached reads and publication.
 See [vocabulary trees](metadata-api.md#vocabulary-trees) for the stricter deletion
 contract and [gated stress coverage](long-running-tests.md) for deep/wide workloads.
+
+**Metadata ergonomics added, 2026-11-22.** Shared bulk reads, literal picker
+queries, hydrated WEMI search pages, Work Tag/Series helpers, role-specific Agent
+credits and shared-row edit preconditions now use the same coordinator. Runtime
+and static capabilities agree. The [API guide](metadata-api.md) documents the
+complete application workflow, source/fallback rules and revision scope. The
+long lane includes picker/hydration and membership churn; live PostgreSQL checks
+cover the same workflows and independent shared-token writers. Future tuning
+should measure shared-table scans, live captures and coarse writer reservations
+before adding indexes or changing transaction scope. Validation passed 393 distinct
+cases, including all 39 new mandatory cases and five live PostgreSQL cases; the
+mandatory manifest now contains 3,069 cases. Full-size stress remains gated.
 
 Next, route more of Core's existing semantic metadata operations through this service,
 preserving its transport authorization and public receipt conventions. Do not

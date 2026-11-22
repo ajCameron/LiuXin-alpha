@@ -1215,12 +1215,13 @@ def metadata_access_contracts() -> None:
     )
     from LiuXin_alpha.catalog.api.metadata_access import (
         MetadataAPIInterface,
-        MetadataEntityInterface,
+        MetadataWorkInterface,
         MetadataReconciliationError,
         MetadataReference,
         MetadataWriteReceipt,
     )
     from LiuXin_alpha.catalog.api.metadata_search import (
+        HydratedMetadataSearchPage,
         MetadataSearchField,
         MetadataSearchFilter,
         MetadataSearchPage,
@@ -1231,7 +1232,15 @@ def metadata_access_contracts() -> None:
 
     from LiuXin_alpha.catalog.api.metadata_payloads import WorkCreate, WorkUpdate
     from LiuXin_alpha.catalog.api.metadata_revisions import MetadataSnapshot
-    from LiuXin_alpha.catalog.api.metadata_shared import SharedMetadataRecord
+    from LiuXin_alpha.catalog.api.metadata_shared import (
+        SharedMetadataRecord,
+        SharedMetadataPage,
+    )
+    from LiuXin_alpha.catalog.api.metadata_revisions import SharedMetadataSnapshot
+    from LiuXin_alpha.catalog.api.metadata_relationships import (
+        MetadataCredit,
+        MetadataMembership,
+    )
     from LiuXin_alpha.catalog.api.metadata_trees import (
         HierarchicalVocabularyMetadataInterface,
         VocabularyTreeInput,
@@ -1280,6 +1289,29 @@ def metadata_access_contracts() -> None:
             api.identifiers.link_to_agent(identifier_id=7, agent_id=8),
             MetadataWriteReceipt[int],
         )
+        assert_type(api.tags.get_many((7, 8)), tuple[SharedMetadataRecord | None, ...])
+        assert_type(api.tags.lookup({"name": "History"}), SharedMetadataPage)
+        assert_type(api.languages.suggest("en"), SharedMetadataPage)
+        assert_type(api.agents.read_for_edit(7), SharedMetadataSnapshot)
+        assert_type(
+            api.works.search("title:Garden"),
+            HydratedMetadataSearchPage[WorkMetadataAPI],
+        )
+        assert_type(api.works.list_tags(7), tuple[MetadataMembership, ...])
+        assert_type(api.items.list_credits(7), tuple[MetadataCredit, ...])
+        assert_type(api.works.add_tag(7, text="History"), MetadataWriteReceipt[int])
+        assert_type(api.works.add_tag(7, tag_id=8), MetadataWriteReceipt[int])
+        shared_token = api.tags.read_for_edit(7).revision
+        work_token = api.works.read_for_edit(8).revision
+        api.batch(
+            lambda service: service.tags.update(7, {"name": "Changed"}),
+            expected=(shared_token, work_token),
+        )
+        api.genres.link_to_work  # expect-error: reportAttributeAccessIssue attr-defined
+        api.ratings.suggest  # expect-error: reportAttributeAccessIssue attr-defined
+        api.items.add_tag  # expect-error: reportAttributeAccessIssue attr-defined
+        api.works.add_tag(7)  # expect-error: reportCallIssue call-overload
+        api.tags.suggest("x", mode="fuzzy")  # expect-error: reportArgumentType arg-type
         assert_type(api.languages.get(7), SharedMetadataRecord | None)
         api.languages.create  # expect-error: reportAttributeAccessIssue attr-defined
         api.ensure_tag(7)  # expect-error: reportArgumentType arg-type
@@ -1288,7 +1320,7 @@ def metadata_access_contracts() -> None:
             {"item_id": "7"},  # expect-error: reportArgumentType typeddict-item
         )
         assert_type(
-            api.works, MetadataEntityInterface[WorkMetadataAPI, WorkCreate, WorkUpdate]
+            api.works, MetadataWorkInterface[WorkMetadataAPI, WorkCreate, WorkUpdate]
         )
         assert_type(api.works.get(7), WorkMetadataAPI | None)
         assert_type(api.works.get_many((7, 8)), tuple[WorkMetadataAPI | None, ...])

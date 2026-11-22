@@ -12,8 +12,11 @@ The implementation is grouped under `caches.metadata` as of **2026-11-20**:
 - `writers.py`: schema-directed Catalog writer binding and physical dependencies.
 - `service.py`: the bound `MetadataAPI`, WEMI services and coordinated mutations.
 - `reads.py`: complete reads and detached metadata projections.
+- `read_operations.py`: complete composed reads, capture lifetime and whole-operation fallback.
+- `record_reads.py`: shared bulk reads, exact lookup and literal suggestions.
 - `search.py`: semantic search execution, exact pages and provenance.
-- `shared.py`: Agent and vocabulary services and Work memberships.
+- `shared.py`: Agent and vocabulary mutations and shared edit snapshots.
+- `relationships.py`: WEMI credits and Work Tag/Series conveniences.
 - `trees.py`: vocabulary traversal and coordinated hierarchy mutations.
 - `records.py`: identifiers, text attachments and Item-scoped annotation services.
 - `custom_fields.py`: native custom-field administration and reconciliation.
@@ -86,7 +89,7 @@ and schema bookkeeping do not receive generic metadata CRUD services.
 | Tags, Labels | `tags`, `labels`; `ensure_tag(text)`, `ensure_label(text)` | Named CRUD; ensure uses exact normalized identity, retaining punctuation |
 | Genres, Subjects, Series | `genres`, `subjects`, `series`; corresponding `ensure_*` | Named CRUD; ensure accepts `parent_id`, with `None` explicitly selecting a root; schema uniqueness still applies |
 | Ratings | `ratings`; `ensure_rating(value, out_of=..., source=...)` | CRUD; ensure requires a scale and a nonblank source to avoid accidental reuse across contexts |
-| Languages | `languages` | Detached `get`, `require`, `list`; seeded constants are read-only |
+| Languages | `languages` | Detached reads, bulk reads, lookup and suggestions; seeded constants expose no mutation methods |
 | Curated identifiers | `identifiers` | CRUD, `list_for_wemi`, `list_for_agent`, `link_to_wemi`, `link_to_agent`; assignment may copy a row and return a different ID |
 | Item identifier observations | `item_identifiers` | CRUD and `list_for_item`; require a live Item and nonblank raw scheme/value; preserve observed spelling |
 | Notes, Comments, Synopses | `notes`, `comments`, `synopses` | CRUD, atomic `add_for_wemi`, and `list_for_wemi`; attachment creates fresh text under Catalog cardinality rules |
@@ -297,6 +300,160 @@ the receipt and actual durability flag for `metadata_reconciliation_failed`.
 These writes do not pass through Core's older reconciler for a second refresh.
 The existing item-centred `metadata.get`/OPF payload remains a separate contract;
 other Catalog endpoints have not yet migrated to this interface.
+
+## Picker queries and shared bulk reads
+
+Added **2026-11-22**. All shared record readers support `get_many(ids,
+missing="none")` and `lookup(fields, limit=100, offset=0)`. Bulk reads preserve
+input order and duplicate slots, copy each returned value independently, and
+return `None` for confirmed misses. `missing="raise"` rejects an incomplete set.
+Lookup accepts public scalar aliases, ANDs them, and returns every matching
+candidate in ID order. Unknown fields, incompatible scalar types and conflicting
+aliases fail before reading the record population. `None` means SQL NULL, so
+`genres.lookup({"name": "History", "parent_id": None})` selects root Genres;
+omitting the parent key searches every parent scope. Lookup never chooses or
+creates an identity.
+
+Agents, Tags, Labels, Genres, Subjects, Series and Languages additionally support
+`suggest(text, mode="prefix", limit=20, offset=0, filters=None)`. Modes are
+`exact`, `prefix` and `contains`. Suggestions use Catalog's literal Unicode and
+whitespace normalization and each field's case policy, preserve punctuation and
+accents, and include parsed Agent aliases. Empty normalized text returns no
+matches. Candidate ordering uses normalized display text, original display text
+and ID; aliases influence matching, not the displayed identity. Ratings and
+context-owned records have lookup but no suggestion method.
+
+```python
+page = metadata.agents.suggest("Le Guin", mode="contains", limit=20)
+scoped = metadata.genres.suggest("hist", filters={"parent_id": parent_id})
+records = metadata.tags.get_many((tag_id, missing_id, tag_id))
+```
+
+Lookup and suggestion return `SharedMetadataPage`, containing `records`, an
+exact `total_count`, `offset`, `limit`, `has_more`, `source`, `consistency` and
+`generation`. Zero limit still computes the total. These operations currently
+scan the shared table population; a small result limit is not a bound on scan
+cost. Separate calls do not pin a snapshot across offset pages.
+
+## Hydrated search pages
+
+All four WEMI services expose `search(query="", filters=(), sort=(), limit=100,
+offset=0)`. `works.search(...)` returns
+`HydratedMetadataSearchPage[WorkMetadataAPI]`; the other levels return their own
+metadata types. Each page includes the existing reference page fields plus a
+`records` tuple aligned with `references`.
+
+```python
+page = metadata.works.search("work.title:Garden", limit=25)
+for reference, work in zip(page.references, page.records):
+    assert reference.entity_id == work.work.work_id
+```
+
+Selection, exact count, ordering and hydration share one captured source under
+the metadata read lock and transaction. If an unavailable cache capability
+triggers explicitly enabled fallback, the entire operation restarts against the
+database and reports database provenance. It never combines cached references
+with database hydration. Temporary captures close on success and failure.
+Confirmed misses, corrupt rows and dirty/pending state are not fallback signals.
+The existing `metadata.search.find` and `metadata.search.query` remain the lighter
+reference-only entry points.
+
+## Owner-oriented memberships and credits
+
+`works.list_tags(work_id)` and `works.list_series(work_id)` return detached
+`MetadataMembership` values: `member`, `link_type`, and `priority`. Use
+`add_tag(work_id, tag_id=...)` for an existing Tag, or
+`add_tag(work_id, text="History")` to ensure and attach in one transaction. Supply
+exactly one selector. A failed attachment rolls back a Tag created by that call.
+`remove_tag`, `set_tags`, `add_series`, `remove_series` and `set_series` use
+existing IDs. Empty replacement clears membership; duplicate IDs are rejected.
+Retained memberships preserve every type, priority, physical link identity and
+provenance field. Removing membership keeps both endpoint records.
+
+Series links can carry several types for the same pair. These methods operate
+on the membership set; priorities are storage ordering values, not volume numbers
+or a preferred-Series ranking. Input order to `set_tags` or `set_series` does not
+reorder retained links. Genre and Subject services do not expose Work membership.
+
+Every WEMI service supports `list_credits`, `add_credit`, `remove_credit` and
+`set_credits`. Credits contain a detached Agent record, an explicit `role`, and
+`priority`. Add/remove require an existing `agent_id`; no name matching occurs.
+`set_credits(entity_id, role="aut", agent_ids=(first_id, second_id))` replaces only
+that role in the supplied display order. Removing an author's credit does not
+remove the same Agent's editor credit. Empty replacement clears that role only.
+Catalog allocates automatic priorities under its metadata writer reservation,
+using a free range across the physical link table so a shared Agent can be
+credited on multiple owners. Explicit priorities still obey storage constraints.
+
+Credit insertion and replacement require a schema whose link identity includes
+both endpoints and the role. Incompatible schemas raise `CatalogMutationError`
+before either operation writes. Newly created PostgreSQL schemas now use that
+same role identity as SQLite and declare `series_parent_position` for tree
+operations. Existing PostgreSQL schemas are not migrated by this change; they
+need a separate schema upgrade before using the affected features.
+
+These methods return the standard persistence/cache receipt. Add/remove Tag or
+Series return its ID; replacement returns the supplied ID tuple. Credit writes
+return the WEMI `MetadataReference`. No-op requests report `changed=False` and do
+not publish a new cache generation. Every owner-oriented write accepts the
+owner's optional WEMI `expected_revision`.
+
+## Shared record edit preconditions
+
+Mutable shared services expose `read_for_edit(id)`, returning a
+`SharedMetadataSnapshot` with detached `value`, scalar `fields` and a
+`SharedMetadataRevision`. Update, delete and Agent rename accept this token as
+`expected_revision`. Languages have neither edit snapshots nor write methods,
+including through `vocabulary("languages")`.
+
+The shared digest covers the complete stored root row, including fields not
+exposed by public aliases. It excludes incoming relationships, subtype rows and
+descendant rows. It is a content token, not an edit counter: restoring the same
+content can restore the same digest. It is separate from existing WEMI token
+classes and cache generations. Use tokens only with the bound catalogue where
+they were obtained. Hierarchy movement changes a node's stored row, but a shared
+token does not assert that an entire tree or all its attachments are unchanged.
+`delete_subtree` has no whole-tree revision parameter.
+
+```python
+observed = metadata.tags.read_for_edit(tag_id)
+metadata.tags.update(tag_id, {"name": "Historical fiction"},
+                     expected_revision=observed.revision)
+```
+
+Preconditions read authoritative storage under the writer reservation. Stale
+cached values cannot approve a stale edit; a changed or deleted row raises
+`MetadataConflictError` before mutation. `batch(..., expected=(...))` accepts
+mixed shared and WEMI tokens. To protect both a Tag rename and its Work membership
+edit, include the Tag token and the Work token. Existing rollback, pending
+transaction and post-commit reconciliation error contracts apply unchanged.
+
+## A complete metadata editing workflow
+
+This uses only public metadata operations; the caller composes and owns the
+Catalog/cache resources as described above.
+
+```python
+work_id = metadata.works.create({"title": "The Metadata Garden"}).result
+agent_id = metadata.agents.create_person({"name": "Garden Writer"}).result
+series_id = metadata.ensure_series("Garden Library").result
+
+metadata.works.add_tag(work_id, text="Gardening")
+metadata.works.add_series(work_id, series_id)
+metadata.works.add_credit(work_id, agent_id=agent_id, role="aut")
+candidates = metadata.tags.suggest("gard")
+page = metadata.works.search("work.title:Garden")
+observed = metadata.works.read_for_edit(work_id)
+tag = metadata.tags.read_for_edit(candidates.records[0].entity_id)
+
+def edit(api):
+    api.tags.update(tag.value.entity_id, {"name": "Practical gardening"})
+    api.works.set_tags(work_id, (tag.value.entity_id,))
+    api.works.set_credits(work_id, role="aut", agent_ids=(agent_id,))
+    return work_id
+
+receipt = metadata.batch(edit, expected=(observed.revision, tag.revision))
+```
 
 ## Vocabulary trees
 
@@ -565,5 +722,28 @@ separate Catalog services. The new transaction guard
 protects this adapter; older schema-directed writer deferral needs its own
 cross-thread follow-up. This is not whole-cache or whole-Catalog sign-off.
 See [next tasks](next_tasks.md).
+
+
+
+## Ergonomics validation, 2026-11-22
+
+The implementation and focused follow-ups pass **393 distinct tests**: 39 new
+mandatory ergonomics cases, 274 existing cache regressions, six existing Catalog
+credit checks, four gated smoke workloads, five live PostgreSQL cases and 65
+documentation/tooling cases. A final 22-case documentation follow-up overlaps that
+last group. PostgreSQL covers uncached reads, all three cache backends and an
+independent shared-token writer; its disposable cluster was stopped afterwards.
+
+The regression manifest retains all 3,030 previous requirements and adds the 39
+new cases. Formatting, lint, architecture and both type checkers pass; negative
+typing contracts reject 127 basedpyright and 123 mypy examples. The full-size
+10,000-record/1,000-Work soak remains gated and was not run. These are correctness
+results, not a performance claim or whole-module sign-off.
+
+Validation artifacts are `/tmp/liuxin-ergonomics-*`; `validation.json` records
+unique passing cases and final source fingerprints. The broader cache run began
+before the final Agent guard and PostgreSQL schema corrections; focused credit
+and live-backend tests validate those final changes. Existing PostgreSQL schemas
+still need the separate upgrade described under relationship editing above.
 
 Return to [caches](README.md) or the [ownership contract](../catalog/catalog-cache-boundary.md).

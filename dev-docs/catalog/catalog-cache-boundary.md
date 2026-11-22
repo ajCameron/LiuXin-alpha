@@ -53,6 +53,15 @@ read source and coordinates reconciliation after mutations. Bounded ordered chil
 SQL lives in databases. See [vocabulary trees](../caches/metadata-api.md#vocabulary-trees)
 for the tighter deletion contract and unchanged globally unique Series identity.
 
+The **2026-11-22** ergonomics extension keeps literal shared-record selection
+and role/membership policy in Catalog. `catalog.record_queries` owns alias/type
+validation and literal comparison; `catalog.api` owns passive result values and
+capability protocols. The metadata adapter coordinates lookup, suggestions,
+hydrated search pages, memberships and shared edit preconditions through the
+same read/write boundaries. No metadata methods move into the generic cache.
+Agent credit priority allocation belongs to Catalog and uses the database's
+existing extrema and writer-reservation mechanisms; the facade does not issue SQL.
+
 ## Composition and migration
 
 ```python

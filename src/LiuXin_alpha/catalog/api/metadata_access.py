@@ -19,11 +19,16 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping, Sequence
 from typing import TYPE_CHECKING, Literal, Protocol, overload
 
+from LiuXin_alpha.catalog.api.metadata_relationships import (
+    MetadataCreditsInterface,
+    MetadataWorkMembershipsInterface,
+)
 from LiuXin_alpha.catalog.api.metadata_results import (
     MetadataReconciliationError,
     MetadataWriteReceipt,
 )
 from LiuXin_alpha.catalog.api.metadata_revisions import (
+    MetadataEditRevision,
     MetadataRevision,
     MetadataSnapshot,
 )
@@ -43,9 +48,12 @@ if TYPE_CHECKING:
         WorkUpdate,
     )
     from LiuXin_alpha.catalog.api.metadata_search import (
+        HydratedMetadataSearchPage,
         MetadataSearchField,
+        MetadataSearchFilter,
         MetadataSearchPage,
         MetadataSearchRequest,
+        MetadataSearchSort,
         MetadataSortField,
     )
     from LiuXin_alpha.catalog.api.metadata_shared import (
@@ -54,12 +62,16 @@ if TYPE_CHECKING:
         IdentifierMetadataInterface,
         ItemIdentifierMetadataInterface,
         MetadataRecordsReader,
+        SuggestibleMetadataReader,
         TextMetadataInterface,
+        TextVocabularyMetadataInterface,
         VocabularyKind,
         VocabularyMetadataInterface,
+        WorkMembershipMetadataInterface,
     )
     from LiuXin_alpha.catalog.api.metadata_trees import (
         HierarchicalVocabularyMetadataInterface,
+        SeriesMetadataInterface,
     )
     from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.expression_containers.expression_metadata_api import (
         ExpressionMetadataAPI,
@@ -78,7 +90,9 @@ if TYPE_CHECKING:
     )
 
 
-class MetadataEntityInterface[MetadataT, CreateT, UpdateT](Protocol):
+class MetadataEntityInterface[MetadataT, CreateT, UpdateT](
+    MetadataCreditsInterface, Protocol
+):
     """Read and mutate one WEMI family using native metadata values.
 
     The service binds the database, optional cache and fallback policy once.
@@ -110,6 +124,18 @@ class MetadataEntityInterface[MetadataT, CreateT, UpdateT](Protocol):
         confirmed absent root raises CatalogNotFoundError instead of returning a
         partial tuple. Unavailable or corrupt reads always raise.
         """
+        ...
+
+    def search(
+        self,
+        query: str = "",
+        *,
+        filters: Sequence[MetadataSearchFilter] = (),
+        sort: Sequence[MetadataSearchSort] = (),
+        limit: int | None = 100,
+        offset: int = 0,
+    ) -> HydratedMetadataSearchPage[MetadataT]:
+        """Search this level and hydrate only its page from one captured read."""
         ...
 
     def read_for_edit(self, entity_id: int) -> MetadataSnapshot[MetadataT]:
@@ -144,6 +170,14 @@ class MetadataEntityInterface[MetadataT, CreateT, UpdateT](Protocol):
     ) -> MetadataWriteReceipt[int]:
         """Delete through Catalog policy and reconcile affected relationships too."""
         ...
+
+
+class MetadataWorkInterface[MetadataT, CreateT, UpdateT](
+    MetadataEntityInterface[MetadataT, CreateT, UpdateT],
+    MetadataWorkMembershipsInterface,
+    Protocol,
+):
+    """Combine Work metadata editing with its declared Tag and Series memberships."""
 
 
 class MetadataSearchInterface(Protocol):
@@ -272,7 +306,7 @@ class MetadataAPIInterface(Protocol):
     """
 
     @property
-    def works(self) -> MetadataEntityInterface[WorkMetadataAPI, WorkCreate, WorkUpdate]:
+    def works(self) -> MetadataWorkInterface[WorkMetadataAPI, WorkCreate, WorkUpdate]:
         """Access abstract Works and their native metadata."""
         ...
 
@@ -315,24 +349,41 @@ class MetadataAPIInterface(Protocol):
         ...
 
     @overload
+    def vocabulary(self, kind: Literal["tags"]) -> WorkMembershipMetadataInterface: ...
+
+    @overload
+    def vocabulary(self, kind: Literal["series"]) -> SeriesMetadataInterface: ...
+
+    @overload
     def vocabulary(
-        self, kind: Literal["genres", "subjects", "series"]
+        self, kind: Literal["genres", "subjects"]
     ) -> HierarchicalVocabularyMetadataInterface: ...
 
     @overload
-    def vocabulary(self, kind: VocabularyKind) -> VocabularyMetadataInterface: ...
+    def vocabulary(
+        self, kind: Literal["labels"]
+    ) -> TextVocabularyMetadataInterface: ...
 
-    def vocabulary(self, kind: VocabularyKind) -> VocabularyMetadataInterface:
+    @overload
+    def vocabulary(self, kind: Literal["languages"]) -> SuggestibleMetadataReader: ...
+
+    @overload
+    def vocabulary(self, kind: Literal["ratings"]) -> VocabularyMetadataInterface: ...
+
+    @overload
+    def vocabulary(self, kind: VocabularyKind) -> MetadataRecordsReader: ...
+
+    def vocabulary(self, kind: VocabularyKind) -> MetadataRecordsReader:
         """Select a native vocabulary; Languages retain Catalog's immutable policy."""
         ...
 
     @property
-    def tags(self) -> VocabularyMetadataInterface:
+    def tags(self) -> WorkMembershipMetadataInterface:
         """Access Tag values through the coordinated metadata service."""
         ...
 
     @property
-    def labels(self) -> VocabularyMetadataInterface:
+    def labels(self) -> TextVocabularyMetadataInterface:
         """Access operational Labels through the coordinated metadata service."""
         ...
 
@@ -347,12 +398,12 @@ class MetadataAPIInterface(Protocol):
         ...
 
     @property
-    def series(self) -> HierarchicalVocabularyMetadataInterface:
+    def series(self) -> SeriesMetadataInterface:
         """Access Series identities through the coordinated metadata service."""
         ...
 
     @property
-    def languages(self) -> MetadataRecordsReader:
+    def languages(self) -> SuggestibleMetadataReader:
         """Access read-only language constants through the coordinated metadata service."""
         ...
 
@@ -456,7 +507,7 @@ class MetadataAPIInterface(Protocol):
         self,
         operation: Callable[[MetadataAPIInterface], ResultT],
         *,
-        expected: Sequence[MetadataRevision] = (),
+        expected: Sequence[MetadataEditRevision] = (),
     ) -> MetadataWriteReceipt[ResultT]:
         """Run related edits atomically and reconcile the cache once on success.
 
@@ -475,6 +526,7 @@ class MetadataAPIInterface(Protocol):
 __all__ = [
     "MetadataAPIInterface",
     "MetadataEntityInterface",
+    "MetadataWorkInterface",
     "MetadataMutationsInterface",
     "MetadataReconciliationError",
     "MetadataReference",
