@@ -32,11 +32,17 @@ from tests.support.cache_long_runs import BACKENDS, WORKLOADS  # noqa: E402
 BASE = "tests/databases/caches/"
 SYNTHETIC = BASE + "test_search_long.py::"
 DATABASE = BASE + "test_search_long_database.py::"
+METADATA = BASE + "test_metadata_ergonomics_long.py::"
 
 
 def selected_cases(lane: str) -> set[str]:
     """Name every required case so deletion or a capability skip fails this lane."""
     cases = set()
+    if lane in {"metadata", "all"}:
+        cases.update(
+            METADATA + f"test_metadata_picker_hydration_and_membership_churn[{mode}]"
+            for mode in ("None", *BACKENDS)
+        )
     if lane in {"synthetic", "all"}:
         cases.add(SYNTHETIC + "test_calibre_query_definition_and_candidate_soak")
         cases.update(
@@ -45,6 +51,7 @@ def selected_cases(lane: str) -> set[str]:
         )
     drivers = {
         "synthetic": (),
+        "metadata": (),
         "sqlite": ("SQLite", "SQLite_apsw"),
         "postgres": ("PostgreSQL",),
         "all": ("SQLite", "SQLite_apsw", "PostgreSQL"),
@@ -64,6 +71,8 @@ def source_hashes() -> dict[str, str]:
         ROOT / "tests/support/cache_long_runs.py",
         ROOT / BASE / "test_search_long.py",
         ROOT / BASE / "test_search_long_database.py",
+        ROOT / BASE / "test_metadata_ergonomics_long.py",
+        ROOT / BASE / "test_metadata_api.py",
     ]
     for directory in (
         "caches",
@@ -82,7 +91,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--lane",
-        choices=("synthetic", "sqlite", "postgres", "all"),
+        choices=("synthetic", "metadata", "sqlite", "postgres", "all"),
         default="synthetic",
     )
     parser.add_argument("--size", choices=tuple(WORKLOADS), default="full")

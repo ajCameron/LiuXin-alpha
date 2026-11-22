@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Iterator, Mapping
+from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any
 
 from LiuXin_alpha.caches.api import CacheState
@@ -139,34 +140,53 @@ class _CacheCatalogFacade:
             )
         self._owner._assert_ready()
 
-    def _apply[UpdateT, ResultT](
-        self, operation: Callable[[UpdateT], Mapping[int, ResultT]], update: UpdateT
-    ) -> Mapping[int, ResultT]:
-        """
-        Apply one normalized Catalog write under the owner's reconciliation lock.
+    @contextmanager
+    def _writer_scope(self) -> Iterator[None]:
+        """Guard the entire application before acquiring a SQL transaction.
 
-        Check attachment, then refresh preexisting DIRTY state unless a macro
-        transaction is open. Invoke Catalog, then reconcile its result. Catalog errors
-        propagate without reconciliation; post-write refresh errors preserve the
-        successful receipt in CacheReconciliationError.
+        Check attachment and pending publication before resolving new values or
+        reading link replacements. Further writes in the owning managed unit
+        remain permitted. Borrowed units cannot promise observable completion.
 
         Example:
-            An _apply_column_update call refreshes earlier external invalidations before
-            applying the new column update when no macro transaction is open.
+            Another thread's retained link writer fails promptly while a title
+            update awaits its enclosing commit.
 
-
-        :param operation: Bound Catalog method accepting this normalized update.
-        :param update: Normalized update passed unchanged to that method.
-        :return: Catalog receipt after successful reconciliation or permitted deferral.
+        :return: Context retaining the cache lock throughout writer application.
         """
-
-        with self._owner._lock:
+        with self._owner._operation_lock():
             self._assert_attached()
+            if self._owner._transaction_is_open():
+                from LiuXin_alpha.databases.transaction_participants import (
+                    owned_transaction_active,
+                )
+
+                if not owned_transaction_active(self.db.macros):
+                    raise RuntimeError(
+                        "Cache writers require an owned managed transaction; "
+                        "a borrowed raw transaction has no observable completion"
+                    )
             if (
                 self._owner.state == CacheState.DIRTY
                 and not self._owner._transaction_is_open()
             ):
                 self._owner._refresh_dirty()
+            yield
+
+    def _apply[UpdateT, ResultT](
+        self, operation: Callable[[UpdateT], Mapping[int, ResultT]], update: UpdateT
+    ) -> Mapping[int, ResultT]:
+        """Apply a normalized Catalog write and reconcile its physical dependencies.
+
+        Example:
+            A failed refresh preserves the successful write receipt and never
+            retries persistence.
+
+        :param operation: Catalog method accepting this normalized update.
+        :param update: Normalized instruction passed unchanged to Catalog.
+        :return: Authoritative receipt after reconciliation or permitted deferral.
+        """
+        with self._writer_scope():
             result = operation(update)
             if result:
                 tables, links, fields = update_dependencies(update)

@@ -350,15 +350,15 @@ class MetadataAPI:
 
     def _lock(self) -> AbstractContextManager[object]:
         """
-        Borrow the cache lock when a cache is configured.
+        Borrow the ordered database/cache boundary when a cache is configured.
 
         Example:
             Uncached operations still use database transactions but acquire no facade lock.
 
 
-        :return: The owning cache RLock, or a no-op context for uncached operation.
+        :return: The owning cache operation scope, or a no-op context for uncached operation.
         """
-        return nullcontext() if self._cache is None else self._cache._lock
+        return nullcontext() if self._cache is None else self._cache._operation_lock()
 
     @property
     def agents(self) -> AgentMetadataInterface:

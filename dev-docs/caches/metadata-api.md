@@ -74,6 +74,22 @@ those physical dependencies after interpreting Catalog's result. See the
 [Catalog/cache boundary](../catalog/catalog-cache-boundary.md) for the architecture
 and migration rationale.
 
+Schema writer guards cover value resolution and transaction acquisition as well
+as persistence and reconciliation. A successful write inside an enclosing owned
+macro transaction makes the cache dirty for every thread, including live-backed
+caches. Reads, reloads and competing writers reject pending publication; the
+owning thread can continue writing. Commit or rollback releases the guard, and
+the next read refreshes the recorded dependencies. Savepoint rollback keeps the
+guard until the outer unit completes. Closing or clearing during that period
+does not let a completion callback reopen the cache. Borrowed raw transactions
+are rejected because their completion cannot be observed.
+Before a read, reload or write starts, the coordinator acquires the database lock before retaining
+the cache lock. It never waits for an enclosing database owner while holding the
+cache lock that owner needs for its first mutation or completion. Pending cache
+publication is checked before that wait so competing operations still reject promptly.
+This is a coarse per-handle boundary, including for reads that could otherwise use
+only a snapshot. Clear and close retain their independent in-memory lifecycle lock.
+
 ## Core metadata coverage
 
 Expanded **2026-11-21**. Named properties cover every metadata repository whose
@@ -104,6 +120,14 @@ identity and public field aliases. Text attachment lists contain distinct record
 in ID order; use WEMI hydration for relationship order and link attributes.
 All owner-scoped reads require an existing owner, distinguish unavailable cache
 coverage from an empty result, and share one captured read source.
+
+For native SQL live storage, that source loads data on demand within the read
+transaction. Point lookups capture individual identities; filters and pickers
+load the populations they inspect; relationship reads capture their physical link
+table. The temporary view belongs to one operation and is never reused to hide
+external changes from a later call. A caller's managed transaction retains its
+own isolation and completion ownership. See the
+[capture measurements](metadata-followups-2026-11-22.md) for remaining costs.
 
 ```python
 tag = metadata.ensure_tag("History")

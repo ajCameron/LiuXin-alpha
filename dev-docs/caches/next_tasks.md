@@ -20,11 +20,14 @@ invalidation. This does not add global observation of raw SQL or arbitrary
 Catalog methods. The review names those boundaries and the existing destructive
 lifecycle/descriptor recovery coverage.
 
-The metadata adapter adds an outer-transaction completion guard shared across
-threads. A follow-up inspection should extend that protection to the older
-schema-directed writer routes: their deferred-refresh check still depends on the
-calling thread's macro depth. Their existing same-thread tests do not establish
-cross-thread safety while an enclosing transaction remains open.
+**Outer-transaction follow-up implemented, 2026-11-22.** The metadata adapter and
+schema-directed writers now share completion guards across threads and all three
+cache backends. Reads, reloads and competing writes reject pending publication;
+the owner can continue writing until commit or rollback. Guards cover destination
+resolution before SQL work, and borrowed raw units reject before mutation.
+Database-before-cache lock ordering also covers reads and reloads before the
+owner's first edit. The expanded lifecycle run passed 138 cases with six expected skips;
+see the [follow-up review](metadata-followups-2026-11-22.md).
 
 The [2026-11-16 review](../architectural_reviews/caches-review-2026-11-16.md)
 provides the first concrete repair slice: CR01 orders native custom-field
@@ -111,6 +114,24 @@ should measure shared-table scans, live captures and coarse writer reservations
 before adding indexes or changing transaction scope. Validation passed 393 distinct
 cases, including all 39 new mandatory cases and five live PostgreSQL cases; the
 mandatory manifest now contains 3,069 cases. Full-size stress remains gated.
+
+**Follow-up implementation, 2026-11-22.** Existing PostgreSQL catalogues have an
+explicit, transactional [upgrade](../databases/postgres-catalog-upgrade.md), with
+nine live regression cases. The metadata long lane is available through the
+standard telemetry runner and is currently running at full size. A realistic
+workflow benchmark measures scans, live captures, refreshes and independent-writer
+reservations. The [follow-up review](metadata-followups-2026-11-22.md) records
+validation status and the performance limits without treating unfinished runs as
+passes. Native live captures now load requested identities/populations/routes on
+demand. Sixteen capture regressions join the manifest, which preserves 3,139
+cases. The unchanged full soak restarted after the user selected capture
+optimization; the four-mode smoke run passes.
+
+Core's generic field-write routing repair is isolated in
+[PR #215](https://github.com/ajCameron/LiuXin-alpha/pull/215). It selects the bound
+metadata writer and preserves explicitly injected writers, with 115 targeted
+passing cases. Land that separate repair alongside the cache work; it is not an
+implicit fallback to a different writer after failure.
 
 Next, route more of Core's existing semantic metadata operations through this service,
 preserving its transport authorization and public receipt conventions. Do not

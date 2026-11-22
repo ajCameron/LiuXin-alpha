@@ -393,7 +393,7 @@ class CatalogTableValueLinkWriter(CatalogLinkWriter[Any, Any]):
         macros = self.catalog.db.macros
         transaction = getattr(macros, "transaction", None)
         context = transaction() if callable(transaction) else nullcontext()
-        with context:
+        with self._operation_scope(), context:
             resolved = self._resolve_update(update)
             replacement = resolved.as_replacement_update(macros)
             self._validate_cardinality(replacement)

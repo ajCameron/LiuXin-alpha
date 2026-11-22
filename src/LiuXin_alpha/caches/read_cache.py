@@ -11,7 +11,8 @@ reconcile after writes; this module does not interpret Catalog mutations.
 from __future__ import annotations
 
 import threading
-from collections.abc import Callable, Iterable, Mapping
+from collections.abc import Callable, Iterable, Iterator, Mapping
+from contextlib import AbstractContextManager, contextmanager, nullcontext
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Any, cast
 
@@ -313,7 +314,7 @@ class ReadCache(CacheAPI):
         :raises CacheClosedError: The facade is closed.
         """
 
-        with self._lock:
+        with self._operation_lock():
             self._assert_open()
             self._run_full_refresh(self.storage.read)
 
@@ -334,7 +335,7 @@ class ReadCache(CacheAPI):
         :raises CacheClosedError: The facade is closed.
         """
 
-        with self._lock:
+        with self._operation_lock():
             self._assert_open()
             self._run_full_refresh(self.storage.reload)
 
@@ -355,7 +356,7 @@ class ReadCache(CacheAPI):
         :raises CacheClosedError: The facade is closed.
         """
 
-        with self._lock:
+        with self._operation_lock():
             self._assert_open()
             reload_data = getattr(self.storage, "reload_data", None)
             self._run_full_refresh(
@@ -422,7 +423,7 @@ class ReadCache(CacheAPI):
         :return: Mapping from table name to an ordered tuple of column names.
         """
 
-        with self._lock:
+        with self._operation_lock():
             self._assert_ready()
             self._refresh_dirty()
             return MappingProxyType(
@@ -457,6 +458,33 @@ class ReadCache(CacheAPI):
         return bool(
             transaction_state is not None and getattr(transaction_state, "depth", 0)
         )
+
+    @contextmanager
+    def _operation_lock(self) -> Iterator[None]:
+        """Acquire the database boundary before retaining the cache operation lock.
+
+        Reject already pending publication promptly. Otherwise wait for an outer
+        database owner without holding the cache lock that owner needs to finish.
+        A caller already inside that database unit can reacquire its RLock.
+
+        Example:
+            A competing read, reload or writer cannot deadlock the owner before its first edit.
+
+        :return: Scope holding database and cache locks in their shared order.
+        """
+        with self._lock:
+            self._assert_open()
+            if self._pending_refresh_transactions and not self._transaction_is_open():
+                raise CacheDirtyError("Cache publication awaits another transaction")
+        lock = getattr(self.database, "lock", None)
+        boundary = (
+            cast(AbstractContextManager[object], lock)
+            if lock is not None and callable(getattr(lock, "acquire", None))
+            else nullcontext()
+        )
+        with boundary, self._lock:
+            self._assert_open()
+            yield
 
     def _defer_refresh_until_transaction_ends(self) -> None:
         """
@@ -574,7 +602,7 @@ class ReadCache(CacheAPI):
         :return: CacheLookup carrying a projected row or None, completeness and generation.
         """
 
-        with self._lock:
+        with self._operation_lock():
             self._assert_ready()
             self._refresh_dirty()
             if self.capabilities.consistency == CacheConsistency.LIVE:
@@ -609,15 +637,31 @@ class ReadCache(CacheAPI):
         :return: CacheQueryResult containing the visible page and count before paging.
         """
 
-        with self._lock:
+        with self._operation_lock():
             self._assert_ready()
             self._refresh_dirty()
             if self.capabilities.consistency == CacheConsistency.LIVE:
                 capture = getattr(self.storage, "query_view", None)
                 if callable(capture):
-                    view = cast(StorageCacheAPI, capture())
-                    engine = CacheQueryEngine(view, result_cache_size=0)
-                    return engine.query(query, generation=self._generation)
+                    # Native execution views may read lazily. Finish an owned
+                    # read unit, or borrow the caller's unit without completing it.
+                    macros = getattr(self.database, "macros", None)
+                    read_transaction = getattr(macros, "read_transaction", None)
+                    current = getattr(macros, "current_transaction_connection", None)
+                    scope = (
+                        cast(AbstractContextManager[object], read_transaction())
+                        if callable(read_transaction)
+                        and callable(current)
+                        and current() is None
+                        else nullcontext()
+                    )
+                    with scope:
+                        view = cast(StorageCacheAPI, capture())
+                        try:
+                            engine = CacheQueryEngine(view, result_cache_size=0)
+                            return engine.query(query, generation=self._generation)
+                        finally:
+                            view.close()
                 self._query_engine.reset(keep_plans=True)
             return self._query_engine.query(query, generation=self._generation)
 
@@ -650,7 +694,7 @@ class ReadCache(CacheAPI):
         :return: Materialized CacheQueryResult for the reachable target rows.
         """
 
-        with self._lock:
+        with self._operation_lock():
             self._assert_ready()
             self._refresh_dirty()
             if self.capabilities.consistency == CacheConsistency.LIVE:
@@ -705,7 +749,7 @@ class ReadCache(CacheAPI):
         :return: Tuple of CacheRecord link rows retaining link metadata.
         """
 
-        with self._lock:
+        with self._operation_lock():
             self._assert_ready()
             self._refresh_dirty()
             rows = self.storage.get_link_rows_for_source(
@@ -769,7 +813,7 @@ class ReadCache(CacheAPI):
         :return: None; updates dirty dependencies or visible generation according to consistency.
         """
 
-        with self._lock:
+        with self._operation_lock():
             self._assert_ready()
             table_names = {str(table) for table in tables}
             row_ids = {
@@ -891,9 +935,10 @@ class ReadCache(CacheAPI):
         """
         Publish explicit physical dependencies after a successful external write.
 
-        With the lock and readiness check, materialize supplied dependencies. LIVE consistency
-        advances generation only. An open macro transaction marks snapshot dependencies
-        dirty for later refresh. Otherwise reload affected tables/links and existing
+        With the lock and readiness check, materialize supplied dependencies. An open
+        managed transaction marks dependencies dirty and prevents every thread from
+        publishing until completion. Outside a transaction LIVE consistency advances
+        generation only. Otherwise reload affected tables/links and existing
         fields. A refresh failure marks dependencies dirty and raises with the original
         receipt; persistence is not retried. Success sets READY and advances generation.
         Earlier dirty dependencies are refreshed first so publishing this receipt
@@ -915,15 +960,17 @@ class ReadCache(CacheAPI):
         if not result:
             return
 
-        with self._lock:
+        with self._operation_lock():
             self._assert_ready()
             tables, links, fields = set(tables), set(links), set(fields)
-            if self.capabilities.consistency == CacheConsistency.LIVE:
-                self._advance_generation()
-                return
-
             if self._transaction_is_open():
                 self._mark_dependencies_dirty(tables, links, fields)
+                self._defer_refresh_until_transaction_ends()
+                return
+
+            if self.capabilities.consistency == CacheConsistency.LIVE:
+                self._refresh_dirty()
+                self._advance_generation()
                 return
 
             try:

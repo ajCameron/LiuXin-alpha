@@ -230,7 +230,8 @@ class CatalogOwnedRowOneToOneWriter[RawValueT, ValueT](
             or update.destination_column != self.destination_column
         ):
             raise ValueError("update target does not match writer target")
-        return self.catalog._apply_owned_row_update(update)
+        with self._operation_scope():
+            return self.catalog._apply_owned_row_update(update)
 
 
 __all__ = ["CatalogOwnedRowOneToOneWriter"]

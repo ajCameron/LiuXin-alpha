@@ -87,15 +87,17 @@ class CatalogCache(MetadataAPI):
         """
         from LiuXin_alpha.catalog.write import create_catalog_writer
 
-        with self._lock():
+        with self._core._operation_lock():
             self._assert_attached()
-            return create_catalog_writer(
-                _CacheCatalogFacade(self._core, self._catalog),
-                src_table,
-                dst_column,
-                force_refresh=force_refresh,
-                destination_owned=destination_owned,
-            )
+            host = _CacheCatalogFacade(self._core, self._catalog)
+            with host._writer_scope():
+                return create_catalog_writer(
+                    host,
+                    src_table,
+                    dst_column,
+                    force_refresh=force_refresh,
+                    destination_owned=destination_owned,
+                )
 
     def write(
         self,
