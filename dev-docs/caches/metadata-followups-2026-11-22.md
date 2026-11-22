@@ -106,20 +106,28 @@ with a 0.177 s competing save including the deliberate 0.100 s reservation hold.
 
 ## Validation status
 
-Core has 192 distinct targeted passing cases, including the neighboring hierarchy
-callers uncovered by its first full CI run. Its six remote failures reproduced on
-both SQLite drivers and pass after the repair; the replacement full CI run remains
+Core has 214 distinct targeted passing cases, including the neighboring hierarchy
+callers uncovered by its first full CI run. Its database gate passed 5,611 cases
+with 125 permitted skips. The next full suite passed 10,783 cases and found one
+stale transaction mock; its correction passes all 22 semantic-contract tests,
+including explicit serialized-reservation assertions. Fresh full CI remains
 pending. The metadata PR is stacked above the separate Core PR for combined
 validation. PostgreSQL has nine passing live
 upgrade cases, with a further three-case rerun after extending the locked table
 set. Documentation/tooling checks pass after tracking new destinations. All 45
 cache transaction/reload cases, nine PostgreSQL cases and sixteen live-capture
 cases are retained in the mandatory manifest, increasing it from 3,069 to 3,139
-without removing prior requirements. The expanded lifecycle run passed 138 cases
-with six expected skips. All sixteen focused capture cases pass: fourteen SQLite/APSW and two live
+without removing prior requirements. An acceptance audit maps every one of the
+70 newly mandatory cases to a passing JUnit record; none relies on an expected
+skip or an interrupted run. The expanded lifecycle run passed 138 cases with
+six expected skips. All sixteen focused capture cases pass: fourteen SQLite/APSW and two live
 PostgreSQL. The broader capture run passed 150 cases with four expected skips;
 a further eighteen affected live scenarios pass after the value-conversion audit.
 The complete formatting, architecture, lint and both typing gates pass.
+The broader live PostgreSQL metadata run also passed all 12 cases in 2,286.59
+seconds, including independent/raw writer reservations and custom-field/revision
+workflows. It began before the declared-value refinement; the final two PostgreSQL
+capture cases cover that adjustment separately. Its disposable cluster is stopped.
 
 The isolated Core/metadata integration has 73 distinct passing cases across
 field routing, Catalog mutations and live captures, plus 22 documentation checks
@@ -130,6 +138,16 @@ one checkout. The integration also corrects a stale query-isolation docstring;
 the full soak remains on the frozen cache implementation rather than this combined
 branch.
 
+The integrated full suite passed 10,858 cases and reported that same Core mock
+failure plus two differential-search failures. The database gate passed 5,723
+cases and failed the two PostgreSQL versions of those differential tests. Their
+old helper returned one shared execution view repeatedly, but live query cleanup
+now correctly closes each view after one call. The helper is removed: every
+Boolean, nullable-comparison and paging query now uses a fresh real capture.
+All 12 SQLite/APSW differential cases pass with unchanged SQL-oracle assertions;
+the two PostgreSQL live cases are being rerun. No production runtime change was
+needed for these CI corrections, and the frozen soak continues unchanged.
+
 The metadata long lane uses 10,000 Tags, 1,000 Works and 12 relationship cycles
 for uncached operation and each of three backends. The original uncached case
 passed its full call in 3,524.95 seconds before the user requested interruption
@@ -139,3 +157,9 @@ incomplete, so no full four-backend pass is claimed. It records source hashes, p
 timings, test phases and resource telemetry. Later concurrency refinements have
 separate regression coverage and must not be attributed to an earlier source
 fingerprint. See [long-running tests](long-running-tests.md) for reproduction.
+
+During the live case, the host wall clock jumped forward by 35,729 seconds while
+the monotonic sampler advanced only 1.68 seconds. The process remained alive.
+Operation timings use the monotonic clock; they do not represent the full civil
+wall-clock interval across that interruption. Retain this caveat with the final
+soak evidence.

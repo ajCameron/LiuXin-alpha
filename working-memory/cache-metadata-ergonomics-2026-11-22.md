@@ -1,5 +1,11 @@
 # Metadata cache ergonomics implementation
 
+This records the original ergonomics delivery. The subsequent
+[follow-up record](cache-followups-2026-11-22.md) tracks lifecycle repairs, live
+capture optimization, the explicit existing-PostgreSQL upgrade and full-soak
+acceptance. PR #214 now targets the separately reviewed Core repair in #215;
+#215 targets foundation #213. The original validation below remains historical.
+
 User approved implementation of the metadata ergonomics plan on 2026-11-22.
 Worktree: `/tmp/liuxin-cache-metadata-ergonomics-20261122`; branch:
 `cache-metadata-ergonomics`, based on `510c0a82dc18634abcd6b53ba1ac0b667e2fa734`.

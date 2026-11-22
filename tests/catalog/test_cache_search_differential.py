@@ -2,7 +2,6 @@
 
 import operator
 import random
-from contextlib import contextmanager
 
 import pytest
 
@@ -10,23 +9,6 @@ from LiuXin_alpha.caches.api import CacheQuery
 from LiuXin_alpha.caches.read_cache import ReadCache
 from LiuXin_alpha.databases.db_types.query_types import BooleanMatch, ComparisonMatch
 from tests.catalog.test_wemi_database_search import collection as collection
-
-
-@contextmanager
-def _unchanged_query_view(cache, monkeypatch):
-    """Reuse one real live capture for the immutable predicate corpus only.
-
-    Live freshness is checked separately below with the real capture method
-    restored and a committed write between requests. Avoid repeating the same
-    whole-catalog capture for each Boolean combination over unchanged data.
-    """
-    if cache.capabilities.consistency.value != "live":
-        yield
-        return
-    view = cache.storage.query_view()
-    with monkeypatch.context() as patch:
-        patch.setattr(cache.storage, "query_view", lambda: view)
-        yield
 
 
 def _accepts(row, node):
@@ -66,9 +48,7 @@ def _accepts(row, node):
 @pytest.mark.parametrize(
     "storage_type", ("schema_backed", "database_backed", "numpy_vectorized")
 )
-def test_wemi_boolean_graph_queries_match_sql_at_every_level(
-    collection, storage_type, monkeypatch
-):
+def test_wemi_boolean_graph_queries_match_sql_at_every_level(collection, storage_type):
     catalog = collection.catalog
     queries = (
         "work.title:Novel",
@@ -87,21 +67,21 @@ def test_wemi_boolean_graph_queries_match_sql_at_every_level(
     cache = ReadCache(catalog.db, storage_type=storage_type)
     try:
         cache.load()
-        with _unchanged_query_view(cache, monkeypatch):
-            for level in ("work", "expression", "manifestation", "item"):
-                for query in queries:
-                    expected = catalog.search.find(query, level=level, limit=None)
-                    actual = catalog.search.find(
-                        query, level=level, limit=None, read_cache=cache
-                    )
-                    assert actual == expected, (storage_type, level, query)
-                    page = catalog.search.find(
-                        query, level=level, offset=1, limit=1, read_cache=cache
-                    )
-                    assert page == expected[1:2], (storage_type, level, query)
+        # Live captures are now demand-driven, so every parity check can exercise
+        # its real per-call capture and close boundary instead of sharing a view.
+        for level in ("work", "expression", "manifestation", "item"):
+            for query in queries:
+                expected = catalog.search.find(query, level=level, limit=None)
+                actual = catalog.search.find(
+                    query, level=level, limit=None, read_cache=cache
+                )
+                assert actual == expected, (storage_type, level, query)
+                page = catalog.search.find(
+                    query, level=level, offset=1, limit=1, read_cache=cache
+                )
+                assert page == expected[1:2], (storage_type, level, query)
         if cache.capabilities.consistency.value == "live":
-            # Every request below uses the real backend capture again. No manual
-            # invalidation is involved in observing this external Catalog write.
+            # No manual invalidation is involved in observing this external write.
             old_title = catalog.works.require(collection.novel)["work_title"]
             old_query = CacheQuery(
                 "works", where=ComparisonMatch("work_title", "eq", old_title)
@@ -125,9 +105,7 @@ def test_wemi_boolean_graph_queries_match_sql_at_every_level(
 @pytest.mark.parametrize(
     "storage_type", ("schema_backed", "database_backed", "numpy_vectorized")
 )
-def test_nullable_comparison_trees_match_database(
-    collection, storage_type, monkeypatch
-):
+def test_nullable_comparison_trees_match_database(collection, storage_type):
     catalog = collection.catalog
     with catalog.db.macros.transaction():
         for i, year in enumerate((None, -50, 0, 1900, 2000, 2026)):
@@ -159,20 +137,19 @@ def test_nullable_comparison_trees_match_database(
     try:
         cache.load()
         source = catalog.db.macros.get_rows("works")
-        with _unchanged_query_view(cache, monkeypatch):
-            for tree in trees:
-                actual = cache.query(CacheQuery("works", where=tree)).ids
-                expected = tuple(
-                    sorted(row["work_id"] for row in source if _accepts(row, tree))
-                )
-                assert actual == expected, (storage_type, tree)
-                if catalog.db.macros.supports_normalized_search():
-                    sql = tuple(
-                        row["work_id"]
-                        for row in catalog.db.macros.find_rows_matching(
-                            "works", tree, limit=None
-                        )
+        for tree in trees:
+            actual = cache.query(CacheQuery("works", where=tree)).ids
+            expected = tuple(
+                sorted(row["work_id"] for row in source if _accepts(row, tree))
+            )
+            assert actual == expected, (storage_type, tree)
+            if catalog.db.macros.supports_normalized_search():
+                sql = tuple(
+                    row["work_id"]
+                    for row in catalog.db.macros.find_rows_matching(
+                        "works", tree, limit=None
                     )
-                    assert sql == expected, tree
+                )
+                assert sql == expected, tree
     finally:
         cache.close()

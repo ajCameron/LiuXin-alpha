@@ -129,7 +129,7 @@ optimization; the four-mode smoke run passes.
 
 Core's generic field-write routing repair is isolated in
 [PR #215](https://github.com/ajCameron/LiuXin-alpha/pull/215). It selects the bound
-metadata writer and preserves explicitly injected writers, with 115 targeted
+metadata writer and preserves explicitly injected writers, with 214 targeted
 passing cases. Land that separate repair alongside the cache work; it is not an
 implicit fallback to a different writer after failure.
 
