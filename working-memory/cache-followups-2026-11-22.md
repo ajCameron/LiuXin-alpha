@@ -1,111 +1,101 @@
 # Metadata cache follow-ups, 2026-11-22
 
 The user requested all three review follow-ups, with Core delivered separately,
-and explicitly included the existing-PostgreSQL schema upgrade. No merge is
-authorized by this task. Preserve the original checkout, data submodule and stashes.
+and explicitly included the existing-PostgreSQL schema upgrade. They then chose
+to optimize live capture cost before completing the unchanged full soak.
+No PR merge is authorized. Preserve the original checkout, data submodule and
+six stashes; these remain unchanged.
 
-Core is committed at `c641c488` and delivered as [PR #215](https://github.com/ajCameron/LiuXin-alpha/pull/215),
-targeting `cache-review`. Its 214 distinct targeted cases and complete modern
-quality gates pass. The ordinary native vocabulary writer's serialized hierarchy
-unit and preferred name columns were repaired during the neighboring-write audit.
-The first full CI run found six neighboring hierarchy failures. All reproduced on
-both SQLite drivers and pass after fixing Library/Core transaction callers and
-obsolete normalization/wizard fixtures. Fresh full CI remains pending.
+## Delivered implementation
 
-Cache lifecycle changes extend owned-transaction completion guards to schema
-writers, including LIVE storage. Writer application is guarded before link/value
-resolution. Borrowed raw transactions reject before persistence. The final
-lock-order follow-up acquires the database mutex before retaining the cache mutex,
-for reads and reloads as well as writes. Forty-two focused lifecycle/metadata
-cases and a separate 31-case transaction rerun passed before that last extension.
-The final expanded lifecycle suite passed: 138 cases, with six expected skips.
-Forty-five transaction/reload cases and nine upgrade cases joined the manifest.
-The live-capture follow-up adds sixteen cases, giving 3,139 distinct requirements.
-The follow-up acceptance audit maps all 70 new requirements to passing JUnit
-records and verifies that all 3,069 preceding requirements remain in the manifest.
+- Core `c641c488`, [PR #215](https://github.com/ajCameron/LiuXin-alpha/pull/215),
+  targets `cache-review`. Generic field writes select the shared metadata owner,
+  retain injected writers and propagate failures without retry. The neighboring
+  vocabulary audit repairs native name selection and serialized hierarchy callers.
+- Metadata [PR #214](https://github.com/ajCameron/LiuXin-alpha/pull/214) is stacked
+  on `core-cache-write-routing`; foundation PR #213 targets main. Core remains
+  separately reviewable. Neither PR has been merged.
+- Schema writers share metadata transaction-completion guards, including live
+  storage. Resolution is guarded before SQL work; raw borrowed units reject
+  before mutation. Reads, reloads and writers follow database-before-cache lock
+  ordering. Every thread sees pending publication; late callbacks cannot undo
+  clear/close. The live reload override rebuilds once and keeps proxy identity.
+- Native live queries create per-call demand-driven views. Point reads capture
+  identities, population queries load needed tables, and relationship reads share
+  physical routes within an operation. Driver value conversion, SQL snapshot and
+  caller transaction ownership are retained. Views close after each call; no
+  result is shared across calls. Lightweight adapters retain the eager fallback.
+- The explicit PostgreSQL upgrade previews a fingerprinted plan, locks and
+  revalidates it, then atomically repairs typed-link constraints and Series
+  sibling position. It preserves existing rows and never runs during opening.
 
-The reload concurrency case exposed the live backend inheriting a snapshot data
-refresh that repeatedly rebuilt the entire database while walking live proxies.
-An explicit live override now rebuilds once. Three focused tests pass, checking
-the storage/facade entry points, fresh values, preserved proxy identity and the
-competing-reader transaction boundary. Obsolete runs with the old slow refresh
-were stopped and restarted against the fix; they are not acceptance evidence.
+## Acceptance evidence
 
-The explicit PostgreSQL upgrade previews a fingerprinted plan and revalidates it
-under exclusive locks before applying transactional DDL. It repairs generated
-typed-link uniqueness and adds Series sibling position, preserving existing rows.
-Nine live tests pass, including saved-plan CLI, rollback, stale identity and
-custom-schema rejection. The final lock-list adjustment also passes its targeted
-three-case rerun. The disposable PostgreSQL cluster is stopped. The upgrade never
-runs implicitly during ordinary opening.
-See `dev-docs/databases/postgres-catalog-upgrade.md`.
+Core has 214 distinct targeted passes. Its corrected full CI suite passes
+10,784 cases (2,306 skipped, 11 expected failures), and its database gate passes
+5,611 (125 permitted skips). Metadata `7b2f5a4c` passes the combined full suite:
+10,861 cases, 2,348 skips and 11 expected failures. Its push database gate passes
+5,721 cases with 133 permitted skips; the PR-event duplicate remains running at
+this documentation update. Formatting, lint, architecture and both typing gates
+pass. The final evidence commit changes documentation only.
 
-The long-test runner now has a metadata lane. The full 10,000-Tag/1,000-Work,
-12-cycle baseline was interrupted at the user’s explicit request to optimize
-capture first. Its uncached call passed in 3,524.95 seconds; the live case was
-incomplete and later backends did not run. This is not a passing lane result. Source hashes are captured; concurrency refinements made after
-launch have separate targeted coverage and must not be described as full-soak
-coverage without checking the recorded source set.
+Local evidence includes 138 lifecycle passes, 16 focused live-capture passes
+across SQLite/APSW/PostgreSQL, nine PostgreSQL upgrade passes plus three lock-list
+reruns, 12 broader PostgreSQL metadata passes, and 73 distinct combined
+Core/Catalog/capture passes. All 70 newly mandatory cases map to passing JUnit
+records; all 3,069 preceding cases remain, yielding 3,139 requirements.
 
-The realistic workflow benchmark records picker/select/search/edit/save costs,
-nested live captures and full refreshes, plus an independent-handle writer
-reservation experiment. A preliminary run accidentally measured relationship
-no-ops in later backends; a corrected full 1,000-Tag/100-Work/seven-repeat run has
-completed. A final measurement rerun excludes readback assertion captures from
-nested capture samples. Optional profiles separate attribution from ordinary
-latency. Results expose expensive Row construction, captures and refreshes;
-these are not a performance sign-off. The user explicitly selected capture
-optimization before completing the full soak. Native live execution now uses
-per-call demand-driven views: point reads avoid full table scans, queries load
-needed populations and relationship reads capture only their routes. Existing
-portable SQL macros retain transaction ownership. Lightweight adapters retain
-the eager fallback. No live result is reused across public operations. The value
-audit also retained driver declared-type conversion after portable raw reads,
-including binary buffers. All sixteen focused cases pass: fourteen SQLite/APSW
-and two live PostgreSQL. The broader capture run passed 150 cases with four
-expected skips before that conversion refinement; affected live scenarios are
-now passing in an eighteen-case rerun. The original baseline and interrupted pre-conversion artifacts are
-retained. The unchanged full workload has restarted on the corrected sources.
-Do not attribute older soak evidence to this source fingerprint.
+Earlier CI exposed a stale Core transaction mock and differential tests reusing
+one live view after per-call cleanup. The mock now asserts serialized ownership;
+the obsolete shared-view helper is removed. All 22 Core contract cases,
+12 SQLite/APSW parity cases and two live PostgreSQL parity cases pass. The latter
+took 1,337.47 seconds. These were test-only corrections. Both disposable
+PostgreSQL clusters stopped cleanly. Five initial integrated teardown errors
+were artifact-guard failures caused by concurrent pytest/quality tools creating
+cache directories; clean reruns pass. Keep these tools sequential in fresh checkouts.
 
-All 80 documentation/tooling checks pass. The complete quality runner passes on the final
-capture implementation, including both type checkers. The final 1,000-Tag/100-Work/seven-repeat benchmark is complete, and the corrected
-four-mode smoke run passes in 117.36 seconds. The full soak remains active against
-cache commit `44dd5fe9`, whose source checkout is frozen until it completes.
-An isolated integration checkout combines it with Core `c641c488`; PR #214 is
-stacked above #215 so their combined CI includes the hierarchy fixes while
-Core remains separately reviewable. Source hashes must distinguish the cache-only
-soak from this integration; the imported Catalog container-write changes are not
-exercised by the soak. Combined targeted tests cover those paths separately. The
-integration has 73 distinct passing cases, 22 documentation passes and complete
-quality gates. Five teardown failures were caused by concurrent tools creating
-`.pytest_cache`, `.ruff_cache` and `.mypy_cache`; affected cases pass in clean
-reruns. Avoid running quality checks or separate pytest processes concurrently
-in a fresh checkout. The integrated read-cache difference is a docstring correction
-only. The previous metadata CI quality job's two failures were the known Core
-field-write dispatch bug; the integration contains that separately reviewed fix.
-The broader live PostgreSQL metadata suite passed all 12 cases in 2,286.59 seconds;
-its disposable cluster stopped successfully. That process started before the
-declared-value refinement, which has its own final two-case PostgreSQL coverage.
-Fresh remote full suites remain pending. Do not claim all remote checks passed.
-The second Core full suite found one stale serialized-transaction mock after
-10,783 passing cases; its correction passes all 22 semantic-contract cases in
-both the Core and integrated checkouts. Core's database gate passed 5,611 cases
-with 125 permitted skips. The integrated full suite had 10,858 passes and three
-failures: that mock plus two differential tests sharing a now-closed live capture.
-The database gate had 5,723 passes and the two PostgreSQL versions of those same
-capture failures. Removing the obsolete shared-view helper preserves all oracles
-and lets every request exercise real capture/cleanup. All 12 SQLite/APSW cases
-pass; the two PostgreSQL live cases are still running in a disposable cluster.
-These are test-only corrections; the production soak source remains unchanged.
-The integrated PR quality job passed on `5a082fb9`, including the application
-ownership checks that failed before Core was stacked beneath it. The final
-full-soak uncached case passed all phases, with a 1,855.54-second call; the
-database-backed case is currently running. The lane still needs all three cached
-cases and its final gate. Do not turn this partial result into a lane pass.
-The host clock jumped from 04:43:31 to 14:39:00 UTC while monotonic time advanced
-only 1.68 seconds. The same soak handle remained live. Its timings are monotonic
-durations and exclude that civil-clock interruption; retain the telemetry caveat.
-Final soak measurements, source
-audit and completed regression evidence remain pending.
-See `dev-docs/caches/metadata-followups-2026-11-22.md`.
+## Completed full soak and measurements
+
+The original pre-optimization run was explicitly interrupted: only its uncached
+call passed (3,524.95 seconds). The intermediate pre-conversion run was also
+stopped. Neither is a passing lane or evidence for the final implementation.
+
+The final unchanged full lane at cache commit `44dd5fe9` passes all four modes:
+10,000 Tags, 1,000 Works, 12 cycles and 24,000 individual relationship reads per
+mode. Gate: four required, four fully passed, no failures, exit zero. Setup,
+call and teardown all pass. All 481 recorded source hashes match at completion.
+Full call durations are uncached 1,855.54 s, live 5,333.19 s, NumPy 1,706.21 s,
+and schema 1,385.06 s; total pytest duration is 10,288.13 s. Sampled peak process
+tree RSS is 267.90 MiB, with zero process swap and no increase in host OOM/swap
+counters. The earlier final-source smoke passed all four modes in 117.36 s.
+
+The host wall clock jumped forward 35,729 seconds while monotonic time advanced
+only 1.68 seconds. Timings use monotonic durations and exclude that civil-clock
+interruption; do not call them the total wall-clock duration. The full-soak
+source was frozen throughout. Integrated read_cache differs only in its docstring
+(executable AST equal); two imported Catalog container writers are covered by
+targeted integration tests, not this soak. Tests/docs added later do not change
+the exercised cache runtime or long workload.
+
+The final unprofiled workflow benchmark completed all four modes with 1,000 Tags,
+100 Works and seven repetitions. Live selected-Tag and seven-record hydrated
+search medians were 0.023 s and 0.510 s (prior diagnostic run: 4.375 s and 4.734 s).
+Host load varied, so these are not controlled speedup ratios. The corrected
+relationship samples rotate membership; the initial no-op samples are excluded.
+Independent-writer contention passed. Remaining costs are population-scanning
+pickers, complete relationship-route capture and conservative snapshot refreshes.
+
+Evidence under `/tmp`:
+
+- `liuxin-metadata-capture-final-full-20261122/`: gate, JUnit, source hashes,
+  measurements and telemetry; `liuxin-full-soak-final-audit.json` checks all phases.
+- `liuxin-workflow-capture-final-20261122/result.json`: complete unprofiled benchmark.
+- `liuxin-followup-mandatory-audit.json`: all 70 new cases mapped to passes.
+- `liuxin-core-routing-validation-final2.json`: 214 distinct Core passes.
+- `liuxin-metadata-integration-validation.json`: 73 combined passes.
+- `liuxin-cache-followups-acceptance.json`: final requirement/status audit.
+
+See [the follow-up review](../dev-docs/caches/metadata-followups-2026-11-22.md)
+for measurements and [the PostgreSQL upgrade](../dev-docs/databases/postgres-catalog-upgrade.md)
+for preview/apply instructions. Original checkout stays on `cache-review`;
+only isolated worktrees and the two PR branches are updated.

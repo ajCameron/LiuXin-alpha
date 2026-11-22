@@ -118,14 +118,16 @@ mandatory manifest now contains 3,069 cases. Full-size stress remains gated.
 **Follow-up implementation, 2026-11-22.** Existing PostgreSQL catalogues have an
 explicit, transactional [upgrade](../databases/postgres-catalog-upgrade.md), with
 nine live regression cases. The metadata long lane is available through the
-standard telemetry runner and is currently running at full size. A realistic
+standard telemetry runner and passes all four modes at full size: 10,000 Tags,
+1,000 Works, 12 cycles and 24,000 individual relationship reads per mode. A realistic
 workflow benchmark measures scans, live captures, refreshes and independent-writer
 reservations. The [follow-up review](metadata-followups-2026-11-22.md) records
-validation status and the performance limits without treating unfinished runs as
-passes. Native live captures now load requested identities/populations/routes on
+completed validation, source fingerprints and remaining performance limits.
+Native live captures now load requested identities/populations/routes on
 demand. Sixteen capture regressions join the manifest, which preserves 3,139
-cases. The unchanged full soak restarted after the user selected capture
-optimization; the four-mode smoke run passes.
+cases. Both the four-mode smoke and unchanged full soak pass after the user-selected
+capture optimization. Next performance work should address population-scanning
+pickers, complete relationship-route reads and conservative snapshot refreshes.
 
 Core's generic field-write routing repair is isolated in
 [PR #215](https://github.com/ajCameron/LiuXin-alpha/pull/215). It selects the bound

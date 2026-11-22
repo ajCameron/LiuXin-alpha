@@ -3,8 +3,9 @@
 The native metadata interface now has a usable application boundary: detached
 reads, literal pickers, hydrated search, explicit relationships and transactional
 edit receipts. The follow-up work strengthens transaction lifecycle and gives
-existing PostgreSQL catalogues a deliberate upgrade path. Performance sign-off
-remains separate from correctness: the optimized full-size soak is still running.
+existing PostgreSQL catalogues a deliberate upgrade path. The optimized full-size
+soak passes in all four modes. The measurements below identify remaining costs;
+this is correctness acceptance, not a production latency guarantee.
 
 ## Completed implementation
 
@@ -107,12 +108,13 @@ with a 0.177 s competing save including the deliberate 0.100 s reservation hold.
 ## Validation status
 
 Core has 214 distinct targeted passing cases, including the neighboring hierarchy
-callers uncovered by its first full CI run. Its database gate passed 5,611 cases
-with 125 permitted skips. The next full suite passed 10,783 cases and found one
-stale transaction mock; its correction passes all 22 semantic-contract tests,
-including explicit serialized-reservation assertions. Fresh full CI remains
-pending. The metadata PR is stacked above the separate Core PR for combined
-validation. PostgreSQL has nine passing live
+callers uncovered by its first full CI run. At `c641c488`, its full CI suite passes
+10,784 cases, with 2,306 skips and 11 expected failures; its database gate passes
+5,611 cases with 125 permitted skips. The metadata PR is stacked above the
+separate Core PR for combined validation. At `7b2f5a4c`, its full CI suite passes
+10,861 cases, with 2,348 skips and 11 expected failures. Its push-event database
+gate passes 5,721 cases with 133 permitted skips; the duplicate PR-event database
+job is still running at this documentation update. PostgreSQL has nine passing live
 upgrade cases, with a further three-case rerun after extending the locked table
 set. Documentation/tooling checks pass after tracking new destinations. All 45
 cache transaction/reload cases, nine PostgreSQL cases and sixteen live-capture
@@ -135,8 +137,10 @@ and the complete quality gates. Five initial teardown errors came from concurren
 quality/pytest tools creating cache directories under the repository artifact
 guard; all affected cases pass in clean reruns. Keep those tools sequential within
 one checkout. The integration also corrects a stale query-isolation docstring;
-the full soak remains on the frozen cache implementation rather than this combined
-branch.
+the full soak used the frozen cache implementation rather than this combined
+branch. Its 481 recorded source hashes still match at completion. The integrated
+read-cache executable AST matches; the two imported Catalog container writers
+are covered by the combined targeted cases, not the soak workload.
 
 The integrated full suite passed 10,858 cases and reported that same Core mock
 failure plus two differential-search failures. The database gate passed 5,723
@@ -145,18 +149,40 @@ old helper returned one shared execution view repeatedly, but live query cleanup
 now correctly closes each view after one call. The helper is removed: every
 Boolean, nullable-comparison and paging query now uses a fresh real capture.
 All 12 SQLite/APSW differential cases pass with unchanged SQL-oracle assertions;
-the two PostgreSQL live cases are being rerun. No production runtime change was
-needed for these CI corrections, and the frozen soak continues unchanged.
+both PostgreSQL live cases also pass in 1,337.47 seconds, and their disposable
+cluster stopped cleanly. No production runtime change was needed for these CI
+corrections. The successful full-suite counts above are from the corrected heads;
+the earlier failures are retained here to explain the changed test scaffolding.
 
 The metadata long lane uses 10,000 Tags, 1,000 Works and 12 relationship cycles
 for uncached operation and each of three backends. The original uncached case
 passed its full call in 3,524.95 seconds before the user requested interruption
-and optimization. The unchanged full workload has restarted on the optimized
-sources; its four-case smoke run passed in 117.36 seconds. The full lane is still
-incomplete, so no full four-backend pass is claimed. It records source hashes, per-operation
-timings, test phases and resource telemetry. Later concurrency refinements have
-separate regression coverage and must not be attributed to an earlier source
-fingerprint. See [long-running tests](long-running-tests.md) for reproduction.
+and optimization. That interrupted lane is not acceptance evidence. The unchanged
+full workload now passes all four cases on cache commit `44dd5fe9`, after the
+four-case smoke pass in 117.36 seconds. The final gate records four required and
+four fully passing cases, no failures and exit code zero. All setup, call and
+teardown phases passed, including 24,000 individual relationship reads per mode.
+
+| Mode | Full test call | Picker median | Hydration median |
+| --- | ---: | ---: | ---: |
+| Uncached | 1,855.54 s | 23.687 s | 0.342 s |
+| Database-backed | 5,333.19 s | 21.635 s | 0.501 s |
+| NumPy | 1,706.21 s | 18.250 s | 0.274 s |
+| Schema-backed | 1,385.06 s | 18.303 s | 0.266 s |
+
+Total pytest duration was 10,288.13 seconds (2 h 51 m 28 s). These timings include
+setup and verification work beyond the sampled operations. The separate
+`relationship_cycle` samples time batch writes; the 24,000 verification reads
+are included in the full calls, not in that sample. Sampled process-tree RSS
+peaked at 267.90 MiB, with zero process swap and no increase in host OOM or swap
+counters. The live case remains slowest; demand-driven capture avoids unrelated
+tables but still reads a complete relationship route for each public operation.
+
+Artifacts are retained under `/tmp/liuxin-metadata-capture-final-full-20261122`:
+`gate.json`, `junit.xml`, `run.json`, per-mode measurements and telemetry. The final
+phase/hash/resource audit is `/tmp/liuxin-full-soak-final-audit.json`.
+See [long-running tests](long-running-tests.md) for reproduction. Source fingerprints
+identify the tested implementation; historical interrupted runs are not substitutes.
 
 During the live case, the host wall clock jumped forward by 35,729 seconds while
 the monotonic sampler advanced only 1.68 seconds. The process remained alive.

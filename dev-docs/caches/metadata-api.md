@@ -517,8 +517,9 @@ returns depth-first preorder. Records are detached. An overflow raises
 `HierarchyLimitError` without a partial result. Missing parents and cycles raise
 integrity errors. Cached traversals capture one source; explicit fallback reruns
 the entire traversal against the database. Known misses do not cause fallback.
-The node budget bounds traversal and output; a live backend still incurs its
-existing catalogue-capture cost before traversal begins.
+The node budget bounds traversal and output. Native live views load the hierarchy
+tables used by the traversal on demand; the budget does not bound those underlying
+table populations.
 
 Sibling reads sort by stored position, nulls last, then ID. Structural writes
 compact affected siblings to zero-based positions. New children append; input
@@ -615,8 +616,9 @@ On databases with normalized SQL search, the existing macro selects all matching
 root rows, then the shared query engine orders/counts/pages that population. This
 avoids duplicating collation and missing-value rules but retains memory
 proportional to the matches. Other drivers use one ephemeral database capture;
-live cache backends retain their existing whole-catalogue capture cost. These are
-initial correctness choices, not bounded-memory SQL pagination. Database execution
+native live cache views load the tables and relationship routes the query uses
+on demand. Both paths can still load complete populations, so this is not
+bounded-memory SQL pagination. Database execution
 uses the metadata owner's read scope; separate page
 requests do not pin a shared snapshot. A generation is an invalidation counter,
 not a database revision.
@@ -742,9 +744,9 @@ correctness results, not performance measurements or live PostgreSQL validation.
 
 The native Core workflow now consumes this interface; other Core semantic handlers
 retain their existing transport and receipt conventions. Matching and merges remain
-separate Catalog services. The new transaction guard
-protects this adapter; older schema-directed writer deferral needs its own
-cross-thread follow-up. This is not whole-cache or whole-Catalog sign-off.
+separate Catalog services. The transaction guard now also protects schema-directed
+writer deferral across threads; see the [follow-up review](metadata-followups-2026-11-22.md).
+This is not whole-cache or whole-Catalog sign-off.
 See [next tasks](next_tasks.md).
 
 
@@ -761,13 +763,18 @@ independent shared-token writer; its disposable cluster was stopped afterwards.
 The regression manifest retains all 3,030 previous requirements and adds the 39
 new cases. Formatting, lint, architecture and both type checkers pass; negative
 typing contracts reject 127 basedpyright and 123 mypy examples. The full-size
-10,000-record/1,000-Work soak remains gated and was not run. These are correctness
-results, not a performance claim or whole-module sign-off.
+10,000-record/1,000-Work soak was not run during that initial expansion. The later
+capture-optimization follow-up passes the unchanged full workload in all four
+modes, with 12 relationship cycles and 24,000 individual relationship reads per
+mode. See the [final measurements and validation](metadata-followups-2026-11-22.md)
+for timings, source scope and remaining performance costs. These are correctness
+results, not a whole-module sign-off.
 
 Validation artifacts are `/tmp/liuxin-ergonomics-*`; `validation.json` records
 unique passing cases and final source fingerprints. The broader cache run began
 before the final Agent guard and PostgreSQL schema corrections; focused credit
 and live-backend tests validate those final changes. Existing PostgreSQL schemas
-still need the separate upgrade described under relationship editing above.
+can now use the explicit, separately invoked
+[native catalogue upgrade](../databases/postgres-catalog-upgrade.md).
 
 Return to [caches](README.md) or the [ownership contract](../catalog/catalog-cache-boundary.md).
