@@ -48,6 +48,13 @@ sibling insertion and blank-to-append explicitly.
 All fourteen targeted cases pass on SQLite and APSW. The broader Catalog/Core/
 library run passes all 63 cases after rerunning six loopback checks with socket
 access; all fourteen wizard cases pass. The complete quality runner also passes.
-The combined audit now records 192 distinct targeted passing cases. Update
-PR #215 with this hierarchy integration follow-up; new remote checks remain to run. The cache soak is
-independent and must not be stopped for these separate-worktree changes.
+The combined audit originally recorded 192 distinct targeted passing cases.
+The second remote full suite passed 10,783 cases and found one stale tree-handler
+test double: its transaction factory rejected the new `serialized` argument.
+The double now accepts that contract, and the existing test explicitly checks the
+serialized reservation for both rejected and valid nesting. All 22 semantic
+contract cases pass, bringing the targeted audit to 214 distinct passing cases.
+The second Core database regression gate passed 5,611 cases with 125 permitted
+skips. Fresh full CI is still required after the test-only correction.
+The cache soak is independent and must not be stopped for these separate-worktree
+changes.
