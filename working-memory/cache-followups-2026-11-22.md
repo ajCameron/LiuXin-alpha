@@ -4,10 +4,13 @@ The user requested all three review follow-ups, with Core delivered separately,
 and explicitly included the existing-PostgreSQL schema upgrade. No merge is
 authorized by this task. Preserve the original checkout, data submodule and stashes.
 
-Core is committed at `c9fdb07d` and delivered as [PR #215](https://github.com/ajCameron/LiuXin-alpha/pull/215),
-targeting `cache-review`. Its 115 distinct targeted cases and complete modern
+Core is committed at `512ce17c` and delivered as [PR #215](https://github.com/ajCameron/LiuXin-alpha/pull/215),
+targeting `cache-review`. Its 192 distinct targeted cases and complete modern
 quality gates pass. The ordinary native vocabulary writer's serialized hierarchy
 unit and preferred name columns were repaired during the neighboring-write audit.
+The first full CI run found six neighboring hierarchy failures. All reproduced on
+both SQLite drivers and pass after fixing Library/Core transaction callers and
+obsolete normalization/wizard fixtures. Fresh full CI remains pending.
 
 Cache lifecycle changes extend owned-transaction completion guards to schema
 writers, including LIVE storage. Writer application is guarded before link/value
@@ -65,8 +68,21 @@ Do not attribute older soak evidence to this source fingerprint.
 
 All 80 documentation/tooling checks pass. The complete quality runner passes on the final
 capture implementation, including both type checkers. The final 1,000-Tag/100-Work/seven-repeat benchmark is complete, and the corrected
-four-mode smoke run passes in 117.36 seconds. The full soak remains active. The separate Core PR’s full-suite
-CI check failed after about an hour; its job logs are being inspected, while the
-database ratchet remains pending. Do not claim all remote checks passed. Final
-measurements, source audit, completed regression evidence, commit and PR #214
-update remain pending. See `dev-docs/caches/metadata-followups-2026-11-22.md`.
+four-mode smoke run passes in 117.36 seconds. The full soak remains active against
+cache commit `44dd5fe9`, whose source checkout is frozen until it completes.
+An isolated integration checkout combines it with Core `512ce17c`; PR #214 is
+being stacked above #215 so their combined CI includes the hierarchy fixes while
+Core remains separately reviewable. Source hashes must distinguish the cache-only
+soak from this integration; the imported Catalog container-write changes are not
+exercised by the soak. Combined targeted tests cover those paths separately. The
+integration has 73 distinct passing cases, 22 documentation passes and complete
+quality gates. Five teardown failures were caused by concurrent tools creating
+`.pytest_cache`, `.ruff_cache` and `.mypy_cache`; affected cases pass in clean
+reruns. Avoid running quality checks or separate pytest processes concurrently
+in a fresh checkout. The integrated read-cache difference is a docstring correction
+only. The previous metadata CI quality job's two failures were the known Core
+field-write dispatch bug; the integration contains that separately reviewed fix.
+The broader live PostgreSQL metadata suite and fresh remote full suites remain
+pending. Do not claim all remote checks passed. Final soak measurements, source
+audit and completed regression evidence remain pending.
+See `dev-docs/caches/metadata-followups-2026-11-22.md`.

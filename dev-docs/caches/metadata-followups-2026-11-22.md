@@ -106,7 +106,11 @@ with a 0.177 s competing save including the deliberate 0.100 s reservation hold.
 
 ## Validation status
 
-Core has 115 distinct targeted passing cases. PostgreSQL has nine passing live
+Core has 192 distinct targeted passing cases, including the neighboring hierarchy
+callers uncovered by its first full CI run. Its six remote failures reproduced on
+both SQLite drivers and pass after the repair; the replacement full CI run remains
+pending. The metadata PR is stacked above the separate Core PR for combined
+validation. PostgreSQL has nine passing live
 upgrade cases, with a further three-case rerun after extending the locked table
 set. Documentation/tooling checks pass after tracking new destinations. All 45
 cache transaction/reload cases, nine PostgreSQL cases and sixteen live-capture
@@ -116,6 +120,15 @@ with six expected skips. All sixteen focused capture cases pass: fourteen SQLite
 PostgreSQL. The broader capture run passed 150 cases with four expected skips;
 a further eighteen affected live scenarios pass after the value-conversion audit.
 The complete formatting, architecture, lint and both typing gates pass.
+
+The isolated Core/metadata integration has 73 distinct passing cases across
+field routing, Catalog mutations and live captures, plus 22 documentation checks
+and the complete quality gates. Five initial teardown errors came from concurrent
+quality/pytest tools creating cache directories under the repository artifact
+guard; all affected cases pass in clean reruns. Keep those tools sequential within
+one checkout. The integration also corrects a stale query-isolation docstring;
+the full soak remains on the frozen cache implementation rather than this combined
+branch.
 
 The metadata long lane uses 10,000 Tags, 1,000 Works and 12 relationship cycles
 for uncached operation and each of three backends. The original uncached case

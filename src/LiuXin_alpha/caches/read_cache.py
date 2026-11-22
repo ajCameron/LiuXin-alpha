@@ -626,7 +626,9 @@ class ReadCache(CacheAPI):
         Under the lock, require readiness, refresh dirty dependencies and reset
         common text indexes for live consistency. Pass the query and current generation
         to the shared engine. Completeness is true for its result even when paging
-        omits matching rows; live reads can observe external writes within one call.
+        omits matching rows. Native live queries capture only the data they use
+        within an owned read transaction, or borrow the caller's existing unit and
+        its isolation level. Subsequent calls create fresh execution views.
 
         Example:
             ``cache.query(CacheQuery("books", offset=10, limit=5))`` requests up to
