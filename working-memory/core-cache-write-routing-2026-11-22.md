@@ -2,7 +2,7 @@
 
 User requested all metadata-cache follow-ups, with the Core repair in a separate
 PR. Branch `core-cache-write-routing` is based on `cache-review` at `510c0a82`;
-worktree `/tmp/liuxin-core-cache-write-routing-20261122`. Target `cache-review`
+an isolated worktree. Target `cache-review`
 while foundation PR #213 remains open. Keep independent of ergonomics PR #214.
 
 Core field commands now select `CoreServices.field_writer`: native caches use
@@ -18,15 +18,14 @@ native names, and normalized vocabulary selections reserve the writer boundary
 before repository entry. The hydrator test double now models current hierarchy
 columns, paging and the transaction keyword contract.
 
-Validation evidence: `/tmp/liuxin-core-routing-validation.json` maps 115 distinct
-passing cases to JUnit reports. It combines 22 routing/receipt/injection cases,
+The original local validation audit maps 115 distinct passing cases to JUnit reports. It combines 22 routing/receipt/injection cases,
 two existing administrative-write cases, 18 application/RPC cases, 41 metadata
 command/hydration cases, and 32 Catalog round-trip/documentation cases. The two
 native application round trips include the new vocabulary checks on SQLite and
 APSW. Loopback tests required sandbox escalation. Earlier fixture failures and
 socket denials were corrected and superseded; they are not counted as passes.
 
-Final quality runner `/tmp/liuxin-core-routing-quality-final.log` passed format,
+The original final quality runner passed format,
 lint, architecture, import budgets, basedpyright and mypy (563 source files;
 122/118 invalid typing examples rejected). This is targeted evidence, not a
 whole-repository run. Python 3.14.10, explicit `PYTHONPATH=src`, and
@@ -35,3 +34,20 @@ whole-repository run. Python 3.14.10, explicit `PYTHONPATH=src`, and
 Original checkout, dirty data submodule, Python 3.12 environment and six stashes
 remain untouched. Cache lifecycle, benchmark and PostgreSQL upgrade work remains
 in the separate ergonomics worktree.
+
+The first remote full suite finished with six failures, 10,778 passes, 2,306 skips
+and eleven xfails. These exposed neighboring hierarchy integrations: Library import
+and Core tree nesting needed serialized outer units; old tests cleared semantic
+Series names, borrowed ordinary transactions for deletion, or supplied sibling
+positions beyond the existing population. The implementation now reserves the
+writer before import/tree reads. Tests retain physical clearing coverage while
+asserting semantic blank-name rejection, and wizard fixtures contain the siblings
+required by their requested insertion positions. Wizard prompts name zero-based
+sibling insertion and blank-to-append explicitly.
+
+All fourteen targeted cases pass on SQLite and APSW. The broader Catalog/Core/
+library run passes all 63 cases after rerunning six loopback checks with socket
+access; all fourteen wizard cases pass. The complete quality runner also passes.
+The combined audit now records 192 distinct targeted passing cases. Update
+PR #215 with this hierarchy integration follow-up; new remote checks remain to run. The cache soak is
+independent and must not be stopped for these separate-worktree changes.

@@ -205,6 +205,11 @@ performing a second reconciliation.
 Container metadata writes create Genre, Subject and Series nodes using their
 native name column. A display-path column such as `genre_full` can still be
 searched, but does not substitute for the required node name on creation.
+Core tree nesting and Library metadata import reserve a serialized database unit
+before hierarchy reads or writes. A caller-owned outer unit must already have
+that reservation; it cannot be upgraded midway through a mutation. Hierarchy
+names remain nonblank, and sibling positions are zero-based insertion indexes
+within the current sibling count. Leaving a wizard position blank appends.
 
 Custom-field/schema mutations identify themselves as schema changes; ordinary
 data writes use data-only cache reload.

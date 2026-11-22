@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 
+from LiuXin_alpha.catalog.api.common import CatalogMutationError
 from LiuXin_alpha.catalog.catalog import Catalog
 from LiuXin_alpha.core.runtime import CoreRuntime
 from LiuXin_alpha.databases.database import Database
@@ -118,7 +119,17 @@ def test_fresh_database_writers_agree_on_full_text_identities(
                     assert repository.require(row_id)[key_column] == "sci-fi & horror"
                     repository.update(row_id, {key_column: "another-policy"})
                     assert repository.require(row_id)[key_column] == "sci-fi & horror"
-                    repository.update(row_id, {value_column: None})
+                    if table == "series":
+                        # Semantic hierarchy edits require a nonblank name.
+                        # Physical writes retain the lower-level clearing policy.
+                        with pytest.raises(CatalogMutationError, match="nonblank"):
+                            repository.update(row_id, {value_column: None})
+                        assert (
+                            repository.require(row_id)[key_column] == "sci-fi & horror"
+                        )
+                        db.macros.update_row(table, row_id, {value_column: None})
+                    else:
+                        repository.update(row_id, {value_column: None})
                     assert repository.require(row_id)[key_column] is None
                     repository.delete(row_id)
         finally:
