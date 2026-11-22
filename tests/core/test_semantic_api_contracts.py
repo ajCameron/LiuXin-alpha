@@ -77,7 +77,7 @@ def _tree_runtime(rows: dict[int, dict[str, int | None]]) -> SimpleNamespace:
         ]
 
     macros = Mock(spec_set=["get_row", "get_rows", "update_row", "delete_row", "transaction"])
-    macros.transaction.side_effect = nullcontext
+    macros.transaction.side_effect = lambda *, serialized=False: nullcontext()
     macros.get_row.side_effect = get_row
     macros.get_rows.side_effect = get_rows
     database = SimpleNamespace(
@@ -187,11 +187,14 @@ def test_tree_nest_validates_all_children_and_retains_duplicates() -> None:
         trees.CoreDatabaseSemanticsAPI.tree_nest(runtime, command)
     assert caught.value.code == "row_not_found"
     runtime.database.macros.update_row.assert_not_called()
+    runtime.database.macros.transaction.assert_called_once_with(serialized=True)
 
     command = CoreCommand(
         "tree.nest", {"table": "nodes", "parent_id": 1, "child_ids": [2, 2]}
     )
     result = trees.CoreDatabaseSemanticsAPI.tree_nest(runtime, command)
+    assert runtime.database.macros.transaction.call_count == 2
+    runtime.database.macros.transaction.assert_called_with(serialized=True)
     assert result["child_ids"] == [2, 2]
     assert runtime.database.macros.update_row.call_count == 2
     assert [
