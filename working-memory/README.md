@@ -2,6 +2,8 @@
 
 Short, dated handoff notes for active work.
 
+- [Core cache-write routing follow-up, 2026-11-22](core-cache-write-routing-2026-11-22.md)
+
 Use this folder for:
 - review findings
 - debugging notes

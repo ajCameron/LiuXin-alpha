@@ -450,7 +450,11 @@ class FakeMacros:
         self.depth = 0
 
     @contextmanager
-    def transaction(self):
+    def transaction(self, *, require_outermost=False, serialized=False):
+        # This single-threaded double models rollback, not database reservations.
+        del serialized
+        if require_outermost and self.depth:
+            raise RuntimeError("An outer transaction is already active")
         if self.depth:
             yield self
             return
@@ -475,6 +479,31 @@ class FakeMacros:
     def get_row(self, table, row_id, *, id_column=None):
         row = self.db.get_row_from_id(table, row_id)
         return None if row is None else dict(row.row_dict)
+
+    def get_tree_children_page(
+        self, table, parent_id, *, position_column, limit=100, offset=0
+    ):
+        """Read the fixture's explicit root/child order without invoking SQL."""
+        stem = self.db.driver_wrapper.get_id_column(table).removesuffix("_id")
+        rows = [
+            dict(row.row_dict) for row in self.db.rows_by_table.get(table, [])
+            if row.row_dict.get(stem + "_parent_id") == parent_id
+        ]
+        rows.sort(key=lambda row: (
+            row.get(position_column) is None,
+            row.get(position_column) or 0,
+            row[stem + "_id"],
+        ))
+        return tuple(rows[offset:offset + limit])
+
+    def get_rows(self, table, *, where=None, order_by=()):
+        """Supply deterministic repository matching over the fixture rows."""
+        rows = [
+            dict(row.row_dict) for row in self.db.rows_by_table.get(table, [])
+            if all(row.row_dict.get(key) == value for key, value in (where or {}).items())
+        ]
+        rows.sort(key=lambda row: tuple(row[column] for column in order_by))
+        return rows
 
     def get_column_extrema(self, table, column):
         rows = [row.row_dict for row in self.db.rows_by_table.get(table, [])]
@@ -1665,11 +1694,15 @@ def _build_fake_database() -> FakeDatabase:
             "genre_id",
             "genre",
             "genre_full",
+            "genre_parent_id",
+            "genre_position",
         ],
         "series": [
             "series_id",
             "series",
             "series_full",
+            "series_parent_id",
+            "series_parent_position",
         ],
         "tags": [
             "tag_id",
@@ -1820,6 +1853,8 @@ def _build_fake_database() -> FakeDatabase:
             "genre_id": 95,
             "genre": "Cyberpunk",
             "genre_full": "Science Fiction: Cyberpunk",
+            "genre_parent_id": None,
+            "genre_position": 0,
         },
     )
     db.add_row(
@@ -1828,6 +1863,8 @@ def _build_fake_database() -> FakeDatabase:
             "series_id": 96,
             "series": "Permutation Cycle",
             "series_full": "Permutation Cycle",
+            "series_parent_id": None,
+            "series_parent_position": 0,
         },
     )
     db.add_row(

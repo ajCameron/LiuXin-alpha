@@ -78,7 +78,8 @@ class MetadataWriter:
         Catalog owns this operation because a database provides representation and
         integrity checks, not metadata validity. The container supplies values only;
         it does not receive or retain a database and has no persistence method.
-        A callable macro transaction encloses target resolution and all writes.
+        A macro transaction encloses target resolution and all writes. Vocabulary
+        fields reserve the writer boundary before entering hierarchy repositories.
 
         Example:
             >>> report = catalog.mutations.writer.write_container(  # doctest: +SKIP
@@ -96,12 +97,13 @@ class MetadataWriter:
         :return: Catalog-owned report describing changes, skips, and errors.
         """
 
-        with self.db.macros.transaction():
-            return CatalogContainerWriter(
-                self.db, repositories=self.repositories
-            ).write(
+        writer = CatalogContainerWriter(self.db, repositories=self.repositories)
+        normalized_fields = writer._normalize_fields(fields, metadata=metadata)
+        serialized = bool({"genre", "subject", "series"}.intersection(normalized_fields))
+        with self.db.macros.transaction(serialized=serialized):
+            return writer.write(
                 metadata,
-                fields=fields,
+                fields=normalized_fields,
                 target_level=target_level,
                 item_id=item_id,
                 target_row=target_row,
