@@ -274,15 +274,15 @@ def test_store_update_checks_topology_before_write_but_status_afterward(
     assert manager.update_store.call_args.args[1].store_name == "new name"
 
 
-def test_global_search_skips_call_failures_but_not_iteration_failures() -> None:
+def test_global_search_counts_unicode_matches_and_propagates_read_failures() -> None:
     """
-    Skip an initial table-read error, count a Unicode match at limit zero, and expose later iterator errors.
+    Propagate required read failures and count a Unicode match at limit zero.
 
     Example:
-        >>> test_global_search_skips_call_failures_but_not_iteration_failures()
+        >>> test_global_search_counts_unicode_matches_and_propagates_read_failures()
 
 
-    :return: None after verifying observed-table reporting, count-only scanning, and the iteration-error boundary.
+    :return: None after verifying read failures, count-only scanning and iteration errors.
     """
     reader = Mock()
     reader.get_all_rows.side_effect = [
@@ -293,6 +293,9 @@ def test_global_search_skips_call_failures_but_not_iteration_failures() -> None:
     query = SimpleNamespace(
         payload={"text": "STRASSE", "tables": ["broken", "works"], "limit": 0}
     )
+    with pytest.raises(RuntimeError, match="table unavailable"):
+        catalog.search_global(runtime, query)
+    query.payload["tables"] = ["works"]
     result = catalog.search_global(runtime, query)
     assert result["tables"] == ["works"] and result["total"] == 1
     assert result["items"] == [] and result["has_more"] is True

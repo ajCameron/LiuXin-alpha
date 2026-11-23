@@ -148,8 +148,8 @@ def create_core(
                 maintenance=maintenance,
             )
         library = library_services.library
+    durable_jobs = None
     try:
-        durable_jobs = None
         if database_path is not None:
             if durable_job_path is None and str(db_type).lower().startswith("sqlite"):
                 source_path = pathlib.Path(database_path).expanduser().resolve()
@@ -218,9 +218,23 @@ def create_core(
             close_cache_on_shutdown=None,
             library_services=library_services,
         )
-    except BaseException:
+    except BaseException as startup_error:
+        failures: list[BaseException] = []
+        if durable_jobs is not None:
+            try:
+                durable_jobs.stop(wait=False)
+            except BaseException as error:
+                failures.append(error)
         if library_services is not None:
-            library_services.close()
+            try:
+                library_services._abort_startup()
+            except BaseException as error:
+                failures.append(error)
+        if failures:
+            raise BaseExceptionGroup(
+                "Core factory startup and rollback failed",
+                [startup_error, *failures],
+            ) from None
         raise
 
 

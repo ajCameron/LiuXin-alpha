@@ -22,6 +22,7 @@ Implementation ownership is by responsibility:
 | `discovery` | Capability inventory and job results/logs |
 | `database`, `schema`, `preferences` | Database administration, schema/custom fields, preferences |
 | `catalog` | Catalogue identity, hierarchy, fields, and search |
+| `native_metadata` | Native WEMI search/read/edit envelopes through `CoreServices.metadata`; Catalog/MetadataAPI/CatalogCache own domain rules, revisions and cache publication |
 | `metadata`, `conversion`, `ingest` | Metadata read/write and serializable content-job submission |
 | `backup`, `maintenance` | Durable backup workflows and maintenance operations |
 | `store_resolution`, `stores` | Store identity/configuration lookup and administration |
@@ -29,6 +30,11 @@ Implementation ownership is by responsibility:
 | `storage_integrity`, `storage_repair`, `storage_recovery` | Verification, bounded repair, interrupted-ingest recovery |
 | `storage_evacuation` | Core envelope adapter for evacuation |
 | `evacuation_models`, `evacuation_planning`, `evacuation_execution`, `storage_placement` | Typed evacuation workflow and shared placement rules |
+
+The [2026-11-23 integration review](integration-review-2026-11-23.md) distinguishes
+native metadata operations from the older Catalog and Item/file-shaped routes.
+Native metadata receipts already describe reconciliation and must not be passed
+through Core's legacy post-operation refresh a second time.
 
 Evacuation planning returns immutable values containing Asset/Replica/Store
 identities, replacement destinations, copy targets, and transfer estimates.

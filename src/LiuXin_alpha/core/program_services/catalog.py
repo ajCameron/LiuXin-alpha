@@ -3,8 +3,8 @@ Adapt Core field discovery, WEMI adjacency, identifiers, Agent names/links, and 
 
 Repositories retain level validation and semantic mutation policy. Write receipts
 are projected and reconciled after repository calls without an adapter transaction.
-Global search is a full materialized scan with suppressed initial table-read errors,
-not a completeness-guaranteed indexed search or an authorization boundary.
+Global search is a full materialized scan. Required table-read failures propagate;
+it does not provide an indexed search or an authorization boundary.
 """
 
 from __future__ import annotations
@@ -348,8 +348,8 @@ def search_global(runtime: CoreRuntime, query: CoreQuery) -> dict[str, Any]:
     Scan selected tables for a casefolded text substring, then page all accumulated matches.
 
     A normalized nonempty tables list preserves requested order; otherwise all
-    advertised names are sorted. Initial get_all_rows errors skip that table, but
-    later iteration/projection errors propagate. Search uses flattened projected
+    advertised names are sorted. Table-read, iteration and projection errors
+    propagate without returning a partial success. Search uses flattened projected
     values, not keys, and the entire text as one substring rather than split terms.
     Zero limit still scans/counts. Limit defaults to 100 and is capped at 1000;
     bounds are nonnegative, with explicit None reaching assertions.
@@ -360,7 +360,7 @@ def search_global(runtime: CoreRuntime, query: CoreQuery) -> dict[str, Any]:
 
     :param runtime: Runtime whose selected read_source enumerates tables and rows.
     :param query: Query with required text and optional tables, offset, and limit.
-    :return: Text, successfully opened table names, page items, observed total, bounds, and has_more; no completeness guarantee for skipped tables.
+    :return: Text, searched table names, page items, observed total, bounds, and has_more.
     """
     payload = _payload(query)
     text = _required_text(payload, "text")
@@ -376,13 +376,10 @@ def search_global(runtime: CoreRuntime, query: CoreQuery) -> dict[str, Any]:
     matches: list[dict[str, Any]] = []
     searched: list[str] = []
     for table in tables:
-        try:
-            rows = runtime.read_source.get_all_rows(
-                table,
-                iterator_return=False,
-            )
-        except Exception:
-            continue
+        rows = runtime.read_source.get_all_rows(
+            table,
+            iterator_return=False,
+        )
         searched.append(table)
         for row in rows:
             rendered = plain(row)

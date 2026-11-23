@@ -5,6 +5,16 @@ Status: **CORE-01 and the CORE-02 wait slice implemented for PR review; remainin
 The named API, LibraryServices lifecycle, category policy and application
 configuration store already exist. Preserve them while closing these gaps.
 
+**Integration follow-up, 2026-11-23:** the
+[metadata/lifecycle review](integration-review-2026-11-23.md) maps the native and
+existing Catalog routes and repairs Core startup, cleanup, closed-service and
+required-read failure boundaries. It also exercises a public native metadata
+workflow across local/RPC clients and all cache modes. Validation passed 405
+regressions (one PostgreSQL maintenance case skipped without a test server URL),
+22 documentation checks and the complete quality gate. This addresses composition
+within CORE-03; lower-layer caller migration and the configuration work below
+remain separate tasks.
+
 ## CORE-01 — Enforce endpoint permissions
 
 **Implemented for PR review, 2026-10-20; architecture A06.** The

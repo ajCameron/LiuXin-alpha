@@ -183,6 +183,14 @@ Core selects one structured read source. With a configured Cache, structured
 rows, relations, and metadata hydration use the cache-backed source. Without
 one, the same endpoints evaluate against the Database.
 
+The native WEMI workflow (`metadata.search`, `metadata.read_many`,
+`metadata.read_for_edit`, `metadata.update`) uses `CoreServices.metadata`, bound
+to Catalog and the optional native cache. Its service owns complete reads,
+revision checks and reconciliation; Core does not refresh its receipts again.
+An injected legacy read source still controls row/Item projection routes and
+does not replace this native service. See the
+[integration review](integration-review-2026-11-23.md) for the route map.
+
 Structured cache queries do not silently switch to the Database. A table or
 query shape unsupported by the selected cache raises `read_query_unavailable`
 in both direct and RPC modes, with `table` and `reason` details. Unknown fields
@@ -191,6 +199,10 @@ show an explicit unavailable marker for optional counts, but must not turn a
 failed required read into an empty result. Count-only database queries
 (`rows.query` with `limit=0`) filter and count without ordering or projecting
 row identities. See [read-model-failures.md](../surfaces/read-model-failures.md).
+
+The legacy `search.global` scan also propagates required table-read errors. It
+does not skip failed tables and report a successful partial count. New WEMI
+consumers should use `metadata.search` for its typed request and snapshot contract.
 
 Semantic catalog writes go through Catalog. Normalized field commands
 (`catalog.field.write` and `catalog.field.write-one`) select
@@ -255,6 +267,21 @@ by default. Failed constructors must clean up resources not yet registered with
 the owner; repeated shutdown does not retry failed closers. A supplied
 Cache must use Core's Database; a cache created through `cache_type=...` is
 owned by Core.
+
+Dependency identities are checked before cache preparation. Startup failure
+closes newly created caches, restores a displaced storage binding, and stops a
+new durable job service before unwinding its library graph. Borrowed resources
+remain open. Lazy service construction shares a lifetime guard with close;
+acquisition through closed CoreServices is rejected. Database locking precedes
+the service lock. Switching libraries composes a new graph rather than rebinding
+retained readers and semantic services in place.
+
+Shutdown attempts durable-job stop, service cleanup and opted-in manager shutdown
+independently, reporting collected failures as an exception group. Within Core
+services, storage unbind failure cannot prevent cache close or later cleanup.
+An older owner only detaches its own cache binding, preserving a replacement
+session's binding. Cache status-reporting failures after a write retain the same
+committed receipt and error classification as reload failures.
 
 `CoreRuntime.database`, `.catalog`, `.cache`, and `.read_source` exist for
 composition, testing, and compatibility. They are not members of

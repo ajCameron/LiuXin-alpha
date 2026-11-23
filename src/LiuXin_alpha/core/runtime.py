@@ -111,8 +111,8 @@ class CoreRuntime(CoreAPI):
         stringified without validation. The process-default job manager is shared,
         not owned. Unless explicitly overridden, neither it nor an injected manager
         is closed at shutdown. Service preparation and incremental registrations
-        precede completion. Direct construction has no compensating teardown;
-        ``create_core`` owns and rolls back its precomposed graph.
+        precede completion. Direct construction rolls back its new service bundle;
+        ``create_core`` owns and rolls back its precomposed graph and job service.
 
         Example:
             >>> runtime = CoreRuntime(library=library, job_manager=manager)  # doctest: +SKIP
@@ -163,6 +163,37 @@ class CoreRuntime(CoreAPI):
             if library is not library_services.library:
                 raise ValueError("library must be the LibraryServices-owned facade.")
             self._services = library_services.core_services
+        try:
+            self._initialize_runtime(
+                core_uuid=core_uuid,
+                core_version=core_version,
+                api_version=api_version,
+                job_manager=job_manager,
+                durable_jobs=durable_jobs,
+                close_job_manager_on_shutdown=close_job_manager_on_shutdown,
+            )
+        except BaseException as startup_error:
+            if library_services is None:
+                try:
+                    self._services._abort_startup()
+                except BaseException as cleanup_error:
+                    raise BaseExceptionGroup(
+                        "Core runtime startup and rollback failed",
+                        [startup_error, cleanup_error],
+                    ) from None
+            raise
+
+    def _initialize_runtime(
+        self,
+        *,
+        core_uuid: str | None,
+        core_version: str,
+        api_version: str,
+        job_manager: JobManagerAPI | None,
+        durable_jobs: DurableJobService | None,
+        close_job_manager_on_shutdown: bool | None,
+    ) -> None:
+        """Install identity, dispatch state and endpoints inside startup rollback."""
         self._library = self._services.library
         self._core_uuid = str(core_uuid or uuid.uuid4())
         self._core_version = str(core_version)
@@ -643,9 +674,9 @@ class CoreRuntime(CoreAPI):
         Mark shutdown, close configured services, optionally stop the job manager, and emit core.shutdown on success.
 
         The flag is set before cleanup and repeated calls return zero without
-        retrying failed cleanup. Opted-in manager shutdown runs in finally with
-        wait false/cancel_pending true; its error can replace a service-close error.
-        Cleanup failure prevents the shutdown event. Cleanup acquires the same
+        retrying failed cleanup. Durable jobs, the service graph and an opted-in
+        manager are each stopped even if another closer fails. Failures are grouped
+        after all attempts and prevent the shutdown event. Cleanup acquires the same
         lock as serialized command/query dispatch, but does not await managed
         jobs or concurrent waits on a borrowed manager. Queued serialized
         handlers recheck the flag before touching services.
@@ -659,20 +690,30 @@ class CoreRuntime(CoreAPI):
         if self._shutdown:
             return 0
         self._shutdown = True
+        failures: list[BaseException] = []
         with self._command_lock:
-            try:
-                if self._durable_jobs is not None:
+            if self._durable_jobs is not None:
+                try:
                     self._durable_jobs.stop(wait=False)
+                except BaseException as error:
+                    failures.append(error)
+            try:
                 if self._library_services is not None:
                     self._library_services.close()
                 else:
                     self.services.close()
-            finally:
-                if self._close_job_manager_on_shutdown:
+            except BaseException as error:
+                failures.append(error)
+            if self._close_job_manager_on_shutdown:
+                try:
                     self.job_manager.shutdown(
                         wait=False,
                         cancel_pending=True,
                     )
+                except BaseException as error:
+                    failures.append(error)
+        if failures:
+            raise BaseExceptionGroup("Core runtime cleanup failed", failures)
         self.emit_event("core.shutdown", {"reason": "explicit"})
         return 0
 

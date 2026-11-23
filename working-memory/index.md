@@ -1,5 +1,12 @@
 # Working Memory Index
 
+Core integration review, **2026-11-23**: branch `core-review` starts from the
+reviewed metadata work at `21539083`. Ownership, metadata routing and public
+editing contracts are covered in
+[`core-review-2026-11-23.md`](core-review-2026-11-23.md). The completed review passed
+405 regressions (one live PostgreSQL maintenance skip), 22 documentation checks
+and the complete quality gate. Original checkout and six stashes are unchanged.
+
 Metadata cache review follow-ups, **2026-11-22**:
 [`cache-followups-2026-11-22.md`](cache-followups-2026-11-22.md) tracks the separate
 Core repair, cache transaction lifecycle, realistic/full-size measurements and

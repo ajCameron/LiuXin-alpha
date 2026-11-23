@@ -3,7 +3,8 @@
 ``LibraryServices`` is the single composition root for database-backed library
 work.  It opens resources in dependency order and closes every resource it owns
 in reverse order.  A failed open performs the same compensating teardown before
-the original error is allowed to escape.
+the original error is allowed to escape, restoring displaced cache bindings on
+borrowed storage. Runtime installation failure uses the same rollback policy.
 """
 
 from __future__ import annotations
@@ -199,6 +200,7 @@ class LibraryServices:
 
         stack = ExitStack()
         failures: list[tuple[str, BaseException]] = []
+        core_services = None
 
         def own(name: str, closer: Callable[[], Any]) -> None:
             stack.callback(_capture_close, failures, name, closer)
@@ -371,6 +373,12 @@ class LibraryServices:
                 close_failures=failures,
             )
         except BaseException as startup_error:
+            if core_services is not None:
+                _capture_close(
+                    failures,
+                    "core services rollback",
+                    core_services._abort_startup,
+                )
             stack.close()
             if failures:
                 cleanup_error = LibraryServicesCloseError(tuple(failures))
@@ -395,6 +403,17 @@ class LibraryServices:
         self._exit_stack.close()
         if self._close_failures:
             raise LibraryServicesCloseError(tuple(self._close_failures))
+
+    def _abort_startup(self) -> None:
+        """Restore borrowed bindings when the enclosing runtime cannot open."""
+        if self._closed:
+            return
+        _capture_close(
+            self._close_failures,
+            "core services rollback",
+            self.core_services._abort_startup,
+        )
+        self.close()
 
     def __enter__(self) -> Self:
         """Return the already-open owner without changing its resource graph."""

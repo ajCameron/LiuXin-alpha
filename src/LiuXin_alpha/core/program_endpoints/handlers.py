@@ -563,7 +563,7 @@ class CatalogSearchHandlers(Protocol):
 
         :param runtime: Runtime whose selected read_source enumerates tables and rows.
         :param query: Query with required text and optional tables, offset, and limit.
-        :return: Text, successfully opened table names, page items, observed total, bounds, and has_more; no completeness guarantee for skipped tables.
+        :return: Text, searched table names, page items, observed total, bounds, and has_more.
         """
         ...
 

@@ -14,6 +14,8 @@ Catalog, metadata and storage owners.
   paths, preference precedence and worker propagation.
 - [Lifecycle review](../architectural_reviews/lifecycle-opening-path-review-2026-10-09.md):
   the opening-path migration and remaining compatibility wrappers.
+- [Metadata and lifecycle integration review](integration-review-2026-11-23.md):
+  metadata route ownership, startup rollback, complete cleanup and public workflow verification.
 
 For presentation and startup procedures, use the [surface guides](../surfaces/README.md).
 For lifecycle regression tests, start in `tests/core/test_library_services_lifecycle.py`;
