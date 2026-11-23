@@ -1,5 +1,13 @@
 # Working Memory Index
 
+Whole-Core review, **2026-11-23**: the
+[`full review handoff`](core-full-review-2026-11-23.md) records the detailed
+assessment and completion plan beyond the earlier metadata/lifecycle slice.
+The canonical guide is `dev-docs/core/review-and-completion-plan-2026-11-23.md`.
+It covers ten findings, nine implementation slices and whole-functionality gates;
+the additional Core/configuration selection passed 107 tests with one live
+PostgreSQL skip.
+
 Core lifecycle caller follow-up, **2026-11-23**: the four registration path
 helpers moved to Core, the standalone local-disk command moved to surfaces,
 and lower-layer compatibility exports were removed. See

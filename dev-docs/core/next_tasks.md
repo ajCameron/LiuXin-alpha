@@ -1,7 +1,11 @@
 # Core next tasks
 
-Updated **2026-10-20** with the A06 transport and A09 wait-dispatch contracts.
-Status: **CORE-01 and the CORE-02 wait slice implemented for PR review; remaining work proposed**, following the [architecture sequence](../architectural_reviews/next_tasks.md).
+Updated **2026-11-23** after the lifecycle repairs and caller migration.
+The [whole-Core review and completion plan](review-and-completion-plan-2026-11-23.md)
+defines the full functionality target, ten findings and nine ordered completion
+slices. The architecture below remains the foundation; whole-module sign-off is
+still pending. Follow the [architecture sequence](../architectural_reviews/next_tasks.md)
+for cross-package dependencies.
 The named API, LibraryServices lifecycle, category policy and application
 configuration store already exist. Preserve them while closing these gaps.
 
@@ -31,11 +35,13 @@ and plugin sandboxing remain separate deployment/design work.
 
 ## CORE-02 — Separate waiting from database dispatch
 
-**Wait and durable audit slices implemented for review.** The built-in
+**Wait, durable audit and durable maintenance slices implemented.** The built-in
 `jobs.wait` and `jobs.result` queries use concurrent dispatch while ordinary
 handlers retain serialization. Registration replacement and queued shutdown
 have explicit contracts; see [job waiting](../jobs/core-wait-dispatch.md).
-Other synchronous long operations still need migration.
+Core's durable service also delivers maintenance outbox work through explicit
+drains or opt-in polling. Other synchronous long operations and ordinary utility
+submissions still need migration.
 
 Concurrent local/HTTP tests cover responsive reads/cancellation, wait timeouts and
 shutdown while work remains active. The [durable audit](../jobs/core-storage-audit.md)
@@ -85,6 +91,28 @@ Done when client-facing docs and examples match factory identity, shutdown
 ownership, wire values and errors. Add a restricted adapter only with caller
 migration and direct/remote contract tests; it would not replace CORE-01's server
 policy. Move domain policy out of Core only after its receiving owner is specified.
+
+## Whole functionality completion order
+
+The [detailed plan](review-and-completion-plan-2026-11-23.md#ordered-implementation-plan)
+extends CORE-01 through CORE-05 with the remaining public and operational work:
+
+1. Correct discovery, strict primitive validation, command registration capture
+   and diagnostic redaction before extending those contracts.
+2. Complete CORE-04 configuration/connection propagation.
+3. Expose the full native metadata workflow through named operations, including
+   shared records, trees, relationships and bounded batches.
+4. Add recoverable command identities, effect receipts and post-disconnect lookup.
+5. Extend durable jobs across ingestion, conversion, backup/restoration and
+   remaining maintenance workflows using the existing job owners.
+6. Bound scan/content/HTTP work and measure whole-Core mixed-load behavior.
+7. Add event gap/restart recovery and operational observability.
+8. Complete missing domain operations and consolidate adapters with caller migration.
+9. Validate the backend/cache/local-RPC matrix, recovery scenarios and runbooks.
+
+The review distinguishes implemented work from proposals. Its sign-off criteria
+require actual supported workflow implementations; truthful unavailable labels
+are necessary but do not replace completion.
 
 ## Validation and close-out
 

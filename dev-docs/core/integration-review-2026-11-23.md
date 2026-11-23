@@ -101,8 +101,10 @@ legacy services during those caller migrations.
 
 Population-scanning pickers and conservative snapshot refreshes remain measured
 performance work under the [cache review](../caches/metadata-followups-2026-11-22.md).
-The broader [Core tasks](next_tasks.md) still include lower-layer lifecycle caller
-migration, configuration capture and conditional capability discovery. The
-permission and job-wait contracts remain separate reviews with their own tests.
+The separate lifecycle caller migration is now committed in `04d6fd7d`.
+The subsequent [whole-Core review](review-and-completion-plan-2026-11-23.md)
+extends this bounded assessment to jobs, transport, discovery, configuration,
+events and functional completion. It supplies the full improvement sequence;
+[Core tasks](next_tasks.md) retains the implementation routing.
 
 Return to [Core](README.md) or the [Catalog/cache boundary](../catalog/catalog-cache-boundary.md).
