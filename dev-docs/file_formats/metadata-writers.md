@@ -89,8 +89,8 @@ These match calibre's writers, so they are left as they are:
 | FB2 | No language or ISBN is written. |
 | DOCX | No series, ISBN or cover is written. A missing publisher clears the document's company. |
 | HTMLZ | A book without an OPF is refused and left unchanged. |
-| RTF | The comments go into `\subject`, the publisher into `\manager`. |
-| ODT | No cover is written. The language is written as ISO 639-1; one with no such code is not written. The publication date is written as a date, in UTC. A tag holding a comma is split when read (by LiuXin's reader, a semicolon too). Subjects share the one Subject, joined by semicolons, so a subject holding a semicolon is split when read; calibre does not read the Subject. |
+| RTF | The publisher goes into `\manager`. With the `read_subject_fields_as` preference at `calibre`, the comments go into `\subject`, as in calibre. At its default, `subjects`, `\subject` holds the subjects and the comments go into `\doccomm`, which calibre does not read (see [subjects](../metadata/subjects.md#a-documents-subject-field)). |
+| ODT | No cover is written. The language is written as ISO 639-1; one with no such code is not written. The publication date is written as a date, in UTC. A tag holding a comma is split when read (by LiuXin's reader, a semicolon too). Subjects share the one Subject, joined by semicolons, so a subject holding a semicolon is split when read; calibre does not read the Subject. With the `read_subject_fields_as` preference at `calibre`, the Subject is neither read nor written, and the subjects go among the keywords. |
 
 ## Found, not fixed
 

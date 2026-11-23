@@ -14,6 +14,7 @@ from LiuXin_alpha.plugins.file_types import MetadataWriterPlugin
 
 from LiuXin_alpha.utils.localization import trans as _
 from LiuXin_alpha.utils.logging import default_log
+from LiuXin_alpha.metadata.file_sources.subject_fields import reads_subjects
 
 plugins: list[type[MetadataWriterPlugin]] = []
 
@@ -331,8 +332,20 @@ else:
         """
         name = "Set ODT metadata"
         file_types = frozenset(["odt"])
-        #: The document's Subject holds the subjects; the keywords hold the tags.
-        writes_subjects = True
+
+        @property
+        def writes_subjects(self) -> bool:
+            """
+            Write the subjects into the document's Subject, unless calibre's reading is asked for.
+
+            Example:
+                >>> ODTMetadataWriter(None).writes_subjects in (True, False)
+                True
+
+
+            :return: True when the ``read_subject_fields_as`` preference reads the Subject as subjects.
+            """
+            return reads_subjects()
         description = _("Set metadata in %s files") % "ODT"
 
         def set_metadata(self, stream, mi, type):
@@ -432,6 +445,20 @@ else:
         name = "Set PDF metadata"
         file_types = frozenset(["pdf"])
         description = _("Set metadata in %s files") % "PDF"
+
+        @property
+        def writes_subjects(self) -> bool:
+            """
+            Write the subjects into the Info ``/Subject`` (the comments into the packet), unless calibre's reading is asked for.
+
+            Example:
+                >>> PDFMetadataWriter(None).writes_subjects in (True, False)
+                True
+
+
+            :return: True when the ``read_subject_fields_as`` preference reads the Subject as subjects.
+            """
+            return reads_subjects()
         author = "Kovid Goyal"
 
         def set_metadata(self, stream, mi, type):
@@ -479,6 +506,20 @@ else:
         name = "Set RTF metadata"
         file_types = frozenset(["rtf"])
         description = _("Set metadata in %s files") % "RTF"
+
+        @property
+        def writes_subjects(self) -> bool:
+            """
+            Write the subjects into ``\\subject`` (the comments into ``\\doccomm``), unless calibre's reading is asked for.
+
+            Example:
+                >>> RTFMetadataWriter(None).writes_subjects in (True, False)
+                True
+
+
+            :return: True when the ``read_subject_fields_as`` preference reads the Subject as subjects.
+            """
+            return reads_subjects()
 
         def set_metadata(self, stream, mi, type):
             """

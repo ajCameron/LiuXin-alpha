@@ -40,6 +40,7 @@ from LiuXin_alpha.metadata.file_sources.pdf_write import (
     updated_packet,
     write_metadata,
 )
+from tests.support.subject_reading import subject_reading
 
 pypdf = pytest.importorskip("pypdf")
 
@@ -361,7 +362,11 @@ def test_a_packet_that_cannot_be_edited_is_left_with_a_warning(
 
 def test_a_file_without_a_packet_gets_none() -> None:
     """
-    No packet is added to a file that had none.
+    No packet is added to a file that had none, when the Info Subject can hold the comments.
+
+    That is calibre's reading of the Subject. When it holds subjects (the
+    ``read_subject_fields_as`` default), a file without a packet gets one for the
+    comments: see ``test_subject_field_reading.py``.
 
     Example:
         >>> test_a_file_without_a_packet_gets_none()
@@ -369,7 +374,8 @@ def test_a_file_without_a_packet_gets_none() -> None:
 
     :return: None after the report is checked.
     """
-    written, report = _write(_corpus("plain"))
+    with subject_reading("calibre"):
+        written, report = _write(_corpus("plain"))
     assert report.xmp == "none"
     assert read_metadata(written).xmp is None
 

@@ -21,6 +21,7 @@ import pytest
 from LiuXin_alpha.metadata.containers.calibre_like_book_metadata import (
     CalibreLikeLiuXinBookMetaData as MetaData,
 )
+from tests.support.subject_reading import subject_reading
 
 
 def _values(raw):
@@ -310,13 +311,17 @@ def test_pdf_get_metadata_parses_info_dict_unicode() -> None:
     assert _values(md.authors) == ["Renée Faßbinder", "李白"]
     tags = {x.lower() for x in _values(md.tags)}
     assert tags >= {"tag-one", "κατηγορία", "emoji😀"}
-    # The XMP specification maps the Subject to the description, not to a tag.
+    # The Subject holds subject headings (the read_subject_fields_as default).
     assert "info subject" not in tags
-    assert _values(md.comments) == ["Info Subject"]
+    assert list(md.subject) == ["Info Subject"]
+    assert not _values(md.comments)
     assert _values(getattr(md, "isbn", None)) == ["9780306406157"]
 
-    # LiuXin's earlier rule kept the Subject as a tag.
-    union = get_metadata(io.BytesIO(payload), merge="union")
+    # Read as calibre's reading does, the XMP specification maps it to the description...
+    with subject_reading("calibre"):
+        assert _values(get_metadata(io.BytesIO(payload)).comments) == ["Info Subject"]
+        # ...and LiuXin's earlier rule kept it as a tag.
+        union = get_metadata(io.BytesIO(payload), merge="union")
     assert "info subject" in {x.lower() for x in _values(union.tags)}
 
 
@@ -510,7 +515,7 @@ def test_pdf_unicode_torture_info_dict_literal_strings() -> None:
     assert _values(md.authors) == ["Zoë Δ", "李白", "مريم"]
     tags = {x.casefold() for x in _values(md.tags)}
     assert {"café", "καλημέρα", "こんにちは", "emoji😀"} <= tags
-    assert _values(md.comments) == ["موضوع"]
+    assert list(md.subject) == ["موضوع"]
     assert _values(getattr(md, "isbn", None)) == ["9780306406157"]
     assert "10.5555/12345678" in {str(x) for x in md.get_identifiers().get("doi", set())}
 

@@ -61,6 +61,14 @@ ways to combine them. The `pdf_metadata_merge` preference chooses one for the
 | `calibre` | XMP, except that a newer Info dictionary wins the title, authors and tags | The first tag | The winner's |
 | `union` | XMP for title, authors, publisher and description | A tag | Info's and XMP's together |
 
+The Info `Subject` column applies when the `read_subject_fields_as` preference is
+`calibre`. At its default, `subjects`, the Info `Subject` holds subject headings
+under every policy (several joined by semicolons), and the description comes from
+the packet's `dc:description` alone. The writer follows the same setting. It
+writes the subjects to `/Subject` and the description only to the packet, giving a
+file without a packet a new one when there is a description to write. See
+[subjects](../../metadata/subjects.md#a-documents-subject-field).
+
 `newest` follows the specifications. The XMP specification maps `Subject` to
 `dc:description`, `Keywords` to `pdf:Keywords`, `Creator` to `xmp:CreatorTool` and
 the dates to `xmp:CreateDate` and `xmp:ModifyDate`. The PDF specification says to prefer

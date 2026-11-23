@@ -35,6 +35,12 @@ from LiuXin_alpha.metadata.constants import (
 from LiuXin_alpha.metadata.containers.calibre_like_book_metadata import (
     CalibreLikeLiuXinBookMetaData as MetaData,
 )
+from LiuXin_alpha.metadata.file_sources.subject_fields import (
+    reads_subjects,
+    set_subjects,
+    split_subjects,
+    subjects_of,
+)
 from LiuXin_alpha.metadata.utils import check_doi, check_isbn, string_to_authors
 from LiuXin_alpha.utils.libraries.cleantext import clean_xml_chars
 from LiuXin_alpha.utils.localization import trans as _
@@ -260,6 +266,29 @@ def _field_values(raw: Any) -> list[str]:
         return [str(raw)]
 
 
+def _read_info_subject(md, value: str) -> None:
+    """
+    Read the Info Subject as LiuXin's earlier ``union`` rule does: subject headings, or a tag under calibre's reading.
+
+    The ``read_subject_fields_as`` preference chooses (see ``subject_fields``).
+
+    Example:
+        >>> md = _default_metadata()
+        >>> _read_info_subject(md, "Sea")
+        >>> list(md.subject) or list(md.tags)
+        ['Sea']
+
+
+    :param md: The record being read into.
+    :param value: The Subject's text.
+    :return: None.
+    """
+    if reads_subjects():
+        set_subjects(md, split_subjects(value))
+    else:
+        md.tags = value
+
+
 def process_key_value_pair(key, value, info_dict_keys, md):
     """
     Map one recognized PDF Info key into the destination metadata object.
@@ -313,7 +342,7 @@ def process_key_value_pair(key, value, info_dict_keys, md):
         return md, True
 
     if key in {"subject"}:
-        md.tags = value_str
+        _read_info_subject(md, value_str)
         return md, True
 
     if key in {"keywords"}:
@@ -716,6 +745,7 @@ def _apply_fields(md, fields):
         md.comments = fields.comments
     if fields.tags:
         md.tags = list(fields.tags)
+    set_subjects(md, fields.subjects)
     if fields.publisher:
         md.publisher = fields.publisher
     for producer in fields.producers:
@@ -753,7 +783,11 @@ def _apply_combined(md, pdf_metadata, source_name: str, policy: str):
 
     info = pdf_merge.PdfFields()
     try:
-        info = pdf_merge.info_fields(pdf_metadata.info or {}, subject_is_tag=policy == "calibre")
+        info = pdf_merge.info_fields(
+            pdf_metadata.info or {},
+            subject_is_tag=policy == "calibre",
+            subject_as_subjects=reads_subjects(),
+        )
     except Exception as err:
         default_log.log_exception(
             "Failed while parsing PDF info dictionary.",
@@ -982,11 +1016,14 @@ def _metadata_update(mi):
         series_index = _series_index(mi, series)
         if series_index:
             extra["/SeriesIndex"] = series_index
+    as_subjects = reads_subjects()
     return MetadataUpdate(
         title=_first_value(getattr(mi, "title", None)),
         authors=texts(getattr(mi, "authors", None)),
         comments=_first_value(getattr(mi, "comments", None)),
         tags=texts(getattr(mi, "tags", None)),
+        subjects=texts(subjects_of(mi)) if as_subjects else (),
+        subject_holds_subjects=as_subjects,
         producer=_first_value(getattr(mi, "producers", None)),
         publisher=_first_value(getattr(mi, "publisher", None)),
         extra=extra,
@@ -997,9 +1034,10 @@ def _metadata_to_pdf_dict(mi) -> dict[str, str]:
     """
     Serialize supported metadata fields into sanitized PDF Info dictionary strings.
 
-    The authors are joined as LiuXin's reader splits them (`` & ``); the comments are the
-    Subject. The author sort is not written: ``/Creator`` names the application that
-    made the PDF.
+    The authors are joined as LiuXin's reader splits them (`` & ``). The Subject holds
+    the subjects, or the comments under calibre's reading of it (the
+    ``read_subject_fields_as`` preference). The author sort is not written:
+    ``/Creator`` names the application that made the PDF.
 
     Example:
         Exercise metadata to pdf dict with pytest::
