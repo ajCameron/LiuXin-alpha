@@ -4,6 +4,10 @@ Decision implemented: **2026-10-09**. Source reviewed **2026-10-20** against the
 working tree based on `fc5de7af`. This is a lifecycle/caller review; transaction
 safety and maintenance scheduling have separate remaining work.
 
+**Caller migration update, 2026-11-23:** the four remaining ingest/storage path
+helpers and their repository callers have moved to Core. The table and migration
+instructions below describe that updated placement.
+
 ## Decision implemented
 
 [`core.library_services.LibraryServices`](../../src/LiuXin_alpha/core/library_services.py)
@@ -38,17 +42,46 @@ prior external writes can be undone.
 | --- | --- | --- | --- |
 | [`core/workflow_jobs.py`](../../src/LiuXin_alpha/core/workflow_jobs.py) | Independent `Library(path=...)` contexts | Shared `_open_library_services` opens one-shot graphs with maintenance disabled. | Keep job-specific lifecycle policy explicit; resolved job settings can replace repeated options. |
 | [`ingest/mixed_application.py`](../../src/LiuXin_alpha/ingest/mixed_application.py) | Opened Database and StorageManager itself | Durable ingest requires an injected open Library; the calling CLI/Core boundary owns the graph. | Continue migrating callers through this handle-based contract. |
-| [`ingest/remote_html.py`](../../src/LiuXin_alpha/ingest/remote_html.py) path wrappers | Opened Database directly | Compatibility wrappers delegate to LibraryServices; Core jobs use handle-based functions. | Move/remove the wrappers and their deferred upward Core imports. |
-| [`storage/reconcile/store_db_sync.py`](../../src/LiuXin_alpha/storage/reconcile/store_db_sync.py) path wrappers | Opened Database directly | Wrappers and standalone legacy main delegate to LibraryServices; Core jobs use handles. | Move entry-point composition to Core/surfaces and remove the lower-layer wrappers. |
+| [`ingest/remote_html.py`](../../src/LiuXin_alpha/ingest/remote_html.py) path wrappers | Opened Database directly | Path helpers moved to `core.store_registration`; only borrowed-handle operations remain here. | No path-wrapper migration remains in this module. |
+| [`storage/reconcile/store_db_sync.py`](../../src/LiuXin_alpha/storage/reconcile/store_db_sync.py) path wrappers | Opened Database directly | Path helpers moved to `core.store_registration`; standalone main moved to `surfaces.cli.store_registration`. | Keep domain registration handle-based. |
 | [`storage/backup/prototype_pipeline.py`](../../src/LiuXin_alpha/storage/backup/prototype_pipeline.py) | Opened Library internally | `run` requires an injected Library; its durable job handler owns LibraryServices. | Keep prototype workflow and publication/recovery guarantees explicit. |
 | [`surfaces/cli/storage_audit.py`](../../src/LiuXin_alpha/surfaces/cli/storage_audit.py) | Dynamically imported/opened Library | Explicitly opens LibraryServices with maintenance disabled. | Retain focused startup/close coverage when command policy changes. |
 
-## Remaining compatibility debt
+## Registration caller migration
 
-The two `*_with_database_path` families delegate cleanup to the correct owner,
-but their placement still introduces lower-layer dependencies on Core. Migrate
-callers and tests to Core path operations or supplied handles before removing
-them. Deferred imports are still architectural dependencies.
+Import these synchronous Python helpers from
+[`LiuXin_alpha.core.store_registration`](../../src/LiuXin_alpha/core/store_registration.py):
+
+- `register_existing_disk_with_database_path`
+- `register_rclone_http_readonly_with_database_path`
+- `register_wget_html_readonly_with_database_path`
+- `register_native_html_readonly_with_database_path`
+
+The names, options and report types are preserved. Old ingest/storage imports
+are removed, with no reexports. Each helper opens an existing catalogue through
+LibraryServices with creation, backup and maintenance disabled, invokes its
+handle-based domain operation, and closes the graph before returning a report.
+Callbacks run while the graph is open and retain the domain operation's existing
+error policy. Startup, registration and cleanup failures propagate; this adds
+neither an all-run transaction nor automatic retries. These remain filesystem
+path helpers; use LibraryServices directly for server connection selections.
+
+The standalone local-disk command is now:
+
+```bash
+python -m LiuXin_alpha.surfaces.cli.store_registration \
+  --database catalogue.sqlite --disk /books --json
+```
+
+Its flags, text/JSON reports and `--fail-on-errors` exit status are preserved.
+The old `storage.reconcile.store_db_sync` module no longer supplies a CLI.
+Already-open callers continue using the functions in `ingest.remote_html` and
+`storage.reconcile`; Core workflow jobs already followed that contract.
+
+The dependency ratchet removes the storage-to-Core exception and now forbids
+ingest-to-Core/surfaces imports in all import contexts. Deferred imports count.
+
+## Remaining lifecycle work
 
 The October 9 review also listed
 `library/caches/memory_sqlite.in_memory_db_factory`. That module is **absent** at
@@ -63,10 +96,10 @@ consumers; removing it requires migration, not just changing the default flags.
 
 LibraryServices can own and stop the existing maintenance thread. It has not
 converted that thread/queue system into durable Core jobs. Similarly,
-`Database.__exit__` closes the facade without exception-sensitive rollback and
-can commit pending work on an exceptional exit. Use the explicit transaction
-contract; do not infer rollback from a resource context manager. Existing-file
-creation/backup safety also remains a separate issue.
+the [transaction contract](../databases/transactions.md) now separates explicit
+commit/rollback from resource cleanup, which discards pending work. Earlier
+committed registration writes can survive a later failure. Existing-file safety
+is covered by the separate [creation contract](../databases/creation-and-replacement.md).
 
 ## Foundation imports and configuration
 
@@ -86,7 +119,10 @@ prove rollback, safe overwrite, thread-race freedom or every constructor's
 internal cleanup. [Layer-direction checks](layer-direction-ratchet.md) expose
 remaining upward dependencies; cold-import budgets cover selected passive APIs.
 
-Closing the remaining migration requires caller inventory and behaviour checks,
-removal of the unwanted dependency edges, and explicit ownership for resources
-opened by replacement entry points. Maintenance scheduling needs restart,
-cancellation and progress semantics in addition to the existing shutdown test.
+[Registration lifecycle tests](../../tests/core/test_store_registration.py) cover
+all four helpers on success, startup failure, registration failure and cleanup
+failure, including progress before close. Existing registration suites exercise
+the moved imports against temporary catalogues; the
+[CLI tests](../../tests/surfaces/test_cli_store_registration.py) cover flags,
+reports, exit status and failure output. Broader maintenance scheduling still
+needs restart, cancellation and progress semantics beyond the shutdown tests.

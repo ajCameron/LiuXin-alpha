@@ -16,11 +16,11 @@ from uuid import UUID
 
 import pytest
 
+from LiuXin_alpha.core.store_registration import register_rclone_http_readonly_with_database_path
 from LiuXin_alpha.storage.api import StorageInvalidAddress
 from LiuXin_alpha.storage.reconcile import (
     ensure_rclone_http_readonly_store,
     register_rclone_http_readonly_store_files,
-    register_rclone_http_readonly_with_database_path,
 )
 from LiuXin_alpha.storage.store_backend_plugins.rclone_http_readonly import (
     rclone_http_storage_backend as backend_module,

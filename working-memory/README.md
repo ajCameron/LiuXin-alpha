@@ -2,6 +2,7 @@
 
 Short, dated handoff notes for active work.
 
+- [Core lifecycle caller migration, 2026-11-23](core-lifecycle-callers-2026-11-23.md)
 - [Core integration review, 2026-11-23](core-review-2026-11-23.md)
 - [Core cache-write routing follow-up, 2026-11-22](core-cache-write-routing-2026-11-22.md)
 

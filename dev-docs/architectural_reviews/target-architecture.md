@@ -14,7 +14,7 @@ proposal in the same section implemented.
 
 | Area | Current implementation | Remaining decision or migration |
 | --- | --- | --- |
-| Lifecycle | `core.library_services.LibraryServices` owns the graph it opens; Library borrows collaborators; Database defaults to persistence-only startup. A03's create-only publication and explicit backed-up replacement are implemented for PR review. | Lower-layer path wrappers, maintenance scheduling and residual direct commit points; A04 defines transaction/close semantics. |
+| Lifecycle | `core.library_services.LibraryServices` owns the graph it opens; Library borrows collaborators; Database defaults to persistence-only startup. A03's create-only publication and explicit backed-up replacement are implemented for PR review. | Resolved-settings propagation, maintenance scheduling and residual direct commit points; A04 defines transaction/close semantics. |
 | Bibliographic writes and identity | Metadata supplies pure rules; Catalog repositories/mutations and compatibility adapters share preparation and relationships. | Validators for uncovered fields, explicit repair contracts and residual raw-write contracts. |
 | Persistent reads and caches | Catalog owns hydration; `ReadCache` is independent of Catalog, while writable `Cache` delegates to it. Core owns application category policy. | Other projection/search adapters, query cost and snapshot consistency; A07 now defines preferred-path selection. |
 | Configuration | Core resolves deployment settings and supplies one application preference store. | Legacy scratch/startup consumers and component-specific lifetimes; database preferences remain a separate scope. |
@@ -76,9 +76,11 @@ cannot undo every earlier file operation or database mutation.
 
 ### Remaining work and completion evidence
 
-- Remove/migrate the `*_with_database_path` wrappers in ingest and storage after
-  moving their callers to the appropriate Core/surface boundary. They delegate
-  cleanup correctly but still import upward into Core.
+- **Completed 2026-11-23:** the four ingest/storage `*_with_database_path`
+  helpers and their callers moved to `core.store_registration`, with the local
+  command in `surfaces.cli.store_registration`. No lower-layer reexports or
+  upward Core imports remain in these families. Keep subsequent configuration
+  propagation at that composition boundary.
 - Decide how maintenance becomes durable scheduled work. LibraryServices can
   still attach the existing Database maintenance service; Core job scheduling
   has not replaced its thread/queues.

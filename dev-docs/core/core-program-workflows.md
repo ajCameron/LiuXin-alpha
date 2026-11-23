@@ -5,6 +5,13 @@ Reviewed **2026-10-20** against the working tree based on `fc5de7af`.
 The program API and storage CLI retain their public entry points, but their
 compatibility files no longer implement workflows.
 
+**Registration caller follow-up, 2026-11-23:**
+[`core.store_registration`](../../src/LiuXin_alpha/core/store_registration.py)
+owns the four synchronous path helpers through LibraryServices; the standalone
+local registration command lives in `surfaces.cli.store_registration`. Domain
+registration functions borrow handles, and existing Core workflow jobs continue
+to use those functions. See the [migration contract](../architectural_reviews/lifecycle-opening-path-review-2026-10-09.md#registration-caller-migration).
+
 ## Core
 
 `core/program_endpoints` defines operation names, payload descriptions, handler

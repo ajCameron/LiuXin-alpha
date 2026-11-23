@@ -298,9 +298,12 @@ point. The same interface model and wire records are used in both modes.
 `surfaces.core.SurfaceCoreSession` is the normal surface-session owner. It owns
 locally created runtimes, borrows remote clients, and adapts supplied legacy
 Database objects for embedding/testing. CLI one-shot operations also compose
-`LibraryServices` explicitly, and lower-layer path wrappers remain. New surface
-behaviour should depend on the client contract; existing adapters are not proof
-that all privileged Python objects are inaccessible.
+`LibraryServices` explicitly. Synchronous local-disk/rclone/wget/native-HTML
+path operations live in [`core.store_registration`](../../src/LiuXin_alpha/core/store_registration.py),
+with their [import and CLI migration](../architectural_reviews/lifecycle-opening-path-review-2026-10-09.md#registration-caller-migration)
+documented separately. They are Python composition helpers, not remote endpoints.
+New surface behaviour should depend on the client contract; existing adapters
+are not proof that all privileged Python objects are inaccessible.
 
 Production surface modules are checked by the
 [AST boundary test](../../tests/surfaces/test_core_boundary_enforcement.py), which rejects

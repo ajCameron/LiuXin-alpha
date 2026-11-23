@@ -8,7 +8,6 @@
     {"kind": "deferred", "source": "LiuXin_alpha.metadata.book.base", "target": "LiuXin_alpha.surfaces.renderers.calibre_metadata"},
     {"kind": "deferred", "source": "LiuXin_alpha.metadata.book.render", "target": "LiuXin_alpha.surfaces.renderers.calibre_metadata"},
     {"kind": "type-only", "source": "LiuXin_alpha.storage.backup.prototype_pipeline", "target": "LiuXin_alpha.library"},
-    {"kind": "deferred", "source": "LiuXin_alpha.storage.reconcile.store_db_sync", "target": "LiuXin_alpha.core.library_services"},
     {"kind": "deferred", "source": "LiuXin_alpha.storage.storage_manager.database_repository", "target": "LiuXin_alpha.caches.api"}
   ],
   "measurements": {

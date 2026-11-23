@@ -1,5 +1,12 @@
 # Working Memory Index
 
+Core lifecycle caller follow-up, **2026-11-23**: the four registration path
+helpers moved to Core, the standalone local-disk command moved to surfaces,
+and lower-layer compatibility exports were removed. See
+[`core-lifecycle-callers-2026-11-23.md`](core-lifecycle-callers-2026-11-23.md)
+for the separate commit after `eb096f3c`: 229 tests and the complete quality
+gate passed.
+
 Core integration review, **2026-11-23**: branch `core-review` starts from the
 reviewed metadata work at `21539083`. Ownership, metadata routing and public
 editing contracts are covered in

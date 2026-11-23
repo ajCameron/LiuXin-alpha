@@ -347,12 +347,17 @@ the selected owner's back.
 
 **Findings:** CO-7, DB-1/4 and the
 [opening-path review](lifecycle-opening-path-review-2026-10-09.md).
-**First PR:** one path-wrapper family and its callers. **Dependencies:** handle-based
-operations already exist; durable maintenance waits for A09.
+**Caller slice implemented, 2026-11-23:** all four local/rclone/wget/native-HTML
+path helpers moved to `core.store_registration`, and the standalone disk CLI to
+`surfaces.cli.store_registration`. Callers, tests and examples use the new paths;
+ingest/storage have no upward Core imports from these families. The storage-to-Core
+baseline allowance is removed, and ingest-to-Core/surfaces imports are now forbidden.
+The earlier Core integration review covers partial graph construction. Resolved
+settings propagation and live Database opt-ins remain separate migrations;
+durable maintenance waits for A09.
 
-Move the `*_with_database_path` entry points from ingest/storage into the Core or
-surface boundary that selects deployment settings. Migrate callers and tests,
-then remove the upward imports and tighten the layer baseline. Retire Database
+Keep path entry points in the Core/surface boundary that selects deployment
+settings, with borrowed-handle operations below it. Retire Database
 opt-ins/back-references only after their live consumers have moved. Review
 constructor-internal partial cleanup where a resource can fail before registration
 with LibraryServices.

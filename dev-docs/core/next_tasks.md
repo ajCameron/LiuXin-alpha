@@ -12,8 +12,8 @@ required-read failure boundaries. It also exercises a public native metadata
 workflow across local/RPC clients and all cache modes. Validation passed 405
 regressions (one PostgreSQL maintenance case skipped without a test server URL),
 22 documentation checks and the complete quality gate. This addresses composition
-within CORE-03; lower-layer caller migration and the configuration work below
-remain separate tasks.
+within CORE-03. The caller migration below is a separate follow-up commit;
+configuration remains the next independent task.
 
 ## CORE-01 — Enforce endpoint permissions
 
@@ -44,10 +44,17 @@ worker services. Other workflow migrations remain open under the jobs plan.
 
 ## CORE-03 — Complete lifecycle caller migration
 
-**Architecture A11.** Move remaining ingest/storage path-opening wrappers to
-Core/surface entry points and migrate callers to handle-based domain operations.
-Keep one-shot composition in LibraryServices; do not create a second graph owner.
-Audit partial construction before cleanup callbacks are registered.
+**Selected caller migration implemented, 2026-11-23; architecture A11.** All four
+local-disk/rclone/wget/native-HTML path helpers now live in
+[`core.store_registration`](../../src/LiuXin_alpha/core/store_registration.py).
+The local-disk CLI lives in `surfaces.cli.store_registration`; repository callers use the
+new imports. Ingest/storage retain borrowed-handle operations without upward
+Core imports or compatibility reexports. LibraryServices remains the graph owner.
+The earlier integration review covers partial startup/cleanup; the follow-up
+covers helper failure paths, real registration callers and CLI behavior.
+The direction baseline drops the storage-to-Core allowance and explicitly bars
+ingest from Core/surfaces. Resolved settings propagation, Database opt-ins and
+maintenance scheduling remain separately scoped work.
 
 Done when the selected lower-layer module has no upward Core import, failures
 close newly owned resources, borrowed services survive, and the dependency

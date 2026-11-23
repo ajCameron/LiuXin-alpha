@@ -16,10 +16,10 @@ from uuid import UUID
 
 import pytest
 
+from LiuXin_alpha.core.store_registration import register_existing_disk_with_database_path
 from LiuXin_alpha.storage.api import StoreConfigurationNotFound
 from LiuXin_alpha.storage.reconcile import (
     register_existing_disk_as_unmanaged_store,
-    register_existing_disk_with_database_path,
 )
 from tests.support._surface_storage_tables import ensure_surface_asset_tables
 
