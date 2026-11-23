@@ -172,6 +172,7 @@ def install_commands(
         ),
         tags=("database", "backup", "write"),
         remote_capabilities=("admin",),
+        requirements=("Requires backup support from the selected database driver.",),
     )
 
     command(
@@ -180,6 +181,9 @@ def install_commands(
         summary="Vacuum or compact the configured database.",
         tags=("database", "maintenance", "write"),
         remote_capabilities=("admin",),
+        requirements=(
+            "Requires vacuum/compaction support from the selected database driver.",
+        ),
     )
 
     command(

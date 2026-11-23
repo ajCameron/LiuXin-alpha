@@ -37,20 +37,20 @@ from LiuXin_alpha.storage.api import ReplicaMode, ReplicaState, StoreConfigurati
 @pytest.mark.parametrize(
     ("value", "expected"),
     [
-        ([" a ", "", "a", "A", None], ["a", "A", "None"]),
-        ("  a b  ", ["a b"]),
-        (b"AB", ["65", "66"]),
+        ([" a ", "", "a", "A"], ["a", "A"]),
+        (["  a b  "], ["a b"]),
+        (("A", "B"), ["A", "B"]),
         ([], []),
     ],
 )
-def test_text_lists_stringify_deduplicate_and_keep_case(
+def test_text_lists_strip_deduplicate_and_keep_case(
     value: object, expected: list[str]
 ) -> None:
     """
-    Retain the helper's distinct scalar-string, byte-iterable, blank, duplicate, and case behavior.
+    Normalize string arrays while retaining order and case, rejecting other shapes.
 
     Example:
-        >>> test_text_lists_stringify_deduplicate_and_keep_case(b"AB", ["65", "66"])
+        >>> test_text_lists_strip_deduplicate_and_keep_case(["A", "B"], ["A", "B"])
 
 
     :param value: Parametrized text or iterable field presented to _text_list.
@@ -137,8 +137,7 @@ def test_job_submission_receipt_reports_requested_options() -> None:
     """
     Distinguish requested job settings from effective backend choice or completion status.
 
-    The recording manager accepts everything: explicit None label becomes text,
-    a false timeout becomes 0.0, and a nonempty no-output string becomes True.
+    The recording manager exposes the exact validated options passed to submission.
 
     Example:
         >>> test_job_submission_receipt_reports_requested_options()
@@ -153,9 +152,9 @@ def test_job_submission_receipt_reports_requested_options() -> None:
         runtime,
         {
             "label": None,
-            "job_timeout_s": False,
+            "job_timeout_s": 0.0,
             "job_backend": "thread",
-            "job_no_output": "false",
+            "job_no_output": True,
         },
         function_name="run_conversion_job",
         kwargs=arguments,

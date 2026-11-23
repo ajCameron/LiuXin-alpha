@@ -76,11 +76,11 @@ class CorePayloadFieldDescription:
     """
     Advertise a structured payload field's name, required flag, optional type label, and explanatory prose.
 
-    These values describe endpoint expectations; this record does not validate
-    payload values or interpret the type label as an executable schema.
+    CoreRuntime enforces required fields and JSON primitive types at dispatch.
+    This frozen record stores declarations; domain adapters validate nested values.
 
     Example:
-        >>> field = CorePayloadFieldDescription("job_id", required=True, field_type="str")
+        >>> field = CorePayloadFieldDescription("job_id", required=True, field_type="string")
         >>> field.to_dict()["required"]
         True
     """
@@ -182,6 +182,7 @@ class CoreEndpointDescription:
     tags: tuple[str, ...] = ()
     transport_stable: bool = True
     remote_capabilities: tuple[str, ...] | None = None
+    requirements: tuple[str, ...] = ()
 
     def to_dict(self) -> dict[str, Any]:
         """
@@ -203,6 +204,7 @@ class CoreEndpointDescription:
             "payload_fields": [field.to_dict() for field in self.payload_fields],
             "tags": [str(tag) for tag in self.tags],
             "transport_stable": bool(self.transport_stable),
+            "requirements": list(self.requirements),
             "remote_capabilities": (
                 None if self.remote_capabilities is None else list(self.remote_capabilities)
             ),

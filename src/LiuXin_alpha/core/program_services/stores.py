@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
 from LiuXin_alpha.core.errors import CoreDispatchError
+from LiuXin_alpha.core.payloads import boolean, integer_value, invalid_payload
 from LiuXin_alpha.core.program_services.payloads import (
     _callable,
     _mapping,
@@ -95,13 +96,13 @@ def _update_field_value(public_name: str, value: Any) -> Any:
     """
     Normalize a Store edit value according to its public field category, without validating field membership.
 
-    Name/root require nonblank stripped text; read_only uses truthiness. Policy
-    IDs preserve None or use plain int, accepting bool and negative values here.
-    Other fields preserve None or unstripped stringified text.
+    Name/root require nonblank strings and read_only requires a boolean. Policy
+    IDs accept integers or None; domain owners validate their range and existence.
+    Other fields preserve None or unstripped strings.
 
     Example:
-        >>> _update_field_value("name", " archive "), _update_field_value("read_only", "false")
-        ('archive', True)
+        >>> _update_field_value("name", " archive "), _update_field_value("read_only", False)
+        ('archive', False)
 
 
     :param public_name: Public edit key selecting the normalization rule.
@@ -110,15 +111,14 @@ def _update_field_value(public_name: str, value: Any) -> Any:
     :raises CoreDispatchError: If name/root becomes blank; conversion errors otherwise propagate normally.
     """
     if public_name in {"name", "root"}:
-        text = str(value or "").strip()
-        if not text:
-            raise CoreDispatchError(f"`{public_name}` must not be empty.")
-        return text
+        return _required_text({public_name: value}, public_name)
     if public_name == "read_only":
-        return bool(value)
+        return boolean({public_name: value}, public_name)
     if public_name in {"replication_policy_id", "backup_policy_id"}:
-        return None if value is None else int(value)
-    return None if value is None else str(value)
+        return None if value is None else integer_value(value, public_name)
+    if value is not None and not isinstance(value, str):
+        invalid_payload(public_name, "must be a string or null.")
+    return value
 
 
 def storage_store_update(
@@ -350,7 +350,7 @@ def storage_backends_list(
 
 
     :param runtime: Unused runtime; discovery uses DEFAULT_BACKEND_REGISTRY.
-    :param query: Query with optional truth-tested include_internal, defaulting to False.
+    :param query: Query with optional boolean include_internal, defaulting to False.
     :return: Backend descriptor list, count, and non-secret configuration guidance.
     """
     from LiuXin_alpha.storage.utils.backend_registry import (
@@ -359,7 +359,7 @@ def storage_backends_list(
 
     del runtime
     payload = _payload(query)
-    include_internal = bool(payload.get("include_internal", False))
+    include_internal = boolean(payload, "include_internal", False)
     backends = []
     for descriptor in DEFAULT_BACKEND_REGISTRY.iter_descriptors(
         user_selectable_only=not include_internal,
@@ -444,7 +444,7 @@ def storage_store_delete(
     """
     Unregister a Store and optionally forget configuration and delete matching canonical Store rows.
 
-    delete_from_database is truth-tested and defaults False. Canonical search and
+    delete_from_database is a boolean and defaults False. Canonical search and
     sequential row deletion run only when remove_store returns truthy and forgetting
     was requested. Those later operations can fail after unregistration; this
     adapter adds no transaction, confirmation field, or byte-deletion guarantee.
@@ -463,7 +463,7 @@ def storage_store_delete(
         raise CoreDispatchError("`store` is required.")
     storage = runtime.library.storage
     configuration = _store_configuration(runtime, reference)
-    deleted_from_database = bool(payload.get("delete_from_database", False))
+    deleted_from_database = boolean(payload, "delete_from_database", False)
     removed = storage.remove_store(
         configuration.store_uuid,
         forget_configuration=deleted_from_database,

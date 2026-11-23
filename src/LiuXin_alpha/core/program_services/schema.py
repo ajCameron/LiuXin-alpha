@@ -13,6 +13,7 @@ from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any
 
 from LiuXin_alpha.core.errors import CoreDispatchError
+from LiuXin_alpha.core.payloads import boolean
 from LiuXin_alpha.core.program_services.payloads import (
     _callable,
     _mapping,
@@ -94,7 +95,7 @@ def schema_column_update(
     Build a replacement column policy from current metadata and supplied known fields, then persist and reconcile.
 
     Missing known fields inherit current values; unknown policy keys are ignored.
-    case_sensitive is truth-tested, enum-valued fields use their constructors, and
+    case_sensitive must be a boolean, enum-valued fields use their constructors, and
     comparison/format/display values pass to ColumnMetadata validation. An empty
     policy still invokes the setter. updated=True reports returned delegation,
     with reconciliation failure possible after persistence and no separate readback.
@@ -129,12 +130,7 @@ def schema_column_update(
     metadata = ColumnMetadata(
         table=table,
         column=column,
-        case_sensitive=bool(
-            policy.get(
-                "case_sensitive",
-                current.case_sensitive,
-            )
-        ),
+        case_sensitive=boolean(policy, "case_sensitive", current.case_sensitive),
         semantic_role=ColumnSemanticRole(
             policy.get(
                 "semantic_role",
@@ -286,7 +282,7 @@ def custom_fields_create(
     Create a custom field through the explicit Calibre compatibility facade, then refresh field metadata and reconcile.
 
     Name is required/stripped; falsey datatype/table select text/books. Optional
-    label remains unstripped, booleans are truth-tested, and make_category preserves
+    label remains unstripped, boolean flags are type-checked, and make_category preserves
     None. Display accepts verbatim text or a Mapping passed as structured metadata;
     backend policy owns its meaning. Refresh, ID conversion, or reconciliation can
     fail after creation without adapter rollback.
@@ -314,13 +310,13 @@ def custom_fields_create(
     num = method(
         name=_required_text(payload, "name"),
         datatype=str(payload.get("datatype") or "text"),
-        is_multiple=bool(payload.get("is_multiple", False)),
+        is_multiple=boolean(payload, "is_multiple", False),
         label=(str(payload["label"]) if payload.get("label") is not None else None),
-        editable=bool(payload.get("editable", True)),
+        editable=boolean(payload, "editable", True),
         display=dict(display) if isinstance(display, Mapping) else display,
         table=str(payload.get("table") or "books"),
         make_category=(
-            bool(payload["make_category"])
+            boolean(payload, "make_category")
             if payload.get("make_category") is not None
             else None
         ),
@@ -348,7 +344,7 @@ def custom_fields_update(
 
 
     :param runtime: Runtime supplying database-first set_custom_column_metadata and read-side refresh/reconciliation.
-    :param command: Command with required integer-convertible num and Mapping changes.
+    :param command: Command with required integer num and Mapping changes.
     :return: Reconciled field num, optimistic update/schema flags, and projected changed_row_ids result.
     :raises CoreDispatchError: If required fields are invalid, unknown keys are supplied, or capability lookup fails.
     """

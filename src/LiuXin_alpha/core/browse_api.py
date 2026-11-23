@@ -23,6 +23,8 @@ from urllib.parse import urljoin
 from LiuXin_alpha.core.application_api import CoreApplicationAPI
 from LiuXin_alpha.core.description import CorePayloadFieldDescription
 from LiuXin_alpha.core.errors import CoreDispatchError
+from LiuXin_alpha.core.payloads import boolean, integer_value
+from LiuXin_alpha.core.payloads import required_int as _required_int
 from LiuXin_alpha.core.queries import CoreQuery
 from LiuXin_alpha.storage.api import Location
 from LiuXin_alpha.storage.utils.store_configuration import store_configuration_from_row
@@ -100,7 +102,7 @@ def _field(
     field_type: str | None = None,
 ) -> CorePayloadFieldDescription:
     """
-    Build a browse/acquisition payload-field declaration for introspection, not runtime validation.
+    Build a browse/acquisition payload-field declaration for introspection and primitive validation.
 
     Example:
         >>> _field("work_id", required=True, field_type="integer").name
@@ -109,7 +111,7 @@ def _field(
 
     :param name: Public payload key described by the declaration.
     :param required: Whether clients should see the field as mandatory.
-    :param field_type: Optional transport-facing type label, not an executable validator.
+    :param field_type: Optional transport-facing type label, enforced by CoreRuntime for primitive values.
     :return: New field-description record retaining the supplied values.
     """
     return CorePayloadFieldDescription(
@@ -141,30 +143,6 @@ def _payload(envelope: Any) -> dict[str, Any]:
     return dict(raw)
 
 
-def _required_int(payload: Mapping[str, Any], name: str) -> int:
-    """
-    Convert a required non-None, non-boolean field using int without imposing an ID range.
-
-    Fractions may truncate. TypeError/ValueError are wrapped; overflow or other
-    custom conversion errors propagate without translation.
-
-    Example:
-        >>> _required_int({"work_id": "7"}, "work_id")
-        7
-
-
-    :param payload: Mapping carrying the required integer-convertible value.
-    :param name: Exact request key, also included in the validation error text.
-    :return: Converted integer, including zero or negative values if supplied.
-    :raises CoreDispatchError: For missing/None/bool values or conversion TypeError/ValueError.
-    """
-    value = payload.get(name)
-    if value is None or isinstance(value, bool):
-        raise CoreDispatchError("`{}` must be an integer.".format(name))
-    try:
-        return int(value)
-    except (TypeError, ValueError) as exc:
-        raise CoreDispatchError("`{}` must be an integer.".format(name)) from exc
 
 
 def _row_mapping(row: Any) -> dict[str, Any]:
@@ -1361,7 +1339,7 @@ class CoreBrowseAPI:
         """
         Page fully projected Works or category entities after reading, counting relationships, and sorting in memory.
 
-        limit/offset default to 100/0, use int coercion, and clamp to 0..10,000/nonnegative.
+        limit/offset default to 100/0, require integers, and clamp to 0..10,000/nonnegative.
         ascending defaults True. For all/newest, recent/newest sorting uses reverse=
         ascending, so True puts larger Work IDs first; this differs from works().
         Other Work sorts use casefolded titles. Entity popularity sorts by Work count
@@ -1374,7 +1352,7 @@ class CoreBrowseAPI:
 
 
         :param runtime: Runtime providing full category/Work reads, relationship counts, and summary projection.
-        :param query: Query with required category (all/newest/authors/tags/series), optional limit/offset/sort, and truth-converted ascending.
+        :param query: Query with required category (all/newest/authors/tags/series), optional limit/offset/sort, and boolean ascending.
         :return: Category, paged records, full projected total_count, normalized pagination, and end-of-result complete flag.
         :raises CoreDispatchError: If the stripped/lowercased category token is unknown; conversion/backend failures may also propagate.
         """
@@ -1382,9 +1360,9 @@ class CoreBrowseAPI:
         category = str(payload.get("category") or "").strip().lower()
         if category not in {*_CATEGORY_TABLES, "all", "newest"}:
             raise CoreDispatchError("Unknown browse category `{}`.".format(category))
-        limit = max(0, min(int(payload.get("limit", 100)), 10_000))
-        offset = max(0, int(payload.get("offset", 0)))
-        ascending = bool(payload.get("ascending", True))
+        limit = max(0, min(integer_value(payload.get("limit", 100), "limit"), 10_000))
+        offset = max(0, integer_value(payload.get("offset", 0), "offset"))
+        ascending = boolean(payload, "ascending", True)
         sort = str(payload.get("sort") or "name").strip().lower()
         if category in {"all", "newest"}:
             works = _all_rows(runtime, "works")
@@ -1498,9 +1476,9 @@ class CoreBrowseAPI:
         payload = _payload(query)
         category = str(payload.get("category") or "all").strip().lower()
         text = str(payload.get("text") or "").strip().casefold()
-        limit = max(0, min(int(payload.get("limit", 100)), 10_000))
-        offset = max(0, int(payload.get("offset", 0)))
-        ascending = bool(payload.get("ascending", category != "newest"))
+        limit = max(0, min(integer_value(payload.get("limit", 100), "limit"), 10_000))
+        offset = max(0, integer_value(payload.get("offset", 0), "offset"))
+        ascending = boolean(payload, "ascending", category != "newest")
         sort = (
             str(payload.get("sort") or ("recent" if category == "newest" else "title"))
             .strip()
@@ -1567,7 +1545,7 @@ class CoreBrowseAPI:
 
 
         :param runtime: Runtime providing Work lookup, relationship introspection, and legacy/managed file metadata.
-        :param query: Query with required integer-convertible work_id, excluding None/bool.
+        :param query: Query with required integer work_id, excluding None/bool.
         :return: work=None alone for absence; otherwise work summary, related mapping, sorted Item IDs, and format listings.
         """
         work_id = _required_int(_payload(query), "work_id")
@@ -1604,7 +1582,7 @@ class CoreBrowseAPI:
 
 
         :param runtime: Runtime supplying Work/file relationships, managed resource rows, and Store/path resolution.
-        :param query: Query with required integer-convertible work_id.
+        :param query: Query with required integer work_id.
         :return: work_id and ordered format dictionaries augmented in place with resolution hints or None.
         """
         work_id = _required_int(_payload(query), "work_id")
@@ -1645,7 +1623,7 @@ class CoreBrowseAPI:
 
 
         :param runtime: Runtime providing resource-row lookup and Store/local-path resolution.
-        :param query: Query with kind (legacy-file/image/replica, stripped/lowercased) and required integer-convertible id.
+        :param query: Query with kind (legacy-file/image/replica, stripped/lowercased) and required integer id.
         :return: Resource identity/name and delivery/readable fields, plus location or Store/key details when applicable.
         :raises CoreDispatchError: For unknown kinds or acquisition_not_found when the row/lookup capability is absent.
         """
@@ -1678,7 +1656,7 @@ class CoreBrowseAPI:
 
 
         :param runtime: Runtime providing resource resolution and whole-byte acquisition reads.
-        :param query: Query with normalized supported kind and required integer-convertible id.
+        :param query: Query with normalized supported kind and required integer id.
         :return: Resource resolution plus raw bytes content; no byte cap or streaming iterator is supplied here.
         :raises CoreDispatchError: For missing/unknown resources, unreadable resolution, or exhausted acquisition read paths.
         """
@@ -1720,7 +1698,7 @@ class CoreBrowseAPI:
 
 
         :param runtime: Runtime providing Work/image relationships and stored-location resolution.
-        :param query: Query with required integer-convertible work_id.
+        :param query: Query with required integer work_id.
         :return: work_id and cover candidate dictionaries containing image ID, display name, MIME, and resolution.
         """
         work_id = _required_int(_payload(query), "work_id")

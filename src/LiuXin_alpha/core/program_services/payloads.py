@@ -4,8 +4,8 @@ Validate program-service payloads, adapt legacy objects, and submit named Core w
 Legacy metadata adapters are tried in a defined order before iterable or
 attribute fallbacks. plain prepares results for the outer wire encoder but is
 not itself a JSON validator or cycle/size guard: bytes and unsupported opaque
-objects can remain. Validation helpers perform intentionally different coercions
-for text, integer, and iterable fields; they do not provide authorization.
+objects can remain. Primitive validation uses Core's shared strict helpers;
+text arrays require string elements. These helpers do not provide authorization.
 """
 
 from __future__ import annotations
@@ -15,6 +15,10 @@ from collections.abc import Iterable, Mapping, Sequence
 from typing import TYPE_CHECKING, Any
 
 from LiuXin_alpha.core.errors import CoreDispatchError
+from LiuXin_alpha.core.payloads import boolean, invalid_payload, number_value
+from LiuXin_alpha.core.payloads import optional_int as _optional_int
+from LiuXin_alpha.core.payloads import required_int as _required_int
+from LiuXin_alpha.core.payloads import required_text as _required_text
 from LiuXin_alpha.utils.jobs import JobRequest
 
 if TYPE_CHECKING:
@@ -41,89 +45,6 @@ def _payload(envelope: Any) -> dict[str, Any]:
     if not isinstance(raw, Mapping):
         raise CoreDispatchError("Core payload must be an object.")
     return dict(raw)
-
-
-def _required_text(payload: Mapping[str, Any], name: str) -> str:
-    """
-    Stringify and strip one required field, rejecting empty text but accepting explicit None as "None".
-
-    Example:
-        >>> _required_text({"table": " works "}, "table")
-        'works'
-
-
-    :param payload: Request mapping supplying the field.
-    :param name: Exact key used for lookup and the absence/blank error.
-    :return: Nonempty stripped string, without case normalization or type restrictions.
-    :raises CoreDispatchError: If the key is absent or its stringified value is blank.
-    """
-    value = str(payload.get(name, "")).strip()
-    if not value:
-        raise CoreDispatchError(f"`{name}` is required.")
-    return value
-
-
-def _required_int(payload: Mapping[str, Any], name: str) -> int:
-    """
-    Require a non-boolean field convertible by int, wrapping all ordinary conversion failures.
-
-    Numeric fractions can truncate; no lower or upper bound is enforced.
-
-    Example:
-        >>> _required_int({"row_id": "7"}, "row_id")
-        7
-
-
-    :param payload: Mapping with a required integer-convertible value.
-    :param name: Field key also used in the dispatch error message.
-    :return: Converted integer, including zero or negative values.
-    :raises CoreDispatchError: If the key is absent, its value is bool, or int raises Exception.
-    """
-    if name not in payload or isinstance(payload[name], bool):
-        raise CoreDispatchError(f"`{name}` must be an integer.")
-    try:
-        return int(payload[name])
-    except Exception as exc:
-        raise CoreDispatchError(f"`{name}` must be an integer.") from exc
-
-
-def _optional_int(
-    payload: Mapping[str, Any],
-    name: str,
-    *,
-    default: int | None = None,
-    minimum: int | None = None,
-) -> int | None:
-    """
-    Convert an optional integer field, retaining None and applying a lower bound only when supplied.
-
-    Missing keys use default; explicit None bypasses both default and minimum.
-    Unlike the application API helper, this helper has no minimum by default.
-
-    Example:
-        >>> _optional_int({"offset": -2}, "offset")
-        -2
-
-
-    :param payload: Mapping carrying the optional field.
-    :param name: Field key used for lookup and validation messages.
-    :param default: Value used only when the key is absent, subject to the same validation.
-    :param minimum: Optional inclusive lower bound for non-None converted values.
-    :return: None or converted integer; numeric fractions may truncate.
-    :raises CoreDispatchError: For bool, ordinary conversion failures, or a violated minimum.
-    """
-    value = payload.get(name, default)
-    if value is None:
-        return None
-    if isinstance(value, bool):
-        raise CoreDispatchError(f"`{name}` must be an integer or null.")
-    try:
-        converted = int(value)
-    except Exception as exc:
-        raise CoreDispatchError(f"`{name}` must be an integer or null.") from exc
-    if minimum is not None and converted < minimum:
-        raise CoreDispatchError(f"`{name}` must be >= {minimum}.")
-    return converted
 
 
 def _mapping(
@@ -158,34 +79,33 @@ def _text_list(
     payload: Mapping[str, Any],
     name: str,
     *,
-    default: Iterable[str] = (),
+    default: Sequence[str] = (),
 ) -> list[str]:
     """
-    Strip and deduplicate stringified iterable values in first-occurrence order, dropping blanks.
+    Strip and deduplicate an array of strings, dropping blanks in first-occurrence order.
 
-    A scalar str becomes one entry, while bytes iterate into integer values.
-    Mappings and non-iterables are rejected; generators are consumed. None elements
-    become "None", but a None field is invalid. No case normalization is applied.
+    Scalars, bytes, mappings, generators and non-string elements are rejected.
+    No case normalization is applied.
 
     Example:
         >>> _text_list({"tags": [" a ", "", "a", "B"]}, "tags")
         ['a', 'B']
 
 
-    :param payload: Request mapping supplying a text or iterable field.
+    :param payload: Request mapping supplying a string-array field.
     :param name: Field key used for lookup and errors.
     :param default: Iterable consumed when the key is absent; empty by default.
     :return: Ordered list of unique nonempty stripped strings.
-    :raises CoreDispatchError: If the selected value is a Mapping or is not iterable.
+    :raises CoreDispatchError: If the selected value is not a list/tuple of strings.
     """
     raw = payload.get(name, default)
-    if isinstance(raw, str):
-        raw = [raw]
-    if not isinstance(raw, Iterable) or isinstance(raw, Mapping):
-        raise CoreDispatchError(f"`{name}` must be an array of strings.")
+    if not isinstance(raw, (list, tuple)):
+        invalid_payload(name, "must be an array of strings.")
     values: list[str] = []
     for item in raw:
-        token = str(item).strip()
+        if not isinstance(item, str):
+            invalid_payload(name, "must contain only strings.")
+        token = item.strip()
         if token and token not in values:
             values.append(token)
     return values
@@ -434,8 +354,8 @@ def _job_submit(
     Submit a named Core workflow JobRequest and report the requested submission settings.
 
     Missing/None job_timeout_s sends -1.0 to the manager but reports None; supplied
-    values use float without adapter range/finite validation. Backend passes through,
-    no_output is truth-tested, and a stripped blank label uses default_label while
+    values must be finite numbers. Backend passes through, no_output must be a
+    boolean, and a stripped blank label uses default_label while
     explicit None becomes "None". Receipt construction follows submission and may
     itself fail; the manager owns validation, scheduling, and effective backend choice.
 
@@ -451,9 +371,11 @@ def _job_submit(
     :return: job_id, label, requested backend text, timeout_s, and no_output; not a completion result.
     """
     timeout_raw = payload.get("job_timeout_s")
-    timeout = -1.0 if timeout_raw is None else float(timeout_raw)
+    timeout = (
+        -1.0 if timeout_raw is None else number_value(timeout_raw, "job_timeout_s")
+    )
     backend = payload.get("job_backend")
-    no_output = bool(payload.get("job_no_output", False))
+    no_output = boolean(payload, "job_no_output", False)
     label = str(payload.get("label", "")).strip() or default_label
     job_id = runtime.job_manager.submit(
         JobRequest(
@@ -470,6 +392,11 @@ def _job_submit(
         "job_id": job_id,
         "label": label,
         "backend": "" if backend is None else str(backend),
-        "timeout_s": None if timeout_raw is None else float(timeout_raw),
+        "timeout_s": None
+        if timeout_raw is None
+        else number_value(timeout_raw, "job_timeout_s"),
         "no_output": no_output,
     }
+
+
+__all__ = ["_required_int", "_required_text", "_optional_int"]

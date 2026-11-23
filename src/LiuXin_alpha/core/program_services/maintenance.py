@@ -13,6 +13,7 @@ from collections.abc import Iterable, Mapping, Sequence
 from typing import TYPE_CHECKING, Any, cast
 
 from LiuXin_alpha.core.errors import CoreDispatchError
+from LiuXin_alpha.core.payloads import integer_value
 from LiuXin_alpha.core.program_services.payloads import (
     _callable,
     _optional_int,
@@ -157,7 +158,7 @@ def maintenance_run(
 
 
     :param runtime: Runtime whose maintenance service provides run_once.
-    :param command: Command with optional positive integer-convertible max_events, excluding bool.
+    :param command: Command with optional positive integer max_events, excluding bool.
     :return: Requested event budget and plain-projected run_once result under plugins.
     """
     payload = _payload(command)
@@ -284,6 +285,11 @@ def _rebuild_work_pages(
     return {**result, "scheduled_this_call": scheduled}
 
 
+def selective_cleanup_unavailable(runtime: CoreRuntime) -> str | None:
+    """Inspect existing maintenance bindings without constructing the lazy service."""
+    return runtime.services.selective_cleanup_unavailable()
+
+
 def maintenance_clean(
     runtime: CoreRuntime,
     command: CoreCommand,
@@ -295,8 +301,8 @@ def maintenance_clean(
     exposed as capability_unavailable before any reconciliation. Injected services
     can supply an actual implementation.
 
-    row_ids must be a non-str/non-bytes Sequence. Plain int conversion accepts
-    bool and truncatable numeric values, preserving duplicates and order. The
+    row_ids must be a non-str/non-bytes Sequence of integers. Booleans, floats
+    and numeric strings are rejected; duplicates and order are preserved. The
     clean result is ignored: cleaned=True indicates returned delegation, not a
     removed-row count. Reconciliation can fail after cleanup has run.
 
@@ -314,7 +320,7 @@ def maintenance_clean(
     raw_ids = payload.get("row_ids")
     if not isinstance(raw_ids, Sequence) or isinstance(raw_ids, (str, bytes)):
         raise CoreDispatchError("`row_ids` must be an array.")
-    row_ids = [int(cast(Any, item)) for item in raw_ids]
+    row_ids = [integer_value(item, "row_ids") for item in raw_ids]
     try:
         _callable(
             runtime.services.maintenance,

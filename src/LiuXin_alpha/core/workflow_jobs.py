@@ -17,6 +17,8 @@ from pathlib import Path
 from typing import Any, cast
 from uuid import UUID
 
+from LiuXin_alpha.core.payloads import boolean, integer_value
+
 
 def _open_library_services(
     *,
@@ -599,18 +601,18 @@ def backup_workflow_spec_from_mapping(payload: Mapping[str, Any]) -> Any:
                 expected_size=(
                     None
                     if raw.get("expected_size") is None
-                    else int(cast(Any, raw["expected_size"]))
+                    else integer_value(raw["expected_size"], "expected_size")
                 ),
                 expected_digest=expected_digest,
                 source_digital_asset_id=(
                     None
                     if raw.get("source_digital_asset_id") is None
-                    else int(cast(Any, raw["source_digital_asset_id"]))
+                    else integer_value(raw["source_digital_asset_id"], "source_digital_asset_id")
                 ),
                 source_replica_id=(
                     None
                     if raw.get("source_asset_replica_id") is None
-                    else int(cast(Any, raw["source_asset_replica_id"]))
+                    else integer_value(raw["source_asset_replica_id"], "source_asset_replica_id")
                 ),
             )
         )
@@ -630,10 +632,8 @@ def backup_workflow_spec_from_mapping(payload: Mapping[str, Any]) -> Any:
         workflow_kind=BackupWorkflowKind(str(payload["workflow_kind"])),
         output_target=reference(output_raw),
         sources=tuple(sources),
-        verify_after_build=bool(payload.get("verify_after_build", True)),
-        cleanup_staging_after_success=bool(
-            payload.get("cleanup_staging_after_success", False)
-        ),
+        verify_after_build=boolean(payload, "verify_after_build", True),
+        cleanup_staging_after_success=boolean(payload, "cleanup_staging_after_success", False),
         staging_target=(None if staging_raw is None else reference(staging_raw)),
         options=options,
     )
@@ -822,7 +822,7 @@ def run_publish_squashfs_files_job(
     ) as lifecycle:
         library = lifecycle.library
         report = library.publish_squashfs_archive_from_file_ids(
-            file_ids=[int(value) for value in file_ids],
+            file_ids=[integer_value(value, "file_ids") for value in file_ids],
             archive_path=str(archive),
             store_name=store_name,
             compression=str(compression),

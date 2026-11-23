@@ -1,6 +1,6 @@
 # Core next tasks
 
-Updated **2026-11-23** after the lifecycle repairs and caller migration.
+Updated **2026-11-23** after lifecycle, caller-migration and contract corrections.
 The [whole-Core review and completion plan](review-and-completion-plan-2026-11-23.md)
 defines the full functionality target, ten findings and nine ordered completion
 slices. The architecture below remains the foundation; whole-module sign-off is
@@ -84,8 +84,9 @@ cross-process synchronization.
 The local factory currently returns CoreRuntime directly. Decide whether a
 restricted local adapter is needed by a concrete consumer; until then document
 protocol discipline without claiming object isolation. Inventory new endpoints
-through the existing provider/handler/service owners and expose real conditional
-availability through discovery.
+through the existing provider/handler/service owners. Registration-derived discovery
+and passive support/prerequisite declarations are implemented by slice 1; operational
+readiness probes remain separate work.
 
 Done when client-facing docs and examples match factory identity, shutdown
 ownership, wire values and errors. Add a restricted adapter only with caller
@@ -97,8 +98,9 @@ policy. Move domain policy out of Core only after its receiving owner is specifi
 The [detailed plan](review-and-completion-plan-2026-11-23.md#ordered-implementation-plan)
 extends CORE-01 through CORE-05 with the remaining public and operational work:
 
-1. Correct discovery, strict primitive validation, command registration capture
-   and diagnostic redaction before extending those contracts.
+1. **Implemented:** registration-based discovery, strict primitive validation,
+   captured command registration and recursive diagnostic redaction. See the
+   [contract follow-up](review-and-completion-plan-2026-11-23.md#contract-corrections-follow-up).
 2. Complete CORE-04 configuration/connection propagation.
 3. Expose the full native metadata workflow through named operations, including
    shared records, trees, relationships and bounded batches.

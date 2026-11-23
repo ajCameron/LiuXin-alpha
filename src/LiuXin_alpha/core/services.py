@@ -568,6 +568,22 @@ class CoreServices:
                 )
                 bind(cache)
 
+    def selective_cleanup_unavailable(self) -> str | None:
+        """Report built-in selective cleanup support without opening maintenance."""
+        with self._service_scope():
+            service = self._maintenance
+            if service is None:
+                service = getattr(self.database, "maintenance", None)
+            method = None if service is None else getattr(service, "clean", None)
+            if not callable(method):
+                return "Selective maintenance cleanup is unavailable in the built-in service."
+            from LiuXin_alpha.databases.maintenance.service import Maintainer
+
+            implementation = getattr(method, "__func__", method)
+            if implementation is Maintainer.clean:
+                return "Selective maintenance cleanup is unavailable in the built-in service."
+            return None
+
     def describe(self) -> dict[str, Any]:
         """
         Report service type names and cache status while leaving most uninitialized services lazy.

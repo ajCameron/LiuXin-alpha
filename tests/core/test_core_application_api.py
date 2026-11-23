@@ -1027,13 +1027,13 @@ def test_core_describes_complete_named_application_api() -> None:
         "storage.file.read",
     } <= set(query_entries)
     capabilities = runtime.query("capabilities.list")
-    assert capabilities["complete_program_boundary"] is True
+    assert capabilities["inventory_complete"] is True
     declared_program_operations = {
         operation
         for family in capabilities["families"].values()
         for operation in family["operations"]
     }
-    assert declared_program_operations <= (set(command_entries) | set(query_entries))
+    assert declared_program_operations == (set(command_entries) | set(query_entries))
     assert all(
         detail["call_modes"] == ["direct", "rpc"]
         for detail in capabilities["operations"].values()

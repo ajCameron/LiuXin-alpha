@@ -17,7 +17,6 @@ from __future__ import annotations
 import inspect
 import threading
 import uuid
-
 from contextlib import ExitStack
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Callable, Mapping, Optional, cast
@@ -41,12 +40,20 @@ from LiuXin_alpha.core.errors import (
     core_error_details,
 )
 from LiuXin_alpha.core.events import CoreEvent, make_core_event
+from LiuXin_alpha.core.payloads import (
+    boolean,
+    integer_value,
+    number_value,
+    optional_int,
+    required_text,
+    validate_field_declarations,
+    validate_payload,
+)
 from LiuXin_alpha.core.queries import CoreQuery, CoreQueryResult
 from LiuXin_alpha.core.services import CoreServices
 from LiuXin_alpha.core.wire import to_wire
 from LiuXin_alpha.utils.jobs import JobRequest, default_job_manager
 from LiuXin_alpha.utils.jobs.manager import JobManagerAPI, JobState
-
 
 if TYPE_CHECKING:
     from LiuXin_alpha.core.durable_jobs import DurableJobService
@@ -55,6 +62,16 @@ if TYPE_CHECKING:
 CommandHandler = Callable[["CoreRuntime", CoreCommand], Any]
 QueryHandler = Callable[["CoreRuntime", CoreQuery], Any]
 EventSubscriber = Callable[[CoreEvent], None]
+CapabilityCheck = Callable[["CoreRuntime"], str | None]
+
+
+@dataclass(frozen=True)
+class _CommandRegistration:
+    """Retain a command's handler, authority and result contract together."""
+
+    handler: CommandHandler
+    description: CoreEndpointDescription
+    capability_check: CapabilityCheck | None
 
 
 @dataclass(frozen=True)
@@ -63,6 +80,7 @@ class _QueryRegistration:
 
     handler: QueryHandler
     description: CoreEndpointDescription
+    capability_check: CapabilityCheck | None
     serialized: bool
 
 
@@ -215,9 +233,8 @@ class CoreRuntime(CoreAPI):
             close_job_manager_on_shutdown = owns_job_manager
         self._close_job_manager_on_shutdown = bool(close_job_manager_on_shutdown)
 
-        self._command_handlers: dict[str, CommandHandler] = {}
+        self._command_handlers: dict[str, _CommandRegistration] = {}
         self._query_handlers: dict[str, _QueryRegistration] = {}
-        self._command_descriptions: dict[str, CoreEndpointDescription] = {}
         self._event_subscribers: list[EventSubscriber] = []
 
         # SQLite-backed runtimes may be reached from HTTP request threads.
@@ -268,6 +285,7 @@ class CoreRuntime(CoreAPI):
             ),
             tags=("sync", "jobs"),
             remote_capabilities=("admin",),
+            requirements=('Requires a reopenable catalogue and the selected discovery backend.',),
         )
         self.register_command_handler(
             "sync.store.cancel",
@@ -802,15 +820,17 @@ class CoreRuntime(CoreAPI):
         tags: tuple[str, ...] | list[str] | None = None,
         transport_stable: bool = True,
         remote_capabilities: tuple[str, ...] | None = None,
+        requirements: tuple[str, ...] = (),
+        capability_check: CapabilityCheck | None = None,
     ) -> None:
         """
         Register or replace a normalized command route and its descriptive endpoint metadata.
 
         Names are stringified, stripped, and lowercased. Existing registrations are
         overwritten without collision checks or callable/signature validation.
-        Metadata is constructed before the handler/description pair is replaced,
-        so failed registration cannot inherit an old route's authority. Payload fields describe
-        expectations; this registration does not install payload validation.
+        Metadata is validated before the immutable registration is replaced.
+        Dispatch captures its handler, authority and result policy together, and
+        validates declared primitive fields before entering the handler.
 
         Example:
             >>> runtime.register_command_handler("example.update", handler, summary="Update an example.")  # doctest: +SKIP
@@ -820,11 +840,13 @@ class CoreRuntime(CoreAPI):
         :param handler: Callable invoked as handler(runtime, command), retained without validation.
         :param summary: Explicit summary, including empty text; None derives the handler's first docstring line.
         :param description: Longer descriptive text; falsey input becomes empty text.
-        :param payload_fields: Optional ordered field descriptions converted to a tuple without schema enforcement.
+        :param payload_fields: Ordered declarations enforced for presence and primitive type before dispatch.
         :param tags: Optional tag values stringified in order without stripping or deduplication.
         :param remote_capabilities: Explicit remote grants; None keeps this registration local-only.
+        :param requirements: Passive prerequisite descriptions, without readiness probes.
+        :param capability_check: Passive callback returning an unavailable reason or None; must not open resources.
         :param transport_stable: Truth-converted flag selecting result wire conversion during execution.
-        :return: None after updating the command handler and description maps under their state lock.
+        :return: None after replacing one immutable command registration under the state lock.
         :raises ValueError: If the normalized route name is blank.
         """
         token = str(name).strip().lower()
@@ -843,10 +865,15 @@ class CoreRuntime(CoreAPI):
             tags=tuple(str(tag) for tag in (tags or ())),
             transport_stable=bool(transport_stable),
             remote_capabilities=remote_capabilities,
+            requirements=tuple(requirements),
         )
+        if capability_check is not None and not callable(capability_check):
+            raise TypeError("capability_check must be callable")
+        if any(not isinstance(item, str) or not item.strip() for item in requirements):
+            raise ValueError("requirements must contain nonempty strings")
+        validate_field_declarations(metadata.payload_fields)
         with self._state_lock:
-            self._command_handlers[token] = handler
-            self._command_descriptions[token] = metadata
+            self._command_handlers[token] = _CommandRegistration(handler, metadata, capability_check)
 
     def register_query_handler(
         self,
@@ -861,13 +888,15 @@ class CoreRuntime(CoreAPI):
         tags: tuple[str, ...] | list[str] | None = None,
         transport_stable: bool = True,
         remote_capabilities: tuple[str, ...] | None = None,
+        requirements: tuple[str, ...] = (),
+        capability_check: CapabilityCheck | None = None,
         serialized: bool = True,
     ) -> None:
         """
         Register or replace a normalized query route and its description without proving read-only behavior.
 
-        Registration accepts repeated names and does not verify callability,
-        signature, or declared payload fields. Metadata construction precedes
+        Registration accepts repeated names and does not verify callability
+        or signature. Primitive field declarations are checked before
         atomic replacement of the handler, authority and execution/result policies;
         a failed declaration leaves the old registration unchanged.
 
@@ -884,9 +913,11 @@ class CoreRuntime(CoreAPI):
         :param handler: Callable expected to accept runtime and query envelope.
         :param summary: Explicit summary or None to use the first cleaned handler docstring line.
         :param description: Longer metadata text, with falsey values represented as empty text.
-        :param payload_fields: Ordered descriptive field records, not executable validation rules.
+        :param payload_fields: Ordered field declarations enforced before handler execution.
         :param tags: Optional ordered tags stringified without deduplication.
         :param remote_capabilities: Explicit remote grants; None keeps this registration local-only.
+        :param requirements: Passive prerequisite descriptions, without readiness probes.
+        :param capability_check: Passive callback returning an unavailable reason or None; must not open resources.
         :param transport_stable: Whether query results should be normalized by the Core wire encoder.
         :param serialized: Hold the shared handler lock; False is only for independently safe handlers.
         :return: None after replacing the route and metadata under the state lock.
@@ -911,10 +942,16 @@ class CoreRuntime(CoreAPI):
             tags=tuple(str(tag) for tag in (tags or ())),
             transport_stable=bool(transport_stable),
             remote_capabilities=remote_capabilities,
+            requirements=tuple(requirements),
         )
+        if capability_check is not None and not callable(capability_check):
+            raise TypeError("capability_check must be callable")
+        if any(not isinstance(item, str) or not item.strip() for item in requirements):
+            raise ValueError("requirements must contain nonempty strings")
+        validate_field_declarations(metadata.payload_fields)
         with self._state_lock:
             self._query_handlers[token] = _QueryRegistration(
-                handler, metadata, serialized
+                handler, metadata, capability_check, serialized
             )
 
     def subscribe(self, callback: EventSubscriber) -> Callable[[], None]:
@@ -1018,8 +1055,8 @@ class CoreRuntime(CoreAPI):
         automatic retry occurs.
 
         Conversion and completion events happen after releasing the handler lock.
-        Stability metadata is looked up again after execution, so concurrent
-        re-registration can change the result policy. Selected name prefixes emit
+        The handler, authority and result policy come from the same captured
+        registration; replacement affects later requests only. Selected name prefixes emit
         write.completed before command.finished; this describes command completion,
         not proof of durable commit or completion of a submitted background job.
 
@@ -1042,16 +1079,18 @@ class CoreRuntime(CoreAPI):
             raise CoreDispatchError("Command name cannot be blank.")
 
         with self._state_lock:
-            handler = self._command_handlers.get(token)
+            registration = self._command_handlers.get(token)
             if capabilities is not None:
                 authorize_endpoint(
-                    self._command_descriptions.get(token), capabilities, command.payload
+                    registration.description if registration is not None else None,
+                    capabilities, command.payload if isinstance(command.payload, Mapping) else {}
                 )
-        if handler is None:
+        if registration is None:
             raise CoreDispatchError(
                 "Unknown command handler: {!r}".format(command.name)
             )
 
+        validate_payload(command.payload, registration.description.payload_fields)
         self.emit_event(
             "command.started",
             {
@@ -1075,7 +1114,7 @@ class CoreRuntime(CoreAPI):
                 raise CoreShutdownError("Core is shut down.")
             try:
                 with use_preferences(self.services.preferences):
-                    result = handler(self, command)
+                    result = registration.handler(self, command)
             except Exception as exc:
                 error_code, error_details = core_error_details(exc)
                 self.emit_event(
@@ -1092,9 +1131,7 @@ class CoreRuntime(CoreAPI):
                     code=error_code,
                     details=error_details,
                 ) from exc
-        with self._state_lock:
-            description = self._command_descriptions.get(token)
-        if description is not None and description.transport_stable:
+        if registration.description.transport_stable:
             try:
                 result = to_wire(result)
             except Exception as exc:
@@ -1234,11 +1271,12 @@ class CoreRuntime(CoreAPI):
                 authorize_endpoint(
                     registration.description if registration is not None else None,
                     capabilities,
-                    query.payload,
+                    query.payload if isinstance(query.payload, Mapping) else {},
                 )
         if registration is None:
             raise CoreDispatchError("Unknown query handler: {!r}".format(query.name))
 
+        validate_payload(query.payload, registration.description.payload_fields)
         with ExitStack() as handler_scope:
             handler_scope.enter_context(self._command_lock)
             if self._shutdown:
@@ -1568,6 +1606,26 @@ class CoreRuntime(CoreAPI):
             methods=tuple(methods),
         )
 
+    def describe_endpoint_capabilities(self) -> list[dict[str, Any]]:
+        """Snapshot every registered route and its passive support declaration.
+
+        Checks may inspect already-bound capabilities, but must not instantiate
+        services, start workers, open connections or probe tools/networks. A check
+        returns an unavailable reason or None; readiness is never inferred here.
+        Registration replacement affects the next inventory snapshot only.
+        """
+        if self._shutdown:
+            raise CoreShutdownError("Core is shut down.")
+        with self._state_lock:
+            registrations = (*self._command_handlers.values(), *self._query_handlers.values())
+        result = []
+        for registration in registrations:
+            reason = None if registration.capability_check is None else registration.capability_check(self)
+            if reason is not None and (not isinstance(reason, str) or not reason.strip()):
+                raise TypeError("Capability checks must return a nonempty unavailable reason or None")
+            result.append({**registration.description.to_dict(), "unavailable_reason": reason})
+        return sorted(result, key=lambda row: (row["name"], row["kind"]))
+
     def describe_api(
         self, *, include_targets: bool = True, target: str | None = None
     ) -> dict[str, Any]:
@@ -1592,8 +1650,8 @@ class CoreRuntime(CoreAPI):
         normalized_target = self._normalize_target_filter(target)
         with self._state_lock:
             commands = [
-                self._command_descriptions[name].to_dict()
-                for name in sorted(self._command_descriptions)
+                self._command_handlers[name].description.to_dict()
+                for name in sorted(self._command_handlers)
             ]
             queries = [
                 self._query_handlers[name].description.to_dict()
@@ -1874,13 +1932,13 @@ class CoreRuntime(CoreAPI):
                 "Metadata write payload `values` must be an object."
             )
         result = self.services.catalog.mutations.writer.write_values(
-            item_id=int(payload["item_id"]),
+            item_id=integer_value(payload["item_id"], "item_id"),
             values=dict(values),
             fields=payload.get("fields"),
             kind=str(payload.get("kind") or "liuxin"),
-            replace=bool(payload.get("replace", False)),
+            replace=boolean(payload, "replace", False),
             target_level=str(payload.get("target_level") or "work"),
-            mark_dirty=bool(payload.get("mark_dirty", True)),
+            mark_dirty=boolean(payload, "mark_dirty", True),
         )
         if bool(result.get("changed", False)):
             return self.services.reconcile(result)
@@ -1957,10 +2015,10 @@ class CoreRuntime(CoreAPI):
         self, runtime: "CoreRuntime", query: CoreQuery
     ) -> dict[str, Any]:
         """
-        Copy description options from a query, truth-convert inclusion, and delegate target validation/introspection.
+        Validate the inclusion flag and delegate target validation/introspection.
 
-        A nonempty string such as false still enables target output; this path does
-        not use the HTTP GET route's explicit boolean-token parser.
+        RPC accepts an actual boolean. The HTTP GET route parses textual query
+        parameters at its surface boundary before dispatch.
 
         Example:
             >>> description = runtime._handle_api_describe_query(runtime, CoreQuery("api.describe", {"include_targets": False}))  # doctest: +SKIP
@@ -1968,13 +2026,11 @@ class CoreRuntime(CoreAPI):
 
         :param runtime: Ignored dispatcher argument in the common query-handler signature.
         :param query: Envelope carrying optional include_targets and target fields.
-        :return: API description after boolean/string option coercion and normal target resolution.
+        :return: API description after primitive validation and normal target resolution.
         """
         del runtime
         payload = dict(query.payload or {})
-        include_targets = bool(
-            payload.get("include_targets", bool(payload.get("target")))
-        )
+        include_targets = boolean(payload, "include_targets", bool(payload.get("target")))
         target = payload.get("target", None)
         return self.describe_api(
             include_targets=include_targets,
@@ -2136,12 +2192,9 @@ class CoreRuntime(CoreAPI):
         :param payload: Mapping containing the requested identifier field.
         :param field: Key to read, also used in the missing-identifier error message.
         :return: Nonblank stripped identifier text.
-        :raises CoreDispatchError: If the selected field is absent or stringifies to blank text.
+        :raises CoreDispatchError: If the selected field is absent, non-string, or blank.
         """
-        job_id = str(payload.get(field, "")).strip()
-        if not job_id:
-            raise CoreDispatchError("`{}` is required.".format(field))
-        return job_id
+        return required_text(payload, field)
 
     @staticmethod
     def _normalize_job_states(
@@ -2200,103 +2253,22 @@ class CoreRuntime(CoreAPI):
         return {cast(JobState, value) for value in raw_values}
 
     @staticmethod
-    def _normalize_optional_limit(
-        payload: Mapping[str, Any], *, key: str = "limit"
-    ) -> int | None:
-        """
-        Read an optional positive integer limit, using int coercion rather than strict integer-type validation.
-
-        Missing/None means no limit. Values such as booleans or fractional numbers
-        can be accepted according to int conversion before the minimum check.
-
-        Example:
-            >>> CoreRuntime._normalize_optional_limit({"limit": "20"}), CoreRuntime._normalize_optional_limit({})
-            (20, None)
-
-
-        :param payload: Mapping containing an optional limit-like field.
-        :param key: Limit field name used for lookup and validation errors.
-        :return: Integer of at least one, or None for a missing/None field.
-        :raises CoreDispatchError: If conversion fails or the converted value is below one.
-        """
-        if key not in payload:
-            return None
-        raw = payload.get(key)
-        if raw is None:
-            return None
-        try:
-            value = int(raw)
-        except Exception as exc:
-            raise CoreDispatchError("`{}` must be an integer.".format(key)) from exc
-        if value < 1:
-            raise CoreDispatchError("`{}` must be >= 1.".format(key))
-        return value
+    def _normalize_optional_limit(payload: Mapping[str, Any], *, key: str = "limit") -> int | None:
+        """Read a nullable positive integer limit without numeric coercion."""
+        return optional_int(payload, key, minimum=1)
 
     @staticmethod
     def _normalize_offset(payload: Mapping[str, Any], *, key: str = "offset") -> int:
-        """
-        Read a nonnegative integer-coerced offset, treating missing/None as zero.
-
-        Example:
-            >>> CoreRuntime._normalize_offset({"offset": "3"}), CoreRuntime._normalize_offset({})
-            (3, 0)
-
-
-        :param payload: Mapping containing an optional offset field.
-        :param key: Field name used for lookup and error text.
-        :return: Converted offset of at least zero, with zero as the absence default.
-        :raises CoreDispatchError: If int conversion fails or yields a negative value.
-        """
-        if key not in payload:
-            return 0
-        raw = payload.get(key)
-        if raw is None:
-            return 0
-        try:
-            value = int(raw)
-        except Exception as exc:
-            raise CoreDispatchError("`{}` must be an integer.".format(key)) from exc
-        if value < 0:
-            raise CoreDispatchError("`{}` must be >= 0.".format(key))
-        return value
+        """Read a nonnegative integer offset; absence or null selects zero."""
+        return optional_int(payload, key, default=0, minimum=0) or 0
 
     @staticmethod
     def _normalize_wait_timeout(payload: Mapping[str, Any]) -> float | None:
-        """
-        Select timeout_s before legacy timeout and convert numeric values or recognized disabling tokens.
+        """Read a nullable finite numeric timeout, preferring timeout_s."""
+        key = "timeout_s" if "timeout_s" in payload else "timeout"
+        raw = payload.get(key)
+        return None if raw is None else number_value(raw, key)
 
-        A present timeout_s wins even when None. None/off/disable/disabled text
-        means no supplied deadline. Numeric conversion accepts negative and
-        nonfinite values without additional validation; blank text is invalid.
-
-        Example:
-            >>> CoreRuntime._normalize_wait_timeout({"timeout": "off"}) is None
-            True
-            >>> CoreRuntime._normalize_wait_timeout({"timeout_s": "2.5"})
-            2.5
-
-
-        :param payload: Mapping with optional preferred timeout_s or legacy timeout field.
-        :return: Requested float timeout in seconds or None for absence/disabling tokens.
-        :raises CoreDispatchError: If a non-disabled value cannot be converted to float.
-        """
-        if "timeout_s" in payload:
-            raw = payload.get("timeout_s")
-        elif "timeout" in payload:
-            raw = payload.get("timeout")
-        else:
-            return None
-        if raw is None:
-            return None
-        token = str(raw).strip().lower()
-        if token in {"none", "off", "disable", "disabled"}:
-            return None
-        try:
-            return float(raw)
-        except Exception as exc:
-            raise CoreDispatchError(
-                "`timeout_s` must be a float, int, or none-like token."
-            ) from exc
 
     def _handle_jobs_list_query(
         self, runtime: "CoreRuntime", query: CoreQuery
@@ -2463,7 +2435,7 @@ class CoreRuntime(CoreAPI):
         do not trigger fallback. Worker keyword completeness is deferred to execution.
         Missing/None job_timeout_s becomes manager timeout -1, disabling the native
         backend deadline rather than selecting the manager's ordinary default.
-        Other timeout values are float-coerced without range/finite checks.
+        Other timeout values must be finite numbers; deadline semantics belong to the manager.
 
         Labels prefer stripped label then job_label, with literal stringification
         meaning None can become a nonblank label. Submission is not undone if later
@@ -2494,10 +2466,10 @@ class CoreRuntime(CoreAPI):
             sync_kwargs["db_type"] = self._resolve_library_db_type()
 
         timeout_value = payload.get("job_timeout_s", None)
-        timeout_s = None if timeout_value is None else float(timeout_value)
+        timeout_s = None if timeout_value is None else number_value(timeout_value, "job_timeout_s")
         manager_timeout = -1.0 if timeout_s is None else float(timeout_s)
 
-        no_output = bool(payload.get("job_no_output", False))
+        no_output = boolean(payload, "job_no_output", False)
         backend = payload.get("job_backend", None)
         label = (
             str(payload.get("label", "")).strip()
@@ -2639,7 +2611,7 @@ class CoreRuntime(CoreAPI):
         label = None if label_raw in (None, "") else str(label_raw)
         try:
             if self._durable_jobs is not None and self._durable_jobs.handles(job_id):
-                if label is not None or bool(payload.get("allow_succeeded", False)):
+                if label is not None or boolean(payload, "allow_succeeded", False):
                     raise ValueError(
                         "Durable retries preserve their label and refuse successful runs"
                     )
@@ -2654,7 +2626,7 @@ class CoreRuntime(CoreAPI):
                 retried_job_id = self.job_manager.retry(
                     job_id,
                     label=label,
-                    allow_succeeded=bool(payload.get("allow_succeeded", False)),
+                    allow_succeeded=boolean(payload, "allow_succeeded", False),
                 )
             info = self.job_manager.get(retried_job_id)
         except KeyError as exc:

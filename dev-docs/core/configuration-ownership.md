@@ -11,6 +11,17 @@ preferences with the remote Core; a local profile cannot redirect the server's f
 create directories or load settings. A component object captures its path at
 construction; opening another profile cannot redirect an existing object.
 
+## Diagnostic redaction
+
+`core.settings.redacted_manifest` returns an independent diagnostic copy. It
+traverses nested mappings and arrays, masks secret-labelled fields, URL passwords,
+sensitive query parameters (including encoded keys and nested URLs), and URL
+fragments. Malformed URLs, cycles, excessive depth and opaque objects are replaced
+with `<redacted>`. Safe connection context such as host, IPv6 brackets, path and
+non-secret options is retained. The actual connection values are never modified.
+This recognizes structured credential forms; it is not arbitrary-secret detection
+in free text. Configuration diagnostics must use this projection before display.
+
 ## Selection and path precedence
 
 Connection selection retains its existing order: explicit connection or profile,

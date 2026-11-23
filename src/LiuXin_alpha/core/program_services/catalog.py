@@ -13,6 +13,7 @@ from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any
 
 from LiuXin_alpha.core.errors import CoreDispatchError
+from LiuXin_alpha.core.payloads import boolean
 from LiuXin_alpha.core.program_services.payloads import (
     _agent_role,
     _callable,
@@ -105,7 +106,7 @@ def catalog_fields_list(
     Enumerate one field-metadata family and project each key's metadata in provider order.
 
     Kind is stripped/lowercased, with falsey input selecting all. include_composites
-    is truth-tested but used only for custom fields. Keys are not deduplicated or
+    must be a boolean but is used only for custom fields. Keys are not deduplicated or
     sorted by this adapter, and no per-key lookup failures are suppressed.
 
     Example:
@@ -120,7 +121,7 @@ def catalog_fields_list(
     payload = _payload(query)
     metadata = runtime.services.field_metadata
     kind = str(payload.get("kind") or "all").strip().lower()
-    include_composites = bool(payload.get("include_composites", True))
+    include_composites = boolean(payload, "include_composites", True)
     if kind == "sortable":
         keys = metadata.sortable_field_keys()
     elif kind == "displayable":
@@ -228,7 +229,7 @@ def catalog_identifiers_list(
 
 
     :param runtime: Runtime exposing Catalog identifier repository capabilities.
-    :param query: Query containing level and required integer-convertible entity_id.
+    :param query: Query containing level and required integer entity_id.
     :return: Normalized requested level/ID, projected identifier list, and list count.
     """
     payload = _payload(query)
@@ -273,7 +274,7 @@ def catalog_identifiers_primary_values(
 
 
     :param runtime: Runtime whose identifier repository implements primary_values_for_wemi.
-    :param query: Query containing required level text and integer-convertible entity_id.
+    :param query: Query containing required level text and integer entity_id.
     :return: Lowercased level/ID, identifier dictionary, and length of the original result.
     """
     payload = _payload(query)

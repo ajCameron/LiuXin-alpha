@@ -238,6 +238,7 @@ def install_commands(api: StorageHandlers, runtime: ProgramEndpointRegistrar) ->
         ),
         tags=("storage", "ingest", "write"),
         remote_capabilities=("admin",),
+        requirements=("Some source kinds require network access or external tools.",),
     )
 
     command(

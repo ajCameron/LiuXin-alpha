@@ -13,6 +13,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from LiuXin_alpha.core.errors import CoreDispatchError
+from LiuXin_alpha.core.payloads import boolean
 from LiuXin_alpha.core.program_services.evacuation_execution import execute_evacuation
 from LiuXin_alpha.core.program_services.evacuation_models import (
     EvacuationLimits,
@@ -103,7 +104,7 @@ def storage_store_evacuate_plan(
     Validate a plan query's source and Asset bound, then return a fresh evacuation plan receipt.
 
     max_assets defaults to 100, must convert to an integer >= 1, and is capped at
-    10,000. Booleans are rejected; other int-convertible values may be coerced.
+    10,000. Booleans, fractional values and numeric strings are rejected.
     Explicit null survives the optional parser and fails the non-null assertion.
 
     Example:
@@ -137,8 +138,8 @@ def storage_store_evacuate_apply(
     Replan, execute bounded evacuation, and replan again to produce a synchronous attempt receipt.
 
     Defaults are 100 Assets, 1,000 action receipts, and 1 TiB of estimated transfer
-    bytes. Bounds reject booleans and converted values below one; Asset/action counts
-    are capped at 10,000/100,000. keep_source_bytes uses ordinary truth conversion.
+    bytes. Bounds require integers of at least one; Asset/action counts
+    are capped at 10,000/100,000. keep_source_bytes requires a boolean.
     No rollback occurs if execution or the final read/report step fails.
 
     Example:
@@ -172,7 +173,7 @@ def storage_store_evacuate_apply(
         destination_reference=values.get("destination_store"),
         max_assets=max_assets,
     )
-    keep_source_bytes = bool(values.get("keep_source_bytes", False))
+    keep_source_bytes = boolean(values, "keep_source_bytes", False)
     execution = execute_evacuation(
         runtime.library.storage,
         before,

@@ -302,10 +302,57 @@ without weakening its completion checks.
 | 8 | **Domain and API consolidation:** implement selective cleanup, finish supported deferred repair actions, extract storage policy, retire superseded adapters after caller migration | Slices 1/3/5; coordinated Catalog/storage work | Every required operation implemented on supported backends; domain invariants identical through all entry points; no new upward dependencies or compatibility facades; API inventory and strict typing coverage expand |
 | 9 | **Acceptance and release:** publish supported capability/backend matrix and operational runbooks | All preceding slices | The sign-off scenarios below pass; current evidence is attached to the reviewed revision; remaining optional limitations are explicit rather than hidden behind a completeness flag |
 
-Start with slice 1. It is bounded and corrects misleading or unsafe contracts
-before expanding them. Configuration remains the next architectural migration,
+Slice 1 corrects misleading or unsafe contracts before expanding them; its
+implementation is recorded in the follow-up below. Configuration remains the next architectural migration,
 followed by native metadata completeness. Avoid a wholesale runtime rewrite or
 another top-level service package.
+
+## Contract corrections follow-up
+
+Slice 1 addresses findings F1, F4, F5 and F8 in a separate implementation commit.
+The findings above describe the reviewed `04d6fd7d` baseline; they are retained as
+historical evidence.
+
+- Commands now capture immutable registrations, retaining the handler, authority
+  and serialization policy through concurrent replacement and event callbacks.
+- Shared strict primitive validation runs at dispatch before handlers. Named
+  adapters share strict IDs, text, flags, finite numbers and identity arrays;
+  surfaces own textual CLI conversion. Invalid declarations cannot replace a route.
+- Discovery derives its complete inventory from those registrations. Per-route
+  support, prerequisites and permissions remain separate from unprobed readiness.
+  Built-in selective cleanup reports unavailable; injected implementations can
+  supply it without discovery constructing the lazy maintenance service.
+- Configuration diagnostics copy and redact nested containers and supported URL
+  credential forms, failing closed for malformed URLs and cyclic/opaque values.
+
+The [Core API](core-api.md) records the intentional contract changes, including
+replacement of `complete_program_boundary` by `inventory_complete` and stricter
+primitive input. [Configuration ownership](configuration-ownership.md) records
+redaction scope. Further functionality, readiness probing and the remaining eight
+completion slices are separate work; this does not establish whole-Core sign-off.
+
+Validation on the final implementation:
+
+- The original focused reproductions failed all 66 cases before the corrections.
+  The final focused selection passed **207 tests** in 3.09 s, covering the new
+  [contract regressions](../../tests/core/test_contract_corrections.py), existing
+  adapters, metadata refusal before effects, diagnostics and quality-runner setup.
+- The broader selection ran all Core tests, native cache metadata workflows,
+  surface boundaries, configuration and developer documentation: **590 passed**
+  with **one PostgreSQL skip** in 1,189.14 s. Its sole failure was an old test
+  expecting a missing metadata field to reach the handler. That assertion now
+  expects dispatch rejection and proves metadata/events are unchanged; it passed
+  in the final focused rerun. The test runs overlap; these are not additive totals.
+- The final full quality gate passed formatting, lint, complexity, import cycles,
+  dependency direction and cold-import budgets; basedpyright reported no errors,
+  mypy checked 574 source files, and 127/123 negative type examples were rejected.
+- Final developer navigation and documentation boundary checks passed **22 tests**
+  in 9.49 s after the evidence update.
+- Live PostgreSQL maintenance was not run because `LIUXIN_TEST_POSTGRES_URL` was
+  not configured. The existing iso639 deprecation warning remains unrelated.
+
+No production behavior changed after the broad run began. Subsequent changes
+updated documentation and added/corrected regression assertions.
 
 ## Full functionality sign-off criteria
 

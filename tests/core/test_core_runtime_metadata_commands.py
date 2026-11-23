@@ -12,7 +12,7 @@ from dataclasses import dataclass
 import pytest
 
 from LiuXin_alpha.core import CoreCommand, CoreQuery, CoreRuntime
-from LiuXin_alpha.core.errors import CoreHandlerError
+from LiuXin_alpha.core.errors import CoreDispatchError
 from LiuXin_alpha.catalog.retrieval.hydration import LiuXinWEMIMetadataHydrator
 from tests.catalog.retrieval.test_item_metadata_hydrator import _build_fake_database
 
@@ -260,23 +260,22 @@ def test_core_runtime_metadata_field_replace_commands_are_authoritative(
 
 
 def test_core_runtime_metadata_field_replace_requires_field_payload() -> None:
-    """
-    Reject a tags-replacement request that supplies item identity but omits replacement values.
-
-    Example:
-        >>> test_core_runtime_metadata_field_replace_requires_field_payload()
-
-
-    :return: None if the wrapped handler error identifies the absent tags payload.
-    """
+    """Missing replacement values fail at dispatch, before metadata mutation or events."""
     runtime = CoreRuntime(library=_MetadataLibrary(database=_build_fake_database()))
-
-    with pytest.raises(CoreHandlerError) as exc_info:
-        runtime.execute_command(
-            CoreCommand(
-                name="metadata.tags.replace",
-                payload={"item_id": 1, "kind": "liuxin"},
+    events = []
+    runtime.subscribe(events.append)
+    before = _metadata_tags(runtime.database)
+    try:
+        with pytest.raises(CoreDispatchError) as failure:
+            runtime.execute_command(
+                CoreCommand(
+                    name="metadata.tags.replace",
+                    payload={"item_id": 1, "kind": "liuxin"},
+                )
             )
-        )
-
-    assert "payload missing `tags`" in str(exc_info.value)
+        assert failure.value.code == "invalid_payload"
+        assert failure.value.details == {"parameter": "tags"}
+        assert _metadata_tags(runtime.database) == before
+        assert events == []
+    finally:
+        runtime.shutdown()

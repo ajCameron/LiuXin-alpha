@@ -13,6 +13,7 @@ import json
 from typing import TYPE_CHECKING, Any
 
 from LiuXin_alpha.core.errors import CoreDispatchError
+from LiuXin_alpha.core.payloads import boolean
 from LiuXin_alpha.core.program_services.payloads import (
     _database_path,
     _database_type,
@@ -67,7 +68,7 @@ def ingest_disk_start(
     A missing/None ebook_extensions field passes None; other values use ordered,
     stripped text-list normalization. store_name passes through unchanged. Hashing,
     Store linking, and storage-manager refresh default True; following symlinks
-    defaults False, with all switches truth-tested rather than type-checked.
+    defaults False, with all switches requiring boolean values.
     A falsey source_label selects on_disk_unmanaged_import. No scan is run here.
 
     Example:
@@ -90,10 +91,10 @@ def ingest_disk_start(
             else None
         ),
         "source_label": str(payload.get("source_label") or "on_disk_unmanaged_import"),
-        "compute_hash": bool(payload.get("compute_hash", True)),
-        "follow_symlinks": bool(payload.get("follow_symlinks", False)),
-        "attach_store_links": bool(payload.get("attach_store_links", True)),
-        "refresh_storage_manager": bool(payload.get("refresh_storage_manager", True)),
+        "compute_hash": boolean(payload, "compute_hash", True),
+        "follow_symlinks": boolean(payload, "follow_symlinks", False),
+        "attach_store_links": boolean(payload, "attach_store_links", True),
+        "refresh_storage_manager": boolean(payload, "refresh_storage_manager", True),
     }
     return _job_submit(
         runtime,

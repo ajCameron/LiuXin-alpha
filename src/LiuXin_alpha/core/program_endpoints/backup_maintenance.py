@@ -13,6 +13,7 @@ from LiuXin_alpha.core.program_endpoints.common import (
     field,
 )
 from LiuXin_alpha.core.program_endpoints.handlers import BackupMaintenanceHandlers
+from LiuXin_alpha.core.program_services.maintenance import selective_cleanup_unavailable
 
 
 def install_queries(
@@ -147,6 +148,9 @@ def install_commands(
         payload_fields=(field("workflow_id", required=True, field_type="integer"),),
         tags=("backup", "storage", "jobs", "write"),
         remote_capabilities=("execute",),
+        requirements=(
+            "Requires a path-backed database and tools required by the workflow kind.",
+        ),
     )
 
     command(
@@ -161,6 +165,9 @@ def install_commands(
         ),
         tags=("backup", "storage", "jobs", "write"),
         remote_capabilities=("execute",),
+        requirements=(
+            "Requires a path-backed database and the configured mksquashfs executable.",
+        ),
     )
 
     command(
@@ -179,6 +186,9 @@ def install_commands(
         ),
         tags=("backup", "storage", "jobs", "write"),
         remote_capabilities=("execute",),
+        requirements=(
+            "Requires a path-backed database and the configured mksquashfs executable.",
+        ),
     )
 
     command(
@@ -197,6 +207,9 @@ def install_commands(
         ),
         tags=("backup", "storage", "jobs", "write"),
         remote_capabilities=("execute",),
+        requirements=(
+            "Requires a path-backed database and the configured mksquashfs executable.",
+        ),
     )
 
     command(
@@ -215,6 +228,9 @@ def install_commands(
         ),
         tags=("maintenance", "write"),
         remote_capabilities=("admin",),
+        requirements=(
+            "Requires a compatible maintenance service and installed plugin schema.",
+        ),
     )
 
     command(
@@ -227,6 +243,7 @@ def install_commands(
         ),
         tags=("maintenance", "write"),
         remote_capabilities=("admin",),
+        capability_check=selective_cleanup_unavailable,
     )
 
     command(

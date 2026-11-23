@@ -11,9 +11,10 @@ later projection, validation, or job submission.
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any
 
 from LiuXin_alpha.core.errors import CoreDispatchError
+from LiuXin_alpha.core.payloads import boolean, integer_value
 from LiuXin_alpha.core.program_services.payloads import (
     _database_path,
     _database_type,
@@ -173,7 +174,7 @@ def backup_workflow_get(
 
 
     :param runtime: Runtime providing the checkpoint repository's database.
-    :param query: Query with required integer-convertible workflow_id, excluding bool.
+    :param query: Query with required integer workflow_id, excluding bool.
     :return: workflow_id, projected declaration under spec, and projected checkpoint under state.
     """
     payload = _payload(query)
@@ -276,7 +277,7 @@ def backup_squashfs_start(
 
     The Mapping is copied but not parsed into a workflow declaration here.
     verify_after_build defaults True; cleanup_staging_after_success defaults False,
-    both truth-tested. staging_root passes through unchanged; worker policy owns
+    both strictly boolean. staging_root passes through unchanged; worker policy owns
     path validation, building, verification, and cleanup.
 
     Example:
@@ -296,9 +297,9 @@ def backup_squashfs_start(
             "database_path": _database_path(runtime),
             "db_type": _database_type(runtime),
             "workflow_spec": _mapping(payload, "workflow_spec"),
-            "verify_after_build": bool(payload.get("verify_after_build", True)),
-            "cleanup_staging_after_success": bool(
-                payload.get("cleanup_staging_after_success", False)
+            "verify_after_build": boolean(payload, "verify_after_build", True),
+            "cleanup_staging_after_success": boolean(
+                payload, "cleanup_staging_after_success", False
             ),
             "staging_root": payload.get("staging_root"),
         },
@@ -315,7 +316,7 @@ def backup_squashfs_publish_store_start(
 
     Empty/None output_archive passes None; compression defaults to zstd for falsey
     input. deterministic, force, and strict default False; duplicate_verified_files
-    and refresh_storage_manager default True. Switches are truth-tested, and no
+    and refresh_storage_manager default True. Switches must be booleans, and no
     live Store lookup or archive-path validation occurs before submission here.
 
     Example:
@@ -340,14 +341,14 @@ def backup_squashfs_publish_store_start(
                 None if output_archive in (None, "") else str(output_archive)
             ),
             "compression": str(payload.get("compression") or "zstd"),
-            "deterministic": bool(payload.get("deterministic", False)),
-            "force": bool(payload.get("force", False)),
-            "duplicate_verified_files": bool(
-                payload.get("duplicate_verified_files", True)
+            "deterministic": boolean(payload, "deterministic", False),
+            "force": boolean(payload, "force", False),
+            "duplicate_verified_files": boolean(
+                payload, "duplicate_verified_files", True
             ),
-            "strict": bool(payload.get("strict", False)),
-            "refresh_storage_manager": bool(
-                payload.get("refresh_storage_manager", True)
+            "strict": boolean(payload, "strict", False),
+            "refresh_storage_manager": boolean(
+                payload, "refresh_storage_manager", True
             ),
         },
         default_label="publish SquashFS store",
@@ -382,7 +383,7 @@ def backup_squashfs_publish_files_start(
         (str, bytes),
     ):
         raise CoreDispatchError("`file_ids` must be an array.")
-    file_ids = [int(cast(Any, value)) for value in raw_file_ids]
+    file_ids = [integer_value(value, "file_ids") for value in raw_file_ids]
     if not file_ids:
         raise CoreDispatchError("`file_ids` must not be empty.")
     store_name = payload.get("store_name")
@@ -397,11 +398,11 @@ def backup_squashfs_publish_files_start(
             "archive": _required_text(payload, "archive"),
             "store_name": (None if store_name in (None, "") else str(store_name)),
             "compression": str(payload.get("compression") or "zstd"),
-            "deterministic": bool(payload.get("deterministic", False)),
-            "force": bool(payload.get("force", False)),
-            "strict": bool(payload.get("strict", False)),
-            "refresh_storage_manager": bool(
-                payload.get("refresh_storage_manager", True)
+            "deterministic": boolean(payload, "deterministic", False),
+            "force": boolean(payload, "force", False),
+            "strict": boolean(payload, "strict", False),
+            "refresh_storage_manager": boolean(
+                payload, "refresh_storage_manager", True
             ),
         },
         default_label="publish SquashFS files",

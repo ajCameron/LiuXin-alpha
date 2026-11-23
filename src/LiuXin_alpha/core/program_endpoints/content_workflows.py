@@ -169,6 +169,9 @@ def install_commands(
         ),
         tags=("metadata", "online", "jobs", "write"),
         remote_capabilities=("execute",),
+        requirements=(
+            "Results depend on configured online metadata plugins and network access.",
+        ),
     )
 
     command(
@@ -183,6 +186,9 @@ def install_commands(
         ),
         tags=("metadata", "online", "jobs", "write"),
         remote_capabilities=("execute",),
+        requirements=(
+            "Results depend on configured cover plugins and network access.",
+        ),
     )
 
     command(
@@ -201,6 +207,7 @@ def install_commands(
         ),
         tags=("ingest", "jobs", "write"),
         remote_capabilities=("execute",),
+        requirements=("Requires a path-backed database and readable local source.",),
     )
 
     command(
@@ -213,6 +220,7 @@ def install_commands(
         ),
         tags=("ingest", "remote", "jobs", "write"),
         remote_capabilities=("execute",),
+        requirements=("Requires a path-backed database and network access.",),
     )
 
     command(
@@ -225,6 +233,9 @@ def install_commands(
         ),
         tags=("ingest", "remote", "jobs", "write"),
         remote_capabilities=("execute",),
+        requirements=(
+            "Requires a path-backed database; downloads also need a writable managed Store and sufficient space.",
+        ),
     )
 
     command(
@@ -238,4 +249,7 @@ def install_commands(
         ),
         tags=("conversion", "jobs", "write"),
         remote_capabilities=("execute",),
+        requirements=(
+            "Requires the input/output format plugins and any external tools they use.",
+        ),
     )

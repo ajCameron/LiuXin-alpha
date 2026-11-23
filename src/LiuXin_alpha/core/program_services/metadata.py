@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from LiuXin_alpha.core.errors import CoreDispatchError
+from LiuXin_alpha.core.payloads import number_value
 from LiuXin_alpha.core.program_services.payloads import (
     _job_submit,
     _payload,
@@ -371,7 +372,7 @@ def metadata_identify_start(
         raise CoreDispatchError("`identifiers` must be an object.")
     authors = _text_list(payload, "authors")
     allowed = _text_list(payload, "allowed_plugins")
-    timeout = float(payload.get("timeout_s", 30.0))
+    timeout = number_value(payload.get("timeout_s", 30.0), "timeout_s")
     if not str(payload.get("title") or "").strip() and not authors and not identifiers:
         raise CoreDispatchError("Provide a title, authors, or identifiers.")
     return _job_submit(
@@ -416,7 +417,7 @@ def metadata_covers_start(
     if not isinstance(identifiers, Mapping):
         raise CoreDispatchError("`identifiers` must be an object.")
     authors = _text_list(payload, "authors")
-    timeout = float(payload.get("timeout_s", 30.0))
+    timeout = number_value(payload.get("timeout_s", 30.0), "timeout_s")
     if not str(payload.get("title") or "").strip() and not authors and not identifiers:
         raise CoreDispatchError("Provide a title, authors, or identifiers.")
     return _job_submit(

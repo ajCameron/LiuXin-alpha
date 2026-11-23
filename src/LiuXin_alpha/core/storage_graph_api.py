@@ -22,6 +22,9 @@ from typing import TYPE_CHECKING, Any, cast
 
 from LiuXin_alpha.core.description import CorePayloadFieldDescription
 from LiuXin_alpha.core.errors import CoreDispatchError
+from LiuXin_alpha.core.payloads import integer_value
+from LiuXin_alpha.core.payloads import required_int as _required_int
+from LiuXin_alpha.core.payloads import required_text as _required_text
 from LiuXin_alpha.core.services import CoreServiceReconciliationError
 
 if TYPE_CHECKING:
@@ -181,7 +184,7 @@ def _field(
 
     :param name: Public payload key described by this declaration.
     :param required: Whether the advertised contract marks the field mandatory.
-    :param field_type: Optional type label for clients, not an executable validator.
+    :param field_type: Optional type label for clients, enforced by CoreRuntime for primitive values.
     :return: New field-description record retaining the supplied values.
     """
     return CorePayloadFieldDescription(
@@ -211,54 +214,6 @@ def _payload(envelope: Any) -> dict[str, Any]:
     if not isinstance(raw, Mapping):
         raise CoreDispatchError("Core payload must be an object.")
     return dict(raw)
-
-
-def _required_text(payload: Mapping[str, Any], name: str) -> str:
-    """
-    Stringify and strip a required field, rejecting empty text but not non-string values.
-
-    Explicit None becomes "None"; it is not treated as a missing field here.
-
-    Example:
-        >>> _required_text({"resource": " asset "}, "resource")
-        'asset'
-
-
-    :param payload: Request mapping containing the required key.
-    :param name: Exact field name to retrieve and include in a missing-value error.
-    :return: Nonempty stripped text, without validating resource membership.
-    :raises CoreDispatchError: If the field is absent or converts to empty/whitespace-only text.
-    """
-    value = str(payload.get(name, "")).strip()
-    if not value:
-        raise CoreDispatchError(f"`{name}` is required.")
-    return value
-
-
-def _required_int(payload: Mapping[str, Any], name: str) -> int:
-    """
-    Convert a required non-None, non-boolean field using int, without enforcing a positive range.
-
-    Numeric fractions may truncate. Only TypeError/ValueError from conversion are
-    wrapped; overflow and other custom conversion failures remain visible.
-
-    Example:
-        >>> _required_int({"id": "7"}, "id")
-        7
-
-
-    :param payload: Request mapping containing the integer-convertible field.
-    :param name: Required key also used in the validation message.
-    :return: Converted integer, including zero or negative values if supplied.
-    :raises CoreDispatchError: For missing/None/bool values or conversion TypeError/ValueError.
-    """
-    value = payload.get(name)
-    if value is None or isinstance(value, bool):
-        raise CoreDispatchError(f"`{name}` must be an integer.")
-    try:
-        return int(value)
-    except (TypeError, ValueError) as exc:
-        raise CoreDispatchError(f"`{name}` must be an integer.") from exc
 
 
 def _mapping(payload: Mapping[str, Any], name: str) -> dict[str, Any]:
@@ -725,7 +680,7 @@ class CoreStorageGraphAPI:
         """
         Read a bounded page of matching resource rows in physical ID order.
 
-        limit defaults to 100 and is int-converted/clamped to 0..10,000; offset
+        limit defaults to 100 and is validated as integers and clamped to 0..10,000; offset
         defaults to zero and is clamped nonnegative. Booleans/fractions follow int
         conversion, while explicit None raises. Filters allow IDs but still reject
         managed timestamp fields. Production SQL reads at most limit + 1 rows;
@@ -745,8 +700,8 @@ class CoreStorageGraphAPI:
         if not isinstance(where_raw, Mapping):
             raise CoreDispatchError("`where` must be an object.")
         where = _normalise_values(runtime, spec, where_raw, allow_id=True)
-        limit = max(0, min(int(payload.get("limit", 100)), 10_000))
-        offset = max(0, int(payload.get("offset", 0)))
+        limit = max(0, min(integer_value(payload.get("limit", 100), "limit"), 10_000))
+        offset = max(0, integer_value(payload.get("offset", 0), "offset"))
         macros = _macros(runtime)
         page_reader = getattr(macros, "get_rows_page", None)
         if callable(page_reader):
@@ -819,7 +774,7 @@ class CoreStorageGraphAPI:
 
 
         :param runtime: Runtime supplying portable managed-storage table access.
-        :param query: Query with required integer-convertible asset_id, excluding None/bool.
+        :param query: Query with required integer asset_id, excluding None/bool.
         :return: asset, replicas, item_links, and policy components; absent Asset gives None/empty lists/None.
         """
         payload = _payload(query)
@@ -1015,7 +970,7 @@ class CoreStorageGraphAPI:
 
 
         :param runtime: Runtime providing portable Asset/Replica/policy table reads.
-        :param query: Query with required integer-convertible asset_id, excluding None/bool.
+        :param query: Query with required integer asset_id, excluding None/bool.
         :return: Assessment dictionary with explicit policy IDs, counts, and minimum/target comparisons.
         """
         return self._assess(runtime, _required_int(_payload(query), "asset_id"))
@@ -1040,7 +995,7 @@ class CoreStorageGraphAPI:
 
 
         :param runtime: Runtime providing portable Asset, Replica, policy, and Store row reads.
-        :param query: Query with required integer-convertible asset_id.
+        :param query: Query with required integer asset_id.
         :return: Assessment, active-then-backup placement suggestions, and nonnegative per-family shortfalls.
         """
         payload = _payload(query)
@@ -1130,7 +1085,7 @@ class CoreStorageGraphAPI:
 
         The historical route summary mentions targets; selection actually uses
         meets_minimum. All Asset/Replica/policy reads precede pagination. limit is
-        int-converted/clamped to 0..10,000 and offset to nonnegative; defaults are
+        validated as integers and clamped to 0..10,000 and offset to nonnegative; defaults are
         100/0. Replica and explicit-policy references are batched; assessment stays
         here. Reads are not a pinned snapshot; malformed row data can abort the scan.
 
@@ -1139,12 +1094,12 @@ class CoreStorageGraphAPI:
 
 
         :param runtime: Runtime providing full Asset enumeration and row-based policy assessment.
-        :param query: Query with optional integer-convertible limit/offset; explicit None is not accepted.
+        :param query: Query with optional integer limit/offset; explicit None is not accepted.
         :return: records window in Asset-ID order, normalized pagination, and completeness relative to the violating subset.
         """
         payload = _payload(query)
-        limit = max(0, min(int(payload.get("limit", 100)), 10_000))
-        offset = max(0, int(payload.get("offset", 0)))
+        limit = max(0, min(integer_value(payload.get("limit", 100), "limit"), 10_000))
+        offset = max(0, integer_value(payload.get("offset", 0), "offset"))
         assets = _macros(runtime).get_rows(
             "digital_assets",
             order_by=("digital_asset_id",),
@@ -1274,7 +1229,7 @@ class CoreStorageGraphAPI:
 
 
         :param runtime: Runtime providing portable macro persistence and post-write service reconciliation.
-        :param command: Writable resource, integer-convertible id, Mapping values and optional policy/Composite if_revision.
+        :param command: Writable resource, integer id, Mapping values and optional policy/Composite if_revision.
         :return: Reconciled updated=True receipt with the readback record, possibly None after concurrent removal.
         :raises CoreDispatchError: For read-only/unknown resources, missing rows, or invalid payload/field names.
         """
@@ -1362,7 +1317,7 @@ class CoreStorageGraphAPI:
 
 
         :param runtime: Runtime providing macro get/delete and service reconciliation.
-        :param command: Writable resource, integer-convertible id and optional Composite-only if_revision.
+        :param command: Writable resource, integer id and optional Composite-only if_revision.
         :return: Plain deleted=False receipt for absence, or reconciled deleted=True receipt with the former record.
         :raises CoreDispatchError: For read-only/unknown resources or invalid request fields.
         """

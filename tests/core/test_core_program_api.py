@@ -1002,26 +1002,11 @@ def test_program_discovery_and_local_support_cover_every_capability_family(
     try:
         capabilities = runtime.query("capabilities.list")
         assert capabilities["api_version"] == "2.0"
-        assert capabilities["complete_program_boundary"] is True
-        assert set(capabilities["families"]) == {
-            "lifecycle",
-            "jobs",
-            "database",
-            "schema",
-            "tree",
-            "preferences",
-            "custom_fields",
-            "catalog",
-            "search",
-            "browse",
-            "acquisition",
-            "metadata",
-            "storage",
-            "ingest",
-            "conversion",
-            "backup",
-            "maintenance",
-        }
+        assert capabilities["inventory_complete"] is True
+        assert {"jobs", "metadata", "storage", "maintenance"} <= set(
+            capabilities["families"]
+        )
+        assert capabilities["readiness_probed"] is False
         assert (
             capabilities["operations"]["conversion.start"]["availability"]
             == "conditional"

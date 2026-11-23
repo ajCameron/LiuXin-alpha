@@ -124,7 +124,7 @@ class BackupMaintenanceHandlers(Protocol):
 
 
         :param runtime: Runtime providing the checkpoint repository's database.
-        :param query: Query with required integer-convertible workflow_id, excluding bool.
+        :param query: Query with required integer workflow_id, excluding bool.
         :return: workflow_id, projected declaration under spec, and projected checkpoint under state.
         """
         ...
@@ -259,7 +259,7 @@ class BackupMaintenanceHandlers(Protocol):
 
 
         :param runtime: Runtime whose maintenance service provides run_once.
-        :param command: Command with optional positive integer-convertible max_events, excluding bool.
+        :param command: Command with optional positive integer max_events, excluding bool.
         :return: Requested event budget and plain-projected run_once result under plugins.
         """
         ...
@@ -504,7 +504,7 @@ class CatalogSearchHandlers(Protocol):
 
 
         :param runtime: Runtime exposing Catalog identifier repository capabilities.
-        :param query: Query containing level and required integer-convertible entity_id.
+        :param query: Query containing level and required integer entity_id.
         :return: Normalized requested level/ID, projected identifier list, and list count.
         """
         ...
@@ -523,7 +523,7 @@ class CatalogSearchHandlers(Protocol):
 
 
         :param runtime: Runtime whose identifier repository implements primary_values_for_wemi.
-        :param query: Query containing required level text and integer-convertible entity_id.
+        :param query: Query containing required level text and integer entity_id.
         :return: Lowercased level/ID, identifier dictionary, and length of the original result.
         """
         ...
@@ -942,7 +942,7 @@ class DatabaseSchemaHandlers(Protocol):
 
 
         :param runtime: Runtime supplying database-first set_custom_column_metadata and read-side refresh/reconciliation.
-        :param command: Command with required integer-convertible num and Mapping changes.
+        :param command: Command with required integer num and Mapping changes.
         :return: Reconciled field num, optimistic update/schema flags, and projected changed_row_ids result.
         :raises CoreDispatchError: If required fields are invalid, unknown keys are supplied, or capability lookup fails.
         """
@@ -962,7 +962,7 @@ class DatabaseSchemaHandlers(Protocol):
 
 
         :param runtime: Runtime providing the selected database and its optional driver backup capability.
-        :param command: Command with optional output_path and truth-tested verify=False.
+        :param command: Command with optional output_path and boolean verify=False.
         :return: backed_up=True, stringified backup_path or None, and optional quick_check outcome/messages.
         :raises CoreDispatchError: For unsupported explicit paths, unavailable verification paths, SQLite verification errors, or a non-ok check.
         """
@@ -1299,7 +1299,7 @@ class StorageHandlers(Protocol):
 
 
         :param runtime: Runtime whose storage manager enumerates and verifies replicas.
-        :param command: Command with optional limit, offset, and truth-tested calculate_digests=True.
+        :param command: Command with optional limit, offset, and boolean calculate_digests=True.
         :return: Page results, selected health/error counts, full non-deleted count, effective bounds, and has_more.
         """
         ...
@@ -1318,7 +1318,7 @@ class StorageHandlers(Protocol):
 
 
         :param runtime: Unused runtime; discovery uses DEFAULT_BACKEND_REGISTRY.
-        :param query: Query with optional truth-tested include_internal, defaulting to False.
+        :param query: Query with optional boolean include_internal, defaulting to False.
         :return: Backend descriptor list, count, and non-secret configuration guidance.
         """
         ...
@@ -1413,7 +1413,7 @@ class StorageHandlers(Protocol):
 
 
         :param runtime: Runtime supplying manager reload, replica enumeration/verification, and status snapshots.
-        :param command: Command with optional max_actions and truth-tested include_offline=False for reload.
+        :param command: Command with optional max_actions and boolean include_offline=False for reload.
         :return: Before/after status, action receipts, truncation flag, later-health ok, and the fixed deferred-scope explanation.
         """
         ...
@@ -1548,7 +1548,7 @@ class StorageHandlers(Protocol):
 
 
         :param runtime: Runtime supplying storage.verify_replica.
-        :param command: Command with required integer-convertible replica_id and optional calculate_digests.
+        :param command: Command with required integer replica_id and optional calculate_digests.
         :return: Replica ID, truth-tested report.healthy, and the projected verification report.
         """
         ...
@@ -1606,7 +1606,7 @@ class StorageHandlers(Protocol):
 
 
         :param runtime: Runtime providing storage observations/registries and canonical Store rows.
-        :param query: Query with optional truth-tested refresh_stores=False; no paging/filter fields are consumed.
+        :param query: Query with optional boolean refresh_stores=False; no paging/filter fields are consumed.
         :return: Overall health/time, accounting summary, sorted Store records, invalid-row diagnostics, overview issues, and manager status projection.
         """
         ...
@@ -1748,7 +1748,7 @@ class SystemJobsHandlers(Protocol):
         self, runtime: CoreRuntime, query: CoreQuery
     ) -> Mapping[str, object]:
         """
-        Compare declared program-family names with the runtime's registered command/query union.
+        Describe all actual registrations without claiming operational readiness.
 
         See :func:`LiuXin_alpha.core.program_services.discovery.capabilities_list`
         for the maintained implementation's validation and failure boundaries.
@@ -1757,9 +1757,9 @@ class SystemJobsHandlers(Protocol):
             >>> result = handler.capabilities_list(runtime, query)  # doctest: +SKIP
 
 
-        :param runtime: Runtime providing target-free API descriptions and api_version.
-        :param query: Ignored query envelope; no dependency checks or family filters are requested.
-        :return: API version, declared families/operations, registration completeness, and static dependency notes.
+        :param runtime: Runtime owning the captured command and query registrations.
+        :param query: Discovery request; no payload options are interpreted.
+        :return: Complete registration inventory with declared support, prerequisites and authority per route.
         """
         ...
 

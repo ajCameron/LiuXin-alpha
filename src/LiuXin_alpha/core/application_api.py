@@ -14,14 +14,16 @@ administration is deliberately separate from semantic Catalog operations.
 from __future__ import annotations
 
 import base64
-
 from collections.abc import Iterable, Mapping, Sequence
 from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
+from LiuXin_alpha.catalog.api.repositories import CATALOG_REPOSITORY_NAMES
 from LiuXin_alpha.core.description import CorePayloadFieldDescription
 from LiuXin_alpha.core.errors import CoreDispatchError
-from LiuXin_alpha.catalog.api.repositories import CATALOG_REPOSITORY_NAMES
+from LiuXin_alpha.core.payloads import boolean, integer_value, optional_int
+from LiuXin_alpha.core.payloads import required_int as _required_int
+from LiuXin_alpha.core.payloads import required_text as _required_text
 
 if TYPE_CHECKING:
     from LiuXin_alpha.core.commands import CoreCommand
@@ -59,7 +61,7 @@ def _field(
 
     :param name: Public request key described by the declaration.
     :param required: Whether clients should see the field as mandatory.
-    :param field_type: Optional transport-facing type label, not an executable validator.
+    :param field_type: Optional transport-facing type label, enforced by CoreRuntime for primitive values.
     :param description: Human-readable explanation retained in the field metadata.
     :return: New payload-field description containing the supplied values.
     """
@@ -93,109 +95,13 @@ def _payload(envelope: Any) -> dict[str, Any]:
     return dict(raw)
 
 
-def _required_text(
-    payload: Mapping[str, Any],
-    name: str,
-    *,
-    choices: Iterable[str] | None = None,
-) -> str:
-    """
-    Stringify and strip a required field, optionally checking exact case-sensitive membership in choices.
-
-    Explicit None becomes "None". Choice membership can consume a one-shot iterable;
-    the error lists whatever choices remain when it subsequently iterates them.
-
-    Example:
-        >>> _required_text({"level": " work "}, "level", choices=("work", "item"))
-        'work'
 
 
-    :param payload: Mapping containing the requested field.
-    :param name: Exact key to retrieve and identify in validation errors.
-    :param choices: Optional allowed values checked without case normalization; None disables membership validation.
-    :return: Nonempty stripped text, unchanged after optional membership validation.
-    :raises CoreDispatchError: If text is empty/missing or not among the supplied choices.
-    """
-    value = str(payload.get(name, "")).strip()
-    if not value:
-        raise CoreDispatchError("`{}` is required.".format(name))
-    if choices is not None and value not in choices:
-        raise CoreDispatchError(
-            "`{}` must be one of: {}.".format(
-                name,
-                ", ".join(sorted(str(choice) for choice in choices)),
-            )
-        )
-    return value
 
 
-def _required_int(payload: Mapping[str, Any], name: str) -> int:
-    """
-    Require a present non-boolean value convertible by int, without imposing a numeric range.
-
-    Fractional numeric inputs may truncate. Every ordinary conversion exception,
-    including overflow or None conversion, is chained into a dispatch error.
-
-    Example:
-        >>> _required_int({"row_id": "7"}, "row_id")
-        7
-
-
-    :param payload: Request mapping supplying an integer-convertible field.
-    :param name: Required field name, also used in absence/conversion error messages.
-    :return: Converted integer, including zero or negative values.
-    :raises CoreDispatchError: If the field is absent, bool, or int conversion raises Exception.
-    """
-    if name not in payload:
-        raise CoreDispatchError("`{}` is required.".format(name))
-    value = payload[name]
-    if isinstance(value, bool):
-        raise CoreDispatchError("`{}` must be an integer.".format(name))
-    try:
-        return int(value)
-    except Exception as exc:
-        raise CoreDispatchError("`{}` must be an integer.".format(name)) from exc
-
-
-def _optional_int(
-    payload: Mapping[str, Any],
-    name: str,
-    *,
-    default: int | None,
-    minimum: int = 0,
-) -> int | None:
-    """
-    Convert an optional non-boolean integer field and enforce its inclusive minimum, preserving None.
-
-    Missing values use default; explicit None bypasses conversion and the minimum.
-    Numeric fractions may truncate, and all ordinary conversion errors are wrapped.
-
-    Example:
-        >>> _optional_int({}, "limit", default=100), _optional_int({"limit": None}, "limit", default=100)
-        (100, None)
-
-
-    :param payload: Request mapping carrying an optional field.
-    :param name: Exact field key used for lookup and errors.
-    :param default: Value used only when the key is absent, subject to the same conversion/minimum rules.
-    :param minimum: Inclusive lower bound for non-None converted values; defaults to zero.
-    :return: None or an integer at least minimum.
-    :raises CoreDispatchError: For bool values, conversion failures, or integers below minimum.
-    """
-    raw = payload.get(name, default)
-    if raw is None:
-        return None
-    if isinstance(raw, bool):
-        raise CoreDispatchError("`{}` must be an integer or null.".format(name))
-    try:
-        value = int(raw)
-    except Exception as exc:
-        raise CoreDispatchError(
-            "`{}` must be an integer or null.".format(name)
-        ) from exc
-    if value < minimum:
-        raise CoreDispatchError("`{}` must be >= {}.".format(name, minimum))
-    return value
+def _optional_int(payload: Mapping[str, Any], name: str, *, default: int | None, minimum: int = 0) -> int | None:
+    """Read an optional strict integer with this API's nonnegative default bound."""
+    return optional_int(payload, name, default=default, minimum=minimum)
 
 
 def _mapping(payload: Mapping[str, Any], name: str) -> dict[str, Any]:
@@ -334,7 +240,9 @@ class CoreApplicationAPI:
         """
         query = runtime.register_query_handler
         command = runtime.register_command_handler
-        from LiuXin_alpha.core.program_services.native_metadata import install as install_native_metadata
+        from LiuXin_alpha.core.program_services.native_metadata import (
+            install as install_native_metadata,
+        )
 
         install_native_metadata(runtime)
 
@@ -529,6 +437,7 @@ class CoreApplicationAPI:
             summary="Describe Core's optional modern cache.",
             tags=("cache", "read"),
             remote_capabilities=("read",),
+            requirements=('Cache status depends on the configured cache.',),
         )
         query(
             "storage.stores.list",
@@ -881,6 +790,7 @@ class CoreApplicationAPI:
             summary="Reload Core's configured modern cache.",
             tags=("cache", "lifecycle", "write"),
             remote_capabilities=("admin",),
+            requirements=('Requires a configured cache.',),
         )
         command(
             "read-source.refresh",
@@ -1193,7 +1103,7 @@ class CoreApplicationAPI:
 
 
         :param runtime: Runtime providing read-source row lookup, schema introspection, and optional cache identity.
-        :param query: Query with required table text and integer-convertible row_id, excluding bool.
+        :param query: Query with required table text and integer row_id, excluding bool.
         :return: record (possibly None), complete=True, and cache/database source label.
         """
         payload = _payload(query)
@@ -1213,9 +1123,9 @@ class CoreApplicationAPI:
 
         Array fields require non-str/non-bytes Sequences. Predicate operator names
         are case-sensitive; predicate values pass to CachePredicate validation.
-        Relation IDs reject bool and use int(str(value)), unlike scalar ID fields.
+        Relation IDs follow the same strict integer contract as scalar IDs.
         Sort strings remain unstripped; object sort fields are stripped and their
-        ascending flag is truth-tested. Projection/text-field entries are stringified.
+        ascending flag must be a boolean. Projection/text-field entries are stringified.
         Offset defaults to zero; limit defaults to None (unbounded), with zero
         requesting counts only. Cache record validation errors are not wrapped.
 
@@ -1277,16 +1187,7 @@ class CoreApplicationAPI:
                 (str, bytes),
             ):
                 raise CoreDispatchError("`relation.ids` must be an array.")
-            relation_ids: list[int] = []
-            for value in raw_ids:
-                if isinstance(value, bool):
-                    raise CoreDispatchError("`relation.ids` values must be integers.")
-                try:
-                    relation_ids.append(int(str(value)))
-                except Exception as exc:
-                    raise CoreDispatchError(
-                        "`relation.ids` values must be integers."
-                    ) from exc
+            relation_ids = [integer_value(value, "relation.ids") for value in raw_ids]
             relation = CacheRelation(
                 table=_required_text(raw_relation, "table"),
                 ids=tuple(relation_ids),
@@ -1315,7 +1216,7 @@ class CoreApplicationAPI:
             sort.append(
                 CacheSort(
                     field=_required_text(raw, "field"),
-                    ascending=bool(raw.get("ascending", True)),
+                    ascending=boolean(raw, "ascending", True),
                 )
             )
 
@@ -1617,7 +1518,7 @@ class CoreApplicationAPI:
 
 
         :param runtime: Runtime supplying row/relation reads and record projection.
-        :param query: Query with table, row_id, related_table, optional type_filter, and truth-tested include_link_rows.
+        :param query: Query with table, row_id, related_table, optional type_filter, and boolean include_link_rows.
         :return: records, link_records, complete=True, and a source label when the primary row exists.
         """
         payload = _payload(query)
@@ -1639,7 +1540,7 @@ class CoreApplicationAPI:
             type_filter=(None if type_filter is None else str(type_filter)),
         )
         link_rows: Sequence[Any] = ()
-        if bool(payload.get("include_link_rows", False)):
+        if boolean(payload, "include_link_rows", False):
             link_rows = source.get_interlink_rows(
                 primary_row=row,
                 secondary_table=related_table,
@@ -1712,7 +1613,7 @@ class CoreApplicationAPI:
 
 
         :param runtime: Runtime supplying the Catalog repository registry.
-        :param query: Query with repository name and required integer-convertible entity_id.
+        :param query: Query with repository name and required integer entity_id.
         :return: Repository label and the entity value returned by get, possibly None.
         """
         payload = _payload(query)
@@ -1770,7 +1671,7 @@ class CoreApplicationAPI:
 
 
         :param runtime: Runtime whose Catalog exposes WEMI bundle retrieval.
-        :param query: Query with level and integer-convertible entity_id.
+        :param query: Query with level and integer entity_id.
         :return: Retriever's bundle without an additional adapter projection.
         """
         payload = _payload(query)
@@ -1850,7 +1751,7 @@ class CoreApplicationAPI:
 
 
         :param runtime: Runtime exposing Catalog retrieval projections.
-        :param query: Query containing a required integer-convertible item_id.
+        :param query: Query containing a required integer item_id.
         :return: Shallow Item summary with projection-defined fields and nested values.
         """
         return dict(
@@ -2024,8 +1925,8 @@ class CoreApplicationAPI:
         )
         return dict(
             metadata.to_mapping(
-                include_related=bool(payload.get("include_related", True)),
-                include_legacy=bool(payload.get("include_legacy", True)),
+                include_related=boolean(payload, "include_related", True),
+                include_legacy=boolean(payload, "include_legacy", True),
             )
         )
 
@@ -2219,7 +2120,7 @@ class CoreApplicationAPI:
             details=None if details is None else dict(details),
             identifiers=tuple(dict(value) for value in identifiers),
             language_ids=tuple(
-                int(value) for value in self._array(payload, "language_ids")
+                integer_value(value, "language_ids") for value in self._array(payload, "language_ids")
             ),
             notes=self._array(payload, "notes"),
         )
@@ -2277,7 +2178,7 @@ class CoreApplicationAPI:
             ),
             identifiers=tuple(dict(value) for value in identifiers),
             language_ids=tuple(
-                int(value) for value in self._array(payload, "language_ids")
+                integer_value(value, "language_ids") for value in self._array(payload, "language_ids")
             ),
             notes=self._array(payload, "notes"),
             synopses=self._array(payload, "synopses"),
@@ -2466,7 +2367,7 @@ class CoreApplicationAPI:
         """
         Request semantic WEMI unlinking and reconcile the writer's unmodified outcome value.
 
-        The adapter validates level names and integer-convertible endpoint IDs;
+        The adapter validates level names and integer endpoint IDs;
         relationship legality, absence, and mutation behavior belong to the writer.
 
         Example:
@@ -2687,7 +2588,7 @@ class CoreApplicationAPI:
             _required_text(payload, "src_table"),
             _required_text(payload, "dst_column"),
             *tuple(args),
-            force_refresh=bool(payload.get("force_refresh", False)),
+            force_refresh=boolean(payload, "force_refresh", False),
             destination_owned=payload.get("destination_owned"),
             **dict(kwargs),
         )
@@ -2733,7 +2634,7 @@ class CoreApplicationAPI:
             _required_text(payload, "dst_column"),
             payload.get("src_id"),
             payload.get("dst_value"),
-            force_refresh=bool(payload.get("force_refresh", False)),
+            force_refresh=boolean(payload, "force_refresh", False),
             destination_owned=payload.get("destination_owned"),
             **dict(kwargs),
         )
@@ -2848,7 +2749,7 @@ class CoreApplicationAPI:
 
 
         :param runtime: Runtime providing library deletion and post-write reconciliation.
-        :param command: Command with required table and integer-convertible row_id.
+        :param command: Command with required table and integer row_id.
         :return: Reconciled identifiers and the library result as deleted, without coercion.
         """
         payload = _payload(command)
@@ -3112,7 +3013,7 @@ class CoreApplicationAPI:
         records = [
             self._store_record(
                 store,
-                refresh=bool(payload.get("refresh", False)),
+                refresh=boolean(payload, "refresh", False),
             )
             for store in runtime.services.library.iter_stores()
         ]
@@ -3267,10 +3168,10 @@ class CoreApplicationAPI:
         """
         payload = _payload(command)
         report = runtime.services.library.refresh_storage(
-            startup_on_add=bool(payload.get("startup_on_add", False)),
-            include_offline=bool(payload.get("include_offline", False)),
-            clear_existing=bool(payload.get("clear_existing", True)),
-            strict=bool(payload.get("strict", False)),
+            startup_on_add=boolean(payload, "startup_on_add", False),
+            include_offline=boolean(payload, "include_offline", False),
+            clear_existing=boolean(payload, "clear_existing", True),
+            strict=boolean(payload, "strict", False),
         )
         return {
             "report": report,
@@ -3359,7 +3260,7 @@ class CoreApplicationAPI:
 
 
         :param runtime: Runtime whose library owns managed replica deletion policy.
-        :param command: Command containing a required integer-convertible replica_id.
+        :param command: Command containing a required integer replica_id.
         :return: Replica ID, combined deleted flag, and the library's detailed deletion report.
         """
         payload = _payload(command)

@@ -53,18 +53,51 @@ client = core_client(endpoint="http://127.0.0.1:8765")
 `api.describe` is authoritative for every registered operation, payload,
 summary, tag, and transport-stability flag.
 
-`capabilities.list` is the program-level compatibility contract. It reports:
+`capabilities.list` snapshots the actual command and query registrations, including
+extensions added or replaced after startup. It reports:
 
-- `complete_program_boundary`: whether every operation in the v2 program
-  capability matrix is registered;
-- each capability family, its operation names, and any missing operations;
-- per-operation direct/RPC call modes and local implementation status;
-- operations whose successful execution depends on the selected driver,
-  plugins, network, paths, or external tools.
+- `inventory_complete=true`: every registration in that snapshot is represented;
+- families derived from registration tags, with their operation names;
+- per-route implementation support, prerequisite declarations, direct/RPC exposure,
+  required remote capabilities and transport-stability policy;
+- `readiness_probed=false` and per-route `readiness="not_probed"`.
 
-`complete_program_boundary` describes contract coverage, not the availability
-of every external dependency. Interfaces can therefore fail fast or hide an
-environment-dependent action without probing internal subsystem objects.
+Each operation has a `routes` array so a command and query with the same name keep
+their separate contracts. Availability is `available` for a supported implementation
+without declared prerequisites, `conditional` when prerequisites are declared, or
+`unavailable` when a passive support check reports a missing implementation. An
+operation with differing command/query availability reports `mixed`.
+Built-in `maintenance.clean` is unavailable; an injected implementation can provide
+it. A local-only extension advertises only `direct` in `call_modes`.
+
+This replaces `complete_program_boundary`; completeness refers only to registered
+routes, not completion of the whole application. Availability is not a readiness
+probe or a grant of permission. Capability inspection does not construct lazy
+maintenance or probe tools, drivers or networks; the ordinary dispatch preference
+context still applies. Support callbacks must not open resources or start workers. HTTP roles see the same inventory and must
+still satisfy each route's server-enforced `remote_capabilities`.
+
+## Request and registration contracts
+
+Core captures each handler, authority declaration and result policy together.
+Replacing a route affects later dispatches; an in-flight command or query keeps
+the registration selected when it was admitted.
+
+After authorization and before handler execution, dispatch enforces declared
+required fields and JSON primitive types. Integer IDs exclude booleans, fractions
+and numeric strings; flags require booleans and numbers must be finite. Optional
+means a field may be absent. Explicit `null` is accepted only when its declared
+type includes `null`. Strings remain strings; required-text adapters reject blanks.
+Failures carry `invalid_payload` with the parameter name. Nested domain values and
+undeclared extension fields remain the receiving adapter's responsibility; this
+is not a generic nested schema validator. Shared adapters also validate identity
+arrays and workflow controls before their domain operations.
+
+CLI parsing may turn textual arguments into those primitives before dispatch.
+Core no longer truncates `1.9` to row ID `1`, interprets `"false"` as true, or
+stringifies a missing required name. Extensions declaring payload types must use
+JSON names (`string`, `integer`, `number`, `boolean`, `object`, `array`, `null`) or
+`|` unions. Invalid or duplicate declarations fail before replacing a registration.
 
 The command and query named `invoke` remain compatibility/diagnostic escape
 hatches and are marked `transport_stable=false`. New interface code must use a
