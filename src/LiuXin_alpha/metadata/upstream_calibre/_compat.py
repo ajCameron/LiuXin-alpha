@@ -103,6 +103,9 @@ __all__ = [
 
 TemporaryDirectory = tempfile.TemporaryDirectory
 
+#: calibre's ``zipfile`` name for a local file header's signature.
+stringFileHeader = b"PK\003\004"  # noqa: N816 - calibre's name
+
 
 class ZipFile(zipfile.ZipFile):
     """
@@ -1681,6 +1684,33 @@ def sort_key(text: Any) -> Any:
     return (text or "").casefold()
 
 
+_DIGIT_RUNS = re.compile(r"(\d+)")
+
+
+def numeric_sort_key(text: Any) -> tuple[tuple[int, int | str], ...]:
+    """
+    Make a natural-order sort key, as calibre's ICU numeric collator does: ``page2`` before ``page10``.
+
+    Runs of digits compare as numbers, so leading zeros do not count, and come
+    before letters; the rest compares case-insensitively.
+
+    Example:
+        >>> sorted(["page10.jpg", "Page2.jpg", "page1.jpg", "007.png"], key=numeric_sort_key)
+        ['007.png', 'page1.jpg', 'Page2.jpg', 'page10.jpg']
+
+
+    :param text: The text, or bytes, to sort by.
+    :return: A key that orders numbers within the text by value.
+    """
+    if isinstance(text, bytes):
+        text = text.decode("utf-8", "replace")
+    return tuple(
+        (0, int(part)) if index % 2 else (1, part.casefold())
+        for index, part in enumerate(_DIGIT_RUNS.split(text or ""))
+        if part
+    )
+
+
 # --- calibre.ptempfile, calibre.utils.logging ------------------------------------------
 
 SpooledTemporaryFile = tempfile.SpooledTemporaryFile
@@ -1852,6 +1882,60 @@ def ZoneInfo(name: str) -> Any:  # noqa: N802 - the class name calibre imports
         return datetime.UTC
 
 
+# --- calibre.utils.config: prefs ------------------------------------------------
+
+#: The calibre preferences the ported readers consult, at calibre's defaults:
+#: LiuXin has no calibre preferences file.
+prefs: dict[str, Any] = {
+    "filename_pattern": "(?P<title>.+) - (?P<author>[^_]+)",
+    "read_file_metadata": True,
+    "swap_author_names": False,
+}
+
+
+# --- regex ----------------------------------------------------------------------
+
+
+class _RegexStandIn:
+    """
+    The parts of the ``regex`` package calibre's ``meta`` uses, on ``re``, where it is not installed.
+
+    calibre compiles its filename patterns with ``regex`` for its ``VERSION1`` and
+    ``FULLCASE`` flags; calibre's default pattern needs neither, so they are ignored.
+
+    Example:
+        >>> _RegexStandIn().compile(r"(?P<t>.+) - x", flags=_RegexStandIn.VERSION1).search("A - x")["t"]
+        'A'
+    """
+
+    UNICODE = re.UNICODE
+    VERSION0 = 0
+    VERSION1 = 0
+    FULLCASE = 0
+
+    @staticmethod
+    def compile(pattern: str, flags: int = 0) -> re.Pattern[str]:
+        """
+        Compile a pattern with ``re``.
+
+        Example:
+            >>> _RegexStandIn.compile("a+").pattern
+            'a+'
+
+
+        :param pattern: The pattern.
+        :param flags: ``re`` flags; the ``regex``-only ones are zero here.
+        :return: The compiled pattern.
+        """
+        return re.compile(pattern, flags)
+
+
+try:
+    import regex  # type: ignore[import-untyped, unused-ignore]
+except ImportError:  # the search and conversion extras install it
+    regex = _RegexStandIn()  # type: ignore[assignment, unused-ignore]
+
+
 # --- not ported yet ------------------------------------------------------------
 
 
@@ -1893,6 +1977,7 @@ def _not_ported(name: str) -> Any:
 save_cover_data_to = _not_ported("save_cover_data_to")
 safe_replace = _not_ported("safe_replace")
 PersistentTemporaryFile = _not_ported("PersistentTemporaryFile")
+set_file_type_metadata = _not_ported("set_file_type_metadata")
 
 # The DOCX container extracts a book to a folder only for conversion; the reader
 # reads it from the zip file.

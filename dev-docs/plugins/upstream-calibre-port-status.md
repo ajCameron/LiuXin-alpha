@@ -1,19 +1,20 @@
 # Ported calibre readers: status and findings
 
-Written **2026-11-18** and updated **2026-11-19**, at calibre 9.18. The work is
-in PRs #177 to #188, #195, #197, #200 and #202. [Porting calibre's metadata readers](upstream-calibre-port.md) explains
+Written **2026-11-18** and updated **2026-11-20**, at calibre 9.18. The work is
+in PRs #177 to #188, #195, #197, #200, #202 and #210. [Porting calibre's metadata readers](upstream-calibre-port.md) explains
 how the ports are made; this page records what has been ported, how the ports
 compare with the readers LiuXin already had, what hostile input turned up, and
 what is left.
 
 ## What is ported
 
-Twenty of calibre's metadata reader plugins run in process through
+Twenty-three of calibre's metadata reader plugins run in process through
 `file_formats.providers.ported_calibre`, at priority −50: above an installed
 calibre (−60), below native LiuXin providers (0). The PDF port needs poppler's
 `pdfinfo`; a second PDF provider, at −55, runs the same calibre code on fields
 read by LiuXin's own PDF reader, so PDFs are read without poppler, though
-without a cover.
+without a cover. The RAR port needs a tool `rarfile` can extract RAR contents with
+(`unrar`, `unar`, 7-Zip or `bsdtar`), and reports itself unavailable without one.
 
 | calibre plugin | Formats | Ported in | calibre's own tests run | LiuXin fixes |
 | --- | --- | --- | --- | --- |
@@ -32,6 +33,9 @@ without a cover.
 | Read LRF metadata | `lrf` | #197 | — | meta info and image streams that unpack without limit |
 | Read DOCX metadata | `docx` | #200 | — | a cover search that slows down faster than the drawings squared |
 | Read PDF metadata | `pdf` | #202 | — | poppler run with limits, in its folder and without a worker; giant pages drawn at 3,000 pixels; a cubic XMP pattern; deeply nested XMP |
+| Read comic metadata | `cbz`, `cbr`, `cb7`, `cbc` | #210 | — | LiuXin's archive limits, before calibre reads a page whole |
+| Read ZIP metadata | `zip`, `oebzip` | #210 | — | LiuXin's archive limits, before calibre extracts the book inside |
+| Read RAR metadata | `rar` | #210 | — | RAR members past LiuXin's archive limits are refused before they are read |
 
 The readers ported before the porting script (#177 and #179) were copied by
 hand; from #182 on, `scripts/port_upstream_calibre.py` makes every copy and
@@ -62,6 +66,13 @@ readers, not the conversion code.
 - **poppler-utils** stays optional, as calibre bundles it. Where `pdfinfo` is
   not on the PATH the PDF port reports itself unavailable and the provider
   without poppler reads PDFs instead. CI installs poppler so that both run.
+- **rarfile and py7zr** stay optional (the `archives` extra). RAR names are read with
+  the `rarfile` package, or LiuXin's vendored copy, but RAR contents need an
+  extraction tool on the PATH; 7-Zip comics need `py7zr`. The `test` extra installs
+  both packages.
+- **regex** stays optional (the `search` and `conversion` extras). calibre matches
+  file names against its filename pattern with it; where it is missing, `re` is
+  used, which reads calibre's default pattern the same way.
 - **cryptography** stays optional (the `encryption` extra). LiuXin's PDF reader
   takes AES from the `aes` utils plugin: `cryptography`, else poppler, else
   pure-Python AES (see [utils plugin layers](utils-plugin-layers.md)).
@@ -84,10 +95,18 @@ were the ones on the stacked branches, without #178's fixes for OPF 2 fields.
 | LRF | a book with meta info, a thumbnail, and an image object whose stream is plain or zlib-packed | The same as LiuXin's reader: title, authors, sort fields, publisher, tags, comments and cover. Neither reads the language, which calibre leaves out too. |
 | PDB | eReader books with a metadata record and a cover; a Plucker book with a charset, authors, a title and a date; Haodoo books in cp950 and UTF-16; a PalmDOC book | The same as LiuXin's reader for eReader, Haodoo and other PDB books, covers included. LiuXin's reader found nothing in the Plucker book's metadata until #196 (see [found along the way](#found-along-the-way)); the port reads it all. |
 | PDF | the 25 files of `tests/fixtures/pdf_metadata`: object streams, incremental updates, hybrid cross-reference data, RC4 and AES encryption, XMP, UTF-16 and raw UTF-8 strings | With poppler, the same fields as without it, and a cover, except in the three layouts where poppler 24.02 reads less (see the [PDF notes](../file_formats/pdf/README.md)). Against LiuXin's own reader: how Info and XMP combine is now a choice (#204). LiuXin's `calibre` policy gives calibre's answer; its default, `newest`, differs in taking the Subject as the description and letting a newer Info dictionary win every field; its earlier `union` rule adds XMP's tags to the Info tags. A `pdfinfo` value with a line break keeps only its first line in calibre, and later lines shaped like `Name: value` become fields; the provider without poppler joins the lines |
+| Comics | CBZs built with ComicBookInfo comments, pages to sort naturally, macOS resource forks and files that are not pages; a CBC; RAR headers from LiuXin's vendored RAR test files | The same title, authors, series, publisher, tags, rating, comments, date and cover as LiuXin's comic reader, which does not read the language. RAR contents and 7-Zip comics are checked in CI, where `rarfile` and `py7zr` are installed. |
+| ZIP | the data repository's three ZIP files | The same book as LiuXin's reader where the ZIP holds an EPUB. The two holding no book (an HTML export, a folder of text files) are refused, as calibre refuses them; LiuXin's reader returns empty metadata. |
 | MOBI, AZW3, PRC | books with EXTH and JPEG or PNG covers; an old book without EXTH, with metadata in its markup | Same titles, authors, publishers, identifiers and descriptions as the fork's reader. The port keeps the EXTH publication date, which the fork drops, and tags in the book's order where the fork sorts them; it returns languages as `fra` where the fork says `French`, and the cover's own bytes. From the old book it also reads the publisher. |
 
 ### Differences to decide on
 
+- **Comic languages.** LiuXin's own comic reader does not read ComicBookInfo's
+  `language`; the port reads it, as calibre does (`English` becomes `eng`).
+- **CB7 covers.** calibre sorts a 7-Zip comic's pages naturally, but then reads the
+  first image in archive order (its `extract_member` matches any image as well as
+  the name it was given); the port does the same. CBZ and CBR covers are the first
+  page in natural order.
 - **DOCX keywords.** calibre splits a DOCX's keywords on spaces as well as commas, so
   a tag holding a space comes back as two. LiuXin's reader splits on commas or
   semicolons when the keywords have any, and on spaces only otherwise (see
@@ -231,7 +250,6 @@ In rough order of value against effort:
 
 | Batch | calibre code | What it needs |
 | --- | --- | --- |
-| ZIP, RAR, comics | `ebooks/metadata/zip.py`, `rar.py`, `archive.py` | These hand each book inside an archive to the other readers. RAR needs calibre's unrar extension or a substitute. |
 | CHM, LIT | `ebooks/chm/`, `ebooks/lit/` | C extensions (chmlib; `lzx` and `msdes`). The fork's readers still serve both. |
 | Metadata writers | `set_metadata` in each module | calibre's own `zipfile` writer (`safe_replace`) and an image library for covers; today these raise `NotImplementedError`. |
 
