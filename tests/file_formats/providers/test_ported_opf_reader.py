@@ -476,10 +476,10 @@ def test_no_ported_module_imports_calibre(source: Path) -> None:
             roots.add((node.module or "").partition(".")[0])
         elif isinstance(node, ast.Import):
             roots.update(alias.name.partition(".")[0] for alias in node.names)
+    # compression is the standard library's (Python 3.14), as in calibre.
     assert not roots & {
         "calibre",
         "calibre_extensions",
         "polyglot",
         "tzlocal",
-        "compression",
     }
