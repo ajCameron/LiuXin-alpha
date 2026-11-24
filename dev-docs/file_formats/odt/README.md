@@ -107,6 +107,9 @@ metadata readers only load documents. LiuXin's ODT metadata reader also falls
 back to scanning `content.xml` for frames, which is why it still found the cover
 in such a document. Fix the writer before anything writes ODT with it.
 
+The ODT metadata writer (#212) does not use it. It edits `meta.xml` with lxml and
+replaces that member alone. See [metadata writers](../metadata-writers.md#odt).
+
 ## Sign-Off Status
 
 ODT is signed off for the current input/container conversion scope as of

@@ -211,6 +211,11 @@ class MetadataWriterPlugin(Plugin):
     #: For example: ``set(['lit', 'mobi', 'prc'])``
     file_types = set([])
 
+    #: Whether the format keeps subject headings apart from the tags, and this plugin
+    #: writes the record's ``subjects`` itself. When False, the runtime gives the plugin
+    #: the subjects among the tags, for a format with one field for both.
+    writes_subjects = False
+
     supported_platforms = ["windows", "osx", "linux"]
 
     version = calibre_numeric_version

@@ -25,10 +25,15 @@ an empty list/dictionary for complex types and (None, None) for cover_data
 """
 
 
+#: The fields LiuXin's record holds that calibre's does not: subject headings, kept
+#: apart from the tags (LiuXin has a subjects table as well as a tags table).
+LIUXIN_METADATA_FIELDS = frozenset(["subjects"])
+
 # Todo: Relabel these as calibre constants
 SOCIAL_METADATA_FIELDS = frozenset(
     [
         "tags",  # Ordered list
+        "subjects",  # Ordered list; see LIUXIN_METADATA_FIELDS
         "rating",  # A floating point number between 0 and 10
         "comments",  # A simple HTML enabled string
         "series",  # A simple string
@@ -148,6 +153,7 @@ SC_FIELDS_NOT_COPIED = frozenset(
         "author_sort_map",
         "cover_data",
         "tags",
+        "subjects",
         "languages",
         "identifiers",
     ]

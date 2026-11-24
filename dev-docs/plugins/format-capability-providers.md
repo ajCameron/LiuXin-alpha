@@ -680,8 +680,11 @@ The LiuXin readers use a **provisional** calibre-to-WEMI mapping in
 `file_formats/providers/wemi_mapping.py`, which is also the mapping for
 accepting calibre readings:
 
-- **Work:** titles, title sort, author sort, series with its index, subjects
-  (calibre's tags), and creators in the authors and composers roles.
+- **Work:** titles, title sort, author sort, series with its index, tags,
+  subjects, and creators in the authors and composers roles. LiuXin keeps tags
+  and subjects in separate tables, so calibre's tags go to tags; subjects come
+  only from a LiuXin reader whose format keeps subject headings apart. See
+  [subjects](../metadata/subjects.md).
 - **Expression:** languages, description (calibre's comments), and creators
   in the editor, translator, illustrator, artist, colourist and director
   roles; a role the mapping does not know also goes here.

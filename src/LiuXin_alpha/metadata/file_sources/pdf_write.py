@@ -36,12 +36,13 @@ import os
 import shutil
 import tempfile
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from lxml import etree  # type: ignore[import-untyped]
 
+from LiuXin_alpha.metadata.file_sources.subject_fields import join_subjects
 from LiuXin_alpha.metadata.utils import authors_to_string
 
 __all__ = [
@@ -105,17 +106,27 @@ class MetadataUpdate:
     publisher: str | None = None
     #: Info entries with no XMP counterpart, such as ``/Series``.
     extra: Mapping[str, str] = field(default_factory=dict)
+    #: Subject headings, for the ``/Subject`` when it holds them.
+    subjects: tuple[str, ...] = ()
+    #: Whether ``/Subject`` holds the subjects (the ``read_subject_fields_as``
+    #: preference's default) rather than the comments; the comments then go only into
+    #: the packet's ``dc:description``.
+    subject_holds_subjects: bool = False
 
     def info(self: MetadataUpdate) -> dict[str, str]:
         """
         Give the Info dictionary entries, mapped as LiuXin's reader reads them back.
 
-        The authors are joined with `` & `` (an ampersand in a name is doubled); the
-        comments are the ``Subject``, as the XMP specification maps it.
+        The authors are joined with `` & `` (an ampersand in a name is doubled). The
+        ``Subject`` holds the subjects, joined by semicolons, when
+        ``subject_holds_subjects`` says so; otherwise it holds the comments, as the XMP
+        specification maps it.
 
         Example:
             >>> MetadataUpdate(comments="About", tags=("a", "b")).info()
             {'/Subject': 'About', '/Keywords': 'a, b'}
+            >>> MetadataUpdate(comments="About", subjects=("Sea",), subject_holds_subjects=True).info()
+            {'/Subject': 'Sea'}
 
 
         :return: The entries, by name with its slash.
@@ -125,7 +136,10 @@ class MetadataUpdate:
             out["/Title"] = self.title
         if self.authors:
             out["/Author"] = authors_to_string(self.authors)
-        if self.comments:
+        if self.subject_holds_subjects:
+            if self.subjects:
+                out["/Subject"] = join_subjects(self.subjects)
+        elif self.comments:
             out["/Subject"] = self.comments
         if self.tags:
             out["/Keywords"] = ", ".join(self.tags)
@@ -482,6 +496,38 @@ class _Built:
     warnings: list[str] = field(default_factory=list)
 
 
+#: An XMP packet with nothing in it, for a file that has none.
+EMPTY_PACKET = (
+    b'<?xpacket begin="\xef\xbb\xbf" id="W5M0MpCehiHzreSzNTczkc9d"?>\n'
+    b'<x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">'
+    b'<rdf:Description rdf:about=""/></rdf:RDF></x:xmpmeta>\n<?xpacket end="w"?>'
+)
+
+
+def _add_packet(writer: Any) -> Any:
+    """
+    Give a document an empty XMP packet, as its catalog's ``/Metadata``.
+
+    Example:
+        Give a pypdf writer a packet to fill::
+
+            reference = _add_packet(writer)
+
+
+    :param writer: A pypdf ``PdfWriter``.
+    :return: The reference to the new stream.
+    """
+    from pypdf.generic import DecodedStreamObject, NameObject
+
+    stream = DecodedStreamObject()
+    stream.set_data(EMPTY_PACKET)
+    stream[NameObject("/Type")] = NameObject("/Metadata")
+    stream[NameObject("/Subtype")] = NameObject("/XML")
+    reference = writer._add_object(stream)
+    writer.root_object[NameObject("/Metadata")] = reference
+    return reference
+
+
 def _build(
     original: bytes, update: MetadataUpdate, moment: datetime, *, append: bool
 ) -> _Built:
@@ -509,6 +555,10 @@ def _build(
     writer.add_metadata({**update.info(), "/ModDate": pdf_date(moment)})
     built = _Built(b"")
     reference = writer.root_object.get("/Metadata")
+    if reference is None and update.subject_holds_subjects and update.comments:
+        # The Subject holds subjects, so the comments live only in the packet: give
+        # the file one rather than lose them.
+        reference = _add_packet(writer)
     if reference is not None:
         built.has_packet = True
         try:
@@ -525,6 +575,34 @@ def _build(
     writer.write(out)
     built.payload = out.getvalue()
     return built
+
+
+def _appends_cleanly(original: bytes, update: MetadataUpdate, moment: datetime) -> bool:
+    """
+    Tell whether an appended update without a new XMP packet reads back from a file.
+
+    A file without a packet gets one when the comments have nowhere else to go, which
+    rewrites the catalog in the appended update. That can hide damaged cross-reference
+    data from the read-back check, so whether to append is decided as it would be
+    without the packet.
+
+    Example:
+        Decide whether to append::
+
+            if not _appends_cleanly(original, update, moment): ...
+
+
+    :param original: The file.
+    :param update: The fields to write.
+    :param moment: When the metadata changed.
+    :return: True when such an update appends and reads back.
+    """
+    plain = replace(update, comments=None)
+    try:
+        built = _build(original, plain, moment, append=True)
+    except Exception:  # pypdf raises many kinds for files it cannot parse
+        return False
+    return built.payload.startswith(original) and _reads_back(built.payload, plain, moment, built.packet)
 
 
 def _reads_back(
@@ -594,7 +672,13 @@ def write_metadata(
             "LiuXin does not write metadata into encrypted PDFs: pypdf's updates to them do not "
             "read back reliably. The file is unchanged."
         )
-    for append in (True, False):
+    attempts = (True, False)
+    if update.subject_holds_subjects and update.comments and not _appends_cleanly(original, update, moment):
+        # A new packet puts the catalog into the appended update, which can then read
+        # back even over damaged cross-reference data. Decide as the update would
+        # without one: rewrite whole a file that an appended update does not suit.
+        attempts = (False,)
+    for append in attempts:
         try:
             built = _build(original, update, moment, append=append)
         except Exception as error:  # as above; nothing has been written yet

@@ -659,6 +659,47 @@ def get_file_type_metadata(
     return mi
 
 
+def _record_for_writer(plugin: Any, mi: Any) -> Any:
+    """
+    Give a writer whose format has one field for tags and subjects the subjects among the tags.
+
+    The record passed in is not changed. LiuXin's own record is first projected to
+    calibre's form, which keeps its subjects in ``subjects``. A plugin that sets
+    ``writes_subjects`` gets the record as it is.
+
+    Example:
+        >>> from LiuXin_alpha.metadata.book.base import calibreMetadata
+        >>> book = calibreMetadata("Example")
+        >>> book.tags, book.subjects = ["to-read"], ["Sea stories"]
+        >>> given = _record_for_writer(object(), book)
+        >>> given.tags, given.subjects, book.tags
+        (['to-read', 'Sea stories'], [], ['to-read'])
+
+
+    :param plugin: The writer plugin.
+    :param mi: The record to write.
+    :return: The record the plugin should get.
+    """
+    if getattr(plugin, "writes_subjects", False):
+        return mi
+    from LiuXin_alpha.metadata.book.base import tags_and_subjects
+
+    if callable(getattr(mi, "to_calibre", None)):
+        # A WEMI record fills its subjects only when projected; keep the record
+        # as it is when there are none, so the writer still gets it.
+        converted = mi.to_calibre()
+        if not getattr(converted, "subjects", None):
+            return mi
+        mi = converted
+    elif getattr(mi, "subjects", None) and callable(getattr(mi, "deepcopy_metadata", None)):
+        mi = mi.deepcopy_metadata()
+    else:
+        return mi
+    mi.tags = tags_and_subjects(mi)
+    mi.subjects = []
+    return mi
+
+
 def set_file_type_metadata(
     stream: BinaryIO,
     mi: _typing.Any,
@@ -694,7 +735,7 @@ def set_file_type_metadata(
                     try:
                         plugin.apply_null = apply_null_metadata.apply_null
                         plugin.force_identifiers = force_identifiers.force_identifiers
-                        plugin.set_metadata(stream, mi, ftype.lower().strip())
+                        plugin.set_metadata(stream, _record_for_writer(plugin, mi), ftype.lower().strip())
                         break
                     except BaseException:
                         if report_error is None:

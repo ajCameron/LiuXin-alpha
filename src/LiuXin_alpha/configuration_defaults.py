@@ -48,6 +48,11 @@ GLOBAL_DEFAULTS = {
     # How a PDF's Info dictionary and XMP packet are combined: "newest", "calibre" or
     # "union"; see LiuXin_alpha.metadata.file_sources.pdf_merge.
     "pdf_metadata_merge": "newest",
+    # How a document's own Subject field (HTML <meta name="subject">, RTF \subject,
+    # PDF's Info Subject, ODT's Subject) is read and written: "subjects", as subject
+    # headings, or "calibre", as calibre does; see
+    # LiuXin_alpha.metadata.file_sources.subject_fields.
+    "read_subject_fields_as": "subjects",
 }
 
 TWEAK_DEFAULT_OVERRIDES = {
