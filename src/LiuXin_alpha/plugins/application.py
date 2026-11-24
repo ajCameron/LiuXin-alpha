@@ -1083,9 +1083,9 @@ def build_plugin(path: str) -> None:
     :return: None; the operation mutates state, writes output or performs cleanup in
         place.
     """
-    from LiuXin_alpha.utils.calibre.ptempfile import PersistentTemporaryFile
-    from LiuXin_alpha.utils.calibre_utils.calibre_zipfile import ZIP_STORED, ZipFile
+    from LiuXin_alpha.utils.libraries.calibre_zipfile import ZIP_STORED, ZipFile
     from LiuXin_alpha.utils.logging import prints
+    from LiuXin_alpha.utils.ptempfiles import PersistentTemporaryFile
 
     path = str(path)
     names = frozenset(os.listdir(path))

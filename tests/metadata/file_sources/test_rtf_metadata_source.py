@@ -183,7 +183,8 @@ def test_rtf_get_metadata_parses_unicode_and_cp1252_escapes() -> None:
     assert "Café" in md.title
     assert "α" in md.title
     assert "東" in md.title
-    assert _values(md.authors) == ["José", "Anaïs"]
+    # One name: RTF authors are split on commas only, as calibre splits them.
+    assert _values(md.authors) == ["José and Anaïs"]
     assert _first(md.comments) == "Comment Wins"
     assert _first(md.publisher) == "Pub House"
     tags = {x.lower() for x in _values(md.tags)}

@@ -263,7 +263,7 @@ class Detect(object):
                             file=self.stream,
                             end=" -- ",
                         )
-                        from LiuXin_alpha.utils.calibre.utils.filenames import ascii_text
+                        from LiuXin_alpha.utils.storage.local.filenames import ascii_text
 
                         print(ascii_text(t + text), file=self.stream, end="")
                         continue

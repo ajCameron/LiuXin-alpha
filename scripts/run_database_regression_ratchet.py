@@ -83,6 +83,58 @@ def baseline_at(ref: str) -> dict[str, Any] | None:
     return json.loads(result.stdout)
 
 
+def _git(*args: str) -> subprocess.CompletedProcess[str]:
+    """
+    Run git in the checkout, returning its result rather than raising.
+
+    Example:
+        >>> _git("rev-parse", "--is-inside-work-tree").stdout.strip()  # doctest: +SKIP
+        'true'
+
+
+    :param args: The git arguments.
+    :return: The finished process, with its output as text.
+    """
+    return subprocess.run(
+        ["git", *args], cwd=ROOT, text=True, capture_output=True, check=False
+    )
+
+
+def resolve_baseline(ref: str, fallback_branch: str | None) -> str:
+    """
+    Use the baseline commit if this checkout has it, else the merge base with a branch.
+
+    A push's previous head is gone after a force-push, so it cannot be compared with;
+    the commit this branch shares with the default branch is the next trusted baseline.
+
+    Example:
+        >>> resolve_baseline("0" * 40, "origin/main")  # doctest: +SKIP
+        Baseline 0000000000000000000000000000000000000000 is not in this checkout ...
+
+
+    :param ref: The full SHA of the commit to compare with.
+    :param fallback_branch: The branch whose merge base to use instead, or None.
+    :return: The SHA to compare with.
+    :raises ValueError: If ``ref`` is not a full SHA, or neither commit is available.
+    """
+    if not re.fullmatch(r"[0-9a-f]{40}", ref):
+        raise ValueError("Baseline must be a full commit SHA")
+    if _git("cat-file", "-e", f"{ref}^{{commit}}").returncode == 0:
+        return ref
+    if fallback_branch:
+        merge_base = _git("merge-base", "HEAD", fallback_branch)
+        if merge_base.returncode == 0 and merge_base.stdout.strip():
+            base = merge_base.stdout.strip()
+            print(
+                f"Baseline {ref} is not in this checkout (force-pushed away?); "
+                f"comparing with the merge base with {fallback_branch}, {base}."
+            )
+            return base
+    raise ValueError(
+        f"Baseline commit {ref} is not in this checkout, and no merge base was found"
+    )
+
+
 class RegressionGate:
     """Require every case to be collected and to pass setup, call and teardown."""
 
@@ -129,6 +181,10 @@ def main(argv: list[str] | None = None) -> int:
         "--baseline-ref", help="Compare with the PR base or previous push commit"
     )
     parser.add_argument(
+        "--fallback-branch",
+        help="Compare with the merge base with this branch when the baseline commit is gone",
+    )
+    parser.add_argument(
         "--artifacts",
         type=Path,
         required=True,
@@ -138,7 +194,9 @@ def main(argv: list[str] | None = None) -> int:
     document = json.loads((ROOT / MANIFEST).read_text())
     required = required_cases(document)
     if args.baseline_ref:
-        previous = baseline_at(args.baseline_ref)
+        previous = baseline_at(
+            resolve_baseline(args.baseline_ref, args.fallback_branch)
+        )
         if previous is not None:
             check_baseline(document, previous)
     artifacts = args.artifacts.resolve()

@@ -58,7 +58,7 @@ def declare_translation_functions():
     # Some strings should be added to the translation tables, but shouldn't be rendered to the local.
     __builtin__.__dict__["__"] = lambda s: s
 
-    from LiuXin_alpha.utils.icu import (
+    from LiuXin_alpha.utils.text.icu import (
         title_case,
         lower as icu_lower,
         upper as icu_upper,

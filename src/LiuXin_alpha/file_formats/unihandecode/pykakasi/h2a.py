@@ -35,7 +35,7 @@ Example:
 from __future__ import annotations
 
 import typing as _typing
-from LiuXin_alpha.utils.lx_libraries.liuxin_six import memory_range
+from LiuXin_alpha.utils.libraries.liuxin_six import memory_range
 
 
 class H2a(object):

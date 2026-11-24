@@ -1514,7 +1514,7 @@ class OPF(object):  # {{{
         """
         self._user_metadata_ = {}
         temp = Metadata("x", ["x"])
-        from LiuXin_alpha.file_formats.metadata.book.json_codec import (
+        from LiuXin_alpha.metadata.book.json_codec import (
             decode_is_multiple,
         )
         from LiuXin_alpha.utils.config.config_tools import from_json
@@ -3331,7 +3331,7 @@ class OPFCreator(Metadata):
         if self.publication_type is not None:
             a(CAL_ELEM("calibre:publication_type", self.publication_type))
         if self.user_categories:
-            from LiuXin_alpha.file_formats.metadata.book.json_codec import (
+            from LiuXin_alpha.metadata.book.json_codec import (
                 object_to_unicode,
             )
 
