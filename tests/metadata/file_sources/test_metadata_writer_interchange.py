@@ -208,9 +208,6 @@ def test_lrf_authors_are_written_with_a_plain_ampersand() -> None:
     """
     Authors are joined with `` & `` (an ampersand in a name doubled), which both readers split.
 
-    LiuXin's metadata record still splits a name holding ``&`` when it is set (a known
-    container issue), so only calibre's reading is checked for that name.
-
     Example:
         >>> test_lrf_authors_are_written_with_a_plain_ampersand()
 
@@ -223,7 +220,8 @@ def test_lrf_authors_are_written_with_a_plain_ampersand() -> None:
     assert _values(ours.authors) == calibre.authors == ["Ann Writer", "Bob Writer"]
     out = _write(lrf_book(), "lrf", title="T", authors=["Ann Writer", "Bob & Co"])
     assert LRFMetaFile(io.BytesIO(out)).author == "Ann Writer & Bob && Co"
-    assert ported_reader("lrf")(io.BytesIO(out)).authors == ["Ann Writer", "Bob & Co"]
+    ours, calibre = _both(out, "lrf")
+    assert _values(ours.authors) == calibre.authors == ["Ann Writer", "Bob & Co"]
 
 
 def test_lrf_authors_written_with_the_old_token_still_read() -> None:

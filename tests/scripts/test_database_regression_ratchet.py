@@ -4,10 +4,12 @@ from types import SimpleNamespace
 
 import pytest
 
+from scripts import run_database_regression_ratchet as runner
 from scripts.run_database_regression_ratchet import (
     RegressionGate,
     check_baseline,
     required_cases,
+    resolve_baseline,
 )
 
 CASE = "tests/databases/test_example.py::test_invariant[SQLite]"
@@ -170,3 +172,81 @@ raise SystemExit(runner.main(['--artifacts', sys.argv[1]]))
     assert report["fully_passed"] == 1
     assert report["failures"] == []
     assert report["pytest_exit_code"] == 1
+
+
+def _repository(path):
+    """
+    Make a repository whose main has one commit and whose checked-out branch has one more.
+
+    Example:
+        >>> _repository(Path("/tmp/repo"))  # doctest: +SKIP
+        ('3f2a…', '9c1b…')
+
+
+    :param path: An empty folder to make it in.
+    :return: The SHAs of main's commit and the branch's.
+    """
+    import subprocess
+
+    def git(*args):
+        """
+        Run git in the repository with a fixed, made-up identity.
+
+        Example:
+            >>> git("rev-parse", "HEAD")  # doctest: +SKIP
+
+
+        :param args: The git arguments.
+        :return: Its output, stripped.
+        """
+        return subprocess.run(
+            [
+                "git",
+                "-c",
+                "user.name=Test",
+                "-c",
+                "user.email=test@example.invalid",
+                *args,
+            ],
+            cwd=path,
+            text=True,
+            capture_output=True,
+            check=True,
+        ).stdout.strip()
+
+    git("init", "-q", "-b", "main")
+    (path / "a.txt").write_text("a")
+    git("add", "a.txt")
+    git("commit", "-q", "-m", "base")
+    base = git("rev-parse", "HEAD")
+    git("checkout", "-q", "-b", "topic")
+    (path / "b.txt").write_text("b")
+    git("add", "b.txt")
+    git("commit", "-q", "-m", "topic")
+    return base, git("rev-parse", "HEAD")
+
+
+def test_a_baseline_lost_to_a_force_push_falls_back_to_the_merge_base(
+    tmp_path, monkeypatch
+):
+    """
+    The previous head of a force-pushed branch is gone; the merge base is compared instead.
+
+    Example:
+        >>> test_a_baseline_lost_to_a_force_push_falls_back_to_the_merge_base(Path("/tmp"), None)  # doctest: +SKIP
+
+
+    :param tmp_path: A folder for the repository.
+    :param monkeypatch: Points the runner at that repository.
+    :return: None after each case is checked.
+    """
+    base, head = _repository(tmp_path)
+    monkeypatch.setattr(runner, "ROOT", tmp_path)
+    assert resolve_baseline(head, "main") == head
+    assert resolve_baseline("0" * 39 + "1", "main") == base
+    with pytest.raises(ValueError, match="not in this checkout"):
+        resolve_baseline("0" * 39 + "1", None)
+    with pytest.raises(ValueError, match="not in this checkout"):
+        resolve_baseline("0" * 39 + "1", "no-such-branch")
+    with pytest.raises(ValueError, match="full commit SHA"):
+        resolve_baseline("main", "main")

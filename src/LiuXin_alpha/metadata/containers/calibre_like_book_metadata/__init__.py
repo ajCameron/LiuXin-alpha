@@ -25,6 +25,7 @@ import os
 import re
 import pprint
 from collections import OrderedDict
+from collections.abc import Sequence
 from copy import deepcopy
 from numbers import Number
 
@@ -83,6 +84,29 @@ __object_version__ = "3.0.0"
 # TODO: user_metadata - need a way to determine which columns of a user defined table should be automatically included.
 
 
+def _author_names(authors: Sequence[object]) -> list[str]:
+    """
+    Strip each name, dropping empty ones and None; anything else is refused.
+
+    Example:
+        >>> _author_names([" Smith & Sons ", "", None, "bell hooks"])
+        ['Smith & Sons', 'bell hooks']
+
+
+    :param authors: The names.
+    :return: The names to assign, as a list, so they are not parsed as an author string.
+    """
+    names = []
+    for author in authors:
+        if author is None:
+            continue
+        if not isinstance(author, str):
+            raise NotImplementedError(f"Authors must be names - type(author): {type(author)}")
+        if author.strip():
+            names.append(author.strip())
+    return names
+
+
 # Todo: This is a bad class. There shouldn't be this mucn processing in what is, effectively, a data class.
 #       That should live elsewhere.
 
@@ -118,9 +142,11 @@ class CalibreLikeLiuXinBookMetaData(
         """
         Create independent defaults, merge other metadata, then apply explicit title and authors.
 
-        A string of authors is first split on ampersands; lists/tuples are assigned entry by
-        entry. Those assignments use creator parsing and accumulate with merged authors.
-        Dictionaries and unsupported author shapes produce NotImplementedError.
+        A string is an author string, parsed once as assigning one is (``&`` separates
+        names, ``&&`` is an ampersand within one). A list or tuple holds names, each kept
+        as given apart from surrounding space, so "Smith & Sons" stays one author. Both
+        accumulate with merged authors. Dictionaries and unsupported author shapes
+        produce NotImplementedError.
 
         Example:
             Exercise the owning behavior with pytest::
@@ -149,18 +175,15 @@ class CalibreLikeLiuXinBookMetaData(
         if title is not None:
             self.__setattr__("title", title)
 
-        # Todo: Find string_to_authors - use it here
         if authors is not None:
 
-            # If authors is just a string, tokenized it on the & and add all the authors
             if isinstance(authors, six_string_types):
-                author_tokens = authors.split("&")
-                for author in author_tokens:
-                    self.__setattr__("authors", author)
+                self.__setattr__("authors", authors)
 
             elif isinstance(authors, (tuple, list)):
-                for author in authors:
-                    self.__setattr__("authors", author)
+                # Names, not author strings: assigning each as a string would split
+                # "Smith & Sons" and re-case "bell hooks".
+                self.__setattr__("authors", _author_names(authors))
 
             elif isinstance(authors, (dict, OrderedDict)):
                 raise NotImplementedError("Use another method to add row information")

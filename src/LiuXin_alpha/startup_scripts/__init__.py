@@ -376,7 +376,7 @@ def test_lopen():
     :raises Exception: If a truncation, append, or random-write comparison fails.
     :raises ModuleNotFoundError: If the historical temporary-file helper cannot be imported.
     """
-    from LiuXin_alpha.utils.calibre.ptempfile import TemporaryDirectory
+    from LiuXin_alpha.utils.ptempfiles import TemporaryDirectory
     from LiuXin_alpha.utils.calibre import CurrentDir
 
     n = "f\xe4llen"

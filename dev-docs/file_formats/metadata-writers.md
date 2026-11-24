@@ -90,6 +90,7 @@ These match calibre's writers, so they are left as they are:
 | DOCX | No series, ISBN or cover is written. A missing publisher clears the document's company. |
 | HTMLZ | A book without an OPF is refused and left unchanged. |
 | RTF | The publisher goes into `\manager`. With the `read_subject_fields_as` preference at `calibre`, the comments go into `\subject`, as in calibre. At its default, `subjects`, `\subject` holds the subjects and the comments go into `\doccomm`, which calibre does not read (see [subjects](../metadata/subjects.md#a-documents-subject-field)). |
+| EPUB 2, HTMLZ, TXTZ | A name holding `&` comes back as two names: calibre reads each OPF 2 `dc:creator` as an author string, and does not escape the ampersand when it writes one. |
 | ODT | No cover is written. The language is written as ISO 639-1; one with no such code is not written. The publication date is written as a date, in UTC. A tag holding a comma is split when read (by LiuXin's reader, a semicolon too). Subjects share the one Subject, joined by semicolons, so a subject holding a semicolon is split when read; calibre does not read the Subject. With the `read_subject_fields_as` preference at `calibre`, the Subject is neither read nor written, and the subjects go among the keywords. |
 
 ## Found, not fixed
@@ -109,8 +110,9 @@ These match calibre's writers, so they are left as they are:
 - **calibre's RTF reader and negative `\u` escapes.** RTF writes characters above
   U+7FFF as negative numbers (`測試` is `\u28204?\u-30106?`). calibre's reader leaves
   those undecoded. LiuXin's reader and writer are right; this is a calibre bug.
-- **Author names holding `&`.** LiuXin's metadata record splits such a name when it is
-  set, so "Bob & Co" becomes two authors, though the files carry it correctly.
+- **Author names holding `&`** (fixed in #208). LiuXin's metadata record split such a
+  name when it was set, so "Bob & Co" became two authors, though the files carried it
+  correctly. See [author names](../metadata/author-names.md).
 
 ## ODT
 

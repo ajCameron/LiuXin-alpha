@@ -25,7 +25,14 @@ from LiuXin_alpha.file_formats.conversion.report import ConversionReport
 from LiuXin_alpha.file_formats.providers import fork_metadata
 from LiuXin_alpha.file_formats.providers.base import ProviderContext
 from LiuXin_alpha.file_formats.providers.ported_calibre import adapt_ported_reader
-from LiuXin_alpha.metadata.upstream_calibre import _compat, _speedups, config_base, meta
+from LiuXin_alpha.metadata.upstream_calibre import (
+    _compat,
+    _readers,
+    _speedups,
+    _unrar,
+    comic,
+    config_base,
+)
 
 OPF2 = """<?xml version='1.0' encoding='utf-8'?>
 <package xmlns="http://www.idpf.org/2007/opf" version="2.0" unique-identifier="id">
@@ -434,7 +441,7 @@ def test_examples_in_the_helpers_run() -> None:
 
     :return: None; the assertions are the check.
     """
-    for module in (_compat, _speedups, config_base, meta):
+    for module in (_compat, _speedups, config_base, _readers, _unrar, comic):
         result = doctest.testmod(module, report=False)
         assert result.attempted > 0
         assert result.failed == 0, module.__name__

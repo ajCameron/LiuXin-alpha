@@ -103,6 +103,9 @@ __all__ = [
 
 TemporaryDirectory = tempfile.TemporaryDirectory
 
+#: calibre's ``zipfile`` name for a local file header's signature.
+stringFileHeader = b"PK\003\004"  # noqa: N816 - calibre's name
+
 
 class ZipFile(zipfile.ZipFile):
     """
@@ -1312,6 +1315,52 @@ def polish_guess_type(x: str) -> str:
     return guess_type(x)[0] or "application/octet-stream"
 
 
+# --- calibre.ebooks.oeb.base: URLs --------------------------------------------
+
+_URL_SAFE = frozenset("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_.-/~")
+_URL_UNSAFE = frozenset(chr(x) for x in range(128)) - _URL_SAFE
+
+
+def urlquote(href: str) -> str:
+    """
+    Quote URL-unsafe ASCII characters, keeping the rest, as calibre does (an IRI, not a URI).
+
+    Example:
+        >>> urlquote("a b/ü.html")
+        'a%20b/ü.html'
+
+
+    :param href: The URL.
+    :return: It, quoted.
+    """
+    return "".join(f"%{ord(char):02x}" if char in _URL_UNSAFE else char for char in href)
+
+
+def urlnormalize(href: str) -> str:
+    """
+    Normalise a URL so that all, and only, URL-unsafe characters are quoted.
+
+    Example:
+        >>> urlnormalize("text/a%20b c.html#x y")
+        'text/a%20b%20c.html#x%20y'
+
+
+    :param href: The URL.
+    :return: It, normalised.
+    :raises ValueError: If it cannot be parsed.
+    """
+    from urllib.parse import unquote, urldefrag, urlparse, urlunparse
+
+    try:
+        parts = urlparse(href)
+    except ValueError as e:
+        raise ValueError(f"Failed to parse the URL: {href!r} with underlying error: {e}") from e
+    if not parts.scheme or parts.scheme == "file":
+        path, frag = urldefrag(href)
+        parts = ("", "", path, "", "", frag)  # type: ignore[assignment]
+    return urlunparse(urlquote(unquote(part.replace("\\", "/"))) for part in parts)  # type: ignore[arg-type]
+
+
 # --- calibre.utils.localization ----------------------------------------------
 
 
@@ -1681,6 +1730,33 @@ def sort_key(text: Any) -> Any:
     return (text or "").casefold()
 
 
+_DIGIT_RUNS = re.compile(r"(\d+)")
+
+
+def numeric_sort_key(text: Any) -> tuple[tuple[int, int | str], ...]:
+    """
+    Make a natural-order sort key, as calibre's ICU numeric collator does: ``page2`` before ``page10``.
+
+    Runs of digits compare as numbers, so leading zeros do not count, and come
+    before letters; the rest compares case-insensitively.
+
+    Example:
+        >>> sorted(["page10.jpg", "Page2.jpg", "page1.jpg", "007.png"], key=numeric_sort_key)
+        ['007.png', 'page1.jpg', 'Page2.jpg', 'page10.jpg']
+
+
+    :param text: The text, or bytes, to sort by.
+    :return: A key that orders numbers within the text by value.
+    """
+    if isinstance(text, bytes):
+        text = text.decode("utf-8", "replace")
+    return tuple(
+        (0, int(part)) if index % 2 else (1, part.casefold())
+        for index, part in enumerate(_DIGIT_RUNS.split(text or ""))
+        if part
+    )
+
+
 # --- calibre.ptempfile, calibre.utils.logging ------------------------------------------
 
 SpooledTemporaryFile = tempfile.SpooledTemporaryFile
@@ -1852,6 +1928,197 @@ def ZoneInfo(name: str) -> Any:  # noqa: N802 - the class name calibre imports
         return datetime.UTC
 
 
+# --- calibre.utils.config: prefs ------------------------------------------------
+
+#: The calibre preferences the ported readers consult, at calibre's defaults:
+#: LiuXin has no calibre preferences file.
+prefs: dict[str, Any] = {
+    "filename_pattern": "(?P<title>.+) - (?P<author>[^_]+)",
+    "read_file_metadata": True,
+    "swap_author_names": False,
+}
+
+
+# --- regex ----------------------------------------------------------------------
+
+
+class _RegexStandIn:
+    """
+    The parts of the ``regex`` package calibre's ``meta`` uses, on ``re``, where it is not installed.
+
+    calibre compiles its filename patterns with ``regex`` for its ``VERSION1`` and
+    ``FULLCASE`` flags; calibre's default pattern needs neither, so they are ignored.
+
+    Example:
+        >>> _RegexStandIn().compile(r"(?P<t>.+) - x", flags=_RegexStandIn.VERSION1).search("A - x")["t"]
+        'A'
+    """
+
+    UNICODE = re.UNICODE
+    VERSION0 = 0
+    VERSION1 = 0
+    FULLCASE = 0
+
+    @staticmethod
+    def compile(pattern: str, flags: int = 0) -> re.Pattern[str]:
+        """
+        Compile a pattern with ``re``.
+
+        Example:
+            >>> _RegexStandIn.compile("a+").pattern
+            'a+'
+
+
+        :param pattern: The pattern.
+        :param flags: ``re`` flags; the ``regex``-only ones are zero here.
+        :return: The compiled pattern.
+        """
+        return re.compile(pattern, flags)
+
+
+try:
+    import regex  # type: ignore[import-untyped, unused-ignore]
+except ImportError:  # the search and conversion extras install it
+    regex = _RegexStandIn()  # type: ignore[assignment, unused-ignore]
+
+
+# --- calibre.ptempfile.TemporaryFile, calibre.utils.filenames ----------------
+
+
+class TemporaryFile:
+    """
+    A temporary file's name, for the ``with`` block; removed after it. calibre's ``TemporaryFile``.
+
+    Example:
+        >>> with TemporaryFile("_x.chm") as name:
+        ...     name.endswith("_x.chm"), os.path.exists(name)
+        (True, True)
+        >>> os.path.exists(name)
+        False
+    """
+
+    def __init__(self, suffix: str = "", prefix: str | None = "", dir: str | None = None, mode: str = "w+b") -> None:  # noqa: A002 - calibre's name
+        """
+        Remember where to make the file.
+
+        Example:
+            See the class.
+
+
+        :param suffix: The name's ending.
+        :param prefix: Its start.
+        :param dir: The folder; the system's temporary folder if ``None``.
+        :param mode: Ignored: the file is closed before its name is given.
+        :return: None.
+        """
+        self.suffix, self.prefix, self.dir = suffix or "", prefix or "", dir
+        self._name = ""
+
+    def __enter__(self) -> str:
+        """
+        Make the file, empty and closed.
+
+        Example:
+            See the class.
+
+
+        :return: Its path.
+        """
+        fd, self._name = tempfile.mkstemp(self.suffix, self.prefix, self.dir)
+        os.close(fd)
+        return self._name
+
+    def __exit__(self, *args: object) -> None:
+        """
+        Remove the file.
+
+        Example:
+            See the class.
+
+
+        :param args: The exception, if any; not suppressed.
+        :return: None.
+        """
+        try:
+            os.remove(self._name)
+        except OSError:
+            pass
+
+
+def make_long_path_useable(path: str, threshold: int = 200) -> str:
+    """
+    Give Windows' long-path prefix to a long absolute path, as calibre does; elsewhere the path.
+
+    Example:
+        >>> make_long_path_useable("/tmp/book.chm")
+        '/tmp/book.chm'
+
+
+    :param path: The path.
+    :param threshold: How long a path must be to get the prefix.
+    :return: The path to use.
+    """
+    if iswindows and len(path) > threshold and os.path.isabs(path) and not path.startswith("\\\\?\\"):
+        return "\\\\?\\" + os.path.normpath(path)
+    return path
+
+
+# --- pychm: chm.chm -----------------------------------------------------------
+
+
+class _NoCHMFile:
+    """
+    Stands in for pychm's ``CHMFile`` where pychm is not installed: refuses to open anything.
+
+    calibre's CHM reader subclasses ``CHMFile`` when its module is imported, so a
+    class is needed even without pychm.
+
+    Example:
+        >>> _NoCHMFile()
+        Traceback (most recent call last):
+        ...
+        ImportError: reading CHM files needs pychm, the Python binding to chmlib, which is not installed
+    """
+
+    def __init__(self, *args: object, **kwargs: object) -> None:
+        """
+        Refuse.
+
+        Example:
+            See the class.
+
+
+        :param args: Ignored.
+        :param kwargs: Ignored.
+        :return: None.
+        :raises ImportError: Always.
+        """
+        raise ImportError(
+            "reading CHM files needs pychm, the Python binding to chmlib, which is not installed"
+        )
+
+
+try:
+    from chm.chm import CHMFile, chmlib  # type: ignore[import-not-found, unused-ignore]
+except ImportError:
+    CHMFile = _NoCHMFile  # type: ignore[assignment, misc, unused-ignore]
+    chmlib = None
+
+
+def chm_available() -> bool:
+    """
+    Tell whether pychm, the Python binding to chmlib that calibre's CHM reader needs, is installed.
+
+    Example:
+        >>> chm_available() in (True, False)
+        True
+
+
+    :return: True when it is.
+    """
+    return chmlib is not None
+
+
 # --- not ported yet ------------------------------------------------------------
 
 
@@ -1893,6 +2160,7 @@ def _not_ported(name: str) -> Any:
 save_cover_data_to = _not_ported("save_cover_data_to")
 safe_replace = _not_ported("safe_replace")
 PersistentTemporaryFile = _not_ported("PersistentTemporaryFile")
+set_file_type_metadata = _not_ported("set_file_type_metadata")
 
 # The DOCX container extracts a book to a folder only for conversion; the reader
 # reads it from the zip file.
@@ -2005,6 +2273,122 @@ class _PluginModule:
 
 
 cPalmdoc = _PluginModule("cPalmdoc")  # noqa: N816 - calibre's extension name
+msdes = _PluginModule("msdes")
+
+
+class _Lzx:
+    """
+    Stand in for calibre's ``lzx`` extension: one LZX stream, decompressed block by block.
+
+    calibre's extension is called ``init``, ``reset`` and ``decompress``; LiuXin's
+    ``lzx`` utils plugin (the compiled module where installed, else its pure-Python
+    port) may instead take the stream's state as an argument (``LZXinit``,
+    ``LZXreset``, ``LZXdecompress``), so this keeps it.
+
+    Example:
+        >>> lzx.init(16)
+        >>> _ = lzx.reset()
+        >>> issubclass(lzx.LZXError, Exception)
+        True
+    """
+
+    def __init__(self) -> None:
+        """
+        Start with no stream.
+
+        Example:
+            See ``_Lzx``.
+
+
+        :return: None.
+        """
+        self._state: Any = None
+
+    @staticmethod
+    def _module() -> Any:
+        """
+        The ``lzx`` utils plugin's module.
+
+        Example:
+            >>> hasattr(_Lzx._module(), "LZXError")
+            True
+
+
+        :return: The module.
+        :raises ImportError: If the plugin cannot be loaded.
+        """
+        from LiuXin_alpha.utils.plugins import plugins
+
+        module, error = plugins["lzx"]
+        if module is None:
+            raise ImportError(f"the lzx plugin could not be loaded:\n{error}")
+        return module
+
+    @property
+    def LZXError(self) -> type[Exception]:  # noqa: N802 - calibre's name
+        """
+        The plugin's error for damaged data.
+
+        Example:
+            See ``_Lzx``.
+
+
+        :return: The exception class.
+        """
+        return getattr(self._module(), "LZXError", ValueError)
+
+    def init(self, window_bits: int) -> None:
+        """
+        Start a stream with a window of ``2 ** window_bits`` bytes.
+
+        Example:
+            See ``_Lzx``.
+
+
+        :param window_bits: The window size, as a power of two.
+        :return: None.
+        """
+        module = self._module()
+        if hasattr(module, "LZXinit"):
+            self._state = module.LZXinit(window_bits)
+        else:
+            module.init(window_bits)
+
+    def reset(self) -> Any:
+        """
+        Reset the stream at a reset point.
+
+        Example:
+            See ``_Lzx``.
+
+
+        :return: What the plugin returns.
+        """
+        module = self._module()
+        if hasattr(module, "LZXreset"):
+            return module.LZXreset(self._state)
+        return module.reset()
+
+    def decompress(self, data: bytes, outlen: int) -> bytes:
+        """
+        Decompress the next block.
+
+        Example:
+            See ``_Lzx``.
+
+
+        :param data: The compressed bytes.
+        :param outlen: How many bytes they hold.
+        :return: The decompressed bytes.
+        :raises LZXError: For damaged data.
+        """
+        module = self._module()
+        if hasattr(module, "LZXdecompress"):
+            return module.LZXdecompress(self._state, data, outlen)
+        return module.decompress(data, outlen)
+
+
+lzx = _Lzx()
 
 
 class WorkerError(Exception):
