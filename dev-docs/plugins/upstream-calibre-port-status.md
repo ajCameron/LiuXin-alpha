@@ -261,13 +261,16 @@ tests with external and nested entities.
   decrypted, and LiuXin's own LIT reader carried on in a best-effort mode. It is now
   a port of calibre's `des.c` with those tables, identical to the compiled module on
   3,000 random keys and blocks (#211).
-- **LiuXin's pure-Python LZX decoder fails on LIT text.** It decodes one 32 KiB
-  frame per call, as chmlib calls it. calibre's LIT reader asks for a whole window
-  at once (128 KiB in the sample books), and calibre's decoder, from libmspack,
-  realigns the bit stream after each frame and lets a match run past the end of a
-  block. LiuXin's stops with "Match length exceeds remaining run". The metadata, the
-  images and the table of contents decode correctly, but the text of both sample
-  books does not, so LIT conversion fails without the compiled module. Not fixed.
+- **LiuXin's pure-Python LZX decoder failed on LIT text** (fixed in #220). It
+  decoded one 32 KiB frame per call, as chmlib calls it. calibre's LIT reader asks
+  for a whole window at once (128 KiB in the sample books), and calibre's decoder,
+  from libmspack, realigns the bit stream after each frame and lets a match run on
+  past the end of a frame. LiuXin's stopped with "Match length exceeds remaining
+  run": the metadata, the images and the table of contents decoded, but not the
+  text of either sample book, so LIT conversion failed without the compiled module.
+  The decoder now runs libmspack's frame loop, and gives the same bytes as calibre's
+  compiled one on every window of both books and on 290 streams from calibre's
+  compressor.
 
 ## What is left
 

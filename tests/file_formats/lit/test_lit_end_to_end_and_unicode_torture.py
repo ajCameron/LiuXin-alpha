@@ -83,22 +83,20 @@ def test_lit_input_end_to_end_on_real_fixtures(md_test_files_by_ext: dict[str, l
         assert_no_replacement_chars("\n".join(product_text), context=lit_path.name)
 
 
-def test_lit_input_recovers_when_opf_spine_is_empty_after_prune(
+def test_lit_input_reads_the_text_of_the_first_fixture(
     md_test_files_by_ext: dict[str, list[Path]]
 ) -> None:
     """
-    Perform the test lit input recovers when opf spine is empty after prune operation under explicit file-format and conversion rules.
+    Read the first sample book's text, which the pure-Python LZX decoder failed on until it decoded frame by frame.
 
     Example:
-        Exercise test lit input recovers when opf spine is empty after prune through a consuming regression::
+        Exercise the first fixture through its owning regression module::
 
             python -m pytest -q tests/file_formats/lit/test_lit_end_to_end_and_unicode_torture.py
 
 
-    :param md_test_files_by_ext: Value supplied for md test files by ext under the
-        utility contract.
-    :return: None; the operation mutates state, writes output or performs cleanup in
-        place.
+    :param md_test_files_by_ext: The data repository's test books, by extension.
+    :return: None; the assertions are the check.
     """
     from LiuXin_alpha.file_formats.conversion.plugins.lit_input import LITInput
 
@@ -106,6 +104,62 @@ def test_lit_input_recovers_when_opf_spine_is_empty_after_prune(
     if target is None:
         pytest.skip("Fixture lit_md_test_file_1.lit not available")
 
+    log = LitLog()
+    with target.open("rb") as stream:
+        oeb = LITInput(None).convert(stream, lit_options(), "lit", log, {})
+
+    spine = list(oeb.spine)
+    assert [item.href for item in spine] == ["content/vernejuletext942000010.xhtml"]
+    assert not any("lzx decompression error" in msg.lower() for msg in log.messages)
+    assert not any("rebuilding from manifest documents" in msg.lower() for msg in log.messages)
+    text = " ".join(" ".join(spine[0].data.itertext()).split())
+    assert "TWENTY THOUSAND LEAGUES UNDER THE SEA by JULES VERNE" in text
+    assert len(text) > 500_000
+
+
+def test_lit_input_recovers_when_opf_spine_is_empty_after_prune(
+    md_test_files_by_ext: dict[str, list[Path]], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """
+    Rebuild the spine from the manifest when the text's LZX windows cannot be decoded.
+
+    Example:
+        Exercise the recovery through its owning regression module::
+
+            python -m pytest -q tests/file_formats/lit/test_lit_end_to_end_and_unicode_torture.py
+
+
+    :param md_test_files_by_ext: The data repository's test books, by extension.
+    :param monkeypatch: Pytest fixture for the failing decoder.
+    :return: None; the assertions are the check.
+    """
+    from LiuXin_alpha.file_formats.conversion.plugins.lit_input import LITInput
+    from LiuXin_alpha.file_formats.lit import reader
+
+    target = next((p for p in _lit_paths(md_test_files_by_ext) if p.name == "lit_md_test_file_1.lit"), None)
+    if target is None:
+        pytest.skip("Fixture lit_md_test_file_1.lit not available")
+
+    decompress = reader.lzx.decompress
+
+    def damaged_windows(data: bytes, outlen: int) -> bytes:
+        """
+        Fail on every whole window, as for a damaged section; decode the rest.
+
+        Example:
+            >>> damaged_windows(b"", 0)  # doctest: +SKIP
+
+
+        :param data: The compressed bytes.
+        :param outlen: How many bytes they hold.
+        :return: The decompressed bytes of a partial window.
+        :raises LZXError: For a whole window.
+        """
+        if outlen == 1 << 17:
+            raise reader.lzx.LZXError(2, "damaged")
+        return decompress(data, outlen)
+
+    monkeypatch.setattr(reader.lzx, "decompress", damaged_windows)
     log = LitLog()
     with target.open("rb") as stream:
         oeb = LITInput(None).convert(stream, lit_options(), "lit", log, {})
