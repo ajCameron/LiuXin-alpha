@@ -37,6 +37,7 @@ from LiuXin_alpha.file_formats.toc import TOC
 # Todo: Probably gets merged into utils right?
 from LiuXin_alpha.metadata.ebook_metadata_tools import check_isbn
 from LiuXin_alpha.metadata.book.base import calibreMetaInformation as MetaInformation
+from LiuXin_alpha.metadata.book.base import tags_and_subjects
 from LiuXin_alpha.metadata.utils import string_to_authors
 from LiuXin_alpha.preferences import preferences as tweaks
 from LiuXin_alpha.utils.calibre_compat.ebooks.metadata.book.base import (
@@ -1513,7 +1514,7 @@ class OPF(object):  # {{{
         """
         self._user_metadata_ = {}
         temp = Metadata("x", ["x"])
-        from LiuXin_alpha.file_formats.metadata.book.json_codec import (
+        from LiuXin_alpha.metadata.book.json_codec import (
             decode_is_multiple,
         )
         from LiuXin_alpha.utils.config.config_tools import from_json
@@ -3314,9 +3315,9 @@ class OPFCreator(Metadata):
             a(DC_ELEM("identifier", val, opf_attrs={"scheme": icu_upper(key)}))
         if self.rights:
             a(DC_ELEM("rights", self.rights))
-        if self.tags:
-            for tag in self.tags:
-                a(DC_ELEM("subject", tag))
+        # OPF has one field for tags and subjects: dc:subject holds both.
+        for tag in tags_and_subjects(self):
+            a(DC_ELEM("subject", tag))
         if self.series:
             a(CAL_ELEM("calibre:series", self.series))
             if self.series_index is not None:
@@ -3330,7 +3331,7 @@ class OPFCreator(Metadata):
         if self.publication_type is not None:
             a(CAL_ELEM("calibre:publication_type", self.publication_type))
         if self.user_categories:
-            from LiuXin_alpha.file_formats.metadata.book.json_codec import (
+            from LiuXin_alpha.metadata.book.json_codec import (
                 object_to_unicode,
             )
 
@@ -3493,9 +3494,9 @@ def metadata_to_opf(mi: _typing.Any, as_string: bool = True, default_lang: _typi
         if not lang or lang.lower() == "und":
             continue
         factory(DC("language"), lang)
-    if mi.tags:
-        for tag in mi.tags:
-            factory(DC("subject"), tag)
+    # OPF has one field for tags and subjects: dc:subject holds both.
+    for tag in tags_and_subjects(mi):
+        factory(DC("subject"), tag)
     meta = lambda n, c: factory("meta", name="calibre:" + n, content=c)
     if getattr(mi, "author_link_map", None) is not None:
         meta("author_link_map", dump_dict(mi.author_link_map))

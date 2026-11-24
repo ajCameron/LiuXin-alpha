@@ -248,7 +248,9 @@ def test_odt_metadata_extracts_core_fields_and_opf_overrides(tmp_path: Path) -> 
     assert mi.title == "Main Title"
     assert mi.authors == ["Carol", "Dan"]
     assert mi.comments and "Καλημέρα" in mi.comments
-    assert set(mi.tags) == {"tag-one", "tag-two", "tag-three"}
+    # The keywords are tags; the Subject holds one subject heading, commas and all.
+    assert set(mi.tags) == {"tag-two", "tag-three"}
+    assert mi.subjects == ["tag-one, tag-two"]
     assert mi.language == "eng"
     assert mi.title_sort == "Title, Main"
     assert mi.series == "Series A"
@@ -462,7 +464,8 @@ def test_odt_metadata_unicode_torture_fields(tmp_path: Path) -> None:
     assert "Éditions Δ" == mi.publisher
     assert mi.series == "シリーズΩ"
     assert float(mi.series_index) == 7.5
-    assert set(mi.tags) >= {"タグ", "Κατηγορία", "Тег", "العربية", "हिंदी", "日本語"}
+    assert set(mi.tags) >= {"العربية", "हिंदी", "日本語"}
+    assert mi.subjects == ["タグ", "Κατηγορία", "Тег", "العربية"]
 
 
 def test_odt_metadata_stream_cursor_is_preserved(tmp_path: Path) -> None:

@@ -21,6 +21,7 @@ import os
 import re
 
 from LiuXin_alpha.utils.date import isoformat, now
+from LiuXin_alpha.metadata.book.base import tags_and_subjects
 from LiuXin_alpha.utils.mine_types import guess_type
 
 # Py2/Py3 compatibility layer
@@ -158,9 +159,11 @@ def meta_info_to_oeb_metadata(mi: _typing.Any, m: _typing.Any, log: _typing.Any,
         m.add("rating", "%.2f" % safe_attr("rating"))
     elif override_input_metadata:
         m.clear("rating")
-    if not mi.is_null("tags"):
+    # OPF has one field for tags and subjects: dc:subject holds both.
+    terms = tags_and_subjects(mi)
+    if terms:
         m.clear("subject")
-        for t in safe_attr("tags", []) or []:
+        for t in terms:
             m.add("subject", t)
     elif override_input_metadata:
         m.clear("subject")

@@ -55,7 +55,7 @@ try:
         from dateutil.tzwin import tzwin, tzwinlocal
     except ImportError:
         logger.info("Attempt to use builtin dateutil failed; falling back to inbuilt version")
-        from LiuXin_alpha.utils.liuxin_dateutil.tzwin import tzwin, tzwinlocal
+        from LiuXin_alpha.utils.libraries.liuxin_dateutil.tzwin import tzwin, tzwinlocal
 except (ImportError, OSError):
     logger.info("Attempt to fall back to inbuilt dateutil failed")
     tzwin, tzwinlocal = None, None

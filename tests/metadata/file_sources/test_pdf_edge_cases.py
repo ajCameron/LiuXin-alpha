@@ -14,6 +14,7 @@ from __future__ import annotations
 import base64
 import io
 import zlib
+from collections.abc import Iterator
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -23,6 +24,25 @@ from LiuXin_alpha.metadata.containers.calibre_like_book_metadata import (
     CalibreLikeLiuXinBookMetaData as MetaData,
 )
 from LiuXin_alpha.metadata.file_sources import pdf, pdf_merge
+from tests.support.subject_reading import subject_reading
+
+
+@pytest.fixture(autouse=True)
+def _calibre_reading_of_the_subject() -> Iterator[None]:
+    """
+    Read and write the Info Subject as calibre's reading does: as the comments, the mapping these edge cases check.
+
+    The ``read_subject_fields_as`` preference reads it as subjects by default; see
+    ``tests/metadata/file_sources/test_subject_field_reading.py``.
+
+    Example:
+        Applies itself to every test in this module.
+
+
+    :return: An iterator that yields once, while each test runs.
+    """
+    with subject_reading("calibre"):
+        yield
 
 
 def _values(raw):

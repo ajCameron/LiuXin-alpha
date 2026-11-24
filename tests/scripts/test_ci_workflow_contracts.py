@@ -384,6 +384,10 @@ def test_database_ratchet_requires_all_backends_and_preserves_evidence():
         == "${{ github.event.pull_request.base.sha || github.event.before }}"
     )
     assert "--baseline-ref" in run["run"]
+    assert (
+        '--fallback-branch "origin/${{ github.event.repository.default_branch }}"'
+        in run["run"]
+    )
     assert "run_database_regression_ratchet.py" in run["run"]
     upload = next(
         step

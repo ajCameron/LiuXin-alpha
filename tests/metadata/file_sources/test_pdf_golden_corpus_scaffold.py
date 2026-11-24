@@ -14,10 +14,31 @@ from __future__ import annotations
 import hashlib
 import importlib
 import json
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
 import pytest
+
+from tests.support.subject_reading import subject_reading
+
+
+@pytest.fixture(autouse=True)
+def _calibre_reading_of_the_subject() -> Iterator[None]:
+    """
+    Read the Info Subject as calibre's reading does: each merge policy's own rule, which the golden values record.
+
+    The ``read_subject_fields_as`` preference reads it as subjects by default; see
+    ``tests/metadata/file_sources/test_subject_field_reading.py``.
+
+    Example:
+        Applies itself to every test in this module.
+
+
+    :return: An iterator that yields once, while each test runs.
+    """
+    with subject_reading("calibre"):
+        yield
 
 _THIS_DIR = Path(__file__).resolve().parent
 _GOLDEN_DIR = _THIS_DIR.parent.parent / "fixtures" / "pdf_golden"
