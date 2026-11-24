@@ -2,8 +2,10 @@
 Compose the database-bound services used by CoreRuntime and coordinate cache reconciliation and cleanup.
 
 Construction prepares an optional cache and shares it with storage. Catalog,
-read-source, preference, field, and maintenance facades are resolved lazily when
-not injected. Ownership flags govern cleanup; they do not make construction,
+read-source, field, and maintenance facades are resolved lazily when
+not injected. Application settings and reopening options are captured eagerly;
+Profile-sensitive construction and cleanup bind the captured store. Ownership
+flags govern cleanup; they do not make construction,
 reconciliation, or shutdown an atomic operation.
 """
 
@@ -11,8 +13,12 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterator, Mapping
 from contextlib import AbstractContextManager, contextmanager, nullcontext
+from copy import deepcopy
 from threading import RLock
 from typing import TYPE_CHECKING, Any, cast
+
+from LiuXin_alpha.configuration import capture_preferences, use_preferences
+from LiuXin_alpha.core.connections import capture_database_connection
 
 if TYPE_CHECKING:
     from LiuXin_alpha.catalog.api.metadata_access import MetadataAPIInterface
@@ -115,7 +121,7 @@ class CoreServices:
         :param cache_type: Optional selector used to construct an owned cache for this database.
         :param cache_kwargs: Optional keyword arguments copied into cache construction when a type is supplied.
         :param read_source: Optional explicit metadata read source; otherwise derived lazily from cache/database.
-        :param preferences: Optional application preference mapping; otherwise resolved from database or global configuration.
+        :param preferences: Application store captured now; fallback is database preferences then the current selection. Live proxies resolve to their concrete store.
         :param library_preferences: Optional library preference facade; otherwise DBPrefs is constructed lazily.
         :param field_metadata: Optional field metadata object; an explicit refresh discards even this injected object.
         :param maintenance: Optional borrowed maintenance service; otherwise borrowed from database or constructed lazily.
@@ -140,11 +146,16 @@ class CoreServices:
 
         self.library = library
         self.database = database
+        self._database_connection = capture_database_connection(database)
         self._catalog = catalog
         self._metadata: MetadataAPIInterface | None = None
         self._cache = cache
         self._read_source = read_source
-        self._preferences = preferences
+        self._preferences = capture_preferences(
+            preferences
+            if preferences is not None
+            else getattr(database, "preferences", None)
+        )
         self._library_preferences = library_preferences
         self._field_metadata = field_metadata
         self._maintenance = maintenance
@@ -158,34 +169,35 @@ class CoreServices:
         self._storage_binding: tuple[Any, Any] | None = None
         self.close_cache_on_shutdown = bool(close_cache_on_shutdown)
 
-        try:
-            self._validate_dependencies()
-            if cache_type is not None:
-                from LiuXin_alpha.caches.cache import create_cache
+        with use_preferences(self._preferences):
+            try:
+                self._validate_dependencies()
+                if cache_type is not None:
+                    from LiuXin_alpha.caches.cache import create_cache
 
-                options = dict(cache_kwargs or {})
-                load = options.pop("load", True)
-                self._cache = create_cache(
-                    self.database, str(cache_type), load=False, **options
-                )
-                self._owns_cache = True
-                if load:
-                    self._cache.load()
-            elif self._cache is not None:
-                self._prepare_supplied_cache()
+                    options = dict(cache_kwargs or {})
+                    load = options.pop("load", True)
+                    self._cache = create_cache(
+                        self.database, str(cache_type), load=False, **options
+                    )
+                    self._owns_cache = True
+                    if load:
+                        self._cache.load()
+                elif self._cache is not None:
+                    self._prepare_supplied_cache()
 
-            if close_cache_on_shutdown is None:
-                self.close_cache_on_shutdown = self._owns_cache
-            self._validate_dependencies()
-            self._bind_storage_cache()
-        except BaseException as startup_error:
-            failures = self._cleanup(startup=True)
-            if failures:
-                raise BaseExceptionGroup(
-                    "Core service startup and rollback failed",
-                    [startup_error, *failures],
-                ) from None
-            raise
+                if close_cache_on_shutdown is None:
+                    self.close_cache_on_shutdown = self._owns_cache
+                self._validate_dependencies()
+                self._bind_storage_cache()
+            except BaseException as startup_error:
+                failures = self._cleanup(startup=True)
+                if failures:
+                    raise BaseExceptionGroup(
+                        "Core service startup and rollback failed",
+                        [startup_error, *failures],
+                    ) from None
+                raise
 
     @contextmanager
     def _service_scope(self) -> Iterator[None]:
@@ -196,7 +208,8 @@ class CoreServices:
         with self._database_boundary(), self._lifecycle_lock:
             if self._closed:
                 raise RuntimeError("Core services are closed")
-            yield
+            with use_preferences(self._preferences):
+                yield
 
     def _database_boundary(self) -> AbstractContextManager[object]:
         """Share the database mutex when coordinating native graph bindings."""
@@ -331,12 +344,19 @@ class CoreServices:
             return self._metadata
 
     @property
+    def database_connection(self) -> dict[str, Any] | None:
+        """Return an independent copy of this graph's private reopening options."""
+        with self._service_scope():
+            return deepcopy(self._database_connection)
+
+    @property
     def preferences(self) -> Any:
         """
-        Resolve application preferences from injection, the database attribute, or the global mapping, in that order.
+        Return the concrete application store captured at service construction.
 
-        Only ``None`` triggers fallback, so an empty injected mapping is retained.
-        The selected object is shared and cached rather than copied.
+        Injection wins over the database store and then the current selection.
+        Empty mappings are retained; a live proxy is resolved once. Values remain
+        shared within this process, but another profile cannot redirect the store.
 
         Example:
             >>> from types import SimpleNamespace
@@ -349,13 +369,6 @@ class CoreServices:
         """
 
         with self._service_scope():
-            if self._preferences is None:
-                configured = getattr(self.database, "preferences", None)
-                if configured is None:
-                    from LiuXin_alpha.preferences import preferences
-
-                    configured = preferences
-                self._preferences = configured
             return self._preferences
 
     @property
@@ -414,10 +427,10 @@ class CoreServices:
                     )
                 candidate = FieldMetadata(schema)
                 if wrapper is not None and hasattr(self.database, "driver"):
+                    from LiuXin_alpha.caches.custom_fields import CustomFieldCache
                     from LiuXin_alpha.databases.custom_columns.native_service import (
                         CustomFieldService,
                     )
-                    from LiuXin_alpha.caches.custom_fields import CustomFieldCache
 
                     CustomFieldCache(
                         CustomFieldService(self.database), candidate
@@ -588,8 +601,8 @@ class CoreServices:
         """
         Report service type names and cache status while leaving most uninitialized services lazy.
 
-        Application preferences are an exception: their property is resolved to
-        report its type. Cache status/capabilities and database maintenance
+        Application preferences were captured at construction; this reports
+        their type without rebinding. Cache status/capabilities and database maintenance
         attributes are read directly; failures propagate instead of becoming
         healthy-looking placeholders. This is not a snapshot of one atomic state.
 
@@ -791,7 +804,8 @@ class CoreServices:
 
     def _abort_startup(self) -> None:
         """Roll back a constructed service bundle whose runtime failed to open."""
-        failures = self._cleanup(startup=True)
+        with use_preferences(self._preferences):
+            failures = self._cleanup(startup=True)
         if failures:
             raise BaseExceptionGroup("Core service startup rollback failed", failures)
 
@@ -814,7 +828,8 @@ class CoreServices:
 
         :return: ``None`` after attempted first cleanup or immediately on a repeated call.
         """
-        failures = self._cleanup(startup=False)
+        with use_preferences(self._preferences):
+            failures = self._cleanup(startup=False)
         if failures:
             raise BaseExceptionGroup("Core service cleanup failed", failures)
 

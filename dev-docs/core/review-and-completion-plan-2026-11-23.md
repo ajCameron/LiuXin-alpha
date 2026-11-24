@@ -302,10 +302,10 @@ without weakening its completion checks.
 | 8 | **Domain and API consolidation:** implement selective cleanup, finish supported deferred repair actions, extract storage policy, retire superseded adapters after caller migration | Slices 1/3/5; coordinated Catalog/storage work | Every required operation implemented on supported backends; domain invariants identical through all entry points; no new upward dependencies or compatibility facades; API inventory and strict typing coverage expand |
 | 9 | **Acceptance and release:** publish supported capability/backend matrix and operational runbooks | All preceding slices | The sign-off scenarios below pass; current evidence is attached to the reviewed revision; remaining optional limitations are explicit rather than hidden behind a completeness flag |
 
-Slice 1 corrects misleading or unsafe contracts before expanding them; its
-implementation is recorded in the follow-up below. Configuration remains the next architectural migration,
-followed by native metadata completeness. Avoid a wholesale runtime rewrite or
-another top-level service package.
+Slices 1 and 2 correct the contracts and configuration boundaries before expanding
+them; implementation and validation are recorded below. Native metadata completeness
+is the next implementation slice. Avoid a wholesale runtime rewrite or another
+top-level service package.
 
 ## Contract corrections follow-up
 
@@ -427,3 +427,63 @@ because the repository artifact guard observes newly created root caches.
 
 Return to [Core](README.md), [next tasks](next_tasks.md), or the
 [metadata and lifecycle review](integration-review-2026-11-23.md).
+
+## Configuration closure follow-up
+
+Implemented **2026-11-23**, following `7dc7d426` (slice 2 / CORE-04 / A12).
+The startup/configuration portion of F10 is addressed. Its separate domain-policy
+consolidation concerns remain in slice 8.
+
+- Removed `ptempfiles`' startup-package edge and barred utils-to-startup imports.
+- Captured concrete preference stores instead of retaining the profile-sensitive
+  global proxy. Graph construction, lazy services, dispatch and cleanup scope the
+  captured store and restore outer bindings on failure.
+- Captured absolute SQLite/APSW paths and resolved PostgreSQL targets/schemas;
+  named workers and durable worker factories carry independent metadata copies.
+  One-shot registration helpers preserve server selectors and accept backend metadata.
+- Kept submitting stores through queues and retries, including the unbound
+  process default. Fixed worker serialization/startup failures leaving jobs in a
+  permanent running state; pipe cleanup and subsequent-job recovery are tested.
+- Published the component capture/reload inventory, retaining separate application,
+  library and component domains and explicit process-singleton limits.
+
+Validation includes 117 added cases: 79 configuration cases, 32 registration
+selector cases and six import-direction cases. These exercise concurrent profile
+dispatch, alternating queued stores, retry isolation, serialization/startup
+failure recovery, context restoration and repeated graph teardown. Real worker
+graphs cover SQLite, APSW and a disposable local PostgreSQL 16 server, including
+URL and service selectors, independent schemas and named durable maintenance.
+
+- Final focused verification: **311 passed** in 268.16 seconds, including the
+  latest lifetime/connection changes, registration/lifecycle checks, utility jobs
+  and documentation/direction checks.
+- The broader Core/preferences/jobs/config/cache/surface regression selection:
+  **813 passed, one failed** in 1,340.73 seconds. That run had collected the old
+  shared-argument assertion before its correction; it reported no other failures.
+  The final focused selection covers the changes made while that run completed.
+- The corrected service-contract and documentation selection: **46 passed**.
+  Queued arguments now deliberately own independent nested containers; the old
+  identity assertion was replaced with a caller-mutation isolation check.
+- Final documentation link and public-boundary checks: **22 passed**.
+- The complete quality gate passed: 479 formatted files, 482 annotation targets,
+  268 protected import modules, 2,092 direction modules, 31 cold-import budgets,
+  lint/complexity checks, basedpyright with zero errors/warnings, mypy across 575
+  files, and 127/123 rejected negative type examples respectively.
+
+Passing selections overlap and must not be added together. The only warning in
+final focused verification was an existing `codecs.open` deprecation in the
+ISO-639 library. No whole-Core sign-off is implied; native metadata completion
+is next.
+
+**Additional domain finding (slice 5/8):** A real `ingest.disk.start` process job
+against a newly created native PostgreSQL catalogue reaches the selected graph,
+then fails in `storage.reconcile.store_db_sync._ensure_schema_support`: it requires
+legacy `stores`/`files` tables, and native PostgreSQL has no `files` table. This
+was reproduced with both URL metadata and a service selector. It is an ingest
+schema migration/capability issue, separate from configuration propagation; do not
+advertise successful native PostgreSQL unmanaged-disk ingestion. Complete the
+migration and add an end-to-end success regression in the domain workflow slice.
+Configuration acceptance uses real native record writes and the supported named
+maintenance workflow through durable jobs instead. The failed exploratory ingest
+run is retained as `/tmp/liuxin-core-configuration-final.log` (148 passed, two
+matching domain failures); it is not counted as a passing acceptance run.

@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import dataclasses
 from collections.abc import Iterable, Mapping, Sequence
+from copy import deepcopy
 from typing import TYPE_CHECKING, Any
 
 from LiuXin_alpha.core.errors import CoreDispatchError
@@ -276,28 +277,38 @@ def _flatten_text(value: Any) -> str:
 
 def _database_path(runtime: CoreRuntime) -> str:
     """
-    Require nonblank database_path metadata for a worker that reopens a path-backed database.
+    Return the captured absolute file path or PostgreSQL selector for a worker.
 
-    The returned text is not stripped or checked for existence, confinement, or
-    backend suitability. Metadata must be a Mapping; other representations are rejected.
+    The Core graph captures connection options at construction. Borrowed test or
+    standalone adapters without CoreServices resolve their own metadata here.
 
     Example:
         >>> path = _database_path(runtime)  # doctest: +SKIP
 
 
     :param runtime: Runtime exposing database.metadata with a database_path value.
-    :return: Stringified nonblank path metadata, preserving surrounding whitespace.
+    :return: Captured database path or server selector.
     :raises CoreDispatchError: If path metadata is unavailable, using database_path_unavailable.
     """
-    metadata = getattr(runtime.database, "metadata", None)
-    if isinstance(metadata, Mapping):
-        value = metadata.get("database_path")
-        if value is not None and str(value).strip():
-            return str(value)
-    raise CoreDispatchError(
-        "This workflow requires a path-backed database.",
-        code="database_path_unavailable",
+    return _database_connection(runtime)["database_path"]
+
+
+def _database_connection(runtime: CoreRuntime) -> dict[str, Any]:
+    """Copy the Core graph's captured connection options for a worker submission."""
+    from LiuXin_alpha.core.connections import capture_database_connection
+
+    services = getattr(runtime, "services", None)
+    connection = (
+        services.database_connection
+        if services is not None
+        else capture_database_connection(runtime.database)
     )
+    if connection is None:
+        raise CoreDispatchError(
+            "This workflow requires a reopenable database connection.",
+            code="database_path_unavailable",
+        )
+    return connection
 
 
 def _database_type(runtime: CoreRuntime) -> str:
@@ -313,8 +324,14 @@ def _database_type(runtime: CoreRuntime) -> str:
     :param runtime: Runtime whose database optionally advertises a backend type.
     :return: Backend label without stripping, validation, or alias normalization.
     """
-    value = getattr(runtime.database, "type", None)
-    return str(value or "SQLite")
+    connection = getattr(
+        getattr(runtime, "services", None), "database_connection", None
+    )
+    return (
+        connection["db_type"]
+        if connection is not None
+        else str(getattr(runtime.database, "type", None) or "SQLite")
+    )
 
 
 def _agent_role(value: Any) -> str:
@@ -366,7 +383,7 @@ def _job_submit(
     :param runtime: Runtime whose job_manager accepts JobRequest and execution options.
     :param payload: Optional job_timeout_s, job_backend, job_no_output, and label fields.
     :param function_name: Worker name within LiuXin_alpha.core.workflow_jobs; not resolved or allowlisted here.
-    :param kwargs: Shallow-copied keyword arguments carried by the job request, not a serialization proof.
+    :param kwargs: Independently copied worker options; database jobs receive the captured Core connection. This is not a serialization proof.
     :param default_label: Label used when the stringified/stripped requested label is empty.
     :return: job_id, label, requested backend text, timeout_s, and no_output; not a completion result.
     """
@@ -377,11 +394,14 @@ def _job_submit(
     backend = payload.get("job_backend")
     no_output = boolean(payload, "job_no_output", False)
     label = str(payload.get("label", "")).strip() or default_label
+    worker_kwargs = deepcopy(dict(kwargs))
+    if "database_path" in worker_kwargs:
+        worker_kwargs.update(_database_connection(runtime))
     job_id = runtime.job_manager.submit(
         JobRequest(
             module_name="LiuXin_alpha.core.workflow_jobs",
             function_name=function_name,
-            kwargs=dict(kwargs),
+            kwargs=worker_kwargs,
         ),
         timeout=timeout,
         no_output=no_output,

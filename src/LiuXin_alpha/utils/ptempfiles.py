@@ -8,8 +8,10 @@
 """
 Manage temporary files and scratch folders with explicit ownership and cleanup.
 
-The module keeps compatibility policy, normalization and resource ownership explicit
-for callers.
+Importing this utility does not run application startup or create scratch folders.
+Operational defaults and override helpers are process-scoped; use explicit
+``dir``/``make_in`` arguments for independent resources. Objects retain their
+selected directory. The base-dir helpers create missing directories on use.
 
 Example:
     Exercise ptempfiles through a consuming regression::
@@ -38,7 +40,7 @@ from LiuXin_alpha.constants import get_unicode_windows_env_var, get_windows_temp
 
 from LiuXin_alpha.errors import InputIntegrityError
 
-from LiuXin_alpha.startup_scripts.prefs_folder_manager import create_scratch_folder
+from LiuXin_alpha.utils.paths import create_scratch_folder
 
 from LiuXin_alpha.utils.storage.local.file_ops import file_hasher
 from LiuXin_alpha.constants import filesystem_encoding

@@ -1,7 +1,8 @@
 """Compose one-shot store registration around an owned library graph.
 
-Use these helpers when the caller has an existing catalogue path. Callers with
-an open graph should use the handle-based operations in ``ingest.remote_html``
+Use these helpers with an existing catalogue path or PostgreSQL selector and
+metadata. The active preference context is captured by the graph before opening.
+Callers with an open graph should use the handle-based operations in ``ingest.remote_html``
 or ``storage.reconcile`` instead. LibraryServices owns startup and teardown;
 these helpers do not add an all-registration transaction or retry partial writes.
 """
@@ -9,8 +10,7 @@ these helpers do not add an all-registration transaction or retry partial writes
 from __future__ import annotations
 
 import os
-import pathlib
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 
 from LiuXin_alpha.core.library_services import LibraryServices
 from LiuXin_alpha.ingest.models import RemoteHtmlRegistrationReport
@@ -29,6 +29,7 @@ def register_existing_disk_with_database_path(
     database_path: str | os.PathLike[str],
     disk_path: str | os.PathLike[str],
     db_type: str = "SQLite",
+    database_metadata: Mapping[str, object] | None = None,
     store_name: str | None = None,
     store_kind: str = "on_disk_existing_unmanaged_drive",
     ebook_extensions: Iterable[str] | None = None,
@@ -50,9 +51,10 @@ def register_existing_disk_with_database_path(
         >>> report = register_existing_disk_with_database_path(database_path=catalogue, disk_path=root)  # doctest: +SKIP
 
 
-    :param database_path: Existing catalogue path normalized by LibraryServices.
+    :param database_path: Existing file path or PostgreSQL selector resolved by LibraryServices.
     :param disk_path: Existing local directory used for the unmanaged Store and filesystem scan.
     :param db_type: Database adapter selector, defaulting to SQLite.
+    :param database_metadata: Backend target/schema options forwarded without treating server selectors as paths.
     :param store_name: Truthy name override, otherwise a sanitized name derived from the root.
     :param store_kind: Legacy Store-kind label persisted independently of the concrete backend class.
     :param ebook_extensions: Accepted lowercase suffix policy; None chooses project defaults and an empty iterable selects none.
@@ -69,8 +71,9 @@ def register_existing_disk_with_database_path(
     )
 
     with LibraryServices.open(
-        database_path=pathlib.Path(database_path),
+        database_path=os.fspath(database_path),
         db_type=db_type,
+        database_metadata=database_metadata,
         create=False,
         backup=False,
         enable_maintenance=False,
@@ -96,6 +99,7 @@ def register_rclone_http_readonly_with_database_path(
     database_path: str | os.PathLike[str],
     remote_url: str,
     db_type: str = "SQLite",
+    database_metadata: Mapping[str, object] | None = None,
     store_name: str | None = None,
     store_kind: str = "rclone_http_readonly",
     max_http_requests_per_hour: float | None = None,
@@ -124,9 +128,10 @@ def register_rclone_http_readonly_with_database_path(
         >>> report = register_rclone_http_readonly_with_database_path(database_path=catalogue, remote_url="remote:")  # doctest: +SKIP
 
 
-    :param database_path: Existing catalogue path normalized by LibraryServices.
+    :param database_path: Existing file path or PostgreSQL selector resolved by LibraryServices.
     :param remote_url: Remote selector trimmed here and parsed/validated by the concrete backend.
     :param db_type: Database adapter selector, defaulting to SQLite.
+    :param database_metadata: Backend target/schema options forwarded without treating server selectors as paths.
     :param store_name: Truthy name override, otherwise a sanitized name derived from the root.
     :param store_kind: Legacy Store-kind label persisted independently of the concrete backend class.
     :param max_http_requests_per_hour: Rate ceiling; None resolves the configured default before backend construction.
@@ -151,8 +156,9 @@ def register_rclone_http_readonly_with_database_path(
     )
 
     with LibraryServices.open(
-        database_path=pathlib.Path(database_path),
+        database_path=os.fspath(database_path),
         db_type=db_type,
+        database_metadata=database_metadata,
         create=False,
         backup=False,
         enable_maintenance=False,
@@ -183,9 +189,10 @@ def register_rclone_http_readonly_with_database_path(
 
 def register_wget_html_readonly_with_database_path(
     *,
-    database_path: str | pathlib.Path,
+    database_path: str | os.PathLike[str],
     remote_url: str,
     db_type: str = "SQLite",
+    database_metadata: Mapping[str, object] | None = None,
     store_name: str | None = None,
     store_kind: str = "wget_html_readonly",
     max_http_requests_per_hour: float | None = None,
@@ -221,9 +228,10 @@ def register_wget_html_readonly_with_database_path(
         >>> report = register_wget_html_readonly_with_database_path(database_path='catalogue.sqlite', remote_url='https://example.test/books/')  # doctest: +SKIP
 
 
-    :param database_path: Existing catalogue path normalized by LibraryServices.
+    :param database_path: Existing file path or PostgreSQL selector resolved by LibraryServices.
     :param remote_url: HTTP(S) discovery root checked by the delegated ensure helper.
     :param db_type: Database driver selector, defaulting to SQLite.
+    :param database_metadata: Backend target/schema options forwarded to the lifecycle owner.
     :param store_name: Store display name, or falsey for generated naming.
     :param store_kind: Persisted Store kind label.
     :param max_http_requests_per_hour: Crawl rate, or None for preference/default selection.
@@ -250,8 +258,9 @@ def register_wget_html_readonly_with_database_path(
     from LiuXin_alpha.ingest.remote_html import register_wget_html_readonly_store_files
 
     with LibraryServices.open(
-        database_path=pathlib.Path(database_path),
+        database_path=os.fspath(database_path),
         db_type=db_type,
+        database_metadata=database_metadata,
         create=False,
         backup=False,
         enable_maintenance=False,
@@ -286,9 +295,10 @@ def register_wget_html_readonly_with_database_path(
 
 def register_native_html_readonly_with_database_path(
     *,
-    database_path: str | pathlib.Path,
+    database_path: str | os.PathLike[str],
     remote_url: str,
     db_type: str = "SQLite",
+    database_metadata: Mapping[str, object] | None = None,
     store_name: str | None = None,
     store_kind: str = "native_html_readonly",
     max_http_requests_per_hour: float | None = None,
@@ -320,9 +330,10 @@ def register_native_html_readonly_with_database_path(
         >>> report = register_native_html_readonly_with_database_path(database_path='catalogue.sqlite', remote_url='https://example.test/books/')  # doctest: +SKIP
 
 
-    :param database_path: Existing catalogue path normalized by LibraryServices.
+    :param database_path: Existing file path or PostgreSQL selector resolved by LibraryServices.
     :param remote_url: Root normalized by the delegated native Store ensure helper.
     :param db_type: Database driver selector, defaulting to SQLite.
+    :param database_metadata: Backend target/schema options forwarded to the lifecycle owner.
     :param store_name: Explicit display name, or falsey for a generated name.
     :param store_kind: Kind label stored on the configured Store row.
     :param max_http_requests_per_hour: Native request rate, or None for shared preference selection.
@@ -349,8 +360,9 @@ def register_native_html_readonly_with_database_path(
     )
 
     with LibraryServices.open(
-        database_path=pathlib.Path(database_path),
+        database_path=os.fspath(database_path),
         db_type=db_type,
+        database_metadata=database_metadata,
         create=False,
         backup=False,
         enable_maintenance=False,

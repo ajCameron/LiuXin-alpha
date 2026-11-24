@@ -66,6 +66,7 @@ from LiuXin_alpha.storage.reconcile.models import UnmanagedDiskRegistrationRepor
     ),
 )
 @pytest.mark.parametrize("outcome", ("success", "startup", "registration", "cleanup"))
+@pytest.mark.parametrize("target", ("sqlite", "url", "service"))
 def test_registration_uses_one_owned_graph(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
@@ -76,6 +77,7 @@ def test_registration_uses_one_owned_graph(
     report_type: type[UnmanagedDiskRegistrationReport]
     | type[RemoteHtmlRegistrationReport],
     outcome: str,
+    target: str,
 ) -> None:
     """Forward policy, observe progress inside the graph, and close before return.
 
@@ -85,7 +87,13 @@ def test_registration_uses_one_owned_graph(
     events: list[str] = []
     database = object()
     report = report_type(1, "books", "Books")
-    path = tmp_path / "existing.sqlite"
+    path = {
+        "sqlite": str(tmp_path / "existing.sqlite"),
+        "url": "postgresql://localhost/selected",
+        "service": "service=selected",
+    }[target]
+    backend = "SQLite_APSW" if target == "sqlite" else "PostgreSQL"
+    metadata = None if target == "sqlite" else {"schema": "selected_schema"}
     forwarded = {
         **options,
         "ebook_extensions": (),
@@ -97,7 +105,8 @@ def test_registration_uses_one_owned_graph(
     def open_graph(**kwargs: Any) -> Iterator[SimpleNamespace]:
         assert kwargs == {
             "database_path": path,
-            "db_type": "SQLite_APSW",
+            "db_type": backend,
+            "database_metadata": metadata,
             "create": False,
             "backup": False,
             "enable_maintenance": False,
@@ -136,7 +145,8 @@ def test_registration_uses_one_owned_graph(
         assert (
             invoke(
                 database_path=str(path),
-                db_type="SQLite_APSW",
+                db_type=backend,
+                database_metadata=metadata,
                 progress_callback=progress,
                 **forwarded,
             )
@@ -146,7 +156,8 @@ def test_registration_uses_one_owned_graph(
         with pytest.raises(RuntimeError, match=f"{outcome} failed"):
             invoke(
                 database_path=str(path),
-                db_type="SQLite_APSW",
+                db_type=backend,
+                database_metadata=metadata,
                 progress_callback=progress,
                 **forwarded,
             )

@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import threading
 import time
+import traceback
 import uuid
 
 from contextvars import copy_context
@@ -24,7 +25,9 @@ from concurrent.futures import (
     TimeoutError as FutureTimeoutError,
 )
 from dataclasses import dataclass, field
-from typing import Callable, Iterable, Literal
+from typing import Any, Callable, Iterable, Literal
+
+from LiuXin_alpha.configuration import capture_preferences, use_preferences
 
 from .api import JobBackend, JobExecution, JobRequest, allocate_job_log_path, execute_job
 
@@ -102,6 +105,7 @@ class _RuntimeJob:
 
             python -m pytest -q tests/utils/jobs/test_jobs_manager.py
     """
+    preferences: Any
     info: ManagedJob
     future: Future[JobExecution] | None = None
     abort_event: threading.Event = field(default_factory=threading.Event)
@@ -133,7 +137,11 @@ class JobManagerAPI:
         label: str | None = None,
     ) -> str:
         """
-        Submit a callable for managed execution and return its stable job identifier.
+        Submit a callable and capture its concrete application store now.
+
+        Queued tasks retain the submitting selection even when the process default
+        changes. Serial execution shares that store; process execution copies its
+        values when spawning. Backend/startup errors become terminal failed jobs.
 
         Example:
             Exercise JobManagerAPI.submit through a consuming regression::
@@ -334,7 +342,10 @@ class InMemoryJobManager(JobManagerAPI):
         retry_of_job_id: str | None = None,
     ) -> str:
         """
-        Submit a callable for managed execution and return its stable job identifier.
+        Submit a callable and capture its concrete application store now.
+
+        The executor and retries retain this store. Serial work shares its values;
+        a process worker copies them when spawning, rather than reloading a profile.
 
         Example:
             Exercise InMemoryJobManager.submit through a consuming regression::
@@ -370,7 +381,7 @@ class InMemoryJobManager(JobManagerAPI):
                 label=label,
                 retry_of_job_id=retry_of_job_id,
             )
-            runtime = _RuntimeJob(info=info)
+            runtime = _RuntimeJob(info=info, preferences=capture_preferences())
             self._jobs[job_id] = runtime
             # Each job captures its submitting Core's selection, including when
             # it waits in the executor queue behind a different profile.
@@ -446,15 +457,23 @@ class InMemoryJobManager(JobManagerAPI):
             log_path = runtime.info.log_path
 
         selected_backend = self._default_backend if backend is None else backend
-        execution = execute_job(
-            request,
-            timeout=timeout_s,
-            no_output=no_output,
-            heartbeat=heartbeat,
-            abort=runtime.abort_event,
-            backend=selected_backend,
-            log_path=log_path,
-        )
+        try:
+            with use_preferences(runtime.preferences):
+                execution = execute_job(
+                    request,
+                    timeout=timeout_s,
+                    no_output=no_output,
+                    heartbeat=heartbeat,
+                    abort=runtime.abort_event,
+                    backend=selected_backend,
+                    log_path=log_path,
+                )
+        except BaseException:
+            # Startup/pickling/backend failures are terminal jobs too. Otherwise
+            # the Future fails while the public job remains "running" forever.
+            execution = JobExecution(
+                ok=False, traceback=traceback.format_exc(), log_path=log_path
+            )
 
         with self._lock:
             runtime2 = self._jobs.get(job_id)
@@ -632,7 +651,10 @@ class InMemoryJobManager(JobManagerAPI):
         allow_succeeded: bool = False,
     ) -> str:
         """
-        Replay one terminal request as a new, linked managed job.
+        Replay a terminal request using its original selected application store.
+
+        The caller's active profile cannot redirect a retry. The store object is
+        retained, not a historical snapshot of values or a file reload request.
 
         Example:
             Exercise InMemoryJobManager.retry through a consuming regression::
@@ -662,14 +684,17 @@ class InMemoryJobManager(JobManagerAPI):
         backend: str | None = original.backend_name
         if backend in {None, "", "auto"}:
             backend = None
-        return self.submit(
-            original.request,
-            timeout=original.timeout_s,
-            no_output=original.no_output,
-            backend=backend,
-            label=label if label is not None else original.label,
-            retry_of_job_id=original.job_id,
-        )
+        with self._lock:
+            selected_preferences = self._jobs[str(job_id)].preferences
+        with use_preferences(selected_preferences):
+            return self.submit(
+                original.request,
+                timeout=original.timeout_s,
+                no_output=original.no_output,
+                backend=backend,
+                label=label if label is not None else original.label,
+                retry_of_job_id=original.job_id,
+            )
 
     def shutdown(self, *, wait: bool = True, cancel_pending: bool = False) -> None:
         """

@@ -241,7 +241,11 @@ def test_factory_failure_stops_new_durable_service_before_closing_graph(
     calls = []
     library = SimpleNamespace(db=SimpleNamespace(uuid="review-library"))
     owner = SimpleNamespace(
-        library=library, _abort_startup=lambda: calls.append("graph")
+        library=library,
+        core_services=SimpleNamespace(database_connection={
+            "database_path": str(tmp_path / "library.sqlite"), "db_type": "SQLite", "database_metadata": {}
+        }),
+        _abort_startup=lambda: calls.append("graph")
     )
     durable = Mock()
     durable.stop.side_effect = lambda **kwargs: calls.append("durable")

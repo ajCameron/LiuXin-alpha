@@ -2,7 +2,9 @@
 Run named Core jobs using fresh library handles and lazily imported workflow implementations.
 
 Database-backed workers open an existing library with creation and automatic
-backup disabled, and close their handle before returning. They do not add a
+backup disabled, carrying the captured target/schema metadata and submitting
+application store. Their graph context binds that store through execution and
+cleanup. They close their handle before returning and do not add a
 transaction around filesystem, network, and database effects. Report conversion
 is recursive but is not a JSON encoder: bytes and unsupported objects can remain.
 Worker exceptions propagate to the job runner; returned report-level errors are
@@ -24,6 +26,7 @@ def _open_library_services(
     *,
     database_path: str,
     db_type: str,
+    database_metadata: Mapping[str, Any] | None = None,
     create: bool = False,
     storage_startup_on_add: bool = False,
 ):
@@ -34,6 +37,7 @@ def _open_library_services(
     return LibraryServices.open(
         database_path=database_path,
         db_type=db_type,
+        database_metadata=database_metadata,
         create=create,
         backup=False,
         storage_startup_on_add=storage_startup_on_add,
@@ -94,6 +98,7 @@ def run_ingest_disk_job(
     *,
     database_path: str,
     db_type: str,
+    database_metadata: Mapping[str, Any] | None = None,
     disk_path: str,
     store_name: str | None = None,
     ebook_extensions: list[str] | None = None,
@@ -118,6 +123,7 @@ def run_ingest_disk_job(
 
 
     :param database_path: Existing database location understood by the selected driver.
+    :param database_metadata: Captured target/schema and backend connection options.
     :param db_type: Library database driver selector.
     :param disk_path: Local directory to register and scan for ebook candidates.
     :param store_name: Requested store name, or ``None`` for the registration helper's default.
@@ -135,6 +141,7 @@ def run_ingest_disk_job(
     with _open_library_services(
         database_path=database_path,
         db_type=db_type,
+        database_metadata=database_metadata,
         create=False,
     ) as lifecycle:
         library = lifecycle.library
@@ -158,6 +165,7 @@ def run_sync_store_job(
     *,
     database_path: str,
     db_type: str,
+    database_metadata: Mapping[str, Any] | None = None,
     mode: str,
     store_root_uri: str,
     store_name: str | None,
@@ -198,6 +206,7 @@ def run_sync_store_job(
 
 
     :param database_path: Existing database location passed to the selected reconciler.
+    :param database_metadata: Captured target/schema and backend connection options.
     :param db_type: Database driver selector for the reconciler's library handle.
     :param mode: ``local``, ``rclone``, ``wget``, or ``native`` dispatch token.
     :param store_root_uri: Local disk path or remote root URL, according to mode.
@@ -293,6 +302,7 @@ def run_sync_store_job(
     with _open_library_services(
         database_path=database_path,
         db_type=db_type,
+        database_metadata=database_metadata,
     ) as lifecycle:
         library = lifecycle.library
         if normalized == "rclone":
@@ -379,6 +389,7 @@ def run_ingest_remote_html_job(
     *,
     database_path: str,
     db_type: str,
+    database_metadata: Mapping[str, Any] | None = None,
     kind: str,
     options: Mapping[str, Any],
 ) -> dict[str, Any]:
@@ -397,6 +408,7 @@ def run_ingest_remote_html_job(
 
 
     :param database_path: Existing database location used to open a temporary library handle.
+    :param database_metadata: Captured target/schema and backend connection options.
     :param db_type: Library database driver selector.
     :param kind: Wget/native HTML registration token, with hyphenated spellings accepted.
     :param options: Keyword arguments shallow-copied into the chosen registration call.
@@ -417,6 +429,7 @@ def run_ingest_remote_html_job(
     with _open_library_services(
         database_path=database_path,
         db_type=db_type,
+        database_metadata=database_metadata,
         create=False,
     ) as lifecycle:
         library = lifecycle.library
@@ -432,6 +445,7 @@ def run_ingest_web_job(
     *,
     database_path: str,
     db_type: str,
+    database_metadata: Mapping[str, Any] | None = None,
     options: Mapping[str, Any] | None = None,
     resume: str | None = None,
 ) -> dict[str, Any]:
@@ -442,7 +456,7 @@ def run_ingest_web_job(
     from LiuXin_alpha.ingest.web.models import WebIngestOptions
     from LiuXin_alpha.ingest.web.repository import WebIngestRepository
 
-    with _open_library_services(database_path=database_path, db_type=db_type, create=False) as lifecycle:
+    with _open_library_services(database_path=database_path, db_type=db_type, database_metadata=database_metadata, create=False) as lifecycle:
         if resume:
             saved = WebIngestRepository(lifecycle.library.database, create=False).run(str(UUID(resume)))
             values = json.loads(saved["web_ingest_run_options_json"])
@@ -643,6 +657,7 @@ def run_squashfs_backup_job(
     *,
     database_path: str,
     db_type: str,
+    database_metadata: Mapping[str, Any] | None = None,
     workflow_spec: Mapping[str, Any],
     verify_after_build: bool = True,
     cleanup_staging_after_success: bool = False,
@@ -664,6 +679,7 @@ def run_squashfs_backup_job(
 
 
     :param database_path: Existing database location used for the storage-enabled library handle.
+    :param database_metadata: Captured target/schema and backend connection options.
     :param db_type: Library database driver selector.
     :param workflow_spec: Mapping decoded into a backup declaration before opening the library.
     :param verify_after_build: Effective verification flag, overriding the declaration after truth conversion.
@@ -695,6 +711,7 @@ def run_squashfs_backup_job(
     with _open_library_services(
         database_path=database_path,
         db_type=db_type,
+        database_metadata=database_metadata,
         create=False,
     ) as lifecycle:
         library = lifecycle.library
@@ -713,6 +730,7 @@ def run_publish_open_squashfs_store_job(
     *,
     database_path: str,
     db_type: str,
+    database_metadata: Mapping[str, Any] | None = None,
     store_id: int,
     output_archive: str | None = None,
     compression: str = "zstd",
@@ -737,6 +755,7 @@ def run_publish_open_squashfs_store_job(
 
 
     :param database_path: Existing database location containing the store and its designations.
+    :param database_metadata: Captured target/schema and backend connection options.
     :param db_type: Library database driver selector.
     :param store_id: Store row ID converted to an integer for publication.
     :param output_archive: Optional output path override; ``None`` lets publication use the store root.
@@ -754,6 +773,7 @@ def run_publish_open_squashfs_store_job(
     with _open_library_services(
         database_path=database_path,
         db_type=db_type,
+        database_metadata=database_metadata,
         create=False,
     ) as lifecycle:
         library = lifecycle.library
@@ -777,6 +797,7 @@ def run_publish_squashfs_files_job(
     *,
     database_path: str,
     db_type: str,
+    database_metadata: Mapping[str, Any] | None = None,
     file_ids: list[int],
     archive: str,
     store_name: str | None = None,
@@ -801,6 +822,7 @@ def run_publish_squashfs_files_job(
 
 
     :param database_path: Existing database location holding the source file rows.
+    :param database_metadata: Captured target/schema and backend connection options.
     :param db_type: Library database driver selector.
     :param file_ids: Ordered file row identifiers converted to integers for designation.
     :param archive: Archive path stringified for the library publication helper.
@@ -818,6 +840,7 @@ def run_publish_squashfs_files_job(
     with _open_library_services(
         database_path=database_path,
         db_type=db_type,
+        database_metadata=database_metadata,
         create=False,
     ) as lifecycle:
         library = lifecycle.library
@@ -841,6 +864,7 @@ def run_persisted_backup_job(
     *,
     database_path: str,
     db_type: str,
+    database_metadata: Mapping[str, Any] | None = None,
     workflow_id: int,
 ) -> dict[str, Any]:
     """
@@ -863,6 +887,7 @@ def run_persisted_backup_job(
 
 
     :param database_path: Existing database containing the durable workflow/checkpoint records.
+    :param database_metadata: Captured target/schema and backend connection options.
     :param db_type: Library database driver selector.
     :param workflow_id: Workflow row ID, integer-coerced for repository and registration calls.
     :return: Workflow ID, unpacked last checkpoint state, and optional registered-output dictionary.
@@ -880,6 +905,7 @@ def run_persisted_backup_job(
     with _open_library_services(
         database_path=database_path,
         db_type=db_type,
+        database_metadata=database_metadata,
         create=False,
     ) as lifecycle:
         library = lifecycle.library

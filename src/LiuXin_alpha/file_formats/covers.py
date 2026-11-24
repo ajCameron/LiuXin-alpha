@@ -4,8 +4,9 @@
 """
 Extract, normalize and identify cover images from supported ebook containers.
 
-The module keeps compatibility policy, normalization and resource ownership explicit
-for callers.
+The ``cprefs`` component singleton captures its JSON path at import. Refreshing
+it keeps that path. Pass explicit ``prefs`` to cover generation when another
+profile needs independent options; importing another Core does not retarget it.
 
 Example:
     Exercise covers through a consuming regression::

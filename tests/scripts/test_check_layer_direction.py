@@ -45,6 +45,8 @@ def test_repository_matches_reviewed_layer_baseline() -> None:
         ("ingest.remote_html", "surfaces.cli.store_registration", False),
         ("storage.reconcile.store_db_sync", "core.library_services", False),
         ("storage.reconcile.store_db_sync", "surfaces.cli.store_registration", False),
+        ("utils.ptempfiles", "startup_scripts.prefs_folder_manager", False),
+        ("utils.ptempfiles", "utils.paths", True),
         ("core.store_registration", "ingest.remote_html", True),
         ("core.store_registration", "storage.reconcile.store_db_sync", True),
         ("surfaces.cli.store_registration", "core.store_registration", True),

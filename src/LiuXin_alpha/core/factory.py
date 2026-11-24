@@ -13,10 +13,11 @@ from typing import Any
 
 from LiuXin_alpha.configuration import (
     ConfigurationPaths,
-    current_preferences,
+    capture_preferences,
     use_preferences,
 )
 from LiuXin_alpha.core.api import CoreClientAPI
+from LiuXin_alpha.core.connections import is_sqlite, resolve_database_connection
 from LiuXin_alpha.core.proxies.remote import RemoteCoreClient
 from LiuXin_alpha.core.runtime import CoreRuntime
 
@@ -76,7 +77,7 @@ def create_core(
     :param database: Existing database object wrapped when no library is supplied.
     :param database_path: Database file path or server connection/service selector used when opening a database.
     :param db_type: Driver selector for a database opened by the library.
-    :param database_metadata: Optional connection metadata forwarded to Library; its server-database path consumes it.
+    :param database_metadata: Backend connection options retained for workers; PostgreSQL metadata may supply the target when database_path is omitted.
     :param create: Request new database creation; existing files or populated server schemas are rejected.
     :param backup: Compatibility argument; ordinary opening never implicitly replaces a database.
     :param enable_storage_manager: Storage-manager setup flag for a newly opened database.
@@ -94,9 +95,9 @@ def create_core(
     :param core_version: Advertised runtime implementation version, converted to text without version validation.
     :param api_version: Advertised command/query contract version, converted to text.
     :param job_manager: Optional job manager; omission uses the shared process-default manager.
-    :param durable_job_path: Optional local ledger path; path-opened SQLite libraries default to a .jobs.sqlite sidecar, while server databases need an explicit ledger.
+    :param durable_job_path: Optional local ledger path; owned SQLite/APSW libraries default to a .jobs.sqlite sidecar, while server databases need an explicit ledger.
     :param close_job_manager_on_shutdown: Explicit manager-close policy; ``None`` currently defaults to false.
-    :param preferences: Optional application store passed to database construction and CoreServices.
+    :param preferences: Optional application store captured before construction; a live proxy resolves to its current concrete store. Borrowed database preferences are the next fallback.
     :param configuration_paths: Fixed application/component paths; exclusive with an injected store. Settings are loaded before opening database/storage resources.
     :param library_preferences: Optional per-library preference service injected into CoreServices.
     :param field_metadata: Optional field-description service injected into CoreServices.
@@ -111,14 +112,32 @@ def create_core(
         from LiuXin_alpha.preferences import Preferences
 
         preferences = Preferences(paths=configuration_paths, upgrade_on_load=False)
-    if preferences is None and library is None and database is None:
-        preferences = current_preferences()
-
     supplied_library = library is not None
-    if supplied_library and (database is not None or database_path is not None):
+    if supplied_library and (
+        database is not None or database_path is not None or database_metadata is not None
+    ):
         raise ValueError("Provide `library`, or a database/database_path, not both.")
-    if durable_job_path is not None and database_path is None:
-        raise ValueError("durable_job_path requires a database_path")
+    if durable_job_path is not None and (library is not None or database is not None):
+        raise ValueError("durable_job_path requires an owned database connection")
+    selected_database = database
+    if library is not None:
+        selected_database = getattr(library, "database", None)
+        if selected_database is None:
+            selected_database = getattr(library, "db", None)
+    preferences = capture_preferences(
+        preferences
+        if preferences is not None
+        else getattr(selected_database, "preferences", None)
+    )
+    if library is None and database is None:
+        connection = resolve_database_connection(
+            database_path=database_path,
+            db_type=db_type,
+            database_metadata=database_metadata,
+        )
+        database_path = connection["database_path"]
+        db_type = connection["db_type"]
+        database_metadata = connection["database_metadata"]
     library_services = None
     if library is None:
         from LiuXin_alpha.core.library_services import LibraryServices
@@ -151,7 +170,7 @@ def create_core(
     durable_jobs = None
     try:
         if database_path is not None:
-            if durable_job_path is None and str(db_type).lower().startswith("sqlite"):
+            if durable_job_path is None and is_sqlite(db_type):
                 source_path = pathlib.Path(database_path).expanduser().resolve()
                 durable_job_path = source_path.with_name(
                     source_path.name + ".jobs.sqlite"
@@ -162,7 +181,7 @@ def create_core(
 
                 worker_path = database_path
                 ledger_path = pathlib.Path(durable_job_path).expanduser().resolve()
-                if str(db_type).lower().startswith("sqlite"):
+                if is_sqlite(db_type):
                     worker_path = pathlib.Path(database_path).expanduser().resolve()
                     if ledger_path == worker_path or (
                         ledger_path.exists()
@@ -172,15 +191,15 @@ def create_core(
                         raise ValueError(
                             "The job ledger must be separate from the library database"
                         )
-                worker_metadata = dict(database_metadata or {})
+                assert library_services is not None
+                worker_connection = library_services.core_services.database_connection
+                assert worker_connection is not None
 
                 def open_worker_library():
                     # Each worker owns this graph; no main connection crosses threads.
                     with use_preferences(preferences):
                         return LibraryServices.open(
-                            database_path=worker_path,
-                            db_type=db_type,
-                            database_metadata=worker_metadata,
+                            **worker_connection,
                             create=False,
                             backup=False,
                             enable_storage_manager=enable_storage_manager,

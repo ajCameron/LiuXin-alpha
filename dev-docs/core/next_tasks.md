@@ -1,6 +1,6 @@
 # Core next tasks
 
-Updated **2026-11-23** after lifecycle, caller-migration and contract corrections.
+Updated **2026-11-23** after lifecycle, caller-migration, contract and configuration corrections.
 The [whole-Core review and completion plan](review-and-completion-plan-2026-11-23.md)
 defines the full functionality target, ten findings and nine ordered completion
 slices. The architecture below remains the foundation; whole-module sign-off is
@@ -17,7 +17,7 @@ workflow across local/RPC clients and all cache modes. Validation passed 405
 regressions (one PostgreSQL maintenance case skipped without a test server URL),
 22 documentation checks and the complete quality gate. This addresses composition
 within CORE-03. The caller migration below is a separate follow-up commit;
-configuration remains the next independent task.
+configuration closure is recorded under CORE-04 below.
 
 ## CORE-01 — Enforce endpoint permissions
 
@@ -59,7 +59,7 @@ Core imports or compatibility reexports. LibraryServices remains the graph owner
 The earlier integration review covers partial startup/cleanup; the follow-up
 covers helper failure paths, real registration callers and CLI behavior.
 The direction baseline drops the storage-to-Core allowance and explicitly bars
-ingest from Core/surfaces. Resolved settings propagation, Database opt-ins and
+ingest from Core/surfaces. Resolved settings propagation is covered by CORE-04. Database opt-ins and
 maintenance scheduling remain separately scoped work.
 
 Done when the selected lower-layer module has no upward Core import, failures
@@ -69,15 +69,19 @@ transaction rollback and safe database creation remain database responsibilities
 
 ## CORE-04 — Finish configuration and operational-path scope
 
-**Architecture A12.** Inventory startup/scratch consumers and component singletons
-that capture a profile at first use. Remove the `ptempfiles` startup-package edge,
-using the existing passive path owner. Preserve distinct application, library and
-component setting scopes.
+**Architecture A12 — implemented, 2026-11-23.** `ptempfiles` now uses the
+passive utility path owner, guarded by a no-utils-to-startup import rule. Core
+captures concrete stores and resolved connection options for graph lifetimes;
+workers carry metadata/schema and retain the submitting store on retries.
+Construction, lazy services and cleanup restore preference contexts on failure.
 
-Done when targeted fresh imports install no legacy hooks or directories, explicit
-profiles remain isolated through worker submission, and components document their
-capture/reload behaviour. Do not describe process-copy worker settings as live
-cross-process synchronization.
+The [configuration ownership inventory](configuration-ownership.md) documents
+application/library/component scopes, reload behavior, process-singleton limits,
+and process-copy worker semantics. Acceptance includes fresh imports, queued and
+spawned two-profile work, SQLite/APSW reopening, PostgreSQL URL/service schemas,
+and backend-startup failure recovery. See the configuration follow-up in the
+[whole-Core review](review-and-completion-plan-2026-11-23.md#configuration-closure-follow-up)
+for validation evidence.
 
 ## CORE-05 — Keep the public client contract honest
 
@@ -101,7 +105,7 @@ extends CORE-01 through CORE-05 with the remaining public and operational work:
 1. **Implemented:** registration-based discovery, strict primitive validation,
    captured command registration and recursive diagnostic redaction. See the
    [contract follow-up](review-and-completion-plan-2026-11-23.md#contract-corrections-follow-up).
-2. Complete CORE-04 configuration/connection propagation.
+2. **Implemented:** CORE-04 configuration/connection propagation and lifetime inventory.
 3. Expose the full native metadata workflow through named operations, including
    shared records, trees, relationships and bounded batches.
 4. Add recoverable command identities, effect receipts and post-disconnect lookup.
@@ -110,6 +114,8 @@ extends CORE-01 through CORE-05 with the remaining public and operational work:
 6. Bound scan/content/HTTP work and measure whole-Core mixed-load behavior.
 7. Add event gap/restart recovery and operational observability.
 8. Complete missing domain operations and consolidate adapters with caller migration.
+   Include unmanaged-disk ingestion's legacy `files` requirement: native PostgreSQL
+   currently rejects `ingest.disk.start` before scanning (see the review follow-up).
 9. Validate the backend/cache/local-RPC matrix, recovery scenarios and runbooks.
 
 The review distinguishes implemented work from proposals. Its sign-off criteria

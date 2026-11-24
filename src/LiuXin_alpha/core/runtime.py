@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import inspect
 import threading
+from copy import deepcopy
 import uuid
 from contextlib import ExitStack
 from dataclasses import dataclass
@@ -43,6 +44,7 @@ from LiuXin_alpha.core.events import CoreEvent, make_core_event
 from LiuXin_alpha.core.payloads import (
     boolean,
     integer_value,
+    invalid_payload,
     number_value,
     optional_int,
     required_text,
@@ -2367,7 +2369,7 @@ class CoreRuntime(CoreAPI):
 
     def _resolve_library_database_path(self) -> str | None:
         """
-        Read a nonblank database_path from library.database.metadata without probing the path or using a db alias.
+        Return this Core graph's captured absolute path or PostgreSQL selector.
 
         Example:
             >>> path = runtime._resolve_library_database_path()  # doctest: +SKIP
@@ -2375,37 +2377,18 @@ class CoreRuntime(CoreAPI):
 
         :return: Stripped database path/connection-selector text, or None for missing database/metadata/value.
         """
-        db = getattr(self.library, "database", None)
-        metadata = getattr(db, "metadata", None) if db is not None else None
-        if not isinstance(metadata, Mapping):
-            return None
-        value = metadata.get("database_path")
-        if value is None:
-            return None
-        text = str(value).strip()
-        return text or None
+        connection = self.services.database_connection
+        return connection["database_path"] if connection is not None else None
 
     def _resolve_library_db_type(self) -> str:
-        """
-        Read library.database.type as stripped text, defaulting to SQLite for missing or falsey values.
-
-        This does not consult a library.db alias or validate a driver selector.
-
-        Example:
-            >>> db_type = runtime._resolve_library_db_type()  # doctest: +SKIP
-
-
-        :return: Nonblank advertised driver type or the literal SQLite fallback.
-        """
-        db = getattr(self.library, "database", None)
-        value = getattr(db, "type", None) if db is not None else None
-        text = str(value or "").strip()
-        return text or "SQLite"
+        """Return the captured driver selector, or SQLite for a nonreopenable facade."""
+        connection = self.services.database_connection
+        return connection["db_type"] if connection is not None else "SQLite"
 
     @staticmethod
     def _normalize_sync_job_kwargs(payload: Mapping[str, Any]) -> dict[str, Any]:
         """
-        Require mapping-valued sync_kwargs when supplied and return a shallow mutable copy.
+        Require mapping-valued sync_kwargs and independently copy their values.
 
         Missing sync_kwargs becomes empty rather than failing immediately despite
         the endpoint's required-field metadata. Worker argument completeness is
@@ -2423,7 +2406,14 @@ class CoreRuntime(CoreAPI):
         raw = payload.get("sync_kwargs", {})
         if not isinstance(raw, Mapping):
             raise CoreDispatchError("`sync_kwargs` must be a mapping.")
-        return dict(raw)
+        for field in ("database_path", "db_type"):
+            value = raw.get(field)
+            if value is not None and not isinstance(value, str):
+                invalid_payload(f"sync_kwargs.{field}", "must be a string or null.")
+        metadata = raw.get("database_metadata")
+        if metadata is not None and not isinstance(metadata, Mapping):
+            invalid_payload("sync_kwargs.database_metadata", "must be an object or null.")
+        return deepcopy(dict(raw))
 
     def _handle_sync_store_start_command(
         self, runtime: "CoreRuntime", command: CoreCommand
@@ -2431,8 +2421,10 @@ class CoreRuntime(CoreAPI):
         """
         Fill blank database options, submit the importable sync worker, and emit submission metadata without waiting.
 
-        Database fallback checks stringified blankness, so explicit None values
-        do not trigger fallback. Worker keyword completeness is deferred to execution.
+        Missing/None/empty selectors use the captured Core connection, including
+        backend metadata. Explicit alternate targets resolve independently and
+        never inherit this library's credentials or schema. Worker keyword
+        completeness is deferred to execution.
         Missing/None job_timeout_s becomes manager timeout -1, disabling the native
         backend deadline rather than selecting the manager's ordinary default.
         Other timeout values must be finite numbers; deadline semantics belong to the manager.
@@ -2455,15 +2447,36 @@ class CoreRuntime(CoreAPI):
         payload = dict(command.payload or {})
         sync_kwargs = self._normalize_sync_job_kwargs(payload)
 
-        if not str(sync_kwargs.get("database_path", "")).strip():
-            resolved_path = self._resolve_library_database_path()
-            if not resolved_path:
-                raise CoreDispatchError(
-                    "sync.store.start requires `sync_kwargs.database_path` when core library database path is unavailable."
-                )
-            sync_kwargs["database_path"] = resolved_path
-        if not str(sync_kwargs.get("db_type", "")).strip():
+        connection = self.services.database_connection
+        path = sync_kwargs.get("database_path")
+        kind = sync_kwargs.get("db_type")
+        from LiuXin_alpha.core.connections import (
+            normalize_database_type,
+            resolve_database_connection,
+        )
+
+        if kind:
+            kind = normalize_database_type(kind)
+            sync_kwargs["db_type"] = kind
+        same_library = connection is not None and (
+            path in (None, "", connection["database_path"])
+            and kind in (None, "", connection["db_type"])
+        )
+        if not path:
+            if connection is None:
+                raise CoreDispatchError("sync.store.start requires a reopenable database connection.")
+            sync_kwargs["database_path"] = connection["database_path"]
+        if not kind:
             sync_kwargs["db_type"] = self._resolve_library_db_type()
+        if same_library and "database_metadata" not in sync_kwargs:
+            sync_kwargs["database_metadata"] = connection["database_metadata"]
+        sync_kwargs.update(
+            resolve_database_connection(
+                database_path=sync_kwargs["database_path"],
+                db_type=sync_kwargs["db_type"],
+                database_metadata=sync_kwargs.get("database_metadata"),
+            )
+        )
 
         timeout_value = payload.get("job_timeout_s", None)
         timeout_s = None if timeout_value is None else number_value(timeout_value, "job_timeout_s")

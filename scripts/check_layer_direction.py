@@ -100,6 +100,7 @@ FORBIDDEN_TARGETS: Mapping[str, frozenset[str]] = {
     "ingest": frozenset({"core", "surfaces"}),
     "library": frozenset({"core", "surfaces"}),
     "core": frozenset({"surfaces"}),
+    "utils": frozenset({"startup_scripts"}),
 }
 
 

@@ -143,7 +143,7 @@ def test_job_submission_receipt_reports_requested_options() -> None:
         >>> test_job_submission_receipt_reports_requested_options()
 
 
-    :return: None after verifying worker identity, shallow argument copying, options, and default timeout sentinel.
+    :return: None after verifying worker identity, independent argument copying, options, and default timeout sentinel.
     """
     submit = Mock(return_value="job-7")
     runtime = SimpleNamespace(job_manager=SimpleNamespace(submit=submit))
@@ -164,7 +164,9 @@ def test_job_submission_receipt_reports_requested_options() -> None:
     assert request.module_name == "LiuXin_alpha.core.workflow_jobs"
     assert request.function_name == "run_conversion_job"
     assert request.kwargs == arguments and request.kwargs is not arguments
-    assert request.kwargs["formats"] is arguments["formats"]
+    assert request.kwargs["formats"] is not arguments["formats"]
+    arguments["formats"].append("PDF")
+    assert request.kwargs["formats"] == ["EPUB"]
     assert submit.call_args.kwargs == {
         "timeout": 0.0,
         "no_output": True,

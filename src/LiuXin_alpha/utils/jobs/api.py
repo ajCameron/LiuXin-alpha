@@ -23,7 +23,7 @@ from contextlib import contextmanager, redirect_stderr, redirect_stdout
 from dataclasses import dataclass, field
 import multiprocessing
 
-from LiuXin_alpha.configuration import bound_preferences, use_preferences
+from LiuXin_alpha.configuration import capture_preferences, use_preferences
 from typing import TYPE_CHECKING, Any, Callable, Iterator, Mapping
 
 if TYPE_CHECKING:
@@ -393,14 +393,19 @@ class ProcessJobBackend(JobBackend):
         """
         effective_log_path = None if no_output else (str(log_path).strip() if log_path else allocate_job_log_path())
 
+        # Resolve before opening pipes: a malformed default store may fail here.
+        selected_preferences = capture_preferences()
         parent_conn, child_conn = PROCESS_CONTEXT.Pipe(duplex=False)
         # Carry the selected store explicitly; spawn does not inherit ContextVars.
-        worker = PROCESS_CONTEXT.Process(target=_process_entry, args=(child_conn, request, effective_log_path, bound_preferences()), daemon=True)
+        worker = PROCESS_CONTEXT.Process(
+            target=_process_entry,
+            args=(child_conn, request, effective_log_path, selected_preferences),
+            daemon=True,
+        )
         started = time.monotonic()
-        worker.start()
-        child_conn.close()
-
         try:
+            worker.start()
+            child_conn.close()
             while worker.is_alive():
                 if abort is not None and hasattr(abort, "is_set") and abort.is_set():
                     worker.terminate()
@@ -436,7 +441,14 @@ class ProcessJobBackend(JobBackend):
                 log_path=effective_log_path,
             )
         finally:
+            child_conn.close()
             parent_conn.close()
+            if worker.pid is not None:
+                if worker.is_alive():
+                    worker.terminate()
+                worker.join(timeout=1.0)
+                if not worker.is_alive():
+                    worker.close()
 
 
 _SERIAL_BACKEND = SerialJobBackend()

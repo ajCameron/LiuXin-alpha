@@ -97,6 +97,20 @@ def current_preferences() -> Any:
         return _default
 
 
+def capture_preferences(store: Any | None = None) -> Any:
+    """Pin a concrete store for a component lifetime, preserving empty mappings.
+
+    ``None`` and the live proxy resolve the current selection now. Retaining the
+    proxy itself would allow later dispatches to redirect an existing component.
+    Values are shared in this process, rather than copied or frozen.
+    """
+    return (
+        current_preferences()
+        if store is None or isinstance(store, PreferenceView)
+        else store
+    )
+
+
 @contextmanager
 def use_preferences(store: Any) -> Iterator[None]:
     """Scope an already composed store; restore the previous selection even on failure."""

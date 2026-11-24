@@ -48,6 +48,19 @@ The equivalent RPC client is:
 client = core_client(endpoint="http://127.0.0.1:8765")
 ```
 
+## Configuration and reopening
+
+A local Core captures one concrete application store and its database connection
+options before bootstrap. Named dispatch, lazy services and cleanup bind that
+store; another profile cannot redirect an existing graph. Worker submissions and
+retries retain it, while reopened connections carry the captured target, backend
+metadata and PostgreSQL schema. SQLite/APSW paths are made absolute.
+
+Application preferences, library preferences and component files keep distinct
+owners. Some installation/component singletons remain process-scoped; see the
+[capture/reload inventory and worker semantics](configuration-ownership.md).
+A remote client's local profile never selects the server's preference store.
+
 ## Discovery and compatibility
 
 `api.describe` is authoritative for every registered operation, payload,

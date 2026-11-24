@@ -1,4 +1,10 @@
-"""Shared persisted plugin settings, independent of application composition."""
+"""Process-owned plugin configuration, independent of application composition.
+
+The module singleton captures the component directory at import. Refreshing its
+proxy rereads that same file; selecting another Core profile does not relocate it
+or reconfigure the process plugin registry. Use separate processes for distinct
+plugin registries. Application preferences remain separately context-scoped.
+"""
 
 from __future__ import annotations
 

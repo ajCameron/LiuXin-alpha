@@ -11,8 +11,21 @@ from __future__ import annotations
 
 import pathlib
 from collections.abc import Callable, Mapping
-from contextlib import ExitStack
+from contextlib import AbstractContextManager, ExitStack
+from contextvars import ContextVar, Token
+from dataclasses import dataclass
 from typing import Any, Self
+
+from LiuXin_alpha.configuration import capture_preferences, use_preferences
+from LiuXin_alpha.core.connections import resolve_database_connection
+
+
+@dataclass
+class _LibraryPreferenceScope:
+    """Restore both the preference binding and this graph's context bookkeeping."""
+
+    context: AbstractContextManager[None]
+    token: Token[tuple[_LibraryPreferenceScope, ...]] | None = None
 
 
 class LibraryServicesCloseError(RuntimeError):
@@ -92,12 +105,16 @@ class LibraryServices:
     ) -> None:
         self.library = library
         self.core_services = core_services
+        self.preferences = core_services.preferences
         self.database = database
         self.storage = storage
         self.maintenance = maintenance
         self._exit_stack = exit_stack
         self._close_failures = close_failures
         self._closed = False
+        self._preference_scopes: ContextVar[tuple[_LibraryPreferenceScope, ...]] = (
+            ContextVar("liuxin_library_preference_scopes", default=())
+        )
 
     @staticmethod
     def replace_database(
@@ -191,202 +208,205 @@ class LibraryServices:
         ``create=False`` requires an existing catalogue. ``create=True`` requires
         an absent file or empty server schema. Replacement
         is a separate offline operation with a mandatory recovery backup.
+
+        Capture a concrete application store and resolve connection metadata before
+        opening resources. Construction and rollback bind that store. The returned
+        graph is already open; entering its context also binds the store for the
+        caller's work and restores the previous selection after cleanup.
         """
 
-        if database is None and database_path is None:
+        if database is None and database_path is None and not database_metadata:
             raise ValueError("Provide either `database` or `database_path`.")
-        if database is not None and database_path is not None:
+        if database is not None and (
+            database_path is not None or database_metadata is not None
+        ):
             raise ValueError("Provide only one of `database` or `database_path`.")
 
-        stack = ExitStack()
-        failures: list[tuple[str, BaseException]] = []
-        core_services = None
+        preferences = capture_preferences(
+            preferences
+            if preferences is not None
+            else getattr(database, "preferences", None)
+        )
+        with use_preferences(preferences):
+            stack = ExitStack()
+            failures: list[tuple[str, BaseException]] = []
+            core_services = None
 
-        def own(name: str, closer: Callable[[], Any]) -> None:
-            stack.callback(_capture_close, failures, name, closer)
+            def own(name: str, closer: Callable[[], Any]) -> None:
+                stack.callback(_capture_close, failures, name, closer)
 
-        try:
-            if database is None:
-                from LiuXin_alpha.databases.database import Database
+            try:
+                if database is None:
+                    from LiuXin_alpha.databases.database import Database
 
-                assert database_path is not None
-                server_database = str(db_type).strip().casefold() in {
-                    "postgres",
-                    "postgresql",
-                    "pg",
-                }
-                if server_database:
-                    target = str(database_path)
-                    metadata = {
-                        "database_path": target,
-                        **dict(database_metadata or {}),
-                    }
-                    if target.startswith(("postgres://", "postgresql://")):
-                        metadata["postgres_url"] = target
-                    else:
-                        metadata["postgres_service"] = target
-                else:
-                    path = pathlib.Path(database_path).expanduser()
-                    if create:
-                        path.parent.mkdir(parents=True, exist_ok=True)
-                    metadata = {"database_path": str(path)}
-                database = Database(
-                    metadata=metadata,
-                    db_type=db_type,
-                    create=create,
-                    backup=backup,
-                    enable_storage_manager=False,
-                    enable_maintenance=False,
-                    repair_bootstrap_rows=repair_bootstrap_rows,
-                    application_preferences=preferences,
-                )
-                own("database", database.close)
-
-            storage = getattr(database, "storage", None)
-            if enable_storage_manager and storage is None:
-                from LiuXin_alpha.storage.api import StorageManagementError
-                from LiuXin_alpha.storage.durable_manager import (
-                    StorageBootstrapIssue,
-                    StorageBootstrapReport,
-                    StorageManager,
-                )
-                from LiuXin_alpha.utils.logging import default_log
-
-                storage = StorageManager(
-                    db=database,
-                    startup_on_add=storage_startup_on_add,
-                )
-                database.storage = storage
-                own(
-                    "storage",
-                    lambda: _close_owned_storage(database, storage),
-                )
-                try:
-                    report = storage.load_from_database(
-                        database,
-                        include_offline=False,
-                        clear_existing=True,
-                        startup=storage_startup_on_add,
+                    connection = resolve_database_connection(
+                        database_path=database_path,
+                        db_type=db_type,
+                        database_metadata=database_metadata,
                     )
-                except Exception as error:
-                    if strict_storage_manager_bootstrap:
-                        raise
-                    default_log.log_exception(
-                        "Storage manager bootstrap failed.",
-                        error,
-                        "WARNING",
-                        (
-                            "database_path",
+                    metadata = connection["database_metadata"]
+                    db_type = connection["db_type"]
+                    if create and db_type.casefold() not in {"postgres", "postgresql", "pg"}:
+                        pathlib.Path(connection["database_path"]).parent.mkdir(
+                            parents=True, exist_ok=True
+                        )
+                    database = Database(
+                        metadata=metadata,
+                        db_type=db_type,
+                        create=create,
+                        backup=backup,
+                        enable_storage_manager=False,
+                        enable_maintenance=False,
+                        repair_bootstrap_rows=repair_bootstrap_rows,
+                        application_preferences=preferences,
+                    )
+                    own("database", database.close)
+
+                storage = getattr(database, "storage", None)
+                if enable_storage_manager and storage is None:
+                    from LiuXin_alpha.storage.api import StorageManagementError
+                    from LiuXin_alpha.storage.durable_manager import (
+                        StorageBootstrapIssue,
+                        StorageBootstrapReport,
+                        StorageManager,
+                    )
+                    from LiuXin_alpha.utils.logging import default_log
+
+                    storage = StorageManager(
+                        db=database,
+                        startup_on_add=storage_startup_on_add,
+                    )
+                    database.storage = storage
+                    own(
+                        "storage",
+                        lambda: _close_owned_storage(database, storage),
+                    )
+                    try:
+                        report = storage.load_from_database(
+                            database,
+                            include_offline=False,
+                            clear_existing=True,
+                            startup=storage_startup_on_add,
+                        )
+                    except Exception as error:
+                        if strict_storage_manager_bootstrap:
+                            raise
+                        default_log.log_exception(
+                            "Storage manager bootstrap failed.",
+                            error,
+                            "WARNING",
                             (
-                                database.metadata.get("database_path")
-                                if getattr(database, "metadata", None)
-                                else None
+                                "database_path",
+                                (
+                                    database.metadata.get("database_path")
+                                    if getattr(database, "metadata", None)
+                                    else None
+                                ),
                             ),
+                        )
+                        report = StorageBootstrapReport(
+                            discovered_configurations=1,
+                            loaded_stores=0,
+                            skipped_configurations=0,
+                            failed_configurations=1,
+                            issues=(
+                                StorageBootstrapIssue(
+                                    None,
+                                    None,
+                                    str(error) or type(error).__name__,
+                                ),
+                            ),
+                        )
+                    database.storage_bootstrap_report = report
+                    if strict_storage_manager_bootstrap and not report.ok:
+                        details = "; ".join(
+                            f"{issue.store_name or issue.store_ref or 'unknown Store'}: "
+                            f"{issue.reason}"
+                            for issue in report.issues
+                        )
+                        suffix = f" ({details})" if details else ""
+                        raise StorageManagementError(
+                            "Storage manager bootstrap failed for "
+                            f"{report.failed_configurations} of "
+                            f"{report.discovered_configurations} configured Stores{suffix}."
+                        )
+
+                active_maintenance = maintenance
+                if active_maintenance is None:
+                    active_maintenance = getattr(database, "maintenance", None)
+                if enable_maintenance and active_maintenance is None:
+                    initialise = getattr(
+                        database, "_initialise_runtime_collaborators", None
+                    )
+                    if not callable(initialise):
+                        raise TypeError(
+                            "The database cannot attach an owned maintenance service."
+                        )
+                    initialise(enable_maintenance=True)
+                    active_maintenance = database.maintenance
+                    own(
+                        "maintenance",
+                        lambda: _close_owned_maintenance(
+                            database,
+                            active_maintenance,
                         ),
                     )
-                    report = StorageBootstrapReport(
-                        discovered_configurations=1,
-                        loaded_stores=0,
-                        skipped_configurations=0,
-                        failed_configurations=1,
-                        issues=(
-                            StorageBootstrapIssue(
-                                None,
-                                None,
-                                str(error) or type(error).__name__,
-                            ),
-                        ),
-                    )
-                database.storage_bootstrap_report = report
-                if strict_storage_manager_bootstrap and not report.ok:
-                    details = "; ".join(
-                        f"{issue.store_name or issue.store_ref or 'unknown Store'}: "
-                        f"{issue.reason}"
-                        for issue in report.issues
-                    )
-                    suffix = f" ({details})" if details else ""
-                    raise StorageManagementError(
-                        "Storage manager bootstrap failed for "
-                        f"{report.failed_configurations} of "
-                        f"{report.discovered_configurations} configured Stores{suffix}."
-                    )
 
-            active_maintenance = maintenance
-            if active_maintenance is None:
-                active_maintenance = getattr(database, "maintenance", None)
-            if enable_maintenance and active_maintenance is None:
-                initialise = getattr(
-                    database, "_initialise_runtime_collaborators", None
-                )
-                if not callable(initialise):
-                    raise TypeError(
-                        "The database cannot attach an owned maintenance service."
-                    )
-                initialise(enable_maintenance=True)
-                active_maintenance = database.maintenance
-                own(
-                    "maintenance",
-                    lambda: _close_owned_maintenance(
-                        database,
-                        active_maintenance,
-                    ),
+                from LiuXin_alpha.library import Library
+
+                library = Library(
+                    database=database,
+                    storage=storage,
                 )
 
-            from LiuXin_alpha.library import Library
+                from LiuXin_alpha.core.services import CoreServices
 
-            library = Library(
-                database=database,
-                storage=storage,
-            )
-
-            from LiuXin_alpha.core.services import CoreServices
-
-            core_services = CoreServices(
-                library=library,
-                catalog=catalog,
-                cache=cache,
-                cache_type=cache_type,
-                cache_kwargs=cache_kwargs,
-                read_source=read_source,
-                preferences=preferences,
-                library_preferences=library_preferences,
-                field_metadata=field_metadata,
-                maintenance=active_maintenance,
-                enable_maintenance=enable_maintenance,
-                cache_allow_database_fallback=cache_allow_database_fallback,
-                close_cache_on_shutdown=None,
-                close_library_on_shutdown=False,
-            )
-            own("core services", core_services.close)
-
-            # Catalog construction is part of opening the graph, not a later
-            # request-dependent side effect.  It currently owns no close handle.
-            _ = core_services.catalog
-
-            return cls(
-                library=library,
-                core_services=core_services,
-                database=database,
-                storage=storage,
-                maintenance=active_maintenance,
-                exit_stack=stack.pop_all(),
-                close_failures=failures,
-            )
-        except BaseException as startup_error:
-            if core_services is not None:
-                _capture_close(
-                    failures,
-                    "core services rollback",
-                    core_services._abort_startup,
+                core_services = CoreServices(
+                    library=library,
+                    catalog=catalog,
+                    cache=cache,
+                    cache_type=cache_type,
+                    cache_kwargs=cache_kwargs,
+                    read_source=read_source,
+                    preferences=preferences,
+                    library_preferences=library_preferences,
+                    field_metadata=field_metadata,
+                    maintenance=active_maintenance,
+                    enable_maintenance=enable_maintenance,
+                    cache_allow_database_fallback=cache_allow_database_fallback,
+                    close_cache_on_shutdown=None,
+                    close_library_on_shutdown=False,
                 )
-            stack.close()
-            if failures:
-                cleanup_error = LibraryServicesCloseError(tuple(failures))
-                raise BaseExceptionGroup(
-                    "Library service startup and rollback failed",
-                    [startup_error, cleanup_error],
-                ) from None
-            raise
+                own("core services", core_services.close)
+
+                # Catalog construction is part of opening the graph, not a later
+                # request-dependent side effect.  It currently owns no close handle.
+                _ = core_services.catalog
+
+                return cls(
+                    library=library,
+                    core_services=core_services,
+                    database=database,
+                    storage=storage,
+                    maintenance=active_maintenance,
+                    exit_stack=stack.pop_all(),
+                    close_failures=failures,
+                )
+            except BaseException as startup_error:
+                if core_services is not None:
+                    _capture_close(
+                        failures,
+                        "core services rollback",
+                        core_services._abort_startup,
+                    )
+                stack.close()
+                if failures:
+                    cleanup_error = LibraryServicesCloseError(tuple(failures))
+                    raise BaseExceptionGroup(
+                        "Library service startup and rollback failed",
+                        [startup_error, cleanup_error],
+                    ) from None
+                raise
 
     @property
     def closed(self) -> bool:
@@ -400,7 +420,8 @@ class LibraryServices:
         if self._closed:
             return
         self._closed = True
-        self._exit_stack.close()
+        with use_preferences(self.preferences):
+            self._exit_stack.close()
         if self._close_failures:
             raise LibraryServicesCloseError(tuple(self._close_failures))
 
@@ -416,15 +437,29 @@ class LibraryServices:
         self.close()
 
     def __enter__(self) -> Self:
-        """Return the already-open owner without changing its resource graph."""
-
+        """Bind this graph's application store until the matching context exit."""
+        if self._closed:
+            raise RuntimeError("Library services are closed")
+        scope = _LibraryPreferenceScope(use_preferences(self.preferences))
+        scope.context.__enter__()
+        scope.token = self._preference_scopes.set((*self._preference_scopes.get(), scope))
         return self
 
     def __exit__(self, exc_type: Any, exc: Any, traceback: Any) -> None:
         """Close the complete owned graph when its context exits."""
 
-        del exc_type, exc, traceback
-        self.close()
+        scopes = self._preference_scopes.get()
+        if not scopes:
+            raise RuntimeError("Library services context was not entered here")
+        scope = scopes[-1]
+        assert scope.token is not None
+        # Reset removes this graph's ContextVar from the caller context. Merely
+        # storing an empty tuple would retain a new key for every closed graph.
+        self._preference_scopes.reset(scope.token)
+        try:
+            self.close()
+        finally:
+            scope.context.__exit__(exc_type, exc, traceback)
 
 
 __all__ = ["LibraryServices", "LibraryServicesCloseError"]

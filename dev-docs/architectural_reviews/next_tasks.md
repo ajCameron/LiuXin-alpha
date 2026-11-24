@@ -49,7 +49,7 @@ before starting an independent one. Dependencies are stated in each task.
 | [A09](#a09-converge-job-state-and-release-long-waits-from-core-dispatch) | Selected workflow implemented; PR review | Storage audit has durable delivery, progress/events, cancellation receipts and explicit interruption/retry. | Jobs and Core |
 | [A10](#a10-give-storage-record-mutations-one-owner) | Selected families implemented; PR review | Asset/Replica, policy and Composite writes use storage ownership; Item/workflow adapters, schema parity and broader receipts remain open. | Storage, using database transactions |
 | [A11](#a11-finish-lifecycle-caller-migration) | Following | Lower-layer path wrappers and obsolete opt-ins retire through caller migration. | Core, ingest and storage |
-| [A12](#a12-finish-operational-path-and-startup-ownership) | Following | Scratch/startup helpers no longer pull process-wide hooks into foundation imports. | Configuration paths and utility owners |
+| [A12](#a12-finish-operational-path-and-startup-ownership) | Core boundary implemented; review | Scratch/startup helpers no longer pull process-wide hooks into foundation imports. | Configuration paths and utility owners |
 | [A13](#a13-make-provider-and-conversion-outcomes-explicit) | Following | Unsupported providers and conversion losses become structured results. | Plugins, file formats and jobs |
 | [A14](#a14-continue-documentation-with-concrete-source-backed-examples) | Documentation pass complete; PR review | Schema inventory, conventions, subsystem ownership and next-task routing reviewed. | Developer documentation |
 | [A15](#a15-refresh-repository-hygiene-and-ci-evidence) | Verified; PR review | Repair shared failures, remove generated scratch and validate a clean baseline. | Packaging and test tooling |
@@ -353,8 +353,8 @@ path helpers moved to `core.store_registration`, and the standalone disk CLI to
 ingest/storage have no upward Core imports from these families. The storage-to-Core
 baseline allowance is removed, and ingest-to-Core/surfaces imports are now forbidden.
 The earlier Core integration review covers partial graph construction. Resolved
-settings propagation and live Database opt-ins remain separate migrations;
-durable maintenance waits for A09.
+settings propagation is covered by A12's Core follow-up. Live Database opt-ins
+remain a separate migration; durable maintenance uses A09's existing job owner.
 
 Keep path entry points in the Core/surface boundary that selects deployment
 settings, with borrowed-handle operations below it. Retire Database
@@ -369,13 +369,18 @@ and broken Library facades retired; no replacement lifecycle package is needed.
 
 ## A12. Finish operational path and startup ownership
 
-**Findings:** UT-1/10, RP-6 and residual DB-8 scope. **First PR:** remove the
-`ptempfiles` dependency on the hook-bearing startup package. **Dependencies:**
-use the existing [configuration contract](../core/configuration-ownership.md).
+**Findings:** UT-1/10, RP-6 and residual DB-8 scope. **Core boundary implemented,
+2026-11-23:** `ptempfiles` now uses the existing passive utility path owner, and the
+direction gate forbids utils-to-startup imports. Core graph lifetimes, worker
+reopening options and retry contexts retain the selected configuration. Fresh
+imports and real SQLite/APSW/PostgreSQL workers exercise these boundaries.
+See the [configuration inventory](../core/configuration-ownership.md) and
+[review follow-up](../core/review-and-completion-plan-2026-11-23.md#configuration-closure-follow-up).
 
-Extract the needed path helper to a passive owner and migrate its callers before
-retiring `startup_scripts` hooks. Give temporary, debug and operational directories
-explicit lifetimes and configuration, avoiding implicit checkout/CWD state. Keep
+Remaining legacy startup entry points and process-wide operational overrides are
+explicit in that inventory; this slice does not retire the startup package itself.
+Any further temporary/debug directory migration should preserve explicit resource
+lifetimes and configuration, avoiding implicit checkout/CWD state. Keep
 application preferences, library DBPrefs and component options in their intended
 scopes; this work does not require another settings store.
 
