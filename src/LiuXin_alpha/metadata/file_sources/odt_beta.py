@@ -28,6 +28,7 @@ from LiuXin_alpha.utils.image_tools.imghdr import identify
 from LiuXin_alpha.utils.libraries.liuxin_etree import etree
 from LiuXin_alpha.utils.localization import canonicalize_lang, trans as _
 from LiuXin_alpha.utils.logging import default_log
+from LiuXin_alpha.metadata.file_sources.subject_fields import reads_subjects
 
 try:
     from LiuXin_alpha.utils.wrappers.magick.draw import identify_data as _identify_data
@@ -709,11 +710,12 @@ def get_metadata(stream, extract_cover=True, *, fallback_on_parse_error: bool = 
         tags = _stable_dedupe(tags)
         if tags:
             mi.tags = tags
-        # The document's Subject holds subject headings, which LiuXin keeps apart from tags.
+        # The document's Subject holds subject headings, which LiuXin keeps apart from tags,
+        # unless the read_subject_fields_as preference asks for calibre's reading (none).
         subjects = _stable_dedupe(
             subject for value in _iter_ns_text(root, DCNS, "subject") for subject in _split_subjects(value)
         )
-        if subjects:
+        if subjects and reads_subjects():
             mi.subjects = subjects
 
         series = user_defined.get("opf.series") or user_defined.get("series")

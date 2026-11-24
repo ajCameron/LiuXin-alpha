@@ -32,6 +32,7 @@ from LiuXin_alpha.utils.libraries.cleantext import clean_xml_chars
 from LiuXin_alpha.utils.localization import trans as _
 from LiuXin_alpha.utils.logging import default_log
 from LiuXin_alpha.utils.libraries.liuxin_etree import etree
+from LiuXin_alpha.metadata.file_sources.subject_fields import reads_subjects
 
 __all__ = ["OdtFormatError", "get_metadata", "get_metadata_inplace", "set_metadata"]
 
@@ -703,11 +704,12 @@ def get_metadata(stream, extract_cover: bool = True, *, fallback_on_parse_error:
     tags = _stable_dedupe(tags)
     if tags:
         mi.tags = tags
-    # The document's Subject holds subject headings, which LiuXin keeps apart from tags.
+    # The document's Subject holds subject headings, which LiuXin keeps apart from tags,
+    # unless the read_subject_fields_as preference asks for calibre's reading (none).
     subjects = _stable_dedupe(
         subject for value in _iter_ns_text(root, DCNS, "subject") for subject in _split_subjects(value)
     )
-    if subjects:
+    if subjects and reads_subjects():
         mi.subjects = subjects
 
     series = user_defined.get("opf.series") or user_defined.get("series")
@@ -1106,14 +1108,20 @@ def _changed_fields(mi: Any, current: Any | None) -> frozenset[str]:
         (['authors', 'title'], ['authors'])
 
 
+    The subjects are written only when the ``read_subject_fields_as`` preference
+    reads the Subject as subjects; calibre's reading leaves the Subject alone.
+
     :param mi: The record being written.
     :param current: The file's metadata as LiuXin reads it, or ``None`` to write every field the record holds.
     :return: The names of the fields to write.
     """
+    as_subjects = reads_subjects()
     return frozenset(
         field
         for field in _WRITTEN_FIELDS
-        if not mi.is_null(field) and (current is None or not _same(field, mi, current))
+        if (as_subjects or field != "subjects")
+        and not mi.is_null(field)
+        and (current is None or not _same(field, mi, current))
     )
 
 

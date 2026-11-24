@@ -31,6 +31,10 @@ preference chooses one, and the PDF reader plugins name theirs:
 
 Dates are given in ISO 8601 when they can be read, whichever source they came from.
 
+What each policy does with the Subject applies when the ``read_subject_fields_as``
+preference is ``calibre``. At its default, ``subjects``, the PDF reader reads the
+Subject as subject headings under every policy (see ``subject_fields``).
+
 Example:
     >>> info = info_fields({"Title": "Old", "Subject": "About it", "ModDate": "D:20200101000000Z"})
     >>> xmp = xmp_fields({"dc": {"title": {"x-default": "New"}}, "xmp": {"MetadataDate": "2021-01-01T00:00:00Z"}})
@@ -51,6 +55,7 @@ from LiuXin_alpha.metadata.constants import (
     INFO_DICT_VALUE_DROP_SET,
     PRODUCER_DROP_REGEX_SET,
 )
+from LiuXin_alpha.metadata.file_sources.subject_fields import split_subjects
 from LiuXin_alpha.metadata.utils import check_doi, check_isbn, string_to_authors
 
 __all__ = [
@@ -101,6 +106,9 @@ class PdfFields:
     authors: tuple[str, ...] = ()
     comments: str | None = None
     tags: tuple[str, ...] = ()
+    #: Subject headings: the Info dictionary's Subject, when the
+    #: ``read_subject_fields_as`` preference reads it as subjects.
+    subjects: tuple[str, ...] = ()
     publisher: str | None = None
     producers: tuple[str, ...] = ()
     created: str | None = None
@@ -380,7 +388,9 @@ def _iso(raw: str | None, parse: Any) -> str | None:
     return stamp.isoformat() if isinstance(stamp, datetime) else raw
 
 
-def info_fields(info: Mapping[str, Any], *, subject_is_tag: bool = False) -> PdfFields:
+def info_fields(
+    info: Mapping[str, Any], *, subject_is_tag: bool = False, subject_as_subjects: bool = False
+) -> PdfFields:
     """
     Read the fields of an Info dictionary, already decoded to text.
 
@@ -390,17 +400,25 @@ def info_fields(info: Mapping[str, Any], *, subject_is_tag: bool = False) -> Pdf
         (('Ann', 'Bob'), ('a', 'b'), 'S')
         >>> info_fields({"Keywords": "a, b", "Subject": "S"}, subject_is_tag=True).tags
         ('S', 'a', 'b')
+        >>> as_subjects = info_fields({"Subject": "History, Modern; Sea"}, subject_as_subjects=True)
+        >>> as_subjects.subjects, as_subjects.comments
+        (('History, Modern', 'Sea'), None)
 
 
     :param info: The Info dictionary's entries, by name.
     :param subject_is_tag: Take the Subject as the first tag, as calibre does, instead of
         the description the XMP specification maps it to.
+    :param subject_as_subjects: Take the Subject as subject headings, split at semicolons,
+        whatever ``subject_is_tag`` says.
     :return: The fields.
     """
     lowered = {str(key).lower(): value for key, value in info.items()}
     tags, identifiers = _keywords(lowered.get("keywords"))
     subject = _text(lowered.get("subject"))
-    if subject_is_tag and subject:
+    subjects = tuple(split_subjects(subject)) if subject_as_subjects else ()
+    if subject_as_subjects:
+        subject = None
+    elif subject_is_tag and subject:
         tags.insert(0, subject)
     publisher = _text(lowered.get("publisher") or lowered.get("ebx_publisher"))
     return PdfFields(
@@ -408,6 +426,7 @@ def info_fields(info: Mapping[str, Any], *, subject_is_tag: bool = False) -> Pdf
         authors=_authors([lowered.get("author")]),
         comments=None if subject_is_tag else subject,
         tags=_unique(tags),
+        subjects=subjects,
         publisher=publisher.lstrip("/") if publisher else None,
         producers=_producers([lowered.get("creator"), lowered.get("producer")]),
         created=_iso(_text(lowered.get("creationdate")), parse_pdf_date),
@@ -614,6 +633,7 @@ def combine(info: PdfFields, xmp: PdfFields | None, policy: str) -> PdfFields:
             uuid=_first(preferred.uuid, other.uuid),
             languages=_first(preferred.languages, other.languages),
             identifiers={**other.identifiers, **preferred.identifiers},
+            subjects=info.subjects,
             changed=preferred.changed,
         )
     # calibre's consolidate_metadata: the packet replaces every field it has, then the
@@ -632,6 +652,7 @@ def combine(info: PdfFields, xmp: PdfFields | None, policy: str) -> PdfFields:
         uuid=_first(xmp.uuid, info.uuid),
         languages=_first(xmp.languages, info.languages),
         identifiers={**info.identifiers, **xmp.identifiers},
+        subjects=info.subjects,
         changed=preferred.changed,
     )
     if preferred is info:

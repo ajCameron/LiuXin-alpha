@@ -13,7 +13,7 @@ Example:
 from __future__ import annotations
 
 import json
-from collections.abc import Iterable
+from collections.abc import Iterable, Iterator
 from pathlib import Path
 from typing import Any
 
@@ -22,6 +22,25 @@ import pytest
 from LiuXin_alpha.configuration import use_preferences
 from LiuXin_alpha.file_formats.pdf.objects import minimal_pdf
 from LiuXin_alpha.metadata.file_sources import pdf, pdf_merge
+from tests.support.subject_reading import subject_reading
+
+
+@pytest.fixture(autouse=True)
+def _calibre_reading_of_the_subject() -> Iterator[None]:
+    """
+    Read the Info Subject as calibre's reading does: each merge policy's own rule, which these tests check.
+
+    The ``read_subject_fields_as`` preference reads it as subjects by default; see
+    ``tests/metadata/file_sources/test_subject_field_reading.py``.
+
+    Example:
+        Applies itself to every test in this module.
+
+
+    :return: An iterator that yields once, while each test runs.
+    """
+    with subject_reading("calibre"):
+        yield
 
 CORPUS = Path(__file__).resolve().parents[2] / "fixtures" / "pdf_metadata"
 OLDER, NEWER = "D:20200101000000Z", "D:20220101000000Z"

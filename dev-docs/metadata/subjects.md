@@ -38,24 +38,42 @@ The reading pool's mapping (`file_formats/providers/wemi_mapping.py`) puts
 calibre's `tags` at the Work's `tags` and the record's `subjects` at the Work's
 `subjects`.
 
-A format's field becomes a subject only where the format keeps subject headings
-apart from keywords:
+Formats whose tags and subjects share one field (OPF and EPUB `dc:subject`, MOBI's
+subject records, DOCX and PDF keywords) are read as tags, as calibre reads them.
 
-- ODT's Subject (`dc:subject`) holds the subjects, several joined by semicolons,
-  and its keywords the tags. calibre does not read the Subject. LiuXin's ODT
-  writer writes both (see [metadata writers](../file_formats/metadata-writers.md#odt)).
+## A document's Subject field
 
-Elsewhere the reader follows calibre:
+Four formats have a field of their own named Subject. calibre reads each
+differently. The `read_subject_fields_as` preference chooses
+(`metadata/file_sources/subject_fields.py`):
 
-- OPF and EPUB `dc:subject`, MOBI's subject records, DOCX and PDF keywords and
-  HTML `<meta name="subject">` are read as tags;
-- RTF's `\subject` is the comments;
-- PDF's Info Subject depends on the `pdf_metadata_merge` policy (#204).
+| Field | `subjects` (default) | `calibre` |
+| --- | --- | --- |
+| HTML `<meta name="subject">` | Subjects | Tags |
+| RTF `\subject` | Subjects; the comments are `\doccomm` | The comments |
+| PDF Info `/Subject` | Subjects, under every merge policy; the comments are the packet's `dc:description` | By the `pdf_metadata_merge` policy: the description (`newest`) or a tag |
+| ODT `dc:subject` | Subjects | Not read |
+
+Under `subjects`, several headings share the one field, joined by semicolons, so a
+heading may hold commas but not a semicolon. The writers follow the same setting:
+
+- **RTF** writes the subjects to `\subject` and the comments to `\doccomm`. calibre
+  reads `\subject` as the comments and ignores `\doccomm`, so in calibre such a book
+  shows its subjects as its comments.
+- **PDF** writes the subjects to `/Subject` and the comments only to the XMP packet.
+  A file without a packet gets one when there are comments to write. A file whose
+  appended update would not read back without that packet is still rewritten whole,
+  as before. calibre reads the comments from the packet.
+- **ODT** writes the subjects to its Subject.
+
+Under `calibre`, each writer does as calibre's does, and the subjects go among the
+tags (see below). HTML has no metadata writer.
 
 ## Writing
 
-A writer plugin whose format keeps subjects apart sets `writes_subjects = True`
-and writes the record's `subjects` itself.
+A writer plugin whose format keeps subjects apart sets `writes_subjects` and writes
+the record's `subjects` itself. For RTF, PDF and ODT it is a property that follows
+the `read_subject_fields_as` preference.
 
 For every other writer, `set_file_type_metadata` hands the plugin a copy of the
 record:
