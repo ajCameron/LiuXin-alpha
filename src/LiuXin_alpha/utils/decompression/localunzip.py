@@ -424,7 +424,7 @@ class LocalZipFile(object):
         if isinstance(name, LocalHeader):
             name = name.filename
         try:
-            offset, header = self.file_info.get(name)
+            offset, header = self.file_info[name]
         except KeyError:
             raise ValueError("This ZIP container has no file named: %s" % name)
 
@@ -453,7 +453,7 @@ class LocalZipFile(object):
             described above.
         """
         try:
-            offset, header = self.file_info.get(name)
+            offset, header = self.file_info[name]
         except KeyError:
             raise ValueError("This ZIP container has no file named: %s" % name)
         return header
@@ -511,7 +511,7 @@ class LocalZipFile(object):
 
     def safe_replace(self, name, datastream, extra_replacements=None, add_missing=False):
         """
-        Preform a safe replace in a damaged file.
+        Rewrite the archive in place with members replaced (or added), reading a damaged file member by member.
 
         Example:
             Exercise LocalZipFile.safe replace through a consuming regression::
@@ -530,7 +530,7 @@ class LocalZipFile(object):
         if extra_replacements is None:
             extra_replacements = {}
 
-        from LiuXin_alpha.utils.calibre_utils.calibre_zipfile import ZipFile, ZipInfo
+        from LiuXin_alpha.utils.libraries.calibre_zipfile import ZipFile, ZipInfo
 
         replacements = {name: datastream}
         replacements.update(extra_replacements)
@@ -538,7 +538,7 @@ class LocalZipFile(object):
         found = set([])
         with SpooledTemporaryFile(max_size=100 * 1024 * 1024) as temp:
             ztemp = ZipFile(temp, "w")
-            for offset, header in self.file_info.itervalues():
+            for offset, header in self.file_info.values():
                 if header.filename in names:
                     zi = ZipInfo(header.filename)
                     zi.compress_type = header.compression_method

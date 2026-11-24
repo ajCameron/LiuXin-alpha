@@ -1039,7 +1039,7 @@ def urls_from_identifiers(identifiers, sort_results=False):  # {{{
     if rules:
         formatter = None
         try:
-            from LiuXin_alpha.utils.formatter import EvalFormatter
+            from LiuXin_alpha.utils.calibre_compat.utils.formatter import EvalFormatter
 
             formatter = EvalFormatter()
         except Exception:
