@@ -288,10 +288,8 @@ def process_key_value_pair(key, value, info_dict_keys, md):
         return md, True
 
     if key in {"author", "authors"}:
-        for author in string_to_authors(value_str):
-            author = _normalize_text(author)
-            if author:
-                md.authors = author
+        # A list of names: assigned one by one as strings, "Smith && Sons" would split again.
+        md.authors = [name for name in (_normalize_text(a) for a in string_to_authors(value_str)) if name]
         return md, True
 
     if key in {"creator"}:
@@ -437,11 +435,13 @@ def process_xmp_metadata_dict(xmp_metadata_dict, metadata_return):
                 raw_data["authors"].clear()
         except Exception:
             pass
-        for creator in creators:
-            if isinstance(creator, str):
-                for author in string_to_authors(creator):
-                    if _normalize_text(author):
-                        metadata_return.authors = _normalize_text(author)
+        metadata_return.authors = [
+            name
+            for creator in creators
+            if isinstance(creator, str)
+            for name in (_normalize_text(a) for a in string_to_authors(creator))
+            if name
+        ]
 
     publisher = dc.get("publisher")
     if isinstance(publisher, str):
@@ -710,8 +710,8 @@ def _apply_fields(md, fields):
     """
     if fields.title:
         md.title = fields.title
-    for author in fields.authors:
-        md.authors = author
+    if fields.authors:
+        md.authors = list(fields.authors)
     if fields.comments:
         md.comments = fields.comments
     if fields.tags:

@@ -88,6 +88,7 @@ These match calibre's writers, so they are left as they are:
 | DOCX | No series, ISBN or cover is written. A missing publisher clears the document's company. |
 | HTMLZ | A book without an OPF is refused and left unchanged. |
 | RTF | The comments go into `\subject`, the publisher into `\manager`. |
+| EPUB 2, HTMLZ, TXTZ | A name holding `&` comes back as two names: calibre reads each OPF 2 `dc:creator` as an author string, and does not escape the ampersand when it writes one. |
 
 ## Found, not fixed
 
@@ -101,8 +102,9 @@ These match calibre's writers, so they are left as they are:
 - **calibre's RTF reader and negative `\u` escapes.** RTF writes characters above
   U+7FFF as negative numbers (`測試` is `\u28204?\u-30106?`). calibre's reader leaves
   those undecoded. LiuXin's reader and writer are right; this is a calibre bug.
-- **Author names holding `&`.** LiuXin's metadata record splits such a name when it is
-  set, so "Bob & Co" becomes two authors, though the files carry it correctly.
+- **Author names holding `&`** (fixed in #208). LiuXin's metadata record split such a
+  name when it was set, so "Bob & Co" became two authors, though the files carried it
+  correctly. See [author names](../metadata/author-names.md).
 
 ## Tests
 

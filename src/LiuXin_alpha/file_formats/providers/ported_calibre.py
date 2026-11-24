@@ -16,11 +16,18 @@ available where ``pdfinfo`` is on the PATH. Below it,
 :class:`PortedPdfReaderWithoutPoppler` runs the same calibre code on fields read
 by LiuXin's own PDF object reader, so PDFs are read everywhere, without a cover.
 
+calibre's ZIP, RAR and comic readers hand the books they find to the other ported
+readers. RAR contents need an extraction tool that ``rarfile`` can run, so the RAR
+port is available only where there is one; a CBR without one fails to read, as a
+CB7 does without ``py7zr``. Archives are checked against LiuXin's archive limits
+before calibre's code opens them.
+
 Importing this module loads no reader.
 """
 
 from __future__ import annotations
 
+import dataclasses
 import types
 from collections.abc import Callable, Mapping
 from pathlib import Path
@@ -70,6 +77,11 @@ PORTED_READERS: Mapping[str, tuple[str, frozenset[str]]] = {
     "Read LRF metadata": ("lrf", frozenset({"lrf"})),
     "Read DOCX metadata": ("docx", frozenset({"docx"})),
     "Read PDF metadata": ("pdf", frozenset({"pdf"})),
+    "Read comic metadata": ("comic", frozenset({"cbz", "cbr", "cb7", "cbc"})),
+    "Read ZIP metadata": ("zip", frozenset({"zip", "oebzip"})),
+    "Read RAR metadata": ("rar", frozenset({"rar"})),
+    "Read LIT metadata": ("lit", frozenset({"lit"})),
+    "Read CHM metadata": ("chm", frozenset({"chm"})),
 }
 """calibre's reader plugins that have been ported: module and formats."""
 
@@ -79,13 +91,16 @@ PORTED_PRIORITY = -50
 WITHOUT_POPPLER_PRIORITY = -55
 """Priority of the PDF reader that needs no poppler: below the port, which draws a cover."""
 
-PASSES_FORMAT: frozenset[str] = frozenset({"epub"})
+PASSES_FORMAT: frozenset[str] = frozenset({"epub", "comic"})
 """Ported modules whose ``get_metadata`` calibre's plugin calls with the format."""
 
-ZIP_CONTAINERS: frozenset[str] = frozenset({"epub", "extz", "fb2", "odt", "docx"})
+ZIP_CONTAINERS: frozenset[str] = frozenset(
+    {"epub", "extz", "fb2", "odt", "docx", "zip", "comic"}
+)
 """Ported modules reading ZIP containers, which LiuXin checks before calibre opens them.
 
-The FB2 reader reads plain FB2 too; a file that is not a ZIP passes unchecked."""
+The FB2 reader reads plain FB2 too, and the comic reader RAR and 7-Zip comics; a
+file that is not a ZIP passes unchecked."""
 
 
 def ported_reader(module: str) -> Callable[..., Any]:
@@ -231,6 +246,36 @@ def ported_reader(module: str) -> Callable[..., Any]:
         )
 
         return get_pdf_metadata
+    if module == "comic":
+        from LiuXin_alpha.metadata.upstream_calibre.comic import (
+            get_metadata as get_comic_metadata,
+        )
+
+        return get_comic_metadata
+    if module == "zip":
+        from LiuXin_alpha.metadata.upstream_calibre.zip import (
+            get_metadata as get_zip_metadata,
+        )
+
+        return get_zip_metadata
+    if module == "rar":
+        from LiuXin_alpha.metadata.upstream_calibre.rar import (
+            get_metadata as get_rar_metadata,
+        )
+
+        return get_rar_metadata
+    if module == "lit":
+        from LiuXin_alpha.metadata.upstream_calibre.lit import (
+            get_metadata as get_lit_metadata,
+        )
+
+        return get_lit_metadata
+    if module == "chm":
+        from LiuXin_alpha.metadata.upstream_calibre.chm import (
+            get_metadata as get_chm_metadata,
+        )
+
+        return get_chm_metadata
     raise KeyError(f"no calibre reader named {module!r} has been ported")
 
 
@@ -275,6 +320,69 @@ def check_zip_container(source: Path, source_format: str) -> None:
             infos = archive.infolist()
     except (zipfile.BadZipFile, ValueError, OSError):
         return
+    label = source_format.upper()
+    validate_zip_member_infos(
+        infos,
+        container_label=f"{label} file",
+        member_label=f"{label} archive",
+        allow_unsafe_paths=True,
+    )
+
+
+@dataclasses.dataclass
+class _SevenZipMember:
+    """
+    One 7-Zip member, in the fields LiuXin's archive limits read.
+
+    Example:
+        >>> _SevenZipMember("page.jpg", 10, 4).file_size
+        10
+
+    :param filename: The member's name, with ``/`` after a directory.
+    :param file_size: Its size when unpacked.
+    :param compress_size: Its packed size, or its unpacked size where 7-Zip keeps none.
+    """
+
+    filename: str
+    file_size: int
+    compress_size: int
+
+
+def check_seven_zip_container(source: Path, source_format: str) -> None:
+    """
+    Refuse a 7-Zip comic LiuXin's archive limits would refuse.
+
+    calibre reads a CB7's cover whole through ``py7zr``. Where ``py7zr`` is not
+    installed, or the file is not 7-Zip, there is nothing to check: calibre's
+    reader fails or reads another kind of archive. A member whose compressed size
+    7-Zip does not record (in a solid block) is checked for its size alone.
+
+    Example:
+        >>> check_seven_zip_container(Path(__file__), "cbz")
+
+
+    :param source: The file.
+    :param source_format: Its format, for messages.
+    :raises ArchivePreflightError: When it is not within the limits.
+    """
+    with source.open("rb") as stream:
+        if not stream.read(6).startswith(b"7z\xbc\xaf"):
+            return
+    try:
+        from py7zr import SevenZipFile  # type: ignore[import-not-found, unused-ignore]
+    except ImportError:
+        return
+    from LiuXin_alpha.file_formats.archive_preflight import validate_zip_member_infos
+
+    with SevenZipFile(source, "r") as archive:
+        infos = [
+            _SevenZipMember(
+                filename=info.filename + ("/" if info.is_directory else ""),
+                file_size=info.uncompressed or 0,
+                compress_size=info.compressed or info.uncompressed or 0,
+            )
+            for info in archive.list()
+        ]
     label = source_format.upper()
     validate_zip_member_infos(
         infos,
@@ -424,6 +532,12 @@ def run_ported_reader(module: str, source: Path, source_format: str) -> Any:
     """
     if module in ZIP_CONTAINERS:
         check_zip_container(source, source_format)
+    if module == "comic":
+        check_seven_zip_container(source, source_format)
+    from LiuXin_alpha.metadata.upstream_calibre import _readers
+
+    # calibre's archive readers find the readers for the books inside through here.
+    _readers.lookup = ported_reader
     get_metadata = ported_reader(module)
     with source.open("rb") as stream:
         if module in PASSES_FORMAT:
@@ -465,6 +579,73 @@ class PortedPdfReader(PortedCalibreReader):
             return ProviderAvailability.missing(
                 "poppler's pdfinfo was not found on the PATH; install poppler-utils, or "
                 "read PDFs with calibre-port.read-pdf-metadata-without-poppler"
+            )
+        return ProviderAvailability.ready()
+
+
+class PortedRarReader(PortedCalibreReader):
+    """
+    Run calibre's RAR reader, which needs a tool ``rarfile`` can extract RAR contents with.
+
+    Example:
+        >>> provider = adapt_ported_reader("Read RAR metadata")
+        >>> issubclass(provider, PortedRarReader), provider.requires
+        (True, ('unrar',))
+    """
+
+    requires: ClassVar[tuple[str, ...]] = ("unrar",)
+
+    @classmethod
+    def availability(cls: type[Self]) -> ProviderAvailability:
+        """
+        Report whether ``rarfile`` has a tool to extract RAR contents with.
+
+        Example:
+            >>> PortedRarReader.availability().available in (True, False)
+            True
+
+
+        :return: Ready if it has, otherwise why not.
+        """
+        from LiuXin_alpha.metadata.upstream_calibre._unrar import available
+
+        ready, reason = available()
+        if not ready:
+            return ProviderAvailability.missing(
+                f"{reason}; install unrar, unar, 7-Zip or bsdtar to read RAR archives"
+            )
+        return ProviderAvailability.ready()
+
+
+class PortedChmReader(PortedCalibreReader):
+    """
+    Run calibre's CHM reader, which needs pychm, the Python binding to chmlib.
+
+    Example:
+        >>> provider = adapt_ported_reader("Read CHM metadata")
+        >>> issubclass(provider, PortedChmReader), provider.requires
+        (True, ('pychm',))
+    """
+
+    requires: ClassVar[tuple[str, ...]] = ("pychm",)
+
+    @classmethod
+    def availability(cls: type[Self]) -> ProviderAvailability:
+        """
+        Report whether pychm is installed.
+
+        Example:
+            >>> PortedChmReader.availability().available in (True, False)
+            True
+
+
+        :return: Ready if it is, otherwise why not.
+        """
+        from LiuXin_alpha.metadata.upstream_calibre import _compat
+
+        if not _compat.chm_available():
+            return ProviderAvailability.missing(
+                "pychm, the Python binding to chmlib, is not installed"
             )
         return ProviderAvailability.ready()
 
@@ -539,7 +720,9 @@ def adapt_ported_reader(plugin_name: str) -> type[PortedCalibreReader]:
 
 
     :param plugin_name: The reader plugin's name in calibre. The PDF reader's
-        class derives from :class:`PortedPdfReader`, which needs poppler.
+        class derives from :class:`PortedPdfReader`, which needs poppler, and the
+        RAR reader's from :class:`PortedRarReader`, which needs an extraction tool,
+        and the CHM reader's from :class:`PortedChmReader`, which needs pychm.
     :return: A new provider class; register it to use it.
     :raises KeyError: If that reader has not been ported.
     """
@@ -571,7 +754,9 @@ def adapt_ported_reader(plugin_name: str) -> type[PortedCalibreReader]:
         namespace.update(attributes)
 
     name = "".join(word.capitalize() for word in plugin_name.split()[1:-1]) + "Ported"
-    base = PortedPdfReader if module == "pdf" else PortedCalibreReader
+    base = {"pdf": PortedPdfReader, "rar": PortedRarReader, "chm": PortedChmReader}.get(
+        module, PortedCalibreReader
+    )
     made = types.new_class(name, (base,), exec_body=fill)
     return cast("type[PortedCalibreReader]", made)
 
@@ -585,7 +770,7 @@ def register_ported_calibre_readers(
     Example:
         >>> from LiuXin_alpha.file_formats.providers.registry import ProviderRegistry
         >>> [p.provider_id for p in register_ported_calibre_readers(ProviderRegistry())]
-        ['calibre-port.read-txt-metadata', 'calibre-port.read-imp-metadata', 'calibre-port.read-rb-metadata', 'calibre-port.read-lrx-metadata', 'calibre-port.read-snb-metadata', 'calibre-port.read-rtf-metadata', 'calibre-port.read-topaz-metadata', 'calibre-port.read-pml-metadata', 'calibre-port.read-opf-metadata', 'calibre-port.read-epub-metadata', 'calibre-port.read-htmlz-metadata', 'calibre-port.read-txtz-metadata', 'calibre-port.read-html-metadata', 'calibre-port.read-fb2-metadata', 'calibre-port.read-odt-metadata', 'calibre-port.read-mobi-metadata', 'calibre-port.read-pdb-metadata', 'calibre-port.read-lrf-metadata', 'calibre-port.read-docx-metadata', 'calibre-port.read-pdf-metadata', 'calibre-port.read-pdf-metadata-without-poppler']
+        ['calibre-port.read-txt-metadata', 'calibre-port.read-imp-metadata', 'calibre-port.read-rb-metadata', 'calibre-port.read-lrx-metadata', 'calibre-port.read-snb-metadata', 'calibre-port.read-rtf-metadata', 'calibre-port.read-topaz-metadata', 'calibre-port.read-pml-metadata', 'calibre-port.read-opf-metadata', 'calibre-port.read-epub-metadata', 'calibre-port.read-htmlz-metadata', 'calibre-port.read-txtz-metadata', 'calibre-port.read-html-metadata', 'calibre-port.read-fb2-metadata', 'calibre-port.read-odt-metadata', 'calibre-port.read-mobi-metadata', 'calibre-port.read-pdb-metadata', 'calibre-port.read-lrf-metadata', 'calibre-port.read-docx-metadata', 'calibre-port.read-pdf-metadata', 'calibre-port.read-comic-metadata', 'calibre-port.read-zip-metadata', 'calibre-port.read-rar-metadata', 'calibre-port.read-lit-metadata', 'calibre-port.read-chm-metadata', 'calibre-port.read-pdf-metadata-without-poppler']
 
 
     :param registry: The registry to add the providers to.
