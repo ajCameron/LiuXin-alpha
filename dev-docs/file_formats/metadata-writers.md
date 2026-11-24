@@ -3,7 +3,8 @@
 Reviewed **2026-11-20**. This covers LiuXin's metadata writers for DOCX, EPUB, FB2,
 HTMLZ, LRF, MOBI (with AZW, AZW3 and PRC), PDB, RTF, Topaz and TXTZ, and the
 `metadata.file.write` service that runs them. The PDF writer was reworked separately,
-in #205, and its notes are in the PDF dossier that change adds.
+in #205, and its notes are in the PDF dossier that change adds. LiuXin had no ODT
+writer; one was added afterwards (#212), checked the same way. See [ODT](#odt) below.
 
 ## How they were checked
 
@@ -18,7 +19,8 @@ the writer plugins, as the application writes. The checks:
   - PDB records other than the header;
   - LRF objects, by ID;
   - FB2 XML outside `<description>`, compared canonically;
-  - RTF outside `{\info}`.
+  - RTF outside `{\info}`;
+  - ODT members other than `meta.xml`, byte for byte, in their order and compression.
 - **Covers and partial records.** A new cover was written into each format that holds
   one. A title-only record was written the way the service builds one.
 
@@ -89,8 +91,14 @@ These match calibre's writers, so they are left as they are:
 | HTMLZ | A book without an OPF is refused and left unchanged. |
 | RTF | The comments go into `\subject`, the publisher into `\manager`. |
 | EPUB 2, HTMLZ, TXTZ | A name holding `&` comes back as two names: calibre reads each OPF 2 `dc:creator` as an author string, and does not escape the ampersand when it writes one. |
+| ODT | No cover is written. The language is written as ISO 639-1; one with no such code is not written. The publication date is written as a date, in UTC. A tag holding a comma is split when read (by LiuXin's reader, a semicolon too). Subjects share the one Subject, joined by semicolons, so a subject holding a semicolon is split when read; calibre does not read the Subject. |
 
 ## Found, not fixed
+
+- **LiuXin's ODT reader reads some fields from other places than calibre's.** It
+  takes the last-saved date as the publication date and prefers the creator to the
+  initial creator, where calibre reads neither. The writer leaves such values as they
+  are unless the caller changes them, so each reader keeps its own reading.
 
 - **Language handling without `iso639.pickle`** (fixed in #207). Every language
   function in `utils/localization` depended on calibre's table, which LiuXin did not
@@ -106,6 +114,54 @@ These match calibre's writers, so they are left as they are:
   name when it was set, so "Bob & Co" became two authors, though the files carried it
   correctly. See [author names](../metadata/author-names.md).
 
+## ODT
+
+The writer replaces `meta.xml` and copies every other member as it was, so `mimetype`
+stays first and uncompressed. It does not write through the fork's odfpy, whose
+writer has a known fault (see the [ODT notes](odt/README.md)). It parses `meta.xml`
+without loading DTDs or resolving entities, and drops characters XML cannot hold.
+A `meta.xml` that is missing, not well-formed, or without `office:meta` is refused,
+and the file is left as it was.
+
+It writes as calibre's ODT writer does:
+
+- the title, authors, comments, tags (the keywords) and language go into the ODF
+  elements;
+- the rest goes into calibre's `opf.*` user-defined properties, with `opf.metadata` set.
+
+It also writes the subjects, which calibre's record does not have: LiuXin keeps
+subject headings apart from tags (see [subjects](../metadata/subjects.md)). They go
+into the document's Subject, joined by semicolons, and LiuXin's reader reads the
+Subject as subjects; it used to count it as tags. calibre does not read the Subject.
+
+Both LiuXin's reader and calibre's read every field back, apart from the subjects,
+which calibre does not read. LiuXin's reader now also reads `opf.identifiers` and
+`opf.rating`, which calibre writes and reads.
+
+Two rules keep a write to the fields it names:
+
+- **Properties a reader prefers are replaced.** Writing a field removes any property
+  either reader would read in its place, in any letter case:
+  - `opf.title`, `opf.subject` and `opf.series_index` (LiuXin's reader);
+  - `opf.language` (both readers);
+  - `opf.isbn`, and `meta:keywords` (calibre's reader).
+
+  calibre's own writer leaves `opf.language`, so a book that has one keeps reading in
+  its old language in calibre.
+- **A field that does not change is not written.** The writer first reads the file
+  with LiuXin's reader. A field whose value matches that reading is left as the file
+  has it.
+
+  LiuXin's reader takes some values from places calibre's writer does not write:
+
+  - the creator before the initial creator;
+  - the last-saved `dc:date` as the publication date;
+  - plain `series` properties;
+  - `dc:identifier`.
+
+  The service fills omitted fields from that reading. Without this rule, a title-only
+  write would have copied those values where calibre reads them.
+
 ## Tests
 
 - `tests/core/test_metadata_file_write_safety.py`: the service.
@@ -115,5 +171,14 @@ These match calibre's writers, so they are left as they are:
   - DOCX keywords and language; the keyword splitting, including LiuXin's old `_-_`.
   - LRF and RTF authors in both readers.
   - The data-repository audit.
+- `tests/metadata/file_sources/test_odt_metadata_writer.py`: the ODT writer.
+  - Every field in both readers.
+  - What the package keeps.
+  - Null and unchanged fields; replaced properties; subjects in the Subject.
+  - Characters XML cannot hold; refusals; entities.
+  - Title-only writes through the service, on built books and on every data-repository
+    ODT.
+
+  The interchange audit above includes ODT.
 - `tests/core/test_program_service_contracts.py`: a writer that reports a failure
   leaves the file unchanged. This test used to pin the partial rewrite.

@@ -39,7 +39,13 @@ calibre's `tags` at the Work's `tags` and the record's `subjects` at the Work's
 `subjects`.
 
 A format's field becomes a subject only where the format keeps subject headings
-apart from keywords. Elsewhere the reader follows calibre:
+apart from keywords:
+
+- ODT's Subject (`dc:subject`) holds the subjects, several joined by semicolons,
+  and its keywords the tags. calibre does not read the Subject. LiuXin's ODT
+  writer writes both (see [metadata writers](../file_formats/metadata-writers.md#odt)).
+
+Elsewhere the reader follows calibre:
 
 - OPF and EPUB `dc:subject`, MOBI's subject records, DOCX and PDF keywords and
   HTML `<meta name="subject">` are read as tags;
