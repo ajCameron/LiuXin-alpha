@@ -1,0 +1,198 @@
+#!/usr/bin/env python
+# License: GPLv3 Copyright: 2010, Kovid Goyal <kovid@kovidgoyal.net>
+# Ported from calibre (https://calibre-ebook.com) 9.18: src/calibre/ebooks/chm/metadata.py
+# Changes from upstream: calibre imports point at upstream_calibre and its _compat, and
+# 'from __future__ import annotations' is added.
+# SPDX-License-Identifier: GPL-3.0-only
+
+from __future__ import annotations
+
+import codecs
+import re
+from typing import IO, TYPE_CHECKING, cast
+
+from LiuXin_alpha.metadata.upstream_calibre._compat import force_unicode
+from LiuXin_alpha.metadata.upstream_calibre.beautifulsoup import BeautifulSoup
+from LiuXin_alpha.metadata.upstream_calibre.chardet import xml_to_unicode
+from LiuXin_alpha.metadata.upstream_calibre.metadata_base import MetaInformation
+from LiuXin_alpha.metadata.upstream_calibre.metadata_base import string_to_authors
+from LiuXin_alpha.metadata.upstream_calibre._compat import TemporaryFile
+from LiuXin_alpha.metadata.upstream_calibre._compat import _
+from LiuXin_alpha.metadata.upstream_calibre._compat import default_log
+
+if TYPE_CHECKING:
+    from bs4 import BeautifulSoup as Soup
+    from bs4 import Tag
+
+    from LiuXin_alpha.metadata.upstream_calibre.chm_reader import CHMReader
+    from LiuXin_alpha.metadata.upstream_calibre.book_base import Metadata
+
+
+def _clean(s: str) -> str:
+    return s.replace('\u00a0', ' ')
+
+
+def _detag(tag: Tag | str | None) -> str:
+    ans = ''
+    if tag is None:
+        return ans
+    for elem in tag:
+        # elements with contents are Tags, the rest are NavigableStrings
+        if hasattr(elem, 'contents'):
+            ans += _detag(cast('Tag', elem))
+        else:
+            ans += _clean(cast('str', elem))
+    return ans
+
+
+def _metadata_from_table(soup: Soup, searchfor: str) -> str | None:
+    td = soup.find('td', text=re.compile(searchfor, flags=re.I))
+    if td is None:
+        return None
+    td = td.parent
+    assert td is not None  # an element found in the soup always has a parent
+    # there appears to be multiple ways of structuring the metadata
+    # on the home page. cue some nasty special-case hacks...
+    if re.match(r'^\s*' + searchfor + r'\s*$', td.decode_contents(), flags=re.I):
+        meta = _detag(td.findNextSibling('td'))
+        return re.sub(r'^:', '', meta).strip()
+    else:
+        meta = _detag(td)
+        return re.sub(r'^[^:]+:', '', meta).strip()
+
+
+def _metadata_from_span(soup: Soup, searchfor: str) -> str | None:
+    span = soup.find('span', {'class': re.compile(searchfor, flags=re.I)})
+    if span is None:
+        return None
+    # this metadata might need some cleaning up still :/
+    return _detag(span.decode_contents().strip())
+
+
+def _get_authors(soup: Soup) -> list[str]:
+    aut = _metadata_from_span(soup, r'author') or _metadata_from_table(soup, r'^\s*by\s*:?\s+')
+    ans = [_('Unknown')]
+    if aut is not None:
+        ans = string_to_authors(aut)
+    return ans
+
+
+def _get_publisher(soup: Soup) -> str | None:
+    return _metadata_from_span(soup, 'imprint') or _metadata_from_table(soup, 'publisher')
+
+
+def _get_isbn(soup: Soup) -> str | None:
+    return _metadata_from_span(soup, 'isbn') or _metadata_from_table(soup, 'isbn')
+
+
+def _get_comments(soup: Soup) -> str | None:
+    date = _metadata_from_span(soup, 'cwdate') or _metadata_from_table(soup, 'pub date')
+    pages = _metadata_from_span(soup, 'pages') or _metadata_from_table(soup, 'pages')
+    try:
+        assert date is not None and pages is not None  # failures are ignored by the except below
+        # date span can have copyright symbols in it...
+        date = date.replace('©', '').strip()
+        # and pages often comes as '(\d+ pages)'
+        m_pages = re.search(r'\d+', pages)
+        assert m_pages is not None
+        pages = m_pages.group(0)
+        return f'Published {date}, {pages} pages.'
+    except Exception:
+        pass
+    return None
+
+
+def _get_cover(soup: Soup, rdr: CHMReader) -> bytes | None:
+    ans = None
+    try:
+        # find() returning None raises the TypeError handled below
+        ans = cast('str', soup.find('img', alt=re.compile(r'cover', flags=re.I))['src'])  # ty: ignore[not-subscriptable]
+    except TypeError:
+        # meeehh, no handy alt-tag goodness, try some hackery
+        # the basic idea behind this is that in general, the cover image
+        # has a height:width ratio of ~1.25, whereas most of the nav
+        # buttons are decidedly less than that.
+        # what we do in this is work out that ratio, take 1.25 off it and
+        # save the absolute value when we sort by this value, the smallest
+        # one is most likely to be the cover image, hopefully.
+        r = {}
+        for img in soup('img'):
+            try:
+                m_h = re.search(r'[0-9.]+', cast('str', img['height']))
+                assert m_h is not None
+                m_w = re.search(r'[0-9.]+', cast('str', img['width']))
+                assert m_w is not None
+                r[abs(float(m_h.group()) / float(m_w.group()) - 1.25)] = cast('str', img['src'])
+            except KeyError:
+                # interestingly, occasionally the only image without height
+                # or width attrs is the cover...
+                r[0] = cast('str', img['src'])
+            except Exception:
+                # Probably invalid width, height aattributes, ignore
+                continue
+        if r:
+            l = sorted(r.keys())
+            ans = r[l[0]]
+    # this link comes from the internal html, which is in a subdir
+    if ans is not None:
+        try:
+            ans = rdr.GetFile(ans)
+        except Exception:
+            ans = rdr.root + '/' + ans
+            try:
+                ans = rdr.GetFile(ans)
+            except Exception:
+                ans = None
+        if ans is not None:
+            import io
+
+            from PIL import Image
+
+            buf = io.BytesIO()
+            try:
+                Image.open(io.BytesIO(ans)).convert('RGB').save(buf, 'JPEG')
+                ans = buf.getvalue()
+            except Exception:
+                ans = None
+    return ans
+
+
+def get_metadata_from_reader(rdr: CHMReader) -> Metadata:
+    raw = rdr.get_home()
+    home = BeautifulSoup(xml_to_unicode(raw, strip_encoding_pats=True, resolve_entities=True)[0])
+
+    title = rdr.title
+    try:
+        x = rdr.GetEncoding()
+        codecs.lookup(x)
+        enc = x
+    except Exception:
+        enc = 'cp1252'
+    title = force_unicode(title, enc)
+    authors = _get_authors(home)
+    mi = MetaInformation(title, authors)
+    publisher = _get_publisher(home)
+    if publisher:
+        mi.publisher = publisher
+    isbn = _get_isbn(home)
+    if isbn:
+        mi.isbn = isbn
+    comments = _get_comments(home)
+    if comments:
+        mi.comments = comments
+
+    cdata = _get_cover(home, rdr)
+    if cdata is not None:
+        mi.cover_data = ('jpg', cdata)
+
+    return mi
+
+
+def get_metadata(stream: IO[bytes]) -> Metadata:
+    with TemporaryFile('_chm_metadata.chm') as fname:
+        with open(fname, 'wb') as f:
+            f.write(stream.read())
+        from LiuXin_alpha.metadata.upstream_calibre.chm_reader import CHMReader
+
+        rdr = CHMReader(fname, default_log)
+        return get_metadata_from_reader(rdr)

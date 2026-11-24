@@ -1,0 +1,369 @@
+# License: GPLv3 Copyright: 2008, Kovid Goyal <kovid at kovidgoyal.net>, and Alex Bramley <a.bramley at gmail.com>.
+# Ported from calibre (https://calibre-ebook.com) 9.18: src/calibre/ebooks/chm/reader.py
+# Changes from upstream: calibre imports point at upstream_calibre and its _compat, and
+# 'from __future__ import annotations' is added.
+# pychm, the binding to chmlib it subclasses, is optional: without it _compat's
+# CHMFile refuses to open a file.
+# SPDX-License-Identifier: GPL-3.0-only
+
+"""CHM File decoding support"""
+
+from __future__ import annotations
+
+import codecs
+import os
+import re
+import struct
+from typing import TYPE_CHECKING, cast
+
+from LiuXin_alpha.metadata.upstream_calibre._compat import CHMFile
+from LiuXin_alpha.metadata.upstream_calibre._compat import chmlib
+
+from LiuXin_alpha.metadata.upstream_calibre._compat import guess_type as guess_mimetype
+from LiuXin_alpha.metadata.upstream_calibre._compat import filesystem_encoding
+from LiuXin_alpha.metadata.upstream_calibre._compat import iswindows
+from LiuXin_alpha.metadata.upstream_calibre.beautifulsoup import BeautifulSoup
+from LiuXin_alpha.metadata.upstream_calibre.beautifulsoup import NavigableString
+from LiuXin_alpha.metadata.upstream_calibre.chardet import xml_to_unicode
+from LiuXin_alpha.metadata.upstream_calibre._compat import make_long_path_useable
+from LiuXin_alpha.metadata.upstream_calibre._compat import as_unicode
+
+if TYPE_CHECKING:
+    from bs4 import PageElement
+    from typing import Any as chmUnitInfo
+
+    from LiuXin_alpha.metadata.upstream_calibre._compat import Log
+
+
+def match_string(s1: str | None, s2_already_lowered: str | None) -> bool:
+    if s1 is not None and s2_already_lowered is not None:
+        if s1.lower() == s2_already_lowered:
+            return True
+    return False
+
+
+def check_all_prev_empty(tag: PageElement | None) -> bool:
+    if tag is None:
+        return True
+    if tag.__class__ == NavigableString and not check_empty(tag):
+        return False
+    return check_all_prev_empty(tag.previousSibling)
+
+
+def check_empty(s: str, rex: re.Pattern[str] = re.compile(r'\S')) -> bool:
+    return rex.search(s) is None
+
+
+class CHMError(Exception):
+    pass
+
+
+class CHMReader(CHMFile):
+    home: bytes | str | None  # decoded to str in __init__
+
+    def __init__(self, input: str | bytes, log: Log, input_encoding: str | None = None) -> None:
+        CHMFile.__init__(self)
+        if isinstance(input, str):
+            enc = 'mbcs' if iswindows else filesystem_encoding
+            try:
+                input = input.encode(enc)
+            except UnicodeEncodeError:
+                from LiuXin_alpha.metadata.upstream_calibre._compat import PersistentTemporaryFile
+
+                with PersistentTemporaryFile(suffix='.chm') as t:
+                    with open(input, 'rb') as f:
+                        t.write(f.read())
+                input = t.name
+        if not self.LoadCHM(input):
+            raise CHMError(f"Unable to open CHM file '{input}'")
+        self.log = log
+        self.input_encoding = input_encoding
+        self._sourcechm = input
+        self._contents = None
+        self._playorder = 0
+        self._metadata = False
+        self._extracted = False
+        self.re_encoded_files = set()
+        self.get_encodings()
+        if self.home:
+            self.home = self.decode_hhp_filename(self.home)
+        if self.topics:
+            self.topics = self.decode_hhp_filename(self.topics)
+
+        # location of '.hhc' file, which is the CHM TOC.
+        base = self.topics or self.home
+        assert isinstance(base, str)
+        self.root = os.path.splitext(base.lstrip('/'))[0]
+        self.hhc_path = self.root + '.hhc'
+
+    def relpath_to_first_html_file(self) -> str:
+        # See https://www.nongnu.org/chmspec/latest/Internal.html#SYSTEM
+        data = self.GetFile('/#SYSTEM')
+        pos = 4
+        while pos < len(data):
+            code, length_of_data = struct.unpack_from('<HH', data, pos)
+            pos += 4
+            if code == 2:
+                default_topic = data[pos : pos + length_of_data].rstrip(b'\0')
+                break
+            pos += length_of_data
+        else:
+            raise CHMError('No default topic found in CHM file that has no HHC ToC either')
+        default_topic = self.decode_hhp_filename(b'/' + default_topic)
+        # raises TypeError if the topic could not be decoded
+        return default_topic[1:]  # ty: ignore[not-subscriptable]
+
+    def decode_hhp_filename(self, path: str | bytes) -> str | None:
+        if isinstance(path, str):
+            return path
+        for enc in (self.encoding_from_system_file, self.encoding_from_lcid, 'cp1252', 'cp1251', 'latin1', 'utf-8'):
+            if enc:
+                try:
+                    q = path.decode(enc)
+                except UnicodeDecodeError:
+                    continue
+                res, ui = self.ResolveObject(q)
+                if res == chmlib.CHM_RESOLVE_SUCCESS:
+                    return q
+
+    def get_encodings(self) -> None:
+        self.encoding_from_system_file = self.encoding_from_lcid = None
+        q = self.GetEncoding()
+        if q:
+            try:
+                if isinstance(q, bytes):
+                    q = q.decode('ascii')
+                    codecs.lookup(q)
+                    self.encoding_from_system_file = q
+            except Exception:
+                pass
+
+        lcid = self.GetLCID()
+        if lcid is not None:
+            q = lcid[0]
+            if q:
+                try:
+                    if isinstance(q, bytes):
+                        q = q.decode('ascii')
+                        codecs.lookup(q)
+                        self.encoding_from_lcid = q
+                except Exception:
+                    pass
+
+    def get_encoding(self) -> str:
+        return self.encoding_from_system_file or self.encoding_from_lcid or 'cp1252'
+
+    def ResolveObject(self, document: str | bytes) -> tuple[int, chmUnitInfo | None]:
+        # filenames are utf-8 encoded in the chm index as far as I can
+        # determine, see https://tika.apache.org/1.11/api/org/apache/tika/parser/chm/accessor/ChmPmgiHeader.html
+        if not isinstance(document, bytes):
+            document = document.encode('utf-8')
+        return CHMFile.ResolveObject(self, document)
+
+    def file_exists(self, path: str | bytes) -> bool:
+        res, ui = self.ResolveObject(path)
+        return res == chmlib.CHM_RESOLVE_SUCCESS
+
+    def GetFile(self, path: str) -> bytes:
+        # have to have abs paths for ResolveObject, but Contents() deliberately
+        # makes them relative. So we don't have to worry, re-add the leading /.
+        # note this path refers to the internal CHM structure
+        if path[0] != '/':
+            path = '/' + path
+        res, ui = self.ResolveObject(path)
+        if res != chmlib.CHM_RESOLVE_SUCCESS:
+            raise CHMError(f'Unable to locate {path!r} within CHM file {self.filename!r}')
+        size, data = self.RetrieveObject(ui)
+        if size == 0:
+            raise CHMError(f'{path!r} is zero bytes in length!')
+        return data
+
+    def get_home(self) -> bytes:
+        return self.GetFile(self.home)  # ty: ignore[invalid-argument-type] home is decoded to str in __init__
+
+    def ExtractFiles(self, output_dir: str = os.getcwd(), debug_dump: str | bool = False) -> None:
+        html_files = set()
+        base = output_dir = os.path.abspath(output_dir)
+        if not base.endswith(os.sep):
+            base += os.sep
+        for path in self.Contents():
+            fpath = path.partition(';')[0]  # fix file names with ";<junk>" at the end, see _reformat()
+            fpath = fpath.replace('/', os.sep)
+            lpath = os.path.abspath(os.path.join(output_dir, fpath))
+            if not lpath.startswith(base):
+                self.log.warn(f'{path!r} outside container, skipping')
+                continue
+            try:
+                data = self.GetFile(path)
+            except Exception:
+                self.log.exception(f'Failed to extract {path} from CHM, ignoring')
+                continue
+            self._ensure_dir(lpath)
+            with open(make_long_path_useable(lpath), 'wb') as f:
+                f.write(data)
+            try:
+                if 'html' in guess_mimetype(os.path.basename(lpath))[0]:  # ty: ignore[unsupported-operator] None is handled by the except below
+                    html_files.add(lpath)
+            except Exception:
+                pass
+
+        if debug_dump:
+            assert isinstance(debug_dump, str)  # callers pass either a path or False
+            import shutil
+
+            shutil.copytree(output_dir, os.path.join(debug_dump, 'debug_dump'))
+        for lpath in html_files:
+            with open(make_long_path_useable(lpath), 'r+b') as f:
+                data = f.read()
+                data = self._reformat(data, lpath)
+                if isinstance(data, str):
+                    data = data.encode('utf-8')
+                f.seek(0)
+                f.truncate()
+                f.write(data)
+
+        self._extracted = True
+        files = [y for y in os.listdir(output_dir) if os.path.isfile(os.path.join(output_dir, y))]
+        if self.hhc_path not in files:
+            for f in files:
+                if f.lower() == self.hhc_path.lower():
+                    self.hhc_path = f
+                    break
+        if self.hhc_path not in files and files:
+            for f in files:
+                if f.partition('.')[-1].lower() in {'html', 'htm', 'xhtm', 'xhtml'}:
+                    self.hhc_path = f
+                    break
+
+        if self.hhc_path == '.hhc' and self.hhc_path not in files:
+            from LiuXin_alpha.metadata.upstream_calibre._compat import walk
+
+            for x in walk(output_dir):
+                if os.path.basename(x).lower() in ('index.htm', 'index.html', 'contents.htm', 'contents.html'):
+                    self.hhc_path = os.path.relpath(x, output_dir)
+                    break
+
+        if self.hhc_path not in files and files:
+            self.hhc_path = files[0]
+
+    def _reformat(self, raw: bytes, htmlpath: str) -> str | bytes:
+        data: str | bytes = raw
+        if self.input_encoding:
+            data = raw.decode(self.input_encoding)
+        try:
+            data = xml_to_unicode(data, strip_encoding_pats=True)[0]
+            soup = BeautifulSoup(data)
+        except ValueError:
+            # hit some strange encoding problems...
+            self.log.exception('Unable to parse html for cleaning, leaving it')
+            return data
+        # nuke javascript...
+        [s.extract() for s in soup('script')]
+        # See if everything is inside a <head> tag
+        # https://bugs.launchpad.net/bugs/1273512
+        body = soup.find('body')
+        if body is not None and body.parent is not None and body.parent.name == 'head':
+            html = soup.find('html')
+            assert html is not None  # the html5 parser always creates an <html> element
+            html.insert(len(html), body)
+
+        # remove forward and back nav bars from the top/bottom of each page
+        # cos they really fuck with the flow of things and generally waste space
+        # since we can't use [a,b] syntax to select arbitrary items from a list
+        # we'll have to do this manually...
+        # only remove the tables, if they have an image with an alt attribute
+        # containing prev, next or team
+        t = soup('table')
+        if t:
+            if t[0].previousSibling is None or t[0].previousSibling.previousSibling is None:
+                try:
+                    # failures are ignored by the except below
+                    alt = t[0].img['alt'].lower()  # ty: ignore[not-subscriptable, missing-union-attribute]
+                    if alt.find('prev') != -1 or alt.find('next') != -1 or alt.find('team') != -1:
+                        t[0].extract()
+                except Exception:
+                    pass
+            if t[-1].nextSibling is None or t[-1].nextSibling.nextSibling is None:
+                try:
+                    # failures are ignored by the except below
+                    alt = t[-1].img['alt'].lower()  # ty: ignore[not-subscriptable, missing-union-attribute]
+                    if alt.find('prev') != -1 or alt.find('next') != -1 or alt.find('team') != -1:
+                        t[-1].extract()
+                except Exception:
+                    pass
+        # for some very odd reason each page's content appears to be in a table
+        # too. and this table has sub-tables for random asides... grr.
+
+        # remove br at top of page if present after nav bars removed
+        br = soup('br')
+        if br:
+            if check_all_prev_empty(br[0].previousSibling):
+                br[0].extract()
+
+        # some images seem to be broken in some chm's :/
+        base = os.path.dirname(htmlpath)
+        for img in soup('img', src=True):
+            src = cast('str', img['src'])  # src is not a multi-valued attribute
+            ipath = os.path.join(base, *src.split('/'))
+            if os.path.exists(ipath):
+                continue
+            src = src.split(';')[0]
+            if not src:
+                continue
+            ipath = os.path.join(base, *src.split('/'))
+            if not os.path.exists(ipath):
+                while src.startswith('../'):
+                    src = src[3:]
+            img['src'] = src
+        try:
+            # if there is only a single table with a single element
+            # in the body, replace it by the contents of this single element
+            body = soup.body
+            assert body is not None  # failures are ignored by the except below
+            # findAll is a deprecated alias for find_all with an imprecise type
+            tables = body.findAll('table', recursive=False)  # ty: ignore[unknown-argument]
+            if tables and len(tables) == 1:
+                trs = tables[0].findAll('tr', recursive=False)
+                if trs and len(trs) == 1:
+                    tds = trs[0].findAll('td', recursive=False)
+                    if tds and len(tds) == 1:
+                        tdContents = tds[0].contents
+                        tableIdx = body.contents.index(tables[0])
+                        tables[0].extract()
+                        while tdContents:
+                            body.insert(tableIdx, tdContents.pop())
+        except Exception:
+            pass
+        # do not prettify, it would reformat the <pre> tags!
+        try:
+            ans = soup.decode_contents()
+            self.re_encoded_files.add(os.path.abspath(htmlpath))
+            return ans
+        except RuntimeError:
+            return data
+
+    def Contents(self) -> list[str]:
+        if self._contents is not None:
+            return self._contents
+        paths = []
+
+        def get_paths(chm: object, ui: chmUnitInfo, ctx: object) -> None:
+            # these are supposed to be UTF-8 in CHM as best as I can determine
+            # see https://tika.apache.org/1.11/api/org/apache/tika/parser/chm/accessor/ChmPmgiHeader.html
+            path = as_unicode(ui.path, 'utf-8')
+            # skip directories
+            # note this path refers to the internal CHM structure
+            if path[-1] != '/':
+                # and make paths relative
+                paths.append(path.lstrip('/'))
+
+        chmlib.chm_enumerate(self.file, chmlib.CHM_ENUMERATE_NORMAL, get_paths, None)
+        self._contents = paths
+        return self._contents
+
+    def _ensure_dir(self, path: str) -> None:
+        dir = os.path.dirname(path)
+        os.makedirs(make_long_path_useable(dir), exist_ok=True)
+
+    def extract_content(self, output_dir: str = os.getcwd(), debug_dump: str | bool = False) -> None:
+        self.ExtractFiles(output_dir=output_dir, debug_dump=debug_dump)

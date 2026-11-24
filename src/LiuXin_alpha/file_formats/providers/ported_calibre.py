@@ -80,6 +80,8 @@ PORTED_READERS: Mapping[str, tuple[str, frozenset[str]]] = {
     "Read comic metadata": ("comic", frozenset({"cbz", "cbr", "cb7", "cbc"})),
     "Read ZIP metadata": ("zip", frozenset({"zip", "oebzip"})),
     "Read RAR metadata": ("rar", frozenset({"rar"})),
+    "Read LIT metadata": ("lit", frozenset({"lit"})),
+    "Read CHM metadata": ("chm", frozenset({"chm"})),
 }
 """calibre's reader plugins that have been ported: module and formats."""
 
@@ -262,6 +264,18 @@ def ported_reader(module: str) -> Callable[..., Any]:
         )
 
         return get_rar_metadata
+    if module == "lit":
+        from LiuXin_alpha.metadata.upstream_calibre.lit import (
+            get_metadata as get_lit_metadata,
+        )
+
+        return get_lit_metadata
+    if module == "chm":
+        from LiuXin_alpha.metadata.upstream_calibre.chm import (
+            get_metadata as get_chm_metadata,
+        )
+
+        return get_chm_metadata
     raise KeyError(f"no calibre reader named {module!r} has been ported")
 
 
@@ -603,6 +617,39 @@ class PortedRarReader(PortedCalibreReader):
         return ProviderAvailability.ready()
 
 
+class PortedChmReader(PortedCalibreReader):
+    """
+    Run calibre's CHM reader, which needs pychm, the Python binding to chmlib.
+
+    Example:
+        >>> provider = adapt_ported_reader("Read CHM metadata")
+        >>> issubclass(provider, PortedChmReader), provider.requires
+        (True, ('pychm',))
+    """
+
+    requires: ClassVar[tuple[str, ...]] = ("pychm",)
+
+    @classmethod
+    def availability(cls: type[Self]) -> ProviderAvailability:
+        """
+        Report whether pychm is installed.
+
+        Example:
+            >>> PortedChmReader.availability().available in (True, False)
+            True
+
+
+        :return: Ready if it is, otherwise why not.
+        """
+        from LiuXin_alpha.metadata.upstream_calibre import _compat
+
+        if not _compat.chm_available():
+            return ProviderAvailability.missing(
+                "pychm, the Python binding to chmlib, is not installed"
+            )
+        return ProviderAvailability.ready()
+
+
 class PortedPdfReaderWithoutPoppler(CalibreMetadataReader):
     """
     Run calibre's PDF reader on fields read by LiuXin's own object reader, so no poppler is needed.
@@ -674,7 +721,8 @@ def adapt_ported_reader(plugin_name: str) -> type[PortedCalibreReader]:
 
     :param plugin_name: The reader plugin's name in calibre. The PDF reader's
         class derives from :class:`PortedPdfReader`, which needs poppler, and the
-        RAR reader's from :class:`PortedRarReader`, which needs an extraction tool.
+        RAR reader's from :class:`PortedRarReader`, which needs an extraction tool,
+        and the CHM reader's from :class:`PortedChmReader`, which needs pychm.
     :return: A new provider class; register it to use it.
     :raises KeyError: If that reader has not been ported.
     """
@@ -706,7 +754,9 @@ def adapt_ported_reader(plugin_name: str) -> type[PortedCalibreReader]:
         namespace.update(attributes)
 
     name = "".join(word.capitalize() for word in plugin_name.split()[1:-1]) + "Ported"
-    base = {"pdf": PortedPdfReader, "rar": PortedRarReader}.get(module, PortedCalibreReader)
+    base = {"pdf": PortedPdfReader, "rar": PortedRarReader, "chm": PortedChmReader}.get(
+        module, PortedCalibreReader
+    )
     made = types.new_class(name, (base,), exec_body=fill)
     return cast("type[PortedCalibreReader]", made)
 
@@ -720,7 +770,7 @@ def register_ported_calibre_readers(
     Example:
         >>> from LiuXin_alpha.file_formats.providers.registry import ProviderRegistry
         >>> [p.provider_id for p in register_ported_calibre_readers(ProviderRegistry())]
-        ['calibre-port.read-txt-metadata', 'calibre-port.read-imp-metadata', 'calibre-port.read-rb-metadata', 'calibre-port.read-lrx-metadata', 'calibre-port.read-snb-metadata', 'calibre-port.read-rtf-metadata', 'calibre-port.read-topaz-metadata', 'calibre-port.read-pml-metadata', 'calibre-port.read-opf-metadata', 'calibre-port.read-epub-metadata', 'calibre-port.read-htmlz-metadata', 'calibre-port.read-txtz-metadata', 'calibre-port.read-html-metadata', 'calibre-port.read-fb2-metadata', 'calibre-port.read-odt-metadata', 'calibre-port.read-mobi-metadata', 'calibre-port.read-pdb-metadata', 'calibre-port.read-lrf-metadata', 'calibre-port.read-docx-metadata', 'calibre-port.read-pdf-metadata', 'calibre-port.read-comic-metadata', 'calibre-port.read-zip-metadata', 'calibre-port.read-rar-metadata', 'calibre-port.read-pdf-metadata-without-poppler']
+        ['calibre-port.read-txt-metadata', 'calibre-port.read-imp-metadata', 'calibre-port.read-rb-metadata', 'calibre-port.read-lrx-metadata', 'calibre-port.read-snb-metadata', 'calibre-port.read-rtf-metadata', 'calibre-port.read-topaz-metadata', 'calibre-port.read-pml-metadata', 'calibre-port.read-opf-metadata', 'calibre-port.read-epub-metadata', 'calibre-port.read-htmlz-metadata', 'calibre-port.read-txtz-metadata', 'calibre-port.read-html-metadata', 'calibre-port.read-fb2-metadata', 'calibre-port.read-odt-metadata', 'calibre-port.read-mobi-metadata', 'calibre-port.read-pdb-metadata', 'calibre-port.read-lrf-metadata', 'calibre-port.read-docx-metadata', 'calibre-port.read-pdf-metadata', 'calibre-port.read-comic-metadata', 'calibre-port.read-zip-metadata', 'calibre-port.read-rar-metadata', 'calibre-port.read-lit-metadata', 'calibre-port.read-chm-metadata', 'calibre-port.read-pdf-metadata-without-poppler']
 
 
     :param registry: The registry to add the providers to.

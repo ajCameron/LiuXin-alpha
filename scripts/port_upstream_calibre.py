@@ -166,12 +166,67 @@ PORTS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
         "rar.py",
         ("calibre.utils.unrar, which wraps the unrardll extension, is _unrar, on rarfile.",),
     ),
+    ("ebooks/lit/__init__.py", "lit_package.py", ()),
+    ("ebooks/lit/mssha1.py", "lit_mssha1.py", ()),
+    ("ebooks/lit/maps/html.py", "lit_maps_html.py", ()),
+    ("ebooks/lit/maps/opf.py", "lit_maps_opf.py", ()),
+    ("ebooks/lit/maps/__init__.py", "lit_maps.py", ()),
+    (
+        "ebooks/lit/reader.py",
+        "lit_reader.py",
+        (
+            "calibre's lzx and msdes extensions come from LiuXin's utils plugins (_compat.lzx,",
+            "_compat.msdes): the compiled modules where installed, else pure-Python ports.",
+        ),
+    ),
+    ("ebooks/metadata/lit.py", "lit.py", ()),
+    (
+        "ebooks/chm/reader.py",
+        "chm_reader.py",
+        (
+            "pychm, the binding to chmlib it subclasses, is optional: without it _compat's",
+            "CHMFile refuses to open a file.",
+        ),
+    ),
+    ("ebooks/chm/metadata.py", "chm.py", ()),
 )
 
 # Modules of which only some top-level names are ported, by upstream path: the
 # rest is conversion code the metadata readers do not use. Imports the kept
 # names do not use are dropped with it.
 PARTS: dict[str, tuple[str, ...]] = {
+    "ebooks/lit/reader.py": (
+        "XML_DECL",
+        "OPF_DECL",
+        "HTML_DECL",
+        "DESENCRYPT_GUID",
+        "LZXCOMPRESS_GUID",
+        "CONTROL_TAG",
+        "CONTROL_WINDOW_SIZE",
+        "RESET_NENTRIES",
+        "RESET_HDRLEN",
+        "RESET_UCLENGTH",
+        "RESET_INTERVAL",
+        "FLAG_OPENING",
+        "FLAG_CLOSING",
+        "FLAG_BLOCK",
+        "FLAG_HEAD",
+        "FLAG_ATOM",
+        "u32",
+        "u16",
+        "int32",
+        "encint",
+        "msguid",
+        "read_utf8_char",
+        "consume_sized_utf8_string",
+        "encode",
+        "UnBinary",
+        "DirectoryEntry",
+        "ManifestItem",
+        "preserve",
+        "LitFile",
+        "LitContainer",
+    ),
     "ebooks/metadata/meta.py": ("get_metadata", "_get_metadata", "metadata_from_filename", "opf_metadata"),
     "libunzip.py": ("extract", "sort_key", "extract_member", "comic_exts", "name_ok", "extract_cover_image"),
     "utils/seven_zip.py": (
@@ -904,6 +959,15 @@ MODULES = {
     "calibre.ebooks.metadata.archive": f"{PKG}.archive",
     "calibre.ebooks.metadata.zip": f"{PKG}.zip",
     "calibre.ebooks.metadata.rar": f"{PKG}.rar",
+    "calibre.ebooks.lit": f"{PKG}.lit_package",
+    "calibre.ebooks.lit.mssha1": f"{PKG}.lit_mssha1",
+    "calibre.ebooks.lit.maps": f"{PKG}.lit_maps",
+    "calibre.ebooks.lit.maps.html": f"{PKG}.lit_maps_html",
+    "calibre.ebooks.lit.maps.opf": f"{PKG}.lit_maps_opf",
+    "calibre.ebooks.lit.reader": f"{PKG}.lit_reader",
+    "calibre.ebooks.metadata.lit": f"{PKG}.lit",
+    "calibre.ebooks.chm.reader": f"{PKG}.chm_reader",
+    "calibre.ebooks.chm.metadata": f"{PKG}.chm",
 }
 
 # Helpers from modules that are not ported whole: the names _compat provides,
@@ -959,6 +1023,7 @@ NAMES: dict[str, dict[str, str]] = {
             "XLINK",
             "XPath",
             "OEBBook",
+            "urlnormalize",
         )
     },
     "calibre.ebooks.oeb.polish.utils": {"guess_type": "polish_guess_type"},
@@ -1019,6 +1084,7 @@ NAMES: dict[str, dict[str, str]] = {
         )
     },
     "calibre.ptempfile": {
+        "TemporaryFile": "TemporaryFile",
         "TemporaryDirectory": "TemporaryDirectory",
         "SpooledTemporaryFile": "SpooledTemporaryFile",
         "PersistentTemporaryFile": "PersistentTemporaryFile",
@@ -1028,6 +1094,7 @@ NAMES: dict[str, dict[str, str]] = {
     "calibre.utils.formatter": {"TEMPLATE_ERROR": "TEMPLATE_ERROR"},
     "calibre.ebooks.metadata.book.formatter": {"SafeFormat": "SafeFormat"},
     "calibre.utils.filenames": {
+        "make_long_path_useable": "make_long_path_useable",
         "is_windows_reserved_filename": "is_windows_reserved_filename",
         "is_existing_subpath": "is_existing_subpath",
     },
@@ -1068,6 +1135,11 @@ EXTERNAL: dict[tuple[str, str], tuple[str, str]] = {
     ("calibre.customize.ui", "set_file_type_metadata"): (COMPAT, "set_file_type_metadata"),
     # libunzip's kept functions only read archives, which Python's zipfile reads alike.
     ("calibre.utils", "zipfile"): ("", "zipfile"),
+    ("calibre.ebooks.lit", "mssha1"): (PKG, "lit_mssha1"),
+    ("calibre_extensions", "lzx"): (COMPAT, "lzx"),
+    ("calibre_extensions", "msdes"): (COMPAT, "msdes"),
+    ("chm.chm", "CHMFile"): (COMPAT, "CHMFile"),
+    ("chm.chm", "chmlib"): (COMPAT, "chmlib"),
 }
 
 # Whole-module imports LiuXin replaces.
@@ -1092,6 +1164,7 @@ REWRITTEN_ROOTS = frozenset(
         "dateutil",
         "tinycss",
         "regex",
+        "chm",
     }
 )
 
@@ -1198,6 +1271,30 @@ def _used_names(node: ast.AST) -> set[str]:
     return used
 
 
+def _names_type_aliases_use(nodes: list[ast.stmt], used: set[str]) -> set[str]:
+    """
+    Name what the ``type`` aliases among some statements use, following aliases of aliases.
+
+    Only the aliases named in ``used``, or by an alias that is, count.
+
+    Example:
+        >>> nodes = ast.parse("type A = list[B]\\ntype B = dict[K, V]\\ntype C = set[Z]").body
+        >>> sorted(_names_type_aliases_use(nodes, {"A"}))
+        ['B', 'K', 'V', 'dict', 'list']
+
+
+    :param nodes: Statements, such as the body of an ``if TYPE_CHECKING:`` block.
+    :param used: The names already in use.
+    :return: The names those aliases refer to that ``used`` does not hold.
+    """
+    aliases = {node.name.id: node for node in nodes if isinstance(node, ast.TypeAlias)}
+    found = set(used)
+    while more := {name for name in found & aliases.keys() if not _used_names(aliases[name]) <= found}:
+        for name in more:
+            found |= _used_names(aliases[name])
+    return found - used
+
+
 def keep_only(source: str, source_path: str, names: tuple[str, ...]) -> str:
     """
     Keep the named top-level definitions of a module and the imports they use.
@@ -1251,12 +1348,20 @@ def keep_only(source: str, source_path: str, names: tuple[str, ...]) -> str:
             start -= 1
         return "\n".join(lines[start - 1 : node.end_lineno])
 
+    typing_nodes = [
+        child
+        for node in tree.body
+        if isinstance(node, ast.If) and getattr(node.test, "id", None) == "TYPE_CHECKING"
+        for child in node.body
+    ]
+    # Keep the type aliases the kept code uses (and those they use), with their imports.
+    used |= _names_type_aliases_use(typing_nodes, used)
     typing_block: list[str] = []
-    for node in tree.body:
-        if isinstance(node, ast.If) and getattr(node.test, "id", None) == "TYPE_CHECKING":
-            for child in node.body:
-                if isinstance(child, ast.Import | ast.ImportFrom) and (kept_import := pruned(child)):
-                    typing_block.append("    " + (text(child) .strip() if kept_import is child else ast.unparse(kept_import)))
+    for child in typing_nodes:
+        if isinstance(child, ast.Import | ast.ImportFrom) and (kept_import := pruned(child)):
+            typing_block.append("    " + (text(child).strip() if kept_import is child else ast.unparse(kept_import)))
+        elif isinstance(child, ast.TypeAlias) and child.name.id in used:
+            typing_block.append("    " + text(child, "    ").strip())
     if typing_block:
         used.add("TYPE_CHECKING")
 

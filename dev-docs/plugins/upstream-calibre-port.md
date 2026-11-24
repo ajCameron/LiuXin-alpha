@@ -68,6 +68,8 @@ turned up, and which readers are left.
 | `comic`, `zip`, `rar`, `archive`, `libunzip`, `seven_zip` | the comic reader plugin in `customize/builtins.py`, `ebooks/metadata/zip.py`, `rar.py`, `archive.py` (in part), `libunzip.py` (in part), `utils/seven_zip.py` | The comic, ZIP and RAR readers. `comic` is the plugin's `get_metadata`, ported by hand as a function; the plugin's setting (volume or issue as the series index) is its argument |
 | `_readers` | LiuXin's own | Stands in for `customize.ui.get_file_type_metadata`: the archive readers hand each book inside to the ported reader for its type, as calibre's plugin for it calls it |
 | `_unrar` | LiuXin's own | Stands in for `utils/unrar.py`, which wraps calibre's `unrardll`: the same functions on `rarfile`, refusing members past LiuXin's archive limits |
+| `lit`, `lit_reader`, `lit_package`, `lit_mssha1`, `lit_maps`, `lit_maps_html`, `lit_maps_opf` | `ebooks/metadata/lit.py`, `ebooks/lit/` | The LIT reader and the container reader it uses; `lit_reader` is calibre's `reader.py` without `LitReader`, its conversion reader |
+| `chm`, `chm_reader` | `ebooks/chm/metadata.py`, `reader.py` | The CHM reader; it runs where pychm is installed |
 | `localunzip` | `utils/localunzip.py` | Reads ZIP files whose central directory is missing or damaged, from their local headers |
 | `ebooks`, `beautifulsoup` | `ebooks/__init__.py`, `ebooks/BeautifulSoup.py` | Finding a cover on a book's first page |
 | `fb2_package`, `html_to_text` | `ebooks/fb2/__init__.py`, `utils/html2text.py` | FB2's tolerant base64 decoder; HTML to text, which only FB2 writing uses |
@@ -102,6 +104,8 @@ and its docstring lists each difference from calibre. In short:
 | Qt image and date helpers, EPUB writing helpers, the MOBI writer's colour and guide helpers | not ported; raise `NotImplementedError` | Readers do not call them; calibre's tests of the MOBI writer helpers are not run |
 | `unrardll`, calibre's binding to RARLAB's library | `_unrar`, on the `rarfile` package (the `archives` extra) or LiuXin's vendored copy | Names are read the same way; contents need an extraction tool on the PATH, so the RAR port is unavailable without one, and a CBR's cover cannot be read |
 | `py7zr`, which calibre bundles | optional (the `archives` extra) | Without it a CB7 is not read |
+| C extensions `lzx` and `msdes`, for LIT | `_compat.lzx` and `_compat.msdes`, from the utils plugins of those names: the compiled modules where installed, else LiuXin's pure-Python ports | The same metadata; the pure-Python LZX decoder cannot decode LIT text (see the status page) |
+| pychm, the binding to chmlib, which calibre bundles | optional, in no extra; `_compat.CHMFile` refuses to open a file without it | Without it the CHM port is unavailable |
 | ICU's numeric collation, for page order | `_compat.numeric_sort_key`: numbers by value, the rest case-folded | The same order for page names; accented letters can sort differently |
 | calibre's plugin dispatch (`customize.ui`) | `_readers.get_file_type_metadata`, which runs the ported readers; `file_formats.providers.ported_calibre` gives it the readers when it runs one | Books inside archives are read by the ported readers only |
 | calibre's preferences (`prefs`) | `_compat.prefs`, at calibre's defaults | File names are matched against calibre's default pattern; author names are not swapped |
@@ -137,10 +141,8 @@ rules around it:
 
 ## Not ported yet
 
-The LIT reader needs calibre's LIT container reader and OEB reader and the
-`lzx` and `msdes` C extensions; the fork's LIT reader still serves LIT files.
-The [status page](upstream-calibre-port-status.md#what-is-left) lists the other
-readers left and what each needs.
+Every calibre metadata reader is ported. What is left, the writers, is on the
+[status page](upstream-calibre-port-status.md#what-is-left).
 
 ## Porting more
 
