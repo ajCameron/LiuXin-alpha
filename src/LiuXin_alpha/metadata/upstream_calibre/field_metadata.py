@@ -1,15 +1,11 @@
 # Ported from calibre (https://calibre-ebook.com) 9.18: src/calibre/library/field_metadata.py
-# Changes from upstream: calibre imports point at upstream_calibre and its _compat, and
-# 'from __future__ import annotations' is added.
-# Except clauses naming several exceptions are parenthesised, for Python before 3.14.
+# Changes from upstream: calibre imports point at upstream_calibre and its _compat.
 # SPDX-License-Identifier: GPL-3.0-only
 """
 Created on 25 May 2010
 
 @author: charles
 """
-
-from __future__ import annotations
 
 import traceback
 from collections import OrderedDict
@@ -715,7 +711,7 @@ class FieldMetadata:
         try:
             m = self._tb_cats[key]
             return m['datatype'] == 'float' and key.endswith('_index') and key[:-6] in self._tb_cats
-        except (KeyError, ValueError, TypeError, AttributeError):
+        except KeyError, ValueError, TypeError, AttributeError:
             return False
 
     def key_to_label(self, key: str) -> str:

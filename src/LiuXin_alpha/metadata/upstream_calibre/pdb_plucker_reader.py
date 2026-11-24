@@ -1,12 +1,9 @@
 # License: GPLv3 Copyright: 20011, John Schember <john@nachtimwald.com>
 # Ported from calibre (https://calibre-ebook.com) 9.18: src/calibre/ebooks/pdb/plucker/reader.py
-# Changes from upstream: calibre imports point at upstream_calibre and its _compat, and
-# 'from __future__ import annotations' is added.
+# Changes from upstream: calibre imports point at upstream_calibre and its _compat.
 # Only DATATYPE_METADATA, MIBNUM_TO_NAME and SectionHeader are ported, with the imports they use;
 # the rest is conversion code the metadata readers do not use.
 # SPDX-License-Identifier: GPL-3.0-only
-
-from __future__ import annotations
 
 import struct
 

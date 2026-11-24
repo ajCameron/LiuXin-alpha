@@ -1,7 +1,6 @@
 # License: GPLv3 Copyright: 2008, Kovid Goyal <kovid at kovidgoyal.net>
 # Ported from calibre (https://calibre-ebook.com) 9.18: src/calibre/ebooks/__init__.py
-# Changes from upstream: calibre imports point at upstream_calibre and its _compat, and
-# 'from __future__ import annotations' is added.
+# Changes from upstream: calibre imports point at upstream_calibre and its _compat.
 # render_html_data needs calibre's Qt worker, which LiuXin does not port: _compat's
 # fork_job stands in and raises WorkerError, so HTML cover pages are not rendered.
 # SPDX-License-Identifier: GPL-3.0-only
@@ -10,8 +9,6 @@
 Code for the conversion of ebook formats and the reading of metadata
 from various formats.
 """
-
-from __future__ import annotations
 
 import numbers
 import os

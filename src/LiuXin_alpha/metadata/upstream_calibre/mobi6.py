@@ -1,13 +1,9 @@
 #!/usr/bin/env python
 # License: GPLv3 Copyright: 2012, Kovid Goyal <kovid@kovidgoyal.net>
 # Ported from calibre (https://calibre-ebook.com) 9.18: src/calibre/ebooks/mobi/reader/mobi6.py
-# Changes from upstream: calibre imports point at upstream_calibre and its _compat, and
-# 'from __future__ import annotations' is added.
-# Except clauses naming several exceptions are parenthesised, for Python before 3.14.
+# Changes from upstream: calibre imports point at upstream_calibre and its _compat.
 # LiuXin fixes are marked '# LiuXin:'.
 # SPDX-License-Identifier: GPL-3.0-only
-
-from __future__ import annotations
 
 import io
 import os
@@ -869,7 +865,7 @@ class MobiReader:
             if flags & 1:
                 try:
                     num += sizeof_trailing_entry(data, size - num)
-                except (IndexError, TypeError):
+                except IndexError, TypeError:
                     self.warn_about_trailing_entry_corruption()
                     return 0
             flags >>= 1

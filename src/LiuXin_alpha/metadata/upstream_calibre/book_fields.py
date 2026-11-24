@@ -1,16 +1,13 @@
 #!/usr/bin/env python
 # License: GPLv3 Copyright: 2010, Kovid Goyal <kovid@kovidgoyal.net>
 # Ported from calibre (https://calibre-ebook.com) 9.18: src/calibre/ebooks/metadata/book/__init__.py
-# Changes from upstream: calibre imports point at upstream_calibre and its _compat, and
-# 'from __future__ import annotations' is added.
+# Changes from upstream: calibre imports point at upstream_calibre and its _compat.
 # SPDX-License-Identifier: GPL-3.0-only
 
 """
 All fields must have a NULL value represented as None for simple types,
 an empty list/dictionary for complex types and (None, None) for cover_data
 """
-
-from __future__ import annotations
 
 SOCIAL_METADATA_FIELDS = frozenset((
     'tags',  # Ordered list

@@ -1,14 +1,11 @@
 # License: GPLv3 Copyright: 2008, Kovid Goyal <kovid at kovidgoyal.net>, and Alex Bramley <a.bramley at gmail.com>.
 # Ported from calibre (https://calibre-ebook.com) 9.18: src/calibre/ebooks/chm/reader.py
-# Changes from upstream: calibre imports point at upstream_calibre and its _compat, and
-# 'from __future__ import annotations' is added.
+# Changes from upstream: calibre imports point at upstream_calibre and its _compat.
 # pychm, the binding to chmlib it subclasses, is optional: without it _compat's
 # CHMFile refuses to open a file.
 # SPDX-License-Identifier: GPL-3.0-only
 
 """CHM File decoding support"""
-
-from __future__ import annotations
 
 import codecs
 import os

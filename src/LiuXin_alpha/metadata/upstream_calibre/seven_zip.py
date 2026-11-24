@@ -1,14 +1,11 @@
 #!/usr/bin/env python
 # License: GPL v3 Copyright: 2021, Kovid Goyal <kovid at kovidgoyal.net>
 # Ported from calibre (https://calibre-ebook.com) 9.18: src/calibre/utils/seven_zip.py
-# Changes from upstream: calibre imports point at upstream_calibre and its _compat, and
-# 'from __future__ import annotations' is added.
+# Changes from upstream: calibre imports point at upstream_calibre and its _compat.
 # Only open_archive, names, DataSavingWriter, Writer, read_file, extract_member, extract_cover_image and extract are ported, with the imports they use;
 # the rest is conversion code the metadata readers do not use.
 # py7zr, which it uses, is optional (the archives extra).
 # SPDX-License-Identifier: GPL-3.0-only
-
-from __future__ import annotations
 
 import io
 import os

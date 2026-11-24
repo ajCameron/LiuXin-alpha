@@ -1,18 +1,15 @@
 # License: GPLv3 Copyright: 2008, Kovid Goyal <kovid at kovidgoyal.net>
 # Ported from calibre (https://calibre-ebook.com) 9.18: src/calibre/ebooks/lrf/objects.py
-# Changes from upstream: calibre imports point at upstream_calibre and its _compat, and
-# 'from __future__ import annotations' is added.
+# Changes from upstream: calibre imports point at upstream_calibre and its _compat.
 # LiuXin fixes are marked '# LiuXin:'.
 # SPDX-License-Identifier: GPL-3.0-only
-
-from __future__ import annotations
 
 import array
 import collections
 import io
 import re
 import struct
-import zlib
+from compression import zlib
 from typing import IO, TYPE_CHECKING, ClassVar, cast
 
 from LiuXin_alpha.metadata.upstream_calibre._compat import prepare_string_for_xml
