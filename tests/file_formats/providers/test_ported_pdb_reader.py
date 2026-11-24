@@ -31,6 +31,7 @@ from LiuXin_alpha.file_formats.providers import fork_metadata
 from LiuXin_alpha.file_formats.providers.base import ProviderContext
 from LiuXin_alpha.file_formats.providers.metadata import CoverImage
 from LiuXin_alpha.file_formats.providers.ported_calibre import adapt_ported_reader
+from LiuXin_alpha.metadata.file_sources import pdb as liuxin_pdb
 from LiuXin_alpha.metadata.upstream_calibre import (
     pdb,
     pdb_ereader_reader132,
@@ -272,6 +273,27 @@ def test_haodoo_books_give_their_title_and_author(tmp_path: Path, unicode: bool,
     assert list(fields["authors"]) == ["金庸"]
     assert list(fields["languages"]) == ["zh-tw"]
     assert pdb.get_metadata(io.BytesIO(haodoo_book(unicode=unicode))).authors == ["Unknown"]
+
+
+def test_a_utf16_haodoo_author_ending_in_a_latin_letter_reads_whole() -> None:
+    """
+    Read a UTF-16 Haodoo author whose last letter is ASCII whole; calibre's reader loses half of it.
+
+    The PDB name is padded with zero bytes. calibre strips them before decoding, and
+    with them the high byte of the last letter (``B`` is ``b"B\\x00"`` in UTF-16). Haodoo
+    names are usually Chinese, whose characters do not end in a zero byte.
+
+    Example:
+        >>> test_a_utf16_haodoo_author_ending_in_a_latin_letter_reads_whole()  # doctest: +SKIP
+
+
+    :return: None; the assertions are the check.
+    """
+    book = haodoo_book(unicode=True, author="Ann Lee")
+    assert liuxin_pdb.get_metadata(io.BytesIO(book)).authors == ["Ann Lee"]
+    cp950_book = haodoo_book(unicode=False, author="Ann Lee")
+    assert liuxin_pdb.get_metadata(io.BytesIO(cp950_book)).authors == ["Ann Lee"]
+    assert pdb.get_metadata(io.BytesIO(book)).authors == ["Ann Le\ufffd"]
 
 
 def test_other_pdb_books_give_the_title_in_their_header(tmp_path: Path) -> None:

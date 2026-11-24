@@ -76,11 +76,14 @@ the record's `subjects` itself. For RTF, PDF and ODT it is a property that follo
 the `read_subject_fields_as` preference.
 
 For every other writer, `set_file_type_metadata` hands the plugin a copy of the
-record:
+record (`subjects_among_tags` in `metadata/book/base.py`):
 
 - its tags are followed by the subjects not already among them (case ignored,
   `tags_and_subjects`);
 - its `subjects` field is emptied.
+
+LiuXin's built-in writer plugins do the same themselves, so a plugin called
+directly writes what the runtime would (#218). Doing it twice changes nothing.
 
 So formats with one field for both still store both there. Read back, they are
 all tags: the format cannot tell them apart.

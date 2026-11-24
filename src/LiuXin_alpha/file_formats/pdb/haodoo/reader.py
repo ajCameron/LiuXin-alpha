@@ -307,8 +307,12 @@ class Reader(FormatReader):
         version = struct.unpack(b">b", self.stream.read(1))[0]
         if version == 2:
             self.stream.seek(0)
-            author = self.stream.read(35).rstrip(b"\x00").decode(self.encoding, "replace")
-            return author
+            raw = self.stream.read(35)
+            if self.encoding.startswith("utf_16"):
+                # Whole 16-bit units only: stripping zero bytes before decoding would
+                # take the high byte of a last ASCII letter ("B" is b"B\x00").
+                raw = raw[: len(raw) // 2 * 2]
+            return raw.decode(self.encoding, "replace").rstrip("\x00")
         else:
             return "Unknown"
 

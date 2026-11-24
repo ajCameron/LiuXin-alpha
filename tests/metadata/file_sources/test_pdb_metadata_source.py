@@ -345,7 +345,8 @@ def test_pdb_plucker_metadata_reader_extracts_fields() -> None:
     mi = get_metadata(stream, extract_cover=False)
     assert mi.title == "Plucker 世界"
     assert mi.authors == ["Alice", "Bob"]
-    assert (mi.pubdate.year, mi.pubdate.month, mi.pubdate.day) == (2023, 11, 14)
+    # Seconds since 1904, as the Plucker format counts (the plucker_date_epoch default).
+    assert (mi.pubdate.year, mi.pubdate.month, mi.pubdate.day) == (1957, 11, 13)
 
 
 def test_pdb_haodoo_reader_falls_back_cleanly_on_bad_input() -> None:
