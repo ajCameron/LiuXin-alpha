@@ -30,7 +30,7 @@ from tests.support.subject_reading import subject_reading
 @pytest.fixture(autouse=True)
 def _calibre_reading_of_the_subject() -> Iterator[None]:
     """
-    Read and write the Info Subject as calibre's reading does: as the comments, the mapping these edge cases check.
+    Read and write the Info Subject as calibre's reading does: as the first tag, and left as it is by the writer.
 
     The ``read_subject_fields_as`` preference reads it as subjects by default; see
     ``tests/metadata/file_sources/test_subject_field_reading.py``.
@@ -698,11 +698,11 @@ def test_pdf_writer_dict_tool_and_page_image_edges(tmp_path: Path, monkeypatch) 
     mi.series = "Series"
     mi.series_index = {"Series": "2"}
     # Authors are joined as the reader splits them; the author sort is not the /Creator
-    # (the application that made the PDF); the index is the series', not its name.
+    # (the application that made the PDF); the index is the series', not its name. The
+    # comments go into the XMP packet alone, and calibre's reading leaves the Subject.
     assert pdf._metadata_to_pdf_dict(mi) == {
         "/Title": "Title",
         "/Author": "Alice & Bob",
-        "/Subject": "Comments",
         "/Keywords": "tag-one, tag-two",
         "/Producer": "Producer",
         "/Publisher": "Publisher",
@@ -764,13 +764,15 @@ def test_pdf_metadata_dict_sanitizes_hostile_text_without_mutating_input() -> No
         publisher="Pub\x06lisher",
         series="Series\x07Name",
         series_index="2\x08",
+        subjects=["Sea\x02 stories (paren) and \\ slash"],
     )
 
-    out = pdf._metadata_to_pdf_dict(mi)
+    with subject_reading("subjects"):
+        out = pdf._metadata_to_pdf_dict(mi)
 
     assert out["/Title"] == "PDFTitle 😀"
     assert out["/Author"] == "Alice One & Bob Two"
-    assert out["/Subject"] == "Comment with (paren) and \\ slash"
+    assert out["/Subject"] == "Sea stories (paren) and \\ slash"
     assert out["/Keywords"] == "tagone, emoji 😀"
     assert out["/Producer"] == "ProducerName"
     assert "/Creator" not in out
@@ -817,9 +819,11 @@ def test_pdf_set_metadata_sanitizes_hostile_text_in_the_file() -> None:
     assert info["Producer"] == "Corpus Producer"
     assert info["Title"] == "PDFTitle 😀"
     assert info["Author"] == "Alice One & Bob Two"
-    assert info["Subject"] == "Comment"
+    assert info["Subject"] == "Corpus subject"
     assert info["Keywords"] == "tagone"
     assert not any(_contains_forbidden_text_char(str(value)) for value in info.values())
+    packet = read_metadata(stream.getvalue()).xmp.decode("utf-8")
+    assert ">Comment<" in packet and "\x02" not in packet
     assert stream.tell() == 5
     assert mi.title == title
     assert _values(mi.authors) == authors

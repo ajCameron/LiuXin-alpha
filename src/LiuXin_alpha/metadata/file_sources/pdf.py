@@ -783,11 +783,7 @@ def _apply_combined(md, pdf_metadata, source_name: str, policy: str):
 
     info = pdf_merge.PdfFields()
     try:
-        info = pdf_merge.info_fields(
-            pdf_metadata.info or {},
-            subject_is_tag=policy == "calibre",
-            subject_as_subjects=reads_subjects(),
-        )
+        info = pdf_merge.info_fields(pdf_metadata.info or {}, subject_as_subjects=reads_subjects())
     except Exception as err:
         default_log.log_exception(
             "Failed while parsing PDF info dictionary.",

@@ -28,7 +28,7 @@ from tests.support.subject_reading import subject_reading
 @pytest.fixture(autouse=True)
 def _calibre_reading_of_the_subject() -> Iterator[None]:
     """
-    Read the Info Subject as calibre's reading does: each merge policy's own rule, which these tests check.
+    Read the Info Subject as calibre's reading does, as the first tag, so the policies are checked as before #217.
 
     The ``read_subject_fields_as`` preference reads it as subjects by default; see
     ``tests/metadata/file_sources/test_subject_field_reading.py``.
@@ -286,9 +286,10 @@ def test_newest_takes_the_info_dictionary_when_it_changed_last() -> None:
     got = _read(_disagreeing(NEWER, "2021-01-01T00:00:00Z"), "newest")
     assert got["title"] == "Info Title"
     assert got["authors"] == ["Ann Info"]
-    assert got["tags"] == ["info-a", "info-b"]
-    # The Subject is the Info dictionary's description.
-    assert got["comments"] == ["Info subject"]
+    # Read as calibre's reading does, the Subject is the first tag, and the
+    # description, which the Info dictionary lacks, comes from the packet.
+    assert got["tags"] == ["info subject", "info-a", "info-b"]
+    assert got["comments"] == ["XMP description"]
     assert got["publisher"] == ["XMP Press"]
 
 
