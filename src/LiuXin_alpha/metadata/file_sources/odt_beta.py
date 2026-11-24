@@ -28,6 +28,7 @@ from LiuXin_alpha.utils.image_tools.imghdr import identify
 from LiuXin_alpha.utils.libraries.liuxin_etree import etree
 from LiuXin_alpha.utils.localization import canonicalize_lang, trans as _
 from LiuXin_alpha.utils.logging import default_log
+from LiuXin_alpha.metadata.file_sources.subject_fields import reads_subjects
 
 try:
     from LiuXin_alpha.utils.wrappers.magick.draw import identify_data as _identify_data
@@ -289,6 +290,24 @@ def _read_user_defined(root) -> dict[str, str]:
             continue
         ans[name.lower()] = _normalize("".join(elem.itertext()))
     return ans
+
+
+def _split_subjects(raw: str) -> list[str]:
+    """
+    Split the document's Subject into subject headings, at semicolons only.
+
+    ODF allows one Subject element, so several headings share it. A heading may hold
+    commas (``History, Modern -- 20th century``), so only semicolons separate them.
+
+    Example:
+        >>> _split_subjects("History, Modern -- 20th century; Sea stories;")
+        ['History, Modern -- 20th century', 'Sea stories']
+
+
+    :param raw: The Subject's text.
+    :return: The headings, trimmed, without empty ones.
+    """
+    return [x for x in (_normalize(p) for p in raw.split(";")) if x]
 
 
 def _split_tags(raw: str) -> list[str]:
@@ -686,13 +705,18 @@ def get_metadata(stream, extract_cover=True, *, fallback_on_parse_error: bool = 
         if opf_subject:
             tags.extend(_split_tags(opf_subject))
         else:
-            for value in _iter_ns_text(root, DCNS, "subject"):
-                tags.extend(_split_tags(value))
             for value in _iter_ns_text(root, METANS, "keyword"):
                 tags.extend(_split_tags(value))
         tags = _stable_dedupe(tags)
         if tags:
             mi.tags = tags
+        # The document's Subject holds subject headings, which LiuXin keeps apart from tags,
+        # unless the read_subject_fields_as preference asks for calibre's reading (none).
+        subjects = _stable_dedupe(
+            subject for value in _iter_ns_text(root, DCNS, "subject") for subject in _split_subjects(value)
+        )
+        if subjects and reads_subjects():
+            mi.subjects = subjects
 
         series = user_defined.get("opf.series") or user_defined.get("series")
         if series:

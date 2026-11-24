@@ -33,6 +33,7 @@ from LiuXin_alpha.utils.libraries.liuxin_etree import etree, ElementMaker
 from LiuXin_alpha.file_formats.utils import escape_xpath_attr
 
 from LiuXin_alpha.utils.calibre_compat.ebooks.metadata.book.base import MetaInformation as calibreMetaInformation, Metadata as calibreMetadata
+from LiuXin_alpha.metadata.book.base import tags_and_subjects
 from LiuXin_alpha.metadata.utils import soft_float_to_int
 
 from LiuXin_alpha.metadata.constants import CREATOR_CATEGORIES
@@ -3999,9 +4000,9 @@ class OPFCreator(calibreMetadata):
         if self.rights:
             a(DC_ELEM("rights", self.rights))
 
-        if self.tags:
-            for tag in self.tags:
-                a(DC_ELEM("subject", tag))
+        # OPF has one field for tags and subjects: dc:subject holds both.
+        for tag in tags_and_subjects(self):
+            a(DC_ELEM("subject", tag))
 
         if self.series:
             a(CAL_ELEM("calibre:series", self.series))
@@ -4558,9 +4559,9 @@ def calibre_metadata_to_opf(mi: _typing.Any, as_string: bool = True, default_lan
         if not lang or lang.lower() == "und":
             continue
         factory(DC("language"), lang)
-    if mi.tags:
-        for tag in mi.tags:
-            factory(DC("subject"), tag)
+    # OPF has one field for tags and subjects: dc:subject holds both.
+    for tag in tags_and_subjects(mi):
+        factory(DC("subject"), tag)
     meta = lambda n, c: factory("meta", name="calibre:" + n, content=c)
     if getattr(mi, "author_link_map", None) is not None:
         meta("author_link_map", dump_dict(mi.author_link_map))

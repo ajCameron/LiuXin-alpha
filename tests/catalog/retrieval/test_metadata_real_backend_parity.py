@@ -414,6 +414,7 @@ def _calibre_snapshot(metadata: Any) -> dict[str, Any]:
     return {
         "title": getattr(metadata, "title", None),
         "tags": _metadata_values(getattr(metadata, "tags", None)),
+        "subjects": _metadata_values(getattr(metadata, "subjects", None)),
         "series": _metadata_values(getattr(metadata, "series", None)),
         "identifiers": _identifier_snapshot(metadata),
     }
@@ -576,11 +577,10 @@ def test_metadata_rich_fixture_operational_round_trip_contract(
 
         assert calibre_database == calibre_lazy
         assert calibre_database["title"] == baseline["title"]
-        assert set(calibre_database["tags"]) >= {
-            "Libraries",
-            "dense-roundtrip",
-            "operational-metadata",
-        }
+        # Subjects stay apart from tags in calibre's form (dev-docs/metadata/subjects.md).
+        assert set(calibre_database["tags"]) >= {"dense-roundtrip", "operational-metadata"}
+        assert "Libraries" not in calibre_database["tags"]
+        assert calibre_database["subjects"] == ("Libraries",)
         assert calibre_database["series"] == ("Meridian Cycle",)
         assert "9781111111111" in _flatten_identifier_values(calibre_database)
 

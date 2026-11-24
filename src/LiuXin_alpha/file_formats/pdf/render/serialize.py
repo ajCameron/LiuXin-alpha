@@ -772,7 +772,7 @@ class Metadata(Stream):
         :return: None; validated state is stored on the receiving object.
         """
         Stream.__init__(self)
-        from LiuXin_alpha.metadata.xmp import metadata_to_xmp_packet
+        from LiuXin_alpha.metadata.upstream_calibre.xmp import metadata_to_xmp_packet
 
         self.write(metadata_to_xmp_packet(mi))
 

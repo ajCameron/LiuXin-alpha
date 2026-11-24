@@ -179,7 +179,9 @@ def test_odt_beta_extracts_core_fields_and_overrides(tmp_path: Path) -> None:
     assert mi.title == "Main Beta Title"
     assert mi.authors == ["Carol", "Dan"]
     assert "Καλημέρα" in mi.comments
-    assert set(mi.tags) == {"tag-one", "tag-two", "tag-three"}
+    # The keywords are tags; the Subject holds one subject heading, commas and all.
+    assert set(mi.tags) == {"tag-two", "tag-three"}
+    assert mi.subjects == ["tag-one, tag-two"]
     assert mi.title_sort == "Title, Main"
     assert mi.series == "Series A"
     assert float(mi.series_index) == 3.5

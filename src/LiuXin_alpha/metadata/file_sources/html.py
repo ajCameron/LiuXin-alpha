@@ -22,6 +22,11 @@ from typing import Any
 from LiuXin_alpha.metadata.containers.calibre_like_book_metadata import (
     CalibreLikeLiuXinBookMetaData as Metadata,
 )
+from LiuXin_alpha.metadata.file_sources.subject_fields import (
+    reads_subjects,
+    set_subjects,
+    split_subjects,
+)
 from LiuXin_alpha.metadata.utils import check_isbn, string_to_authors
 from LiuXin_alpha.utils.calibre import replace_entities
 from LiuXin_alpha.utils.date import is_date_undefined, parse_date, parse_only_date
@@ -63,7 +68,10 @@ META_NAMES = {
     "series_index": ("seriesnumber", "series_index", "series.index"),
     "rating": ("rating",),
     "comments": ("comments", "dc.description", "description"),
-    "tags": ("tags", "subject"),
+    "tags": ("tags",),
+    # The document's subject: subject headings, or tags as calibre reads them, as the
+    # read_subject_fields_as preference chooses (see subject_fields).
+    "subjects": ("subject",),
 }
 
 COMMENT_NAMES = {
@@ -711,6 +719,33 @@ def get_metadata(target_file):
                 pass
 
 
+def _read_tags_and_subjects(mi: Any, tag_blocks: list[str], subject_blocks: list[str]) -> None:
+    """
+    Read the tags, and the document's subject as subject headings or tags, by the ``read_subject_fields_as`` preference.
+
+    Example:
+        >>> book = _default_metadata()
+        >>> _read_tags_and_subjects(book, ["a, b"], [])
+        >>> list(book.tags)
+        ['a', 'b']
+
+
+    :param mi: The record being read into.
+    :param tag_blocks: The ``tags`` values.
+    :param subject_blocks: The ``subject`` values.
+    :return: None.
+    """
+    as_subjects = reads_subjects()
+    tags = []
+    for block in tag_blocks + ([] if as_subjects else subject_blocks):
+        tags.extend([x.strip() for x in re.split(r"[,;]", block) if x.strip()])
+    tags = _dedupe_stable(tags)
+    if tags:
+        mi.tags = tags
+    if as_subjects:
+        set_subjects(mi, _dedupe_stable([s for block in subject_blocks for s in split_subjects(block)]))
+
+
 def get_metadata_(src, encoding=None):
     """
     Return metadata derived from the current parser or container state.
@@ -833,12 +868,7 @@ def get_metadata_(src, encoding=None):
     if rating is not None:
         mi.rating = rating
 
-    tags = []
-    for block in get_all("tags"):
-        tags.extend([x.strip() for x in re.split(r"[,;]", block) if x.strip()])
-    tags = _dedupe_stable(tags)
-    if tags:
-        mi.tags = tags
+    _read_tags_and_subjects(mi, get_all("tags"), get_all("subjects"))
 
     # Generic identifier support from dc.identifier.<scheme> tags.
     for scheme, values in meta_ids.items():

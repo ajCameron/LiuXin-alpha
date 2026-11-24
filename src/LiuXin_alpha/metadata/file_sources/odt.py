@@ -1,5 +1,5 @@
 """
-Read ODT package metadata, user-defined OPF fields and cover candidates while preserving caller-owned stream positions.
+Read and write ODT package metadata, user-defined OPF fields and cover candidates while preserving caller-owned stream positions.
 
 The module keeps malformed-input, optional dependency and resource ownership
 behavior explicit for registry callers.
@@ -12,23 +12,29 @@ Example:
 from __future__ import annotations
 
 import io
+import json
 import os
 import re
 import zipfile
-from typing import Iterable
+from typing import Any, Iterable
+
+from lxml import etree as _lxml_etree  # type: ignore[import-untyped]
 
 from LiuXin_alpha.file_formats.odf.draw import Frame as ODFFrame
 from LiuXin_alpha.file_formats.odf.draw import Image as ODFImage
-from LiuXin_alpha.file_formats.odf.namespaces import DCNS, METANS
+from LiuXin_alpha.file_formats.odf.namespaces import DCNS, METANS, OFFICENS
 from LiuXin_alpha.file_formats.odf.opendocument import load as od_load
 from LiuXin_alpha.metadata.book.base import calibreMetaInformation
-from LiuXin_alpha.metadata.utils import check_isbn, string_to_authors
+from LiuXin_alpha.metadata.utils import authors_to_string, check_isbn, string_to_authors
 from LiuXin_alpha.utils.image_tools.imghdr import identify
+from LiuXin_alpha.utils.libraries.calibre_zipfile import safe_replace
+from LiuXin_alpha.utils.libraries.cleantext import clean_xml_chars
 from LiuXin_alpha.utils.localization import trans as _
 from LiuXin_alpha.utils.logging import default_log
 from LiuXin_alpha.utils.libraries.liuxin_etree import etree
+from LiuXin_alpha.metadata.file_sources.subject_fields import reads_subjects
 
-__all__ = ["OdtFormatError", "get_metadata", "get_metadata_inplace"]
+__all__ = ["OdtFormatError", "get_metadata", "get_metadata_inplace", "set_metadata"]
 
 
 class OdtFormatError(ValueError):
@@ -181,6 +187,24 @@ def _first_ns_text(root, namespace: str, local_name: str) -> str | None:
     for text in _iter_ns_text(root, namespace, local_name):
         return text
     return None
+
+
+def _split_subjects(raw: str) -> list[str]:
+    """
+    Split the document's Subject into subject headings, at semicolons only.
+
+    ODF allows one Subject element, so several headings share it. A heading may hold
+    commas (``History, Modern -- 20th century``), so only semicolons separate them.
+
+    Example:
+        >>> _split_subjects("History, Modern -- 20th century; Sea stories;")
+        ['History, Modern -- 20th century', 'Sea stories']
+
+
+    :param raw: The Subject's text.
+    :return: The headings, trimmed, without empty ones.
+    """
+    return [x for x in (_normalize_text(p) for p in raw.split(";")) if x]
 
 
 def _split_tags(raw: str) -> list[str]:
@@ -522,6 +546,74 @@ def _set_language(mi, lang: str) -> None:
         mi.language = cl
 
 
+def _parse_identifiers(raw: str | None) -> dict[str, str] | None:
+    """
+    Read the ``opf.identifiers`` property calibre writes: a JSON object of scheme and value.
+
+    As in calibre, it replaces the identifiers read from elsewhere in the file.
+
+    Example:
+        >>> _parse_identifiers('{"isbn": "9780441013593", "": "x"}'), _parse_identifiers("[1]")
+        ({'isbn': '9780441013593'}, None)
+
+
+    :param raw: The property's text, or ``None`` where the file has none.
+    :return: The identifiers, or ``None`` where there are none to read.
+    """
+    if not raw:
+        return None
+    try:
+        value = json.loads(raw)
+    except ValueError:
+        return None
+    if not isinstance(value, dict):
+        return None
+    return {str(k): str(v) for k, v in value.items() if k and v not in (None, "")}
+
+
+def _parse_rating(raw: str | None) -> float | None:
+    """
+    Read the ``opf.rating`` property calibre writes, held to calibre's range of 0 to 10.
+
+    Example:
+        >>> _parse_rating("8"), _parse_rating("1e+01"), _parse_rating("12"), _parse_rating("x")
+        (8.0, 10.0, 10.0, None)
+
+
+    :param raw: The property's text, or ``None`` where the file has none.
+    :return: The rating, or ``None`` where there is none to read.
+    """
+    if not raw:
+        return None
+    try:
+        return max(0.0, min(float(raw), 10.0))
+    except ValueError:
+        return None
+
+
+def _read_identifiers_and_rating(mi, user_defined: dict[str, str]) -> None:
+    """
+    Read the ``opf.identifiers`` and ``opf.rating`` properties calibre writes into a record.
+
+    Example:
+        >>> mi = calibreMetaInformation("T", [])
+        >>> _read_identifiers_and_rating(mi, {"opf.identifiers": '{"isbn": "9780441013593"}', "opf.rating": "8"})
+        >>> mi.identifiers, mi.rating
+        ({'isbn': '9780441013593'}, 8.0)
+
+
+    :param mi: The record being read into.
+    :param user_defined: The file's user-defined properties, by lower-case name.
+    :return: None.
+    """
+    identifiers = _parse_identifiers(user_defined.get("opf.identifiers"))
+    if identifiers is not None:
+        mi.set_identifiers(identifiers)
+    rating = _parse_rating(user_defined.get("opf.rating"))
+    if rating is not None:
+        mi.rating = rating
+
+
 def get_metadata(stream, extract_cover: bool = True, *, fallback_on_parse_error: bool = False):
     """
     Read metadata from the supported path, bytes or stream input while applying module ownership and fallback policy.
@@ -607,13 +699,18 @@ def get_metadata(stream, extract_cover: bool = True, *, fallback_on_parse_error:
     if opf_subject:
         tags.extend(_split_tags(opf_subject))
     else:
-        for value in _iter_ns_text(root, DCNS, "subject"):
-            tags.extend(_split_tags(value))
         for value in _iter_ns_text(root, METANS, "keyword"):
             tags.extend(_split_tags(value))
     tags = _stable_dedupe(tags)
     if tags:
         mi.tags = tags
+    # The document's Subject holds subject headings, which LiuXin keeps apart from tags,
+    # unless the read_subject_fields_as preference asks for calibre's reading (none).
+    subjects = _stable_dedupe(
+        subject for value in _iter_ns_text(root, DCNS, "subject") for subject in _split_subjects(value)
+    )
+    if subjects and reads_subjects():
+        mi.subjects = subjects
 
     series = user_defined.get("opf.series") or user_defined.get("series")
     if series:
@@ -646,6 +743,7 @@ def get_metadata(stream, extract_cover: bool = True, *, fallback_on_parse_error:
             mi.set_identifier("odt", generic_identifier)
         except Exception:
             pass
+    _read_identifiers_and_rating(mi, user_defined)
 
     opf_meta = _parse_bool(user_defined.get("opf.metadata"), default=False)
     opf_nocover = _parse_bool(user_defined.get("opf.nocover"), default=False)
@@ -682,3 +780,435 @@ def get_metadata_inplace(path, extract_cover: bool = True, *, fallback_on_parse_
     """
     with open(path, "rb") as stream:
         return get_metadata(stream, extract_cover=extract_cover, fallback_on_parse_error=fallback_on_parse_error)
+
+
+_USER_DEFINED = f"{{{METANS}}}user-defined"
+_NAME = f"{{{METANS}}}name"
+_VALUE_TYPE = f"{{{METANS}}}value-type"
+#: The ``meta.xml`` elements a write may replace, by the names calibre uses.
+_ELEMENTS = {
+    "title": f"{{{DCNS}}}title",
+    "description": f"{{{DCNS}}}description",
+    "creator": f"{{{DCNS}}}creator",
+    "language": f"{{{DCNS}}}language",
+    "subject": f"{{{DCNS}}}subject",
+    "initial-creator": f"{{{METANS}}}initial-creator",
+    "keyword": f"{{{METANS}}}keyword",
+    "keywords": f"{{{METANS}}}keywords",
+}
+
+
+def _xml_text(value: Any) -> str:
+    """
+    Make a metadata value into text XML can hold, dropping characters it cannot.
+
+    Example:
+        >>> _xml_text("Dune\\x00 \\ud800II")
+        'Dune II'
+
+
+    :param value: The value.
+    :return: Its text, without NULs, C0 controls or unpaired surrogates.
+    """
+    return clean_xml_chars(str(value))
+
+
+class _MetaXml:
+    """
+    Change the ``office:meta`` element of an ODT's ``meta.xml``, as calibre's writer does.
+
+    Example:
+        >>> root = _lxml_etree.fromstring(
+        ...     f'<office:document-meta xmlns:office="{OFFICENS}"><office:meta/></office:document-meta>'
+        ... )
+        >>> meta = _MetaXml(root[0])
+        >>> meta.add_property("opf.publisher", "Ace")
+        >>> [(x.get(_NAME), x.text) for x in root.iter(_USER_DEFINED)]
+        [('opf.metadata', 'true'), ('opf.publisher', 'Ace')]
+
+
+    :param meta: The ``office:meta`` element.
+    """
+
+    def __init__(self, meta: Any) -> None:
+        """
+        Hold the element to change.
+
+        Example:
+            See the class.
+
+
+        :param meta: The ``office:meta`` element.
+        :return: None.
+        """
+        self.meta = meta
+        self.marked = False
+
+    def replace(self, name: str, text: str, *also: str) -> None:
+        """
+        Replace an element, and any of the others named, with one holding the text given.
+
+        Example:
+            See :func:`set_metadata`.
+
+
+        :param name: The element's name in :data:`_ELEMENTS`.
+        :param text: Its new text.
+        :param also: Other elements holding the same field, removed.
+        :return: None.
+        """
+        self.remove(name, *also)
+        _lxml_etree.SubElement(self.meta, _ELEMENTS[name]).text = text
+
+    def remove(self, *names: str) -> None:
+        """
+        Remove every element with one of the names given.
+
+        Example:
+            See :func:`set_metadata`.
+
+
+        :param names: Names in :data:`_ELEMENTS`.
+        :return: None.
+        """
+        for name in names:
+            for element in list(self.meta.iter(_ELEMENTS[name])):
+                element.getparent().remove(element)
+
+    def remove_properties(self, *names: str) -> None:
+        """
+        Remove the user-defined properties with the names given, in any case.
+
+        Example:
+            See :func:`set_metadata`.
+
+
+        :param names: Lower-case property names.
+        :return: None.
+        """
+        for element in list(self.meta.iter(_USER_DEFINED)):
+            if (element.get(_NAME) or "").lower() in names:
+                element.getparent().remove(element)
+
+    def add_property(self, name: str, text: str, value_type: str = "string") -> None:
+        """
+        Add a user-defined property, marking the file once as holding calibre's ``opf`` fields.
+
+        Example:
+            See the class.
+
+
+        :param name: The property's name.
+        :param text: Its value.
+        :param value_type: Its ODF value type: ``string``, ``date`` or ``boolean``.
+        :return: None.
+        """
+        if not self.marked:
+            self.marked = True
+            self.remove_properties("opf.metadata")
+            self.add_property("opf.metadata", "true", "boolean")
+        element = _lxml_etree.SubElement(self.meta, _USER_DEFINED)
+        element.text = text
+        element.set(_VALUE_TYPE, value_type)
+        element.set(_NAME, name)
+
+    def replace_property(self, name: str, text: str, *also: str, value_type: str = "string") -> None:
+        """
+        Replace a user-defined property, and any of the others named, with one holding the text given.
+
+        Example:
+            See :func:`set_metadata`.
+
+
+        :param name: The property's name, in lower case.
+        :param text: Its new value.
+        :param also: Other lower-case property names holding the same field, removed.
+        :param value_type: Its ODF value type.
+        :return: None.
+        """
+        self.remove_properties(name, *also)
+        self.add_property(name, text, value_type)
+
+
+def _write_title_and_authors(meta: _MetaXml, mi: Any, changed: frozenset[str]) -> None:
+    """
+    Write the title, its sort, the authors and their sort, where they change.
+
+    Example:
+        See :func:`set_metadata`.
+
+
+    :param meta: The element being changed.
+    :param mi: The metadata.
+    :param changed: The fields to write, from :func:`_changed_fields`.
+    :return: None.
+    """
+    if "title" in changed:
+        meta.replace("title", _xml_text(mi.title))
+        meta.remove_properties("opf.title")
+    if "title_sort" in changed:
+        meta.replace_property("opf.titlesort", _xml_text(mi.title_sort))
+    if "authors" in changed:
+        authors = authors_to_string([_xml_text(a) for a in mi.authors if a])
+        meta.remove("initial-creator", "creator")
+        meta.replace("initial-creator", authors)
+        meta.replace("creator", authors)
+        meta.replace_property("opf.authors", authors)
+    if "author_sort" in changed:
+        meta.replace_property("opf.authorsort", _xml_text(mi.author_sort))
+
+
+def _write_description(meta: _MetaXml, mi: Any, changed: frozenset[str]) -> None:
+    """
+    Write the comments, the tags, the subjects and the language, where they change.
+
+    The keywords hold the tags, as calibre writes them. The document's Subject
+    (``dc:subject``) holds the subject headings, which LiuXin keeps apart from tags
+    and calibre does not read. ODF allows one Subject, so several headings are joined
+    with semicolons.
+
+    The language is written as ISO 639-1, as calibre writes it; one with no such code
+    is not written.
+
+    Example:
+        See :func:`set_metadata`.
+
+
+    :param meta: The element being changed.
+    :param mi: The metadata.
+    :param changed: The fields to write, from :func:`_changed_fields`.
+    :return: None.
+    """
+    if "comments" in changed:
+        meta.replace("description", _xml_text(mi.comments))
+    if "tags" in changed:
+        meta.replace("keyword", ", ".join(_xml_text(t) for t in mi.tags if t), "keywords")
+        meta.remove_properties("opf.subject")
+    if "subjects" in changed:
+        meta.replace("subject", "; ".join(_xml_text(s) for s in mi.subjects if s))
+    if "languages" in changed:
+        from LiuXin_alpha.utils.localization import lang_as_iso639_1
+
+        language = lang_as_iso639_1(mi.languages[0])
+        if language:
+            meta.replace("language", _xml_text(language))
+            meta.remove_properties("opf.language")
+
+
+def _write_properties(meta: _MetaXml, mi: Any, changed: frozenset[str]) -> None:
+    """
+    Write the publication date, publisher, series, identifiers and rating, where they change.
+
+    Example:
+        See :func:`set_metadata`.
+
+
+    :param meta: The element being changed.
+    :param mi: The metadata.
+    :param changed: The fields to write, from :func:`_changed_fields`.
+    :return: None.
+    """
+    if "pubdate" in changed:
+        if hasattr(mi.pubdate, "strftime"):
+            from LiuXin_alpha.utils.date import isoformat
+
+            meta.replace_property("opf.pubdate", isoformat(mi.pubdate, as_utc=True).split("T")[0], value_type="date")
+        else:
+            meta.replace_property("opf.pubdate", _xml_text(mi.pubdate))
+    if "publisher" in changed:
+        meta.replace_property("opf.publisher", _xml_text(mi.publisher))
+    if "series" in changed:
+        index = 1.0 if mi.series_index is None else float(mi.series_index)
+        meta.remove_properties("opf.series_index")
+        meta.replace_property("opf.series", _xml_text(mi.series), "opf.seriesindex")
+        meta.add_property("opf.seriesindex", f"{index}")
+    if "identifiers" in changed:
+        identifiers = {_xml_text(k): _xml_text(v) for k, v in mi.identifiers.items()}
+        meta.replace_property("opf.identifiers", json.dumps(identifiers), "opf.isbn")
+    if "rating" in changed:
+        meta.replace_property("opf.rating", f"{float(mi.rating):g}")
+
+
+#: The fields the ODT writer stores, by the record's names.
+_WRITTEN_FIELDS = (
+    "title",
+    "title_sort",
+    "authors",
+    "author_sort",
+    "comments",
+    "tags",
+    "subjects",
+    "languages",
+    "pubdate",
+    "publisher",
+    "series",
+    "identifiers",
+    "rating",
+)
+
+
+def _series_index(mi: Any) -> float | None:
+    """
+    Take a record's series index as a number.
+
+    Example:
+        >>> mi = calibreMetaInformation("T", [])
+        >>> mi.series_index = "2"
+        >>> _series_index(mi)
+        2.0
+
+
+    :param mi: The record.
+    :return: The index, or ``None`` where it has none.
+    """
+    return None if mi.series_index is None else float(mi.series_index)
+
+
+def _same(field: str, new: Any, old: Any) -> bool:
+    """
+    Tell whether two records hold the same value for a field the ODT writer stores.
+
+    Example:
+        >>> a, b = calibreMetaInformation("T", []), calibreMetaInformation("T", [])
+        >>> a.tags, b.tags = ["x", "y"], ["y", "x"]
+        >>> _same("tags", a, b), _same("title", a, calibreMetaInformation("U", []))
+        (True, False)
+
+
+    :param field: The field.
+    :param new: The record being written.
+    :param old: The record read from the file.
+    :return: True when they agree; tags and subjects in any order, a series with its index.
+    """
+    if field == "series":
+        return new.series == old.series and _series_index(new) == _series_index(old)
+    a, b = getattr(new, field, None), getattr(old, field, None)
+    if field in ("tags", "subjects"):
+        return sorted(a or []) == sorted(b or [])
+    if field in ("authors", "languages"):
+        return list(a or []) == list(b or [])
+    if field == "identifiers":
+        return dict(a or {}) == dict(b or {})
+    return a == b
+
+
+def _changed_fields(mi: Any, current: Any | None) -> frozenset[str]:
+    """
+    Choose the fields to write: those the record holds, less those already read from the file.
+
+    A field whose value is what LiuXin's reader reads from the file is left as the
+    file has it. LiuXin's reader takes some values from places calibre's writer does
+    not write (the last-saved ``dc:date`` as the publication date, the creator before
+    the initial creator, plain ``series`` properties); copying them into calibre's
+    properties would change what calibre reads, though the caller changed nothing.
+
+    Example:
+        >>> mi = calibreMetaInformation("T", ["A"])
+        >>> sorted(_changed_fields(mi, None)), sorted(_changed_fields(mi, calibreMetaInformation("T", ["B"])))
+        (['authors', 'title'], ['authors'])
+
+
+    The subjects are written only when the ``read_subject_fields_as`` preference
+    reads the Subject as subjects; calibre's reading leaves the Subject alone.
+
+    :param mi: The record being written.
+    :param current: The file's metadata as LiuXin reads it, or ``None`` to write every field the record holds.
+    :return: The names of the fields to write.
+    """
+    as_subjects = reads_subjects()
+    return frozenset(
+        field
+        for field in _WRITTEN_FIELDS
+        if (as_subjects or field != "subjects")
+        and not mi.is_null(field)
+        and (current is None or not _same(field, mi, current))
+    )
+
+
+def _set_meta_xml(raw: bytes, mi: Any, current: Any | None = None) -> bytes:
+    """
+    Write the metadata into the text of a ``meta.xml``.
+
+    Example:
+        >>> raw = (
+        ...     f'<office:document-meta xmlns:office="{OFFICENS}" xmlns:dc="{DCNS}">'
+        ...     "<office:meta/></office:document-meta>"
+        ... )
+        >>> b"<dc:title>Dune</dc:title>" in _set_meta_xml(raw.encode(), calibreMetaInformation("Dune", []))
+        True
+
+
+    :param raw: The ``meta.xml`` as it is.
+    :param mi: The metadata.
+    :param current: The file's metadata as LiuXin reads it; fields that match it are
+        not written. ``None`` writes every field the record holds.
+    :return: The new ``meta.xml``.
+    :raises OdtFormatError: When it is not well-formed XML or has no ``office:meta``.
+    """
+    parser = _lxml_etree.XMLParser(resolve_entities=False, no_network=True, load_dtd=False, huge_tree=False)
+    try:
+        root = _lxml_etree.fromstring(raw, parser=parser)
+    except _lxml_etree.XMLSyntaxError as e:
+        raise OdtFormatError(f"The ODT's meta.xml is not well-formed XML: {e}") from e
+    element = next(root.iter(f"{{{OFFICENS}}}meta"), None)
+    if element is None:
+        raise OdtFormatError("The ODT's meta.xml has no office:meta element to write into")
+    meta = _MetaXml(element)
+    changed = _changed_fields(mi, current)
+    _write_title_and_authors(meta, mi, changed)
+    _write_description(meta, mi, changed)
+    _write_properties(meta, mi, changed)
+    return _lxml_etree.tostring(root, encoding="UTF-8", xml_declaration=True, pretty_print=True)
+
+
+def set_metadata(stream, mi) -> None:
+    """
+    Write a book's metadata into an ODT's ``meta.xml``, as calibre's writer does.
+
+    Only ``meta.xml`` is replaced; every other member is copied as it was. A field the
+    record leaves null, or holds as LiuXin already reads it from the file, is left as
+    the file has it (see :func:`_changed_fields`). The title, authors, comments, tags
+    (the keywords), subjects (the Subject, which calibre does not read) and language
+    go into the ODF elements; the rest into calibre's ``opf.*`` user-defined
+    properties, with ``opf.metadata`` set so calibre's reader reads them. Properties
+    a reader would read in place of a written field are replaced with it:
+    ``opf.title``, ``opf.subject``, ``opf.language``, ``opf.isbn`` and
+    ``opf.series_index``. As in calibre, no cover is written.
+
+    Example:
+        >>> buffer = io.BytesIO()
+        >>> with zipfile.ZipFile(buffer, "w") as package:
+        ...     package.writestr("mimetype", "application/vnd.oasis.opendocument.text")
+        ...     package.writestr(
+        ...         "meta.xml",
+        ...         f'<office:document-meta xmlns:office="{OFFICENS}"><office:meta/></office:document-meta>',
+        ...     )
+        >>> set_metadata(buffer, calibreMetaInformation("Dune", ["Frank Herbert"]))
+        >>> mi = get_metadata(buffer, extract_cover=False)
+        >>> mi.title, mi.authors
+        ('Dune', ['Frank Herbert'])
+
+
+    :param stream: The ODT, open for reading and writing; it is rewritten in place.
+    :param mi: The metadata to write.
+    :return: None.
+    :raises OdtFormatError: When the file is not a ZIP package or has no usable
+        ``meta.xml``; the stream is then left as it was.
+    """
+    stream.seek(0)
+    try:
+        with zipfile.ZipFile(stream) as package:
+            raw = package.read("meta.xml")
+    except KeyError as e:
+        raise OdtFormatError("The ODT has no meta.xml to write metadata into") from e
+    except zipfile.BadZipFile as e:
+        raise OdtFormatError("The file is not an ODT package") from e
+    stream.seek(0)
+    try:
+        current = get_metadata(io.BytesIO(stream.read()), extract_cover=False)
+    except Exception as e:
+        default_log.log_exception("Could not read the ODT's metadata first; writing every field", e, "DEBUG")
+        current = None
+    updated = _set_meta_xml(raw, mi, current)
+    stream.seek(0)
+    safe_replace(stream, "meta.xml", io.BytesIO(updated))

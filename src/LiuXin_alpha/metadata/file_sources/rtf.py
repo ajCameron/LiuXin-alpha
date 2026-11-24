@@ -21,6 +21,13 @@ from typing import Any
 from LiuXin_alpha.metadata.containers.calibre_like_book_metadata import (
     CalibreLikeLiuXinBookMetaData as MetaInformation,
 )
+from LiuXin_alpha.metadata.file_sources.subject_fields import (
+    join_subjects,
+    reads_subjects,
+    set_subjects,
+    split_subjects,
+    subjects_of,
+)
 from LiuXin_alpha.utils.calibre import force_unicode
 from LiuXin_alpha.utils.libraries.cleantext import clean_xml_chars
 from LiuXin_alpha.utils.localization import trans as _
@@ -574,6 +581,36 @@ def get_metadata(target_file, *, fallback_on_parse_error: bool = False):
             _safe_seek(stream, pos)
 
 
+def _set_comments(mi: Any, raw: bytes | None, cpg: Any) -> None:
+    """
+    Replace a record's comments with an info field's text, when it has any.
+
+    Example:
+        >>> book = _default_metadata()
+        >>> _set_comments(book, b" About it ", None)
+        >>> list(book.comments) if isinstance(book.comments, dict) else book.comments
+        ['About it']
+
+
+    :param mi: The record being read into.
+    :param raw: The field's raw bytes, or ``None`` when the file has none.
+    :param cpg: The document's code page, for decoding.
+    :return: None.
+    """
+    if raw is None:
+        return
+    text = decode(raw.strip(), cpg)
+    if not text:
+        return
+    try:
+        raw_data = object.__getattribute__(mi, "_data")
+        if isinstance(raw_data, dict) and isinstance(raw_data.get("comments"), dict):
+            raw_data["comments"].clear()
+    except Exception:
+        pass
+    mi.comments = text
+
+
 def rtf_get_metadata_from_stream(stream, *, fallback_on_parse_error: bool = False):
     """
     Parse RTF info fields from a caller-owned stream under explicit fallback policy.
@@ -616,24 +653,22 @@ def rtf_get_metadata_from_stream(stream, *, fallback_on_parse_error: bool = Fals
         if author:
             _set_authors(mi, author)
 
+    # \subject is the document's subject: subject headings, or the comments as calibre
+    # reads it, as the read_subject_fields_as preference chooses (see subject_fields).
     raw_subject = info_field(block, b"subject")
-    if raw_subject is not None:
-        comment = decode(raw_subject.strip(), cpg)
-        if comment:
-            mi.comments = comment
+    subject = decode(raw_subject.strip(), cpg) if raw_subject is not None else ""
+    as_subjects = reads_subjects()
+    if subject and as_subjects:
+        set_subjects(mi, split_subjects(subject))
+    elif subject:
+        mi.comments = subject
+
+    # \doccomm holds the comments where \subject holds subjects.
+    _set_comments(mi, info_field(block, b"doccomm"), cpg)
 
     raw_comment = info_field(block, b"comment")
-    if raw_comment is not None:
-        comment_2 = decode(raw_comment.strip(), cpg)
-        if comment_2:
-            # Explicit \comment is usually richer than \subject.
-            try:
-                raw_data = object.__getattribute__(mi, "_data")
-                if isinstance(raw_data, dict) and isinstance(raw_data.get("comments"), dict):
-                    raw_data["comments"].clear()
-            except Exception:
-                pass
-            mi.comments = comment_2
+    # Explicit \comment is usually richer than \subject or \doccomm.
+    _set_comments(mi, raw_comment, cpg)
 
     raw_category = info_field(block, b"category")
     if raw_category is not None:
@@ -673,6 +708,34 @@ def rtf_get_metadata_from_stream(stream, *, fallback_on_parse_error: bool = Fals
     return mi
 
 
+def _subject_and_comment_fields(options: Any, comment: str | None) -> list[tuple[str, str]]:
+    """
+    Choose the info fields for the subjects and the comments, by the ``read_subject_fields_as`` preference.
+
+    ``\\subject`` holds the subjects and ``\\doccomm`` the comments; under calibre's
+    reading, ``\\subject`` holds the comments, as in calibre.
+
+    Example:
+        >>> from types import SimpleNamespace
+        >>> _subject_and_comment_fields(SimpleNamespace(subjects=["Sea"]), "About") in (
+        ...     [("subject", "Sea"), ("doccomm", "About")], [("subject", "About")])
+        True
+
+
+    :param options: The record being written.
+    :param comment: The comments, or ``None`` to leave them as they are.
+    :return: Each field's control word and text, in writing order.
+    """
+    fields: list[tuple[str, str]] = []
+    as_subjects = reads_subjects()
+    subjects = join_subjects(subjects_of(options)) if as_subjects else ""
+    if subjects:
+        fields.append(("subject", subjects))
+    if comment is not None:
+        fields.append(("doccomm" if as_subjects else "subject", comment))
+    return fields
+
+
 def create_metadata(stream, options):
     """
     Create a complete RTF info group from supported metadata options.
@@ -700,8 +763,14 @@ def create_metadata(stream, options):
     comment = getattr(options, "comment", None)
     if comment is None:
         comment = getattr(options, "comments", None)
+    subjects = join_subjects(subjects_of(options)) if reads_subjects() else ""
+    if subjects:
+        md.append(r"{\subject %s}" % encode(subjects))
     if comment:
-        md.append(r"{\subject %s}" % encode(comment))
+        # \subject holds subjects unless calibre's reading is asked for; then, as in
+        # calibre, it holds the comments.
+        field = "doccomm" if reads_subjects() else "subject"
+        md.append(rf"{{\{field} {encode(comment)}}}")
 
     if getattr(options, "publisher", None):
         md.append(r"{\manager %s}" % encode(options.publisher))
@@ -800,8 +869,8 @@ def set_metadata(stream, options):
     comment = getattr(options, "comment", None)
     if comment is None:
         comment = getattr(options, "comments", None)
-    if comment is not None:
-        src_text = replace_or_create(src_text, "subject", comment)
+    for name, value in _subject_and_comment_fields(options, comment):
+        src_text = replace_or_create(src_text, name, value)
 
     authors = getattr(options, "authors", None)
     if authors is not None:

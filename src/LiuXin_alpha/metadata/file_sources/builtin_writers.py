@@ -14,6 +14,7 @@ from LiuXin_alpha.plugins.file_types import MetadataWriterPlugin
 
 from LiuXin_alpha.utils.localization import trans as _
 from LiuXin_alpha.utils.logging import default_log
+from LiuXin_alpha.metadata.file_sources.subject_fields import reads_subjects
 
 plugins: list[type[MetadataWriterPlugin]] = []
 
@@ -311,6 +312,64 @@ else:
 
 
 try:
+    from LiuXin_alpha.metadata.file_sources.odt import set_metadata as odt_set_metadata
+except Exception as e:
+    debug_str = (
+        "Cannot import set_metadata from LiuXin.metadata.file_sources.odt - ODTMetadataWriter cannot be initialized."
+    )
+    default_log.log_exception(debug_str, e, "DEBUG")
+else:
+    default_log.info("ODTMetadataWriter components imported successfully")
+
+    class ODTMetadataWriter(MetadataWriterPlugin):
+
+        """
+        Write metadata into an ODT's ``meta.xml``, as calibre's ODT writer does.
+
+        Example:
+            >>> ODTMetadataWriter.name, sorted(ODTMetadataWriter.file_types)
+            ('Set ODT metadata', ['odt'])
+        """
+        name = "Set ODT metadata"
+        file_types = frozenset(["odt"])
+
+        @property
+        def writes_subjects(self) -> bool:
+            """
+            Write the subjects into the document's Subject, unless calibre's reading is asked for.
+
+            Example:
+                >>> ODTMetadataWriter(None).writes_subjects in (True, False)
+                True
+
+
+            :return: True when the ``read_subject_fields_as`` preference reads the Subject as subjects.
+            """
+            return reads_subjects()
+        description = _("Set metadata in %s files") % "ODT"
+
+        def set_metadata(self, stream, mi, type):
+            """
+            Replace the book's ``meta.xml``, leaving every other member of the package as it was.
+
+            Example:
+                Every field, and what the file keeps, is checked in
+                ``tests/metadata/file_sources/test_odt_metadata_writer.py``; it runs
+                :func:`LiuXin_alpha.metadata.file_sources.odt.set_metadata`, whose
+                example writes a small ODT.
+
+
+            :param stream: The ODT, open for reading and writing; it is rewritten in place.
+            :param mi: The metadata to write.
+            :param type: The file type, ``odt``.
+            :return: None.
+            """
+            odt_set_metadata(stream, mi)
+
+    plugins += [ODTMetadataWriter]
+
+
+try:
     from LiuXin_alpha.metadata.file_sources.pdb import set_metadata as set_pdb_metadata
 except RuntimeError as e:
     debug_str = (
@@ -386,6 +445,20 @@ else:
         name = "Set PDF metadata"
         file_types = frozenset(["pdf"])
         description = _("Set metadata in %s files") % "PDF"
+
+        @property
+        def writes_subjects(self) -> bool:
+            """
+            Write the subjects into the Info ``/Subject`` (the comments into the packet), unless calibre's reading is asked for.
+
+            Example:
+                >>> PDFMetadataWriter(None).writes_subjects in (True, False)
+                True
+
+
+            :return: True when the ``read_subject_fields_as`` preference reads the Subject as subjects.
+            """
+            return reads_subjects()
         author = "Kovid Goyal"
 
         def set_metadata(self, stream, mi, type):
@@ -433,6 +506,20 @@ else:
         name = "Set RTF metadata"
         file_types = frozenset(["rtf"])
         description = _("Set metadata in %s files") % "RTF"
+
+        @property
+        def writes_subjects(self) -> bool:
+            """
+            Write the subjects into ``\\subject`` (the comments into ``\\doccomm``), unless calibre's reading is asked for.
+
+            Example:
+                >>> RTFMetadataWriter(None).writes_subjects in (True, False)
+                True
+
+
+            :return: True when the ``read_subject_fields_as`` preference reads the Subject as subjects.
+            """
+            return reads_subjects()
 
         def set_metadata(self, stream, mi, type):
             """
