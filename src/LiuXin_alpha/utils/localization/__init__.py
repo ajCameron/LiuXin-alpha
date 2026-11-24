@@ -148,8 +148,7 @@ import re
 import pickle as cPickle
 from LiuXin_alpha.utils.resources import P
 from gettext import GNUTranslations, NullTranslations
-
-from LiuXin_alpha.utils.libraries.liuxin_six import six_cStringIO
+from io import BytesIO  # compiled .mo catalogues are bytes
 
 _available_translations = None
 
@@ -329,7 +328,7 @@ def get_all_translators():
         for lang in available_translations():
             mpath = get_lc_messages_path(lang)
             if mpath is not None:
-                buf = six_cStringIO(zf.read(mpath + "/messages.mo"))
+                buf = BytesIO(zf.read(mpath + "/messages.mo"))
                 yield lang, GNUTranslations(buf)
 
 
@@ -408,26 +407,26 @@ def set_translators():
         if mpath and os.access(mpath + ".po", os.R_OK):
             from translations import make
 
-            buf = six_cStringIO()
+            buf = BytesIO()
             try:
                 make(mpath + ".po", buf)
             except:
                 logger.warning("Failed to compile translations file: %s, ignoring", mpath + ".po")
                 buf = None
             else:
-                buf = six_cStringIO(buf.getvalue())
+                buf = BytesIO(buf.getvalue())
 
         if mpath is not None:
             from zipfile import ZipFile
 
             with ZipFile(P("localization/locales.zip", allow_user_override=False), "r") as zf:
                 if buf is None:
-                    buf = six_cStringIO(zf.read(mpath + "/messages.mo"))
+                    buf = BytesIO(zf.read(mpath + "/messages.mo"))
                 if mpath == "nds":
                     mpath = "de"
                 isof = mpath + "/iso639.mo"
                 try:
-                    iso639 = six_cStringIO(zf.read(isof))
+                    iso639 = BytesIO(zf.read(isof))
                 except:
                     pass  # No iso639 translations for this lang
                 if buf is not None:
@@ -439,8 +438,8 @@ def set_translators():
         if buf is not None:
             t = GNUTranslations(buf)
             if iso639 is not None:
-                iso639 = _lang_trans = GNUTranslations(iso639)
-                t.add_fallback(iso639)
+                _lang_trans = GNUTranslations(iso639)
+                t.add_fallback(_lang_trans)
 
     if t is None:
         t = NullTranslations()
