@@ -752,9 +752,13 @@ def test_authors_survive_a_round_trip() -> None:
     pdf.set_metadata(stream, mi)
     info = read_metadata(stream.getvalue()).info
     assert info["Author"] == "Ann Writer & Smith && Sons & Carol"
-    # Read as fields; the metadata container splits "&" in a name again when it is set.
     assert pdf_merge.info_fields(info).authors == (
         "Ann Writer",
         "Smith & Sons",
         "Carol",
     )
+    assert list(pdf.get_metadata(io.BytesIO(stream.getvalue())).authors) == [
+        "Ann Writer",
+        "Smith & Sons",
+        "Carol",
+    ]
