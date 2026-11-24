@@ -134,7 +134,7 @@ cleanup through its domain owner; correcting the label alone does not finish it.
 
 ### F2 Native metadata exposure stops before a complete editing application
 
-**P1.** [`native_metadata.py`](../../src/LiuXin_alpha/core/program_services/native_metadata.py)
+**P1.** The original [native metadata adapter](../../src/LiuXin_alpha/core/program_services/native_metadata/)
 registers search/read-many/read-for-edit/update only. The
 [metadata interface](../../src/LiuXin_alpha/catalog/api/metadata_access.py),
 [shared records](../../src/LiuXin_alpha/catalog/api/metadata_shared.py) and
@@ -487,3 +487,116 @@ Configuration acceptance uses real native record writes and the supported named
 maintenance workflow through durable jobs instead. The failed exploratory ingest
 run is retained as `/tmp/liuxin-core-configuration-final.log` (148 passed, two
 matching domain failures); it is not counted as a passing acceptance run.
+
+## Native metadata completion follow-up
+
+Implemented and locally verified **2026-11-24** (slice 3). The [native metadata guide](native-metadata.md) specifies the
+51 named operations (19 queries, 32 commands), their inputs, limits and recovery
+semantics. Legacy `metadata.get` retains its separate projection contract.
+
+- WEMI create/delete, connected construction, attachment/replacement and adjacent
+  link/unlink now use the existing coordinated metadata service.
+- Shared records expose reads, exact lookup, suggestions, edits and appropriate
+  identity ensures. Agent credits, Work memberships, contextual records and all
+  three vocabulary tree families have explicit named operations.
+- Search-schema discovery and validation are exposed, with passive metadata-family
+  discovery. Bounded batches allow native writes and backward result references;
+  initial revisions are checked before mutation, and child results are projected
+  before commit. The aggregate receipt owns persistence and cache publication.
+- Strict finite JSON input, closed selectors, positive mutation IDs and explicit
+  budgets apply consistently to local and HTTP clients. Core search intentionally
+  rejects the former unbounded `limit=null` spelling.
+
+Core remains an adapter. Catalog owns domain policy and transactions; the metadata
+service owns reconciliation. The implementation is split by operation family
+inside the existing `program_services/native_metadata` import path.
+
+The real default-bootstrap PostgreSQL scenario exposed a hierarchy defect:
+reserved Series ID zero appeared among user roots, preventing complete sibling
+reordering through positive-ID operations. Catalog now requests an exclusion
+before SQL pagination, and cached hierarchy queries apply the same rule. The
+stored sentinel remains intact and readable as a reserved shared record. Generic
+SQL paging accepts caller-supplied exclusions without owning Series policy.
+
+Final verification evidence (selections overlap):
+
+- **80 new SQLite-family workflow cases have passing evidence across partitions**:
+  32 WEMI/batch cases across SQLite/APSW, four cache modes and local/HTTP clients;
+  32 shared-record/tree cases across SQLite, four cache modes and local/HTTP;
+  and 16 reserved-Series cases across both SQLite drivers and all modes/transports.
+  The final 24-case boundary partition passed in 2,611.65 seconds, covering the
+  earlier HTTP/numpy timeouts and all reserved-Series cases. Passing earlier
+  partitions supply the remaining workflow coverage.
+- **34 atomicity tests passed** in 947.73 seconds: serialization failure rolls
+  back, caller-owned transactions preserve pending receipts, deferred publication
+  occurs once, competing clients cannot both apply one revision, and full
+  100-operation batches preserve order and every result.
+- **14 refresh/Core transaction cases passed** in 275.82 seconds: six additional
+  schema-exit failure cases across three caches and local/HTTP clients, plus eight
+  caller-transaction cases rerun. Together with the earlier atomicity run, all 40
+  cases in that file have passing evidence.
+- **135 validation/quality-runner tests passed**, including 119 native transport
+  cases covering malformed input, unauthorized writes, structure budgets and
+  passive discovery.
+- **41 existing metadata command/hydration tests passed** after updating the
+  shared fake database to implement the new paging argument.
+- **104 cache lifecycle checks passed, six plugin-inapplicable cases skipped**,
+  including 42 new refresh-scope cases. **15 live PostgreSQL checks passed**,
+  including three new scope/probe-count/transaction-ownership cases and twelve
+  existing schema-discovery cases.
+- The complete quality gate passed: 493 formatted files, 482 annotation targets,
+  268 protected import modules, 2,098 direction modules, 31 cold-import budgets,
+  lint/complexity checks, basedpyright with zero errors/warnings, mypy across 581
+  files, and 127/123 rejected negative type examples respectively.
+- The broad regression selection finished **884 passed, 13 failed, one skipped**
+  in 4,397.48 seconds. Eleven failures came from the earlier imported Series
+  predicate or fake-macro signature, already corrected on disk; two HTTP/numpy
+  cases timed out under load. The focused rerun passed all eleven corrected cases;
+  the two HTTP cases then passed with the explicit 120-second correctness-fixture
+  timeout (83.47 seconds for the pair). All thirteen failures therefore have
+  passing follow-up evidence. The skip is the PostgreSQL-shaped SQLite harness lacking `pg_temp`; real
+  PostgreSQL macro tests ran against the disposable server.
+- **All 20 live PostgreSQL acceptance cases passed** against PostgreSQL 16:
+  eight WEMI workflows and eight batch/recovery scenarios across four cache modes
+  and local/HTTP clients, plus four HTTP shared-record scenarios, each including
+  all three tree families. Named JUnit results were audited across disjoint
+  partitions. Superseded partition tails were interrupted only after their
+  assigned cases passed; their remaining cases ran in separate partitions.
+- Final documentation link/public-boundary checks: **22 passed**. The disposable
+  PostgreSQL server was stopped after verification; no production database was used.
+
+Heavy functional HTTP fixtures explicitly allow 120 seconds per request; several
+initial runs exceeded the ordinary ten-second client timeout under concurrent
+test load, including two existing numpy workflow regressions on their focused
+rerun. Those correctness fixtures now use the same explicit 120-second allowance.
+Production defaults are unchanged; passing this matrix does not establish that
+ordinary ten-second client deadlines are met under load. Later PostgreSQL cases also exceeded
+120 seconds, so the write/publication path was profiled before further acceptance.
+A small catalogue's create took 21.2 seconds, including 20.7 seconds of cache
+refresh. A paired standalone refresh dropped from 19.3 seconds and 216 physical
+schema probes to 2.2 seconds and two probes inside the driver's verified scope.
+
+The generic cache refresh boundary now shares that scope, verifies it before
+publishing READY, and leaves failed refreshes dirty. It does not acquire ownership
+of the caller's SQL transaction; clear/close do not probe the database. See the
+[cache lifecycle follow-up](../caches/invalidation-and-lifecycle-2026-11-18.md#verified-schema-scope-for-full-refreshes-2026-11-24)
+for the contract and focused evidence. The complete PostgreSQL API matrix passed
+against this correction. The measured pair is diagnostic evidence, not a latency
+guarantee or whole-Core load acceptance; broader performance budgets remain slice 6.
+
+Recoverable command identities, durable outcome lookup and retry behavior remain
+slice 4. Native PostgreSQL unmanaged-disk ingestion's separate legacy `files`
+requirement remains open under slices 5/8. Neither is claimed by this work.
+
+**Additional database finding:** PostgreSQL's schema builder creates `languages`
+without the ISO-639 constants seeded by the SQLite builder. A fresh catalogue's
+language query therefore returns an empty list. Core correctly exposes this state
+and must not silently bootstrap data during reads. The PostgreSQL shared-record
+acceptance first checks that empty result, then explicitly loads an English
+fixture before exercising the read-only interface. Complete PostgreSQL constant
+seeding and an explicit existing-catalogue repair/upgrade policy in the database
+owner, with stable IDs, existing references and restore semantics covered. This
+task does not claim default language-data parity between backends. The
+[database backlog](../databases/next_tasks.md#postgresql-language-constants--2026-11-24)
+records this follow-up. The original failure is
+`/tmp/liuxin-native-metadata-postgres-shared-final.log`.

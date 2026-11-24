@@ -229,8 +229,9 @@ Core selects one structured read source. With a configured Cache, structured
 rows, relations, and metadata hydration use the cache-backed source. Without
 one, the same endpoints evaluate against the Database.
 
-The native WEMI workflow (`metadata.search`, `metadata.read_many`,
-`metadata.read_for_edit`, `metadata.update`) uses `CoreServices.metadata`, bound
+The [native metadata workflow](native-metadata.md) exposes WEMI creation/deletion,
+shared records and suggestions, relationships, vocabulary trees, bounded atomic
+batches and search-schema discovery alongside search/read/edit. It uses `CoreServices.metadata`, bound
 to Catalog and the optional native cache. Its service owns complete reads,
 revision checks and reconciliation; Core does not refresh its receipts again.
 An injected legacy read source still controls row/Item projection routes and

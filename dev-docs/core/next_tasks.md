@@ -106,8 +106,11 @@ extends CORE-01 through CORE-05 with the remaining public and operational work:
    captured command registration and recursive diagnostic redaction. See the
    [contract follow-up](review-and-completion-plan-2026-11-23.md#contract-corrections-follow-up).
 2. **Implemented:** CORE-04 configuration/connection propagation and lifetime inventory.
-3. Expose the full native metadata workflow through named operations, including
-   shared records, trees, relationships and bounded batches.
+3. **Implemented and locally verified, 2026-11-24:** the
+   [native metadata API](native-metadata.md) exposes WEMI construction/CRUD, shared
+   records, trees, relationships, discovery and bounded atomic batches. See the
+   [completion evidence](review-and-completion-plan-2026-11-23.md#native-metadata-completion-follow-up)
+   for backend/cache/local-HTTP coverage, failure recovery and remaining limits.
 4. Add recoverable command identities, effect receipts and post-disconnect lookup.
 5. Extend durable jobs across ingestion, conversion, backup/restoration and
    remaining maintenance workflows using the existing job owners.
@@ -116,6 +119,9 @@ extends CORE-01 through CORE-05 with the remaining public and operational work:
 8. Complete missing domain operations and consolidate adapters with caller migration.
    Include unmanaged-disk ingestion's legacy `files` requirement: native PostgreSQL
    currently rejects `ingest.disk.start` before scanning (see the review follow-up).
+   In the database owner, also complete PostgreSQL language-constant seeding and an
+   explicit existing-catalogue upgrade policy that preserves stable IDs, references
+   and restore behavior. Native metadata reads must not perform that bootstrap.
 9. Validate the backend/cache/local-RPC matrix, recovery scenarios and runbooks.
 
 The review distinguishes implemented work from proposals. Its sign-off criteria

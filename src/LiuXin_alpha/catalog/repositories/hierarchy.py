@@ -36,6 +36,8 @@ class DatabaseHierarchySource:
 
     def get(self, entity_id: int) -> TreeRow | None:
         """Read one persisted node."""
+        if self.repository.table_name == "series" and entity_id == 0:
+            return None
         return self.repository.get(entity_id)
 
     def children(
@@ -49,6 +51,9 @@ class DatabaseHierarchySource:
             position_column=repo.tree_spec.position,
             limit=limit,
             offset=offset,
+            # Series zero represents absence, not a user vocabulary root. Keep
+            # it out of sibling sets before ordering and pagination.
+            exclude_ids=(0,) if repo.table_name == "series" else (),
         )
 
 

@@ -38,6 +38,7 @@ from LiuXin_alpha.catalog.repositories.hierarchy import (
     DatabaseHierarchySource,
     HierarchicalRepository,
 )
+from LiuXin_alpha.databases.db_types.query_types import ComparisonMatch
 
 if TYPE_CHECKING:
     from LiuXin_alpha.caches.metadata.service import MetadataAPI
@@ -52,6 +53,8 @@ class _CachedHierarchySource:
         self.source.allow_database_fallback = False
 
     def get(self, entity_id: int) -> TreeRow | None:
+        if self.spec.table == "series" and entity_id == 0:
+            return None
         row = self.source.get_row_from_id(self.spec.table, entity_id)
         if row is None:
             return None
@@ -73,6 +76,9 @@ class _CachedHierarchySource:
             CacheQuery(
                 table=spec.table,
                 predicates=(predicate,),
+                where=ComparisonMatch(spec.identity, "ne", 0)
+                if spec.table == "series"
+                else None,
                 sort=(CacheSort(spec.position), CacheSort(spec.identity)),
                 limit=limit,
                 offset=offset,

@@ -1073,7 +1073,7 @@ class SQLPortableMacrosMixin(MacroHostState):
 
     def get_tree_children_page(
         self, table: str, parent_id: int | None, *, position_column: str,
-        limit: int = 100, offset: int = 0,
+        limit: int = 100, offset: int = 0, exclude_ids: Sequence[int] = (),
     ) -> tuple[Mapping[str, Any], ...]:
         """Read one ordered parent-linked page without materializing its siblings."""
         table = self._physical_table(table)
@@ -1088,6 +1088,7 @@ class SQLPortableMacrosMixin(MacroHostState):
             columns=self._column_names(table), id_column=self._row_id_column(table, None),
             where={parent_column: parent_id}, limit=limit, offset=offset,
             position_column=position_column,
+            exclude_ids=exclude_ids,
         )
         return rows
 

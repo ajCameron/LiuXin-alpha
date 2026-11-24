@@ -9,6 +9,8 @@ Catalog, metadata and storage owners.
 - [Whole-Core review and completion plan](review-and-completion-plan-2026-11-23.md):
   strengths, functional coverage, evidenced weaknesses and ordered sign-off work.
 - [Core API](core-api.md): named operations, clients, read sources and failure contracts.
+- [Native metadata API](native-metadata.md): creation, shared records, relationships,
+  vocabulary trees, bounded batches, search discovery and reconciliation receipts.
 - [Transport permissions](transport_permissions.md): server roles, authentication,
   endpoint exposure and restricted read-only clients.
 - [Workflow ownership](core-program-workflows.md): operation providers and service owners.

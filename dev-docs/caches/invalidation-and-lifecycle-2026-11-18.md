@@ -197,4 +197,42 @@ Physical CACHE Replica leases remain CACHE02 with storage/ingest. Content FTS,
 notes, annotations and application providers remain SEARCH02–SEARCH05. This pass
 does not claim those features or native Windows/PostgreSQL validation.
 
+## Verified schema scope for full refreshes (2026-11-24)
+
+Core's full native metadata acceptance exposed repeated PostgreSQL schema probes
+during cache publication. Profiling one create on a small catalogue measured
+21.2 seconds, including 20.7 seconds refreshing the schema-backed cache. A paired
+standalone refresh measured 19.3 seconds with 216 physical fingerprint queries;
+wrapping the same operation in the driver's existing verified schema scope
+reduced it to 2.2 seconds with two physical probes. This is one diagnostic pair,
+not a general latency target or a large-catalogue benchmark.
+
+`ReadCache._run_full_refresh` now uses that optional driver scope for operations
+which publish READY: initial load, reload, data reload and full dirty recovery.
+The exit verification must succeed before readiness is published. Entry, read or
+exit failure keeps the cache dirty and requires successful recovery before a
+subsequent read. The scope shares discovery work; it does not commit, roll back
+or replace the caller's SQL transaction. Cache clear/close do not open a discovery
+scope, so cleanup still works when the database is unavailable.
+
+This remains generic cache lifecycle policy. SQL fingerprints and their freshness
+checks stay in the database driver; Catalog and Core gain no schema authority.
+Full snapshot publication still reads its configured tables, so targeted write
+reconciliation and whole-application performance budgets remain separate work.
+
+Focused validation:
+
+- [Refresh boundary tests](../../tests/databases/caches/test_refresh_schema_scope.py)
+  add 42 cases across the three plugins. Together with existing facade, registry
+  and writer lifecycle checks: **104 passed, six plugin-inapplicable skips**.
+- [Live PostgreSQL refresh tests](../../tests/databases/caches/test_refresh_schema_scope_postgres_live.py)
+  prove exactly two physical probes for load/reload/data reload across all three
+  plugins and preserve an uncommitted caller transaction through refresh and
+  rollback. Together with existing schema-discovery checks: **15 passed**.
+- Core's [atomicity tests](../../tests/core/test_native_metadata_atomicity.py)
+  additionally exercise schema-exit failure after canonical commit, retaining the
+  batch receipt and recovering the cache without repeating the write. Final
+  native workflow evidence is recorded in the
+  [Core completion review](../core/review-and-completion-plan-2026-11-23.md#native-metadata-completion-follow-up).
+
 Return to the [cache guide](README.md).

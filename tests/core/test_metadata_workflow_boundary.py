@@ -19,7 +19,7 @@ from tests.databases.caches.test_metadata_api import (
 
 
 @contextmanager
-def public_client(runtime, remote):
+def public_client(runtime, remote, *, timeout_seconds=10.0):
     if not remote:
         yield runtime, CoreHandlerError
         return
@@ -29,7 +29,11 @@ def public_client(runtime, remote):
     daemon.start()
     try:
         yield (
-            RemoteCoreClient(endpoint=daemon.base_url, bearer_token="core-review-test"),
+            RemoteCoreClient(
+                endpoint=daemon.base_url,
+                bearer_token="core-review-test",
+                timeout_seconds=timeout_seconds,
+            ),
             RemoteProxyError,
         )
     finally:
@@ -42,11 +46,13 @@ def public_client(runtime, remote):
 def test_native_search_select_edit_save_and_readback(
     metadata_db, mode, remote, monkeypatch
 ):
+    # Real publications under concurrent backend tests are correctness coverage;
+    # a separate mixed-load budget must establish production request latency.
     with (
         CoreRuntime(
             library=SimpleNamespace(database=metadata_db), cache_type=mode
         ) as runtime,
-        public_client(runtime, remote) as (client, error_type),
+        public_client(runtime, remote, timeout_seconds=120) as (client, error_type),
     ):
         created = client.command(
             "catalog.entity.create",
