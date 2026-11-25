@@ -29,6 +29,7 @@ from LiuXin_alpha.file_formats.mobi.utils import rescale_image
 from LiuXin_alpha.metadata.book.base import calibreMetaInformation
 from LiuXin_alpha.utils.date import now as nowf
 from LiuXin_alpha.utils.image_tools.imghdr import what
+from LiuXin_alpha.metadata.file_sources.mobi_covers import read_mobi_cover
 from LiuXin_alpha.utils.libraries.cleantext import clean_xml_chars
 from LiuXin_alpha.utils.localization import canonicalize_lang, lang_as_iso639_1, trans as _
 from LiuXin_alpha.utils.logging import default_log
@@ -1014,7 +1015,8 @@ def read_metadata_from_stream(
         data = _read_cover_from_header(mh)
         fmt = what(None, data) if data else None
         if fmt in {"jpg", "jpeg", "gif", "png", "bmp", "webp"}:
-            mi.cover_data = ("jpg" if fmt == "jpeg" else fmt, data)
+            # As the book holds it, or as calibre gives it: the read_mobi_covers_as setting.
+            mi.cover_data = read_mobi_cover(data)
     except Exception as err:
         default_log.log_exception(
             "Failed to read MOBI metadata.",

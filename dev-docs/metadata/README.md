@@ -25,6 +25,7 @@ Catalog write validation.
 - [Language codes](languages.md): the language table, and which code form each layer uses.
 - [Author names](author-names.md): author strings and name lists, and how each format keeps a name whole.
 - [Subjects and tags](subjects.md): subject headings kept apart from tags, from readers to writers.
+- [Keywords](keywords.md): how a keywords string is split into tags, matched against the library's known tags.
 - [Metadata CLI](metadata-cli.md): operator entry points.
 
 [WEMI container hardening](metadata-wemi-container-hardening.md) records the
