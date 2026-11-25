@@ -25,6 +25,10 @@ exist for eReader, Plucker, and Haodoo. Metadata writes update the PalmDB
 wrapper title for all parseable PDB files, and can update body metadata for
 supported eReader variants.
 
+A Plucker publication date counts seconds from 1904, as the format says, where
+calibre reads it from 1970. The `plucker_date_epoch` preference (`1904`, the
+default, or `1970`) chooses; see `metadata/file_sources/pdb/plucker.py`.
+
 Output conversion enters through `PDBOutput` in
 `src/LiuXin_alpha/file_formats/conversion/plugins/pdb_output.py`. Output
 writers exist for PalmDOC, zTXT, and eReader.

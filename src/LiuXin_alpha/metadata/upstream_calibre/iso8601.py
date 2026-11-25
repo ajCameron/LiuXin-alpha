@@ -1,13 +1,10 @@
 #!/usr/bin/env python
 # License: GPLv3 Copyright: 2016, Kovid Goyal <kovid at kovidgoyal.net>
 # Ported from calibre (https://calibre-ebook.com) 9.18: src/calibre/utils/iso8601.py
-# Changes from upstream: calibre imports point at upstream_calibre and its _compat, and
-# 'from __future__ import annotations' is added.
+# Changes from upstream: calibre imports point at upstream_calibre and its _compat.
 # The tzlocal package and zoneinfo.ZoneInfo come from _compat, which fall back to UTC
 # where no zone can be found rather than failing at import.
 # SPDX-License-Identifier: GPL-3.0-only
-
-from __future__ import annotations
 
 from datetime import UTC as utc_tz
 from datetime import datetime, timedelta, timezone

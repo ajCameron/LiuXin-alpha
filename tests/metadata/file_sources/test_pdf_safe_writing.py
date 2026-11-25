@@ -360,24 +360,31 @@ def test_a_packet_that_cannot_be_edited_is_left_with_a_warning(
     assert read_metadata(written).info["Title"] == "Nouveau — Title"
 
 
-def test_a_file_without_a_packet_gets_none() -> None:
+def test_a_file_without_a_packet_gets_none_unless_there_are_comments() -> None:
     """
-    No packet is added to a file that had none, when the Info Subject can hold the comments.
+    No packet is added to a file that had none, unless there are comments to keep in it.
 
-    That is calibre's reading of the Subject. When it holds subjects (the
-    ``read_subject_fields_as`` default), a file without a packet gets one for the
-    comments: see ``test_subject_field_reading.py``.
+    The comments go into the packet's ``dc:description`` alone, under either reading
+    of the Info Subject, so a file without a packet gets one for them, as calibre
+    always writes one. See also ``test_subject_field_reading.py``.
 
     Example:
-        >>> test_a_file_without_a_packet_gets_none()
+        >>> test_a_file_without_a_packet_gets_none_unless_there_are_comments()
 
 
-    :return: None after the report is checked.
+    :return: None after the reports are checked.
     """
-    with subject_reading("calibre"):
-        written, report = _write(_corpus("plain"))
-    assert report.xmp == "none"
-    assert read_metadata(written).xmp is None
+    plain = MetaData()
+    plain.title = "Nouveau — Title"
+    for reading in ("calibre", "subjects"):
+        with subject_reading(reading):
+            stream = io.BytesIO(_corpus("plain"))
+            report = pdf.set_metadata(stream, plain)
+            assert report.xmp == "none"
+            assert read_metadata(stream.getvalue()).xmp is None
+            written, report = _write(_corpus("plain"))
+            assert report.xmp == "updated"
+            assert b"New description" in read_metadata(written).xmp
 
 
 def test_a_path_is_appended_to_in_place(tmp_path: Path) -> None:

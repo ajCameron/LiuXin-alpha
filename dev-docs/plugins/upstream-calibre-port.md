@@ -14,11 +14,11 @@ turned up, and which readers are left.
 ## The rules
 
 - **Copy, don't rewrite.** A ported module is calibre's file with its imports
-  changed. The other edits are mechanical, so the copies run on Python 3.12
-  and 3.13 too: `from __future__ import annotations` is added, `except A, B:`
-  clauses (Python 3.14 syntax) are parenthesised, and defaults are dropped
-  from type parameters (`class C[T = str]`, Python 3.13 syntax), which only
-  type checkers read. A header comment records the source path and the
+  changed. LiuXin runs on Python 3.14, as calibre 9.18 does, so calibre's
+  syntax and its standard-library imports are kept as they are: `except A, B:`
+  clauses, type-parameter defaults, and the `compression` package. (Until #219
+  the porter also rewrote these, and added `from __future__ import annotations`,
+  for Python 3.12 and 3.13.) A header comment records the source path and the
   changes.
 - **Port only what the readers use.** Where a reader needs a few names from a
   large module, `PARTS` in the porting script lists them. The script keeps
@@ -104,7 +104,7 @@ and its docstring lists each difference from calibre. In short:
 | Qt image and date helpers, EPUB writing helpers, the MOBI writer's colour and guide helpers | not ported; raise `NotImplementedError` | Readers do not call them; calibre's tests of the MOBI writer helpers are not run |
 | `unrardll`, calibre's binding to RARLAB's library | `_unrar`, on the `rarfile` package (the `archives` extra) or LiuXin's vendored copy | Names are read the same way; contents need an extraction tool on the PATH, so the RAR port is unavailable without one, and a CBR's cover cannot be read |
 | `py7zr`, which calibre bundles | optional (the `archives` extra) | Without it a CB7 is not read |
-| C extensions `lzx` and `msdes`, for LIT | `_compat.lzx` and `_compat.msdes`, from the utils plugins of those names: the compiled modules where installed, else LiuXin's pure-Python ports | The same metadata; the pure-Python LZX decoder cannot decode LIT text (see the status page) |
+| C extensions `lzx` and `msdes`, for LIT | `_compat.lzx` and `_compat.msdes`, from the utils plugins of those names: the compiled modules where installed, else LiuXin's pure-Python ports | The same metadata, and the same text since #220 (see the status page) |
 | pychm, the binding to chmlib, which calibre bundles | optional, in no extra; `_compat.CHMFile` refuses to open a file without it | Without it the CHM port is unavailable |
 | ICU's numeric collation, for page order | `_compat.numeric_sort_key`: numbers by value, the rest case-folded | The same order for page names; accented letters can sort differently |
 | calibre's plugin dispatch (`customize.ui`) | `_readers.get_file_type_metadata`, which runs the ported readers; `file_formats.providers.ported_calibre` gives it the readers when it runs one | Books inside archives are read by the ported readers only |

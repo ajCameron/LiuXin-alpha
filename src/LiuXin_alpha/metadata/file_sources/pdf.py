@@ -179,10 +179,13 @@ def _seekable_binary(stream) -> bool:
 
 def _read_pdf(target_file):
     """
-    Read a PDF's Info dictionary and XMP packet with the bounded object reader.
+    Read a PDF's Info dictionary and XMP packet with the bounded object reader, and a scanned first page's JPEG.
 
     Paths are opened and read range by range, as are seekable binary streams, whose
-    position is restored; anything else is read whole first.
+    position is restored; anything else is read whole first. The cover is the JPEG a
+    scanned first page draws over the whole page (see
+    :mod:`~LiuXin_alpha.file_formats.pdf.scanned_cover`); trouble finding it costs only
+    the cover.
 
     Example:
         Exercise  read pdf with pytest::
@@ -191,10 +194,11 @@ def _read_pdf(target_file):
 
 
     :param target_file: A path, bytes, or a readable stream.
-    :return: The :class:`~LiuXin_alpha.file_formats.pdf.objects.PdfMetadata` and the source name.
+    :return: The :class:`~LiuXin_alpha.file_formats.pdf.objects.PdfMetadata`, the cover's
+        JPEG or ``None``, and the source name.
     :raises PdfParseError: The payload is not a readable PDF, or is encrypted with a password.
     """
-    from LiuXin_alpha.file_formats.pdf.objects import PdfReadError, read_metadata
+    from LiuXin_alpha.file_formats.pdf.objects import PdfReadError
 
     source_name = _source_name(target_file)
     if isinstance(target_file, os.PathLike):
@@ -202,19 +206,52 @@ def _read_pdf(target_file):
     try:
         if isinstance(target_file, str):
             with open(target_file, "rb") as stream:
-                return read_metadata(stream), source_name
+                return (*_metadata_and_cover(stream), source_name)
         if _seekable_binary(target_file):
             position = target_file.tell()
             try:
-                return read_metadata(target_file), source_name
+                return (*_metadata_and_cover(target_file), source_name)
             finally:
                 target_file.seek(position)
         payload, source_name = _read_source_bytes(target_file)
         if not payload:
             raise PdfParseError("Empty PDF payload")
-        return read_metadata(payload), source_name
+        return (*_metadata_and_cover(payload), source_name)
     except PdfReadError as err:
         raise PdfParseError(str(err)) from err
+
+
+def _metadata_and_cover(target) -> tuple[Any, bytes | None]:
+    """
+    Read the metadata and a scanned first page's JPEG from one opening of the file.
+
+    Example:
+        >>> from LiuXin_alpha.file_formats.pdf.scanned_cover import scanned_pdf
+        >>> metadata, cover = _metadata_and_cover(scanned_pdf(b"\\xff\\xd8 page"))
+        >>> metadata.info["Title"], cover
+        ('Scan', b'\\xff\\xd8 page')
+
+
+    :param target: The PDF's bytes, or a seekable binary file.
+    :return: The metadata, and the cover's JPEG or ``None``.
+    :raises PdfReadError: The file is not a readable PDF.
+    """
+    from LiuXin_alpha.file_formats.pdf.errors import PdfNeedsPoppler
+    from LiuXin_alpha.file_formats.pdf.objects import PdfDocument, read_metadata
+    from LiuXin_alpha.file_formats.pdf.scanned_cover import first_page_jpeg
+
+    try:
+        document = PdfDocument(target)
+        metadata = document.metadata()
+    except PdfNeedsPoppler:
+        # read_metadata hands an AES file to poppler's pdfinfo; there is no cover then.
+        return read_metadata(target), None
+    try:
+        cover = first_page_jpeg(document)
+    except Exception as err:  # the reader raises several kinds for damaged pages
+        default_log.log_exception("Could not look for a scanned cover in a PDF.", err, "DEBUG")
+        cover = None
+    return metadata, cover
 
 
 def _default_metadata(source_name: str = "") -> MetaData:
@@ -783,11 +820,7 @@ def _apply_combined(md, pdf_metadata, source_name: str, policy: str):
 
     info = pdf_merge.PdfFields()
     try:
-        info = pdf_merge.info_fields(
-            pdf_metadata.info or {},
-            subject_is_tag=policy == "calibre",
-            subject_as_subjects=reads_subjects(),
-        )
+        info = pdf_merge.info_fields(pdf_metadata.info or {}, subject_as_subjects=reads_subjects())
     except Exception as err:
         default_log.log_exception(
             "Failed while parsing PDF info dictionary.",
@@ -846,7 +879,7 @@ def get_metadata(stream, *, fallback_on_parse_error: bool = False, merge: str | 
     policy = merge_policy(merge)
     source_name = _source_name(stream)
     try:
-        pdf_metadata, source_name = _read_pdf(stream)
+        pdf_metadata, cover, source_name = _read_pdf(stream)
     except Exception as err:
         default_log.log_exception(
             "Failed to read PDF metadata source.",
@@ -904,6 +937,7 @@ def get_metadata(stream, *, fallback_on_parse_error: bool = False, merge: str | 
                     _set_identifier(md, scheme, found)
                     break
 
+    _set_cover(md, cover)
     try:
         md.finalize()
     except Exception:
@@ -914,6 +948,25 @@ def get_metadata(stream, *, fallback_on_parse_error: bool = False, merge: str | 
     if not getattr(md, "authors", None):
         md.authors = _("Unknown Author")
     return md
+
+
+def _set_cover(md, cover: bytes | None) -> None:
+    """
+    Give the record the cover's JPEG, if one was found.
+
+    Example:
+        >>> md = _default_metadata()
+        >>> _set_cover(md, b"\\xff\\xd8 page")
+        >>> md.to_calibre().cover_data
+        ('jpeg', b'\\xff\\xd8 page')
+
+
+    :param md: The record.
+    :param cover: The JPEG, or ``None``.
+    :return: None.
+    """
+    if cover:
+        md.cover_data = ("jpeg", cover)
 
 
 def get_metadata_inplace(target_file, *, fallback_on_parse_error: bool = False, merge: str | None = None):

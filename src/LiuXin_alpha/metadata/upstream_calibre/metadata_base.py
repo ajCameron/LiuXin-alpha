@@ -1,15 +1,12 @@
 #!/usr/bin/env python
 # License: GPLv3 Copyright: 2008, Kovid Goyal kovid@kovidgoyal.net
 # Ported from calibre (https://calibre-ebook.com) 9.18: src/calibre/ebooks/metadata/__init__.py
-# Changes from upstream: calibre imports point at upstream_calibre and its _compat, and
-# 'from __future__ import annotations' is added.
+# Changes from upstream: calibre imports point at upstream_calibre and its _compat.
 # SPDX-License-Identifier: GPL-3.0-only
 
 """
 Provides abstraction for metadata reading.writing from a variety of ebook formats.
 """
-
-from __future__ import annotations
 
 import os
 import re

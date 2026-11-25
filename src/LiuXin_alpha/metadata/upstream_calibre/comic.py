@@ -22,8 +22,6 @@ Example:
     ('png', b'two')
 """
 
-from __future__ import annotations
-
 import os
 from typing import IO
 

@@ -1,7 +1,6 @@
 # License: GPLv3 Copyright: 2008, Kovid Goyal <kovid at kovidgoyal.net>
 # Ported from calibre (https://calibre-ebook.com) 9.18: src/calibre/ebooks/lrf/__init__.py
-# Changes from upstream: calibre imports point at upstream_calibre and its _compat, and
-# 'from __future__ import annotations' is added.
+# Changes from upstream: calibre imports point at upstream_calibre and its _compat.
 # Only LRFParseError and PRS500_PROFILE are ported, with the imports they use;
 # the rest is conversion code the metadata readers do not use.
 # SPDX-License-Identifier: GPL-3.0-only
@@ -10,8 +9,6 @@
 This package contains logic to read and write LRF files.
 The LRF file format is documented at U{http://www.sven.de/librie/Librie/LrfFormat}.
 """
-
-from __future__ import annotations
 
 
 class LRFParseError(Exception):

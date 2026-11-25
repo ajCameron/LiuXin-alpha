@@ -3,11 +3,8 @@
 # Ported from calibre (https://calibre-ebook.com) 9.18: src/calibre/ebooks/oeb/polish/pretty.py
 # Changes from upstream: only isspace, pretty_xml_tree and pretty_opf are ported, which
 # is what the OPF code uses; calibre imports point at _compat, where OEB_DOCS and
-# OEB_STYLES are built from calibre's media-type table; and
-# 'from __future__ import annotations' is added.
+# OEB_STYLES are built from calibre's media-type table.
 # SPDX-License-Identifier: GPL-3.0-only
-
-from __future__ import annotations
 
 from typing import TYPE_CHECKING
 

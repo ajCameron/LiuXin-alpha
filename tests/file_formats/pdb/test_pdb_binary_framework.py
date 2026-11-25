@@ -291,7 +291,8 @@ def test_plucker_metadata_section_fixture_can_drive_metadata_reader() -> None:
 
     assert metadata.title == "Plucker 世界"
     assert _values(metadata.authors) == ["Alice", "Bob"]
-    assert (metadata.pubdate.year, metadata.pubdate.month, metadata.pubdate.day) == (2023, 11, 14)
+    # Seconds since 1904, as the Plucker format counts (the plucker_date_epoch default).
+    assert (metadata.pubdate.year, metadata.pubdate.month, metadata.pubdate.day) == (1957, 11, 13)
 
 
 def test_pdb_offset_and_truncation_helpers_prepare_hostile_payloads() -> None:

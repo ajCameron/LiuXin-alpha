@@ -1,12 +1,9 @@
 #!/usr/bin/env python
 # License: GPLv3 Copyright: 2009, Kovid Goyal <kovid at kovidgoyal.net>
 # Ported from calibre (https://calibre-ebook.com) 9.18: src/calibre/ebooks/metadata/mobi.py
-# Changes from upstream: calibre imports point at upstream_calibre and its _compat, and
-# 'from __future__ import annotations' is added.
+# Changes from upstream: calibre imports point at upstream_calibre and its _compat.
 # LiuXin fixes are marked '# LiuXin:'.
 # SPDX-License-Identifier: GPL-3.0-only
-
-from __future__ import annotations
 
 import io
 import numbers
@@ -548,10 +545,10 @@ def get_metadata(stream: IO[bytes]) -> Metadata:
             data = b''
     if data and what(None, data) in {'jpg', 'jpeg', 'gif', 'png', 'bmp', 'webp'}:
         try:
-            # LiuXin: keep the cover as the book stores it. calibre re-encodes it
-            # as a JPEG no larger than 1650x2200, which needs Qt; LiuXin names
-            # the format from the bytes instead.
-            mi.cover_data = ('jpg', data)  # LiuXin:
+            # LiuXin: the read_mobi_covers_as setting chooses the cover as the
+            # book holds it (the default) or calibre's re-encoded JPEG.
+            from LiuXin_alpha.metadata.file_sources import mobi_covers  # LiuXin:
+            mi.cover_data = mobi_covers.read_mobi_cover(data)  # LiuXin:
         except Exception:
             log.exception('Failed to read MOBI cover')
     return mi

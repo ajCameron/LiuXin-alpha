@@ -1,14 +1,11 @@
 # Ported from calibre (https://calibre-ebook.com) 9.18: src/calibre/ebooks/metadata/book/json_codec.py
-# Changes from upstream: calibre imports point at upstream_calibre and its _compat, and
-# 'from __future__ import annotations' is added.
+# Changes from upstream: calibre imports point at upstream_calibre and its _compat.
 # SPDX-License-Identifier: GPL-3.0-only
 """
 Created on 4 Jun 2010
 
 @author: charles
 """
-
-from __future__ import annotations
 
 import json
 import traceback

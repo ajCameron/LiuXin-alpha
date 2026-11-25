@@ -4,6 +4,12 @@ Read bounded Plucker metadata records, declared encodings and publication timest
 The module makes ordering, fallback, ownership and optional-integration behavior
 explicit for callers.
 
+A publication date is a count of seconds. The Plucker format counts from 1904, as
+Palm OS does; calibre reads it from 1970, so its dates come out 66 years late. The
+``plucker_date_epoch`` preference chooses: ``1904`` (the default) or ``1970``. A
+book with no date record, or a zero, has no date under either; calibre gives it
+1 January 1970.
+
 Example:
     Exercise plucker with the owning regression module::
 
@@ -13,7 +19,7 @@ Example:
 from __future__ import annotations
 
 import struct
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timedelta
 
 from LiuXin_alpha.file_formats.pdb.header import PdbHeaderReader
 from LiuXin_alpha.file_formats.pdb.plucker.reader import DATATYPE_METADATA, MIBNUM_TO_NAME, SectionHeader
@@ -25,6 +31,60 @@ from LiuXin_alpha.utils.logging import default_log
 __license__ = "GPL v3"
 __copyright__ = "2009, John Schember <john@nachtimwald.com>"
 __docformat__ = "restructuredtext en"
+
+
+#: The preference that chooses what Plucker dates count from.
+PLUCKER_EPOCH_PREFERENCE = "plucker_date_epoch"
+#: The epochs offered: the Plucker format's (Palm OS) and calibre's (Unix).
+PLUCKER_EPOCHS = {
+    "1904": datetime(1904, 1, 1, tzinfo=UTC),
+    "1970": datetime(1970, 1, 1, tzinfo=UTC),
+}
+DEFAULT_PLUCKER_EPOCH = "1904"
+
+
+def plucker_epoch(explicit: str | None = None) -> str:
+    """
+    Choose what Plucker dates count from: the one asked for, else the preference, else 1904.
+
+    Example:
+        >>> plucker_epoch("1970"), plucker_epoch("1066")
+        ('1970', '1904')
+
+
+    :param explicit: An epoch named by the caller.
+    :return: A key of :data:`PLUCKER_EPOCHS`.
+    """
+    chosen = explicit
+    if chosen is None:
+        try:
+            from LiuXin_alpha.configuration import preferences
+
+            chosen = preferences.get(PLUCKER_EPOCH_PREFERENCE)
+        except Exception:
+            chosen = None
+    chosen = str(chosen) if chosen is not None else None
+    return chosen if chosen in PLUCKER_EPOCHS else DEFAULT_PLUCKER_EPOCH
+
+
+def plucker_date(seconds: int, epoch: str | None = None) -> datetime | None:
+    """
+    Turn a Plucker date record's seconds into a date, counting from the chosen epoch.
+
+    Example:
+        >>> plucker_date(3_000_000_000, "1904").year, plucker_date(1_700_000_000, "1970").year
+        (1999, 2023)
+        >>> plucker_date(0) is None
+        True
+
+
+    :param seconds: The record's unsigned count of seconds.
+    :param epoch: ``1904`` or ``1970``; ``None`` for the preference.
+    :return: The date in UTC, or ``None`` for zero, which means no date.
+    """
+    if seconds <= 0:
+        return None
+    return PLUCKER_EPOCHS[plucker_epoch(epoch)] + timedelta(seconds=seconds)
 
 
 def _decode_text(raw: bytes | None, encoding: str) -> str:
@@ -157,8 +217,7 @@ def get_metadata(stream, extract_cover: bool = True):
             elif rtype == 6 and len(payload) >= 4:
                 (pubdate_raw,) = struct.unpack(">I", payload[0:4])
                 try:
-                    if pubdate_raw > 0:
-                        pubdate = datetime.fromtimestamp(pubdate_raw, tz=timezone.utc)
+                    pubdate = plucker_date(pubdate_raw)
                 except Exception as err:
                     default_log.log_exception("Invalid Plucker publication timestamp encountered.", err, "DEBUG")
 

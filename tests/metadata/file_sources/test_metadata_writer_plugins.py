@@ -70,7 +70,7 @@ def test_htmlz_writer_delegates_to_extz_set_metadata(monkeypatch) -> None:
     monkeypatch.setattr(
         writers_mod,
         "extz_set_metadata",
-        lambda stream, mi: calls.update({"stream": stream, "mi": mi}),
+        lambda stream, mi: calls.update({"book": stream.read(), "mi": mi}),
     )
 
     cls = _plugin_map()["HTMLZMetadataWriter"]
@@ -79,7 +79,8 @@ def test_htmlz_writer_delegates_to_extz_set_metadata(monkeypatch) -> None:
     mi = calibreMetaInformation("HTMLZ Title", ["Author"])
     writer.set_metadata(stream, mi, "htmlz")
 
-    assert calls["stream"] is stream
+    # The writer works on a copy of the book; a record without subjects is given as it is.
+    assert calls["book"] == b"zip"
     assert calls["mi"] is mi
 
 
@@ -103,7 +104,7 @@ def test_txtz_writer_delegates_to_txtz_set_metadata(monkeypatch) -> None:
     monkeypatch.setattr(
         writers_mod,
         "txtz_set_metadata",
-        lambda stream, mi: calls.update({"stream": stream, "mi": mi}),
+        lambda stream, mi: calls.update({"book": stream.read(), "mi": mi}),
     )
 
     cls = _plugin_map()["TXTZMetadataWriter"]
@@ -112,5 +113,6 @@ def test_txtz_writer_delegates_to_txtz_set_metadata(monkeypatch) -> None:
     mi = calibreMetaInformation("TXTZ Title", ["Author"])
     writer.set_metadata(stream, mi, "txtz")
 
-    assert calls["stream"] is stream
+    # The writer works on a copy of the book; a record without subjects is given as it is.
+    assert calls["book"] == b"zip"
     assert calls["mi"] is mi

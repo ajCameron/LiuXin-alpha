@@ -10,6 +10,13 @@ Example:
         python -m pytest -q tests/plugins/test_plugin_base.py
 """
 
+import contextlib
+import functools
+import io
+import os
+from collections.abc import Callable
+from typing import Any, BinaryIO
+
 from LiuXin_alpha.plugins.file_types import MetadataWriterPlugin
 
 from LiuXin_alpha.utils.localization import trans as _
@@ -17,6 +24,143 @@ from LiuXin_alpha.utils.logging import default_log
 from LiuXin_alpha.metadata.file_sources.subject_fields import reads_subjects
 
 plugins: list[type[MetadataWriterPlugin]] = []
+
+
+def write_through_copy(stream: Any, write: Callable[[BinaryIO], None]) -> None:
+    """
+    Run a writer on a copy of a stream in memory, and change the stream only when it succeeds.
+
+    A result that only adds to the end of the file (an incremental update) is appended.
+    If putting the result into the stream fails, the original bytes are put back
+    before the error is raised. Something that is not a seekable stream, such as a
+    path, is given to the writer as it is.
+
+    Example:
+        >>> book = io.BytesIO(b"old")
+        >>> def broken(copy):
+        ...     copy.seek(0); copy.truncate(); raise ValueError("full disk")
+        >>> try:
+        ...     write_through_copy(book, broken)
+        ... except ValueError:
+        ...     pass
+        >>> book.getvalue()
+        b'old'
+        >>> write_through_copy(book, lambda copy: copy.write(b"new"))
+        >>> book.getvalue()
+        b'new'
+
+
+    :param stream: The book: a readable, writable, seekable binary stream.
+    :param write: The writer, given the copy.
+    :return: None.
+    """
+    if not all(callable(getattr(stream, name, None)) for name in ("read", "write", "seek", "truncate")):
+        write(stream)
+        return
+    stream.seek(0)
+    original = stream.read()
+    copy = io.BytesIO(original)
+    write(copy)
+    result = copy.getvalue()
+    if result != original:
+        start = len(original) if result.startswith(original) else 0
+        try:
+            stream.seek(start)
+            stream.truncate()
+            stream.write(result[start:])
+            stream.flush()
+            with contextlib.suppress(AttributeError, OSError, io.UnsupportedOperation):
+                os.fsync(stream.fileno())
+        except BaseException:
+            with contextlib.suppress(Exception):
+                stream.seek(start)
+                stream.truncate()
+                stream.write(original[start:])
+                stream.flush()
+            raise
+    stream.seek(0)
+
+
+class BuiltinMetadataWriter(MetadataWriterPlugin):
+    """
+    A built-in writer that behaves the same called directly as under the runtime.
+
+    Each subclass's ``set_metadata`` is wrapped. The wrapper:
+
+    - gives a writer for a format with one field for tags and subjects the subjects
+      among the tags, unless it ``writes_subjects`` (the runtime does the same for
+      every writer plugin);
+    - runs the writer on a copy of the stream in memory, and changes the stream only
+      when the writer succeeds, unless the writer ``protects_stream`` itself.
+
+    Example:
+        Exercise the wrapped writers through their regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_builtin_writers_called_directly.py
+    """
+
+    #: Whether the writer leaves the stream as it was when it fails, by itself.
+    protects_stream = False
+
+    def __init_subclass__(cls, **kwargs: Any) -> None:
+        """
+        Wrap a subclass's own ``set_metadata``.
+
+        Example:
+            Exercise the wrapping through its regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_builtin_writers_called_directly.py
+
+
+        :param kwargs: Passed on to the parent class.
+        :return: None.
+        """
+        super().__init_subclass__(**kwargs)
+        write = cls.__dict__.get("set_metadata")
+        if write is not None:
+            cls.set_metadata = _guarded(write)
+
+
+def _guarded(write: Callable[..., None]) -> Callable[..., None]:
+    """
+    Wrap a writer's ``set_metadata`` as :class:`BuiltinMetadataWriter` describes.
+
+    Example:
+        Exercise the wrapping through its regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_builtin_writers_called_directly.py
+
+
+    :param write: The writer's own ``set_metadata``.
+    :return: The wrapped method.
+    """
+
+    @functools.wraps(write)
+    def set_metadata(self: Any, stream: Any, mi: Any, type: str) -> None:
+        """
+        Write the record into the book, as :class:`BuiltinMetadataWriter` describes.
+
+        Example:
+            Exercise the wrapping through its regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_builtin_writers_called_directly.py
+
+
+        :param self: The writer plugin.
+        :param stream: The book: a readable, writable, seekable binary stream.
+        :param mi: The record to write.
+        :param type: The format.
+        :return: None.
+        """
+        from LiuXin_alpha.metadata.book.base import subjects_among_tags
+
+        record = mi if getattr(self, "writes_subjects", False) else subjects_among_tags(mi)
+        if getattr(self, "protects_stream", False):
+            write(self, stream, record, type)
+            return
+        write_through_copy(stream, lambda copy: write(self, copy, record, type))
+
+    return set_metadata
 
 # Note: Always open a stream as rb+ to allow read-write before passing into one of these classes
 
@@ -32,7 +176,7 @@ else:
     default_log.info("DocXMetadataWriter components imported successfully")
 
     # Capitalization to match the metadata reader
-    class DocXMetadataWriter(MetadataWriterPlugin):
+    class DocXMetadataWriter(BuiltinMetadataWriter):
 
         """
         Provide the docxmetadatawriter contract for validated ebook processing.
@@ -80,7 +224,7 @@ except Exception as e:
 else:
     default_log.info("EPUBMetadataWriter components imported successfully")
 
-    class EPUBMetadataWriter(MetadataWriterPlugin):
+    class EPUBMetadataWriter(BuiltinMetadataWriter):
 
         """
         Provide the epubmetadatawriter contract for validated ebook processing.
@@ -126,7 +270,7 @@ except Exception as e:
 else:
     default_log.info("FB2MetadataWriter components imported successfully")
 
-    class FB2MetadataWriter(MetadataWriterPlugin):
+    class FB2MetadataWriter(BuiltinMetadataWriter):
 
         """
         Provide the fb2metadatawriter contract for validated ebook processing.
@@ -173,7 +317,7 @@ except Exception as e:
 else:
     default_log.info("HTMLZMetadataWriter components imported successfully")
 
-    class HTMLZMetadataWriter(MetadataWriterPlugin):
+    class HTMLZMetadataWriter(BuiltinMetadataWriter):
 
         """
         Provide the htmlzmetadatawriter contract for validated ebook processing.
@@ -221,7 +365,7 @@ except Exception as e:
 else:
     default_log.info("LRFMetadataWriter components imported successfully")
 
-    class LRFMetadataWriter(MetadataWriterPlugin):
+    class LRFMetadataWriter(BuiltinMetadataWriter):
 
         """
         Provide the lrfmetadatawriter contract for validated ebook processing.
@@ -274,7 +418,7 @@ except Exception as e:
 else:
     default_log.info("MOBIMetadataWriter components imported successfully")
 
-    class MOBIMetadataWriter(MetadataWriterPlugin):
+    class MOBIMetadataWriter(BuiltinMetadataWriter):
 
         """
         Provide the mobimetadatawriter contract for validated ebook processing.
@@ -321,7 +465,7 @@ except Exception as e:
 else:
     default_log.info("ODTMetadataWriter components imported successfully")
 
-    class ODTMetadataWriter(MetadataWriterPlugin):
+    class ODTMetadataWriter(BuiltinMetadataWriter):
 
         """
         Write metadata into an ODT's ``meta.xml``, as calibre's ODT writer does.
@@ -385,7 +529,7 @@ except Exception as e:
 else:
     default_log.info("PDBMetadataWriter components imported successfully")
 
-    class PDBMetadataWriter(MetadataWriterPlugin):
+    class PDBMetadataWriter(BuiltinMetadataWriter):
 
         """
         Provide the pdbmetadatawriter contract for validated ebook processing.
@@ -432,7 +576,7 @@ except Exception as e:
 else:
     default_log.info("PDFMetadataWriter components imported successfully")
 
-    class PDFMetadataWriter(MetadataWriterPlugin):
+    class PDFMetadataWriter(BuiltinMetadataWriter):
 
         """
         Provide the pdfmetadatawriter contract for validated ebook processing.
@@ -445,6 +589,9 @@ else:
         name = "Set PDF metadata"
         file_types = frozenset(["pdf"])
         description = _("Set metadata in %s files") % "PDF"
+        # The PDF writer puts the original bytes back itself, and appends an update
+        # to the stream where it can; a copy would only cost memory.
+        protects_stream = True
 
         @property
         def writes_subjects(self) -> bool:
@@ -493,7 +640,7 @@ except Exception as e:
 else:
     default_log.info("RTFMetadataWriter components imported successfully")
 
-    class RTFMetadataWriter(MetadataWriterPlugin):
+    class RTFMetadataWriter(BuiltinMetadataWriter):
 
         """
         Provide the rtfmetadatawriter contract for validated ebook processing.
@@ -554,7 +701,7 @@ except Exception as e:
 else:
     default_log.info("TOPAZMetadataWriter components imported successfully")
 
-    class TOPAZMetadataWriter(MetadataWriterPlugin):
+    class TOPAZMetadataWriter(BuiltinMetadataWriter):
 
         """
         Provide the topazmetadatawriter contract for validated ebook processing.
@@ -602,7 +749,7 @@ except Exception as e:
 else:
     default_log.info("TXTZMetadataWriter components imported successfully")
 
-    class TXTZMetadataWriter(MetadataWriterPlugin):
+    class TXTZMetadataWriter(BuiltinMetadataWriter):
 
         """
         Provide the txtzmetadatawriter contract for validated ebook processing.

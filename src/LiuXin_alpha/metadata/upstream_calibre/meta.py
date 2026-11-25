@@ -1,16 +1,12 @@
 # License: GPLv3 Copyright: 2008, Kovid Goyal <kovid at kovidgoyal.net>
 # Ported from calibre (https://calibre-ebook.com) 9.18: src/calibre/ebooks/metadata/meta.py
-# Changes from upstream: calibre imports point at upstream_calibre and its _compat, and
-# 'from __future__ import annotations' is added.
+# Changes from upstream: calibre imports point at upstream_calibre and its _compat.
 # Only get_metadata, _get_metadata, metadata_from_filename and opf_metadata are ported, with the imports they use;
 # the rest is conversion code the metadata readers do not use.
-# Except clauses naming several exceptions are parenthesised, for Python before 3.14.
 # calibre's plugin dispatch (customize.ui) is _readers.get_file_type_metadata, which
 # runs the ported readers; its preferences are calibre's defaults (_compat.prefs);
 # the regex package is used where installed, else _compat's stand-in on re.
 # SPDX-License-Identifier: GPL-3.0-only
-
-from __future__ import annotations
 
 import os
 from typing import IO, TYPE_CHECKING
@@ -138,7 +134,7 @@ def metadata_from_filename(name: str | bytes, pat: re.Pattern[str] | None = None
                         return ' '.join(parts)
 
                     mi.authors = [swap(x) for x in mi.authors]
-        except (IndexError, ValueError):
+        except IndexError, ValueError:
             pass
         try:
             mi.series = match.group('series')
@@ -147,17 +143,17 @@ def metadata_from_filename(name: str | bytes, pat: re.Pattern[str] | None = None
         try:
             si = match.group('series_index')
             mi.series_index = float(si)
-        except (IndexError, ValueError, TypeError):
+        except IndexError, ValueError, TypeError:
             pass
         try:
             si = match.group('isbn')
             mi.isbn = si
-        except (IndexError, ValueError):
+        except IndexError, ValueError:
             pass
         try:
             publisher = match.group('publisher')
             mi.publisher = publisher
-        except (IndexError, ValueError):
+        except IndexError, ValueError:
             pass
         try:
             pubdate = match.group('published')
@@ -170,7 +166,7 @@ def metadata_from_filename(name: str | bytes, pat: re.Pattern[str] | None = None
         try:
             comments = match.group('comments')
             mi.comments = comments
-        except (IndexError, ValueError):
+        except IndexError, ValueError:
             pass
 
     if mi.is_null('title'):

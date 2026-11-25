@@ -331,7 +331,11 @@ def test_pdf_writes_subjects_into_the_info_subject_and_keeps_the_comments_in_the
 
 def test_pdf_writes_as_calibre_under_calibre_s_reading() -> None:
     """
-    The comments into ``/Subject`` and the subjects among the keywords; no packet is added.
+    Leave ``/Subject`` as it is, put the subjects among the keywords and the comments in the packet.
+
+    calibre's writer never writes the Info Subject, and always writes a packet. Read
+    back, the packet is as new as the Info dictionary, so its tags win; LiuXin's
+    earlier ``union`` rule keeps the Subject among them.
 
     Example:
         >>> test_pdf_writes_as_calibre_under_calibre_s_reading()  # doctest: +SKIP
@@ -341,10 +345,14 @@ def test_pdf_writes_as_calibre_under_calibre_s_reading() -> None:
     """
     with subject_reading("calibre"):
         written = _write((PDF_CORPUS / "plain.pdf").read_bytes(), "pdf", _record())
+        read = {merge: pdf.get_metadata(io.BytesIO(written), merge=merge) for merge in ("newest", "union")}
     found = PdfDocument(written).metadata()
-    assert found.info.get("Subject") == "About it"
+    assert found.info.get("Subject") == "Corpus subject"
     assert found.info.get("Keywords") == "to-read, History, Modern, Sea"
-    assert found.xmp is None
+    assert found.xmp is not None and b"About it" in found.xmp
+    assert list(read["newest"].comments) == ["About it"]
+    assert "corpus subject" not in {str(tag).lower() for tag in read["newest"].tags}
+    assert "corpus subject" in {str(tag).lower() for tag in read["union"].tags}
 
 
 @pytest.mark.parametrize("fixture", ["broken_xref", "leading_junk"])

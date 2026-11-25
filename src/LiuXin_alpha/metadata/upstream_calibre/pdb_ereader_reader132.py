@@ -1,7 +1,6 @@
 # License: GPLv3 Copyright: 2009, John Schember <john@nachtimwald.com>
 # Ported from calibre (https://calibre-ebook.com) 9.18: src/calibre/ebooks/pdb/ereader/reader132.py
-# Changes from upstream: calibre imports point at upstream_calibre and its _compat, and
-# 'from __future__ import annotations' is added.
+# Changes from upstream: calibre imports point at upstream_calibre and its _compat.
 # Only HeaderRecord is ported, with the imports it uses;
 # the rest is conversion code the metadata readers do not use.
 # SPDX-License-Identifier: GPL-3.0-only
@@ -9,8 +8,6 @@
 """
 Read content from ereader pdb file with a 132 byte header created by Dropbook.
 """
-
-from __future__ import annotations
 
 import struct
 

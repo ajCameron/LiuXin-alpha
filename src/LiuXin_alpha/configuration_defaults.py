@@ -45,6 +45,14 @@ GLOBAL_DEFAULTS = {
     "limit_search_columns_to": ["title", "authors", "tags", "series", "publisher"],
     "use_primary_find_in_search": True,
     "migrated": False,
+    # How a keywords string is split into tags (DOCX keywords): "smart", matching the
+    # library's known tags; "separators", LiuXin's earlier rule; or "calibre"; see
+    # LiuXin_alpha.metadata.file_sources.keywords.
+    "keyword_splitting": "smart",
+    # A MOBI book's cover: "original", the image the book holds, or "calibre", re-encoded
+    # as calibre does (a JPEG no larger than 1650x2200, for older devices); see
+    # LiuXin_alpha.metadata.file_sources.mobi_covers.
+    "read_mobi_covers_as": "original",
     # How a PDF's Info dictionary and XMP packet are combined: "newest", "calibre" or
     # "union"; see LiuXin_alpha.metadata.file_sources.pdf_merge.
     "pdf_metadata_merge": "newest",
@@ -53,6 +61,10 @@ GLOBAL_DEFAULTS = {
     # headings, or "calibre", as calibre does; see
     # LiuXin_alpha.metadata.file_sources.subject_fields.
     "read_subject_fields_as": "subjects",
+    # What a Plucker book's publication date counts seconds from: "1904", as the
+    # Plucker format says, or "1970", as calibre reads it; see
+    # LiuXin_alpha.metadata.file_sources.pdb.plucker.
+    "plucker_date_epoch": "1904",
 }
 
 TWEAK_DEFAULT_OVERRIDES = {

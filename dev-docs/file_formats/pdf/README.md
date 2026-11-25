@@ -47,6 +47,29 @@ A page larger than 20 inches is drawn at 3,000 pixels on its longest side. See
 the [port status page](../../plugins/upstream-calibre-port-status.md#hostile-input)
 for what that fixes.
 
+LiuXin's PDF conversion (`file_formats/pdf/pdftohtml.py`) runs poppler's `pdftohtml`
+the same way since #221. It writes a whole book's HTML and images, so its limits are
+wider: 600 s, 2 GiB of address space, and 512 MiB of output or for any one file. It
+runs in its output folder, without changing this process's folder. Before #221 it had
+never run: it named `isbsd` without importing it.
+
+## Covers without poppler
+
+LiuXin draws no pages without poppler. Its own reader (`liuxin.read-pdf-metadata`)
+takes a scanned book's cover as the scanner wrote it (#221,
+`file_formats/pdf/scanned_cover.py`): the JPEG the first page draws over the whole
+page. It takes it only when all of these hold:
+
+- the first page draws exactly one image, upright and not mirrored, over at least 85%
+  of its crop box (else its media box), and the page is not rotated;
+- the image is a JPEG (`DCTDecode`, perhaps behind other filters, which are undone);
+- it is in grey or RGB, at least 150 pixels a side, with no decode array or mask.
+
+Anything else gives no cover rather than a wrong one. CMYK JPEGs are left alone because
+many are stored inverted. A JPEG 2000 image would need decoding. Only the first page's
+own content streams are read, at most 1 MiB of them, within the reader's limits; a
+damaged page costs only the cover.
+
 ## Combining Info and XMP
 
 A PDF can say the same things twice, in its Info dictionary and in its XMP packet.
@@ -55,23 +78,25 @@ other stale, and the two disagree. `metadata/file_sources/pdf_merge.py` offers t
 ways to combine them. The `pdf_metadata_merge` preference chooses one for the
 "Read PDF metadata" plugin:
 
-| Policy | Which source wins | Info `Subject` | Tags |
-| --- | --- | --- | --- |
-| `newest` (default) | The one changed last wins every field it has; the other fills the gaps | The description (`dc:description`) | The winner's |
-| `calibre` | XMP, except that a newer Info dictionary wins the title, authors and tags | The first tag | The winner's |
-| `union` | XMP for title, authors, publisher and description | A tag | Info's and XMP's together |
+| Policy | Which source wins | Tags |
+| --- | --- | --- |
+| `newest` (default) | The one changed last wins every field it has; the other fills the gaps | The winner's |
+| `calibre` | XMP, except that a newer Info dictionary wins the title, authors and tags | The winner's |
+| `union` | XMP for title, authors, publisher and description | Info's and XMP's together |
 
-The Info `Subject` column applies when the `read_subject_fields_as` preference is
-`calibre`. At its default, `subjects`, the Info `Subject` holds subject headings
-under every policy (several joined by semicolons), and the description comes from
-the packet's `dc:description` alone. The writer follows the same setting. It
-writes the subjects to `/Subject` and the description only to the packet, giving a
-file without a packet a new one when there is a description to write. See
+The Info `Subject` is read by the `read_subject_fields_as` preference, whichever
+the policy. At its default, `subjects`, it holds subject headings (several joined
+by semicolons). Under `calibre` it is the first of the Info dictionary's tags, as
+calibre reads it (#218; before, `newest` read it as the description). Either way
+the description comes from the packet's `dc:description` alone. The writer
+follows the same setting: it writes the subjects to `/Subject`, or under `calibre`
+leaves `/Subject` as it is, as calibre's writer does. See
 [subjects](../../metadata/subjects.md#a-documents-subject-field).
 
-`newest` follows the specifications. The XMP specification maps `Subject` to
-`dc:description`, `Keywords` to `pdf:Keywords`, `Creator` to `xmp:CreatorTool` and
-the dates to `xmp:CreateDate` and `xmp:ModifyDate`. The PDF specification says to prefer
+`newest` follows the specifications. The XMP specification maps `Keywords` to
+`pdf:Keywords`, `Creator` to `xmp:CreatorTool` and the dates to `xmp:CreateDate`
+and `xmp:ModifyDate` (and `Subject` to `dc:description`, which LiuXin does not
+follow; see above). The PDF specification says to prefer
 XMP unless the Info dictionary's `ModDate` is later than the packet's
 `xmp:MetadataDate`. The packet's date is the later of `xmp:MetadataDate` and
 `xmp:ModifyDate`, as calibre takes it. When either date is missing, XMP wins, since
@@ -98,18 +123,25 @@ pass `merge=` to `get_metadata` too.
 ## Writing
 
 `set_metadata` is in `metadata/file_sources/pdf_write.py`. It writes the title, authors,
-comments (the Subject), tags (the Keywords), producer, publisher and series. Fields the
-metadata leaves empty keep what the file says.
+tags (the Keywords), producer, publisher and series to the Info dictionary, and the
+subjects to the Subject unless calibre's reading of it is chosen (see above). The
+comments go into the XMP packet's `dc:description`; a file without a packet gets one
+when there are comments to write, as calibre always writes one. Fields the metadata
+leaves empty keep what the file says.
 
 - **Appended, not rewritten.** The change is appended to the file as an incremental
   update, the way PDF editors save. The original bytes stay as they were, so outlines,
   forms, attachments and the earlier revision are kept, and so are the bytes a digital
   signature over that revision covers. Given a path, only the update is written to the file.
+  `tests/metadata/file_sources/test_pdf_signature_kept.py` signs a PDF
+  (`adbe.pkcs7.detached`), writes metadata into it, and checks that the signature still
+  verifies, with the signer's key and with poppler's `pdfsig` (#221).
 - **Info and XMP together.** The Info dictionary gets the new values and a new
   `ModDate`. When the file has an XMP packet, the same fields are updated there, and
   `xmp:MetadataDate` and `xmp:ModifyDate` get the same moment. No merge policy then
   finds stale values in either source. The packet's other properties stay, as do a
-  title's or description's other languages. No packet is added to a file without one.
+  title's or description's other languages. A file without a packet gets one only
+  when there are comments to write, since they have no other place.
 - **Checked before it is written.** Every result is read back with this reader. It must
   find what was written through the cross-reference data alone, without a repair scan.
   Nothing is written to the file until a result passes.
@@ -332,7 +364,5 @@ poppler:
 
 ## Open follow-ups
 
-- The reader takes no cover. A scanned book's first page is often a single JPEG image
-  XObject that could be returned as-is without rendering.
 - Writing into encrypted PDFs would need the update encrypted with the file's key; pypdf
   does not do that reliably yet.

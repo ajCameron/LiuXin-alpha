@@ -61,8 +61,9 @@ readers, not the conversion code.
   recognise an HTML first page holding only a cover image; SVG cover pages
   still work.
 - **html2text** stays optional. Only writing FB2 comments needs it.
-- **Python 3.12** must still parse every copy, as CI runs on it. calibre 9.18
-  uses Python 3.13 and 3.14 syntax, which the porter rewrites (#182).
+- **Python 3.14**, as for the rest of LiuXin. calibre 9.18 uses Python 3.13 and
+  3.14 syntax, which the porter rewrote for Python 3.12 (#182) until LiuXin
+  moved to 3.14; the copies now keep it (#219).
 - **Pillow** stays optional. The MOBI reader converts GIF images with it while
   reading an old book's text; without it they are skipped, which the metadata
   does not need.
@@ -117,11 +118,11 @@ were the ones on the stacked branches, without #178's fixes for OPF 2 fields.
   first image in archive order (its `extract_member` matches any image as well as
   the name it was given); the port does the same. CBZ and CBR covers are the first
   page in natural order.
-- **DOCX keywords.** calibre splits a DOCX's keywords on spaces as well as commas, so
-  a tag holding a space comes back as two. LiuXin's reader splits on commas or
-  semicolons when the keywords have any, and on spaces only otherwise (see
-  [metadata writers](../file_formats/metadata-writers.md)). The ported provider keeps
-  calibre's reading.
+- **DOCX keywords (settled in #222).** calibre splits a DOCX's keywords on spaces as
+  well as commas, so a tag holding a space comes back as two. LiuXin's reader splits
+  them as the `keyword_splitting` setting says: by default against the library's
+  known tags, else at commas and semicolons, or as calibre does (see
+  [keywords](../metadata/keywords.md)). The ported provider keeps calibre's reading.
 - **PDF Subject.** calibre makes a PDF's Subject its first tag. The XMP
   specification maps it to `dc:description`, and LiuXin's default PDF policy reads it
   as the description (see [combining Info and XMP](../file_formats/pdf/README.md#combining-info-and-xmp)).
@@ -149,18 +150,25 @@ were the ones on the stacked branches, without #178's fixes for OPF 2 fields.
   (`jpeg`, `png`). calibre's EPUB reader labels every cover `jpg`, and its
   HTMLZ/TXTZ reader uses the file extension, dot included. Other providers
   still pass calibre's label on.
-- **MOBI covers.** calibre re-encodes every MOBI cover as a JPEG of at most
-  1650x2200 pixels, through Qt. The port keeps the image the book holds, as
+- **MOBI covers (settled in #222).** calibre re-encodes every MOBI cover as a JPEG of at most
+  1650x2200 pixels, through Qt. LiuXin's reader and the port follow the `read_mobi_covers_as`
+  setting: `calibre` gives calibre's cover, for older devices, and the default,
+  `original`, keeps the image the book holds, as
   the EPUB reader does.
-- **Plucker dates.** calibre and LiuXin's reader both take a Plucker book's
-  publication date as seconds since 1970, while the
+- **Plucker dates.** calibre takes a Plucker book's publication date as
+  seconds since 1970, while the
   [Plucker format](https://hwiegman.home.xs4all.nl/fileformats/P/pdb/The%20Plucker%20Document%20Format.htm)
-  counts from 1904; a date written to the format would come out 66 years late.
-  calibre also gives a book with no date record 1 January 1970.
-- **Haodoo authors in UTF-16.** calibre and LiuXin's reader both strip
-  trailing zero bytes from the name field before decoding it, so a UTF-16
-  author ending in an ASCII letter loses half of that letter. Haodoo names are
-  usually Chinese, whose characters do not end in a zero byte.
+  counts from 1904, so its dates come out 66 years late. calibre also gives a
+  book with no date record 1 January 1970. LiuXin's reader did the same until
+  #218. It now counts from 1904, and the `plucker_date_epoch` preference
+  (`1904` or `1970`) chooses; a book with no date, or a zero, has none. The
+  port keeps calibre's reading.
+- **Haodoo authors in UTF-16.** calibre strips trailing zero bytes from the
+  name field before decoding it, so a UTF-16 author ending in an ASCII letter
+  loses half of that letter ("Ann Lee" reads as "Ann Le" and a replacement
+  character). Haodoo names are usually Chinese, whose characters do not end in
+  a zero byte. LiuXin's reader did the same until #218; it now decodes whole
+  16-bit units first. The port keeps calibre's reading.
 
 ## Hostile input
 
@@ -261,13 +269,16 @@ tests with external and nested entities.
   decrypted, and LiuXin's own LIT reader carried on in a best-effort mode. It is now
   a port of calibre's `des.c` with those tables, identical to the compiled module on
   3,000 random keys and blocks (#211).
-- **LiuXin's pure-Python LZX decoder fails on LIT text.** It decodes one 32 KiB
-  frame per call, as chmlib calls it. calibre's LIT reader asks for a whole window
-  at once (128 KiB in the sample books), and calibre's decoder, from libmspack,
-  realigns the bit stream after each frame and lets a match run past the end of a
-  block. LiuXin's stops with "Match length exceeds remaining run". The metadata, the
-  images and the table of contents decode correctly, but the text of both sample
-  books does not, so LIT conversion fails without the compiled module. Not fixed.
+- **LiuXin's pure-Python LZX decoder failed on LIT text** (fixed in #220). It
+  decoded one 32 KiB frame per call, as chmlib calls it. calibre's LIT reader asks
+  for a whole window at once (128 KiB in the sample books), and calibre's decoder,
+  from libmspack, realigns the bit stream after each frame and lets a match run on
+  past the end of a frame. LiuXin's stopped with "Match length exceeds remaining
+  run": the metadata, the images and the table of contents decoded, but not the
+  text of either sample book, so LIT conversion failed without the compiled module.
+  The decoder now runs libmspack's frame loop, and gives the same bytes as calibre's
+  compiled one on every window of both books and on 290 streams from calibre's
+  compressor.
 
 ## What is left
 

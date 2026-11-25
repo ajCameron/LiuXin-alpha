@@ -284,33 +284,22 @@ def test_plucker_record_iteration_decode_and_timestamp_edges(monkeypatch) -> Non
     stream = _build_pdb("DataPlkr", "Header Fallback", [b"\x00" * 8, section_header + metadata])
     stream.seek(5)
 
-    class _Datetime:
+    def _bad_date(*_args, **_kwargs):
         """
-        Provide the Datetime test fixture or double with explicit deterministic behavior.
+        Fail as a date out of range would.
 
         Example:
-            Exercise test plucker record iteration decode and timestamp edges.Datetime through its owning regression module::
+            Replaces the Plucker date conversion in this test.
 
-                python -m pytest -q tests/metadata/file_sources/test_pdb_subreader_edge_cases.py
+
+        :param _args: Ignored.
+        :param _kwargs: Ignored.
+        :return: Never; it raises.
+        :raises OverflowError: Always.
         """
-        @staticmethod
-        def fromtimestamp(*_args, **_kwargs):
-            """
-            Perform the fromtimestamp test-helper operation with deterministic inputs.
+        raise OverflowError("bad timestamp")
 
-            Example:
-                Exercise test plucker record iteration decode and timestamp edges.Datetime.fromtimestamp through its owning regression module::
-
-                    python -m pytest -q tests/metadata/file_sources/test_pdb_subreader_edge_cases.py
-
-
-            :param _args: Value supplied for args in the focused test operation.
-            :param _kwargs: Value supplied for kwargs in the focused test operation.
-            :return: The deterministic value, row, identity or collection described above.
-            """
-            raise OverflowError("bad timestamp")
-
-    monkeypatch.setattr(plucker_md, "datetime", _Datetime)
+    monkeypatch.setattr(plucker_md, "plucker_date", _bad_date)
     md = plucker_md.get_metadata(stream)
     assert stream.tell() == 5
     assert md.title == "Decoded Title"

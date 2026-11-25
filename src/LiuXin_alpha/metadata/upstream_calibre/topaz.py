@@ -1,15 +1,12 @@
 # License: GPLv3 Copyright: 2010, Greg Riker <griker@hotmail.com>
 # Ported from calibre (https://calibre-ebook.com) 9.18: src/calibre/ebooks/metadata/topaz.py
-# Changes from upstream: calibre imports point at upstream_calibre and its _compat, and
-# 'from __future__ import annotations' is added.
+# Changes from upstream: calibre imports point at upstream_calibre and its _compat.
 # get_headers raises ValueError when its record counts run past the end of the
 # file: upstream reads on, so a 9-byte file kept it busy for minutes and
 # gigabytes. Marked '# LiuXin:' where it is.
 # SPDX-License-Identifier: GPL-3.0-only
 
 """Read/write metadata from Amazon's topaz format"""
-
-from __future__ import annotations
 
 import io
 import numbers

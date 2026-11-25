@@ -1,14 +1,11 @@
 # License: GPLv3 Copyright: 2012, Kan-Ru Chen <kanru@kanru.info>
 # Ported from calibre (https://calibre-ebook.com) 9.18: src/calibre/ebooks/pdb/haodoo/reader.py
-# Changes from upstream: calibre imports point at upstream_calibre and its _compat, and
-# 'from __future__ import annotations' is added.
+# Changes from upstream: calibre imports point at upstream_calibre and its _compat.
 # SPDX-License-Identifier: GPL-3.0-only
 
 """
 Read content from Haodoo.net pdb file.
 """
-
-from __future__ import annotations
 
 import os
 import struct

@@ -18,7 +18,6 @@ from __future__ import annotations
 import typing as _typing
 
 import os
-import re
 import shutil
 import sys
 
@@ -37,6 +36,7 @@ from LiuXin_alpha.metadata.containers.calibre_like_book_metadata import (
     CalibreLikeLiuXinBookMetaData as Metadata,
 )
 from LiuXin_alpha.metadata.author_names import authors_to_sort_string
+from LiuXin_alpha.metadata.file_sources.keywords import keyword_splitting, split_keywords
 
 from LiuXin_alpha.utils.mine_types import guess_type
 from LiuXin_alpha.utils.localization import trans as _
@@ -182,11 +182,15 @@ def read_doc_props(raw: _typing.Any, mi: _typing.Any, XPath: _typing.Any) -> Non
     for keywords in XPath("//cp:keywords")(root):
         text = (keywords.text or "").strip()
         if text:
-            # Keywords with commas or semicolons are split there, so a tag may hold
-            # spaces; others are split on spaces, as calibre splits them. "_-_" is how
-            # LiuXin once wrote a space inside a tag.
-            parts = re.split(r"[,;]", text) if re.search(r"[,;]", text) else text.split()
-            tags.extend(tag for tag in (re.sub(r"_-_", " ", part).strip() for part in parts) if tag)
+            # Split as the keyword_splitting preference says: by default against the
+            # library's known tags (see metadata.file_sources.keywords). "_-_" is how
+            # LiuXin once wrote a space inside a tag, so it is read after splitting;
+            # calibre's splitting keeps it.
+            how = keyword_splitting()
+            parts = split_keywords(text, how)
+            if how != "calibre":
+                parts = [part.replace("_-_", " ").strip() for part in parts]
+            tags.extend(part for part in parts if part)
     if tags:
         mi.tags = tags
 

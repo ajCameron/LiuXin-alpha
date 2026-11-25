@@ -109,8 +109,8 @@ class MetadataUpdate:
     #: Subject headings, for the ``/Subject`` when it holds them.
     subjects: tuple[str, ...] = ()
     #: Whether ``/Subject`` holds the subjects (the ``read_subject_fields_as``
-    #: preference's default) rather than the comments; the comments then go only into
-    #: the packet's ``dc:description``.
+    #: preference's default). Otherwise it is left as it is, as calibre leaves it, and
+    #: read as a tag. The comments go into the packet's ``dc:description`` either way.
     subject_holds_subjects: bool = False
 
     def info(self: MetadataUpdate) -> dict[str, str]:
@@ -119,12 +119,13 @@ class MetadataUpdate:
 
         The authors are joined with `` & `` (an ampersand in a name is doubled). The
         ``Subject`` holds the subjects, joined by semicolons, when
-        ``subject_holds_subjects`` says so; otherwise it holds the comments, as the XMP
-        specification maps it.
+        ``subject_holds_subjects`` says so; otherwise it is not written, as calibre
+        does not write it. The comments are not in the Info dictionary: they go into
+        the packet's ``dc:description``.
 
         Example:
             >>> MetadataUpdate(comments="About", tags=("a", "b")).info()
-            {'/Subject': 'About', '/Keywords': 'a, b'}
+            {'/Keywords': 'a, b'}
             >>> MetadataUpdate(comments="About", subjects=("Sea",), subject_holds_subjects=True).info()
             {'/Subject': 'Sea'}
 
@@ -136,11 +137,8 @@ class MetadataUpdate:
             out["/Title"] = self.title
         if self.authors:
             out["/Author"] = authors_to_string(self.authors)
-        if self.subject_holds_subjects:
-            if self.subjects:
-                out["/Subject"] = join_subjects(self.subjects)
-        elif self.comments:
-            out["/Subject"] = self.comments
+        if self.subject_holds_subjects and self.subjects:
+            out["/Subject"] = join_subjects(self.subjects)
         if self.tags:
             out["/Keywords"] = ", ".join(self.tags)
         if self.producer:
@@ -555,9 +553,9 @@ def _build(
     writer.add_metadata({**update.info(), "/ModDate": pdf_date(moment)})
     built = _Built(b"")
     reference = writer.root_object.get("/Metadata")
-    if reference is None and update.subject_holds_subjects and update.comments:
-        # The Subject holds subjects, so the comments live only in the packet: give
-        # the file one rather than lose them.
+    if reference is None and update.comments:
+        # The comments live only in the packet: give the file one rather than lose
+        # them, as calibre always writes one.
         reference = _add_packet(writer)
     if reference is not None:
         built.has_packet = True
@@ -575,6 +573,28 @@ def _build(
     writer.write(out)
     built.payload = out.getvalue()
     return built
+
+
+def _has_packet(reader: Any) -> bool:
+    """
+    Tell whether a PDF's catalog names an XMP packet.
+
+    Example:
+        >>> from pypdf import PdfWriter
+        >>> out = io.BytesIO()
+        >>> _ = PdfWriter().write(out)
+        >>> from pypdf import PdfReader
+        >>> _has_packet(PdfReader(io.BytesIO(out.getvalue())))
+        False
+
+
+    :param reader: The file, opened with pypdf.
+    :return: True when the catalog has ``/Metadata``; False when it has not, or cannot be read.
+    """
+    try:
+        return reader.trailer["/Root"].get_object().get("/Metadata") is not None
+    except Exception:  # pypdf raises many kinds for damaged catalogs
+        return False
 
 
 def _appends_cleanly(original: bytes, update: MetadataUpdate, moment: datetime) -> bool:
@@ -664,7 +684,8 @@ def write_metadata(
 
     moment = moment or datetime.now(UTC).replace(microsecond=0)
     try:
-        encrypted = PdfReader(io.BytesIO(original), strict=False).is_encrypted
+        reader = PdfReader(io.BytesIO(original), strict=False)
+        encrypted = reader.is_encrypted
     except Exception as error:  # pypdf raises many kinds for files it cannot parse
         raise PdfWriteError(f"pypdf cannot read the PDF: {error}") from error
     if encrypted:
@@ -673,7 +694,7 @@ def write_metadata(
             "read back reliably. The file is unchanged."
         )
     attempts = (True, False)
-    if update.subject_holds_subjects and update.comments and not _appends_cleanly(original, update, moment):
+    if update.comments and not _has_packet(reader) and not _appends_cleanly(original, update, moment):
         # A new packet puts the catalog into the appended update, which can then read
         # back even over damaged cross-reference data. Decide as the update would
         # without one: rewrite whole a file that an appended update does not suit.
