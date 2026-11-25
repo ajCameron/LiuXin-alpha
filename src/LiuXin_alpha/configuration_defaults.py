@@ -53,6 +53,10 @@ GLOBAL_DEFAULTS = {
     # headings, or "calibre", as calibre does; see
     # LiuXin_alpha.metadata.file_sources.subject_fields.
     "read_subject_fields_as": "subjects",
+    # What a Plucker book's publication date counts seconds from: "1904", as the
+    # Plucker format says, or "1970", as calibre reads it; see
+    # LiuXin_alpha.metadata.file_sources.pdb.plucker.
+    "plucker_date_epoch": "1904",
 }
 
 TWEAK_DEFAULT_OVERRIDES = {

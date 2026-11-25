@@ -317,12 +317,13 @@ def test_pdf_get_metadata_parses_info_dict_unicode() -> None:
     assert not _values(md.comments)
     assert _values(getattr(md, "isbn", None)) == ["9780306406157"]
 
-    # Read as calibre's reading does, the XMP specification maps it to the description...
+    # Read as calibre's reading does, every merge policy takes it as a tag.
     with subject_reading("calibre"):
-        assert _values(get_metadata(io.BytesIO(payload)).comments) == ["Info Subject"]
-        # ...and LiuXin's earlier rule kept it as a tag.
+        newest = get_metadata(io.BytesIO(payload))
         union = get_metadata(io.BytesIO(payload), merge="union")
-    assert "info subject" in {x.lower() for x in _values(union.tags)}
+    for read in (newest, union):
+        assert "info subject" in {x.lower() for x in _values(read.tags)}
+        assert not _values(read.comments)
 
 
 def test_pdf_get_metadata_prefers_xmp_when_present() -> None:

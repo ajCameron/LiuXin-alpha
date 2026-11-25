@@ -1013,7 +1013,10 @@ def set_metadata(
         opf_bytes, _ver, raster_cover = set_metadata_opf(
             reader.read_bytes(reader.opf_path),
             mi,
-            cover_prefix=posixpath.dirname(reader.opf_path),
+            # Manifest hrefs are relative to the OPF, so a new cover goes beside it with no
+            # prefix. calibre passes the OPF's folder here, which puts a book's cover in
+            # OEBPS/OEBPS/ when its OPF is in OEBPS/.
+            cover_prefix="",
             cover_data=new_cdata,
             apply_null=apply_null,
             update_timestamp=update_timestamp,

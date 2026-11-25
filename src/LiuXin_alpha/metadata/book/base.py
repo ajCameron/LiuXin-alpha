@@ -1527,6 +1527,43 @@ def tags_and_subjects(mi):
     return combined
 
 
+def subjects_among_tags(mi):
+    """
+    Give a record's subjects among its tags, for a format with one field for both.
+
+    The record passed in is not changed. LiuXin's own record is first projected to
+    calibre's form, which keeps its subjects in ``subjects``. A record without subjects
+    is returned as it is, so folding twice changes nothing.
+
+    Example:
+        >>> book = calibreMetadata("Example")
+        >>> book.tags, book.subjects = ["to-read"], ["Sea stories"]
+        >>> given = subjects_among_tags(book)
+        >>> given.tags, given.subjects, book.tags
+        (['to-read', 'Sea stories'], [], ['to-read'])
+        >>> subjects_among_tags(given) is given
+        True
+
+
+    :param mi: The record to write.
+    :return: The record a one-field writer should get.
+    """
+    if callable(getattr(mi, "to_calibre", None)):
+        # A WEMI record fills its subjects only when projected; keep the record
+        # as it is when there are none, so the writer still gets it.
+        converted = mi.to_calibre()
+        if not getattr(converted, "subjects", None):
+            return mi
+        mi = converted
+    elif getattr(mi, "subjects", None) and callable(getattr(mi, "deepcopy_metadata", None)):
+        mi = mi.deepcopy_metadata()
+    else:
+        return mi
+    mi.tags = tags_and_subjects(mi)
+    mi.subjects = []
+    return mi
+
+
 def calibreMetaInformation(title, authors=_DEFAULT_AUTHORS):
     """Construct a Calibre metadata record from values or another record.
 

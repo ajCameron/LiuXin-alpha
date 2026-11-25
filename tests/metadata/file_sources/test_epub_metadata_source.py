@@ -1066,3 +1066,52 @@ def test_epub_set_metadata_invalid_zip_logs_and_raises(monkeypatch) -> None:
 
     assert events
     assert any("Failed to write EPUB metadata." in base for base, _ in events)
+
+
+@pytest.mark.parametrize("version", ["2.0", "3.0"])
+@pytest.mark.parametrize("opf_folder", ["", "OEBPS/", "a/b/"])
+def test_an_added_cover_goes_beside_the_opf(tmp_path: Path, version: str, opf_folder: str) -> None:
+    """
+    Put a cover added to a book without one beside its OPF, not in a doubled folder.
+
+    Manifest hrefs are relative to the OPF. calibre names the new cover with the OPF's
+    folder as well, so a book whose OPF is in ``OEBPS/`` got ``OEBPS/OEBPS/cover.jpg``.
+
+    Example:
+        Exercise the cover placement through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_epub_metadata_source.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :param version: The OPF version of the book.
+    :param opf_folder: The folder holding the OPF, empty for the top of the book.
+    :return: None; the assertions are the check.
+    """
+    from LiuXin_alpha.metadata.file_sources.epub import get_metadata, set_metadata
+
+    opf_path = f"{opf_folder}content.opf"
+    opf = (
+        f'<?xml version="1.0"?><package xmlns="http://www.idpf.org/2007/opf" version="{version}" '
+        'unique-identifier="id"><metadata xmlns:dc="http://purl.org/dc/elements/1.1/">'
+        '<dc:title>T</dc:title><dc:identifier id="id">x</dc:identifier><dc:language>en</dc:language>'
+        '</metadata><manifest><item id="c" href="text/c.xhtml" media-type="application/xhtml+xml"/>'
+        '</manifest><spine><itemref idref="c"/></spine></package>'
+    )
+    target = tmp_path / "coverless.epub"
+    with zipfile.ZipFile(target, "w") as zf:
+        zf.writestr("mimetype", "application/epub+zip")
+        zf.writestr("META-INF/container.xml", _container_xml(opf_path=opf_path))
+        zf.writestr(opf_path, opf)
+        zf.writestr(f"{opf_folder}text/c.xhtml", b"<html><body><p>c</p></body></html>")
+
+    updated = calibreMetaInformation("T", ["A"])
+    updated.cover_data = ("jpeg", b"new-cover-bytes")
+    set_metadata(target, updated)
+
+    with zipfile.ZipFile(target) as zf:
+        names = zf.namelist()
+        opf_text = zf.read(opf_path).decode("utf-8")
+    assert [name for name in names if name.endswith("cover.jpg")] == [f"{opf_folder}cover.jpg"]
+    assert 'href="cover.jpg"' in opf_text
+    assert get_metadata(target).cover_data[1] == b"new-cover-bytes"

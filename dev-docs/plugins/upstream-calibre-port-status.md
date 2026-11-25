@@ -152,15 +152,20 @@ were the ones on the stacked branches, without #178's fixes for OPF 2 fields.
 - **MOBI covers.** calibre re-encodes every MOBI cover as a JPEG of at most
   1650x2200 pixels, through Qt. The port keeps the image the book holds, as
   the EPUB reader does.
-- **Plucker dates.** calibre and LiuXin's reader both take a Plucker book's
-  publication date as seconds since 1970, while the
+- **Plucker dates.** calibre takes a Plucker book's publication date as
+  seconds since 1970, while the
   [Plucker format](https://hwiegman.home.xs4all.nl/fileformats/P/pdb/The%20Plucker%20Document%20Format.htm)
-  counts from 1904; a date written to the format would come out 66 years late.
-  calibre also gives a book with no date record 1 January 1970.
-- **Haodoo authors in UTF-16.** calibre and LiuXin's reader both strip
-  trailing zero bytes from the name field before decoding it, so a UTF-16
-  author ending in an ASCII letter loses half of that letter. Haodoo names are
-  usually Chinese, whose characters do not end in a zero byte.
+  counts from 1904, so its dates come out 66 years late. calibre also gives a
+  book with no date record 1 January 1970. LiuXin's reader did the same until
+  #218. It now counts from 1904, and the `plucker_date_epoch` preference
+  (`1904` or `1970`) chooses; a book with no date, or a zero, has none. The
+  port keeps calibre's reading.
+- **Haodoo authors in UTF-16.** calibre strips trailing zero bytes from the
+  name field before decoding it, so a UTF-16 author ending in an ASCII letter
+  loses half of that letter ("Ann Lee" reads as "Ann Le" and a replacement
+  character). Haodoo names are usually Chinese, whose characters do not end in
+  a zero byte. LiuXin's reader did the same until #218; it now decodes whole
+  16-bit units first. The port keeps calibre's reading.
 
 ## Hostile input
 

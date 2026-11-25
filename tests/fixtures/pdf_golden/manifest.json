@@ -12,10 +12,11 @@
           "Bob Example"
         ],
         "tags": [
+          "golden subject",
           "tag-one",
           "tag-two"
         ],
-        "comments": "Golden Subject",
+        "comments": null,
         "publisher": null,
         "producers": [
           "LiuXin Golden Creator",
@@ -25,24 +26,6 @@
           "isbn": "9780306406157",
           "doi": "10.1000/182",
           "uuid": null
-        }
-      },
-      "differs_by_policy": {
-        "calibre": {
-          "tags": [
-            "golden subject",
-            "tag-one",
-            "tag-two"
-          ],
-          "comments": null
-        },
-        "union": {
-          "tags": [
-            "golden subject",
-            "tag-one",
-            "tag-two"
-          ],
-          "comments": null
         }
       }
     },

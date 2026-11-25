@@ -663,9 +663,9 @@ def _record_for_writer(plugin: Any, mi: Any) -> Any:
     """
     Give a writer whose format has one field for tags and subjects the subjects among the tags.
 
-    The record passed in is not changed. LiuXin's own record is first projected to
-    calibre's form, which keeps its subjects in ``subjects``. A plugin that sets
-    ``writes_subjects`` gets the record as it is.
+    The record passed in is not changed. A plugin that sets ``writes_subjects`` gets
+    the record as it is. LiuXin's built-in writers fold the subjects themselves too,
+    so they write the same when called directly; folding twice changes nothing.
 
     Example:
         >>> from LiuXin_alpha.metadata.book.base import calibreMetadata
@@ -682,22 +682,9 @@ def _record_for_writer(plugin: Any, mi: Any) -> Any:
     """
     if getattr(plugin, "writes_subjects", False):
         return mi
-    from LiuXin_alpha.metadata.book.base import tags_and_subjects
+    from LiuXin_alpha.metadata.book.base import subjects_among_tags
 
-    if callable(getattr(mi, "to_calibre", None)):
-        # A WEMI record fills its subjects only when projected; keep the record
-        # as it is when there are none, so the writer still gets it.
-        converted = mi.to_calibre()
-        if not getattr(converted, "subjects", None):
-            return mi
-        mi = converted
-    elif getattr(mi, "subjects", None) and callable(getattr(mi, "deepcopy_metadata", None)):
-        mi = mi.deepcopy_metadata()
-    else:
-        return mi
-    mi.tags = tags_and_subjects(mi)
-    mi.subjects = []
-    return mi
+    return subjects_among_tags(mi)
 
 
 def set_file_type_metadata(

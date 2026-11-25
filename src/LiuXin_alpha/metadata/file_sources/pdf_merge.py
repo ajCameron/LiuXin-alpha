@@ -8,9 +8,10 @@ preference chooses one, and the PDF reader plugins name theirs:
 
 ``newest`` (the default)
     Fields correspond as the XMP specification maps them: Title to ``dc:title``,
-    Author to ``dc:creator``, Subject to ``dc:description``, Keywords to
-    ``pdf:Keywords`` and ``dc:subject``, Creator to ``xmp:CreatorTool``, Producer
-    to ``pdf:Producer``, and the dates to ``xmp:CreateDate`` and ``xmp:ModifyDate``.
+    Author to ``dc:creator``, Keywords to ``pdf:Keywords`` and ``dc:subject``,
+    Creator to ``xmp:CreatorTool``, Producer to ``pdf:Producer``, and the dates to
+    ``xmp:CreateDate`` and ``xmp:ModifyDate``. (The specification maps Subject to
+    ``dc:description``; see the Subject below.)
     The source changed last wins every field it has, as the PDF specification
     recommends: the Info dictionary when its ``ModDate`` is later than the packet's
     ``xmp:MetadataDate`` or ``xmp:ModifyDate``, otherwise the packet, which PDF 2.0
@@ -19,28 +20,28 @@ preference chooses one, and the PDF reader plugins name theirs:
     writes ``\\376\\377…``) are ignored, not taken as text.
 
 ``calibre``
-    calibre's rule: the Subject is the first tag, and the packet's title, authors
-    and tags win unless the Info dictionary is newer; every other field the packet
-    has wins regardless. A packet whose title is an escaped PDF string is ignored
-    whole, as calibre ignores it.
+    calibre's rule: the packet's title, authors and tags win unless the Info
+    dictionary is newer; every other field the packet has wins regardless. A packet
+    whose title is an escaped PDF string is ignored whole, as calibre ignores it.
 
 ``union``
     LiuXin's earlier rule: the packet's title, authors, publisher and description
-    win, and the tags are the Info dictionary's Subject and Keywords followed by
-    the packet's subjects.
+    win, and the tags are the Info dictionary's tags followed by the packet's
+    subjects.
 
 Dates are given in ISO 8601 when they can be read, whichever source they came from.
 
-What each policy does with the Subject applies when the ``read_subject_fields_as``
-preference is ``calibre``. At its default, ``subjects``, the PDF reader reads the
-Subject as subject headings under every policy (see ``subject_fields``).
+The Info dictionary's Subject is read by the ``read_subject_fields_as`` preference
+(see ``subject_fields``), whichever the policy. At its default, ``subjects``, it
+holds subject headings. Under ``calibre`` it is the first of the Info dictionary's
+tags, as calibre reads it, and the description comes from the packet alone.
 
 Example:
-    >>> info = info_fields({"Title": "Old", "Subject": "About it", "ModDate": "D:20200101000000Z"})
-    >>> xmp = xmp_fields({"dc": {"title": {"x-default": "New"}}, "xmp": {"MetadataDate": "2021-01-01T00:00:00Z"}})
+    >>> info = info_fields({"Title": "Old", "Subject": "Sea", "Keywords": "a", "ModDate": "D:20200101000000Z"})
+    >>> xmp = xmp_fields({"dc": {"title": {"x-default": "New"}}, "xmp": {"MetadataDate": "2019-01-01T00:00:00Z"}})
     >>> combined = combine(info, xmp, "newest")
-    >>> combined.title, combined.comments
-    ('New', 'About it')
+    >>> combined.title, combined.tags
+    ('Old', ('Sea', 'a'))
 """
 
 from __future__ import annotations
@@ -74,7 +75,7 @@ __all__ = [
 #: The policies, and what each does in a few words.
 MERGE_POLICIES: Mapping[str, str] = {
     "newest": "the source changed last wins each field, mapped as the XMP specification maps them",
-    "calibre": "calibre's rule: the packet wins unless the Info dictionary is newer, Subject is a tag",
+    "calibre": "calibre's rule: the packet wins unless the Info dictionary is newer",
     "union": "LiuXin's earlier rule: the packet wins single fields, and the tags of both are kept",
 }
 DEFAULT_MERGE_POLICY = "newest"
@@ -389,7 +390,7 @@ def _iso(raw: str | None, parse: Any) -> str | None:
 
 
 def info_fields(
-    info: Mapping[str, Any], *, subject_is_tag: bool = False, subject_as_subjects: bool = False
+    info: Mapping[str, Any], *, subject_is_tag: bool = True, subject_as_subjects: bool = False
 ) -> PdfFields:
     """
     Read the fields of an Info dictionary, already decoded to text.
@@ -397,17 +398,18 @@ def info_fields(
     Example:
         >>> fields = info_fields({"Author": "Ann & Bob", "Keywords": "a, b", "Subject": "S"})
         >>> fields.authors, fields.tags, fields.comments
-        (('Ann', 'Bob'), ('a', 'b'), 'S')
-        >>> info_fields({"Keywords": "a, b", "Subject": "S"}, subject_is_tag=True).tags
-        ('S', 'a', 'b')
+        (('Ann', 'Bob'), ('S', 'a', 'b'), None)
+        >>> info_fields({"Keywords": "a, b", "Subject": "S"}, subject_is_tag=False).comments
+        'S'
         >>> as_subjects = info_fields({"Subject": "History, Modern; Sea"}, subject_as_subjects=True)
         >>> as_subjects.subjects, as_subjects.comments
         (('History, Modern', 'Sea'), None)
 
 
     :param info: The Info dictionary's entries, by name.
-    :param subject_is_tag: Take the Subject as the first tag, as calibre does, instead of
-        the description the XMP specification maps it to.
+    :param subject_is_tag: Take the Subject as the first tag, as calibre does (the
+        reader always does); False takes it as the description the XMP specification
+        maps it to.
     :param subject_as_subjects: Take the Subject as subject headings, split at semicolons,
         whatever ``subject_is_tag`` says.
     :return: The fields.

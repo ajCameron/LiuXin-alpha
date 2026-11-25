@@ -46,9 +46,14 @@ on every data-repository book when `LiuXin_alpha_data` is checked out.
   - Symbolic links stay links; other hard links keep the old file.
 - **Both readers agree** on every field a format stores, except the format limits below.
 
-Calling a writer plugin directly on a stream still rewrites that stream in place:
-the plugins truncate it and write the new book. Only the service, and the command
-line (which sends bytes and writes the result back atomically), protect the file.
+A writer plugin called directly on a stream changes it only when the write
+succeeds (#218). LiuXin's built-in writer plugins (`BuiltinMetadataWriter` in
+`metadata/file_sources/builtin_writers.py`) run the writer on a copy in memory and
+then put the result into the stream; a result that only adds to the end of the
+book is appended. If that last step fails, the original bytes are put back. The
+PDF writer does all this itself, so it gets the stream as it is. For a file on
+disk, the service and the command line still do more: they check that no other
+program changed the file meanwhile, and replace it atomically.
 
 ## Fixed by the audit
 
@@ -104,9 +109,11 @@ These match calibre's writers, so they are left as they are:
   function in `utils/localization` depended on calibre's table, which LiuXin did not
   ship, so readers reported one language as `fr`, `fra` or `French`. See
   [language codes](../metadata/languages.md).
-- **EPUB covers added at a doubled folder.** A cover added to an EPUB whose OPF is in
-  `OEBPS/` goes to `OEBPS/OEBPS/cover.jpg`. The OPF points to it correctly and both
-  readers find it; calibre puts it beside the OPF.
+- **EPUB covers added at a doubled folder** (fixed in #218). A cover added to an
+  EPUB whose OPF is in `OEBPS/` went to `OEBPS/OEBPS/cover.jpg`. The new cover's
+  href was named with the OPF's folder, but hrefs are relative to the OPF. The OPF
+  pointed to it correctly, so both readers found it. calibre's writer does the
+  same; LiuXin's now puts the cover beside the OPF.
 - **calibre's RTF reader and negative `\u` escapes.** RTF writes characters above
   U+7FFF as negative numbers (`測試` is `\u28204?\u-30106?`). calibre's reader leaves
   those undecoded. LiuXin's reader and writer are right; this is a calibre bug.

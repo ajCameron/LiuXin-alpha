@@ -116,8 +116,8 @@ def test_plucker_module_import_smoke() -> None:
 
     :return: None; the function records state or raises through its assertions.
     """
-    import LiuXin_alpha.metadata.file_sources.plucker as legacy_plucker
     import LiuXin_alpha.metadata.file_sources.pdb.plucker as modern_plucker
+    import LiuXin_alpha.metadata.file_sources.plucker as legacy_plucker
 
     assert legacy_plucker is not None
     assert modern_plucker is not None
@@ -148,7 +148,37 @@ def test_plucker_metadata_utf8_unicode_torture() -> None:
     mi = get_metadata(stream, extract_cover=False)
     assert mi.title == "Título — Καλημέρα — こんにちは 😀"
     assert mi.authors == ["Renée Faßbinder", "李白", "مريم", "👩🏽\u200d💻"]
-    assert (mi.pubdate.year, mi.pubdate.month, mi.pubdate.day) == (2023, 11, 14)
+    # Seconds since 1904, as the Plucker format counts (the plucker_date_epoch default).
+    assert (mi.pubdate.year, mi.pubdate.month, mi.pubdate.day) == (1957, 11, 13)
+
+
+def test_plucker_dates_count_from_the_epoch_the_preference_chooses() -> None:
+    """
+    Count a Plucker date from 1904, as the format says, by default; from 1970, as calibre does, when asked.
+
+    Example:
+        >>> test_plucker_dates_count_from_the_epoch_the_preference_chooses()  # doctest: +SKIP
+
+
+    :return: None; the assertions are the check.
+    """
+    from collections import ChainMap
+
+    from LiuXin_alpha.configuration import current_preferences, use_preferences
+    from LiuXin_alpha.configuration_defaults import GLOBAL_DEFAULTS
+    from LiuXin_alpha.metadata.file_sources.pdb.plucker import (
+        PLUCKER_EPOCH_PREFERENCE,
+        get_metadata,
+    )
+
+    assert GLOBAL_DEFAULTS[PLUCKER_EPOCH_PREFERENCE] == "1904"
+    section = _plucker_metadata_section(title_bytes=b"T\x00", author_bytes=b"A\x00", mibnum=106, pubdate=1700000000)
+    read = {}
+    for epoch in ("1904", "1970", "1066"):
+        with use_preferences(ChainMap({PLUCKER_EPOCH_PREFERENCE: epoch}, current_preferences())):
+            mi = get_metadata(_build_pdb("DataPlkr", "H", [b"\x00" * 8, section]), extract_cover=False)
+        read[epoch] = mi.pubdate.date().isoformat()
+    assert read == {"1904": "1957-11-13", "1970": "2023-11-14", "1066": "1957-11-13"}
 
 
 def test_plucker_metadata_records_are_read_as_the_plucker_format_lays_them_out() -> None:
@@ -268,7 +298,7 @@ def test_plucker_corrupt_metadata_section_falls_back_cleanly() -> None:
 
 def test_plucker_pubdate_zero_is_ignored() -> None:
     """
-    Verify plucker pubdate zero remains ignored.
+    Verify plucker pubdate zero remains ignored, under either epoch (calibre would give 1 January 1970).
 
     Example:
         Exercise test plucker pubdate zero is ignored through its owning regression module::
