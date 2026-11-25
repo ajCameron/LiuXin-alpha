@@ -67,8 +67,9 @@ PLUGIN_FOUNDATION_FORBIDDEN_DOMAINS = frozenset(
     }
 )
 
-# Cache direction remains deliberately undecided. Do not add a cache source rule
-# until its architectural role has been agreed explicitly.
+# Metadata orchestration is above both Catalog and the generic cache core.
+# Only caches.metadata may depend on Catalog; lower caches and Catalog itself
+# cannot import that orchestration package, including through deferred imports.
 FORBIDDEN_TARGETS: Mapping[str, frozenset[str]] = {
     "file_formats": frozenset(
         {
@@ -95,6 +96,7 @@ FORBIDDEN_TARGETS: Mapping[str, frozenset[str]] = {
         {"caches", "catalog", "core", "library", "metadata", "surfaces"}
     ),
     "catalog": frozenset({"core", "library", "storage", "surfaces"}),
+    "caches": frozenset({"core", "library", "storage", "surfaces"}),
     "library": frozenset({"core", "surfaces"}),
     "core": frozenset({"surfaces"}),
 }
@@ -125,6 +127,18 @@ def direction_reason(edge: ImportEdge) -> str | None:
     target_package = _package(edge.target)
     if source_package is None or target_package is None:
         return None
+    metadata_prefix = f"{PACKAGE_ROOT}.caches.metadata"
+    source_is_metadata = edge.source == metadata_prefix or edge.source.startswith(
+        metadata_prefix + "."
+    )
+    target_is_metadata = edge.target == metadata_prefix or edge.target.startswith(
+        metadata_prefix + "."
+    )
+    if source_package == "caches" and not source_is_metadata:
+        if target_package == "catalog" or target_is_metadata:
+            return "generic caches must not depend on Catalog or caches.metadata"
+    if source_package == "catalog" and target_is_metadata:
+        return "Catalog must not depend on caches.metadata orchestration"
     plugin_reason = plugin_direction_reason(edge)
     if plugin_reason:
         return plugin_reason

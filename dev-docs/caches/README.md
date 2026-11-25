@@ -13,9 +13,10 @@ coverage for partial failure, recovery and invalidation validation. It is an ini
 
 [ReadCache](../../src/LiuXin_alpha/caches/read_cache.py) owns lifecycle, structured
 queries and freshness without importing Catalog. Catalog retrieval can compose
-this read capability. [Cache](../../src/LiuXin_alpha/caches/cache.py) adds the
-Catalog mutation bridge: configured writers persist through Catalog, then
-reconcile affected derived state.
+this read capability. [Cache](../../src/LiuXin_alpha/caches/cache.py) exposes the
+generic core. [CatalogCache](../../src/LiuXin_alpha/caches/metadata/cache.py)
+composes that core with Catalog in the upper `caches.metadata` package. Its
+configured writers persist through Catalog, then reconcile affected derived state.
 
 The bridge intercepts its prepared update routes; arbitrary delegated Catalog
 methods do not automatically gain cache reconciliation. A direct Catalog or
@@ -28,7 +29,7 @@ of cache contents or write reconciliation; the cache implementation performs
 the refresh.
 
 The bound [native metadata service](metadata-api.md) is available as
-`cache.metadata` or `MetadataAPI(catalog, cache=cache)`. It implements the declared
+`CatalogCache(catalog, cache=cache)` or uncached `MetadataAPI(catalog)`. It implements the declared
 [MetadataAPIInterface](../catalog/catalog-cache-boundary.md#metadata-access-interface-direction--2026-11-18)
 with detached metadata reads, semantic mutations and persistence/freshness receipts.
 Core command migration remains [CACHE05](next_tasks.md#cache05-implement-the-bound-metadata-access-service).

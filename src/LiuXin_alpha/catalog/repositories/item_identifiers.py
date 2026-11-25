@@ -2,7 +2,8 @@
 Store raw identifier observations directly owned by acquired Items.
 
 These observations remain separate from curated entity identifiers. Generic CRUD
-translates field aliases; matching normalizes values and can optionally filter
+translates field aliases and requires a live Item plus nonblank scheme/value;
+matching normalizes values and can optionally filter
 by Item. Match-or-create validates the Item before reusing or inserting a row.
 """
 
@@ -11,7 +12,7 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from typing import ClassVar
 
-from ..api.common import EntityId, IdentifierCandidate, MatchResult, RowMapping
+from ..api.common import CatalogMutationError, EntityId, IdentifierCandidate, MatchResult, RowInput, RowMapping
 from ..matching.item_identifier_matcher import ItemIdentifierMatcher
 from ..matching.policy import normalise_identifier
 from .base import BaseRepository
@@ -41,6 +42,28 @@ class ItemIdentifierRepository(BaseRepository):
         "value": "item_identifier_value",
         "source": "item_identifier_source",
     }
+
+    def _prepare_write(
+        self, data: RowInput, *, existing: RowMapping | None = None
+    ) -> dict[str, object]:
+        """Require an Item and a nonblank raw scheme/value without rewriting observations.
+
+        The storage schema permits placeholder rows; semantic creates and edits
+        must retain a real owner. Partial updates validate the complete result.
+        """
+        payload = super()._prepare_write(data, existing=existing)
+        complete = dict(existing or {}) | payload
+        item_id = complete.get("item_identifier_item_id")
+        if type(item_id) is not int:
+            raise TypeError("item_id must be an integer")
+        self._require_table_row("items", item_id)
+        for column in ("item_identifier_scheme", "item_identifier_value"):
+            value = complete.get(column)
+            if not isinstance(value, str) or not value.strip():
+                raise CatalogMutationError(
+                    "Item observations require nonblank scheme and value"
+                )
+        return payload
 
     def matcher(self) -> ItemIdentifierMatcher:
         """

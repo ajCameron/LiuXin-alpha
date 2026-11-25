@@ -32,6 +32,39 @@ def test_repository_matches_reviewed_layer_baseline() -> None:
 
 @pytest.mark.parametrize("context", tuple(ImportKind))
 @pytest.mark.parametrize(
+    "source,target,allowed",
+    (
+        ("caches.cache", "catalog.catalog", False),
+        ("caches.read_cache", "caches.metadata.cache", False),
+        ("caches.api.cache_api", "caches.metadata", False),
+        ("catalog.retrieval", "caches.metadata.service", False),
+        ("caches.metadata.cache", "catalog.catalog", True),
+        ("caches.metadata.cache", "caches.read_cache", True),
+        ("catalog.retrieval", "caches.read_cache", True),
+    ),
+)
+def test_catalog_cache_composition_stays_above_the_generic_core(
+    tmp_path: Path, context: ImportKind, source: str, target: str, allowed: bool
+) -> None:
+    """Enforce the composition boundary for runtime, deferred and type-only imports."""
+    target = "LiuXin_alpha." + target
+    statement = f"import {target}\n"
+    if context == ImportKind.DEFERRED:
+        statement = "def load():\n    " + statement
+    elif context == ImportKind.TYPE_ONLY:
+        statement = (
+            "from typing import TYPE_CHECKING\nif TYPE_CHECKING:\n    " + statement
+        )
+    _write(tmp_path / (target.replace(".", "/") + ".py"), "")
+    _write(tmp_path / ("LiuXin_alpha/" + source.replace(".", "/") + ".py"), statement)
+    inventory = collect_imports(tmp_path, protected_prefixes=("LiuXin_alpha",))
+    edge = next(edge for edge in inventory.edges if edge.target == target)
+    assert edge.kind == context
+    assert (direction_reason(edge) is None) is allowed
+
+
+@pytest.mark.parametrize("context", tuple(ImportKind))
+@pytest.mark.parametrize(
     "source",
     ("file_formats.owner", "plugins.loading", "plugins.future_module"),
 )

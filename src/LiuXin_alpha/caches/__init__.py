@@ -5,14 +5,15 @@ Separation of concerns: caches accelerate reads and reconcile delegated Catalog
 writes; they do not own bibliographic policy or application lifecycle.
 
 Contracts live under ``LiuXin_alpha.caches.api``; the Catalog-independent read facade
-lives in ``LiuXin_alpha.caches.read_cache``; the writable facade and constructor live
+lives in ``LiuXin_alpha.caches.read_cache``; the generic Cache and constructor live
 in ``LiuXin_alpha.caches.cache``; bundled backends and registration helpers live under
 ``LiuXin_alpha.caches.cache_plugins``. Import those owners explicitly so a contract
 import does not initialize every bundled backend or pull database implementations into
 the caller.
 
-``LiuXin_alpha.caches.metadata`` implements the native MetadataAPIInterface;
-``Cache.metadata`` exposes it with cache reads and coordinated semantic writes.
+``LiuXin_alpha.caches.metadata.CatalogCache`` composes Catalog with a loaded core
+and implements MetadataAPIInterface. Metadata services and Catalog writer bridges
+live in that upper package; generic caches cannot import it or Catalog.
 
 ``LiuXin_alpha.caches.custom_fields`` coordinates native custom-field writes with
 FieldMetadata publication. The native database service has no cache dependency.

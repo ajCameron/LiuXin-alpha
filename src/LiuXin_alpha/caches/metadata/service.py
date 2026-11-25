@@ -1,7 +1,7 @@
 """
 Bind native metadata operations to Catalog persistence and cache freshness.
 
-Use ``cache.metadata`` for the ordinary loaded-cache path, or construct
+Use ``CatalogCache(catalog, cache=cache)`` for the loaded-cache path, or construct
 ``MetadataAPI(catalog, cache=cache)`` explicitly. Omitting cache uses Catalog
 reads directly. The caller retains both lifetimes. Returned metadata is detached;
 changes are persisted only by an explicit entity or compound mutation method.
@@ -18,17 +18,24 @@ from contextlib import AbstractContextManager, contextmanager, nullcontext
 from contextvars import ContextVar
 from copy import deepcopy
 from dataclasses import replace
-from typing import TYPE_CHECKING, Literal, cast
+from typing import TYPE_CHECKING, Literal, cast, overload
 
 from LiuXin_alpha.caches.api import CacheConsistency, CacheQuery, CacheSort
-from LiuXin_alpha.caches.metadata_fields import MetadataCustomFields
-from LiuXin_alpha.caches.metadata_reads import (
+from LiuXin_alpha.caches.metadata.custom_fields import MetadataCustomFields
+from LiuXin_alpha.caches.metadata.reads import (
     MetadataReadSource,
     MetadataValue,
     detached,
 )
-from LiuXin_alpha.caches.metadata_search import MetadataSearch
-from LiuXin_alpha.caches.metadata_shared import AgentMetadata, VocabularyMetadata
+from LiuXin_alpha.caches.metadata.records import (
+    AnnotationMetadata,
+    IdentifierMetadata,
+    ItemIdentifierMetadata,
+    TextMetadata,
+)
+from LiuXin_alpha.caches.metadata.search import MetadataSearch
+from LiuXin_alpha.caches.metadata.shared import AgentMetadata, VocabularyMetadata
+from LiuXin_alpha.caches.metadata.trees import HierarchicalVocabularyMetadata
 from LiuXin_alpha.catalog.api.common import (
     CatalogNotFoundError,
     CreatedWemiStack,
@@ -50,6 +57,7 @@ from LiuXin_alpha.catalog.api.metadata_revisions import (
 )
 from LiuXin_alpha.catalog.metadata_revisions import revision
 from LiuXin_alpha.catalog.repositories.base import WEMI_TABLES, BaseRepository
+from LiuXin_alpha.catalog.repositories.hierarchy import HierarchicalRepository
 from LiuXin_alpha.catalog.retrieval.hydration.expression_metadata_hydrator import (
     ExpressionMetadataHydrator,
 )
@@ -82,8 +90,16 @@ if TYPE_CHECKING:
     )
     from LiuXin_alpha.catalog.api.metadata_shared import (
         AgentMetadataInterface,
+        AnnotationMetadataInterface,
+        IdentifierMetadataInterface,
+        ItemIdentifierMetadataInterface,
+        MetadataRecordsReader,
+        TextMetadataInterface,
         VocabularyKind,
         VocabularyMetadataInterface,
+    )
+    from LiuXin_alpha.catalog.api.metadata_trees import (
+        HierarchicalVocabularyMetadataInterface,
     )
     from LiuXin_alpha.catalog.catalog import Catalog
     from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.expression_containers.expression_metadata_api import (
@@ -114,7 +130,7 @@ class MetadataAPI:
     Direct database writes still require owner-driven invalidation.
 
     Example:
-        >>> metadata = cache.metadata  # doctest: +SKIP
+        >>> metadata = MetadataAPI(catalog, cache=cache)  # doctest: +SKIP
         >>> metadata.works.get_many((7, 9))  # doctest: +SKIP
     """
 
@@ -189,6 +205,12 @@ class MetadataAPI:
         self._mutations = _Mutations(self)
         self._agents = AgentMetadata(self, catalog.agents)
         self._custom_fields = MetadataCustomFields(self)
+        self._identifiers = IdentifierMetadata(self, catalog.identifiers)
+        self._item_identifiers = ItemIdentifierMetadata(self, catalog.item_identifiers)
+        self._notes = TextMetadata(self, catalog.notes)
+        self._comments = TextMetadata(self, catalog.comments)
+        self._synopses = TextMetadata(self, catalog.synopses)
+        self._annotations = AnnotationMetadata(self, catalog.annotations)
         vocabulary_repositories: tuple[tuple[VocabularyKind, BaseRepository], ...] = (
             ("tags", catalog.tags),
             ("labels", catalog.labels),
@@ -199,7 +221,11 @@ class MetadataAPI:
             ("ratings", catalog.ratings),
         )
         self._vocabularies: dict[VocabularyKind, VocabularyMetadataInterface] = {
-            kind: VocabularyMetadata(self, repository, kind)
+            kind: (
+                HierarchicalVocabularyMetadata(self, repository, kind)
+                if isinstance(repository, HierarchicalRepository)
+                else VocabularyMetadata(self, repository, kind)
+            )
             for kind, repository in vocabulary_repositories
         }
 
@@ -314,6 +340,14 @@ class MetadataAPI:
         """
         return self._agents
 
+    @overload
+    def vocabulary(
+        self, kind: Literal["genres", "subjects", "series"]
+    ) -> HierarchicalVocabularyMetadataInterface: ...
+
+    @overload
+    def vocabulary(self, kind: VocabularyKind) -> VocabularyMetadataInterface: ...
+
     def vocabulary(self, kind: VocabularyKind) -> VocabularyMetadataInterface:
         """
         Select one supported native vocabulary without exposing raw repositories.
@@ -331,6 +365,161 @@ class MetadataAPI:
             if kind not in self._vocabularies:
                 raise ValueError(f"Unknown metadata vocabulary: {kind!r}")
             return self._vocabularies[kind]
+
+    @property
+    def tags(self) -> VocabularyMetadataInterface:
+        """Access Tag values through the coordinated metadata service."""
+        return self.vocabulary("tags")
+
+    @property
+    def labels(self) -> VocabularyMetadataInterface:
+        """Access operational Labels through the coordinated metadata service."""
+        return self.vocabulary("labels")
+
+    @property
+    def genres(self) -> HierarchicalVocabularyMetadataInterface:
+        """Access hierarchical Genres through the coordinated metadata service."""
+        return self.vocabulary("genres")
+
+    @property
+    def subjects(self) -> HierarchicalVocabularyMetadataInterface:
+        """Access hierarchical Subjects through the coordinated metadata service."""
+        return self.vocabulary("subjects")
+
+    @property
+    def series(self) -> HierarchicalVocabularyMetadataInterface:
+        """Access Series identities through the coordinated metadata service."""
+        return self.vocabulary("series")
+
+    @property
+    def languages(self) -> MetadataRecordsReader:
+        """Access read-only language constants through the coordinated metadata service."""
+        return self.vocabulary("languages")
+
+    @property
+    def ratings(self) -> VocabularyMetadataInterface:
+        """Access Ratings with scale and source through the coordinated metadata service."""
+        return self.vocabulary("ratings")
+
+    @property
+    def identifiers(self) -> IdentifierMetadataInterface:
+        """Access curated entity identifiers through the coordinated metadata service."""
+        return self._identifiers
+
+    @property
+    def item_identifiers(self) -> ItemIdentifierMetadataInterface:
+        """Access raw Item identifier observations through the coordinated metadata service."""
+        return self._item_identifiers
+
+    @property
+    def notes(self) -> TextMetadataInterface:
+        """Access Note records and WEMI attachments through the coordinated metadata service."""
+        return self._notes
+
+    @property
+    def comments(self) -> TextMetadataInterface:
+        """Access contextual Comments and WEMI attachments through the coordinated metadata service."""
+        return self._comments
+
+    @property
+    def synopses(self) -> TextMetadataInterface:
+        """Access Synopsis records and WEMI attachments through the coordinated metadata service."""
+        return self._synopses
+
+    @property
+    def annotations(self) -> AnnotationMetadataInterface:
+        """Access Item-scoped annotations through the coordinated metadata service."""
+        return self._annotations
+
+    def ensure_tag(self, text: str) -> MetadataWriteReceipt[int]:
+        """Reuse an exact tag or create it; existing attributes stay unchanged.
+
+        Reuse reports changed=False. Ambiguity raises; approximate matching is
+        disabled. Nested calls require a serialized outer transaction.
+        """
+        if not isinstance(text, str) or not text.strip():
+            raise ValueError("text must be a nonblank string")
+        return self._write(lambda: self._catalog.tags.ensure({"name": text}))
+
+    def ensure_label(self, text: str) -> MetadataWriteReceipt[int]:
+        """Reuse an exact label or create it; existing attributes stay unchanged.
+
+        Reuse reports changed=False. Ambiguity raises; approximate matching is
+        disabled. Nested calls require a serialized outer transaction.
+        """
+        if not isinstance(text, str) or not text.strip():
+            raise ValueError("text must be a nonblank string")
+        return self._write(lambda: self._catalog.labels.ensure({"name": text}))
+
+    def ensure_genre(
+        self, text: str, *, parent_id: int | None = None
+    ) -> MetadataWriteReceipt[int]:
+        """Reuse an exact genre or create it; existing attributes stay unchanged. Parent None explicitly selects a root.
+
+        Reuse reports changed=False. Ambiguity raises; approximate matching is
+        disabled. Nested calls require a serialized outer transaction.
+        """
+        if not isinstance(text, str) or not text.strip():
+            raise ValueError("text must be a nonblank string")
+
+        def operation() -> tuple[int, bool]:
+            if parent_id is not None:
+                self._catalog.genres.require(parent_id)
+            return self._catalog.genres.ensure({"name": text, "parent_id": parent_id})
+
+        return self._write(operation)
+
+    def ensure_subject(
+        self, text: str, *, parent_id: int | None = None
+    ) -> MetadataWriteReceipt[int]:
+        """Reuse an exact subject or create it; existing attributes stay unchanged. Parent None explicitly selects a root.
+
+        Reuse reports changed=False. Ambiguity raises; approximate matching is
+        disabled. Nested calls require a serialized outer transaction.
+        """
+        if not isinstance(text, str) or not text.strip():
+            raise ValueError("text must be a nonblank string")
+
+        def operation() -> tuple[int, bool]:
+            if parent_id is not None:
+                self._catalog.subjects.require(parent_id)
+            return self._catalog.subjects.ensure({"name": text, "parent_id": parent_id})
+
+        return self._write(operation)
+
+    def ensure_series(
+        self, text: str, *, parent_id: int | None = None
+    ) -> MetadataWriteReceipt[int]:
+        """Reuse an exact series or create it; existing attributes stay unchanged. Parent None explicitly selects a root.
+
+        Reuse reports changed=False. Ambiguity raises; approximate matching is
+        disabled. Nested calls require a serialized outer transaction.
+        """
+        if not isinstance(text, str) or not text.strip():
+            raise ValueError("text must be a nonblank string")
+
+        def operation() -> tuple[int, bool]:
+            if parent_id is not None:
+                self._catalog.series.require(parent_id)
+            return self._catalog.series.ensure({"name": text, "parent_id": parent_id})
+
+        return self._write(operation)
+
+    def ensure_rating(
+        self, value: float, *, out_of: float, source: str
+    ) -> MetadataWriteReceipt[int]:
+        """Reuse an exact rating or create it; existing attributes stay unchanged. Scale and source are required identity context.
+
+        Reuse reports changed=False. Ambiguity raises; approximate matching is
+        disabled. Nested calls require a serialized outer transaction.
+        """
+        if not isinstance(source, str) or not source.strip():
+            raise ValueError("source must be a nonblank string")
+        return self._write(
+            lambda: self._catalog.ratings.ensure(
+                {"value": value, "out_of": out_of, "source": source}
+            )
+        )
 
     @property
     def custom_fields(self) -> MetadataCustomFieldsInterface:

@@ -26,7 +26,6 @@ from LiuXin_alpha.caches.api.cache_api import (
     CacheRelation,
     CacheSort,
     CacheState,
-    CacheWriter,
     UnknownCacheFieldError,
     UnknownCacheTableError,
     UnsupportedCacheQueryError,
@@ -75,7 +74,6 @@ from LiuXin_alpha.caches.api.storage_cache_api import (
 
 __all__ = [
     "CacheAPI",
-    "CacheWriter",
     "CacheCapabilities",
     "CacheClosedError",
     "CacheConsistency",

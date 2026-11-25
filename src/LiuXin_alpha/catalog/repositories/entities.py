@@ -18,7 +18,7 @@ from typing import ClassVar
 from LiuXin_alpha.databases.db_types.macro_types import LinkValue
 from LiuXin_alpha.metadata.ratings import normalise_rating_pair
 
-from ..api.common import EntityId, MetadataCandidate, RowInput, RowMapping, WemiLevel
+from ..api.common import CatalogMutationError, EntityId, MetadataCandidate, RowInput, RowMapping, WemiLevel
 from ..matching.entity_specs import (
     ANNOTATION_SPEC,
     COMMENT_SPEC,
@@ -33,6 +33,7 @@ from ..matching.entity_specs import (
 )
 from .base import WEMI_TABLES
 from .exact import ExactEntityRepository
+from .hierarchy import HierarchicalRepository
 from .work_memberships import WorkMembershipRepository
 
 
@@ -91,7 +92,7 @@ class LabelRepository(ExactEntityRepository):
     match_spec = LABEL_SPEC
 
 
-class GenreRepository(ExactEntityRepository):
+class GenreRepository(HierarchicalRepository):
     """
     Store hierarchical Genres with exact identity and optional parent scoping.
 
@@ -99,8 +100,8 @@ class GenreRepository(ExactEntityRepository):
     phash, parent_id, position, tree_id, and full. Candidate identity can include genre, genre_sort,
     genre_phash, and genre_full; scalar exact searches the three textual fields. Text comparisons
     case-fold and preserve punctuation. An omitted parent_id leaves matching global; explicit None
-    filters root rows. Storage of hierarchy fields does not add tree traversal or cycle validation
-    here. Approximate genre-text fallback must be explicitly requested.
+    filters root rows. HierarchicalRepository owns bounded traversal, cycle validation,
+    ordering and explicit deletion. Approximate genre-text fallback must be explicitly requested.
 
     Example:
         >>> repository = GenreRepository(None)
@@ -117,7 +118,7 @@ class GenreRepository(ExactEntityRepository):
     match_spec = GENRE_SPEC
 
 
-class SubjectRepository(ExactEntityRepository):
+class SubjectRepository(HierarchicalRepository):
     """
     Store hierarchical Subjects with exact identity and optional parent scoping.
 
@@ -125,8 +126,8 @@ class SubjectRepository(ExactEntityRepository):
     sort, phash, parent_id, parent_position, tree_id, and full. Candidate identity includes the
     supplied subject/sort/hash/full fields; scalar lookup searches subject, subject_sort, and
     subject_full with case-folded, punctuation-preserving equality. Omitted parent scope searches
-    globally while explicit None selects root scope. Hierarchy maintenance and cycle checks are not
-    implemented here; approximate subject-text fallback is opt-in.
+    globally while explicit None selects root scope. HierarchicalRepository owns tree
+    maintenance and cycle checks; approximate subject-text fallback is opt-in.
 
     Example:
         >>> repository = SubjectRepository(None)
@@ -143,7 +144,7 @@ class SubjectRepository(ExactEntityRepository):
     match_spec = SUBJECT_SPEC
 
 
-class SeriesRepository(WorkMembershipRepository):
+class SeriesRepository(HierarchicalRepository, WorkMembershipRepository):
     """
     Store hierarchical Series with schema-derived normalized names for persistence.
 
@@ -616,8 +617,9 @@ class AnnotationRepository(ExactEntityRepository):
     also constrain identity. Kind, anchor type, and source comparisons case-fold. Scalar exact uses
     only anchor start plus required Item scope, without the full candidate-identity check.
 
-    Presence checks in matching do not validate Item existence; list_for_item does. Mutable direct
-    CRUD is available, but inherited match_or_create rejects this non-reusable spec before lookup.
+    Presence checks in matching do not validate Item existence; list_for_item does.
+    Creates and updates require a live Item, nonblank kind, anchor type and start.
+    Both ensure and match_or_create reject this non-reusable spec before lookup.
     No approximate policy field is configured.
 
     Example:
@@ -633,6 +635,30 @@ class AnnotationRepository(ExactEntityRepository):
     id_column = ANNOTATION_SPEC.id_column
     input_aliases: ClassVar[Mapping[str, str]] = ANNOTATION_SPEC.input_aliases
     match_spec = ANNOTATION_SPEC
+
+    def _prepare_write(
+        self, data: RowInput, *, existing: RowMapping | None = None
+    ) -> dict[str, object]:
+        """Require a live Item and an anchor for semantic annotation writes.
+
+        Nullable storage placeholders are not complete metadata annotations.
+        Partial edits validate their combined result without reusing equal text.
+        """
+        payload = super()._prepare_write(data, existing=existing)
+        complete = dict(existing or {}) | payload
+        item_id = complete.get("annotation_item_id")
+        if type(item_id) is not int:
+            raise TypeError("item_id must be an integer")
+        self._require_table_row("items", item_id)
+        for column in (
+            "annotation_kind", "annotation_anchor_type", "annotation_anchor_start"
+        ):
+            value = complete.get(column)
+            if not isinstance(value, str) or not value.strip():
+                raise CatalogMutationError(
+                    "Annotations require a kind, anchor type and start"
+                )
+        return payload
 
     def list_for_item(
         self,

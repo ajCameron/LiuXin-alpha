@@ -23,6 +23,9 @@ from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 from LiuXin_alpha.catalog.api.metadata_tools_api import CatalogMetadataToolsAPI
 
 if TYPE_CHECKING:
+    from LiuXin_alpha.catalog.api.repositories.hierarchy import (
+        HierarchicalRepositoryAPI, HierarchicalMembershipRepositoryAPI,
+    )
     from LiuXin_alpha.catalog.custom_fields import CustomFieldEvaluator
     from LiuXin_alpha.databases.custom_columns.native_service import CustomFieldService
     from collections.abc import Mapping
@@ -139,9 +142,9 @@ class CatalogAPI(CatalogAddinsAPI, Protocol):
     notes: "NoteRepositoryAPI"
     tags: "WorkMembershipRepositoryAPI"
     labels: "ExactEntityRepositoryAPI"
-    genres: "ExactEntityRepositoryAPI"
-    subjects: "ExactEntityRepositoryAPI"
-    series: "WorkMembershipRepositoryAPI"
+    genres: "HierarchicalRepositoryAPI"
+    subjects: "HierarchicalRepositoryAPI"
+    series: "HierarchicalMembershipRepositoryAPI"
     languages: "ExactEntityRepositoryAPI"
     ratings: "ExactEntityRepositoryAPI"
     comments: "CommentRepositoryAPI"

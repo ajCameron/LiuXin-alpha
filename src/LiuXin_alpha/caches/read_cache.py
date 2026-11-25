@@ -3,9 +3,9 @@ Compose cache lifecycle and common queries independently of Catalog.
 
 One reentrant lock serializes facade operations. Snapshot backends refresh
 explicit dirty dependencies before reads; live backends provide fresh reads
-and reset query indexes as needed. The public writable Cache subclasses this
-facade and supplies Catalog write integration; Catalog retrieval uses this
-read-only owner so reading through a cache cannot create a dependency cycle.
+and reset query indexes as needed. The public Cache subclasses this facade without
+adding metadata policy. Higher-level services supply physical dependencies to
+reconcile after writes; this module does not interpret Catalog mutations.
 """
 
 from __future__ import annotations
@@ -29,7 +29,6 @@ from LiuXin_alpha.caches.api.cache_api import (
     CacheReconciliationError,
     CacheRecord,
     CacheState,
-    CacheWriter,
 )
 from LiuXin_alpha.caches.api.storage_cache_api.storage_cache_api import (
     StorageCacheAPI,
@@ -827,33 +826,6 @@ class ReadCache(CacheAPI):
                 self._pending_query_results = None
                 raise
 
-    @staticmethod
-    def _update_dependencies(
-        update: object,
-    ) -> tuple[set[str], set[tuple[str, str]], set[str]]:
-        """
-        Derive storage refresh dependencies from a normalized Catalog update.
-
-        A column update affects its table and qualified column field. Link and
-        owned-row updates affect the secondary table and both link directions, with
-        one direction for a self-link. No storage operation is performed.
-
-        Example:
-            A column update for books.title yields table books and field books.title,
-            with no link pairs.
-
-
-        :param update: CatalogColumnUpdate, CatalogOwnedRowUpdate or LinkUpdate.
-        :return: Tuple of main-table names, directed link pairs and field keys, each as a set.
-        :raises TypeError: The update is not one of the supported normalized update types.
-        """
-
-        del update
-        raise NotImplementedError(
-            "ReadCache does not interpret Catalog updates; use "
-            "LiuXin_alpha.caches.cache.Cache."
-        )
-
     def _mark_dependencies_dirty(
         self,
         tables: Iterable[str],
@@ -908,31 +880,36 @@ class ReadCache(CacheAPI):
         self._state = CacheState.DIRTY
         self._advance_generation()
 
-    def _reconcile_catalog_update(
+    def reconcile(
         self,
-        update: object,
         result: Mapping[int, object],
+        *,
+        tables: Iterable[str] = (),
+        links: Iterable[tuple[str, str]] = (),
+        fields: Iterable[str] = (),
     ) -> None:
         """
-        Reconcile a nonempty Catalog receipt or retain dependencies for recovery.
+        Publish explicit physical dependencies after a successful external write.
 
-        With the lock and readiness check, derive dependencies. LIVE consistency
+        With the lock and readiness check, materialize supplied dependencies. LIVE consistency
         advances generation only. An open macro transaction marks snapshot dependencies
         dirty for later refresh. Otherwise reload affected tables/links and existing
         fields. A refresh failure marks dependencies dirty and raises with the original
         receipt; persistence is not retried. Success sets READY and advances generation.
-        Previously pending dependency sets are managed by the calling write boundary.
+        Earlier dirty dependencies are refreshed first so publishing this receipt
+        cannot hide an unrelated external invalidation.
 
         Example:
-            If Catalog saves a title but reloading books fails, the exception receipt
+            If a writer saves a title but reloading books fails, the exception receipt
             still reports the successful title write.
 
 
-        :param update: Normalized update used to derive cache dependencies.
-        :param result: Catalog result mapping; an empty mapping returns immediately.
+        :param result: Authoritative write receipt; an empty mapping returns immediately.
+        :param tables: Main tables affected by the write.
+        :param links: Directed table pairs affected by the write.
+        :param fields: Qualified field names affected by the write.
         :return: None; refreshes storage, advances live generation, or defers snapshot refresh.
         :raises CacheReconciliationError: Persistence succeeded but dependency refresh failed.
-        :raises TypeError: The nonempty receipt belongs to an unsupported update type.
         """
 
         if not result:
@@ -940,7 +917,7 @@ class ReadCache(CacheAPI):
 
         with self._lock:
             self._assert_ready()
-            tables, links, fields = self._update_dependencies(update)
+            tables, links, fields = set(tables), set(links), set(fields)
             if self.capabilities.consistency == CacheConsistency.LIVE:
                 self._advance_generation()
                 return
@@ -950,6 +927,7 @@ class ReadCache(CacheAPI):
                 return
 
             try:
+                self._refresh_dirty()
                 for table in sorted(tables):
                     self.storage.reload_main_table(table)
                 for source, target in sorted(links):
@@ -964,131 +942,13 @@ class ReadCache(CacheAPI):
                 dependencies.update(f"{source}->{target}" for source, target in links)
                 dependencies.update(fields)
                 raise CacheReconciliationError(
-                    "Catalog commit succeeded but cache reconciliation failed",
+                    "Write succeeded but cache reconciliation failed",
                     receipt=result,
                     dependencies=dependencies,
                 ) from exc
 
             self._state = CacheState.READY
             self._advance_generation()
-
-    def create_writer(
-        self,
-        src_table: str,
-        dst_column: str,
-        *,
-        force_refresh: bool = False,
-        destination_owned: bool | None = None,
-    ) -> CacheWriter:
-        """
-        Bind a schema-resolved Catalog writer to this cache for reconciliation.
-
-        The concrete facade checks readiness on creation and attachment again on
-        execution. Writer validation and persistence follow Catalog policy. Refresh
-        failures after persistence preserve the receipt in CacheReconciliationError.
-        The lock covers writer construction only; execution reacquires it through
-        _CacheCatalogFacade. Creating a writer does not itself refresh DIRTY state.
-        Schema discovery and writer-factory errors propagate.
-
-        Example:
-            Create ``cache.create_writer("books", "title")`` and use its write_one
-            method to update titles through the cache boundary.
-
-
-        :param src_table: Table whose row IDs key updates.
-        :param dst_column: Destination value column resolved through schema discovery.
-        :param force_refresh: Refresh schema discovery before resolving the writer target.
-        :param destination_owned: Optional ownership override for a one-to-one destination.
-        :return: Catalog writer whose normalized updates pass through the cache boundary.
-        """
-
-        del src_table, dst_column, force_refresh, destination_owned
-        raise NotImplementedError(
-            "ReadCache does not own Catalog writes; use LiuXin_alpha.caches.cache.Cache."
-        )
-
-    def write(
-        self,
-        src_table: str,
-        dst_column: str,
-        *args: Any,
-        force_refresh: bool = False,
-        destination_owned: bool | None = None,
-        **kwargs: Any,
-    ) -> Mapping[int, object]:
-        """
-        Resolve a Catalog writer and apply its bulk-write operation.
-
-        Persistence and cache reconciliation are separate stages. A reconciliation
-        error does not mean the durable update failed; inspect its receipt before
-        deciding whether to retry.
-        force_refresh and destination_owned are consumed by create_writer; remaining
-        arguments are forwarded to writer.write without interpretation here.
-
-        Example:
-            ``cache.write("books", "title", {1: "Dune"})`` applies a scalar update
-            when the schema exposes that column on books.
-
-
-        :param src_table: Table whose row IDs key updates.
-        :param dst_column: Destination value column.
-        :param args: Positional arguments for the resolved writer's write method.
-        :param force_refresh: Refresh schema discovery before resolving the writer target.
-        :param destination_owned: Optional ownership override for a one-to-one destination.
-        :param kwargs: Keyword arguments forwarded to the resolved writer's write method.
-        :return: Authoritative Catalog write receipt.
-        """
-
-        writer = self.create_writer(
-            src_table,
-            dst_column,
-            force_refresh=force_refresh,
-            destination_owned=destination_owned,
-        )
-        return writer.write(*args, **kwargs)
-
-    def write_one(
-        self,
-        src_table: str,
-        dst_column: str,
-        src_id: int,
-        dst_value: Any,
-        *,
-        force_refresh: bool = False,
-        destination_owned: bool | None = None,
-        **kwargs: Any,
-    ) -> Mapping[int, object]:
-        """
-        Resolve a Catalog writer and apply one source-row update.
-
-        Persistence and cache reconciliation are separate stages. A reconciliation
-        error does not mean the durable update failed; inspect its receipt before
-        deciding whether to retry.
-        Construction flags are consumed by create_writer; src_id, dst_value and the
-        remaining options are passed to writer.write_one without interpretation here.
-
-        Example:
-            ``cache.write_one("books", "title", 1, "Dune")`` updates one scalar
-            value when supported by the schema.
-
-
-        :param src_table: Table containing the source row.
-        :param dst_column: Destination value column.
-        :param src_id: Source row identity passed to the writer.
-        :param dst_value: New value in the resolved writer's expected shape.
-        :param force_refresh: Refresh schema discovery before resolving the writer target.
-        :param destination_owned: Optional ownership override for a one-to-one destination.
-        :param kwargs: Keyword arguments forwarded to the resolved writer's write_one method.
-        :return: Authoritative Catalog write receipt.
-        """
-
-        writer = self.create_writer(
-            src_table,
-            dst_column,
-            force_refresh=force_refresh,
-            destination_owned=destination_owned,
-        )
-        return writer.write_one(src_id, dst_value, **kwargs)
 
 
 def create_read_cache(

@@ -252,9 +252,17 @@ class CoreServices:
         if self._closed:
             raise RuntimeError("Core services are closed")
         if self._metadata is None:
-            from LiuXin_alpha.caches.metadata import MetadataAPI
+            from LiuXin_alpha.caches.metadata import CatalogCache, MetadataAPI
 
-            self._metadata = MetadataAPI(self.catalog, cache=self.cache, allow_database_fallback=self.cache_allow_database_fallback)
+            self._metadata = (
+                MetadataAPI(self.catalog)
+                if self.cache is None
+                else CatalogCache(
+                    self.catalog,
+                    cache=self.cache,
+                    allow_database_fallback=self.cache_allow_database_fallback,
+                )
+            )
         return self._metadata
 
     @property

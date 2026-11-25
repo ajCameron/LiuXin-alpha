@@ -1579,53 +1579,12 @@ class FakeCacheFacade(CacheAPI):
         """
         return None
 
-    def create_writer(self, *_args: Any, **_kwargs: Any) -> Any:
-        """
-        Return the configured writer double for cache-backed mutations.
-
-        Example:
-            Exercise FakeCacheFacade.create writer through its owning regression module::
-
-                python -m pytest -q tests/catalog/retrieval/test_item_metadata_hydrator.py
-
-
-        :param _args: Value supplied for args in the focused test operation.
-        :param _kwargs: Value supplied for kwargs in the focused test operation.
-        :return: The deterministic value, row, identity or collection described above.
-        """
+    def reconcile(self, *_args: Any, **_kwargs: Any) -> None:
+        """Reject refresh on this read-only test source."""
         raise NotImplementedError
 
-    def write(self, *_args: Any, **_kwargs: Any) -> Mapping[Any, Any]:
-        """
-        Record a batch mutation and return its configured result.
-
-        Example:
-            Exercise FakeCacheFacade.write through its owning regression module::
-
-                python -m pytest -q tests/catalog/retrieval/test_item_metadata_hydrator.py
 
 
-        :param _args: Value supplied for args in the focused test operation.
-        :param _kwargs: Value supplied for kwargs in the focused test operation.
-        :return: The deterministic value, row, identity or collection described above.
-        """
-        raise NotImplementedError
-
-    def write_one(self, *_args: Any, **_kwargs: Any) -> Mapping[Any, Any]:
-        """
-        Record one mutation and return its configured result.
-
-        Example:
-            Exercise FakeCacheFacade.write one through its owning regression module::
-
-                python -m pytest -q tests/catalog/retrieval/test_item_metadata_hydrator.py
-
-
-        :param _args: Value supplied for args in the focused test operation.
-        :param _kwargs: Value supplied for kwargs in the focused test operation.
-        :return: The deterministic value, row, identity or collection described above.
-        """
-        raise NotImplementedError
 
 
 def _build_fake_database() -> FakeDatabase:

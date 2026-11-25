@@ -14,7 +14,7 @@ import enum
 from collections.abc import Iterable, Iterator, KeysView, Mapping
 from dataclasses import dataclass, field
 from types import MappingProxyType
-from typing import TYPE_CHECKING, Any, Generic, Optional, Protocol, TypeVar
+from typing import TYPE_CHECKING, Any, Generic, Optional, TypeVar
 
 from LiuXin_alpha.caches.api.storage_cache_api.storage_cache_api import (
     StorageCacheAPI,
@@ -118,7 +118,7 @@ class CacheReconciliationError(CacheError):
     """
     Retain a successful write receipt when cache reconciliation fails.
 
-    The receipt is the authoritative Catalog result after persistence succeeded.
+    The receipt is the authoritative writer result after persistence succeeded.
     Refresh the affected cache dependencies independently; blindly repeating the
     write can apply it twice. The receipt mapping is copied and read-only at the
     top level, while nested values remain shared. Dependencies are string labels.
@@ -140,7 +140,7 @@ class CacheReconciliationError(CacheError):
         """
         Copy the receipt and freeze dependency labels for later recovery.
 
-        The receipt is the authoritative Catalog result after persistence succeeded.
+        The receipt is the authoritative writer result after persistence succeeded.
         Refresh the affected cache dependencies independently; blindly repeating the
         write can apply it twice. The receipt mapping is copied and read-only at the
         top level, while nested values remain shared. Dependencies are string labels.
@@ -153,7 +153,7 @@ class CacheReconciliationError(CacheError):
 
 
         :param message: Error message forwarded to RuntimeError.
-        :param receipt: Successful Catalog result; nested values are retained by reference.
+        :param receipt: Successful writer result; nested values are retained by reference.
         :param dependencies: Iterable consumed into a deduplicated frozenset of strings.
         :return: None; records the receipt and dependency labels without retrying work.
         """
@@ -676,56 +676,12 @@ class CacheQueryResult:
         return tuple(record.row_id for record in self.records)
 
 
-class CacheWriter(Protocol):
-    """
-    Schema-selected writer with row-ID-keyed receipts.
-
-    Payload arguments depend on the selected column/relation writer. The common
-    cache surface preserves those dynamic payloads while typing identities and
-    receipt containers; Cache.create_writer exposes the concrete writer union.
-
-    Example:
-        ``cache.create_writer("works", "work_title")`` selects a scalar writer.
-    """
-
-    def write(self, *args: Any, **kwargs: Any) -> Mapping[int, object]:
-        """
-        Apply the selected writer's batch payload and return row-keyed receipts.
-
-        Example:
-            The scalar writer accepts a mapping from owner IDs to replacement values.
-
-
-        :param args: Positional payload arguments defined by the concrete writer.
-        :param kwargs: Named policy or payload arguments defined by the concrete writer.
-        :return: Owner-ID-keyed receipt mapping after persistence and reconciliation.
-        """
-        ...
-
-    def write_one(
-        self, src_id: int, dst_value: Any, **kwargs: Any
-    ) -> Mapping[int, object]:
-        """
-        Apply one owner's scalar or relationship payload.
-
-        Example:
-            ``writer.write_one(7, "Revised title")`` updates one scalar owner.
-
-
-        :param src_id: Owner row identity.
-        :param dst_value: Payload interpreted by the selected writer.
-        :param kwargs: Writer-specific policy options.
-        :return: Receipt mapping keyed by the affected owner identity.
-        """
-        ...
-
-
 class CacheAPI(abc.ABC):
     """
     Specify the application facade around an attached database and storage cache.
 
     Implementations own lifecycle, structured queries, explicit invalidation and
-    Catalog-mediated writes. They report consistency through capabilities so
+    physical reconciliation. Metadata services and persistence live above this API. They report consistency through capabilities so
     callers can distinguish live reads from snapshots. Storage backends remain
     responsible for their own read/refresh machinery. Abstract members define
     contracts only; use Cache for the concrete implementation.
@@ -959,93 +915,29 @@ class CacheAPI(abc.ABC):
         """
 
     @abc.abstractmethod
-    def create_writer(
+    def reconcile(
         self,
-        src_table: str,
-        dst_column: str,
+        result: Mapping[int, object],
         *,
-        force_refresh: bool = False,
-        destination_owned: bool | None = None,
-    ) -> CacheWriter:
-        """
-        Bind a schema-resolved Catalog writer to this cache for reconciliation.
-
-        The concrete facade checks readiness on creation and attachment again on
-        execution. Writer validation and persistence follow Catalog policy. Refresh
-        failures after persistence preserve the receipt in CacheReconciliationError.
+        tables: Iterable[str] = (),
+        links: Iterable[tuple[str, str]] = (),
+        fields: Iterable[str] = (),
+    ) -> None:
+        """Refresh physical dependencies supplied by an authoritative writer.
 
         Example:
-            Create ``cache.create_writer("books", "title")`` and use its write_one
-            method to update titles through the cache boundary.
+            ``cache.reconcile(receipt, tables=("works",))`` publishes affected rows.
 
-
-        :param src_table: Table whose row IDs key updates.
-        :param dst_column: Destination value column resolved through schema discovery.
-        :param force_refresh: Refresh schema discovery before resolving the writer target.
-        :param destination_owned: Optional ownership override for a one-to-one destination.
-        :return: Catalog writer whose normalized updates pass through the cache boundary.
-        """
-
-    @abc.abstractmethod
-    def write(
-        self,
-        src_table: str,
-        dst_column: str,
-        *args: Any,
-        **kwargs: Any,
-    ) -> Mapping[int, object]:
-        """
-        Resolve a Catalog writer and apply its bulk-write operation.
-
-        Persistence and cache reconciliation are separate stages. A reconciliation
-        error does not mean the durable update failed; inspect its receipt before
-        deciding whether to retry.
-
-        Example:
-            ``cache.write("books", "title", {1: "Dune"})`` applies a scalar update
-            when the schema exposes that column on books.
-
-
-        :param src_table: Table whose row IDs key updates.
-        :param dst_column: Destination value column.
-        :param args: Positional arguments for the resolved writer's write method.
-        :param kwargs: Writer options and any implementation-supported construction options.
-        :return: Authoritative Catalog write receipt.
-        """
-
-    @abc.abstractmethod
-    def write_one(
-        self,
-        src_table: str,
-        dst_column: str,
-        src_id: int,
-        dst_value: Any,
-        **kwargs: Any,
-    ) -> Mapping[int, object]:
-        """
-        Resolve a Catalog writer and apply one source-row update.
-
-        Persistence and cache reconciliation are separate stages. A reconciliation
-        error does not mean the durable update failed; inspect its receipt before
-        deciding whether to retry.
-
-        Example:
-            ``cache.write_one("books", "title", 1, "Dune")`` updates one scalar
-            value when supported by the schema.
-
-
-        :param src_table: Table containing the source row.
-        :param dst_column: Destination value column.
-        :param src_id: Source row identity passed to the writer.
-        :param dst_value: New value in the resolved writer's expected shape.
-        :param kwargs: Writer options and any implementation-supported construction options.
-        :return: Authoritative Catalog write receipt.
+        :param result: Write receipt retained if reconciliation fails; empty means no-op.
+        :param tables: Affected main tables.
+        :param links: Affected directed table pairs.
+        :param fields: Affected qualified fields.
+        :return: None; advances generation, refreshes or defers until transaction end.
         """
 
 
 __all__ = [
     "CacheAPI",
-    "CacheWriter",
     "CacheCapabilities",
     "CacheClosedError",
     "CacheConsistency",

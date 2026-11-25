@@ -45,6 +45,22 @@ graphs and relationship semantics; these new database workloads populate works.
 
 ## Running locally or in CI
 
+The additional [vocabulary tree stress cases](../../tests/databases/caches/test_metadata_trees_long.py)
+use the same opt-in and size settings, and run separately from the fixed search
+runner matrix. They cover uncached reads and all three cache backends. Full size
+constructs a chain of 1,001 nodes and a root with 10,000 children, checks iterative
+traversal and limits, then reverses the complete sibling order. Use smoke size to
+validate this harness before requesting the longer run:
+
+```sh
+LIUXIN_RUN_CACHE_LONG_TESTS=1 LIUXIN_CACHE_LONG_SIZE=smoke \
+  .venv/bin/python -m pytest -q tests/databases/caches/test_metadata_trees_long.py
+```
+
+Set `LIUXIN_CACHE_LONG_ARTIFACTS` to retain the per-operation timing JSON outside
+pytest's temporary directory. Full-size execution is opt-in evidence, not implied
+by a passing smoke run.
+
 Use a **new artifact directory** for each invocation:
 
 ```sh
