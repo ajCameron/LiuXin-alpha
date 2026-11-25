@@ -253,7 +253,9 @@ def test_the_cover_is_kept_as_the_book_stores_it(tmp_path: Path) -> None:
     Return a PNG cover's own bytes, named PNG.
 
     calibre re-encodes every MOBI cover as a JPEG of at most 1650x2200
-    through Qt; LiuXin keeps what the book holds.
+    through Qt; LiuXin keeps what the book holds unless the
+    ``read_mobi_covers_as`` setting asks for calibre's cover (see
+    ``tests/metadata/file_sources/test_mobi_cover_reading.py``).
 
     Example:
         >>> test_the_cover_is_kept_as_the_book_stores_it(Path("/tmp"))  # doctest: +SKIP
@@ -825,6 +827,6 @@ def test_the_mobi_fixes_are_in_the_port() -> None:
     ):
         assert fix in reader, fix
     assert "if size == 0:  # LiuXin:" in Path(mobi_headers.__file__).read_text(encoding="utf-8")
-    assert "mi.cover_data = ('jpg', data)  # LiuXin:" in Path(mobi.__file__).read_text(encoding="utf-8")
+    assert "mi.cover_data = mobi_covers.read_mobi_cover(data)  # LiuXin:" in Path(mobi.__file__).read_text(encoding="utf-8")
     assert "self.unpacked > MAX_UNPACKED:  # LiuXin:" in Path(huffcdic.__file__).read_text(encoding="utf-8")
     assert "_linear_time.linear_pattern(" in Path(chardet.__file__).read_text(encoding="utf-8")

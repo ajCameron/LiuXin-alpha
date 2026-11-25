@@ -117,11 +117,11 @@ were the ones on the stacked branches, without #178's fixes for OPF 2 fields.
   first image in archive order (its `extract_member` matches any image as well as
   the name it was given); the port does the same. CBZ and CBR covers are the first
   page in natural order.
-- **DOCX keywords.** calibre splits a DOCX's keywords on spaces as well as commas, so
-  a tag holding a space comes back as two. LiuXin's reader splits on commas or
-  semicolons when the keywords have any, and on spaces only otherwise (see
-  [metadata writers](../file_formats/metadata-writers.md)). The ported provider keeps
-  calibre's reading.
+- **DOCX keywords (settled in #222).** calibre splits a DOCX's keywords on spaces as
+  well as commas, so a tag holding a space comes back as two. LiuXin's reader splits
+  them as the `keyword_splitting` setting says: by default against the library's
+  known tags, else at commas and semicolons, or as calibre does (see
+  [keywords](../metadata/keywords.md)). The ported provider keeps calibre's reading.
 - **PDF Subject.** calibre makes a PDF's Subject its first tag. The XMP
   specification maps it to `dc:description`, and LiuXin's default PDF policy reads it
   as the description (see [combining Info and XMP](../file_formats/pdf/README.md#combining-info-and-xmp)).
@@ -149,8 +149,10 @@ were the ones on the stacked branches, without #178's fixes for OPF 2 fields.
   (`jpeg`, `png`). calibre's EPUB reader labels every cover `jpg`, and its
   HTMLZ/TXTZ reader uses the file extension, dot included. Other providers
   still pass calibre's label on.
-- **MOBI covers.** calibre re-encodes every MOBI cover as a JPEG of at most
-  1650x2200 pixels, through Qt. The port keeps the image the book holds, as
+- **MOBI covers (settled in #222).** calibre re-encodes every MOBI cover as a JPEG of at most
+  1650x2200 pixels, through Qt. LiuXin's reader and the port follow the `read_mobi_covers_as`
+  setting: `calibre` gives calibre's cover, for older devices, and the default,
+  `original`, keeps the image the book holds, as
   the EPUB reader does.
 - **Plucker dates.** calibre and LiuXin's reader both take a Plucker book's
   publication date as seconds since 1970, while the

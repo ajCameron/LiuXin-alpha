@@ -451,10 +451,10 @@ from LiuXin_alpha.metadata.upstream_calibre import _linear_time  # LiuXin:
         (
             """            mi.cover_data = ('jpg', save_cover_data_to(data))
 """,
-            """            # LiuXin: keep the cover as the book stores it. calibre re-encodes it
-            # as a JPEG no larger than 1650x2200, which needs Qt; LiuXin names
-            # the format from the bytes instead.
-            mi.cover_data = ('jpg', data)  # LiuXin:
+            """            # LiuXin: the read_mobi_covers_as setting chooses the cover as the
+            # book holds it (the default) or calibre's re-encoded JPEG.
+            from LiuXin_alpha.metadata.file_sources import mobi_covers  # LiuXin:
+            mi.cover_data = mobi_covers.read_mobi_cover(data)  # LiuXin:
 """,
         ),
     ),

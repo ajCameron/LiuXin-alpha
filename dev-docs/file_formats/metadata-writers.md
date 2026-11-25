@@ -62,8 +62,8 @@ line (which sends bytes and writes the result back atomically), protect the file
 - **DOCX tags were written with `_-_` for each space.** The point was to stop LiuXin's
   reader, which split keywords on spaces as calibre's does, from splitting a tag that
   holds one. Word and calibre showed the token. Tags are now plain comma-separated
-  keywords. The reader splits on commas or semicolons when the keywords have any,
-  and on spaces otherwise; it still turns `_-_` back into a space.
+  keywords. The reader splits them as the `keyword_splitting` setting says (see
+  [keywords](../metadata/keywords.md)); it still turns `_-_` back into a space.
 - **Languages were written as `fre`, `ger`, `eng`, where `fr`, `de`, `en` belong.**
   This reached DOCX `dc:language` and the MOBI language record (EXTH 524).
   `lang_as_iso639_1` falls back to LiuXin's ISO 639-2 table, because calibre's

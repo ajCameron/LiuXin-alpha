@@ -17,6 +17,12 @@ Metadata reading and writing enters through
 `MetadataHeader`, reads EXTH metadata, can dispatch Topaz payloads that start
 with `TPZ`, and can patch EXTH metadata in place with `MetadataUpdater`.
 
+The cover comes back as the book holds it, byte for byte. The `read_mobi_covers_as`
+setting can ask for calibre's cover instead, for older devices: a JPEG no larger
+than 1650x2200, re-encoded where needed (#222,
+`src/LiuXin_alpha/metadata/file_sources/mobi_covers.py`). The calibre port follows
+the same setting.
+
 Output conversion enters through `MOBIOutput` and `AZW3Output` in
 `src/LiuXin_alpha/file_formats/conversion/plugins/mobi_output.py`. Old MOBI6
 output is serialized by `MobiWriter` in
