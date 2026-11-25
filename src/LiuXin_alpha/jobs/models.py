@@ -116,6 +116,7 @@ class JobEventKind(StrEnum):
     STARTED = "started"
     PROGRESS = "progress"
     HEARTBEAT = "heartbeat"
+    TIMED_OUT = "timed_out"
     SUCCEEDED = "succeeded"
     FAILED = "failed"
     CANCEL_REQUESTED = "cancel_requested"
@@ -129,9 +130,9 @@ class JobDefinition:
     """
     Durable configuration describing what, when, and how a job should run.
 
-    Timeout/retry settings are stored declarations; the current worker does not
-    enforce execution deadlines or automatically retry work. Its lease duration
-    controls ownership and recovery independently.
+    Timeouts are captured per attempt and acknowledged at cooperative checkpoints;
+    they cannot preempt arbitrary external calls. Retry eligibility requires a
+    registered domain proof. Lease duration controls ownership independently.
 
     Example:
         Exercise JobDefinition through a consuming regression::
@@ -184,6 +185,8 @@ class JobRun:
     job_run_id: int | None = None
     job_name: str | None = None
     retry_of_job_run_id: int | None = None
+    timeout_s: float | None = None
+    recovery_state: str | None = None
     worker_id: str | None = None
     lease_token: str | None = None
     payload_json: str | None = None
