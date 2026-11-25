@@ -9,25 +9,19 @@ manager performs cleanup rather than defining a rollback transaction; concurrent
 must coordinate access according to the selected driver and operation.
 """
 
-from __future__ import annotations, unicode_literals
+from __future__ import annotations
 
 import os
-import pprint
 import pathlib
+import pprint
+from collections.abc import Callable, Iterable, Mapping, Set
 from contextlib import nullcontext
 from copy import deepcopy
-from collections.abc import Callable, Iterable, Mapping, Set
 from types import TracebackType
-from LiuXin_alpha.databases.db_types.driver_types import (
-    QueryConnection,
-    SQLConnection,
-    SQLExecuteOperation,
-    SQLExecuteManyOperation,
-    SQLGetOperation,
-)
-from typing import TYPE_CHECKING, Optional, Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 from urllib.parse import urlsplit
 
+from LiuXin_alpha.configuration import current_preferences
 from LiuXin_alpha.constants.paths import LiuXin_default_database
 from LiuXin_alpha.databases.api import (
     DatabaseAPI,
@@ -36,16 +30,16 @@ from LiuXin_alpha.databases.api import (
     DatabaseMacrosAPI,
     MetadataSQLAPI,
 )
-from LiuXin_alpha.databases.database.constants import (
-    HELPER_TABLES,
-    OPTIONAL_HELPER_TABLES,
-)
 from LiuXin_alpha.databases.database._driver_binding import (
     close_driver,
     connection_metadata,
     same_catalogue,
     schema_bindings,
     table_category,
+)
+from LiuXin_alpha.databases.database.constants import (
+    HELPER_TABLES,
+    OPTIONAL_HELPER_TABLES,
 )
 from LiuXin_alpha.databases.database.dirtied_mixin import (
     DatabaseDirtiedRecordsMixin,
@@ -62,25 +56,32 @@ from LiuXin_alpha.databases.database.rating_mixin import DatabaseRatingMixin
 from LiuXin_alpha.databases.database.search_mixin import DatabaseSearchMixin
 from LiuXin_alpha.databases.database.tree_mixin import DatabaseTreeMixin
 from LiuXin_alpha.databases.database_driver_plugins.registry import load_database_driver
+from LiuXin_alpha.databases.db_types.driver_types import (
+    QueryConnection,
+    SQLConnection,
+    SQLExecuteManyOperation,
+    SQLExecuteOperation,
+    SQLGetOperation,
+)
 from LiuXin_alpha.databases.driver_wrapper import DriverWrapper
 from LiuXin_alpha.databases.maintenance import Maintainer
 from LiuXin_alpha.databases.metadata_sql import MetadataSQL
 from LiuXin_alpha.databases.row import Row
 from LiuXin_alpha.errors import DatabaseIntegrityError, InputIntegrityError
-from LiuXin_alpha.configuration import current_preferences
 
 # Py2/Py3 compatibility layer
 from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 from LiuXin_alpha.utils.logging import default_log
 
 if TYPE_CHECKING:
+    from _thread import RLock
+
+    from LiuXin_alpha.databases.api.maintenance_api import MaintenanceCallbackSinkAPI
+    from LiuXin_alpha.databases.api.row_api import RowAPI
     from LiuXin_alpha.storage.durable_manager import (
         StorageBootstrapReport,
         StorageManager,
     )
-    from LiuXin_alpha.databases.api.row_api import RowAPI
-    from LiuXin_alpha.databases.api.maintenance_api import MaintenanceCallbackSinkAPI
-    from _thread import RLock
 
 
 # Todo: Embed this version number in the database - so that we can check the version of the code used to produce each
@@ -296,7 +297,7 @@ class Database(
         db_type: str = "SQLite",
         create: bool = False,
         backup: bool = True,
-        existing_driver: Optional[DatabaseDriverAPI] = None,
+        existing_driver: DatabaseDriverAPI | None = None,
         enable_storage_manager: bool = False,
         strict_storage_manager_bootstrap: bool = False,
         storage_startup_on_add: bool = False,
@@ -669,8 +670,11 @@ class Database(
             # callers want that repair, but read-only probes should be able to
             # open an existing database without taking a write lock.
             if repair_bootstrap_rows:
-                self.check_rating_table()
-                self.ensure_null_rows()
+                # The check-and-insert sequence must be reserved across processes
+                # just like a user edit. Concurrent opens can share an empty DB.
+                with self.macros.transaction(serialized=True):
+                    self.check_rating_table()
+                    self.ensure_null_rows()
 
         self._initialise_runtime_collaborators(enable_maintenance=enable_maintenance)
 
@@ -1023,7 +1027,7 @@ class Database(
         self.break_cycles()
         self._lifecycle_state = "closed"
 
-    def __enter__(self) -> "Database":
+    def __enter__(self) -> Database:
         """
         Return this facade for use inside a cleanup context.
 
@@ -1334,7 +1338,7 @@ class Database(
 
         :return: Multiline string, including unredacted metadata.
         """
-        rtn_str = "LiuXin DatabasePing - Type:{}\n".format(self.type)
+        rtn_str = f"LiuXin DatabasePing - Type:{self.type}\n"
         rtn_str += "metadata:\n"
         rtn_str += pprint.pformat(self.metadata) + "\n"
         return rtn_str
@@ -1402,7 +1406,7 @@ class Database(
         """
         ans = list()
         ans.append("LiuXin_Database")
-        ans.append("database_uuid: {}".format(self.uuid))
+        ans.append(f"database_uuid: {self.uuid}")
 
         ans.append("DatabasePing MetaData")
         ans.append(pprint.pformat(self.metadata, indent=2))
@@ -1472,7 +1476,7 @@ class Database(
     #
     # - METHODS TO ADD TO THE DATABASE START HERE
 
-    def dupe_row(self, row: "RowAPI") -> "RowAPI":
+    def dupe_row(self, row: RowAPI) -> RowAPI:
         """
         Insert a blank row, copy source fields and synchronize under the new ID.
 
@@ -1515,7 +1519,7 @@ class Database(
     #
     # - METHODS TO DELETE FROM THE DATABASE START HERE
 
-    def delete(self, row: "RowAPI") -> None:
+    def delete(self, row: RowAPI) -> None:
         """
         Delete the supplied row identity through this facade wrapper.
 
@@ -1542,7 +1546,7 @@ class Database(
     #
     # ----------------------------------------------------------------------------------------------------------------------
 
-    def get_blank_row(self, table: Optional[str] = None) -> "RowAPI":
+    def get_blank_row(self, table: str | None = None) -> RowAPI:
         """
         Insert a backend blank record and wrap its generated fields in a Row.
 
@@ -1621,8 +1625,8 @@ class Database(
     def update_columns(
         self,
         values_map: dict[int, Any],
-        field: Optional[str] = None,
-        table: Optional[str] = None,
+        field: str | None = None,
+        table: str | None = None,
     ) -> None:
         """
         Forward a bulk value mapping and optional column/table hints to the wrapper.
@@ -1665,7 +1669,7 @@ class Database(
         :return: True when the metadata values compare equal, otherwise False.
         :raises AttributeError: other has no metadata attribute.
         """
-        if self.metadata == getattr(other, "metadata"):
+        if self.metadata == getattr(other, "metadata"):  # noqa: B009 - deliberate duck protocol
             return True
         else:
             return False

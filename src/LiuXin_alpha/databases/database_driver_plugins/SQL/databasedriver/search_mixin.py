@@ -12,7 +12,7 @@ import re
 import sqlite3
 from collections.abc import Iterable, Mapping, Sequence
 from copy import deepcopy
-from contextlib import closing
+from contextlib import closing, nullcontext
 from typing import cast, Any, Iterator, Literal, Optional, Union, TYPE_CHECKING
 
 from LiuXin_alpha.databases.db_types.driver_types import SQLParameters
@@ -155,8 +155,9 @@ class SearchMixin(SQLDriverMixinState):
         """
         Load every row into memory, optionally ordering by a validated column.
 
-        Close the query connection after successful iteration. Use only when
-        materializing the whole table is acceptable.
+        Borrow the managed transaction connection when one exists, so bulk reads
+        share its snapshot and see its writes. Otherwise own and close a short
+        connection. Use only when materializing the whole table is acceptable.
 
         Example:
             ``driver.direct_get_all_rows("books", sort_column="book_id", reverse=True)``
@@ -170,8 +171,6 @@ class SearchMixin(SQLDriverMixinState):
             ignored.
         :return: A list of converted row dictionaries.
         """
-        conn = driver_operations(self).get_connection()
-        c = conn.cursor()
         table = force_unicode(table)
         headings = driver_operations(self).direct_get_column_headings(table)
 
@@ -197,15 +196,17 @@ class SearchMixin(SQLDriverMixinState):
             else:
                 stmt = "SELECT * FROM {} ORDER BY {} DESC".format(table, sort_column)
 
-        results = []
-        for row in c.execute(stmt):
-            this_row = driver_operations(self)._row_to_dict(
-                table=table, headings=headings, row=row
-            )
-            results.append(this_row)
-
-        conn.close()
-        return results
+        active = driver_operations(self).macros.current_transaction_connection()
+        boundary = nullcontext(active) if active is not None else closing(driver_operations(self).get_connection())
+        with boundary as conn, closing(conn.execute(stmt)) as cursor:
+            return [
+                driver_operations(self)._row_to_dict(
+                    table=table,
+                    headings=headings,
+                    row=tuple(row[heading] for heading in headings) if isinstance(row, Mapping) else row,
+                )
+                for row in cursor
+            ]
 
     # Todo: Not sure why reverse is not implemented - fix
     def direct_get_row_dict_iterator(

@@ -8,33 +8,31 @@ or empty namespace, with serialized initialization and strict object creation.
 
 from __future__ import annotations
 
-from LiuXin_alpha.databases.db_types.driver_types import SQLConnection
-
 import json
 import pathlib
 import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 
-from LiuXin_alpha.databases.database.constants import HELPER_TABLES
 from LiuXin_alpha.databases.column_metadata import (
     ColumnMetadata,
     column_options_to_json,
     infer_column_metadata,
 )
-from LiuXin_alpha.databases.normalized_identities import (
-    iter_normalized_identity_defaults,
+from LiuXin_alpha.databases.database.constants import HELPER_TABLES
+from LiuXin_alpha.databases.database_driver_plugins.PostgreSQL.config import (
+    configured_postgres_schema,
 )
 from LiuXin_alpha.databases.database_driver_plugins.PostgreSQL.connection import (
     PostgresConnectionAdapter,
     connect_postgres,
 )
-from LiuXin_alpha.databases.database_driver_plugins.PostgreSQL.config import (
-    configured_postgres_schema,
+from LiuXin_alpha.databases.db_types.driver_types import SQLConnection
+from LiuXin_alpha.databases.normalized_identities import (
+    iter_normalized_identity_defaults,
 )
 from LiuXin_alpha.errors import DatabaseDriverError
 from LiuXin_alpha.utils.logging import default_log
-
 
 EPOCH_MS_DEFAULT = "(extract(epoch from clock_timestamp()) * 1000)::bigint"
 _SQL_FRBR_TABLE_ROOT = (
@@ -233,9 +231,17 @@ def build_schema_statements(*, schema: str = "public") -> tuple[str, ...]:
     statements.extend(hierarchy_guard_statements())
     statements.extend(_column_metadata_seed_statements())
     statements.extend(_normalized_identity_seed_statements())
+    from .language_upgrade import plan_rows
+
+    language_statements, blockers = plan_rows((), schema)
+    if blockers:
+        raise DatabaseDriverError("Bundled language constants conflict")
+    statements.extend(language_statements)
     from LiuXin_alpha.databases.schema_revision import CURRENT_SCHEMA_REVISION
 
-    statements.append(f"INSERT INTO schema_revision VALUES (1, {CURRENT_SCHEMA_REVISION})")
+    statements.append(
+        f"INSERT INTO schema_revision VALUES (1, {CURRENT_SCHEMA_REVISION})"
+    )
     return tuple(statements)
 
 
