@@ -2632,26 +2632,26 @@ class CoreApplicationAPI:
     @staticmethod
     def _writer_target(runtime: "CoreRuntime") -> tuple[Any, bool]:
         """
-        Prefer a configured cache as the field-write facade, otherwise use the Catalog.
+        Select Core's composed field writer and report whether a cache is configured.
 
-        Selection depends only on cache being non-None, not its capabilities or
-        health. Failures on a selected cache must not trigger a Catalog retry.
+        Native caches use CatalogCache through CoreServices. Injected writer
+        services retain their routing. Failure never triggers a Catalog retry.
 
         Example:
             >>> from types import SimpleNamespace
+            >>> from LiuXin_alpha.core.services import CoreServices
             >>> catalog = object()
-            >>> runtime = SimpleNamespace(services=SimpleNamespace(cache=None, catalog=catalog))
+            >>> services = CoreServices(library=SimpleNamespace(database=object()), catalog=catalog)
+            >>> runtime = SimpleNamespace(services=services)
             >>> target, cache_aware = CoreApplicationAPI._writer_target(runtime)
             >>> target is catalog, cache_aware
             (True, False)
 
 
         :param runtime: Runtime exposing cache and Catalog services.
-        :return: Chosen facade and whether it is the configured cache.
+        :return: Chosen writer facade and whether Core has a configured cache.
         """
-        if runtime.services.cache is not None:
-            return runtime.services.cache, True
-        return runtime.services.catalog, False
+        return runtime.services.field_writer, runtime.services.cache is not None
 
     def catalog_field_write(
         self,

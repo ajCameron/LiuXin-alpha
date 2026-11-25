@@ -192,9 +192,27 @@ failed required read into an empty result. Count-only database queries
 (`rows.query` with `limit=0`) filter and count without ordering or projecting
 row identities. See [read-model-failures.md](../surfaces/read-model-failures.md).
 
-Semantic catalog writes go through Catalog. Normalized field writes go through
-the Cache facade when configured. Custom-field/schema mutations identify
-themselves as schema changes; ordinary data writes use data-only cache reload.
+Semantic catalog writes go through Catalog. Normalized field commands
+(`catalog.field.write` and `catalog.field.write-one`) select
+`CoreServices.field_writer`. With a native generic cache this is the shared
+`services.metadata` composition, a `CatalogCache` bound to the configured
+Catalog and cache. The generic cache does not expose metadata write methods.
+Without a cache the configured Catalog owns field writes. Explicitly injected
+external cache/writer services retain their write contract. Core propagates the
+selected writer's failure without retrying through another persistence path or
+performing a second reconciliation.
+
+Container metadata writes create Genre, Subject and Series nodes using their
+native name column. A display-path column such as `genre_full` can still be
+searched, but does not substitute for the required node name on creation.
+Core tree nesting and Library metadata import reserve a serialized database unit
+before hierarchy reads or writes. A caller-owned outer unit must already have
+that reservation; it cannot be upgraded midway through a mutation. Hierarchy
+names remain nonblank, and sibling positions are zero-based insertion indexes
+within the current sibling count. Leaving a wizard position blank appends.
+
+Custom-field/schema mutations identify themselves as schema changes; ordinary
+data writes use data-only cache reload.
 
 If a canonical write commits but cache reconciliation fails, Core raises
 `cache_reconciliation_failed`. Its details retain the authoritative receipt

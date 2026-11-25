@@ -129,7 +129,7 @@ class NewGenreWizardCommand(TerminalCommandAPI):
             if parent_row is None:
                 raise ValueError("No genre exists with genre_id={}.".format(parent_id))
 
-        position_text = browser.prompt_text("Genre position (optional)", default="")
+        position_text = browser.prompt_text("Sibling position (zero-based; blank appends)", default="")
         genre_position = _safe_int(position_text)
         if position_text.strip() and genre_position is None:
             raise ValueError("Genre position must be an integer.")
