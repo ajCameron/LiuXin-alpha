@@ -689,6 +689,36 @@ class PdfDocument:
             self._spend(len(data))
         return data
 
+    def jpeg_data(self: Self, stream: PdfStream) -> bytes | None:
+        """
+        Give an image stream's JPEG: its data decrypted, with every filter undone but a final ``DCTDecode``.
+
+        Example:
+            >>> jpeg = b"\\xff\\xd8 scan \\xff\\xd9"
+            >>> pdf = minimal_pdf(b"<< >>", extra={3: b"<< /Filter /DCTDecode /Length %d >>\\nstream\\n%s\\nendstream" % (len(jpeg), jpeg)})
+            >>> document = PdfDocument(pdf)
+            >>> document.jpeg_data(document.resolve(PdfRef(3, 0))) == jpeg
+            True
+
+
+        :param stream: The image stream.
+        :return: The JPEG, or ``None`` when the stream is not one.
+        :raises PdfReadError: A filter's data is corrupt, or a limit is reached.
+        """
+        filters = [(name, parms) for name, parms in self._filters(stream.dictionary) if name != "Crypt"]
+        if not filters or filters[-1][0] != "DCTDecode":
+            return None
+        data = self._stream_raw(stream)
+        if self.security is not None and self._encrypted_stream(stream, self._filters(stream.dictionary)):
+            if self.security.stream_method == "V2" and len(data) > self.limits.rc4_stream_bytes:
+                raise PdfReadError("an RC4-encrypted stream is larger than the reading limit")
+            self._spend(len(data))
+            data = self.security.decrypt_stream(data, *stream.ref)
+        for name, parms in filters[:-1]:
+            data = apply_filter(name, parms, data, self._spend(0))
+            self._spend(len(data))
+        return data if data.startswith(b"\xff\xd8") else None
+
     def _encrypted_stream(self: Self, stream: PdfStream, filters: list[tuple[str, Mapping[str, Any]]]) -> bool:
         """
         Tell whether a stream's data is encrypted.

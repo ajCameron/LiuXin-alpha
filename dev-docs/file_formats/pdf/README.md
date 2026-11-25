@@ -47,6 +47,29 @@ A page larger than 20 inches is drawn at 3,000 pixels on its longest side. See
 the [port status page](../../plugins/upstream-calibre-port-status.md#hostile-input)
 for what that fixes.
 
+LiuXin's PDF conversion (`file_formats/pdf/pdftohtml.py`) runs poppler's `pdftohtml`
+the same way since #221. It writes a whole book's HTML and images, so its limits are
+wider: 600 s, 2 GiB of address space, and 512 MiB of output or for any one file. It
+runs in its output folder, without changing this process's folder. Before #221 it had
+never run: it named `isbsd` without importing it.
+
+## Covers without poppler
+
+LiuXin draws no pages without poppler. Its own reader (`liuxin.read-pdf-metadata`)
+takes a scanned book's cover as the scanner wrote it (#221,
+`file_formats/pdf/scanned_cover.py`): the JPEG the first page draws over the whole
+page. It takes it only when all of these hold:
+
+- the first page draws exactly one image, upright and not mirrored, over at least 85%
+  of its crop box (else its media box), and the page is not rotated;
+- the image is a JPEG (`DCTDecode`, perhaps behind other filters, which are undone);
+- it is in grey or RGB, at least 150 pixels a side, with no decode array or mask.
+
+Anything else gives no cover rather than a wrong one. CMYK JPEGs are left alone because
+many are stored inverted. A JPEG 2000 image would need decoding. Only the first page's
+own content streams are read, at most 1 MiB of them, within the reader's limits; a
+damaged page costs only the cover.
+
 ## Combining Info and XMP
 
 A PDF can say the same things twice, in its Info dictionary and in its XMP packet.
@@ -110,6 +133,9 @@ leaves empty keep what the file says.
   update, the way PDF editors save. The original bytes stay as they were, so outlines,
   forms, attachments and the earlier revision are kept, and so are the bytes a digital
   signature over that revision covers. Given a path, only the update is written to the file.
+  `tests/metadata/file_sources/test_pdf_signature_kept.py` signs a PDF
+  (`adbe.pkcs7.detached`), writes metadata into it, and checks that the signature still
+  verifies, with the signer's key and with poppler's `pdfsig` (#221).
 - **Info and XMP together.** The Info dictionary gets the new values and a new
   `ModDate`. When the file has an XMP packet, the same fields are updated there, and
   `xmp:MetadataDate` and `xmp:ModifyDate` get the same moment. No merge policy then
@@ -338,7 +364,5 @@ poppler:
 
 ## Open follow-ups
 
-- The reader takes no cover. A scanned book's first page is often a single JPEG image
-  XObject that could be returned as-is without rendering.
 - Writing into encrypted PDFs would need the update encrypted with the file's key; pypdf
   does not do that reliably yet.

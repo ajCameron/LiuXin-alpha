@@ -16,22 +16,20 @@ from __future__ import annotations
 
 import typing as _typing
 
-import errno
 import os
 import re
 import shutil
 import subprocess
 import sys
-from functools import partial
 
 from LiuXin_alpha.constants import iswindows
+from LiuXin_alpha.utils.bounded_process import ToolLimits, run_tool
 from LiuXin_alpha.utils.image_tools.executable_paths import bundled_executable_directory
+from LiuXin_alpha.utils.which_os import isbsd
 
 from LiuXin_alpha.file_formats import ConversionError, DRMError
 
-from LiuXin_alpha.utils.calibre import CurrentDir
 from LiuXin_alpha.utils.localization import trans as _
-from LiuXin_alpha.utils.ptempfiles import PersistentTemporaryFile
 
 __license__ = "GPL 3"
 __copyright__ = "2008, Kovid Goyal <kovid at kovidgoyal.net>, " "2009, John Schember <john@nachtimwald.com>"
@@ -43,10 +41,18 @@ PDFTOHTML = os.path.join(
     bundled_executable_directory(),
     "pdftohtml.exe" if iswindows and hasattr(sys, "frozen") else "pdftohtml",
 )
-popen = subprocess.Popen
+#: Windows process-creation flags: CREATE_NO_WINDOW, so that no console pops up.
+CREATION_FLAGS = 0x08 if iswindows and hasattr(sys, "frozen") else 0
 
-if iswindows and hasattr(sys, "frozen"):
-    popen = partial(subprocess.Popen, creationflags=0x08)  # CREATE_NO_WINDOW=0x08 so that no ugly console is popped up
+#: The bounds on one run. pdftohtml parses whatever file it is given; a crafted one
+#: can keep it busy, fill memory or print without end. A whole book's HTML and images
+#: are written, so the limits are wider than for poppler's metadata tools.
+PDFTOHTML_LIMITS = ToolLimits(
+    timeout=600.0,
+    cpu_seconds=600,
+    memory_bytes=2 << 30,
+    output_bytes=512 << 20,
+)
 
 
 def pdftohtml(output_dir: _typing.Any, pdf_path: _typing.Any, no_images: _typing.Any, as_xml: bool = False) -> None:
@@ -73,89 +79,77 @@ def pdftohtml(output_dir: _typing.Any, pdf_path: _typing.Any, no_images: _typing
     with open(pdf_path, "rb") as src, open(pdfsrc, "wb") as dest:
         shutil.copyfileobj(src, dest)
 
-    with CurrentDir(output_dir):
-        # This is necessary as pdftohtml doesn't always (linux) respect absolute paths.
-        def a(x: _typing.Any) -> _typing.Any:
-            """
-            Perform the a operation under explicit file-format and conversion rules.
+    # pdftohtml does not always (Linux) respect absolute paths, so it runs in the
+    # output folder and is given names; this process's folder does not change.
+    cmd = [
+        PDFTOHTML,
+        "-enc",
+        "UTF-8",
+        "-noframes",
+        "-p",
+        "-nomerge",
+        "-nodrm",
+        "-q",
+        os.path.basename(pdfsrc),
+        os.path.basename(index),
+    ]
+    if isbsd:
+        cmd.remove("-nodrm")
+    if no_images:
+        cmd.append("-i")
+    if as_xml:
+        cmd.append("-xml")
 
-            Example:
-                Exercise pdftohtml.a through a consuming regression::
-
-                    python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
-
-
-            :param x: Value supplied for x under the utility contract.
-            :return: The normalized value, metadata record, path, stream result or collection
-                described above.
-            """
-            return os.path.basename(x)
-
-        cmd = [
-            PDFTOHTML,
-            "-enc",
-            "UTF-8",
-            "-noframes",
-            "-p",
-            "-nomerge",
-            "-nodrm",
-            "-q",
-            a(pdfsrc),
-            a(index),
-        ]
-
-        if isbsd:
-            cmd.remove("-nodrm")
-        if no_images:
-            cmd.append("-i")
-        if as_xml:
-            cmd.append("-xml")
-
-        logf = PersistentTemporaryFile("pdftohtml_log")
-        try:
-            p = popen(cmd, stderr=logf._fd, stdout=logf._fd, stdin=subprocess.PIPE)
-        except OSError as err:
-            if err.errno == errno.ENOENT:
-                raise ConversionError(_("Could not find pdftohtml, check it is in your PATH"))
-            else:
-                raise
-
-        ret = "Internal Python error"
-        while True:
-            try:
-                ret = p.wait()
-                break
-            except OSError as e:
-                if e.errno == errno.EINTR:
-                    continue
-                else:
-                    raise
-        logf.flush()
-        logf.close()
-        with open(logf.name, "rb") as log_temp_file:
-            out = log_temp_file.read().strip()
+    try:
+        out = run_tool(cmd, cwd=output_dir, limits=PDFTOHTML_LIMITS, creationflags=CREATION_FLAGS).strip()
+    except subprocess.CalledProcessError as err:
+        raise _conversion_error(err) from err
+    finally:
         try:
             os.remove(pdfsrc)
-        except:
+        except OSError:
             pass
-        if ret != 0:
-            raise ConversionError("return code: %d\n%s" % (ret, out.decode("utf-8", "replace")))
-        if out:
-            print("pdftohtml log:")
-            print(out.decode("utf-8", "replace"))
-        if not os.path.exists(index) or os.stat(index).st_size < 100:
-            raise DRMError()
+    if out:
+        print("pdftohtml log:")
+        print(out.decode("utf-8", "replace"))
+    if not os.path.exists(index) or os.stat(index).st_size < 100:
+        raise DRMError()
 
-        if not as_xml:
-            with open(index, "r+b") as i:
-                raw = i.read()
-                raw = flip_images(raw)
-                raw = b"<!-- created by calibre's pdftohtml -->\n" + raw
-                i.seek(0)
-                i.truncate()
-                # versions of pdftohtml >= 0.20 output self closing <br> tags, this breaks the pdf heuristics regexps,
-                # so replace them
-                i.write(raw.replace(b"<br/>", b"<br>"))
+    if not as_xml:
+        with open(index, "r+b") as i:
+            raw = i.read()
+            raw = flip_images(raw)
+            raw = b"<!-- created by calibre's pdftohtml -->\n" + raw
+            i.seek(0)
+            i.truncate()
+            # versions of pdftohtml >= 0.20 output self closing <br> tags, this breaks the pdf heuristics regexps,
+            # so replace them
+            i.write(raw.replace(b"<br/>", b"<br>"))
+
+
+def _conversion_error(err: subprocess.CalledProcessError) -> ConversionError:
+    """
+    Explain why pdftohtml failed: missing, stopped at its limits, or its own error.
+
+    Example:
+        >>> str(_conversion_error(subprocess.CalledProcessError(127, ["pdftohtml"])))
+        'Could not find pdftohtml, check it is in your PATH'
+        >>> str(_conversion_error(subprocess.CalledProcessError(-9, ["pdftohtml"]))).startswith("pdftohtml was stopped")
+        True
+
+
+    :param err: What :func:`~LiuXin_alpha.utils.bounded_process.run_tool` raised.
+    :return: The error to raise.
+    """
+    if err.returncode == 127:
+        return ConversionError(_("Could not find pdftohtml, check it is in your PATH"))
+    detail = (err.stderr or b"").decode("utf-8", "replace").strip()
+    if err.returncode < 0:
+        return ConversionError(
+            f"pdftohtml was stopped (signal {-err.returncode}): the PDF took it past its time, "
+            f"memory or output limits\n{detail}"
+        )
+    return ConversionError("return code: %d\n%s" % (err.returncode, detail))
 
 
 def flip_image(img: _typing.Any, flip: _typing.Any) -> None:
