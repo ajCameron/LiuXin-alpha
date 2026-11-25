@@ -430,6 +430,15 @@ class FakeMacros:
         """
         self.db = db
 
+    def read_transaction(self):
+        """Supply the read scope for this single-threaded in-memory fixture.
+
+        Snapshot/rollback ownership is exercised against actual database drivers.
+        """
+        from contextlib import nullcontext
+
+        return nullcontext()
+
     def update_rows(self, table: str, updates: Mapping[int, Mapping[str, Any]]) -> None:
         """Apply row values for cache tests; real transaction tests use Database."""
         for row_id, values in updates.items():

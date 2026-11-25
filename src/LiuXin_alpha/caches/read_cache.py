@@ -294,9 +294,16 @@ class ReadCache(CacheAPI):
                 driver = getattr(self.database, "driver", None)
                 scope = getattr(driver, "schema_read_scope", None)
             with (
-                cast(AbstractContextManager[object], scope())
-                if callable(scope)
-                else nullcontext()
+                (
+                    cast(AbstractContextManager[object], scope())
+                    if callable(scope)
+                    else nullcontext()
+                ),
+                (
+                    self.database.macros.read_transaction()
+                    if final_state == CacheState.READY and self.database is not None
+                    else nullcontext()
+                ),
             ):
                 operation()
         except Exception:

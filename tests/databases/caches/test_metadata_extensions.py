@@ -62,13 +62,13 @@ def test_batch_atomicity_one_reconciliation_and_nested_receipts(
     api, cache = service(metadata_db, mode)
     refreshes = []
     if cache is not None:
-        reload = cache.reload
+        reload = cache.reload_data
 
         def refresh():
             refreshes.append(True)
             return reload()
 
-        monkeypatch.setattr(cache, "reload", refresh)
+        monkeypatch.setattr(cache, "reload_data", refresh)
 
     def edits(metadata):
         first = metadata.works.create({"title": "First"})
@@ -110,7 +110,7 @@ def test_batch_commit_refresh_failure_retains_aggregate_result(
         raise OSError("refresh failed")
 
     with monkeypatch.context() as patch:
-        patch.setattr(cache, "reload", fail)
+        patch.setattr(cache, "reload_data", fail)
         with pytest.raises(MetadataReconciliationError) as caught:
             api.batch(
                 lambda metadata: (
@@ -120,6 +120,119 @@ def test_batch_commit_refresh_failure_retains_aggregate_result(
     receipt = caught.value.receipt
     assert receipt.persistence == "committed" and receipt.cache == "dirty"
     assert api.works.require(receipt.result).work.work_title == "Committed batch"
+    cache.close()
+
+
+@pytest.mark.parametrize("mode", MODES)
+def test_caught_nested_rollback_does_not_claim_a_dirty_cache_is_current(
+    metadata_db, mode
+):
+    from LiuXin_alpha.caches.api import CacheState
+
+    api, cache = service(metadata_db, mode)
+    identity = api.works.create({"title": "Retained"}).result
+
+    def rolled_back(inner):
+        inner.works.update(identity, {"title": "Discarded"})
+        raise ValueError("discard this nested edit")
+
+    def outer(metadata):
+        with pytest.raises(ValueError, match="discard"):
+            metadata.batch(rolled_back)
+        return identity
+
+    receipt = api.batch(outer)
+    assert not receipt.changed
+    assert receipt.persistence == "committed"
+    if cache is not None:
+        assert receipt.cache == "current"
+        assert cache.state is CacheState.READY
+    assert api.works.require(identity).work.work_title == "Retained"
+    if cache is not None:
+        cache.close()
+
+
+def test_caught_nested_rollback_refresh_failure_retains_unchanged_result(
+    metadata_db, monkeypatch
+):
+    api, cache = service(metadata_db, "schema_backed")
+    identity = api.works.create({"title": "Retained"}).result
+
+    def rolled_back(inner):
+        inner.works.update(identity, {"title": "Discarded"})
+        raise ValueError("discard this nested edit")
+
+    def fail_refresh():
+        raise OSError("refresh after rollback failed")
+
+    def outer(metadata):
+        with pytest.raises(ValueError, match="discard"):
+            metadata.batch(rolled_back)
+        patch.setattr(cache.storage, "reload", fail_refresh)
+        return identity
+
+    with monkeypatch.context() as patch:
+        with pytest.raises(MetadataReconciliationError) as error:
+            api.batch(outer)
+    receipt = error.value.receipt
+    assert receipt.result == identity and not receipt.changed
+    assert receipt.persistence == "committed" and receipt.cache == "dirty"
+    assert api.works.require(identity).work.work_title == "Retained"
+    cache.close()
+
+
+@pytest.mark.parametrize("mode", MODES)
+def test_nested_schema_change_keeps_full_publication(metadata_db, mode, monkeypatch):
+    api, cache = service(metadata_db, mode)
+    calls = []
+    if cache is not None:
+        reload = cache.reload
+
+        def publish():
+            calls.append(True)
+            return reload()
+
+        monkeypatch.setattr(cache, "reload", publish)
+    definition = api.batch(
+        lambda outer: (
+            outer.batch(
+                lambda inner: (
+                    inner.custom_fields.create_field("works", "batch_field").result
+                )
+            ).result
+        )
+    ).result
+    assert api.custom_fields.get_field(("works", "batch_field")).id == definition.id
+    if cache is not None:
+        assert len(calls) == 1
+        cache.close()
+
+
+@pytest.mark.parametrize("mode", ("schema_backed", "numpy_vectorized"))
+def test_scalar_batch_repairs_rows_and_projections_without_full_refresh(
+    metadata_db, mode, monkeypatch
+):
+    api, cache = service(metadata_db, mode)
+    work = api.works.create({"title": "Before"}).result
+    assert api.works.require(work).work.work_title == "Before"
+
+    def forbid():
+        raise AssertionError("scalar edit rebuilt the whole cache")
+
+    with monkeypatch.context() as scoped:
+        scoped.setattr(cache, "reload", forbid)
+        scoped.setattr(cache, "reload_data", forbid)
+        receipt = api.batch(
+            lambda outer: (
+                outer.batch(
+                    lambda inner: inner.works.update(work, {"title": "After"}).result
+                ).result
+            )
+        )
+        assert receipt.cache == "current"
+        assert api.works.require(work).work.work_title == "After"
+        assert [ref.entity_id for ref in api.search.find("work.title:After")] == [work]
+        assert not api.search.find("work.title:Before")
     cache.close()
 
 

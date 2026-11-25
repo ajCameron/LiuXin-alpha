@@ -69,11 +69,11 @@ def test_core_native_search_display_edit_conflict_and_recovery(
         assert invalid.value.details["parameter"] == "filters[0].value"
         if mode is not None:
 
-            def fail():
+            def fail(*args):
                 raise OSError("Refresh failed after commit")
 
             with monkeypatch.context() as patch:
-                patch.setattr(runtime.cache, "reload_data", fail)
+                patch.setattr(runtime.cache.storage, "reload_ids", fail)
                 with pytest.raises(CoreHandlerError) as committed:
                     runtime.command(
                         "metadata.update",
