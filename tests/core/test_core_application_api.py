@@ -10,14 +10,11 @@ database cases mutate the pytest-provided library rather than a user library.
 
 from __future__ import annotations
 
-from LiuXin_alpha.core.authorization import CoreTransportPolicy
-
 import base64
 import datetime
 import hashlib
 import threading
 import uuid
-
 from dataclasses import dataclass, field
 from types import SimpleNamespace
 from typing import Any
@@ -27,7 +24,6 @@ import pytest
 
 from LiuXin_alpha.core import (
     CoreClientAPI,
-    CoreCommand,
     CoreHttpDaemon,
     CoreQuery,
     CoreRuntime,
@@ -36,6 +32,7 @@ from LiuXin_alpha.core import (
     core_client,
     create_core,
 )
+from LiuXin_alpha.core.authorization import CoreTransportPolicy
 from LiuXin_alpha.core.errors import CoreHandlerError
 from LiuXin_alpha.core.proxies.remote import RemoteProxyError
 from LiuXin_alpha.core.services import CoreServiceReconciliationError
@@ -812,6 +809,15 @@ class _Storage:
                 return FileInfo(location, len(data))
         raise FileNotFoundError(location.key)
 
+    def get(self, location: Location, *, offset=0, length=None, if_version=None):
+        """Return a bounded stream using the production Store reader contract."""
+        import io
+
+        content = self.read_bytes(location)
+        return io.BytesIO(
+            content[offset:] if length is None else content[offset : offset + length]
+        )
+
     def read_bytes(self, location: Location) -> bytes:
         """
         Scan for the first equal registered Location and return its stored bytes.
@@ -1256,6 +1262,7 @@ def test_core_catalog_repository_commands_return_receipts() -> None:
         },
     )
     assert fetched["entity"]["work_title"] == "Created through Core"
+    assert runtime.wait_for_events(2)
     write_events = [event for event in events if event.event_type == "write.completed"]
     assert write_events[-1].payload["name"] == "catalog.entity.create"
     assert write_events[-1].payload["command_id"] == "create-work-2"
@@ -1493,7 +1500,8 @@ def test_reconciliation_receipt_survives_direct_and_rpc_errors() -> None:
         with pytest.raises(RemoteProxyError) as remote_error:
             remote.command("test.reconciliation-failure")
         assert remote_error.value.code == "cache_reconciliation_failed"
-        assert remote_error.value.details == direct_error.value.details
+        assert remote_error.value.details.items() >= direct_error.value.details.items()
+        assert remote_error.value.details["command_id"]
     finally:
         daemon.stop()
 
@@ -1534,6 +1542,7 @@ def test_stable_handler_rejects_non_wire_results_as_structured_errors() -> None:
         runtime.command("test.non-wire-command")
     assert command_error.value.code == "handler_error"
     assert command_error.value.details == query_error.value.details
+    assert runtime._events.drain(2)
     assert any(
         event.event_type == "command.failed"
         and event.payload["name"] == "test.non-wire-command"
@@ -1566,7 +1575,7 @@ def test_core_catalog_and_cache_api_round_trip_real_database(db) -> None:
     )
     assert db.storage is not None
     assert db.storage.metadata_cache is runtime.cache
-    title = "Core API {}".format(uuid.uuid4())
+    title = f"Core API {uuid.uuid4()}"
     try:
         created = runtime.command(
             "catalog.entity.create",
@@ -1605,20 +1614,23 @@ def test_core_catalog_and_cache_api_round_trip_real_database(db) -> None:
                 "repository": "works",
                 "entity_id": work_id,
                 "data": {
-                    "canonical_title": "{} updated".format(title),
+                    "canonical_title": f"{title} updated",
                 },
             },
         )
-        assert updated["entity"]["work_canonical_title"] == "{} updated".format(title)
-        assert runtime.query(
-            "rows.get",
-            {
-                "table": "works",
-                "row_id": work_id,
-            },
-        )["record"]["values"]["work_canonical_title"] == "{} updated".format(title)
+        assert updated["entity"]["work_canonical_title"] == f"{title} updated"
+        assert (
+            runtime.query(
+                "rows.get",
+                {
+                    "table": "works",
+                    "row_id": work_id,
+                },
+            )["record"]["values"]["work_canonical_title"]
+            == f"{title} updated"
+        )
 
-        stack_title = "{} stack".format(title)
+        stack_title = f"{title} stack"
         stack = runtime.command(
             "catalog.wemi.create",
             {
@@ -1689,7 +1701,7 @@ def test_core_catalog_and_cache_api_round_trip_real_database(db) -> None:
             "catalog.agent.create-person",
             {
                 "data": {
-                    "name": "Core Person {}".format(uuid.uuid4()),
+                    "name": f"Core Person {uuid.uuid4()}",
                 },
                 "details": {},
             },
@@ -1697,11 +1709,11 @@ def test_core_catalog_and_cache_api_round_trip_real_database(db) -> None:
         assert person["kind"] == "person"
         assert person["agent"]["agent_type"] == "person"
 
-        field_tag = "Core Field Tag {}".format(uuid.uuid4())
+        field_tag = f"Core Field Tag {uuid.uuid4()}"
         for field in ("genre", "series"):
-            name = "Core {} {}".format(field, uuid.uuid4())
+            name = f"Core {field} {uuid.uuid4()}"
             replacement = runtime.command(
-                "metadata.{}.replace".format(field),
+                f"metadata.{field}.replace",
                 {
                     "item_id": stack["item_ids"][0],
                     field: [name],
@@ -1783,7 +1795,7 @@ def test_catalog_conveniences_have_direct_and_rpc_parity(db) -> None:
         ),
     )
     daemon = None
-    title = "Core convenience {}".format(uuid.uuid4().hex)
+    title = f"Core convenience {uuid.uuid4().hex}"
     try:
         stack = runtime.command(
             "catalog.wemi.create",

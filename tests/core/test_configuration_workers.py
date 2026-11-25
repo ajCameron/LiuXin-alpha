@@ -305,6 +305,9 @@ def test_live_postgres_profiles_reopen_their_original_schemas(
                     enable_maintenance=False,
                     durable_job_path=tmp_path / f"jobs-{i}.sqlite",
                     job_manager=manager,
+                    # This profile test drains synchronously below; automatic
+                    # delivery has separate lifecycle acceptance coverage.
+                    start_jobs=False,
                 )
             )
         monkeypatch.setenv("LIUXIN_POSTGRES_SCHEMA", "wrong_schema_after_open")

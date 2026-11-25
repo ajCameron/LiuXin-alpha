@@ -423,12 +423,12 @@ def test_browse_table_signature_retry_also_catches_internal_type_errors() -> Non
     ]
 
 
-def test_browse_search_failure_falls_back_to_full_equality_scan() -> None:
+def test_browse_search_failure_falls_back_to_bounded_equality_scan() -> None:
     """
     Suppress a search error and use exact Python equality against fully read row values.
 
     Example:
-        >>> test_browse_search_failure_falls_back_to_full_equality_scan()
+        >>> test_browse_search_failure_falls_back_to_bounded_equality_scan()
 
 
     :return: None if only the integer-valued match survives the fallback rather than the textual lookalike.
@@ -446,7 +446,7 @@ def test_browse_search_failure_falls_back_to_full_equality_scan() -> None:
     assert browse._search_rows(runtime, "items", "item_manifestation_id", 7) == [
         {"item_id": 1, "item_manifestation_id": 7}
     ]
-    source.get_all_rows.assert_called_once_with("items", iterator_return=False)
+    source.get_all_rows.assert_called_once_with("items", iterator_return=True)
 
 
 def test_acquisition_remote_hint_precedes_existing_local_bytes(tmp_path: Path) -> None:
@@ -507,7 +507,7 @@ def test_acquisition_store_hint_does_not_prove_a_read_will_succeed(
             macros=SimpleNamespace(get_row=Mock(return_value=store))
         ),
         services=SimpleNamespace(
-            library=SimpleNamespace(storage=SimpleNamespace(read_bytes=reader))
+            library=SimpleNamespace(storage=SimpleNamespace(get=Mock(), stat=reader))
         ),
     )
     row = {

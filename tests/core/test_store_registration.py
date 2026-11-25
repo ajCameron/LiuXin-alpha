@@ -21,8 +21,8 @@ from LiuXin_alpha.storage.reconcile.models import UnmanagedDiskRegistrationRepor
     (
         (
             "register_existing_disk_with_database_path",
-            "register_existing_disk_as_unmanaged_store",
-            "LiuXin_alpha.storage.reconcile.store_db_sync",
+            "register_native_disk",
+            "LiuXin_alpha.ingest.native_disk",
             {
                 "disk_path": Path("books"),
                 "compute_hash": False,
@@ -115,7 +115,7 @@ def test_registration_uses_one_owned_graph(
         if outcome == "startup":
             raise RuntimeError("startup failed")
         try:
-            yield SimpleNamespace(database=database)
+            yield SimpleNamespace(database=database, library=database)
         finally:
             events.append("close")
             if outcome == "cleanup":

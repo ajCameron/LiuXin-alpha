@@ -2,6 +2,12 @@
 
 Reviewed **2026-11-23**; configuration closure follows the Core contract corrections in `7dc7d426`.
 
+**Durable worker update, 2026-11-25:** `configuration.preferences_snapshot` and
+`CapturedPreferences` retain literal values, defaults and fixed component paths
+without pickle or application-file reloads. Tuples, sets, bytes and Paths retain
+their types; unsupported objects and cycles fail acceptance. Existing independent
+component-file ownership remains unchanged. See [durable execution](recovery-operations.md).
+
 Core selects a deployment in `core/settings.py` and composes application settings
 before opening a local database, storage manager or cache. Surfaces parse arguments
 and pass the resolved paths into `create_core`. A remote surface leaves application

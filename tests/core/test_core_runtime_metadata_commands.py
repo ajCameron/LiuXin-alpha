@@ -11,9 +11,9 @@ from dataclasses import dataclass
 
 import pytest
 
+from LiuXin_alpha.catalog.retrieval.hydration import LiuXinWEMIMetadataHydrator
 from LiuXin_alpha.core import CoreCommand, CoreQuery, CoreRuntime
 from LiuXin_alpha.core.errors import CoreDispatchError
-from LiuXin_alpha.catalog.retrieval.hydration import LiuXinWEMIMetadataHydrator
 from tests.catalog.retrieval.test_item_metadata_hydrator import _build_fake_database
 
 
@@ -139,6 +139,7 @@ def test_core_runtime_metadata_write_appends_tags_and_emits_write_event() -> Non
     }
     assert _metadata_tags(db) == ["Space Opera", "core-command-tag"]
 
+    assert runtime.wait_for_events(2)
     write_events = [event for event in events if event.event_type == "write.completed"]
     assert len(write_events) == 1
     assert write_events[0].payload["name"] == "metadata.write"

@@ -20,7 +20,6 @@ from LiuXin_alpha.core.payloads import boolean, invalid_payload, number_value
 from LiuXin_alpha.core.payloads import optional_int as _optional_int
 from LiuXin_alpha.core.payloads import required_int as _required_int
 from LiuXin_alpha.core.payloads import required_text as _required_text
-from LiuXin_alpha.utils.jobs import JobRequest
 
 if TYPE_CHECKING:
     from LiuXin_alpha.core.runtime import CoreRuntime
@@ -397,26 +396,22 @@ def _job_submit(
     worker_kwargs = deepcopy(dict(kwargs))
     if "database_path" in worker_kwargs:
         worker_kwargs.update(_database_connection(runtime))
-    job_id = runtime.job_manager.submit(
-        JobRequest(
-            module_name="LiuXin_alpha.core.workflow_jobs",
-            function_name=function_name,
-            kwargs=worker_kwargs,
-        ),
-        timeout=timeout,
-        no_output=no_output,
-        backend=backend,
+    if getattr(runtime, "_durable_jobs", None) is None:
+        raise CoreDispatchError(
+            "Workflow submission requires a configured durable jobs ledger",
+            code="capability_unavailable",
+        )
+    from LiuXin_alpha.core.command_recovery import submit_workflow
+
+    return submit_workflow(
+        runtime,
+        function_name=function_name,
+        kwargs=worker_kwargs,
         label=label,
+        timeout=timeout,
+        backend=backend,
+        no_output=no_output,
     )
-    return {
-        "job_id": job_id,
-        "label": label,
-        "backend": "" if backend is None else str(backend),
-        "timeout_s": None
-        if timeout_raw is None
-        else number_value(timeout_raw, "job_timeout_s"),
-        "no_output": no_output,
-    }
 
 
 __all__ = ["_required_int", "_required_text", "_optional_int"]

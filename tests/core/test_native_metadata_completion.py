@@ -386,7 +386,7 @@ def test_batch_connected_creation_rollback_revisions_and_publication(
             else:
                 broken.setattr(
                     runtime.cache,
-                    "reload",
+                    "reload_data",
                     Mock(side_effect=OSError("batch cache refresh failed")),
                 )
             with pytest.raises(ERRORS) as committed:

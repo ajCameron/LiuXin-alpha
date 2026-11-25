@@ -122,10 +122,8 @@ def test_discovery_covers_every_registered_route_and_late_extension(
         assert "complete_program_boundary" not in result
         assert result["operations"]["extension.local"]["call_modes"] == ["direct"]
         assert result["operations"]["metadata.search"]["registered"] is True
-        assert (
-            result["operations"]["maintenance.clean"]["availability"] == "unavailable"
-        )
-        assert result["operations"]["maintenance.clean"]["reason"]
+        assert "maintenance.clean" not in result["operations"]
+        assert "catalog.repair.cleanup" in result["operations"]
     finally:
         runtime.shutdown()
 
@@ -311,25 +309,12 @@ def test_failed_registration_keeps_handler_authority_and_prerequisites(
 def test_discovery_observes_injected_cleanup_without_constructing_services(
     core_runtime_factory,
 ):
-    from types import SimpleNamespace
-
     runtime = core_runtime_factory()
     try:
         before = runtime.services._maintenance
         assert before is None
         assert (
-            runtime.query("capabilities.list")["operations"]["maintenance.clean"][
-                "availability"
-            ]
-            == "unavailable"
-        )
-        assert runtime.services._maintenance is before
-        runtime.database.maintenance = SimpleNamespace(clean=lambda *args: None)
-        assert (
-            runtime.query("capabilities.list")["operations"]["maintenance.clean"][
-                "availability"
-            ]
-            == "available"
+            "maintenance.clean" not in runtime.query("capabilities.list")["operations"]
         )
         assert runtime.services._maintenance is before
         runtime.register_query_handler(

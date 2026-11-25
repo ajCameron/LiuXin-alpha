@@ -30,7 +30,7 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     :return: Fresh ArgumentParser with required database/disk paths and output/failure flags.
     """
     parser = argparse.ArgumentParser(
-        description="Register ebook files from an unmanaged disk into LiuXin files table."
+        description="Register existing disk content as native Digital Assets and Replicas."
     )
     parser.add_argument(
         "--database", required=True, help="Path to the target LiuXin database file."
@@ -44,21 +44,13 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--store-name", default=None, help="Optional store name override."
     )
-    parser.add_argument(
-        "--no-hash",
-        action="store_true",
-        help="Skip content hashing while ingesting files (faster, less integrity data).",
-    )
+
     parser.add_argument(
         "--follow-symlinks",
         action="store_true",
         help="Follow symlinked directories while walking the disk.",
     )
-    parser.add_argument(
-        "--no-store-links",
-        action="store_true",
-        help="Do not create `file_store_links` rows (only set files.file_store_id).",
-    )
+
     parser.add_argument("--json", action="store_true", help="Print report as JSON.")
     parser.add_argument(
         "--fail-on-errors",
@@ -91,23 +83,22 @@ def main(argv: Sequence[str] | None = None) -> int:
         disk_path=args.disk,
         db_type=args.db_type,
         store_name=args.store_name,
-        compute_hash=not args.no_hash,
+        compute_hash=True,
         follow_symlinks=args.follow_symlinks,
-        attach_store_links=not args.no_store_links,
+        attach_store_links=True,
     )
 
     if args.json:
         print(json.dumps(report.to_dict(), indent=2, sort_keys=True))
     else:
         print(f"Store: {report.store_name} ({report.store_root_uri})")
-        print(f"Store row id: {report.store_row_id}")
+        print(f"Store UUID: {report.store_uuid}")
         print(f"Scanned files: {report.scanned_files}")
         print(f"Ebook candidates: {report.ebook_candidates}")
-        print(f"Inserted files: {report.inserted_files}")
-        print(f"Updated files: {report.updated_files}")
-        print(f"Unchanged files: {report.unchanged_files}")
-        print(f"Linked files: {report.linked_files}")
-        print(f"Skipped non-ebook files: {report.skipped_non_ebook_files}")
+        print(f"Inserted Assets: {report.inserted_assets}")
+        print(f"Inserted Replicas: {report.inserted_replicas}")
+        print(f"Reused Replicas: {report.reused_replicas}")
+        print(f"Skipped non-ebook files: {report.skipped_files}")
         print(f"Errors: {len(report.errors)}")
         if report.duration_seconds is not None:
             print(f"Duration (seconds): {report.duration_seconds:.3f}")

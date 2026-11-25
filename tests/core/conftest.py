@@ -9,22 +9,22 @@ Example:
 
         python -m pytest -q tests/core/conftest.py
 """
-from __future__ import annotations
 
-from LiuXin_alpha.core.authorization import CoreTransportPolicy
+from __future__ import annotations
 
 import json
 import socket
 import urllib.parse
 import urllib.request
-
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import Any, Callable, Iterator
+from typing import Any
 
 import pytest
 
 from LiuXin_alpha.core import CoreHttpDaemon, CoreRuntime, RemoteLibraryProxy
+from LiuXin_alpha.core.authorization import CoreTransportPolicy
 
 
 @dataclass
@@ -37,6 +37,7 @@ class FakeDatabase:
 
             python -m pytest -q tests/core/conftest.py
     """
+
     value: int = 0
 
     def get_value(self) -> int:
@@ -82,6 +83,7 @@ class FakeStorage:
 
             python -m pytest -q tests/core/conftest.py
     """
+
     ping_count: int = 0
 
     def ping(self) -> str:
@@ -111,6 +113,7 @@ class FakeLibrary:
 
             python -m pytest -q tests/core/conftest.py
     """
+
     database: FakeDatabase
     storage: FakeStorage
 
@@ -128,7 +131,7 @@ class FakeLibrary:
         :return: The normalized value, metadata record, path, stream result or collection
             described above.
         """
-        return "echo:{}".format(text)
+        return f"echo:{text}"
 
 
 @pytest.fixture
@@ -145,7 +148,10 @@ def core_runtime_factory() -> Callable[..., CoreRuntime]:
     :return: The normalized value, metadata record, path, stream result or collection
         described above.
     """
-    def _build_runtime(*, initial_value: int = 0, core_version: str = "test-core") -> CoreRuntime:
+
+    def _build_runtime(
+        *, initial_value: int = 0, core_version: str = "test-core"
+    ) -> CoreRuntime:
         """
         Perform the build runtime operation under explicit file-format and conversion rules.
 
@@ -160,7 +166,9 @@ def core_runtime_factory() -> Callable[..., CoreRuntime]:
         :return: The normalized value, metadata record, path, stream result or collection
             described above.
         """
-        library = FakeLibrary(database=FakeDatabase(value=initial_value), storage=FakeStorage())
+        library = FakeLibrary(
+            database=FakeDatabase(value=initial_value), storage=FakeStorage()
+        )
         return CoreRuntime(library=library, core_version=core_version)
 
     return _build_runtime
@@ -180,6 +188,7 @@ def free_port() -> Callable[..., int]:
     :return: The normalized value, metadata record, path, stream result or collection
         described above.
     """
+
     def _reserve_free_port(host: str = "127.0.0.1") -> int:
         """
         Perform the reserve free port operation under explicit file-format and conversion rules.
@@ -214,6 +223,7 @@ def daemon_factory() -> Callable[..., Any]:
 
     :return: An iterator yielding the normalized values described above.
     """
+
     @contextmanager
     def _start_daemon(
         runtime: CoreRuntime,
@@ -238,7 +248,13 @@ def daemon_factory() -> Callable[..., Any]:
             contract.
         :return: An iterator yielding the normalized values described above.
         """
-        daemon = CoreHttpDaemon(runtime, host=host, port=port, endpoint_namespace=endpoint_namespace, policy=CoreTransportPolicy.trusted("test-core-parity"))
+        daemon = CoreHttpDaemon(
+            runtime,
+            host=host,
+            port=port,
+            endpoint_namespace=endpoint_namespace,
+            policy=CoreTransportPolicy.trusted("test-core-parity"),
+        )
         daemon.start()
         try:
             yield daemon
@@ -262,6 +278,7 @@ def fetch_json() -> Callable[..., dict[str, Any]]:
     :return: The normalized value, metadata record, path, stream result or collection
         described above.
     """
+
     def _fetch_json(url: str, *, timeout: float = 3.0) -> dict[str, Any]:
         """
         Perform the fetch json operation under explicit file-format and conversion rules.
@@ -277,7 +294,9 @@ def fetch_json() -> Callable[..., dict[str, Any]]:
         :return: The normalized value, metadata record, path, stream result or collection
             described above.
         """
-        request = urllib.request.Request(url=url, method="GET", headers={"Authorization": "Bearer test-core-parity"})
+        request = urllib.request.Request(
+            url=url, method="GET", headers={"Authorization": "Bearer test-core-parity"}
+        )
         with urllib.request.urlopen(request, timeout=timeout) as response:
             return json.loads(response.read().decode("utf-8"))
 
@@ -298,7 +317,10 @@ def remote_proxy() -> Callable[..., RemoteLibraryProxy]:
     :return: The normalized value, metadata record, path, stream result or collection
         described above.
     """
-    def _build_remote_proxy(*, daemon: CoreHttpDaemon, timeout_seconds: float = 10.0) -> RemoteLibraryProxy:
+
+    def _build_remote_proxy(
+        *, daemon: CoreHttpDaemon, timeout_seconds: float = 10.0
+    ) -> RemoteLibraryProxy:
         """
         Perform the build remote proxy operation under explicit file-format and conversion rules.
 
@@ -314,7 +336,11 @@ def remote_proxy() -> Callable[..., RemoteLibraryProxy]:
         :return: The normalized value, metadata record, path, stream result or collection
             described above.
         """
-        return RemoteLibraryProxy(endpoint=daemon.base_url, timeout_seconds=timeout_seconds, bearer_token="test-core-parity")
+        return RemoteLibraryProxy(
+            endpoint=daemon.base_url,
+            timeout_seconds=timeout_seconds,
+            bearer_token="test-core-parity",
+        )
 
     return _build_remote_proxy
 
@@ -337,6 +363,7 @@ def daemon_with_proxy_factory(
     :param remote_proxy: Value supplied for remote proxy under the utility contract.
     :return: An iterator yielding the normalized values described above.
     """
+
     @contextmanager
     def _start_daemon_with_proxy(
         runtime: CoreRuntime,
@@ -364,14 +391,18 @@ def daemon_with_proxy_factory(
             contract.
         :return: An iterator yielding the normalized values described above.
         """
-        with daemon_factory(runtime, host=host, port=port, endpoint_namespace=endpoint_namespace) as daemon:
+        with daemon_factory(
+            runtime, host=host, port=port, endpoint_namespace=endpoint_namespace
+        ) as daemon:
             yield daemon, remote_proxy(daemon=daemon, timeout_seconds=timeout_seconds)
 
     return _start_daemon_with_proxy
 
 
 @pytest.fixture
-def event_poller(fetch_json: Callable[..., dict[str, Any]]) -> Callable[..., tuple[list[dict[str, Any]], int]]:
+def event_poller(
+    fetch_json: Callable[..., dict[str, Any]],
+) -> Callable[..., tuple[list[dict[str, Any]], int]]:
     """
     Perform the event poller operation under explicit file-format and conversion rules.
 
@@ -385,6 +416,7 @@ def event_poller(fetch_json: Callable[..., dict[str, Any]]) -> Callable[..., tup
     :return: The normalized value, metadata record, path, stream result or collection
         described above.
     """
+
     def _poll_events(
         daemon: CoreHttpDaemon,
         *,
@@ -411,13 +443,21 @@ def event_poller(fetch_json: Callable[..., dict[str, Any]]) -> Callable[..., tup
             described above.
         """
         sequence = int(after)
+        stream = daemon._event_stream
         events: list[dict[str, Any]] = []
         for _ in range(int(max_polls)):
-            query = urllib.parse.urlencode({"after": sequence, "timeout": timeout})
-            payload = fetch_json("{}?{}".format(daemon.events_next_url, query), timeout=max(2.0, timeout + 1.0))
+            query = urllib.parse.urlencode(
+                {"after": sequence, "timeout": timeout, "stream": stream}
+            )
+            payload = fetch_json(
+                f"{daemon.events_next_url}?{query}", timeout=max(2.0, timeout + 1.0)
+            )
             result = payload.get("result", {}) if isinstance(payload, dict) else {}
+            stream = result.get("stream", stream)
             event = result.get("event") if isinstance(result, dict) else None
-            next_sequence = result.get("next_sequence") if isinstance(result, dict) else None
+            next_sequence = (
+                result.get("next_sequence") if isinstance(result, dict) else None
+            )
             if next_sequence is not None:
                 try:
                     sequence = int(next_sequence)

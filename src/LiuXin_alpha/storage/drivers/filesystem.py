@@ -1282,7 +1282,9 @@ class FilesystemStorageDriver(StorageDriverAPI[FilesystemObjectAddress]):
                 f"unsupported digest algorithm: {algorithm!r}"
             ) from error
         with self.open_read(object_address) as source:
+            from LiuXin_alpha.storage.operation_context import checkpoint
             while chunk := source.read(1024 * 1024):
+                checkpoint()
                 digest.update(chunk)
         return Digest(algorithm, digest.hexdigest())
 
@@ -1312,6 +1314,7 @@ class FilesystemStorageDriver(StorageDriverAPI[FilesystemObjectAddress]):
         """
 
         source_info = self.stat(source)
+        from LiuXin_alpha.storage.operation_context import checkpoint
         with self.open_read(source) as stream:
             with self.begin_write(
                 destination,
@@ -1319,7 +1322,9 @@ class FilesystemStorageDriver(StorageDriverAPI[FilesystemObjectAddress]):
                 expected_size=source_info.size,
             ) as session:
                 while chunk := stream.read(1024 * 1024):
+                    checkpoint()
                     session.write(chunk)
+                checkpoint()
                 return session.commit()
 
     def native_move(

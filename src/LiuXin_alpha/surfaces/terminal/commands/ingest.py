@@ -11,8 +11,6 @@ from __future__ import annotations
 import dataclasses
 import json
 
-from typing import Optional
-
 from LiuXin_alpha.surfaces.terminal.commands.base import TerminalCommandAPI
 
 
@@ -34,9 +32,9 @@ class _IngestDiskOptions:
     """
 
     disk_path: str
-    store_name: Optional[str]
+    store_name: str | None
     source_label: str
-    ebook_extensions: Optional[list[str]]
+    ebook_extensions: list[str] | None
     compute_hash: bool
     follow_symlinks: bool
     refresh_storage_manager: bool
@@ -44,7 +42,7 @@ class _IngestDiskOptions:
     json_output: bool
 
 
-def _split_extensions(raw: Optional[str]) -> Optional[list[str]]:
+def _split_extensions(raw: str | None) -> list[str] | None:
     """
     Normalize separated file extensions to an ordered, deduplicated lowercase list.
 
@@ -103,15 +101,13 @@ def _read_option_value(
     if "=" in token:
         _, value = token.split("=", 1)
         if value.strip() == "":
-            raise ValueError(
-                "Option {} requires a non-blank value.".format(option_name)
-            )
+            raise ValueError(f"Option {option_name} requires a non-blank value.")
         return value, idx + 1
     if idx + 1 >= len(args):
-        raise ValueError("Option {} requires a value.".format(option_name))
+        raise ValueError(f"Option {option_name} requires a value.")
     value = args[idx + 1]
     if str(value).strip() == "":
-        raise ValueError("Option {} requires a non-blank value.".format(option_name))
+        raise ValueError(f"Option {option_name} requires a non-blank value.")
     return value, idx + 2
 
 
@@ -139,12 +135,12 @@ def _parse_ingest_disk_options(args: list[str], *, usage: str) -> _IngestDiskOpt
     :raises ValueError: For missing path, extra positionals, unknown options, or missing/blank option values.
     """
     if not args:
-        raise ValueError("Usage: {}".format(usage))
+        raise ValueError(f"Usage: {usage}")
 
-    disk_path: Optional[str] = None
-    store_name: Optional[str] = None
+    disk_path: str | None = None
+    store_name: str | None = None
     source_label = "on_disk_unmanaged_import"
-    extensions_raw: Optional[str] = None
+    extensions_raw: str | None = None
     compute_hash = True
     follow_symlinks = False
     refresh_storage_manager = True
@@ -216,17 +212,15 @@ def _parse_ingest_disk_options(args: list[str], *, usage: str) -> _IngestDiskOpt
             continue
 
         if token.startswith("-"):
-            raise ValueError("Unknown option: {!r}".format(token))
+            raise ValueError(f"Unknown option: {token!r}")
 
         if disk_path is not None:
-            raise ValueError(
-                "Unexpected extra argument {!r}. Usage: {}".format(token, usage)
-            )
+            raise ValueError(f"Unexpected extra argument {token!r}. Usage: {usage}")
         disk_path = token
         idx += 1
 
     if disk_path is None:
-        raise ValueError("Usage: {}".format(usage))
+        raise ValueError(f"Usage: {usage}")
 
     return _IngestDiskOptions(
         disk_path=disk_path,
@@ -307,7 +301,12 @@ class IngestDiskCommand(TerminalCommandAPI):
                 "label": "terminal ingest disk",
             },
         )
-        job_id = str((submitted or {}).get("job_id") or "")
+        from LiuXin_alpha.core.submissions import wait_for_submission
+
+        job_id = wait_for_submission(
+            lambda name, payload: browser.execute_core_query(name, payload=payload),
+            submitted or {},
+        )
         if not job_id:
             raise RuntimeError("Core did not return an ingest job id.")
         completed = browser.execute_core_query(
@@ -330,7 +329,7 @@ class IngestDiskCommand(TerminalCommandAPI):
                 (
                     "Store",
                     [
-                        ("store_id", report.get("store_row_id", "")),
+                        ("store_uuid", report.get("store_uuid", "")),
                         ("store_name", report.get("store_name", "")),
                         ("store_root_uri", report.get("store_root_uri", "")),
                     ],
@@ -341,13 +340,12 @@ class IngestDiskCommand(TerminalCommandAPI):
                         ("scanned_files", report.get("scanned_files", 0)),
                         ("ebook_candidates", report.get("ebook_candidates", 0)),
                         (
-                            "skipped_non_ebook_files",
-                            report.get("skipped_non_ebook_files", 0),
+                            "skipped_files",
+                            report.get("skipped_files", 0),
                         ),
-                        ("inserted_files", report.get("inserted_files", 0)),
-                        ("updated_files", report.get("updated_files", 0)),
-                        ("unchanged_files", report.get("unchanged_files", 0)),
-                        ("linked_files", report.get("linked_files", 0)),
+                        ("inserted_assets", report.get("inserted_assets", 0)),
+                        ("inserted_replicas", report.get("inserted_replicas", 0)),
+                        ("reused_replicas", report.get("reused_replicas", 0)),
                         ("errors", len(report.get("errors", ()) or ())),
                     ],
                 ),
@@ -368,7 +366,7 @@ class IngestDiskCommand(TerminalCommandAPI):
                 )
             )
             if len(errors) > preview_count:
-                browser.emit("... {} more".format(len(errors) - preview_count))
+                browser.emit(f"... {len(errors) - preview_count} more")
         return True
 
 

@@ -14,10 +14,14 @@ from collections.abc import Callable, Iterable, Mapping, Sequence
 
 from LiuXin_alpha.core.library_services import LibraryServices
 from LiuXin_alpha.ingest.models import RemoteHtmlRegistrationReport
+from LiuXin_alpha.ingest.native_disk import NativeDiskReport
 from LiuXin_alpha.storage.reconcile.models import UnmanagedDiskRegistrationReport
 
 type DiskProgressCallback = Callable[
     [str, UnmanagedDiskRegistrationReport, dict[str, object]], None
+]
+type NativeDiskProgressCallback = Callable[
+    [str, NativeDiskReport, dict[str, object]], None
 ]
 type HtmlProgressCallback = Callable[
     [str, RemoteHtmlRegistrationReport, dict[str, object]], None
@@ -38,8 +42,8 @@ def register_existing_disk_with_database_path(
     follow_symlinks: bool = False,
     attach_store_links: bool = True,
     refresh_storage_manager: bool = True,
-    progress_callback: DiskProgressCallback | None = None,
-) -> UnmanagedDiskRegistrationReport:
+    progress_callback: NativeDiskProgressCallback | None = None,
+) -> NativeDiskReport:
     """
     Open an existing database without backup, register the local tree, and close through its context
     manager.
@@ -59,16 +63,14 @@ def register_existing_disk_with_database_path(
     :param store_kind: Legacy Store-kind label persisted independently of the concrete backend class.
     :param ebook_extensions: Accepted lowercase suffix policy; None chooses project defaults and an empty iterable selects none.
     :param source_label: Provenance label stored on accepted file rows.
-    :param compute_hash: Whether to store the legacy SHA-512-plus-size helper value in file_hash_sha256.
+    :param compute_hash: Must be true: native Asset identity requires SHA-256.
     :param follow_symlinks: Whether to descend linked directories; file symlinks are still handled by ordinary stat/open.
-    :param attach_store_links: Whether to add supported primary links for accepted file rows.
+    :param attach_store_links: Must be true: native registration records a Replica location.
     :param refresh_storage_manager: Whether to call available bootstrap_storage_manager(clear_existing=True) after the scan.
     :param progress_callback: Best-effort synchronous observer receiving the live mutable report.
     :return: Registration report after successful delegated lifecycle-owner cleanup.
     """
-    from LiuXin_alpha.storage.reconcile.store_db_sync import (
-        register_existing_disk_as_unmanaged_store,
-    )
+    from LiuXin_alpha.ingest.native_disk import register_native_disk
 
     with LibraryServices.open(
         database_path=os.fspath(database_path),
@@ -78,12 +80,10 @@ def register_existing_disk_with_database_path(
         backup=False,
         enable_maintenance=False,
     ) as lifecycle:
-        db = lifecycle.database
-        return register_existing_disk_as_unmanaged_store(
-            db,
+        return register_native_disk(
+            lifecycle.library,
             disk_path=disk_path,
             store_name=store_name,
-            store_kind=store_kind,
             ebook_extensions=ebook_extensions,
             source_label=source_label,
             compute_hash=compute_hash,

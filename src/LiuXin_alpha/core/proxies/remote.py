@@ -11,23 +11,22 @@ from __future__ import annotations
 
 import json
 import threading
-import urllib.parse
 import urllib.error
+import urllib.parse
 import urllib.request
-
-from LiuXin_alpha.core.authorization import CoreTransportPolicy
-
-from typing import Any, Callable, Mapping
+from collections.abc import Callable, Mapping
+from typing import Any
 
 from LiuXin_alpha.core.api import CoreAPI
+from LiuXin_alpha.core.authorization import CoreTransportPolicy
 from LiuXin_alpha.core.commands import CoreCommand, CoreCommandResult
-from LiuXin_alpha.core.events import CoreEvent
+from LiuXin_alpha.core.dispatch import looks_like_write_method
+from LiuXin_alpha.core.events import CoreEvent, make_core_event
 from LiuXin_alpha.core.proxies.jobs import (
-    JobStatesArg,
     JobsProxyABC,
+    JobStatesArg,
     normalize_job_states_arg,
 )
-from LiuXin_alpha.core.dispatch import looks_like_write_method
 from LiuXin_alpha.core.queries import CoreQuery, CoreQueryResult
 
 
@@ -82,8 +81,13 @@ class _NoCredentialRedirect(urllib.request.HTTPRedirectHandler):
     """
 
     def redirect_request(
-        self, req: urllib.request.Request, fp: Any, code: int,
-        msg: str, headers: Any, newurl: str,
+        self,
+        req: urllib.request.Request,
+        fp: Any,
+        code: int,
+        msg: str,
+        headers: Any,
+        newurl: str,
     ) -> None:
         """Return no redirected request; urllib reports the original HTTP response.
 
@@ -108,7 +112,12 @@ class _RemoteProxyBase:
     """
 
     def __init__(
-        self, *, endpoint: str, target: str, timeout_seconds: float = 10.0, bearer_token: str | None = None
+        self,
+        *,
+        endpoint: str,
+        target: str,
+        timeout_seconds: float = 10.0,
+        bearer_token: str | None = None,
     ) -> None:
         """
         Normalize endpoint text, require an HTTP(S) prefix, and store target and timeout without connecting.
@@ -132,9 +141,7 @@ class _RemoteProxyBase:
         """
         base = str(endpoint).strip().rstrip("/")
         if not base.startswith("http://") and not base.startswith("https://"):
-            raise ValueError(
-                "Remote endpoint must be an HTTP URL, got {!r}".format(endpoint)
-            )
+            raise ValueError(f"Remote endpoint must be an HTTP URL, got {endpoint!r}")
         self.endpoint = base
         self.target = str(target)
         self.timeout_seconds = float(timeout_seconds)
@@ -186,8 +193,13 @@ class _RemoteProxyBase:
         body: bytes | None = None
         headers = {"Accept": "application/json"}
         if self._bearer_token is not None:
-            if urllib.parse.urlsplit(url)[:2] != urllib.parse.urlsplit(self.endpoint)[:2]:
-                raise ValueError("Authenticated requests must use the configured endpoint origin.")
+            if (
+                urllib.parse.urlsplit(url)[:2]
+                != urllib.parse.urlsplit(self.endpoint)[:2]
+            ):
+                raise ValueError(
+                    "Authenticated requests must use the configured endpoint origin."
+                )
             headers["Authorization"] = "Bearer " + self._bearer_token
         if payload is not None:
             body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
@@ -198,7 +210,8 @@ class _RemoteProxyBase:
         try:
             open_request = (
                 urllib.request.build_opener(_NoCredentialRedirect()).open
-                if self._bearer_token is not None else urllib.request.urlopen
+                if self._bearer_token is not None
+                else urllib.request.urlopen
             )
             with open_request(request, timeout=self.timeout_seconds) as response:
                 raw = response.read()
@@ -216,12 +229,7 @@ class _RemoteProxyBase:
             error_message = str(error_payload.get("error", err_body))
             details = error_payload.get("error_details", {})
             raise RemoteProxyError(
-                "HTTP {} for {} {}: {}".format(
-                    exc.code,
-                    method,
-                    url,
-                    error_message,
-                ),
+                f"HTTP {exc.code} for {method} {url}: {error_message}",
                 status_code=int(exc.code),
                 code=(
                     None
@@ -232,18 +240,18 @@ class _RemoteProxyBase:
             ) from exc
         except Exception as exc:
             raise RemoteProxyError(
-                "HTTP request failed for {} {}: {}".format(method, url, exc)
+                f"HTTP request failed for {method} {url}: {exc}"
             ) from exc
 
         try:
             data = json.loads(raw.decode("utf-8"))
         except Exception as exc:
             raise RemoteProxyError(
-                "Non-JSON response from {} {}: {}".format(method, url, exc)
+                f"Non-JSON response from {method} {url}: {exc}"
             ) from exc
         if not isinstance(data, dict):
             raise RemoteProxyError(
-                "JSON response must be an object for {} {}.".format(method, url)
+                f"JSON response must be an object for {method} {url}."
             )
         return data
 
@@ -295,7 +303,9 @@ class _RemoteProxyBase:
         :return: Decoded result field, including ``None`` for a missing result.
         :raises RemoteProxyError: For HTTP/request failure or a missing/falsey response ok field.
         """
+        command = CoreCommand(name, dict(payload or {}))
         body = {
+            "command_id": command.command_id,
             "name": str(name),
             "payload": dict(payload or {}),
         }
@@ -304,7 +314,8 @@ class _RemoteProxyBase:
         )
         if not bool(response.get("ok", False)):
             raise RemoteProxyError(
-                "Remote command failed: {}".format(response.get("error"))
+                "Remote command failed: {}".format(response.get("error")),
+                details={"command_id": command.command_id, "effects": "unknown"},
             )
         return response.get("result")
 
@@ -419,7 +430,7 @@ class _RemoteProxyBase:
                 return self.command(method_name, *args, **kwargs)
             return self.query(method_name, *args, **kwargs)
 
-        _caller.__name__ = "remote_proxy_{}".format(method_name)
+        _caller.__name__ = f"remote_proxy_{method_name}"
         return _caller
 
 
@@ -459,7 +470,8 @@ class RemoteCoreClient(_RemoteProxyBase, CoreAPI):
         super().__init__(
             endpoint=endpoint,
             target="core",
-            timeout_seconds=timeout_seconds, bearer_token=bearer_token,
+            timeout_seconds=timeout_seconds,
+            bearer_token=bearer_token,
         )
         self._identity: dict[str, str] = {}
 
@@ -592,19 +604,25 @@ class RemoteCoreClient(_RemoteProxyBase, CoreAPI):
         :return: New CoreCommandResult carrying decoded wire values and response metadata.
         :raises RemoteProxyError: For request/response failure or a missing/falsey response ok field.
         """
-        response = self._http_json(
-            method="POST",
-            url=self._url("/rpc/command"),
-            payload={
-                "name": str(command.name),
-                "payload": dict(command.payload or {}),
-                "command_id": str(command.command_id),
-                "correlation_id": command.correlation_id,
-            },
-        )
+        try:
+            response = self._http_json(
+                method="POST",
+                url=self._url("/rpc/command"),
+                payload={
+                    "name": str(command.name),
+                    "payload": dict(command.payload or {}),
+                    "command_id": str(command.command_id),
+                    "correlation_id": command.correlation_id,
+                },
+            )
+        except RemoteProxyError as error:
+            error.details.setdefault("command_id", command.command_id)
+            error.details.setdefault("effects", "unknown")
+            raise
         if not bool(response.get("ok", False)):
             raise RemoteProxyError(
-                "Remote command failed: {}".format(response.get("error"))
+                "Remote command failed: {}".format(response.get("error")),
+                details={"command_id": command.command_id, "effects": "unknown"},
             )
         return CoreCommandResult(
             ok=True,
@@ -619,6 +637,10 @@ class RemoteCoreClient(_RemoteProxyBase, CoreAPI):
                 else str(response.get("correlation_id"))
             ),
         )
+
+    def command_outcome(self, command_id: str) -> dict[str, Any]:
+        """Resolve a retained logical action after response loss without retrying it."""
+        return self.query("commands.outcome", {"command_id": command_id})
 
     def query(
         self,
@@ -750,10 +772,12 @@ class RemoteCoreClient(_RemoteProxyBase, CoreAPI):
             :return: ``None`` once the stop flag is observed, except for an unhandled loop-setup error.
             """
             sequence = 0
+            stream = None
             while not stopped.is_set():
                 params = urllib.parse.urlencode(
                     {
                         "after": sequence,
+                        **({"stream": stream} if stream is not None else {}),
                         "timeout": min(
                             1.0,
                             max(0.05, self.timeout_seconds),
@@ -763,7 +787,7 @@ class RemoteCoreClient(_RemoteProxyBase, CoreAPI):
                 try:
                     response = self._http_json(
                         method="GET",
-                        url=self._url("/events/next?{}".format(params)),
+                        url=self._url(f"/events/next?{params}"),
                     )
                 except Exception:
                     if stopped.is_set():
@@ -777,6 +801,31 @@ class RemoteCoreClient(_RemoteProxyBase, CoreAPI):
                     sequence = int(str(result.get("next_sequence", sequence)))
                 except Exception:
                     pass
+                stream = result.get("stream", stream)
+                if result.get("gap"):
+                    try:
+                        callback(
+                            make_core_event(
+                                core_uuid=str(stream),
+                                event_type="events.resync_required",
+                                payload={
+                                    key: result.get(key)
+                                    for key in (
+                                        "reason",
+                                        "stream",
+                                        "oldest_sequence",
+                                        "newest_sequence",
+                                    )
+                                },
+                            )
+                        )
+                    except Exception:
+                        from LiuXin_alpha.utils.logging import default_log
+
+                        default_log.error(
+                            "Core event resynchronization subscriber failed"
+                        )
+                    continue
                 raw_event = result.get("event")
                 if not isinstance(raw_event, Mapping):
                     continue
@@ -850,7 +899,13 @@ class RemoteDatabaseProxy(_RemoteProxyBase):
         'database'
     """
 
-    def __init__(self, *, endpoint: str, timeout_seconds: float = 10.0, bearer_token: str | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        endpoint: str,
+        timeout_seconds: float = 10.0,
+        bearer_token: str | None = None,
+    ) -> None:
         """
         Configure the database-target proxy without opening a connection or probing methods.
 
@@ -865,7 +920,10 @@ class RemoteDatabaseProxy(_RemoteProxyBase):
         :return: ``None`` after storing database-target configuration.
         """
         super().__init__(
-            endpoint=endpoint, target="database", timeout_seconds=timeout_seconds, bearer_token=bearer_token
+            endpoint=endpoint,
+            target="database",
+            timeout_seconds=timeout_seconds,
+            bearer_token=bearer_token,
         )
 
 
@@ -878,7 +936,13 @@ class RemoteStorageProxy(_RemoteProxyBase):
         'storage'
     """
 
-    def __init__(self, *, endpoint: str, timeout_seconds: float = 10.0, bearer_token: str | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        endpoint: str,
+        timeout_seconds: float = 10.0,
+        bearer_token: str | None = None,
+    ) -> None:
         """
         Configure storage-target HTTP invocation without starting a remote storage manager.
 
@@ -893,7 +957,10 @@ class RemoteStorageProxy(_RemoteProxyBase):
         :return: ``None`` after binding storage-target configuration.
         """
         super().__init__(
-            endpoint=endpoint, target="storage", timeout_seconds=timeout_seconds, bearer_token=bearer_token
+            endpoint=endpoint,
+            target="storage",
+            timeout_seconds=timeout_seconds,
+            bearer_token=bearer_token,
         )
 
 
@@ -910,7 +977,13 @@ class RemoteJobsProxy(_RemoteProxyBase, JobsProxyABC):
         True
     """
 
-    def __init__(self, *, endpoint: str, timeout_seconds: float = 10.0, bearer_token: str | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        endpoint: str,
+        timeout_seconds: float = 10.0,
+        bearer_token: str | None = None,
+    ) -> None:
         """
         Configure named-job requests while retaining library as the unused generic-target label.
 
@@ -926,7 +999,10 @@ class RemoteJobsProxy(_RemoteProxyBase, JobsProxyABC):
         """
         # `target` is unused for named jobs.* RPC calls but retained for consistency.
         super().__init__(
-            endpoint=endpoint, target="library", timeout_seconds=timeout_seconds, bearer_token=bearer_token
+            endpoint=endpoint,
+            target="library",
+            timeout_seconds=timeout_seconds,
+            bearer_token=bearer_token,
         )
 
     def list(
@@ -1032,7 +1108,13 @@ class RemoteLibraryProxy(_RemoteProxyBase):
         ('library', 'database', 'storage')
     """
 
-    def __init__(self, *, endpoint: str, timeout_seconds: float = 10.0, bearer_token: str | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        endpoint: str,
+        timeout_seconds: float = 10.0,
+        bearer_token: str | None = None,
+    ) -> None:
         """
         Configure library invocation and construct Core, database, storage, and jobs wrappers for the same endpoint.
 
@@ -1048,19 +1130,31 @@ class RemoteLibraryProxy(_RemoteProxyBase):
         :return: ``None`` after constructing child proxy objects without network requests.
         """
         super().__init__(
-            endpoint=endpoint, target="library", timeout_seconds=timeout_seconds, bearer_token=bearer_token
+            endpoint=endpoint,
+            target="library",
+            timeout_seconds=timeout_seconds,
+            bearer_token=bearer_token,
         )
         self.core = RemoteCoreClient(
             endpoint=endpoint,
-            timeout_seconds=timeout_seconds, bearer_token=bearer_token,
+            timeout_seconds=timeout_seconds,
+            bearer_token=bearer_token,
         )
         self.database = RemoteDatabaseProxy(
-            endpoint=endpoint, timeout_seconds=timeout_seconds, bearer_token=bearer_token
+            endpoint=endpoint,
+            timeout_seconds=timeout_seconds,
+            bearer_token=bearer_token,
         )
         self.storage = RemoteStorageProxy(
-            endpoint=endpoint, timeout_seconds=timeout_seconds, bearer_token=bearer_token
+            endpoint=endpoint,
+            timeout_seconds=timeout_seconds,
+            bearer_token=bearer_token,
         )
-        self.jobs = RemoteJobsProxy(endpoint=endpoint, timeout_seconds=timeout_seconds, bearer_token=bearer_token)
+        self.jobs = RemoteJobsProxy(
+            endpoint=endpoint,
+            timeout_seconds=timeout_seconds,
+            bearer_token=bearer_token,
+        )
 
     def health(self) -> Mapping[str, Any]:
         """

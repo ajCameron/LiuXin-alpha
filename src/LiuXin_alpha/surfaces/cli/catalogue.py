@@ -21,8 +21,6 @@ from typing import Any
 from LiuXin_alpha.surfaces.cli.common import (
     add_connection_arguments,
     add_json_output,
-    decode_wire_bytes,
-    emit_bytes,
     emit_json,
     load_json_file,
     load_json_object,
@@ -32,19 +30,30 @@ from LiuXin_alpha.surfaces.cli.common import (
 
 def cmd_catalog_inherited_tags(args: argparse.Namespace) -> int:
     """Read attributed WEMI tags without enabling storage or maintenance."""
-    with open_cli_core(args, enable_storage_manager=False, enable_maintenance=False) as core:
-        result = core.query("catalog.inherited.tags", {
-            "level": args.level, "entity_id": args.entity_id, "max_rows": args.max_rows,
-        })
+    with open_cli_core(
+        args, enable_storage_manager=False, enable_maintenance=False
+    ) as core:
+        result = core.query(
+            "catalog.inherited.tags",
+            {
+                "level": args.level,
+                "entity_id": args.entity_id,
+                "max_rows": args.max_rows,
+            },
+        )
     emit_json(result, args)
     return 0
 
 
 def cmd_catalog_repair(args: argparse.Namespace) -> int:
     """Preview a JSON repair request, or apply it against an expected state."""
-    with open_cli_core(args, enable_storage_manager=False, enable_maintenance=False) as core:
+    with open_cli_core(
+        args, enable_storage_manager=False, enable_maintenance=False
+    ) as core:
         if args.repair_action == "receipt":
-            result = core.query("catalog.repair.receipt", {"receipt_id": args.receipt_id})
+            result = core.query(
+                "catalog.repair.receipt", {"receipt_id": args.receipt_id}
+            )
         else:
             payload = load_json_object(args.request_file)
             payload.update(dry_run=not args.yes, expected_state=args.expected_state)
@@ -208,9 +217,7 @@ def cmd_catalog_entity_match(args: argparse.Namespace) -> int:
         payload["source"] = args.source
     if args.hints_file:
         payload["hints"] = load_json_object(args.hints_file)
-    operation = (
-        "catalog.entity.match-or-create" if args.create else "catalog.match"
-    )
+    operation = "catalog.entity.match-or-create" if args.create else "catalog.match"
     if args.create:
         return _command(args, operation, payload)
     return _query(args, operation, payload)
@@ -326,9 +333,7 @@ def cmd_catalog_item_summary(args: argparse.Namespace) -> int:
     :param args: Common controls and an integer-convertible item_id.
     :return: Zero after publishing catalog.item.summary's receipt.
     """
-    return _query(
-        args, "catalog.item.summary", {"item_id": int(args.item_id)}
-    )
+    return _query(args, "catalog.item.summary", {"item_id": int(args.item_id)})
 
 
 def cmd_catalog_hierarchy(args: argparse.Namespace) -> int:
@@ -664,15 +669,21 @@ def cmd_catalog_metadata_merge(args: argparse.Namespace) -> int:
     :raises ValueError: An ID or decision file is malformed.
     """
     payload = {
-            "level": args.level,
-            "source_id": int(args.source_id),
-            "target_id": int(args.target_id),
-            "dry_run": not args.yes,
-            "expected_state": args.expected_state,
-            "resolutions": load_json_object(args.resolutions_file) if args.resolutions_file else None,
-            "relationship_resolutions": load_json_object(args.relationship_resolutions_file) if args.relationship_resolutions_file else None,
+        "level": args.level,
+        "source_id": int(args.source_id),
+        "target_id": int(args.target_id),
+        "dry_run": not args.yes,
+        "expected_state": args.expected_state,
+        "resolutions": load_json_object(args.resolutions_file)
+        if args.resolutions_file
+        else None,
+        "relationship_resolutions": load_json_object(args.relationship_resolutions_file)
+        if args.relationship_resolutions_file
+        else None,
     }
-    with open_cli_core(args, enable_storage_manager=False, enable_maintenance=False) as core:
+    with open_cli_core(
+        args, enable_storage_manager=False, enable_maintenance=False
+    ) as core:
         result = core.command("catalog.metadata.merge", payload)
     emit_json(result, args)
     return 0
@@ -821,9 +832,7 @@ def cmd_catalog_custom_fields_update(args: argparse.Namespace) -> int:
     :return: Zero after publishing custom-fields.update's receipt.
     :raises ValueError: No changes are supplied or num cannot convert to int.
     """
-    changes = (
-        {} if args.changes_file is None else load_json_object(args.changes_file)
-    )
+    changes = {} if args.changes_file is None else load_json_object(args.changes_file)
     for name in ("name", "label"):
         value = getattr(args, name)
         if value is not None:
@@ -1004,22 +1013,29 @@ def cmd_acquire_get(args: argparse.Namespace) -> int:
         replace_file_output; this leaf does not use JSON output flags.
     :return: Zero after byte publication and any file-output diagnostic.
     """
+    from LiuXin_alpha.core.content import acquisition_chunks
+    from LiuXin_alpha.surfaces.cli.common import atomic_binary_output
+
+    size = 0
+    resource = {}
     with open_cli_core(args, enable_storage_manager=True) as core:
-        result = core.query(
-            "acquisition.read",
-            {"kind": args.kind, "id": int(args.resource_id)},
-        )
-    content = decode_wire_bytes(result.get("content"), label="acquisition content")
-    emit_bytes(content, output=args.file_output, replace=args.replace_file_output)
+        with atomic_binary_output(
+            args.file_output, replace=args.replace_file_output
+        ) as output:
+            for chunk_resource, content in acquisition_chunks(
+                core.query, args.kind, int(args.resource_id)
+            ):
+                resource = chunk_resource
+                output.write(content)
+                size += len(content)
     if args.file_output != "-":
         print(
             json.dumps(
-                {"resource": result.get("resource"), "size": len(content)},
-                ensure_ascii=True,
-                sort_keys=True,
+                {"resource": resource, "size": size}, ensure_ascii=True, sort_keys=True
             ),
             file=sys.stderr,
         )
+
     return 0
 
 
@@ -1047,32 +1063,48 @@ def build_catalog_parser(
     :return: None; nested parsers and command handlers are installed in place.
     """
     parser = subparsers.add_parser(
-        "catalog", aliases=["catalogue"], help="Search, browse, and edit semantic catalogue entities."
+        "catalog",
+        aliases=["catalogue"],
+        help="Search, browse, and edit semantic catalogue entities.",
     )
     commands = parser.add_subparsers(dest="catalog_command", required=True)
 
-    inherited = commands.add_parser("inherited-tags", help="Inspect all WEMI tag contributions and paths.")
+    inherited = commands.add_parser(
+        "inherited-tags", help="Inspect all WEMI tag contributions and paths."
+    )
     _core_json(inherited)
-    inherited.add_argument("level", choices=("work", "expression", "manifestation", "item"))
+    inherited.add_argument(
+        "level", choices=("work", "expression", "manifestation", "item")
+    )
     inherited.add_argument("entity_id", type=int)
     inherited.add_argument("--max-rows", type=int, default=10000)
     inherited.set_defaults(handler=cmd_catalog_inherited_tags)
 
-    repair = commands.add_parser("repair", help="Preview and apply explicit Catalog repairs.")
+    repair = commands.add_parser(
+        "repair", help="Preview and apply explicit Catalog repairs."
+    )
     repairs = repair.add_subparsers(dest="repair_action", required=True)
     for action in ("merge", "cleanup"):
         leaf = repairs.add_parser(action)
         _core_json(leaf)
-        leaf.add_argument("request_file", help="JSON operation, identities and decisions.")
-        leaf.add_argument("--expected-state", help="State fingerprint from the inspected preview.")
-        leaf.add_argument("--yes", action="store_true", help="Apply the previewed repair atomically.")
+        leaf.add_argument(
+            "request_file", help="JSON operation, identities and decisions."
+        )
+        leaf.add_argument(
+            "--expected-state", help="State fingerprint from the inspected preview."
+        )
+        leaf.add_argument(
+            "--yes", action="store_true", help="Apply the previewed repair atomically."
+        )
         leaf.set_defaults(handler=cmd_catalog_repair)
     receipt = repairs.add_parser("receipt")
     _core_json(receipt)
     receipt.add_argument("receipt_id")
     receipt.set_defaults(handler=cmd_catalog_repair)
 
-    search = commands.add_parser("search", help="Search catalogue text across selected tables.")
+    search = commands.add_parser(
+        "search", help="Search catalogue text across selected tables."
+    )
     _core_json(search)
     search.add_argument("text")
     search.add_argument("--table", action="append")
@@ -1080,7 +1112,9 @@ def build_catalog_parser(
     search.add_argument("--offset", type=int, default=0)
     search.set_defaults(handler=cmd_catalog_search)
 
-    entity = commands.add_parser("entity", help="Read and mutate a named semantic repository.")
+    entity = commands.add_parser(
+        "entity", help="Read and mutate a named semantic repository."
+    )
     entity_commands = entity.add_subparsers(dest="entity_action", required=True)
     entity_list = entity_commands.add_parser("list")
     _core_json(entity_list)
@@ -1100,7 +1134,9 @@ def build_catalog_parser(
     entity_match.add_argument("--parent-id", type=int)
     entity_match.add_argument("--source")
     entity_match.add_argument("--hints-file")
-    entity_match.add_argument("--create", action="store_true", help="Create when no existing entity matches.")
+    entity_match.add_argument(
+        "--create", action="store_true", help="Create when no existing entity matches."
+    )
     entity_match.set_defaults(handler=cmd_catalog_entity_match)
     for action in ("create", "update"):
         command = entity_commands.add_parser(action)
@@ -1117,12 +1153,16 @@ def build_catalog_parser(
     entity_delete.add_argument("--yes", action="store_true")
     entity_delete.set_defaults(handler=cmd_catalog_entity_delete)
 
-    bundle = commands.add_parser("bundle", help="Retrieve a hydrated WEMI entity bundle.")
+    bundle = commands.add_parser(
+        "bundle", help="Retrieve a hydrated WEMI entity bundle."
+    )
     _core_json(bundle)
     bundle.add_argument("level")
     bundle.add_argument("entity_id", type=int)
     bundle.set_defaults(handler=cmd_catalog_bundle)
-    graph = commands.add_parser("graph", help="Retrieve a bounded WEMI graph for one Work.")
+    graph = commands.add_parser(
+        "graph", help="Retrieve a bounded WEMI graph for one Work."
+    )
     _core_json(graph)
     graph.add_argument("work_id", type=int)
     graph.add_argument("--max-expressions", type=int, default=100)
@@ -1137,11 +1177,17 @@ def build_catalog_parser(
     _core_json(hierarchy)
     hierarchy.add_argument("level")
     hierarchy.add_argument("entity_id", type=int)
-    hierarchy.add_argument("--direction", choices=("children", "parents"), default="children")
+    hierarchy.add_argument(
+        "--direction", choices=("children", "parents"), default="children"
+    )
     hierarchy.set_defaults(handler=cmd_catalog_hierarchy)
 
-    identifiers = commands.add_parser("identifiers", help="Read or replace entity identifiers.")
-    identifier_commands = identifiers.add_subparsers(dest="identifier_action", required=True)
+    identifiers = commands.add_parser(
+        "identifiers", help="Read or replace entity identifiers."
+    )
+    identifier_commands = identifiers.add_subparsers(
+        dest="identifier_action", required=True
+    )
     identifier_list = identifier_commands.add_parser("list")
     _core_json(identifier_list)
     identifier_list.add_argument("level")
@@ -1155,7 +1201,9 @@ def build_catalog_parser(
     identifier_set.add_argument("identifiers_file")
     identifier_set.set_defaults(handler=cmd_catalog_identifiers_set)
 
-    agents = commands.add_parser("agents", help="Resolve, edit, sort, and link catalogue agents.")
+    agents = commands.add_parser(
+        "agents", help="Resolve, edit, sort, and link catalogue agents."
+    )
     agent_commands = agents.add_subparsers(dest="agent_action", required=True)
     agent_list = agent_commands.add_parser("list")
     _core_json(agent_list)
@@ -1164,18 +1212,32 @@ def build_catalog_parser(
     agent_list.add_argument("--role")
     agent_list.set_defaults(handler=cmd_catalog_agents)
     for action in ("rename", "repair-sort"):
-        names = agent_commands.add_parser(action, help="Preview Agent name/sort changes; --yes applies them.")
+        names = agent_commands.add_parser(
+            action, help="Preview Agent name/sort changes; --yes applies them."
+        )
         _core_json(names)
         if action == "rename":
             names.add_argument("agent_id", type=int)
             names.add_argument("name")
             names.add_argument("--sort-name", help="Explicit nonblank sort override.")
         else:
-            names.add_argument("agent_ids", type=int, nargs="+", help="1–500 explicit Agent IDs.")
-        names.add_argument("--sort-mode", choices=("preserve", "derive"), default="preserve",
-                           help="Preserve nonblank sorts, or explicitly regenerate them.")
-        names.add_argument("--person-sort-method", choices=("comma", "nocomma", "copy"), default="comma")
-        names.add_argument("--yes", action="store_true", help="Apply the proposed changes.")
+            names.add_argument(
+                "agent_ids", type=int, nargs="+", help="1–500 explicit Agent IDs."
+            )
+        names.add_argument(
+            "--sort-mode",
+            choices=("preserve", "derive"),
+            default="preserve",
+            help="Preserve nonblank sorts, or explicitly regenerate them.",
+        )
+        names.add_argument(
+            "--person-sort-method",
+            choices=("comma", "nocomma", "copy"),
+            default="comma",
+        )
+        names.add_argument(
+            "--yes", action="store_true", help="Apply the proposed changes."
+        )
         names.set_defaults(handler=cmd_catalog_agent_names)
     resolve = agent_commands.add_parser("resolve")
     _core_json(resolve)
@@ -1208,11 +1270,16 @@ def build_catalog_parser(
     annotations.add_argument("--kind")
     annotations.set_defaults(handler=cmd_catalog_annotations)
 
-    wemi = commands.add_parser("wemi", help="Create or change explicit WEMI relationships.")
+    wemi = commands.add_parser(
+        "wemi", help="Create or change explicit WEMI relationships."
+    )
     wemi_commands = wemi.add_subparsers(dest="wemi_action", required=True)
     wemi_create = wemi_commands.add_parser("create")
     _core_json(wemi_create)
-    wemi_create.add_argument("spec_file", help="JSON with work, expression, manifestation, and optional items.")
+    wemi_create.add_argument(
+        "spec_file",
+        help="JSON with work, expression, manifestation, and optional items.",
+    )
     wemi_create.set_defaults(handler=cmd_catalog_wemi_create)
     wemi_link = wemi_commands.add_parser("link")
     _core_json(wemi_link)
@@ -1220,7 +1287,9 @@ def build_catalog_parser(
     wemi_link.add_argument("parent_id", type=int)
     wemi_link.add_argument("child_level")
     wemi_link.add_argument("child_id", type=int)
-    wemi_link.add_argument("--primary", action=argparse.BooleanOptionalAction, default=None)
+    wemi_link.add_argument(
+        "--primary", action=argparse.BooleanOptionalAction, default=None
+    )
     wemi_link.add_argument("--priority", type=int)
     wemi_link.add_argument("--origin")
     wemi_link.set_defaults(handler=cmd_catalog_wemi_link)
@@ -1257,7 +1326,9 @@ def build_catalog_parser(
     metadata_merge.add_argument("--relationship-resolutions-file")
     metadata_merge.set_defaults(handler=cmd_catalog_metadata_merge)
 
-    fields = commands.add_parser("fields", help="Inspect public metadata-field definitions.")
+    fields = commands.add_parser(
+        "fields", help="Inspect public metadata-field definitions."
+    )
     _core_json(fields)
     fields.add_argument("--key")
     fields.add_argument("--kind", default="all")
@@ -1309,7 +1380,9 @@ def build_catalog_parser(
     custom_delete.add_argument("--yes", action="store_true")
     custom_delete.set_defaults(handler=cmd_catalog_custom_fields_delete)
 
-    browse = commands.add_parser("browse", help="Browse categories and Work projections.")
+    browse = commands.add_parser(
+        "browse", help="Browse categories and Work projections."
+    )
     browse_commands = browse.add_subparsers(dest="browse_action", required=True)
     categories = browse_commands.add_parser("categories")
     _core_json(categories)
@@ -1360,10 +1433,14 @@ def build_acquisition_parser(
     :return: None; all leaves and aliases are added with their handler defaults.
     """
     parser = subparsers.add_parser(
-        "acquire", aliases=["acquisition"], help="Resolve and safely retrieve catalogue resources."
+        "acquire",
+        aliases=["acquisition"],
+        help="Resolve and safely retrieve catalogue resources.",
     )
     commands = parser.add_subparsers(dest="acquire_action", required=True)
-    formats = commands.add_parser("formats", help="List downloadable formats for one Work.")
+    formats = commands.add_parser(
+        "formats", help="List downloadable formats for one Work."
+    )
     _core_json(formats)
     formats.add_argument("work_id", type=int)
     formats.set_defaults(handler=cmd_acquire_query)
@@ -1371,12 +1448,16 @@ def build_acquisition_parser(
     _core_json(cover)
     cover.add_argument("work_id", type=int)
     cover.set_defaults(handler=cmd_acquire_query)
-    resolve = commands.add_parser("resolve", help="Resolve one resource without reading bytes.")
+    resolve = commands.add_parser(
+        "resolve", help="Resolve one resource without reading bytes."
+    )
     _core_json(resolve)
     resolve.add_argument("kind")
     resolve.add_argument("resource_id", type=int)
     resolve.set_defaults(handler=cmd_acquire_query)
-    get = commands.add_parser("get", aliases=["read"], help="Read one resource to a CLI-host file.")
+    get = commands.add_parser(
+        "get", aliases=["read"], help="Read one resource to a CLI-host file."
+    )
     add_connection_arguments(get)
     get.add_argument("kind")
     get.add_argument("resource_id", type=int)

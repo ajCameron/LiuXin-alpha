@@ -13,10 +13,11 @@ Example:
 from __future__ import annotations
 
 import pathlib
-from collections.abc import Iterable, Iterator
-from typing import Any, BinaryIO, Mapping, Optional
+from collections.abc import Iterable, Iterator, Mapping
+from typing import Any, BinaryIO
 from uuid import UUID
 
+from LiuXin_alpha.catalog.retrieval.hydration import ItemMetadataHydrator
 from LiuXin_alpha.databases.database import Database
 from LiuXin_alpha.databases.row import Row
 from LiuXin_alpha.ingest.models import (
@@ -24,13 +25,13 @@ from LiuXin_alpha.ingest.models import (
     StoreIngestObjectCheckpoint,
     StoreIngestReport,
 )
+from LiuXin_alpha.ingest.native_disk import NativeDiskReport
 from LiuXin_alpha.ingest.remote_html import (
     register_native_html_readonly_store_files,
     register_wget_html_readonly_store_files,
 )
 from LiuXin_alpha.ingest.stores import adopt_store as adopt_configured_store
 from LiuXin_alpha.ingest.stores import ingest_store as ingest_configured_store
-from LiuXin_alpha.catalog.retrieval.hydration import ItemMetadataHydrator
 from LiuXin_alpha.metadata.containers import ItemMetadata
 from LiuXin_alpha.storage.api import (
     Digest,
@@ -45,6 +46,7 @@ from LiuXin_alpha.storage.api import (
     StoreConfiguration,
     StoreUUID,
 )
+from LiuXin_alpha.storage.durable_manager import StorageBootstrapReport, StorageManager
 from LiuXin_alpha.storage.reconcile import (
     SquashfsArchivePublishReport,
     SquashfsDesignationReport,
@@ -53,10 +55,8 @@ from LiuXin_alpha.storage.reconcile import (
     ensure_open_squashfs_store,
     publish_open_squashfs_store,
     publish_squashfs_archive_from_file_ids,
-    register_existing_disk_as_unmanaged_store,
     register_rclone_http_readonly_store_files,
 )
-from LiuXin_alpha.storage.durable_manager import StorageBootstrapReport, StorageManager
 
 
 class Library:
@@ -153,7 +153,7 @@ class Library:
         return storage
 
     @property
-    def storage_bootstrap_report(self) -> Optional[StorageBootstrapReport]:
+    def storage_bootstrap_report(self) -> StorageBootstrapReport | None:
         """
         Perform the storage bootstrap report operation under explicit file-format and conversion rules.
 
@@ -342,7 +342,7 @@ class Library:
 
         row = self._database.get_row_from_id(target_table, int(row_id))
         if row is None:
-            raise ValueError("No row found in {} for id {}.".format(target_table, int(row_id)))
+            raise ValueError(f"No row found in {target_table} for id {int(row_id)}.")
 
         payload = dict(updates or {})
         if not payload:
@@ -357,13 +357,13 @@ class Library:
             if not key:
                 continue
             if key == id_column:
-                raise ValueError("Cannot update id column {!r} for table {!r}.".format(id_column, target_table))
+                raise ValueError(f"Cannot update id column {id_column!r} for table {target_table!r}.")
             if key not in allowed_columns:
-                raise ValueError("Unknown column {!r} for table {!r}.".format(key, target_table))
+                raise ValueError(f"Unknown column {key!r} for table {target_table!r}.")
             clean_updates[key] = value
 
         if not clean_updates:
-            raise ValueError("No writable updates were provided for table {!r}.".format(target_table))
+            raise ValueError(f"No writable updates were provided for table {target_table!r}.")
 
         from LiuXin_alpha.catalog.repositories.group import CatalogRepositories
 
@@ -402,7 +402,7 @@ class Library:
 
         row = self._database.get_row_from_id(target_table, int(row_id))
         if row is None:
-            raise ValueError("No row found in {} for id {}.".format(target_table, int(row_id)))
+            raise ValueError(f"No row found in {target_table} for id {int(row_id)}.")
 
         max_samples = max(0, int(sample_limit))
         id_column = str(self._database.driver_wrapper.get_id_column(target_table))
@@ -520,7 +520,7 @@ class Library:
 
         row = self._database.get_row_from_id(target_table, int(row_id))
         if row is None:
-            raise ValueError("No row found in {} for id {}.".format(target_table, int(row_id)))
+            raise ValueError(f"No row found in {target_table} for id {int(row_id)}.")
 
         deleted = self._row_to_plain_dict(row)
         from LiuXin_alpha.catalog.repositories.group import CatalogRepositories
@@ -642,7 +642,7 @@ class Library:
     def add_file(
         self,
         file_bytes: bytes,
-        metadata: Optional[Any] = None,
+        metadata: Any | None = None,
         *,
         store: StoreUUID | StoreConfiguration | StoreAPI | None = None,
         name: str | None = None,
@@ -1090,14 +1090,14 @@ class Library:
         self,
         disk_path: str | pathlib.Path,
         *,
-        store_name: Optional[str] = None,
-        ebook_extensions: Optional[tuple[str, ...] | list[str] | set[str]] = None,
+        store_name: str | None = None,
+        ebook_extensions: tuple[str, ...] | list[str] | set[str] | None = None,
         source_label: str = "on_disk_unmanaged_import",
         compute_hash: bool = True,
         follow_symlinks: bool = False,
         attach_store_links: bool = True,
         refresh_storage_manager: bool = True,
-    ) -> UnmanagedDiskRegistrationReport:
+    ) -> NativeDiskReport:
         """
         Perform the register unmanaged disk operation under explicit file-format and conversion rules.
 
@@ -1122,8 +1122,10 @@ class Library:
         :return: The normalized value, metadata record, path, stream result or collection
             described above.
         """
-        return register_existing_disk_as_unmanaged_store(
-            self._database,
+        from LiuXin_alpha.ingest.native_disk import register_native_disk
+
+        return register_native_disk(
+            self,
             disk_path=disk_path,
             store_name=store_name,
             ebook_extensions=ebook_extensions,
@@ -1138,15 +1140,15 @@ class Library:
         self,
         remote_url: str,
         *,
-        store_name: Optional[str] = None,
+        store_name: str | None = None,
         max_http_requests_per_hour: float | None = None,
         apply_rclone_tpslimit: bool = True,
         rclone_tpslimit_burst: int = 1,
         enforce_global_rate_limit: bool = True,
         rclone_exe: str = "rclone",
-        rclone_args: Optional[tuple[str, ...] | list[str]] = None,
+        rclone_args: tuple[str, ...] | list[str] | None = None,
         timeout_s: float | None = 60.0,
-        ebook_extensions: Optional[tuple[str, ...] | list[str] | set[str]] = None,
+        ebook_extensions: tuple[str, ...] | list[str] | set[str] | None = None,
         source_label: str = "rclone_http_import",
         capture_hashes: bool = False,
         attach_store_links: bool = True,
@@ -1207,10 +1209,10 @@ class Library:
         self,
         remote_url: str,
         *,
-        store_name: Optional[str] = None,
+        store_name: str | None = None,
         max_http_requests_per_hour: float | None = None,
         wget_exe: str = "wget",
-        wget_args: Optional[tuple[str, ...] | list[str]] = None,
+        wget_args: tuple[str, ...] | list[str] | None = None,
         timeout_s: float | None = 300.0,
         recurse: bool = True,
         max_depth: int | None = None,
@@ -1219,7 +1221,7 @@ class Library:
         respect_robots: bool = True,
         user_agent: str | None = None,
         no_verbose: bool = True,
-        ebook_extensions: Optional[tuple[str, ...] | list[str] | set[str]] = None,
+        ebook_extensions: tuple[str, ...] | list[str] | set[str] | None = None,
         source_label: str = "wget_html_import",
         attach_store_links: bool = True,
         refresh_storage_manager: bool = True,
@@ -1282,7 +1284,7 @@ class Library:
         self,
         remote_url: str,
         *,
-        store_name: Optional[str] = None,
+        store_name: str | None = None,
         max_http_requests_per_hour: float | None = None,
         timeout_s: float | None = 30.0,
         recurse: bool = True,
@@ -1292,7 +1294,7 @@ class Library:
         respect_robots: bool = True,
         user_agent: str | None = None,
         max_html_bytes: int = 2_000_000,
-        ebook_extensions: Optional[tuple[str, ...] | list[str] | set[str]] = None,
+        ebook_extensions: tuple[str, ...] | list[str] | set[str] | None = None,
         source_label: str = "native_html_import",
         attach_store_links: bool = True,
         refresh_storage_manager: bool = True,
@@ -1351,7 +1353,7 @@ class Library:
         self,
         *,
         archive_path: str | pathlib.Path,
-        store_name: Optional[str] = None,
+        store_name: str | None = None,
     ):
         """
         Perform the ensure open squashfs store operation under explicit file-format and conversion rules.
@@ -1407,7 +1409,7 @@ class Library:
         self,
         *,
         store_id: int,
-        output_archive: Optional[str | pathlib.Path] = None,
+        output_archive: str | pathlib.Path | None = None,
         compression: str = "zstd",
         deterministic: bool = False,
         force: bool = False,
@@ -1454,7 +1456,7 @@ class Library:
         *,
         file_ids,
         archive_path: str | pathlib.Path,
-        store_name: Optional[str] = None,
+        store_name: str | None = None,
         compression: str = "zstd",
         deterministic: bool = False,
         force: bool = False,
@@ -1511,7 +1513,7 @@ class Library:
             return
         self._closed = True
 
-    def __enter__(self) -> "Library":
+    def __enter__(self) -> Library:
         """
         Implement the conversion resource's enter lifecycle operation.
 

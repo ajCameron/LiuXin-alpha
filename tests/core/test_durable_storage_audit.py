@@ -195,7 +195,9 @@ service = DurableJobService(path=sys.argv[1], library_uuid="library-1", open_lib
 db = SimpleNamespace(type="SQLite", metadata={})
 runtime = CoreRuntime(library=SimpleNamespace(database=db, storage=None), durable_jobs=service, preferences={})
 try:
+    assert runtime.services._catalog is None
     print(json.dumps(runtime.query("jobs.get", {"job_id": sys.argv[2]})))
+    assert runtime.services._catalog is None
 finally:
     runtime.shutdown()
 """,
@@ -228,7 +230,7 @@ def test_factory_uses_independent_library_and_reopens_audit_receipt(tmp_path, db
     with create_core(
         database_path=path, db_type=db_type, create=True, enable_maintenance=False
     ) as runtime:
-        assert not runtime.durable_jobs.path.exists()
+        assert runtime.durable_jobs.path.exists()
         saved = runtime.command(
             "storage.store.save",
             {

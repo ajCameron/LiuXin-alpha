@@ -63,8 +63,9 @@ does not retarget a retry. Current concurrency and retention policy still apply.
 
 A parent has at most one successor. Repeating the same retry key resolves that
 successor, including after it finishes. A different request to retry the same
-parent fails; to make a later attempt, retry the successor. Neither the worker
-nor the scheduler automatically invokes this API.
+parent fails; to make a later attempt, retry the successor. The scheduler does not
+retry automatically. The guarded recovery coordinator may reuse an existing
+successor after proving executor exclusion and domain continuation safety.
 
 If the parent started, the caller must pass `acknowledge_possible_effects=True`
 after inspecting domain recovery evidence and dealing with any stale worker.
@@ -75,8 +76,9 @@ stop an old process from changing an external system.
 
 Cancellation before start can be retried without that acknowledgement. A
 cancelled run that started may retain a completed-effect receipt and still
-requires it. A timeout declaration alone does not stop a worker; deadline
-enforcement remains separate work.
+requires it. Captured timeouts are checked cooperatively and when the handler
+returns; they cannot preempt arbitrary blocking code. A late result is retained
+with timed-out state. See [claim and deadline behavior](durable-claims.md).
 
 ## Retention and upgrade
 

@@ -19,6 +19,7 @@ import stat as stat_module
 import subprocess
 import tempfile
 import threading
+import time
 
 from contextlib import contextmanager
 from types import TracebackType
@@ -1116,8 +1117,19 @@ class SquashfsBuildStorageBackend(FilesystemStore):
         stderr_thread = threading.Thread(target=drain_stderr, daemon=True)
         stderr_thread.start()
         try:
+            from LiuXin_alpha.storage.operation_context import checkpoint
+            deadline = time.monotonic() + self._command_timeout_s
             try:
-                return_code = process.wait(timeout=self._command_timeout_s)
+                while True:
+                    checkpoint()
+                    remaining = deadline - time.monotonic()
+                    if remaining <= 0:
+                        raise subprocess.TimeoutExpired(command, self._command_timeout_s)
+                    try:
+                        return_code = process.wait(timeout=min(0.25, remaining))
+                        break
+                    except subprocess.TimeoutExpired:
+                        continue
             except subprocess.TimeoutExpired as error:
                 process.kill()
                 process.wait()
@@ -1125,6 +1137,9 @@ class SquashfsBuildStorageBackend(FilesystemStore):
                     f"mksquashfs exceeded {self._command_timeout_s:g} seconds."
                 ) from error
         finally:
+            if process.poll() is None:
+                process.kill()
+                process.wait()
             stderr_thread.join(timeout=2)
             process_stderr.close()
         if stderr_thread.is_alive():
@@ -1469,8 +1484,10 @@ def _file_digest(path: pathlib.Path) -> Digest:
     :return: Digest containing SHA-256 and the lowercase hex result; file/read errors propagate.
     """
     hasher = hashlib.sha256()
+    from LiuXin_alpha.storage.operation_context import checkpoint
     with path.open("rb") as source:
         while chunk := source.read(1024 * 1024):
+            checkpoint()
             hasher.update(chunk)
     return Digest("sha256", hasher.hexdigest())
 

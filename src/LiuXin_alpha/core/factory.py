@@ -47,6 +47,7 @@ def create_core(
     api_version: str = "2.0",
     job_manager: Any | None = None,
     durable_job_path: str | pathlib.Path | None = None,
+    start_jobs: bool = True,
     close_job_manager_on_shutdown: bool | None = None,
     preferences: Any | None = None,
     configuration_paths: ConfigurationPaths | None = None,
@@ -95,6 +96,7 @@ def create_core(
     :param core_version: Advertised runtime implementation version, converted to text without version validation.
     :param api_version: Advertised command/query contract version, converted to text.
     :param job_manager: Optional job manager; omission uses the shared process-default manager.
+    :param start_jobs: Start durable queue recovery and delivery; false opens an explicit inspection session.
     :param durable_job_path: Optional local ledger path; owned SQLite/APSW libraries default to a .jobs.sqlite sidecar, while server databases need an explicit ledger.
     :param close_job_manager_on_shutdown: Explicit manager-close policy; ``None`` currently defaults to false.
     :param preferences: Optional application store captured before construction; a live proxy resolves to its current concrete store. Borrowed database preferences are the next fallback.
@@ -114,7 +116,9 @@ def create_core(
         preferences = Preferences(paths=configuration_paths, upgrade_on_load=False)
     supplied_library = library is not None
     if supplied_library and (
-        database is not None or database_path is not None or database_metadata is not None
+        database is not None
+        or database_path is not None
+        or database_metadata is not None
     ):
         raise ValueError("Provide `library`, or a database/database_path, not both.")
     if durable_job_path is not None and (library is not None or database is not None):
@@ -195,14 +199,14 @@ def create_core(
                 worker_connection = library_services.core_services.database_connection
                 assert worker_connection is not None
 
-                def open_worker_library():
+                def open_worker_library(*, storage: bool = enable_storage_manager):
                     # Each worker owns this graph; no main connection crosses threads.
                     with use_preferences(preferences):
                         return LibraryServices.open(
                             **worker_connection,
                             create=False,
                             backup=False,
-                            enable_storage_manager=enable_storage_manager,
+                            enable_storage_manager=storage,
                             enable_maintenance=False,
                             storage_startup_on_add=True,
                             strict_storage_manager_bootstrap=True,
@@ -214,8 +218,9 @@ def create_core(
                     path=ledger_path,
                     library_uuid=str(library.db.uuid),
                     open_library=open_worker_library,
+                    open_outbox_library=lambda: open_worker_library(storage=False),
                 )
-        return CoreRuntime(
+        runtime = CoreRuntime(
             library=library,
             core_uuid=core_uuid,
             core_version=core_version,
@@ -237,6 +242,9 @@ def create_core(
             close_cache_on_shutdown=None,
             library_services=library_services,
         )
+        if durable_jobs is not None and start_jobs:
+            durable_jobs.start()
+        return runtime
     except BaseException as startup_error:
         failures: list[BaseException] = []
         if durable_jobs is not None:

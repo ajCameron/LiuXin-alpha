@@ -690,31 +690,44 @@ def test_administrative_payloads_and_post_dispatch_receipt_validation() -> None:
     assert client.command.call_count == 6 and model._schema_map() == {}
 
 
-def test_acquisition_content_uses_native_bytes_or_nonstrict_base64() -> None:
+def test_acquisition_content_requires_valid_bounded_chunks() -> None:
     """
-    Retain byte identity and permissive tagged decoding while exposing unsupported content and padding failures.
+    Accept native or strictly decoded bytes only with complete range evidence.
 
     Example:
-        >>> test_acquisition_content_uses_native_bytes_or_nonstrict_base64()
+        >>> test_acquisition_content_requires_valid_bounded_chunks()
 
 
     :return: None after native, tagged, missing-data, wrong-content, and invalid-padding acquisition checks.
     """
     model, client = _cached_model()
     payload = b"snow"
-    client.query.return_value = {"resource": {"id": 7}, "content": payload}
+
+    def response(content):
+        return {
+            "resource": {"id": 7},
+            "content": content,
+            "offset": 0,
+            "next_offset": 4,
+            "total_bytes": 4,
+            "complete": True,
+            "version": "fixture",
+        }
+
+    client.query.return_value = response(payload)
     resource, content = model.acquisition_read("file", "7")
     assert resource == {"id": 7} and content is payload
-    client.query.assert_called_once_with("acquisition.read", {"kind": "file", "id": 7})
-    client.query.return_value = {"content": {"$type": "bytes", "base64": "c25v!!dw=="}}
-    assert model.acquisition_read("file", 7) == ({}, b"snow")
-    client.query.return_value = {"content": {"$type": "bytes"}}
-    assert model.acquisition_read("file", 7) == ({}, b"")
+    client.query.assert_called_once_with(
+        "acquisition.read-range",
+        {"kind": "file", "id": 7, "offset": 0, "length": 1024 * 1024},
+    )
+    client.query.return_value = response({"$type": "bytes", "base64": "c25vdw=="})
+    assert model.acquisition_read("file", 7) == ({"id": 7}, b"snow")
     for invalid in (None, bytearray(payload), memoryview(payload), {"$type": "other"}):
-        client.query.return_value = {"content": invalid}
-        with pytest.raises(TypeError, match="not bytes"):
+        client.query.return_value = response(invalid)
+        with pytest.raises(ValueError, match="Invalid acquisition chunk"):
             model.acquisition_read("file", 7)
-    client.query.return_value = {"content": {"$type": "bytes", "base64": "a"}}
+    client.query.return_value = response({"$type": "bytes", "base64": "c25v!!dw=="})
     with pytest.raises(binascii.Error):
         model.acquisition_read("file", 7)
 

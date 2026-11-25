@@ -204,7 +204,9 @@ def _run_job(
     submitted = core.command(operation, dict(payload))
     if not isinstance(submitted, Mapping):
         raise RuntimeError("Core job submission did not return an object.")
-    job_id = str(submitted.get("job_id") or "")
+    from LiuXin_alpha.core.submissions import wait_for_submission
+
+    job_id = wait_for_submission(core.query, submitted)
     if not job_id:
         raise RuntimeError("Core job submission did not return a job id.")
 

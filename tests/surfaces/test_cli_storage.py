@@ -63,6 +63,8 @@ def _base_arguments(tmp_path: Path, source: Path) -> list[str]:
         str(tmp_path / "report.json"),
         "--run-id",
         RUN_ID,
+        "--host-space-path",
+        str(tmp_path),
         "--no-console-progress",
     ]
 

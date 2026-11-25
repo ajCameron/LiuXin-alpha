@@ -1,6 +1,6 @@
 # Core
 
-Updated **2026-11-23** with the whole-Core review and completion plan.
+Updated **2026-11-25** with command recovery and durable execution.
 
 Core owns application composition, configuration, lifecycle and the command/query
 boundary. LibraryServices supplies collaborators; domain rules stay with their
@@ -9,6 +9,10 @@ Catalog, metadata and storage owners.
 - [Whole-Core review and completion plan](review-and-completion-plan-2026-11-23.md):
   strengths, functional coverage, evidenced weaknesses and ordered sign-off work.
 - [Core API](core-api.md): named operations, clients, read sources and failure contracts.
+- [Recovery and operations](recovery-operations.md): command identities, durable
+  acceptance, held effects, cancellation, bounds, events and operator recovery.
+- [Recovery completion evidence](recovery-completion-2026-11-25.md): accepted scope
+  and validation status, including gated performance lanes.
 - [Native metadata API](native-metadata.md): creation, shared records, relationships,
   vocabulary trees, bounded batches, search discovery and reconciliation receipts.
 - [Transport permissions](transport_permissions.md): server roles, authentication,

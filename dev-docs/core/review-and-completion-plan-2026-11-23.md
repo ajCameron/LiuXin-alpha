@@ -7,6 +7,13 @@ operations, transport, jobs, events, configuration and operational readiness.
 The earlier [integration review](integration-review-2026-11-23.md) remains the
 detailed evidence for metadata routing and lifecycle repairs.
 
+**Implementation follow-up, 2026-11-25:** the
+[recovery completion report](recovery-completion-2026-11-25.md) records the
+implemented remainder, combined acceptance evidence and unrun operational gates.
+The findings below retain their original review context; use the
+[current backlog](next_tasks.md) and [operator runbook](recovery-operations.md)
+for the resulting behavior and remaining limits.
+
 **Assessment:** Core has a sound application boundary and substantial working
 functionality. Keep its architecture and complete it incrementally. I would sign
 off the tested native search/edit workflow and the repaired lifecycle boundary;

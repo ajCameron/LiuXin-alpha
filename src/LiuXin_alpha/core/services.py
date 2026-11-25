@@ -549,9 +549,7 @@ class CoreServices:
             if attached is None and label != "read source":
                 attached = getattr(dependency, "db", None)
             if attached is not None and attached is not self.database:
-                raise ValueError(
-                    "Core {} must use the Core library database.".format(label)
-                )
+                raise ValueError(f"Core {label} must use the Core library database.")
 
     def _bind_storage_cache(self) -> None:
         """
@@ -580,22 +578,6 @@ class CoreServices:
                     getattr(storage, "metadata_cache", None),
                 )
                 bind(cache)
-
-    def selective_cleanup_unavailable(self) -> str | None:
-        """Report built-in selective cleanup support without opening maintenance."""
-        with self._service_scope():
-            service = self._maintenance
-            if service is None:
-                service = getattr(self.database, "maintenance", None)
-            method = None if service is None else getattr(service, "clean", None)
-            if not callable(method):
-                return "Selective maintenance cleanup is unavailable in the built-in service."
-            from LiuXin_alpha.databases.maintenance.service import Maintainer
-
-            implementation = getattr(method, "__func__", method)
-            if implementation is Maintainer.clean:
-                return "Selective maintenance cleanup is unavailable in the built-in service."
-            return None
 
     def describe(self) -> dict[str, Any]:
         """

@@ -9,11 +9,10 @@ discovery do not assert that a maintenance run has completed.
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Iterable, Mapping
 from typing import TYPE_CHECKING, Any, cast
 
 from LiuXin_alpha.core.errors import CoreDispatchError
-from LiuXin_alpha.core.payloads import integer_value
 from LiuXin_alpha.core.program_services.payloads import (
     _callable,
     _optional_int,
@@ -283,59 +282,6 @@ def _rebuild_work_pages(
     except (ValueError, TypeError) as error:
         raise CoreDispatchError(str(error), code="invalid_payload") from error
     return {**result, "scheduled_this_call": scheduled}
-
-
-def selective_cleanup_unavailable(runtime: CoreRuntime) -> str | None:
-    """Inspect existing maintenance bindings without constructing the lazy service."""
-    return runtime.services.selective_cleanup_unavailable()
-
-
-def maintenance_clean(
-    runtime: CoreRuntime,
-    command: CoreCommand,
-) -> dict[str, Any]:
-    """
-    Clean explicitly selected rows through the maintenance service, then reconcile read-side state.
-
-    The built-in selective cleanup is unavailable; its NotImplementedError is
-    exposed as capability_unavailable before any reconciliation. Injected services
-    can supply an actual implementation.
-
-    row_ids must be a non-str/non-bytes Sequence of integers. Booleans, floats
-    and numeric strings are rejected; duplicates and order are preserved. The
-    clean result is ignored: cleaned=True indicates returned delegation, not a
-    removed-row count. Reconciliation can fail after cleanup has run.
-
-    Example:
-        >>> receipt = maintenance_clean(runtime, command)  # doctest: +SKIP
-
-
-    :param runtime: Runtime supplying maintenance.clean and service reconciliation.
-    :param command: Command with required table and row_ids array; no confirmation field is checked here.
-    :return: Reconciled cleaned=True receipt with table and converted row_ids.
-    :raises CoreDispatchError: If the request shape or clean capability is unavailable.
-    """
-    payload = _payload(command)
-    table = _required_text(payload, "table")
-    raw_ids = payload.get("row_ids")
-    if not isinstance(raw_ids, Sequence) or isinstance(raw_ids, (str, bytes)):
-        raise CoreDispatchError("`row_ids` must be an array.")
-    row_ids = [integer_value(item, "row_ids") for item in raw_ids]
-    try:
-        _callable(
-            runtime.services.maintenance,
-            "clean",
-            area="maintenance",
-        )(table, row_ids)
-    except NotImplementedError as error:
-        raise CoreDispatchError(
-            str(error),
-            code="capability_unavailable",
-            details={"area": "maintenance", "operation": "clean"},
-        ) from error
-    return runtime.services.reconcile(
-        {"cleaned": True, "table": table, "row_ids": row_ids}
-    )
 
 
 def maintenance_merge(

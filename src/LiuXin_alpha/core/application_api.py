@@ -21,6 +21,7 @@ from uuid import UUID
 from LiuXin_alpha.catalog.api.repositories import CATALOG_REPOSITORY_NAMES
 from LiuXin_alpha.core.description import CorePayloadFieldDescription
 from LiuXin_alpha.core.errors import CoreDispatchError
+from LiuXin_alpha.core.execution_bounds import PAGE_ROWS, bounded_table_rows, bounded_values
 from LiuXin_alpha.core.payloads import boolean, integer_value, optional_int
 from LiuXin_alpha.core.payloads import required_int as _required_int
 from LiuXin_alpha.core.payloads import required_text as _required_text
@@ -1126,8 +1127,9 @@ class CoreApplicationAPI:
         Relation IDs follow the same strict integer contract as scalar IDs.
         Sort strings remain unstripped; object sort fields are stripped and their
         ascending flag must be a boolean. Projection/text-field entries are stringified.
-        Offset defaults to zero; limit defaults to None (unbounded), with zero
-        requesting counts only. Cache record validation errors are not wrapped.
+        Offset defaults to zero; limit defaults to 1,000 and is capped there,
+        with zero requesting counts only. Explicit null also selects the default.
+        Cache record validation errors are not wrapped.
 
         Example:
             >>> spec = CoreApplicationAPI._cache_query({"table": "works", "limit": 0})
@@ -1229,6 +1231,7 @@ class CoreApplicationAPI:
             if not isinstance(raw, Sequence) or isinstance(raw, (str, bytes)):
                 raise CoreDispatchError("`{}` must be an array.".format(name))
 
+        page_limit = _optional_int(payload, "limit", default=PAGE_ROWS)
         return CacheQuery(
             table=table,
             predicates=tuple(predicates),
@@ -1238,7 +1241,7 @@ class CoreApplicationAPI:
             sort=tuple(sort),
             projection=tuple(str(value) for value in projection),
             offset=int(_optional_int(payload, "offset", default=0) or 0),
-            limit=_optional_int(payload, "limit", default=None),
+            limit=PAGE_ROWS if page_limit is None else min(PAGE_ROWS, page_limit),
         )
 
     @staticmethod
@@ -1319,7 +1322,8 @@ class CoreApplicationAPI:
         A zero limit skips sorting and record projection, not scanning or filtering.
         All matching rows are counted before paging. complete=True describes query
         coverage rather than the last page; generation=0 and source="database" are
-        fixed adapter labels. This path adds no scan cap or enclosing read transaction.
+        fixed adapter labels. This path caps legacy scans at 10,000 rows and adds
+        no enclosing read transaction.
 
         Example:
             >>> spec = CoreApplicationAPI._cache_query({"table": "works", "limit": 0})
@@ -1340,16 +1344,9 @@ class CoreApplicationAPI:
             # Identifier-less lookup views cannot be materialized as Database
             # Row objects because their values are intentionally non-unique.
             # Keep that driver quirk inside Core and return wire records.
-            rows = list(
-                runtime.services.database.driver_wrapper.get_all_rows(spec.table)
-            )
+            rows = bounded_table_rows(runtime.services.database.driver_wrapper, spec.table)
         else:
-            rows = list(
-                source.get_all_rows(
-                    spec.table,
-                    iterator_return=False,
-                )
-            )
+            rows = bounded_table_rows(source, spec.table)
 
         if spec.relation is not None:
             related_ids: set[int] = set()
@@ -3028,10 +3025,10 @@ class CoreApplicationAPI:
         query: "CoreQuery",
     ) -> dict[str, Any]:
         """
-        Materialize all managed files and return an iteration-ordered page with the full count.
+        Scan at most 10,000 managed files and return an iteration-ordered page.
 
         Limit defaults to 100 and offset to zero, with nonnegative values and no
-        upper cap. Explicit None becomes zero. A zero limit still enumerates all
+        upper cap of 1,000. Explicit None becomes zero. A zero limit still enumerates all
         files before producing the count; no extra sorting or asset projection occurs.
 
         Example:
@@ -3045,7 +3042,8 @@ class CoreApplicationAPI:
         payload = _payload(query)
         limit = int(_optional_int(payload, "limit", default=100) or 0)
         offset = int(_optional_int(payload, "offset", default=0) or 0)
-        assets = list(runtime.services.library.iter_files())
+        limit = min(limit, PAGE_ROWS)
+        assets = bounded_values(runtime.services.library.iter_files())
         return {
             "files": [asset for asset in assets[offset : offset + limit]],
             "total_count": len(assets),
@@ -3090,11 +3088,12 @@ class CoreApplicationAPI:
         query: "CoreQuery",
     ) -> dict[str, Any]:
         """
-        Locate a managed Asset, describe that location, and separately read its complete content.
+        Locate a managed Asset and read at most one MiB of complete content.
 
         Location/stat and reading are separate observations, not an atomic snapshot.
         A failed stat can report exists=False even when the subsequent read succeeds.
-        The adapter imposes no content-size cap and does not encode the returned bytes.
+        Oversized content fails with a range-read instruction. The adapter does not
+        encode the returned bytes; the wire owner performs that conversion.
 
         Example:
             >>> result = CoreApplicationAPI().storage_file_read(runtime, query)  # doctest: +SKIP
@@ -3112,10 +3111,17 @@ class CoreApplicationAPI:
             asset_id,
             store=store,
         )
-        return {
-            "location": self._location_record(library, location),
-            "content": library.read_file(asset_id, store=store),
-        }
+        from LiuXin_alpha.core.acquisition_ranges import read_small_location
+
+        if not runtime._content_slots.acquire(blocking=False):
+            raise CoreDispatchError("All content readers are busy", code="busy")
+        try:
+            return {
+                "location": self._location_record(library, location),
+                "content": read_small_location(library.storage, location),
+            }
+        finally:
+            runtime._content_slots.release()
 
     def storage_store_save(
         self,

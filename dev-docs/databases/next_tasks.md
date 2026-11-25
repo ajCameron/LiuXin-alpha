@@ -404,6 +404,13 @@ follow-up addresses the first two measured sources of overhead:
 
 ## PostgreSQL language constants — 2026-11-24
 
+**Implementation follow-up, 2026-11-25:** new PostgreSQL catalogues now use the
+same ISO-639 constants as SQLite. The PostgreSQL catalogue upgrade includes an
+explicit additive language-data plan, preserving existing IDs and references and
+refusing stale/conflicting plans. Native reads remain passive. The Core
+[recovery completion evidence](../core/recovery-completion-2026-11-25.md) records
+the active backend acceptance; the original finding below is historical.
+
 **Open database-bootstrap follow-up.** Core's
 [native metadata acceptance](../core/review-and-completion-plan-2026-11-23.md#native-metadata-completion-follow-up)
 confirmed that fresh PostgreSQL schemas create `languages` without the ISO-639

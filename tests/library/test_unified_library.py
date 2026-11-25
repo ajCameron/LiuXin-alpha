@@ -9,6 +9,7 @@ Example:
 
         python -m pytest -q tests/library/test_unified_library.py
 """
+
 from __future__ import annotations
 
 from contextlib import contextmanager
@@ -222,7 +223,7 @@ def test_library_facade_registers_and_routes_unmanaged_disk(
             store_name="unmanaged",
         )
 
-        assert report.inserted_files == 1
+        assert report.inserted_replicas == 1
         assert report.errors == []
         stores = list(library.iter_stores())
         assert len(stores) == 1
@@ -295,7 +296,10 @@ def test_library_replica_deletion_is_explicit_and_tombstoned(
         assert report.bytes_deleted
         assert report.tombstone_retained
         assert not library.storage.exists(replica.location)
-        assert library.storage.get_replica_record(replica.replica_id).state is ReplicaState.DELETED
+        assert (
+            library.storage.get_replica_record(replica.replica_id).state
+            is ReplicaState.DELETED
+        )
         assert library.read_file(asset) == b"remove"
 
 

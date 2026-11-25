@@ -10,8 +10,7 @@ encoder; nonfinite floats and repr-dependent text can survive that conversion.
 from __future__ import annotations
 
 import dataclasses
-
-from typing import Any, Mapping
+from typing import Any
 
 
 def _normalize_jsonish(value: Any) -> Any:
@@ -183,6 +182,7 @@ class CoreEndpointDescription:
     transport_stable: bool = True
     remote_capabilities: tuple[str, ...] | None = None
     requirements: tuple[str, ...] = ()
+    recovery: str = "none"
 
     def to_dict(self) -> dict[str, Any]:
         """
@@ -205,8 +205,11 @@ class CoreEndpointDescription:
             "tags": [str(tag) for tag in self.tags],
             "transport_stable": bool(self.transport_stable),
             "requirements": list(self.requirements),
+            "recovery": self.recovery,
             "remote_capabilities": (
-                None if self.remote_capabilities is None else list(self.remote_capabilities)
+                None
+                if self.remote_capabilities is None
+                else list(self.remote_capabilities)
             ),
         }
 

@@ -33,8 +33,10 @@ def _open_library_services(
     """Open a one-shot library through Core's sole lifecycle owner."""
 
     from LiuXin_alpha.core.library_services import LibraryServices
+    from LiuXin_alpha.core.workflow_context import checkpoint, expected_library_uuid
 
-    return LibraryServices.open(
+    checkpoint()
+    lifecycle = LibraryServices.open(
         database_path=database_path,
         db_type=db_type,
         database_metadata=database_metadata,
@@ -43,6 +45,18 @@ def _open_library_services(
         storage_startup_on_add=storage_startup_on_add,
         enable_maintenance=False,
     )
+    expected = expected_library_uuid()
+    if expected is not None and str(lifecycle.library.db.uuid) != expected:
+        lifecycle.close()
+        raise ValueError("Workflow target catalogue identity changed")
+    return lifecycle
+
+
+def run_application_operation_job(**kwargs: Any) -> dict[str, Any]:
+    """Dispatch the explicitly registered long operations using an owned graph."""
+    from LiuXin_alpha.core.workflow_operations import run
+
+    return run(**kwargs)
 
 
 def _plain(value: Any) -> Any:
@@ -145,7 +159,12 @@ def run_ingest_disk_job(
         create=False,
     ) as lifecycle:
         library = lifecycle.library
-        report = library.register_unmanaged_disk(
+        from LiuXin_alpha.core.workflow_context import checkpoint
+        from LiuXin_alpha.ingest.native_disk import register_native_disk
+
+        report = register_native_disk(
+            library,
+            checkpoint=checkpoint,
             disk_path=disk_path,
             store_name=store_name,
             ebook_extensions=ebook_extensions,
@@ -267,7 +286,7 @@ def run_sync_store_job(
         if event == "crawl-log":
             line = str(details.get("line") or "").strip()
             if line:
-                print("JOB sync: {}".format(line), flush=True)
+                print(f"JOB sync: {line}", flush=True)
             return
         if event in {"start", "scan", "crawl-observation", "error", "done"}:
             print(
@@ -288,14 +307,13 @@ def run_sync_store_job(
     callback = progress if progress_output else None
     normalized = str(mode or "").strip().lower()
     if normalized not in {"rclone", "wget", "native", "local"}:
-        raise ValueError("Unknown sync mode: {!r}".format(mode))
+        raise ValueError(f"Unknown sync mode: {mode!r}")
 
     from LiuXin_alpha.ingest.remote_html import (
         register_native_html_readonly_store_files,
         register_wget_html_readonly_store_files,
     )
     from LiuXin_alpha.storage.reconcile import (
-        register_existing_disk_as_unmanaged_store,
         register_rclone_http_readonly_store_files,
     )
 
@@ -365,11 +383,14 @@ def run_sync_store_job(
                 progress_callback=callback,
             )
         else:
-            report = register_existing_disk_as_unmanaged_store(
-                library.db,
+            from LiuXin_alpha.core.workflow_context import checkpoint
+            from LiuXin_alpha.ingest.native_disk import register_native_disk
+
+            report = register_native_disk(
+                library,
+                checkpoint=checkpoint,
                 disk_path=store_root_uri,
                 store_name=store_name,
-                store_kind=store_kind,
                 ebook_extensions=ebook_extensions,
                 source_label=source_label,
                 compute_hash=compute_hash,
@@ -424,7 +445,7 @@ def run_ingest_remote_html_job(
     }
     method_name = methods.get(token)
     if method_name is None:
-        raise ValueError("Unsupported remote HTML ingest kind: {!r}".format(kind))
+        raise ValueError(f"Unsupported remote HTML ingest kind: {kind!r}")
     plain: Any = None
     with _open_library_services(
         database_path=database_path,
@@ -456,16 +477,32 @@ def run_ingest_web_job(
     from LiuXin_alpha.ingest.web.models import WebIngestOptions
     from LiuXin_alpha.ingest.web.repository import WebIngestRepository
 
-    with _open_library_services(database_path=database_path, db_type=db_type, database_metadata=database_metadata, create=False) as lifecycle:
+    with _open_library_services(
+        database_path=database_path,
+        db_type=db_type,
+        database_metadata=database_metadata,
+        create=False,
+    ) as lifecycle:
         if resume:
-            saved = WebIngestRepository(lifecycle.library.database, create=False).run(str(UUID(resume)))
+            saved = WebIngestRepository(lifecycle.library.database, create=False).run(
+                str(UUID(resume))
+            )
             values = json.loads(saved["web_ingest_run_options_json"])
         else:
             values = dict(options or {})
-            if not values.get("state_directory") and str(db_type).lower() in {"sqlite", "apsw"}:
-                values["state_directory"] = str(Path(database_path).expanduser().resolve().parent / "web-ingest")
+            if not values.get("state_directory") and str(db_type).lower() in {
+                "sqlite",
+                "apsw",
+            }:
+                values["state_directory"] = str(
+                    Path(database_path).expanduser().resolve().parent / "web-ingest"
+                )
         controls = WebIngestOptions.from_mapping(values)
-        return WebIngestApplication(lifecycle.library, controls, resume=resume).run().to_dict()
+        return (
+            WebIngestApplication(lifecycle.library, controls, resume=resume)
+            .run()
+            .to_dict()
+        )
 
 
 def run_conversion_job(
@@ -478,8 +515,8 @@ def run_conversion_job(
     Run the native ebook converter with high-priority option recommendations and report output metadata.
 
     Paths expand home notation but are not resolved to absolute paths. Conversion
-    and output replacement policies belong to ``Plumber``; this wrapper supplies
-    no staging/rollback layer. A normal converter return need not mean an output
+    runs against a sibling staging file; the publication owner refuses to
+    overwrite a destination and checks cancellation before atomic publication. A normal converter return need not mean an output
     exists: the result records a post-run filesystem observation, not validation
     of ebook contents. Stat errors and conversion exceptions propagate.
 
@@ -499,24 +536,26 @@ def run_conversion_job(
 
     source = str(Path(input_path).expanduser())
     destination = str(Path(output_path).expanduser())
-    plumber = Plumber(source, destination, default_log)
-    recommendations = [
-        (str(name), value, OptionRecommendation.HIGH)
-        for name, value in dict(options or {}).items()
-    ]
-    if recommendations:
-        plumber.merge_ui_recommendations(recommendations)
-    plumber.run()
-    output = Path(destination)
+    from LiuXin_alpha.core.workflow_context import checkpoint
+    from LiuXin_alpha.file_formats.conversion.publication import publish_conversion
+
+    def convert(staging: str):
+        plumber = Plumber(source, staging, default_log)
+        recommendations = [
+            (str(name), value, OptionRecommendation.HIGH)
+            for name, value in dict(options or {}).items()
+        ]
+        if recommendations:
+            plumber.merge_ui_recommendations(recommendations)
+        plumber.run()
+        return {
+            "input_format": getattr(plumber, "input_fmt", None),
+            "output_format": getattr(plumber, "output_fmt", None),
+        }
+
     return {
         "input_path": source,
-        "output_path": destination,
-        "input_format": getattr(plumber, "input_fmt", None),
-        "output_format": getattr(plumber, "output_fmt", None),
-        "exists": output.exists(),
-        "size_bytes": (
-            output.stat().st_size if output.exists() and output.is_file() else None
-        ),
+        **publish_conversion(destination, convert, checkpoint=checkpoint),
     }
 
 
@@ -621,12 +660,16 @@ def backup_workflow_spec_from_mapping(payload: Mapping[str, Any]) -> Any:
                 source_digital_asset_id=(
                     None
                     if raw.get("source_digital_asset_id") is None
-                    else integer_value(raw["source_digital_asset_id"], "source_digital_asset_id")
+                    else integer_value(
+                        raw["source_digital_asset_id"], "source_digital_asset_id"
+                    )
                 ),
                 source_replica_id=(
                     None
                     if raw.get("source_asset_replica_id") is None
-                    else integer_value(raw["source_asset_replica_id"], "source_asset_replica_id")
+                    else integer_value(
+                        raw["source_asset_replica_id"], "source_asset_replica_id"
+                    )
                 ),
             )
         )
@@ -647,7 +690,9 @@ def backup_workflow_spec_from_mapping(payload: Mapping[str, Any]) -> Any:
         output_target=reference(output_raw),
         sources=tuple(sources),
         verify_after_build=boolean(payload, "verify_after_build", True),
-        cleanup_staging_after_success=boolean(payload, "cleanup_staging_after_success", False),
+        cleanup_staging_after_success=boolean(
+            payload, "cleanup_staging_after_success", False
+        ),
         staging_target=(None if staging_raw is None else reference(staging_raw)),
         options=options,
     )
@@ -870,13 +915,12 @@ def run_persisted_backup_job(
     """
     Resume a saved backup, checkpoint each returned step, and register only a complete artifact.
 
-    Saves the initial progress state, then each ``run_next`` result until terminal.
-    There is no worker-level timeout, external cancellation event, or no-progress
-    guard. Exceptions between a workflow effect and checkpoint save propagate;
-    this adapter does not atomically couple those operations or undo either one.
+    Saves each returned step in a serialized catalogue transaction. Cooperative
+    cancellation/deadline checks precede the next step. Exceptions between an
+    external effect and checkpoint save remain uncertain; they do not imply rollback.
 
     Complete results are registered with source links. Other terminal results are
-    recorded in the repository without raising merely because they are incomplete.
+    recorded in the repository and classified by the durable workflow handler.
     A registration that does not unpack to a dictionary becomes ``None`` in the
     response rather than raising a serialization error.
 
@@ -894,7 +938,7 @@ def run_persisted_backup_job(
     :raises RuntimeError: If no result payload was assembled before leaving the library context.
     """
 
-    from LiuXin_alpha.storage.api import WorkflowStatus
+    from LiuXin_alpha.storage.api import BackupWorkflowResult, WorkflowStatus
     from LiuXin_alpha.storage.backup import (
         BackupArtifactRegistry,
         BackupWorkflowRepository,
@@ -911,32 +955,52 @@ def run_persisted_backup_job(
         library = lifecycle.library
         repository = BackupWorkflowRepository(library.db)
         checkpoint = repository.load_checkpoint(int(workflow_id))
-        workflow = SquashfsBackupWorkflow.from_checkpoint(
-            checkpoint,
-            storage_manager=library.storage,
-        )
-        state = workflow.progress()
-        repository.save_checkpoint(int(workflow_id), state)
-        while not state.status.terminal:
-            state = workflow.run_next()
-            repository.save_checkpoint(int(workflow_id), state)
+        if checkpoint.status is WorkflowStatus.COMPLETE:
+            state = checkpoint
+            result = BackupWorkflowResult(
+                checkpoint.declaration,
+                checkpoint.status,
+                workflow_id=checkpoint.workflow_id,
+                output_artifact_reference=checkpoint.output_artifact_reference,
+                source_reports=checkpoint.source_reports,
+                completed_steps=checkpoint.completed_steps,
+                final_checkpoint=checkpoint,
+            )
+        else:
+            workflow = SquashfsBackupWorkflow.from_checkpoint(
+                checkpoint, storage_manager=library.storage
+            )
+            state = workflow.progress()
+            with library.db.macros.transaction(serialized=True):
+                repository.save_checkpoint(int(workflow_id), state)
+            while not state.status.terminal:
+                from LiuXin_alpha.core.workflow_context import (
+                    checkpoint as check_cancel,
+                )
+
+                check_cancel()
+                state = workflow.run_next()
+                with library.db.macros.transaction(serialized=True):
+                    repository.save_checkpoint(int(workflow_id), state)
+            result = workflow.run_to_completion()
 
         registered: dict[str, Any] | None = None
-        result = workflow.run_to_completion()
         if result.status is WorkflowStatus.COMPLETE:
-            registration = BackupArtifactRegistry(
-                library.db,
-                storage_manager=library.storage,
-            ).register_artifact(
-                int(workflow_id),
-                result,
-                link_sources=True,
-            )
+            with library.db.macros.transaction(serialized=True):
+                registration = BackupArtifactRegistry(
+                    library.db,
+                    storage_manager=library.storage,
+                ).register_artifact(
+                    int(workflow_id),
+                    result,
+                    link_sources=True,
+                )
             registered_plain = _plain(registration)
             if isinstance(registered_plain, dict):
                 registered = cast(dict[str, Any], registered_plain)
         else:
-            repository.record_result(int(workflow_id), result)
+            with library.db.macros.transaction(serialized=True):
+                repository.record_result(int(workflow_id), result)
 
         result_payload = {
             "workflow_id": int(workflow_id),
@@ -977,8 +1041,7 @@ def run_metadata_identify_job(
     :return: Result list with unpacked metadata/OPF bytes/cache flags, its count, and the collected log dump.
     """
 
-    from threading import Event
-
+    from LiuXin_alpha.core.workflow_context import Cancellation
     from LiuXin_alpha.metadata.facade import metadata_to_opf_bytes
     from LiuXin_alpha.metadata.web_sources.identify import identify
     from LiuXin_alpha.metadata.web_sources.worker import GUILog
@@ -986,7 +1049,7 @@ def run_metadata_identify_job(
     log = GUILog()  # type: ignore[no-untyped-call]
     results = identify(  # type: ignore[no-untyped-call]
         log,
-        Event(),
+        Cancellation(),
         title=title,
         authors=authors,
         identifiers=dict(identifiers or {}),
@@ -1039,13 +1102,18 @@ def run_metadata_cover_job(
     from LiuXin_alpha.metadata.web_sources.worker import GUILog
 
     log = GUILog()  # type: ignore[no-untyped-call]
+    from LiuXin_alpha.core.workflow_context import Cancellation, checkpoint
+
+    checkpoint()
     result = download_cover(
         log,
         title=title,
         authors=authors,
         identifiers=dict(identifiers or {}),
         timeout=float(timeout),
+        abort=Cancellation(),
     )
+    checkpoint()
     if result is None:
         return {"found": False, "cover": None, "log": log.dump()}
     plugin, width, height, image_format, data = result

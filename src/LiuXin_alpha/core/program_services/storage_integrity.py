@@ -125,6 +125,17 @@ def storage_asset_verify(
     :raises CoreDispatchError: If Asset ID or replica-selection validation fails.
     """
     payload = _payload(command)
+    asset_id, verify_options = asset_verification_options(payload)
+    report = runtime.library.storage.verify_digital_asset(asset_id, **verify_options)
+    return {
+        "asset_id": asset_id,
+        "healthy": bool(report.readable),
+        "report": plain(report),
+    }
+
+
+def asset_verification_options(payload: dict[str, Any]) -> tuple[int, dict[str, Any]]:
+    """Validate nested selection before either durable acceptance or storage access."""
     asset_id = _required_int(payload, "asset_id")
     raw_ids = payload.get("replica_ids")
     replica_ids = None
@@ -135,15 +146,7 @@ def storage_asset_verify(
     verify_options: dict[str, Any] = {"replica_ids": replica_ids}
     if "all_replicas" in payload:
         verify_options["all_replicas"] = boolean(payload, "all_replicas")
-    report = runtime.library.storage.verify_digital_asset(
-        asset_id,
-        **verify_options,
-    )
-    return {
-        "asset_id": asset_id,
-        "healthy": bool(report.readable),
-        "report": plain(report),
-    }
+    return asset_id, verify_options
 
 
 def storage_audit(

@@ -13,7 +13,6 @@ from LiuXin_alpha.core.program_endpoints.common import (
     field,
 )
 from LiuXin_alpha.core.program_endpoints.handlers import BackupMaintenanceHandlers
-from LiuXin_alpha.core.program_services.maintenance import selective_cleanup_unavailable
 
 
 def install_queries(
@@ -231,19 +230,6 @@ def install_commands(
         requirements=(
             "Requires a compatible maintenance service and installed plugin schema.",
         ),
-    )
-
-    command(
-        "maintenance.clean",
-        api.maintenance_clean,
-        summary="Request selected-row cleanup; unavailable in the built-in service.",
-        payload_fields=(
-            field("table", required=True, field_type="string"),
-            field("row_ids", required=True, field_type="array"),
-        ),
-        tags=("maintenance", "write"),
-        remote_capabilities=("admin",),
-        capability_check=selective_cleanup_unavailable,
     )
 
     command(

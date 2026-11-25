@@ -352,7 +352,6 @@ class CoreProgramAPI:
     maintenance_status = staticmethod(maintenance.maintenance_status)
     maintenance_duplicates_find = staticmethod(maintenance.maintenance_duplicates_find)
     maintenance_run = staticmethod(maintenance.maintenance_run)
-    maintenance_clean = staticmethod(maintenance.maintenance_clean)
     maintenance_merge = staticmethod(maintenance.maintenance_merge)
 
 

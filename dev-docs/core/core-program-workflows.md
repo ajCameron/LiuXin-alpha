@@ -2,6 +2,15 @@
 
 Reviewed **2026-10-20** against the working tree based on `fc5de7af`.
 
+**Durable execution update, 2026-11-25:** named long operations now use the
+catalogue outbox and the existing top-level jobs ledger. Their public result is an
+acceptance receipt; domain adapters still return completion receipts to workers.
+`core.workflow_operations` selects the explicit adapters and `workflow_delivery`
+binds captured settings, execution claims and cancellation. Storage restoration
+and exact recreation live in `storage.workflows.recreation`. See the
+[recovery contract](recovery-operations.md) for the operation families, retries,
+held publication and caller migration.
+
 The program API and storage CLI retain their public entry points, but their
 compatibility files no longer implement workflows.
 

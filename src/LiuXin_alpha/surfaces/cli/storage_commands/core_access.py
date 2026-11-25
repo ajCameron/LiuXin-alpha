@@ -2,8 +2,8 @@
 Route storage requests through Core and provide shared argument/input helpers.
 
 Queries and commands request storage-enabled composition, leave the session,
-then publish JSON. These helpers neither preflight report destinations before
-execution nor interpret result health flags. Publication failure does not undo
+then publish JSON. Commands resolve durable acceptance and report explicit
+completion failure through their exit status. Publication failure does not undo
 completed Core operations; lower layers own validation and authorization.
 """
 
@@ -16,6 +16,7 @@ from typing import Any
 from LiuXin_alpha.surfaces.cli.common import (
     add_connection_arguments,
     add_json_output,
+    complete_command,
     emit_json,
     open_cli_core,
 )
@@ -61,12 +62,12 @@ def _storage_command(
     :param args: Shared Core selectors and JSON publication options.
     :param operation: Exact named mutation passed to the client.
     :param payload: Request dictionary forwarded unchanged; Core owns its contract.
-    :return: Zero after publication without interpreting receipt ok/healthy flags.
+    :return: One for an explicit ``ok=False`` completion, otherwise zero.
     """
     with open_cli_core(args, enable_storage_manager=True) as core:
-        result = core.command(operation, payload)
+        result = complete_command(core, operation, payload, args)
     emit_json(result, args)
-    return 0
+    return 1 if result.get("ok") is False else 0
 
 
 def _store_reference(value: str) -> str | int:

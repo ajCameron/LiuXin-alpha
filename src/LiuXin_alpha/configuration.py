@@ -8,11 +8,14 @@ context; standalone callers use the lazy process default or ``use_preferences``.
 
 from __future__ import annotations
 
+import base64
+import math
 import os
 import threading
 from collections.abc import Iterator, Mapping, MutableMapping
 from contextlib import contextmanager
 from contextvars import ContextVar
+from copy import deepcopy
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -74,6 +77,136 @@ def user_configuration_directory(environment: Mapping[str, str] | None = None) -
         else Path.home() / ".config"
     )
     return (root / "liuxin").resolve()
+
+
+def _pack_preference(value: Any, ancestors: set[int], depth: int = 0) -> Any:
+    """Encode literal settings without pickle, imports or lossy container coercion."""
+    if depth > 48:
+        raise ValueError("Captured preferences exceed the nesting limit")
+    if value is None or type(value) in (str, bool, int):
+        return value
+    if type(value) is float:
+        if not math.isfinite(value):
+            raise ValueError("Captured preferences require finite numbers")
+        return value
+    if isinstance(value, Path):
+        return {"kind": "path", "items": str(value)}
+    if isinstance(value, bytes):
+        return {"kind": "bytes", "items": base64.b64encode(value).decode("ascii")}
+    if id(value) in ancestors:
+        raise ValueError("Captured preferences contain a cycle")
+    ancestors.add(id(value))
+    try:
+        if isinstance(value, Mapping):
+            return {
+                "kind": "dict",
+                "items": [
+                    [
+                        _pack_preference(key, ancestors, depth + 1),
+                        _pack_preference(item, ancestors, depth + 1),
+                    ]
+                    for key, item in value.items()
+                ],
+            }
+        if type(value) in (list, tuple, set, frozenset):
+            return {
+                "kind": type(value).__name__,
+                "items": [
+                    _pack_preference(item, ancestors, depth + 1) for item in value
+                ],
+            }
+        raise TypeError(f"Unsupported captured preference type: {type(value).__name__}")
+    finally:
+        ancestors.remove(id(value))
+
+
+def _unpack_preference(value: Any, depth: int = 0) -> Any:
+    """Restore only explicitly supported literal types from a captured setting."""
+    if depth > 48:
+        raise ValueError("Captured preferences exceed the nesting limit")
+    if not isinstance(value, dict):
+        if (
+            value is None
+            or type(value) in (str, bool, int)
+            or (type(value) is float and math.isfinite(value))
+        ):
+            return value
+        raise ValueError("Invalid captured preference literal")
+    if set(value) != {"kind", "items"}:
+        raise ValueError("Invalid captured preference encoding")
+    kind, items = value["kind"], value["items"]
+    if kind == "path" and isinstance(items, str):
+        return Path(items)
+    if kind == "bytes" and isinstance(items, str):
+        return base64.b64decode(items, validate=True)
+    if not isinstance(items, list):
+        raise ValueError("Invalid captured preference items")
+    if kind == "dict":
+        return {
+            _unpack_preference(pair[0], depth + 1): _unpack_preference(
+                pair[1], depth + 1
+            )
+            for pair in items
+        }
+    constructors = {"list": list, "tuple": tuple, "set": set, "frozenset": frozenset}
+    if kind not in constructors:
+        raise ValueError("Unknown captured preference kind")
+    return constructors[kind](_unpack_preference(item, depth + 1) for item in items)
+
+
+class CapturedPreferences(dict[str, Any]):
+    """Private worker settings restored from literal values, without file access."""
+
+    def __init__(
+        self,
+        values: dict[str, Any],
+        paths: dict[str, str] | None,
+        defaults: dict[str, Any] | None = None,
+        encoding_version: int = 0,
+    ):
+        if encoding_version not in (0, 1):
+            raise ValueError("Unknown captured preferences version")
+        decode = _unpack_preference if encoding_version else deepcopy
+        super().__init__((key, decode(value)) for key, value in values.items())
+        self._defaults = {key: decode(value) for key, value in (defaults or {}).items()}
+        self.paths = (
+            None
+            if paths is None
+            else ConfigurationPaths(
+                Path(paths["preferences"]), Path(paths["components"])
+            )
+        )
+
+    @property
+    def defaults(self) -> dict[str, Any]:
+        """Return an independent copy, matching the loaded Preferences contract."""
+        return deepcopy(self._defaults)
+
+
+def preferences_snapshot(preferences: Any) -> dict[str, Any]:
+    """Capture values and defaults for a durable worker without reloading settings."""
+    paths = getattr(preferences, "paths", None)
+    defaults = getattr(preferences, "defaults", {})
+    if callable(defaults):
+        defaults = defaults()
+    if not isinstance(defaults, Mapping):
+        raise TypeError("Captured preference defaults must be a mapping")
+    return {
+        "encoding_version": 1,
+        "values": {
+            key: _pack_preference(value, set())
+            for key, value in dict(preferences).items()
+        },
+        "defaults": {
+            key: _pack_preference(value, set()) for key, value in defaults.items()
+        },
+        "paths": None
+        if paths is None
+        else {
+            "preferences": str(paths.preferences),
+            "components": str(paths.components),
+        },
+    }
 
 
 _current: ContextVar[Any | None] = ContextVar("liuxin_preferences", default=None)

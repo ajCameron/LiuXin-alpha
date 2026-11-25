@@ -21,15 +21,16 @@ import shutil
 import sqlite3
 import stat
 import tempfile
-
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from LiuXin_alpha.core.settings import apply_system_profile
 from LiuXin_alpha.surfaces.cli.common import (
     add_connection_arguments,
     add_job_execution_arguments,
     add_json_output,
+    complete_command,
     emit_json,
     execution_exit_code,
     load_json_object,
@@ -38,7 +39,6 @@ from LiuXin_alpha.surfaces.cli.common import (
 )
 from LiuXin_alpha.surfaces.cli.ingest_runs import build_ingest_runs_parser
 from LiuXin_alpha.surfaces.cli.ingest_web import build_web_ingest_parser
-from LiuXin_alpha.core.settings import apply_system_profile
 
 
 def _core_json(parser: argparse.ArgumentParser) -> None:
@@ -104,8 +104,9 @@ def _command(
     """
     Execute a Core command with optional maintenance and publish after exit.
 
-    No generic confirmation or receipt-status check is supplied. Exceptions
-    propagate, and output/cleanup failure does not undo an accepted mutation.
+    Resolve durable acceptance and wait according to the shared CLI policy.
+    Exceptions propagate, and output/cleanup failure does not undo an accepted
+    mutation. An explicit failed completion produces a nonzero exit status.
 
     Example:
         >>> _command(args, "database.backup", {"verify": True})  # doctest: +SKIP
@@ -115,16 +116,16 @@ def _command(
     :param operation: Exact Core command name to dispatch.
     :param payload: Request dictionary passed without copying or validation.
     :param maintenance: Whether local Core composition should enable maintenance.
-    :return: Zero after publication, without interpreting the command receipt.
+    :return: One for an explicit ``ok=False`` completion, otherwise zero.
     """
     with open_cli_core(
         args,
         enable_storage_manager=True,
         enable_maintenance=maintenance,
     ) as core:
-        result = core.command(operation, payload)
+        result = complete_command(core, operation, payload, args)
     emit_json(result, args)
-    return 0
+    return 1 if result.get("ok") is False else 0
 
 
 def _job(
@@ -345,9 +346,7 @@ def cmd_backup_workflow_show(args: argparse.Namespace) -> int:
     :param args: Common controls and workflow_id to resolve on Core.
     :return: Zero after publishing backup.workflow.get's receipt.
     """
-    return _query(
-        args, "backup.workflow.get", {"workflow_id": int(args.workflow_id)}
-    )
+    return _query(args, "backup.workflow.get", {"workflow_id": int(args.workflow_id)})
 
 
 def cmd_backup_workflow_save(args: argparse.Namespace) -> int:
@@ -530,7 +529,7 @@ def verify_sqlite_backup(path: str | Path, *, full: bool = False) -> dict[str, A
     """
     selected = Path(path).expanduser().resolve(strict=False)
     if not selected.is_file():
-        raise FileNotFoundError("Backup file does not exist: {!s}".format(selected))
+        raise FileNotFoundError(f"Backup file does not exist: {selected!s}")
     pragma = "integrity_check" if full else "quick_check"
     try:
         connection = sqlite3.connect(selected.as_uri() + "?mode=ro", uri=True)
@@ -603,9 +602,8 @@ def _ensure_offline_sqlite(path: Path) -> None:
         companion = Path(str(path) + suffix)
         if companion.exists():
             raise ValueError(
-                "Refusing offline restore while SQLite companion file exists: {!s}. "
+                f"Refusing offline restore while SQLite companion file exists: {companion!s}. "
                 "Stop every LiuXin process and checkpoint/close the database first."
-                .format(companion)
             )
     try:
         connection = sqlite3.connect(str(path), timeout=0.0)
@@ -617,7 +615,7 @@ def _ensure_offline_sqlite(path: Path) -> None:
     except sqlite3.Error as error:
         raise ValueError(
             "Could not acquire an exclusive offline database check; stop every "
-            "LiuXin process before restoring: {}".format(error)
+            f"LiuXin process before restoring: {error}"
         ) from error
 
 
@@ -706,25 +704,26 @@ def cmd_database_restore(args: argparse.Namespace) -> int:
         raise ValueError("Refusing to restore a backup that failed integrity checks.")
     if not target.is_file():
         raise FileNotFoundError(
-            "Target catalogue does not exist: {!s}; use `liuxin init` for a new system."
-            .format(target)
+            f"Target catalogue does not exist: {target!s}; use `liuxin init` for a new system."
         )
     _ensure_offline_sqlite(target)
     if args.safety_backup:
         safety = Path(args.safety_backup).expanduser().resolve(strict=False)
     else:
-        stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
         safety = target.with_name(target.name + ".before-restore-" + stamp)
     if safety.exists():
-        raise FileExistsError("Safety backup already exists: {!s}".format(safety))
+        raise FileExistsError(f"Safety backup already exists: {safety!s}")
     if safety.parent != target.parent and not safety.parent.is_dir():
-        raise FileNotFoundError("Safety-backup directory does not exist: {!s}".format(safety.parent))
+        raise FileNotFoundError(
+            f"Safety-backup directory does not exist: {safety.parent!s}"
+        )
     shutil.copy2(target, safety)
     if _sha256(target) != _sha256(safety):
         raise OSError("Safety backup hash does not match the current catalogue.")
 
     descriptor, temporary_name = tempfile.mkstemp(
-        prefix=".{}-restore-".format(target.name), suffix=".tmp", dir=str(target.parent)
+        prefix=f".{target.name}-restore-", suffix=".tmp", dir=str(target.parent)
     )
     staged = Path(temporary_name)
     try:
@@ -796,9 +795,10 @@ def cmd_database_migrations(args: argparse.Namespace) -> int:
                 args,
             )
             return 1
-        result = core.command("database.migrations.apply", {})
-    emit_json({"applied": True, "plan": plan, "result": result}, args)
-    return 0
+        result = complete_command(core, "database.migrations.apply", {}, args)
+    applied = result.get("ok") is not False
+    emit_json({"applied": applied, "plan": plan, "result": result}, args)
+    return 0 if applied else 1
 
 
 def cmd_maintenance_status(args: argparse.Namespace) -> int:
@@ -837,7 +837,9 @@ def cmd_maintenance_duplicates(args: argparse.Namespace) -> int:
             "column": args.column,
             "comparison": args.comparison,
             "max_rows": args.max_rows,
-            "where": None if args.where_file is None else load_json_object(args.where_file),
+            "where": None
+            if args.where_file is None
+            else load_json_object(args.where_file),
         },
         storage=False,
     )
@@ -891,8 +893,11 @@ def cmd_maintenance_run(args: argparse.Namespace) -> int:
 def cmd_maintenance_upgrade(args: argparse.Namespace) -> int:
     """Inspect the installed declaration or apply its implementation-owned upgrade."""
     return _command(
-        args, "maintenance.run", {
-            "action": "upgrade", "plugin_id": args.plugin_id,
+        args,
+        "maintenance.run",
+        {
+            "action": "upgrade",
+            "plugin_id": args.plugin_id,
             "expected_version": args.from_version,
             "expected_definition": args.expected_definition,
             "dry_run": not args.yes,
@@ -901,33 +906,22 @@ def cmd_maintenance_upgrade(args: argparse.Namespace) -> int:
 
 
 def cmd_maintenance_clean(args: argparse.Namespace) -> int:
-    """
-    Preview or execute cleaning for explicitly selected rows in one table.
-
-    Copy row_id to a list, preserving order and duplicates; the parser normally
-    supplies integers. Without yes, output a local preview without verifying rows
-    or opening Core. Confirmed execution enables the maintenance service.
-
-    Example:
-        >>> cmd_maintenance_clean(parsed_maintenance_clean_args)  # doctest: +SKIP
-
-
-    :param args: Common controls, table, row_id sequence, and yes execution flag.
-    :return: Zero after preview or maintenance.clean receipt publication.
-    """
-    payload = {"table": args.table, "row_ids": list(args.row_id)}
-    if not args.yes:
-        emit_json(
-            {
-                "preview": True,
-                "operation": "maintenance.clean",
-                **payload,
-                "message": "No rows were cleaned; pass --yes to execute.",
-            },
-            args,
-        )
-        return 0
-    return _command(args, "maintenance.clean", payload, maintenance=True)
+    """Preview guarded Catalog disposal; apply only a reviewed state token."""
+    if args.yes and not args.expected_state:
+        raise ValueError("Cleanup requires --expected-state from the reviewed preview")
+    return _command(
+        args,
+        "catalog.repair.cleanup",
+        {
+            "repository": args.table,
+            "candidates": [
+                {"entity_id": identity, "decision": "discard", "reason": args.reason}
+                for identity in args.row_id
+            ],
+            "dry_run": not args.yes,
+            **({"expected_state": args.expected_state} if args.expected_state else {}),
+        },
+    )
 
 
 def cmd_maintenance_merge(args: argparse.Namespace) -> int:
@@ -1028,7 +1022,9 @@ def build_ingest_parser(
     formats = commands.add_parser("formats")
     _core_json(formats)
     formats.set_defaults(handler=cmd_ingest_formats)
-    disk = commands.add_parser("disk", help="Ingest a filesystem tree visible on the Core host.")
+    disk = commands.add_parser(
+        "disk", help="Ingest a filesystem tree visible on the Core host."
+    )
     _job_parser(disk)
     disk.add_argument("disk_path", help="Source path on the Core host.")
     disk.add_argument("--store-name")
@@ -1039,10 +1035,15 @@ def build_ingest_parser(
     disk.add_argument("--no-store-links", action="store_true")
     disk.add_argument("--no-refresh", action="store_true")
     disk.set_defaults(handler=cmd_ingest_disk)
-    remote = commands.add_parser("remote-html", help="Ingest a configured remote HTML source.")
+    remote = commands.add_parser(
+        "remote-html", help="Ingest a configured remote HTML source."
+    )
     _job_parser(remote)
     remote.add_argument("kind", choices=("wget_html", "native_html"))
-    remote.add_argument("options_file", help="CLI-host JSON options file; path values refer to the Core host.")
+    remote.add_argument(
+        "options_file",
+        help="CLI-host JSON options file; path values refer to the Core host.",
+    )
     remote.set_defaults(handler=cmd_ingest_remote_html)
 
 
@@ -1068,13 +1069,17 @@ def build_conversion_parser(
     :return: None; all three required action choices are installed.
     """
     parser = subparsers.add_parser(
-        "convert", aliases=["conversion"], help="Inspect or submit ebook conversions on the Core host."
+        "convert",
+        aliases=["conversion"],
+        help="Inspect or submit ebook conversions on the Core host.",
     )
     commands = parser.add_subparsers(dest="conversion_action", required=True)
     formats = commands.add_parser("formats")
     _core_json(formats)
     formats.set_defaults(handler=cmd_conversion_formats)
-    options = commands.add_parser("options", help="Inspect options for Core-host input/output paths.")
+    options = commands.add_parser(
+        "options", help="Inspect options for Core-host input/output paths."
+    )
     _core_json(options)
     options.add_argument("input_path", help="Input path on the Core host.")
     options.add_argument("output_path", help="Output path on the Core host.")
@@ -1128,7 +1133,9 @@ def build_backup_parser(
     plan.add_argument("--max-files-per-pack", type=int)
     plan.add_argument("--extension", action="append")
     plan.set_defaults(handler=cmd_backup_plan)
-    workflows = commands.add_parser("workflows", help="List persisted backup workflows.")
+    workflows = commands.add_parser(
+        "workflows", help="List persisted backup workflows."
+    )
     _core_json(workflows)
     workflows.add_argument("--limit", type=int, default=100)
     workflows.add_argument("--offset", type=int, default=0)
@@ -1137,7 +1144,9 @@ def build_backup_parser(
     _core_json(show)
     show.add_argument("workflow_id", type=int)
     show.set_defaults(handler=cmd_backup_workflow_show)
-    save = commands.add_parser("save", help="Persist a workflow declaration from CLI-host JSON.")
+    save = commands.add_parser(
+        "save", help="Persist a workflow declaration from CLI-host JSON."
+    )
     _core_json(save)
     save.add_argument("spec_file")
     save.add_argument("--workflow-id", type=int)
@@ -1146,7 +1155,9 @@ def build_backup_parser(
     _job_parser(run)
     run.add_argument("workflow_id", type=int)
     run.set_defaults(handler=cmd_backup_workflow_run)
-    squashfs = commands.add_parser("squashfs", help="Submit an ad-hoc SquashFS workflow declaration.")
+    squashfs = commands.add_parser(
+        "squashfs", help="Submit an ad-hoc SquashFS workflow declaration."
+    )
     _job_parser(squashfs)
     squashfs.add_argument("spec_file")
     squashfs.add_argument("--no-verify", action="store_true")
@@ -1202,10 +1213,14 @@ def build_database_parser(
         command = commands.add_parser(action)
         _core_json(command)
         command.set_defaults(handler=cmd_database_query)
-    backup = commands.add_parser("backup", help="Run the configured database driver's backup operation.")
+    backup = commands.add_parser(
+        "backup", help="Run the configured database driver's backup operation."
+    )
     _core_json(backup)
     backup.add_argument("--output-path", help="Backup path on the Core host.")
-    backup.add_argument("--verify", action="store_true", help="Verify a SQLite backup after writing it.")
+    backup.add_argument(
+        "--verify", action="store_true", help="Verify a SQLite backup after writing it."
+    )
     backup.set_defaults(handler=cmd_database_backup)
     verify_backup = commands.add_parser(
         "verify-backup", help="Verify a SQLite/APSW backup file on the CLI host."
@@ -1227,14 +1242,18 @@ def build_database_parser(
     migrations = commands.add_parser(
         "migrations", help="Inspect, plan, or apply known additive migrations."
     )
-    migration_commands = migrations.add_subparsers(dest="migrations_action", required=True)
+    migration_commands = migrations.add_subparsers(
+        dest="migrations_action", required=True
+    )
     for action in ("status", "plan", "apply"):
         migration = migration_commands.add_parser(action)
         _core_json(migration)
         if action == "apply":
             migration.add_argument("--yes", action="store_true")
         migration.set_defaults(handler=cmd_database_migrations)
-    vacuum = commands.add_parser("vacuum", help="Run the configured database driver's vacuum operation.")
+    vacuum = commands.add_parser(
+        "vacuum", help="Run the configured database driver's vacuum operation."
+    )
     _core_json(vacuum)
     vacuum.add_argument("--yes", action="store_true")
     vacuum.set_defaults(handler=cmd_database_vacuum)
@@ -1268,45 +1287,98 @@ def build_maintenance_parser(
     status = commands.add_parser("status")
     _core_json(status)
     status.set_defaults(handler=cmd_maintenance_status)
-    duplicates = commands.add_parser("duplicates", help="Find duplicate values without modifying rows.")
+    duplicates = commands.add_parser(
+        "duplicates", help="Find duplicate values without modifying rows."
+    )
     _core_json(duplicates)
     duplicates.add_argument("table")
     duplicates.add_argument("column")
-    duplicates.add_argument("--comparison", choices=("identity", "nocase", "exact"), default="identity")
-    duplicates.add_argument("--max-rows", type=int, default=10000, help="Complete scan budget (maximum 100000).")
-    duplicates.add_argument("--where-file", help="JSON object of physical-column equality filters.")
+    duplicates.add_argument(
+        "--comparison", choices=("identity", "nocase", "exact"), default="identity"
+    )
+    duplicates.add_argument(
+        "--max-rows",
+        type=int,
+        default=10000,
+        help="Complete scan budget (maximum 100000).",
+    )
+    duplicates.add_argument(
+        "--where-file", help="JSON object of physical-column equality filters."
+    )
     duplicates.set_defaults(handler=cmd_maintenance_duplicates)
-    run = commands.add_parser("run", help="Preview or run queued maintenance plugins once.")
+    run = commands.add_parser(
+        "run", help="Preview or run queued maintenance plugins once."
+    )
     _core_json(run)
     run.add_argument("--max-events", type=int, default=128)
     run.add_argument("--yes", action="store_true")
     run.set_defaults(handler=cmd_maintenance_run)
-    upgrade = commands.add_parser("upgrade", help="Preview or apply an implementation-authored plugin upgrade.")
+    upgrade = commands.add_parser(
+        "upgrade", help="Preview or apply an implementation-authored plugin upgrade."
+    )
     _core_json(upgrade)
     upgrade.add_argument("plugin_id")
     upgrade.add_argument("--from-version", required=True)
-    upgrade.add_argument("--expected-definition", help="Declaration fingerprint from a previous preview.")
+    upgrade.add_argument(
+        "--expected-definition", help="Declaration fingerprint from a previous preview."
+    )
     upgrade.add_argument("--yes", action="store_true")
     upgrade.set_defaults(handler=cmd_maintenance_upgrade)
-    for operation in ("install", "drain", "retry", "pause", "resume", "prune", "rebuild", "prune-jobs"):
-        action = commands.add_parser(operation, help=f"Explicitly {operation} durable catalogue maintenance.")
+    for operation in (
+        "install",
+        "drain",
+        "retry",
+        "pause",
+        "resume",
+        "prune",
+        "rebuild",
+        "prune-jobs",
+    ):
+        action = commands.add_parser(
+            operation, help=f"Explicitly {operation} durable catalogue maintenance."
+        )
         _core_json(action)
         action.add_argument("--max-events", type=int, default=128)
-        action.add_argument("--max-batches", type=int, default=1 if operation == "rebuild" else 128)
+        action.add_argument(
+            "--max-batches", type=int, default=1 if operation == "rebuild" else 128
+        )
         action.add_argument("--yes", action="store_true")
         if operation in {"retry", "pause", "resume"}:
             action.add_argument("plugin_id")
         if operation == "rebuild":
-            action.add_argument("--restart", action="store_true", help="Start a new Work projection scan instead of resuming.")
+            action.add_argument(
+                "--restart",
+                action="store_true",
+                help="Start a new Work projection scan instead of resuming.",
+            )
         if operation == "prune-jobs":
-            action.add_argument("--older-than-days", type=int, default=7, help="Retain at least this many days of completed maintenance job history (default 7).")
-            action.add_argument("--before-run-id", type=int, help="Continue with next_before_run_id from the preceding history page.")
-        action.set_defaults(handler=cmd_maintenance_run, maintenance_operation=operation)
-    clean = commands.add_parser("clean", help="Request selected-row cleanup (unavailable in the built-in service).")
+            action.add_argument(
+                "--older-than-days",
+                type=int,
+                default=7,
+                help="Retain at least this many days of completed maintenance job history (default 7).",
+            )
+            action.add_argument(
+                "--before-run-id",
+                type=int,
+                help="Continue with next_before_run_id from the preceding history page.",
+            )
+        action.set_defaults(
+            handler=cmd_maintenance_run, maintenance_operation=operation
+        )
+    clean = commands.add_parser(
+        "clean", help="Preview/apply explicitly selected Catalog disposal."
+    )
     _core_json(clean)
     clean.add_argument("table")
     clean.add_argument("row_id", type=int, nargs="+")
     clean.add_argument("--yes", action="store_true")
+    clean.add_argument(
+        "--reason", required=True, help="Retained reason for each selected disposal."
+    )
+    clean.add_argument(
+        "--expected-state", help="State token from the reviewed cleanup preview."
+    )
     clean.set_defaults(handler=cmd_maintenance_clean)
     merge = commands.add_parser("merge", help="Preview or merge one row into another.")
     _core_json(merge)

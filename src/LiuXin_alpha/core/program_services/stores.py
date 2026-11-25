@@ -11,7 +11,6 @@ plain projections still rely on the outer Core wire encoder for opaque values.
 from __future__ import annotations
 
 import dataclasses
-from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
@@ -21,7 +20,6 @@ from LiuXin_alpha.core.program_services.payloads import (
     _callable,
     _mapping,
     _payload,
-    _required_int,
     _required_text,
     _text_list,
     plain,
@@ -520,46 +518,18 @@ def storage_file_copy(
     runtime: CoreRuntime,
     command: CoreCommand,
 ) -> dict[str, Any]:
+    """Use the shared streaming, verified-copy owner, preserving Asset identity.
+
+    Core dispatch submits this operation durably. Embedded callers of this
+    adapter use the same domain implementation and receive its completion receipt.
+
+    :param runtime: Runtime supplying the native storage manager and Store selection.
+    :param command: Command with asset_id, optional source_replica_id and target store.
+    :return: Asset identity and the verified destination Replica.
     """
-    Read an entire managed Asset, add its bytes through library policy, and locate the returned Asset.
+    from LiuXin_alpha.core.program_services.storage_recreation import restore
 
-    Reading occurs before metadata or target-Store validation, with no byte cap.
-    Metadata must be None/Mapping; no source metadata is automatically copied here.
-    Missing/empty store delegates default placement to add_file. The library may
-    deduplicate rather than allocate a new Asset; this is not a backend-native copy.
-    Location/projection failure after addition does not trigger compensating removal.
-
-    Example:
-        >>> receipt = storage_file_copy(runtime, command)  # doctest: +SKIP
-
-
-    :param runtime: Runtime supplying library read/add/locate operations and optional Store selection.
-    :param command: Command with required asset_id, optional Mapping metadata, and optional target store.
-    :return: Source ID, projected returned Asset and Location, and source content length in size.
-    """
-    payload = _payload(command)
-    asset_id = _required_int(payload, "asset_id")
-    content = runtime.library.read_file(asset_id)
-    metadata = payload.get("metadata")
-    if metadata is not None and not isinstance(metadata, Mapping):
-        raise CoreDispatchError("`metadata` must be an object or null.")
-    target_store = (
-        None
-        if payload.get("store") in (None, "")
-        else _store(runtime, payload["store"])
-    )
-    asset = runtime.library.add_file(
-        bytes(content),
-        metadata=None if metadata is None else dict(metadata),
-        store=target_store,
-    )
-    location = runtime.library.locate_file(asset, store=target_store)
-    return {
-        "source_asset_id": asset_id,
-        "asset": plain(asset),
-        "location": plain(location),
-        "size": len(content),
-    }
+    return restore(runtime, command)
 
 
 def storage_source_register(

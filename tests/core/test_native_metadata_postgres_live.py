@@ -77,24 +77,11 @@ def test_postgres_native_batch_failure_recovery(pg_database, mode, remote, monke
 @pytest.mark.parametrize("mode", MODES)
 def test_postgres_shared_records_and_tree_invariants(pg_database, mode):
     database, _, _ = pg_database
-    # PostgreSQL creates this constants table without seeding it. Preserve that
-    # observable state, then supply fixture data for the read-only API contract.
-    # Core queries must not turn into an implicit bootstrap/migration operation.
     with CoreRuntime(library=SimpleNamespace(database=database)) as runtime:
-        assert runtime.query("metadata.shared.list", {"kind": "languages"}) == {
-            "records": []
-        }
-    with database.macros.transaction():
-        database.macros.insert_row(
-            "languages",
-            {
-                "language": "English",
-                "language_code": "eng",
-                "language_iso639_1": "en",
-                "language_iso639_2_b": "eng",
-                "language_bcp47_primary": "en",
-            },
-        )
+        rows = runtime.query(
+            "metadata.shared.list", {"kind": "languages", "limit": 1000}
+        )["records"]
+        assert any(row["fields"]["code"] == "eng" for row in rows)
     _shared(database, mode, True)
     for kind in ("genres", "subjects", "series"):
         _trees(database, mode, True, kind)

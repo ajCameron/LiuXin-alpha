@@ -1,17 +1,18 @@
 # Jobs
 
-Reviewed **2026-10-20**. This folder owns the map of execution state and its
-consolidation work. See [next tasks](next_tasks.md) for the proposed sequence.
+Updated **2026-11-25**. This folder owns the map of execution state and its
+consolidation work. See [next tasks](next_tasks.md) and the
+[Core recovery runbook](../core/recovery-operations.md) for the current contracts.
 
 ## Current owners
 
 | Owner | Current responsibility | Limit |
 | --- | --- | --- |
-| [jobs.repository](../../src/LiuXin_alpha/jobs/repository.py) | SQLite definitions, captured inputs, delivery deduplication, retry ancestry, atomic claims/events and interrupted-run recovery. | Separate job database/schema; used by the selected durable Core audit. |
+| [jobs.repository](../../src/LiuXin_alpha/jobs/repository.py) | SQLite definitions, captured inputs, delivery deduplication, retry ancestry, atomic claims/events and interrupted-run recovery. | Separate local ledger, bound to one library by Core. |
 | [jobs.scheduler](../../src/LiuXin_alpha/jobs/scheduler.py) | Queue due definitions. | Scheduling does not make a domain workflow idempotent. |
-| [jobs.worker](../../src/LiuXin_alpha/jobs/worker.py) and handler registry | Lease and renew runs, invoke captured handlers/inputs, persist owned progress/results. | Each handler must cooperate with its effect/recovery contract; definition timeouts and retries are not enforced. |
+| [jobs.worker](../../src/LiuXin_alpha/jobs/worker.py) and handler registry | Lease and renew runs, invoke captured handlers/inputs, apply cooperative deadlines and retain owned results. | Blocking code cannot be preempted; guarded continuation also requires domain recovery evidence. |
 | [utils.jobs.manager](../../src/LiuXin_alpha/utils/jobs/manager.py) | In-memory supervision of thread/process execution, cancellation, timeout and retry. | Process-local job state does not survive restart as a durable ledger. |
-| [CoreRuntime](../../src/LiuXin_alpha/core/runtime.py) | Named job operations; routes durable audit IDs to the ledger and other jobs to utility execution. | Durable composition needs a reopenable library and local ledger; other workflows retain utility state. |
+| [CoreRuntime](../../src/LiuXin_alpha/core/runtime.py) | Named job operations, catalogue outbox delivery and independently opened workflow graphs. | Durable composition needs a reopenable library and local ledger; generic utility submissions retain their explicit process-local contract. |
 | [workflow jobs](../../src/LiuXin_alpha/core/workflow_jobs.py) | Adapters that invoke owning conversion, ingest and storage workflows. | The job wrapper does not add all-run rollback or missing result fields. |
 
 Domain-specific journals still exist. Storage ingest records publication and

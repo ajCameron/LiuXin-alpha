@@ -16,11 +16,12 @@ from __future__ import annotations
 
 import inspect
 import threading
-from copy import deepcopy
 import uuid
-from contextlib import ExitStack
+from collections.abc import Callable, Mapping
+from contextlib import ExitStack, nullcontext
+from copy import deepcopy
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Callable, Mapping, Optional, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from LiuXin_alpha.configuration import use_preferences
 from LiuXin_alpha.core.api import CoreAPI
@@ -41,6 +42,7 @@ from LiuXin_alpha.core.errors import (
     core_error_details,
 )
 from LiuXin_alpha.core.events import CoreEvent, make_core_event
+from LiuXin_alpha.core.execution_bounds import bounded_dispatch, validate_input
 from LiuXin_alpha.core.payloads import (
     boolean,
     integer_value,
@@ -54,7 +56,7 @@ from LiuXin_alpha.core.payloads import (
 from LiuXin_alpha.core.queries import CoreQuery, CoreQueryResult
 from LiuXin_alpha.core.services import CoreServices
 from LiuXin_alpha.core.wire import to_wire
-from LiuXin_alpha.utils.jobs import JobRequest, default_job_manager
+from LiuXin_alpha.utils.jobs import default_job_manager
 from LiuXin_alpha.utils.jobs.manager import JobManagerAPI, JobState
 
 if TYPE_CHECKING:
@@ -74,6 +76,7 @@ class _CommandRegistration:
     handler: CommandHandler
     description: CoreEndpointDescription
     capability_check: CapabilityCheck | None
+    serialized: bool = True
 
 
 @dataclass(frozen=True)
@@ -88,7 +91,7 @@ class _QueryRegistration:
 
 class CoreRuntime(CoreAPI):
     """
-    Host one service graph, named endpoint registries, synchronous subscribers, and a managed-job interface.
+    Host one service graph, named endpoint registries, bounded event delivery, and a managed-job interface.
 
     Construction installs built-in and application/program endpoint families.
     Local facade properties expose shared objects directly; named calls provide
@@ -104,7 +107,7 @@ class CoreRuntime(CoreAPI):
         self,
         *,
         library: Any,
-        core_uuid: Optional[str] = None,
+        core_uuid: str | None = None,
         core_version: str = "2.0.0",
         api_version: str = "2.0",
         job_manager: JobManagerAPI | None = None,
@@ -237,12 +240,17 @@ class CoreRuntime(CoreAPI):
 
         self._command_handlers: dict[str, _CommandRegistration] = {}
         self._query_handlers: dict[str, _QueryRegistration] = {}
-        self._event_subscribers: list[EventSubscriber] = []
+        from LiuXin_alpha.core.event_delivery import EventDelivery
+
+        self._events = EventDelivery()
 
         # SQLite-backed runtimes may be reached from HTTP request threads.
         # Serialize shared-graph access. Only explicitly independent queries
         # (currently managed job waits/results) may bypass this lock.
         self._command_lock = threading.RLock()
+        self._dispatch_slots = threading.BoundedSemaphore(32)
+        self._content_slots = threading.BoundedSemaphore(4)
+        self._dispatch_preferences = self.services.preferences
         # Protects handler and subscriber maps.
         self._state_lock = threading.RLock()
 
@@ -287,7 +295,9 @@ class CoreRuntime(CoreAPI):
             ),
             tags=("sync", "jobs"),
             remote_capabilities=("admin",),
-            requirements=('Requires a reopenable catalogue and the selected discovery backend.',),
+            requirements=(
+                "Requires a reopenable catalogue and the selected discovery backend.",
+            ),
         )
         self.register_command_handler(
             "sync.store.cancel",
@@ -311,6 +321,7 @@ class CoreRuntime(CoreAPI):
                 ),
             ),
             tags=("jobs",),
+            serialized=False,
             remote_capabilities=("admin",),
         )
         self.register_command_handler(
@@ -453,10 +464,29 @@ class CoreRuntime(CoreAPI):
             remote_capabilities=("invoke",),
         )
         self.register_query_handler(
+            "health.live",
+            lambda runtime, query: {
+                "core_uuid": runtime.core_uuid,
+                "shutdown": runtime.is_shutdown,
+                "live": not runtime.is_shutdown,
+                "core_version": runtime.core_version,
+                "api_version": runtime.api_version,
+            },
+            serialized=False,
+            remote_capabilities=("read",),
+            summary="Inspect process liveness without waiting on catalogue operations.",
+        )
+        self.register_query_handler(
             "health",
             self._handle_health_query,
             summary="Return runtime health and registration state.",
             tags=("lifecycle", "health"),
+            remote_capabilities=("read",),
+        )
+        self.register_query_handler(
+            "health.ready",
+            self._handle_readiness_query,
+            summary="Probe catalogue access and report cache readiness under the application lock.",
             remote_capabilities=("read",),
         )
         self.register_query_handler(
@@ -527,6 +557,9 @@ class CoreRuntime(CoreAPI):
         )
 
         self._database_semantics_api = install_database_semantics_api(self)
+        from LiuXin_alpha.core.command_recovery import install as install_recovery
+
+        install_recovery(self)
 
     @property
     def core_uuid(self) -> str:
@@ -733,11 +766,13 @@ class CoreRuntime(CoreAPI):
                 except BaseException as error:
                     failures.append(error)
         if failures:
+            self._events.close()
             raise BaseExceptionGroup("Core runtime cleanup failed", failures)
         self.emit_event("core.shutdown", {"reason": "explicit"})
+        self._events.close()
         return 0
 
-    def __enter__(self) -> "CoreRuntime":
+    def __enter__(self) -> CoreRuntime:
         """
         Return this already-constructed runtime without starting services or checking shutdown state.
 
@@ -824,6 +859,8 @@ class CoreRuntime(CoreAPI):
         remote_capabilities: tuple[str, ...] | None = None,
         requirements: tuple[str, ...] = (),
         capability_check: CapabilityCheck | None = None,
+        recovery: str = "none",
+        serialized: bool = True,
     ) -> None:
         """
         Register or replace a normalized command route and its descriptive endpoint metadata.
@@ -858,6 +895,14 @@ class CoreRuntime(CoreAPI):
             remote_capabilities = tuple(remote_capabilities)
             if not set(remote_capabilities) <= KNOWN_CAPABILITIES:
                 raise ValueError("Unknown transport capability.")
+        if type(serialized) is not bool:
+            raise TypeError("serialized must be a bool")
+        if recovery not in ("none", "transactional", "submission", "observed"):
+            raise ValueError("Unknown command recovery policy")
+        if recovery != "none" and not serialized:
+            raise ValueError("Catalogue recovery requires serialized dispatch")
+        if recovery != "none" and not transport_stable:
+            raise ValueError("Recoverable commands require stable results")
         metadata = CoreEndpointDescription(
             name=token,
             kind="command",
@@ -868,6 +913,7 @@ class CoreRuntime(CoreAPI):
             transport_stable=bool(transport_stable),
             remote_capabilities=remote_capabilities,
             requirements=tuple(requirements),
+            recovery=recovery,
         )
         if capability_check is not None and not callable(capability_check):
             raise TypeError("capability_check must be callable")
@@ -875,7 +921,9 @@ class CoreRuntime(CoreAPI):
             raise ValueError("requirements must contain nonempty strings")
         validate_field_declarations(metadata.payload_fields)
         with self._state_lock:
-            self._command_handlers[token] = _CommandRegistration(handler, metadata, capability_check)
+            self._command_handlers[token] = _CommandRegistration(
+                handler, metadata, capability_check, serialized
+            )
 
     def register_query_handler(
         self,
@@ -957,92 +1005,28 @@ class CoreRuntime(CoreAPI):
             )
 
     def subscribe(self, callback: EventSubscriber) -> Callable[[], None]:
-        """
-        Append a subscriber and return a closure that removes one equal callback registration.
-
-        Duplicates and noncallable values are not rejected. Removal is by list
-        equality, not a unique registration token, so repeated closure calls can
-        remove multiple duplicate registrations. There is no replay or delivery queue.
-
-        Example:
-            >>> unsubscribe = runtime.subscribe(events.append)  # doctest: +SKIP
-
-
-        :param callback: Subscriber expected to accept one CoreEvent when synchronous delivery occurs.
-        :return: Zero-argument closure requesting removal of the first matching callback.
-        """
-        with self._state_lock:
-            self._event_subscribers.append(callback)
-
-        def _unsubscribe() -> None:
-            """
-            Remove one matching registration of the captured callback from this runtime.
-
-            Repeated calls can remove other equal registrations; in-flight event
-            delivery may still hold the callback in a snapshot.
-
-            Example:
-                >>> unsubscribe()  # doctest: +SKIP
-
-
-            :return: None after attempting one callback removal.
-            """
-            self.unsubscribe(callback)
-
-        return _unsubscribe
+        """Register an isolated asynchronous observer; overflow requires state resync."""
+        return self._events.subscribe(callback)
 
     def unsubscribe(self, callback: EventSubscriber) -> None:
-        """
-        Remove the first equal subscriber under the state lock, ignoring absence.
+        """Remove one registration without interrupting a running observer."""
+        self._events.unsubscribe(callback)
 
-        Existing delivery snapshots are unaffected; this does not wait for a
-        running callback or remove every duplicate registration.
-
-        Example:
-            >>> runtime.unsubscribe(events.append)  # doctest: +SKIP
-
-
-        :param callback: Subscriber compared by list.remove equality against registered callbacks.
-        :return: None after one removal or when no equal callback exists.
-        """
-        with self._state_lock:
-            try:
-                self._event_subscribers.remove(callback)
-            except ValueError:
-                pass
+    def wait_for_events(self, timeout: float = 1.0) -> bool:
+        """Wait a bounded time for current observers; never call this while holding domain locks."""
+        return self._events.drain(timeout)
 
     def emit_event(
         self, event_type: str, payload: Mapping[str, Any] | None = None
     ) -> CoreEvent:
-        """
-        Create an event and synchronously deliver the same object to a snapshot of subscribers.
-
-        Snapshotting occurs under the state lock; delivery occurs outside it on
-        the caller's thread. Ordinary callback exceptions are ignored, but event
-        construction errors and BaseException subclasses can propagate. Payload
-        copying is shallow, so one subscriber can mutate data seen by later ones.
-
-        Example:
-            >>> event = runtime.emit_event("example.ready", {"count": 1})  # doctest: +SKIP
-
-
-        :param event_type: Event routing label stringified by the event factory.
-        :param payload: Optional event data shallow-copied by the event factory.
-        :return: Event object delivered to the subscriber snapshot, including any subscriber-made nested mutations.
-        """
+        """Queue detached event hints; observers cannot delay or mutate dispatch."""
         event = make_core_event(
             core_uuid=self.core_uuid, event_type=event_type, payload=payload
         )
-        with self._state_lock:
-            subscribers = list(self._event_subscribers)
-        for subscriber in subscribers:
-            try:
-                subscriber(event)
-            except Exception:
-                # Event handlers are best-effort and must not break runtime flow.
-                continue
+        self._events.emit(event)
         return event
 
+    @bounded_dispatch
     def execute_command(
         self, command: CoreCommand, *, capabilities: frozenset[str] | None = None
     ) -> CoreCommandResult:
@@ -1053,8 +1037,9 @@ class CoreRuntime(CoreAPI):
         handler lock; shutdown is rechecked after waiting. A queued command
         rejected at that point emits command.failed and raises CoreShutdownError.
         Ordinary handler and wire-conversion failures emit command.failed and
-        raise CoreHandlerError when error classification succeeds. No rollback or
-        automatic retry occurs.
+        raise CoreHandlerError when error classification succeeds. The captured
+        recovery policy controls journal replay and transactional rollback;
+        external effects retain their domain recovery contract.
 
         Conversion and completion events happen after releasing the handler lock.
         The handler, authority and result policy come from the same captured
@@ -1067,7 +1052,7 @@ class CoreRuntime(CoreAPI):
 
 
         :param capabilities: Server-established authority; None is trusted in-process execution.
-        :param command: Envelope passed unchanged to the handler; only routing uses a normalized name.
+        :param command: Request envelope; recoverable handlers receive a detached payload snapshot.
         :return: Successful command envelope with the original request/correlation IDs and final result value.
         :raises CoreShutdownError: If shutdown is flagged before handler execution.
         :raises CoreDispatchError: For a blank or unregistered command name.
@@ -1085,13 +1070,18 @@ class CoreRuntime(CoreAPI):
             if capabilities is not None:
                 authorize_endpoint(
                     registration.description if registration is not None else None,
-                    capabilities, command.payload if isinstance(command.payload, Mapping) else {}
+                    capabilities,
+                    command.payload if isinstance(command.payload, Mapping) else {},
                 )
         if registration is None:
-            raise CoreDispatchError(
-                "Unknown command handler: {!r}".format(command.name)
-            )
+            raise CoreDispatchError(f"Unknown command handler: {command.name!r}")
 
+        from LiuXin_alpha.core import command_recovery
+
+        if registration.description.recovery != "none":
+            command = command_recovery.snapshot(command)
+        if registration.description.transport_stable:
+            validate_input(command.payload)
         validate_payload(command.payload, registration.description.payload_fields)
         self.emit_event(
             "command.started",
@@ -1102,7 +1092,7 @@ class CoreRuntime(CoreAPI):
             },
         )
 
-        with self._command_lock:
+        with self._command_lock if registration.serialized else nullcontext():
             if self._shutdown:
                 self.emit_event(
                     "command.failed",
@@ -1115,8 +1105,34 @@ class CoreRuntime(CoreAPI):
                 )
                 raise CoreShutdownError("Core is shut down.")
             try:
-                with use_preferences(self.services.preferences):
-                    result = registration.handler(self, command)
+                with (
+                    use_preferences(
+                        self._dispatch_preferences
+                        if not registration.serialized
+                        else self.services.preferences
+                    ),
+                    command_recovery.authority_scope(
+                        capabilities,
+                        command,
+                        registration.description.remote_capabilities,
+                    ),
+                ):
+                    if registration.description.recovery == "transactional":
+                        result = command_recovery.execute(
+                            self,
+                            command,
+                            registration.handler,
+                            registration.description.remote_capabilities,
+                        )
+                    elif registration.description.recovery == "observed":
+                        result = command_recovery.observe(
+                            self,
+                            command,
+                            registration.handler,
+                            registration.description.remote_capabilities,
+                        )
+                    else:
+                        result = registration.handler(self, command)
             except Exception as exc:
                 error_code, error_details = core_error_details(exc)
                 self.emit_event(
@@ -1129,7 +1145,7 @@ class CoreRuntime(CoreAPI):
                     },
                 )
                 raise CoreHandlerError(
-                    "Command handler failed for {!r}: {}".format(token, exc),
+                    f"Command handler failed for {token!r}: {exc}",
                     code=error_code,
                     details=error_details,
                 ) from exc
@@ -1148,10 +1164,7 @@ class CoreRuntime(CoreAPI):
                     },
                 )
                 raise CoreHandlerError(
-                    "Command result serialization failed for {!r}: {}".format(
-                        token,
-                        exc,
-                    ),
+                    f"Command result serialization failed for {token!r}: {exc}",
                     code=error_code,
                     details=error_details,
                 ) from exc
@@ -1236,6 +1249,7 @@ class CoreRuntime(CoreAPI):
         payload["method"] = method
         return payload
 
+    @bounded_dispatch
     def execute_query(
         self, query: CoreQuery, *, capabilities: frozenset[str] | None = None
     ) -> CoreQueryResult:
@@ -1276,25 +1290,34 @@ class CoreRuntime(CoreAPI):
                     query.payload if isinstance(query.payload, Mapping) else {},
                 )
         if registration is None:
-            raise CoreDispatchError("Unknown query handler: {!r}".format(query.name))
+            raise CoreDispatchError(f"Unknown query handler: {query.name!r}")
 
+        if registration.description.transport_stable:
+            validate_input(query.payload)
         validate_payload(query.payload, registration.description.payload_fields)
         with ExitStack() as handler_scope:
-            handler_scope.enter_context(self._command_lock)
+            if registration.serialized:
+                handler_scope.enter_context(self._command_lock)
             if self._shutdown:
                 raise CoreShutdownError("Core is shut down.")
             try:
                 # Preference resolution may inspect the shared database facade.
                 # Retain the selected object before allowing independent waiting.
-                preferences = self.services.preferences
+                preferences = (
+                    self.services.preferences
+                    if registration.serialized
+                    else self._dispatch_preferences
+                )
                 if not registration.serialized:
                     handler_scope.close()
-                with use_preferences(preferences):
+                from LiuXin_alpha.core.command_recovery import authority_scope
+
+                with use_preferences(preferences), authority_scope(capabilities):
                     result = registration.handler(self, query)
             except Exception as exc:
                 error_code, error_details = core_error_details(exc)
                 raise CoreHandlerError(
-                    "Query handler failed for {!r}: {}".format(token, exc),
+                    f"Query handler failed for {token!r}: {exc}",
                     code=error_code,
                     details=error_details,
                 ) from exc
@@ -1304,10 +1327,7 @@ class CoreRuntime(CoreAPI):
             except Exception as exc:
                 error_code, error_details = core_error_details(exc)
                 raise CoreHandlerError(
-                    "Query result serialization failed for {!r}: {}".format(
-                        token,
-                        exc,
-                    ),
+                    f"Query result serialization failed for {token!r}: {exc}",
                     code=error_code,
                     details=error_details,
                 ) from exc
@@ -1459,7 +1479,7 @@ class CoreRuntime(CoreAPI):
         for canonical_name, aliases, _summary, _obj in self._target_bindings():
             if token == canonical_name or token in aliases:
                 return canonical_name
-        raise CoreDispatchError("Unknown target filter: {!r}".format(target))
+        raise CoreDispatchError(f"Unknown target filter: {target!r}")
 
     def _resolve_target(self, token: str) -> Any:
         """
@@ -1480,7 +1500,7 @@ class CoreRuntime(CoreAPI):
         for canonical_name, aliases, _summary, obj in self._target_bindings():
             if key == canonical_name or key in aliases:
                 return obj
-        raise CoreDispatchError("Unknown invoke target: {!r}".format(token))
+        raise CoreDispatchError(f"Unknown invoke target: {token!r}")
 
     @staticmethod
     def _describe_parameter(parameter: inspect.Parameter) -> CoreParameterDescription:
@@ -1619,13 +1639,26 @@ class CoreRuntime(CoreAPI):
         if self._shutdown:
             raise CoreShutdownError("Core is shut down.")
         with self._state_lock:
-            registrations = (*self._command_handlers.values(), *self._query_handlers.values())
+            registrations = (
+                *self._command_handlers.values(),
+                *self._query_handlers.values(),
+            )
         result = []
         for registration in registrations:
-            reason = None if registration.capability_check is None else registration.capability_check(self)
-            if reason is not None and (not isinstance(reason, str) or not reason.strip()):
-                raise TypeError("Capability checks must return a nonempty unavailable reason or None")
-            result.append({**registration.description.to_dict(), "unavailable_reason": reason})
+            reason = (
+                None
+                if registration.capability_check is None
+                else registration.capability_check(self)
+            )
+            if reason is not None and (
+                not isinstance(reason, str) or not reason.strip()
+            ):
+                raise TypeError(
+                    "Capability checks must return a nonempty unavailable reason or None"
+                )
+            result.append(
+                {**registration.description.to_dict(), "unavailable_reason": reason}
+            )
         return sorted(result, key=lambda row: (row["name"], row["kind"]))
 
     def describe_api(
@@ -1737,15 +1770,11 @@ class CoreRuntime(CoreAPI):
         method = getattr(target, method_name, None)
         if method is None or not callable(method):
             raise CoreDispatchError(
-                "Target {!r} has no callable method {!r}.".format(
-                    target_name, method_name
-                )
+                f"Target {target_name!r} has no callable method {method_name!r}."
             )
         return method(*args, **kwargs)
 
-    def _handle_invoke_command(
-        self, runtime: "CoreRuntime", command: CoreCommand
-    ) -> Any:
+    def _handle_invoke_command(self, runtime: CoreRuntime, command: CoreCommand) -> Any:
         """
         Execute a command envelope's generic invoke payload on this bound runtime.
 
@@ -1761,7 +1790,7 @@ class CoreRuntime(CoreAPI):
         return self._invoke(command.payload)
 
     def _handle_metadata_write_command(
-        self, runtime: "CoreRuntime", command: CoreCommand
+        self, runtime: CoreRuntime, command: CoreCommand
     ) -> dict[str, Any]:
         """
         Apply an item-centered metadata payload and any required cache reconciliation.
@@ -1778,7 +1807,7 @@ class CoreRuntime(CoreAPI):
         return self._execute_metadata_write(command.payload)
 
     def _handle_metadata_tags_replace_command(
-        self, runtime: "CoreRuntime", command: CoreCommand
+        self, runtime: CoreRuntime, command: CoreCommand
     ) -> dict[str, Any]:
         """
         Force authoritative replacement of the tags field through the shared metadata workflow.
@@ -1795,7 +1824,7 @@ class CoreRuntime(CoreAPI):
         return self._execute_metadata_field_replace(command.payload, field_name="tags")
 
     def _handle_metadata_labels_replace_command(
-        self, runtime: "CoreRuntime", command: CoreCommand
+        self, runtime: CoreRuntime, command: CoreCommand
     ) -> dict[str, Any]:
         """
         Force authoritative replacement of the labels field using the shared item-centered write path.
@@ -1814,7 +1843,7 @@ class CoreRuntime(CoreAPI):
         )
 
     def _handle_metadata_genre_replace_command(
-        self, runtime: "CoreRuntime", command: CoreCommand
+        self, runtime: CoreRuntime, command: CoreCommand
     ) -> dict[str, Any]:
         """
         Replace only genre through the authoritative shared metadata-field adapter.
@@ -1831,7 +1860,7 @@ class CoreRuntime(CoreAPI):
         return self._execute_metadata_field_replace(command.payload, field_name="genre")
 
     def _handle_metadata_series_replace_command(
-        self, runtime: "CoreRuntime", command: CoreCommand
+        self, runtime: CoreRuntime, command: CoreCommand
     ) -> dict[str, Any]:
         """
         Replace the series field authoritatively while retaining other metadata policy options from the payload.
@@ -1851,7 +1880,7 @@ class CoreRuntime(CoreAPI):
 
     def _handle_metadata_identifiers_replace_command(
         self,
-        runtime: "CoreRuntime",
+        runtime: CoreRuntime,
         command: CoreCommand,
     ) -> dict[str, Any]:
         """
@@ -1894,9 +1923,7 @@ class CoreRuntime(CoreAPI):
         if field_name not in values:
             if field_name not in payload:
                 raise CoreDispatchError(
-                    "Metadata {!r} replace payload missing `{}`.".format(
-                        field_name, field_name
-                    )
+                    f"Metadata {field_name!r} replace payload missing `{field_name}`."
                 )
             values[field_name] = payload.get(field_name)
         return self._execute_metadata_write(
@@ -1953,7 +1980,7 @@ class CoreRuntime(CoreAPI):
         }
 
     def _handle_shutdown_command(
-        self, runtime: "CoreRuntime", command: CoreCommand
+        self, runtime: CoreRuntime, command: CoreCommand
     ) -> int:
         """
         Ignore command contents and request shutdown of this bound runtime.
@@ -1969,7 +1996,7 @@ class CoreRuntime(CoreAPI):
         del runtime, command
         return self.shutdown()
 
-    def _handle_invoke_query(self, runtime: "CoreRuntime", query: CoreQuery) -> Any:
+    def _handle_invoke_query(self, runtime: CoreRuntime, query: CoreQuery) -> Any:
         """
         Execute a query envelope's generic invoke payload without checking target side effects.
 
@@ -1984,8 +2011,50 @@ class CoreRuntime(CoreAPI):
         del runtime
         return self._invoke(query.payload)
 
+    def _handle_readiness_query(
+        self, runtime: CoreRuntime, query: CoreQuery
+    ) -> dict[str, Any]:
+        """Probe the catalogue without repairing it; readiness is a current observation."""
+        from LiuXin_alpha.databases.command_journal import fetchone
+
+        catalogue = "readable"
+        try:
+            database = runtime.catalog.db
+            with database.macros.read_transaction() as connection:
+                fetchone(connection, "SELECT 1")
+        except Exception:
+            # Operational status must not expose credential-bearing driver errors.
+            catalogue = "unavailable"
+        cache = runtime.cache
+        cache_state = None if cache is None else str(cache.state)
+        from LiuXin_alpha.caches.api.cache_api import CacheState
+
+        cache_ready = cache is None or (
+            cache.state is CacheState.READY
+            and not cache._full_reload_required
+            and not cache._pending_refresh_transactions
+        )
+        ready = catalogue == "readable" and cache_ready and not runtime.is_shutdown
+        state = "ready" if ready else "degraded"
+        if (
+            catalogue == "readable"
+            and cache is not None
+            and cache.state is CacheState.EMPTY
+        ):
+            state = "starting"
+        if runtime.is_shutdown:
+            state = "closing"
+        return {
+            "core_uuid": runtime.core_uuid,
+            "ready": ready,
+            "state": state,
+            "catalogue": catalogue,
+            "cache_state": cache_state,
+            "events": runtime._events.statistics(),
+        }
+
     def _handle_health_query(
-        self, runtime: "CoreRuntime", query: CoreQuery
+        self, runtime: CoreRuntime, query: CoreQuery
     ) -> dict[str, Any]:
         """
         Describe runtime identity, shutdown flag, service types/status, and sorted registered route names.
@@ -2014,7 +2083,7 @@ class CoreRuntime(CoreAPI):
         }
 
     def _handle_api_describe_query(
-        self, runtime: "CoreRuntime", query: CoreQuery
+        self, runtime: CoreRuntime, query: CoreQuery
     ) -> dict[str, Any]:
         """
         Validate the inclusion flag and delegate target validation/introspection.
@@ -2032,7 +2101,9 @@ class CoreRuntime(CoreAPI):
         """
         del runtime
         payload = dict(query.payload or {})
-        include_targets = boolean(payload, "include_targets", bool(payload.get("target")))
+        include_targets = boolean(
+            payload, "include_targets", bool(payload.get("target"))
+        )
         target = payload.get("target", None)
         return self.describe_api(
             include_targets=include_targets,
@@ -2159,7 +2230,7 @@ class CoreRuntime(CoreAPI):
             "retry_of_job_id": (
                 None
                 if getattr(info, "retry_of_job_id", None) in (None, "")
-                else str(getattr(info, "retry_of_job_id"))
+                else str(info.retry_of_job_id)
             ),
             "state": str(getattr(info, "state", "") or ""),
             "backend_name": str(getattr(info, "backend_name", "") or ""),
@@ -2255,7 +2326,9 @@ class CoreRuntime(CoreAPI):
         return {cast(JobState, value) for value in raw_values}
 
     @staticmethod
-    def _normalize_optional_limit(payload: Mapping[str, Any], *, key: str = "limit") -> int | None:
+    def _normalize_optional_limit(
+        payload: Mapping[str, Any], *, key: str = "limit"
+    ) -> int | None:
         """Read a nullable positive integer limit without numeric coercion."""
         return optional_int(payload, key, minimum=1)
 
@@ -2271,12 +2344,11 @@ class CoreRuntime(CoreAPI):
         raw = payload.get(key)
         return None if raw is None else number_value(raw, key)
 
-
     def _handle_jobs_list_query(
-        self, runtime: "CoreRuntime", query: CoreQuery
+        self, runtime: CoreRuntime, query: CoreQuery
     ) -> dict[str, Any]:
         """
-        Validate listing options, fetch the manager's full filtered snapshot list, then slice and serialize the requested window.
+        Validate listing options and serialize one bounded manager page.
 
         Total counts matches before pagination, and manager order is preserved.
         Returned states is empty both for no filter and an explicitly empty filter,
@@ -2296,12 +2368,10 @@ class CoreRuntime(CoreAPI):
         limit = self._normalize_optional_limit(payload, key="limit")
         offset = self._normalize_offset(payload, key="offset")
 
-        jobs = self.job_manager.list(states=states)
-        total = len(jobs)
-        if limit is None:
-            window = jobs[offset:]
-        else:
-            window = jobs[offset : offset + limit]
+        limit = 100 if limit is None else limit
+        window, total = self.job_manager.list_page(
+            states=states, limit=limit, offset=offset
+        )
         return {
             "jobs": [self._serialize_managed_job(info) for info in window],
             "total": total,
@@ -2311,7 +2381,7 @@ class CoreRuntime(CoreAPI):
         }
 
     def _handle_jobs_get_query(
-        self, runtime: "CoreRuntime", query: CoreQuery
+        self, runtime: CoreRuntime, query: CoreQuery
     ) -> dict[str, Any]:
         """
         Fetch and serialize one job, translating a manager KeyError into an unknown-job dispatch failure.
@@ -2331,13 +2401,13 @@ class CoreRuntime(CoreAPI):
         try:
             info = self.job_manager.get(job_id)
         except KeyError as exc:
-            raise CoreDispatchError("Unknown job id: {!r}".format(job_id)) from exc
+            raise CoreDispatchError(f"Unknown job id: {job_id!r}") from exc
         return {
             "job": self._serialize_managed_job(info),
         }
 
     def _handle_jobs_wait_query(
-        self, runtime: "CoreRuntime", query: CoreQuery
+        self, runtime: CoreRuntime, query: CoreQuery
     ) -> dict[str, Any]:
         """
         Delegate waiting to the manager and serialize the observed job, which may still be nonterminal after timeout.
@@ -2362,7 +2432,7 @@ class CoreRuntime(CoreAPI):
         try:
             info = self.job_manager.wait(job_id, timeout=timeout_s)
         except KeyError as exc:
-            raise CoreDispatchError("Unknown job id: {!r}".format(job_id)) from exc
+            raise CoreDispatchError(f"Unknown job id: {job_id!r}") from exc
         return {
             "job": self._serialize_managed_job(info),
         }
@@ -2412,11 +2482,13 @@ class CoreRuntime(CoreAPI):
                 invalid_payload(f"sync_kwargs.{field}", "must be a string or null.")
         metadata = raw.get("database_metadata")
         if metadata is not None and not isinstance(metadata, Mapping):
-            invalid_payload("sync_kwargs.database_metadata", "must be an object or null.")
+            invalid_payload(
+                "sync_kwargs.database_metadata", "must be an object or null."
+            )
         return deepcopy(dict(raw))
 
     def _handle_sync_store_start_command(
-        self, runtime: "CoreRuntime", command: CoreCommand
+        self, runtime: CoreRuntime, command: CoreCommand
     ) -> dict[str, Any]:
         """
         Fill blank database options, submit the importable sync worker, and emit submission metadata without waiting.
@@ -2464,7 +2536,9 @@ class CoreRuntime(CoreAPI):
         )
         if not path:
             if connection is None:
-                raise CoreDispatchError("sync.store.start requires a reopenable database connection.")
+                raise CoreDispatchError(
+                    "sync.store.start requires a reopenable database connection."
+                )
             sync_kwargs["database_path"] = connection["database_path"]
         if not kind:
             sync_kwargs["db_type"] = self._resolve_library_db_type()
@@ -2479,7 +2553,11 @@ class CoreRuntime(CoreAPI):
         )
 
         timeout_value = payload.get("job_timeout_s", None)
-        timeout_s = None if timeout_value is None else number_value(timeout_value, "job_timeout_s")
+        timeout_s = (
+            None
+            if timeout_value is None
+            else number_value(timeout_value, "job_timeout_s")
+        )
         manager_timeout = -1.0 if timeout_s is None else float(timeout_s)
 
         no_output = boolean(payload, "job_no_output", False)
@@ -2490,39 +2568,32 @@ class CoreRuntime(CoreAPI):
             or None
         )
 
-        request = JobRequest(
-            module_name="LiuXin_alpha.core.workflow_jobs",
+        if self._durable_jobs is None:
+            raise CoreDispatchError(
+                "Store synchronization requires a durable jobs ledger",
+                code="capability_unavailable",
+            )
+        if not same_library or sync_kwargs.get("database_metadata", {}).get(
+            "schema"
+        ) != connection["database_metadata"].get("schema"):
+            raise CoreDispatchError(
+                "Durable sync must target this Core library; open the target library separately",
+                code="invalid_payload",
+            )
+        from LiuXin_alpha.core.command_recovery import submit_workflow
+
+        return submit_workflow(
+            self,
             function_name="run_sync_store_job",
             kwargs=sync_kwargs,
-        )
-        job_id = self.job_manager.submit(
-            request,
+            label=label or "Synchronize store",
             timeout=manager_timeout,
-            no_output=no_output,
             backend=backend,
-            label=label,
+            no_output=no_output,
         )
-
-        self.emit_event(
-            "sync.store.job_submitted",
-            {
-                "job_id": job_id,
-                "label": label or "",
-                "backend": "" if backend is None else str(backend),
-                "timeout_s": "none" if timeout_s is None else timeout_s,
-                "no_output": no_output,
-            },
-        )
-        return {
-            "job_id": job_id,
-            "label": label or "",
-            "backend": "" if backend is None else str(backend),
-            "timeout_s": None if timeout_s is None else timeout_s,
-            "no_output": no_output,
-        }
 
     def _handle_sync_store_cancel_command(
-        self, runtime: "CoreRuntime", command: CoreCommand
+        self, runtime: CoreRuntime, command: CoreCommand
     ) -> dict[str, Any]:
         """
         Request cancellation through the common helper while emitting the legacy sync-specific event type.
@@ -2576,7 +2647,7 @@ class CoreRuntime(CoreAPI):
         return payload
 
     def _handle_jobs_cancel_command(
-        self, runtime: "CoreRuntime", command: CoreCommand
+        self, runtime: CoreRuntime, command: CoreCommand
     ) -> dict[str, Any]:
         """
         Normalize a job identifier and request cancellation with the generic jobs.cancel_requested event.
@@ -2596,7 +2667,7 @@ class CoreRuntime(CoreAPI):
 
     def _handle_jobs_retry_command(
         self,
-        runtime: "CoreRuntime",
+        runtime: CoreRuntime,
         command: CoreCommand,
     ) -> dict[str, Any]:
         """
@@ -2643,7 +2714,7 @@ class CoreRuntime(CoreAPI):
                 )
             info = self.job_manager.get(retried_job_id)
         except KeyError as exc:
-            raise CoreDispatchError("Unknown job id: {!r}".format(job_id)) from exc
+            raise CoreDispatchError(f"Unknown job id: {job_id!r}") from exc
         except ValueError as exc:
             raise CoreDispatchError(str(exc), code="job_not_retryable") from exc
         result = {

@@ -12,26 +12,39 @@ Example:
 
 from __future__ import annotations
 
+import builtins
 import threading
 import time
 import traceback
 import uuid
-
-from contextvars import copy_context
+from collections.abc import Callable, Iterable
 from concurrent.futures import (
     CancelledError as FutureCancelledError,
+)
+from concurrent.futures import (
     Future,
     ThreadPoolExecutor,
+)
+from concurrent.futures import (
     TimeoutError as FutureTimeoutError,
 )
+from contextvars import copy_context
 from dataclasses import dataclass, field
-from typing import Any, Callable, Iterable, Literal
+from typing import Any, Literal
 
 from LiuXin_alpha.configuration import capture_preferences, use_preferences
 
-from .api import JobBackend, JobExecution, JobRequest, allocate_job_log_path, execute_job
+from .api import (
+    JobBackend,
+    JobExecution,
+    JobRequest,
+    allocate_job_log_path,
+    execute_job,
+)
 
-JobState = Literal["pending", "running", "succeeded", "failed", "timed_out", "aborted", "cancelled"]
+JobState = Literal[
+    "pending", "running", "succeeded", "failed", "timed_out", "aborted", "cancelled"
+]
 
 
 @dataclass
@@ -73,7 +86,13 @@ class ManagedJob:
         :return: The normalized value, metadata record, path, stream result or collection
             described above.
         """
-        return self.state in {"succeeded", "failed", "timed_out", "aborted", "cancelled"}
+        return self.state in {
+            "succeeded",
+            "failed",
+            "timed_out",
+            "aborted",
+            "cancelled",
+        }
 
     @property
     def duration_s(self) -> float | None:
@@ -105,6 +124,7 @@ class _RuntimeJob:
 
             python -m pytest -q tests/utils/jobs/test_jobs_manager.py
     """
+
     preferences: Any
     info: ManagedJob
     future: Future[JobExecution] | None = None
@@ -125,6 +145,24 @@ class JobManagerAPI:
 
             python -m pytest -q tests/utils/jobs/test_jobs_manager.py
     """
+
+    def list_page(
+        self,
+        *,
+        states: Iterable[JobState] | None = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> tuple[list[ManagedJob], int]:
+        """Return a bounded window; custom managers may override the list fallback."""
+        if (
+            type(limit) is not int
+            or not 1 <= limit <= 1000
+            or type(offset) is not int
+            or offset < 0
+        ):
+            raise ValueError("Job pages require limit 1..1000 and a nonnegative offset")
+        jobs = self.list(states=states)
+        return jobs[offset : offset + limit], len(jobs)
 
     def submit(
         self,
@@ -326,7 +364,9 @@ class InMemoryJobManager(JobManagerAPI):
         """
         self._lock = threading.RLock()
         self._jobs: dict[str, _RuntimeJob] = {}
-        self._executor = ThreadPoolExecutor(max_workers=max(1, int(max_workers)), thread_name_prefix="liuxin-job")
+        self._executor = ThreadPoolExecutor(
+            max_workers=max(1, int(max_workers)), thread_name_prefix="liuxin-job"
+        )
         self._default_backend = default_backend
         self._closed = False
 
@@ -445,7 +485,9 @@ class InMemoryJobManager(JobManagerAPI):
                 runtime.info.state = "cancelled"
                 runtime.info.started_at = time.time()
                 runtime.info.finished_at = runtime.info.started_at
-                exec_result = JobExecution(ok=False, aborted=True, traceback="Job cancelled before start")
+                exec_result = JobExecution(
+                    ok=False, aborted=True, traceback="Job cancelled before start"
+                )
                 runtime.info.execution = exec_result
                 return exec_result
 
@@ -526,7 +568,7 @@ class InMemoryJobManager(JobManagerAPI):
         with self._lock:
             runtime = self._jobs.get(str(job_id))
             if runtime is None:
-                raise KeyError("Unknown job id: {!r}".format(job_id))
+                raise KeyError(f"Unknown job id: {job_id!r}")
             return self._clone_info(runtime.info)
 
     def list(self, *, states: Iterable[JobState] | None = None) -> list[ManagedJob]:
@@ -552,6 +594,35 @@ class InMemoryJobManager(JobManagerAPI):
                 snapshots.append(self._clone_info(runtime.info))
         snapshots.sort(key=lambda one: one.submitted_at)
         return snapshots
+
+    def list_page(
+        self,
+        *,
+        states: Iterable[JobState] | None = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> tuple[builtins.list[ManagedJob], int]:
+        """Count existing history but clone payloads only for the requested window."""
+        if (
+            type(limit) is not int
+            or not 1 <= limit <= 1000
+            or type(offset) is not int
+            or offset < 0
+        ):
+            raise ValueError("Job pages require limit 1..1000 and a nonnegative offset")
+        allowed = None if states is None else set(states)
+        with self._lock:
+            selected = sorted(
+                (
+                    runtime.info
+                    for runtime in self._jobs.values()
+                    if allowed is None or runtime.info.state in allowed
+                ),
+                key=lambda info: info.submitted_at,
+            )
+            return [
+                self._clone_info(info) for info in selected[offset : offset + limit]
+            ], len(selected)
 
     def wait(self, job_id: str, *, timeout: float | None = None) -> ManagedJob:
         """
@@ -604,14 +675,16 @@ class InMemoryJobManager(JobManagerAPI):
         info = self.wait(job_id, timeout=timeout)
         execution = info.execution
         if execution is None:
-            raise RuntimeError("Job {!r} has no execution payload yet (state={}).".format(job_id, info.state))
+            raise RuntimeError(
+                f"Job {job_id!r} has no execution payload yet (state={info.state})."
+            )
 
         if raise_on_failure and not execution.ok:
             if execution.timed_out:
-                raise TimeoutError("Job {!r} timed out.".format(job_id))
+                raise TimeoutError(f"Job {job_id!r} timed out.")
             if execution.aborted:
-                raise RuntimeError("Job {!r} was aborted.".format(job_id))
-            raise RuntimeError(execution.traceback or "Job {!r} failed.".format(job_id))
+                raise RuntimeError(f"Job {job_id!r} was aborted.")
+            raise RuntimeError(execution.traceback or f"Job {job_id!r} failed.")
         return execution
 
     def cancel(self, job_id: str) -> bool:
@@ -639,7 +712,9 @@ class InMemoryJobManager(JobManagerAPI):
             if future is not None and future.cancel():
                 runtime.info.state = "cancelled"
                 runtime.info.finished_at = time.time()
-                runtime.info.execution = JobExecution(ok=False, aborted=True, traceback="Job cancelled before start")
+                runtime.info.execution = JobExecution(
+                    ok=False, aborted=True, traceback="Job cancelled before start"
+                )
                 return True
             return True
 
@@ -673,13 +748,11 @@ class InMemoryJobManager(JobManagerAPI):
         original = self.get(job_id)
         if not original.done:
             raise ValueError(
-                "Job {!r} is still {}; only terminal jobs can be retried."
-                .format(job_id, original.state)
+                f"Job {job_id!r} is still {original.state}; only terminal jobs can be retried."
             )
         if original.state == "succeeded" and not allow_succeeded:
             raise ValueError(
-                "Job {!r} succeeded; pass allow_succeeded=True to replay it."
-                .format(job_id)
+                f"Job {job_id!r} succeeded; pass allow_succeeded=True to replay it."
             )
         backend: str | None = original.backend_name
         if backend in {None, "", "auto"}:
@@ -736,7 +809,7 @@ class InMemoryJobManager(JobManagerAPI):
         with self._lock:
             runtime = self._jobs.get(str(job_id))
             if runtime is None:
-                raise KeyError("Unknown job id: {!r}".format(job_id))
+                raise KeyError(f"Unknown job id: {job_id!r}")
             return runtime.future
 
     @staticmethod

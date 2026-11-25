@@ -115,15 +115,24 @@ def test_relative_path_and_nested_options_captured_for_service_lifetime(
         services.close()
 
 
-def test_workflow_submission_carries_captured_metadata_without_sharing_input(tmp_path):
+def test_workflow_submission_carries_captured_metadata_without_sharing_input(
+    tmp_path, monkeypatch
+):
+    from LiuXin_alpha.core import command_recovery
     from LiuXin_alpha.core.program_services.payloads import _job_submit
 
     requests = []
+    monkeypatch.setattr(
+        command_recovery,
+        "submit_workflow",
+        lambda owner, **intent: requests.append(intent) or {"state": "accepted"},
+    )
     database = SimpleNamespace(
         type="PostgreSQL", metadata={"postgres_service": "selected", "schema": "books"}
     )
     services = CoreServices(library=SimpleNamespace(db=database), preferences={})
     runtime = SimpleNamespace(
+        _durable_jobs=object(),
         database=database,
         services=services,
         job_manager=SimpleNamespace(
@@ -139,8 +148,8 @@ def test_workflow_submission_carries_captured_metadata_without_sharing_input(tmp
             default_label="ingest",
         )
         database.metadata["schema"] = "wrong"
-        assert requests[0].kwargs["database_metadata"]["schema"] == "books"
-        assert requests[0].kwargs["database_path"] == "service=selected"
+        assert requests[0]["kwargs"]["database_metadata"]["schema"] == "books"
+        assert requests[0]["kwargs"]["database_path"] == "service=selected"
     finally:
         services.close()
 
@@ -164,7 +173,15 @@ def test_sync_submission_keeps_connection_defaults_with_safe_alternate_targets(
     from LiuXin_alpha.core.runtime import CoreRuntime
 
     monkeypatch.delenv("LIUXIN_POSTGRES_SCHEMA", raising=False)
+    from LiuXin_alpha.core import command_recovery
+    from LiuXin_alpha.core.errors import CoreError
+
     requests = []
+    monkeypatch.setattr(
+        command_recovery,
+        "submit_workflow",
+        lambda owner, **intent: requests.append(intent) or {"state": "accepted"},
+    )
     database = SimpleNamespace(
         type="PostgreSQL",
         metadata={
@@ -179,9 +196,15 @@ def test_sync_submission_keeps_connection_defaults_with_safe_alternate_targets(
     core = CoreRuntime(
         library=SimpleNamespace(db=database), preferences={}, job_manager=manager
     )
+    core._durable_jobs = SimpleNamespace(stop=lambda **kwargs: None)
     try:
+        if expected_path != "postgresql:///selected" or expected_schema != "books":
+            with pytest.raises(CoreError):
+                core.command("sync.store.start", {"sync_kwargs": overrides})
+            assert not requests
+            return
         core.command("sync.store.start", {"sync_kwargs": overrides})
-        selected = requests[0].kwargs
+        selected = requests[0]["kwargs"]
         assert selected["database_path"] == expected_path
         assert selected["database_metadata"]["schema"] == expected_schema
         if expected_schema != "books":
@@ -194,7 +217,16 @@ def test_sync_submission_keeps_connection_defaults_with_safe_alternate_targets(
 
         public = core._serialize_managed_job(
             ManagedJob(
-                job_id="job", request=requests[0], state="pending", submitted_at=0
+                job_id="job",
+                request=__import__(
+                    "LiuXin_alpha.utils.jobs", fromlist=["JobRequest"]
+                ).JobRequest(
+                    module_name="LiuXin_alpha.core.workflow_jobs",
+                    function_name="run_sync_store_job",
+                    kwargs=selected,
+                ),
+                state="pending",
+                submitted_at=0,
             )
         )
         assert "retain-only-for-original" not in repr(public)

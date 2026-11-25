@@ -3,7 +3,7 @@ Adapt Core field discovery, WEMI adjacency, identifiers, Agent names/links, and 
 
 Repositories retain level validation and semantic mutation policy. Write receipts
 are projected and reconciled after repository calls without an adapter transaction.
-Global search is a full materialized scan. Required table-read failures propagate;
+Global search is a bounded materialized scan. Required table-read failures propagate;
 it does not provide an indexed search or an authorization boundary.
 """
 
@@ -13,6 +13,7 @@ from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any
 
 from LiuXin_alpha.core.errors import CoreDispatchError
+from LiuXin_alpha.core.execution_bounds import SCAN_ROWS, bounded_table_rows
 from LiuXin_alpha.core.payloads import boolean
 from LiuXin_alpha.core.program_services.payloads import (
     _agent_role,
@@ -346,7 +347,7 @@ def catalog_agents_list(
 
 def search_global(runtime: CoreRuntime, query: CoreQuery) -> dict[str, Any]:
     """
-    Scan selected tables for a casefolded text substring, then page all accumulated matches.
+    Scan at most 10,000 rows across selected tables, then page substring matches.
 
     A normalized nonempty tables list preserves requested order; otherwise all
     advertised names are sorted. Table-read, iteration and projection errors
@@ -376,11 +377,10 @@ def search_global(runtime: CoreRuntime, query: CoreQuery) -> dict[str, Any]:
     limit = min(limit, 1000)
     matches: list[dict[str, Any]] = []
     searched: list[str] = []
+    remaining = SCAN_ROWS
     for table in tables:
-        rows = runtime.read_source.get_all_rows(
-            table,
-            iterator_return=False,
-        )
+        rows = bounded_table_rows(runtime.read_source, table, maximum=remaining)
+        remaining -= len(rows)
         searched.append(table)
         for row in rows:
             rendered = plain(row)

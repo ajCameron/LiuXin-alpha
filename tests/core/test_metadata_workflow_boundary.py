@@ -115,8 +115,8 @@ def test_native_search_select_edit_save_and_readback(
                 broken.setattr(update, "side_effect", save_then_fail_publication)
             else:
                 broken.setattr(
-                    runtime.cache,
-                    "reload_data",
+                    runtime.cache.storage,
+                    "reload_ids",
                     Mock(side_effect=OSError("refresh failed after commit")),
                 )
             with pytest.raises(error_type) as committed:

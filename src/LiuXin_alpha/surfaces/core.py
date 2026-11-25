@@ -15,8 +15,6 @@ boundary. Row enumeration is a single Core query, not an exhaustive paging loop.
 from __future__ import annotations
 
 import argparse
-import base64
-
 from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -44,7 +42,7 @@ def _mapping(value: Any, *, label: str) -> dict[str, Any]:
     :raises TypeError: If the input does not implement Mapping.
     """
     if not isinstance(value, Mapping):
-        raise TypeError("{} must be a mapping.".format(label))
+        raise TypeError(f"{label} must be a mapping.")
     return {str(key): item for key, item in value.items()}
 
 
@@ -207,7 +205,7 @@ class SurfaceCoreSession:
         repair_bootstrap_rows: bool = False,
         timeout_seconds: float = 10.0,
         bearer_token: str | None = None,
-    ) -> "SurfaceCoreSession":
+    ) -> SurfaceCoreSession:
         """
         Configure a remote client or compose and own a local Core runtime, requiring exactly one source.
 
@@ -246,9 +244,7 @@ class SurfaceCoreSession:
         :raises ValueError: Unless exactly one connection source is supplied, or if downstream configuration is invalid.
         """
         if (database_path is None) == (endpoint is None):
-            raise ValueError(
-                "Provide exactly one of `database_path` or `endpoint`."
-            )
+            raise ValueError("Provide exactly one of `database_path` or `endpoint`.")
         if endpoint is not None:
             return cls(
                 client=core_client(
@@ -280,13 +276,9 @@ class SurfaceCoreSession:
             create=bool(create),
             backup=bool(backup),
             cache_type=cache_type,
-            cache_allow_database_fallback=bool(
-                cache_allow_database_fallback
-            ),
+            cache_allow_database_fallback=bool(cache_allow_database_fallback),
             enable_storage_manager=bool(enable_storage_manager),
-            strict_storage_manager_bootstrap=bool(
-                strict_storage_manager_bootstrap
-            ),
+            strict_storage_manager_bootstrap=bool(strict_storage_manager_bootstrap),
             storage_startup_on_add=bool(storage_startup_on_add),
             enable_maintenance=bool(enable_maintenance),
             repair_bootstrap_rows=bool(repair_bootstrap_rows),
@@ -298,7 +290,7 @@ class SurfaceCoreSession:
         )
 
     @classmethod
-    def from_client(cls, client: CoreClientAPI) -> "SurfaceCoreSession":
+    def from_client(cls, client: CoreClientAPI) -> SurfaceCoreSession:
         """
         Borrow an existing client without probing it or taking shutdown ownership.
 
@@ -323,7 +315,7 @@ class SurfaceCoreSession:
         read_source: Any | None = None,
         cache_type: str | None = None,
         cache_allow_database_fallback: bool = True,
-    ) -> "SurfaceCoreSession":
+    ) -> SurfaceCoreSession:
         """
         Compose and own a Core wrapper around a borrowed pre-Core database.
 
@@ -399,7 +391,7 @@ class SurfaceCoreSession:
         if self.owns_runtime and self.runtime is not None:
             self.runtime.shutdown()
 
-    def __enter__(self) -> "SurfaceCoreSession":
+    def __enter__(self) -> SurfaceCoreSession:
         """
         Return this session unchanged, without reopening or rejecting a closed session.
 
@@ -607,9 +599,7 @@ class CoreSurfaceModel:
         """
         name = str(table)
         cached = self._schema_map().get(name)
-        if cached is not None and bool(
-            cached.get("relations_included", False)
-        ):
+        if cached is not None and bool(cached.get("relations_included", False)):
             return dict(cached)
         result = _mapping(
             self.client.query("schema.table", {"table": name}),
@@ -683,8 +673,7 @@ class CoreSurfaceModel:
         :return: Column-name tuple, without sorting, deduplication, or collection-shape validation.
         """
         return tuple(
-            str(value)
-            for value in self._table_summary(str(table)).get("columns", ())
+            str(value) for value in self._table_summary(str(table)).get("columns", ())
         )
 
     def id_column(self, table: str) -> str:
@@ -709,11 +698,7 @@ class CoreSurfaceModel:
             return str(value)
         columns = self.columns(str(table))
         return next(
-            (
-                column
-                for column in columns
-                if column == "id" or column.endswith("_id")
-            ),
+            (column for column in columns if column == "id" or column.endswith("_id")),
             columns[0] if columns else "id",
         )
 
@@ -728,9 +713,7 @@ class CoreSurfaceModel:
         :param table: Table whose summary should be inspected.
         :return: Boolean flag, defaulting to false when the schema omits it.
         """
-        return bool(
-            self._table_summary(str(table)).get("is_view", False)
-        )
+        return bool(self._table_summary(str(table)).get("is_view", False))
 
     def related_tables(self, table: str) -> tuple[str, ...]:
         """
@@ -782,9 +765,7 @@ class CoreSurfaceModel:
             row_id=row_id,
             values=values,
             linkable_tables=(
-                self.related_tables(table)
-                if table and self.table_exists(table)
-                else ()
+                self.related_tables(table) if table and self.table_exists(table) else ()
             ),
         )
 
@@ -946,11 +927,7 @@ class CoreSurfaceModel:
             records=tuple(self._row(record) for record in records),
             total_count=int(result.get("total_count") or 0),
             offset=int(result.get("offset") or 0),
-            limit=(
-                None
-                if result.get("limit") is None
-                else int(result["limit"])
-            ),
+            limit=(None if result.get("limit") is None else int(result["limit"])),
             complete=bool(result.get("complete", False)),
             source=str(result.get("source") or ""),
         )
@@ -1139,9 +1116,13 @@ class CoreSurfaceModel:
             label="schema.link result",
         )
         value = result.get("capabilities")
-        return None if value is None else _mapping(
-            value,
-            label="schema.link capabilities",
+        return (
+            None
+            if value is None
+            else _mapping(
+                value,
+                label="schema.link capabilities",
+            )
         )
 
     def global_search(
@@ -1193,9 +1174,7 @@ class CoreSurfaceModel:
         """
         result = self.client.command("read-source.refresh")
         if isinstance(result, Mapping):
-            return bool(
-                result.get("refreshed", result.get("reloaded", True))
-            )
+            return bool(result.get("refreshed", result.get("reloaded", True)))
         return bool(result)
 
     def create_row(self, table: str, values: Mapping[str, Any]) -> dict[str, Any]:
@@ -1403,45 +1382,24 @@ class CoreSurfaceModel:
             label="acquisition.resolve result",
         )
 
-    def acquisition_read(self, kind: str, resource_id: int) -> tuple[dict[str, Any], bytes]:
-        """
-        Read an acquisition resource into memory and accept bytes or Core's tagged base64 representation.
+    def acquisition_stream(
+        self, kind: str, resource_id: int
+    ) -> Iterator[tuple[dict[str, Any], bytes]]:
+        """Yield version-checked content chunks without materializing the resource."""
+        from LiuXin_alpha.core.content import acquisition_chunks
 
-        Native bytes are returned unchanged. A mapping tagged ``$type: bytes``
-        decodes its stringified base64 field with the standard non-strict decoder:
-        absent/falsey data becomes empty bytes, non-alphabet characters can be
-        ignored, and padding/encoding errors propagate. No streaming, size cap,
-        or content-integrity check is added. Missing resource metadata defaults
-        to an empty mapping; explicit None is invalid.
+        yield from acquisition_chunks(self.client.query, str(kind), int(resource_id))
 
-        Example:
-            >>> resource, content = model.acquisition_read("file", 7)  # doctest: +SKIP
-
-
-        :param kind: Core acquisition kind converted to text.
-        :param resource_id: Resource identifier converted to int.
-        :return: Pair of shallow resource-metadata dict and fully materialized content bytes.
-        :raises TypeError: If response/resource mappings are malformed or content is neither bytes nor a bytes-tagged mapping.
-        """
-        result = _mapping(
-            self.client.query(
-                "acquisition.read",
-                {"kind": str(kind), "id": int(resource_id)},
-            ),
-            label="acquisition.read result",
-        )
-        resource = _mapping(
-            result.get("resource", {}),
-            label="acquisition resource",
-        )
-        content = result.get("content")
-        if isinstance(content, bytes):
-            payload = content
-        elif isinstance(content, Mapping) and content.get("$type") == "bytes":
-            payload = base64.b64decode(str(content.get("base64") or ""))
-        else:
-            raise TypeError("Core acquisition content is not bytes.")
-        return resource, payload
+    def acquisition_read(
+        self, kind: str, resource_id: int
+    ) -> tuple[dict[str, Any], bytes]:
+        """Materialize version-checked chunks for surfaces that require a byte string."""
+        resource: dict[str, Any] = {}
+        chunks = []
+        for chunk_resource, content in self.acquisition_stream(kind, resource_id):
+            resource = chunk_resource
+            chunks.append(content)
+        return resource, b"".join(chunks)
 
 
 class CoreDriverView:
@@ -1631,10 +1589,7 @@ class CoreDriverView:
         capabilities = self.get_link_capabilities(table, related_table)
         if not capabilities:
             raise ValueError(
-                "No relation exists between {!r} and {!r}.".format(
-                    table,
-                    related_table,
-                )
+                f"No relation exists between {table!r} and {related_table!r}."
             )
         requested = str(column)
         if requested == "type" and capabilities.get("type_column"):
@@ -1648,19 +1603,13 @@ class CoreDriverView:
         candidates = [
             value
             for value in columns
-            if value.endswith("_{}".format(requested))
-            or (
-                requested.endswith("_id")
-                and value.endswith(requested)
-            )
+            if value.endswith(f"_{requested}")
+            or (requested.endswith("_id") and value.endswith(requested))
         ]
         if len(candidates) == 1:
             return candidates[0]
         raise ValueError(
-            "Cannot identify link column {!r} in {!r}.".format(
-                requested,
-                link_table,
-            )
+            f"Cannot identify link column {requested!r} in {link_table!r}."
         )
 
     def get_column_base(self, table: str) -> str:
@@ -1761,11 +1710,7 @@ class CoreDriverView:
         if len(candidates) == 1:
             return candidates[0]
         if error:
-            raise ValueError(
-                "Cannot identify one table from column {!r}.".format(
-                    requested
-                )
-            )
+            raise ValueError(f"Cannot identify one table from column {requested!r}.")
         return None
 
 
@@ -1858,11 +1803,7 @@ class CoreDatabaseView:
             self.core.query("database.info"),
             label="database.info result",
         )
-        return str(
-            result.get("database_type")
-            or result.get("type")
-            or "SQLite"
-        )
+        return str(result.get("database_type") or result.get("type") or "SQLite")
 
     def get_tables(self, get_views: bool = True) -> list[str]:
         """
@@ -2175,7 +2116,7 @@ class CoreDatabaseView:
         )
         matching = [
             link
-            for record, link in zip(records, links)
+            for record, link in zip(records, links, strict=False)
             if record.row_id == secondary_row.row_id
         ]
         if onelink:
@@ -2211,9 +2152,7 @@ class CoreDatabaseView:
         :return: First CoreRow found by readback, or None for another/absent result; not a proof of a newly created link.
         """
         normalized_priority = (
-            None
-            if priority in (None, "", "not_set", "highest")
-            else int(priority)
+            None if priority in (None, "", "not_set", "highest") else int(priority)
         )
         self.model.link(
             primary_row,
@@ -2306,11 +2245,12 @@ def add_core_client_arguments(
     group.add_argument(
         "--profile",
         help=(
-            "Named profile, manifest path, or directory containing "
-            "liuxin-system.json."
+            "Named profile, manifest path, or directory containing liuxin-system.json."
         ),
     )
-    parser.add_argument("--core-token-file", help="Read the Core bearer token from this private file.")
+    parser.add_argument(
+        "--core-token-file", help="Read the Core bearer token from this private file."
+    )
     parser.add_argument(
         "--core-timeout",
         type=float,
@@ -2363,8 +2303,8 @@ def open_surface_core_from_args(
     :return: Session configured from resolved arguments, owning a runtime only for local composition.
     :raises ValueError: If no usable connection is selected, selectors conflict, or configuration conversion fails.
     """
-    from LiuXin_alpha.core.settings import apply_system_profile
     from LiuXin_alpha.core.authorization import read_bearer_token_file
+    from LiuXin_alpha.core.settings import apply_system_profile
 
     apply_system_profile(args)
     return SurfaceCoreSession.open(

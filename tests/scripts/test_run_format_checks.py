@@ -488,7 +488,9 @@ def test_production_scope_covers_extracted_owners_and_regression_tests() -> None
         "tests/scripts/test_run_format_checks.py",
     ):
         assert REPO_ROOT / relative in selected
-    assert not any("file_formats" in path.parts for path in selected)
+    assert {path for path in selected if "file_formats" in path.parts} == {
+        REPO_ROOT / "src/LiuXin_alpha/file_formats/conversion/publication.py"
+    }
 
 
 def test_ruff_install_and_runtime_requirements_use_the_same_exact_version() -> None:

@@ -3,6 +3,12 @@
 Status: **implemented named application API, with explicit ownership and access-control limits**.
 API version: `2.0`. Source reviewed **2026-10-20**, working tree based on `fc5de7af`.
 
+**2026-11-25 contract update:** native metadata commands retain transactional
+outcomes; long workflows return durable acceptance and resolve completion through
+jobs. Read the [recovery contract and runbook](recovery-operations.md) before
+retrying a lost response. It also defines current content ranges, event gaps,
+readiness and dispatch limits. Endpoint discovery reports each recovery policy.
+
 ## Boundary
 
 `CoreRuntime` is LiuXin's application composition root. A complete client can

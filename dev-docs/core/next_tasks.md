@@ -1,6 +1,10 @@
 # Core next tasks
 
-Updated **2026-11-23** after lifecycle, caller-migration, contract and configuration corrections.
+Updated **2026-11-25**. The implemented [recovery completion programme](recovery-completion-2026-11-25.md)
+and [operator contract](recovery-operations.md) record completion of slices 4–8
+and the executed acceptance for slice 9. The million-Work reference passed; the
+eight-hour soak is running. Windows execution-lock verification remains unrun;
+this page does not imply whole-Core sign-off.
 The [whole-Core review and completion plan](review-and-completion-plan-2026-11-23.md)
 defines the full functionality target, ten findings and nine ordered completion
 slices. The architecture below remains the foundation; whole-module sign-off is
@@ -39,14 +43,15 @@ and plugin sandboxing remain separate deployment/design work.
 `jobs.wait` and `jobs.result` queries use concurrent dispatch while ordinary
 handlers retain serialization. Registration replacement and queued shutdown
 have explicit contracts; see [job waiting](../jobs/core-wait-dispatch.md).
-Core's durable service also delivers maintenance outbox work through explicit
-drains or opt-in polling. Other synchronous long operations and ordinary utility
-submissions still need migration.
+Core's durable service delivers catalogue outbox work through explicit drains or
+normal startup supervision. The recovery programme migrates the supported ingest,
+conversion, backup/restoration and maintenance families to the existing job ledger.
 
 Concurrent local/HTTP tests cover responsive reads/cancellation, wait timeouts and
 shutdown while work remains active. The [durable audit](../jobs/core-storage-audit.md)
 uses jobs' repository for run identity and receipts, with independently owned
-worker services. Other workflow migrations remain open under the jobs plan.
+worker services. Guarded restart, cancellation and uncertainty contracts are now
+documented in the recovery runbook.
 
 ## CORE-03 — Complete lifecycle caller migration
 
@@ -89,8 +94,8 @@ The local factory currently returns CoreRuntime directly. Decide whether a
 restricted local adapter is needed by a concrete consumer; until then document
 protocol discipline without claiming object isolation. Inventory new endpoints
 through the existing provider/handler/service owners. Registration-derived discovery
-and passive support/prerequisite declarations are implemented by slice 1; operational
-readiness probes remain separate work.
+and passive support/prerequisite declarations are implemented by slice 1. Slice 7
+adds explicit readiness probes without catalogue repair or cache initialization.
 
 Done when client-facing docs and examples match factory identity, shutdown
 ownership, wire values and errors. Add a restricted adapter only with caller
@@ -111,18 +116,21 @@ extends CORE-01 through CORE-05 with the remaining public and operational work:
    records, trees, relationships, discovery and bounded atomic batches. See the
    [completion evidence](review-and-completion-plan-2026-11-23.md#native-metadata-completion-follow-up)
    for backend/cache/local-HTTP coverage, failure recovery and remaining limits.
-4. Add recoverable command identities, effect receipts and post-disconnect lookup.
-5. Extend durable jobs across ingestion, conversion, backup/restoration and
-   remaining maintenance workflows using the existing job owners.
-6. Bound scan/content/HTTP work and measure whole-Core mixed-load behavior.
-7. Add event gap/restart recovery and operational observability.
-8. Complete missing domain operations and consolidate adapters with caller migration.
-   Include unmanaged-disk ingestion's legacy `files` requirement: native PostgreSQL
-   currently rejects `ingest.disk.start` before scanning (see the review follow-up).
-   In the database owner, also complete PostgreSQL language-constant seeding and an
-   explicit existing-catalogue upgrade policy that preserves stable IDs, references
-   and restore behavior. Native metadata reads must not perform that bootstrap.
-9. Validate the backend/cache/local-RPC matrix, recovery scenarios and runbooks.
+4. **Implemented:** recoverable command identities, effect receipts and
+   post-disconnect lookup, including transactional native metadata outcomes.
+5. **Implemented:** durable ingestion, conversion, backup/restoration and
+   maintenance workflows using the existing job owners and domain recovery evidence.
+6. **Implemented and measured:** scan/content/HTTP budgets and mixed-load tests.
+   Warm reference latency targets pass; larger and longer gates retain explicit limits.
+7. **Implemented:** event gap/restart recovery, bounded delivery and readiness probes.
+8. **Implemented:** native disk adoption, verified restoration/exact recreation,
+   guarded cleanup and migrated callers. PostgreSQL language constants and the
+   explicit existing-catalogue upgrade preserve IDs/references; reads do not bootstrap.
+9. **Recorded acceptance complete:** backend/cache/local-HTTP smoke matrix, recovery
+   scenarios, 10,000/100,000/million-Work references and runbooks. The eight-hour
+   soak is running; its result and Windows verification remain for broader
+   operational sign-off. See the
+   [completion evidence](recovery-completion-2026-11-25.md#evidence-and-limits).
 
 The review distinguishes implemented work from proposals. Its sign-off criteria
 require actual supported workflow implementations; truthful unavailable labels

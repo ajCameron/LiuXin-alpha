@@ -85,16 +85,22 @@ def _handler(selected: Route) -> Any:
 def install(runtime: CoreRuntime) -> None:
     """Register explicit read/write authority and discovery for every native route."""
     for selected in ROUTES:
-        register = (
-            runtime.register_command_handler
-            if selected.write
-            else runtime.register_query_handler
-        )
-        register(
-            selected.name,
-            _handler(selected),
-            summary=selected.summary,
-            payload_fields=selected.fields,
-            tags=("metadata", "write" if selected.write else "read"),
-            remote_capabilities=("write" if selected.write else "read",),
-        )
+        if selected.write:
+            runtime.register_command_handler(
+                selected.name,
+                _handler(selected),
+                summary=selected.summary,
+                payload_fields=selected.fields,
+                tags=("metadata", "write"),
+                remote_capabilities=("write",),
+                recovery="transactional",
+            )
+        else:
+            runtime.register_query_handler(
+                selected.name,
+                _handler(selected),
+                summary=selected.summary,
+                payload_fields=selected.fields,
+                tags=("metadata", "read"),
+                remote_capabilities=("read",),
+            )

@@ -22,7 +22,6 @@ import stat
 import sys
 import tempfile
 import time
-
 from collections.abc import Generator, Mapping
 from contextlib import contextmanager, redirect_stdout
 from pathlib import Path
@@ -32,7 +31,6 @@ from LiuXin_alpha.surfaces.core import (
     add_core_client_arguments,
     open_surface_core_from_args,
 )
-
 
 MAX_CONTROL_FILE_BYTES = 16 * 1024 * 1024
 TERMINAL_JOB_STATES = {
@@ -87,7 +85,7 @@ def open_cli_core(
     enable_storage_manager: bool = True,
     enable_maintenance: bool = False,
     create: bool = False,
-) -> Generator[Any, None, None]:
+) -> Generator[Any]:
     """
     Compose a surface session with redirected construction output and yield its client.
 
@@ -180,7 +178,7 @@ def atomic_binary_output(
     *,
     replace: bool = False,
     mode: int | None = None,
-) -> Generator[BinaryIO, None, None]:
+) -> Generator[BinaryIO]:
     """
     Stage binary output and publish it only after the caller's context succeeds.
 
@@ -234,17 +232,13 @@ def atomic_binary_output(
 
     target = Path(output).expanduser()
     if not target.parent.is_dir():
-        raise FileNotFoundError(
-            "Output directory does not exist: {!s}".format(target.parent)
-        )
+        raise FileNotFoundError(f"Output directory does not exist: {target.parent!s}")
     if os.path.lexists(os.fspath(target)) and not replace:
         raise FileExistsError(
-            "Refusing to replace existing output {!s}; pass --replace-output.".format(
-                target
-            )
+            f"Refusing to replace existing output {target!s}; pass --replace-output."
         )
     descriptor, staged_name = tempfile.mkstemp(
-        prefix=".{}.".format(target.name),
+        prefix=f".{target.name}.",
         suffix=".tmp",
         dir=str(target.parent),
     )
@@ -264,8 +258,8 @@ def atomic_binary_output(
                 os.link(staged, target)
             except FileExistsError as error:
                 raise FileExistsError(
-                    "Refusing to replace existing output {!s}; pass "
-                    "--replace-output.".format(target)
+                    f"Refusing to replace existing output {target!s}; pass "
+                    "--replace-output."
                 ) from error
             staged.unlink()
         _fsync_directory(target.parent)
@@ -393,16 +387,12 @@ def load_json_file(path: str | Path, *, max_bytes: int = MAX_CONTROL_FILE_BYTES)
         content = stream.read(max_bytes + 1)
     if len(content) > max_bytes:
         raise ValueError(
-            "JSON control file exceeds the {} byte limit: {!s}".format(
-                max_bytes, source
-            )
+            f"JSON control file exceeds the {max_bytes} byte limit: {source!s}"
         )
     try:
         return json.loads(content.decode("utf-8"))
     except (UnicodeDecodeError, json.JSONDecodeError) as error:
-        raise ValueError(
-            "Invalid UTF-8 JSON in {!s}: {}".format(source, error)
-        ) from error
+        raise ValueError(f"Invalid UTF-8 JSON in {source!s}: {error}") from error
 
 
 def load_json_object(path: str | Path) -> dict[str, Any]:
@@ -427,7 +417,7 @@ def load_json_object(path: str | Path) -> dict[str, Any]:
     """
     value = load_json_file(path)
     if not isinstance(value, Mapping):
-        raise ValueError("JSON control file must contain an object: {!s}".format(path))
+        raise ValueError(f"JSON control file must contain an object: {path!s}")
     return {str(key): item for key, item in value.items()}
 
 
@@ -454,14 +444,14 @@ def decode_wire_bytes(value: Any, *, label: str = "content") -> bytes:
     if isinstance(value, bytes):
         return value
     if not isinstance(value, Mapping):
-        raise TypeError("{} must be a Core byte value.".format(label))
+        raise TypeError(f"{label} must be a Core byte value.")
     encoded = value.get("base64")
     if value.get("$type") != "bytes" or not isinstance(encoded, str):
-        raise TypeError("{} must be a Core byte value.".format(label))
+        raise TypeError(f"{label} must be a Core byte value.")
     try:
         return base64.b64decode(encoded, validate=True)
     except Exception as error:
-        raise ValueError("{} contains invalid base64.".format(label)) from error
+        raise ValueError(f"{label} contains invalid base64.") from error
 
 
 def add_job_execution_arguments(parser: argparse.ArgumentParser) -> None:
@@ -577,6 +567,10 @@ def wait_for_job(
     while True:
         response = core.query("jobs.get", {"job_id": str(job_id)})
         job = dict(response.get("job") or {})
+        current_job_id = (job.get("durable") or {}).get("current_job_id")
+        if current_job_id and current_job_id != job_id:
+            job_id = current_job_id
+            continue
         state = str(job.get("state", "")).strip().lower()
         if state in TERMINAL_JOB_STATES:
             return dict(
@@ -593,6 +587,29 @@ def wait_for_job(
                 "message": "The CLI wait timed out; the Core job was not cancelled.",
             }
         time.sleep(max(0.01, float(poll_interval)))
+
+
+def complete_command(
+    core: Any, operation: str, payload: dict[str, Any], args: argparse.Namespace
+) -> dict[str, Any]:
+    """Wait for a durable command when required and preserve its domain receipt."""
+    submitted = dict(core.command(operation, payload))
+    if submitted.get("state") != "accepted" or not submitted.get("command_id"):
+        return submitted
+    from LiuXin_alpha.core.submissions import wait_for_submission
+
+    job_id = wait_for_submission(core.query, submitted)
+    completion = wait_for_job(
+        core,
+        job_id,
+        timeout=getattr(args, "wait_timeout", None),
+        poll_interval=float(getattr(args, "poll_interval", 0.25)),
+    )
+    execution = completion.get("execution") or {}
+    result = execution.get("result")
+    if execution.get("ok") and isinstance(result, dict):
+        return {**result, "command_id": submitted["command_id"], "job_id": job_id}
+    return {"ok": False, "submission": submitted, **completion}
 
 
 def submit_job(
@@ -625,9 +642,11 @@ def submit_job(
     submitted = dict(core.command(operation, payload))
     if bool(getattr(args, "detach", False)):
         return submitted
-    job_id = str(submitted.get("job_id") or "").strip()
+    from LiuXin_alpha.core.submissions import wait_for_submission
+
+    job_id = wait_for_submission(core.query, submitted)
     if not job_id:
-        raise RuntimeError("{} did not return a job id.".format(operation))
+        raise RuntimeError(f"{operation} did not return a job id.")
     result = wait_for_job(
         core,
         job_id,

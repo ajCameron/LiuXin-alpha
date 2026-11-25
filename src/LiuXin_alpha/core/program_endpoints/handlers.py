@@ -186,26 +186,6 @@ class BackupMaintenanceHandlers(Protocol):
         """
         ...
 
-    def maintenance_clean(
-        self, runtime: CoreRuntime, command: CoreCommand
-    ) -> Mapping[str, object]:
-        """
-        Clean explicitly selected rows through the maintenance service, then reconcile read-side state.
-
-        See :func:`LiuXin_alpha.core.program_services.maintenance.maintenance_clean`
-        for the maintained implementation's validation and failure boundaries.
-
-        Example:
-            >>> result = handler.maintenance_clean(runtime, command)  # doctest: +SKIP
-
-
-        :param runtime: Runtime supplying maintenance.clean and service reconciliation.
-        :param command: Command with required table and row_ids array; no confirmation field is checked here.
-        :return: Reconciled cleaned=True receipt with table and converted row_ids.
-        :raises CoreDispatchError: If the request shape or clean capability is unavailable.
-        """
-        ...
-
     def maintenance_duplicates_find(
         self, runtime: CoreRuntime, query: CoreQuery
     ) -> Mapping[str, object]:
@@ -552,7 +532,7 @@ class CatalogSearchHandlers(Protocol):
         self, runtime: CoreRuntime, query: CoreQuery
     ) -> Mapping[str, object]:
         """
-        Scan selected tables for a casefolded text substring, then page all accumulated matches.
+        Scan at most 10,000 rows across selected tables, then page substring matches.
 
         See :func:`LiuXin_alpha.core.program_services.catalog.search_global`
         for the maintained implementation's validation and failure boundaries.
@@ -1365,7 +1345,7 @@ class StorageHandlers(Protocol):
         self, runtime: CoreRuntime, command: CoreCommand
     ) -> Mapping[str, object]:
         """
-        Read an entire managed Asset, add its bytes through library policy, and locate the returned Asset.
+        Use the shared streaming, verified-copy owner, preserving Asset identity.
 
         See :func:`LiuXin_alpha.core.program_services.stores.storage_file_copy`
         for the maintained implementation's validation and failure boundaries.
@@ -1374,9 +1354,9 @@ class StorageHandlers(Protocol):
             >>> result = handler.storage_file_copy(runtime, command)  # doctest: +SKIP
 
 
-        :param runtime: Runtime supplying library read/add/locate operations and optional Store selection.
-        :param command: Command with required asset_id, optional Mapping metadata, and optional target store.
-        :return: Source ID, projected returned Asset and Location, and source content length in size.
+        :param runtime: Runtime supplying the native storage manager and Store selection.
+        :param command: Command with asset_id, optional source_replica_id and target store.
+        :return: Asset identity and the verified destination Replica.
         """
         ...
 

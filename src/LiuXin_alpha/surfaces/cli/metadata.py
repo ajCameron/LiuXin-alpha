@@ -24,7 +24,6 @@ import stat
 import sys
 import tempfile
 import time
-
 from collections.abc import Generator, Iterable, Mapping, Sequence
 from contextlib import contextmanager, redirect_stdout
 from pathlib import Path
@@ -34,7 +33,6 @@ from LiuXin_alpha.surfaces.core import (
     add_core_client_arguments,
     open_surface_core_from_args,
 )
-
 
 _DUMP_FORMAT = "liuxin.metadata.dump"
 _DUMP_VERSION = 1
@@ -137,8 +135,8 @@ def _publish_staged_file(
             os.link(staged, target)
         except FileExistsError as error:
             raise FileExistsError(
-                "Refusing to replace existing output {!s}; pass the relevant "
-                "--replace option.".format(target)
+                f"Refusing to replace existing output {target!s}; pass the relevant "
+                "--replace option."
             ) from error
         staged.unlink()
     _fsync_directory(target.parent)
@@ -150,7 +148,7 @@ def _atomic_binary_output(
     *,
     replace: bool,
     mode: int | None = None,
-) -> Generator[BinaryIO, None, None]:
+) -> Generator[BinaryIO]:
     """
     Yield a temporary binary stream and publish only after a successful body.
 
@@ -199,16 +197,14 @@ def _atomic_binary_output(
     target = Path(output).expanduser()
     parent = target.parent
     if not parent.is_dir():
-        raise FileNotFoundError(
-            "Output directory does not exist: {!s}".format(parent)
-        )
+        raise FileNotFoundError(f"Output directory does not exist: {parent!s}")
     if os.path.lexists(os.fspath(target)) and not replace:
         raise FileExistsError(
-            "Refusing to replace existing output {!s}; pass the relevant "
-            "--replace option.".format(target)
+            f"Refusing to replace existing output {target!s}; pass the relevant "
+            "--replace option."
         )
     descriptor, staged_name = tempfile.mkstemp(
-        prefix=".{}.".format(target.name),
+        prefix=f".{target.name}.",
         suffix=".tmp",
         dir=str(parent),
     )
@@ -299,13 +295,11 @@ def _ensure_output_available(output: str | Path, *, replace: bool) -> None:
         return
     target = Path(output).expanduser()
     if not target.parent.is_dir():
-        raise FileNotFoundError(
-            "Output directory does not exist: {!s}".format(target.parent)
-        )
+        raise FileNotFoundError(f"Output directory does not exist: {target.parent!s}")
     if os.path.lexists(os.fspath(target)) and not replace:
         raise FileExistsError(
-            "Refusing to replace existing output {!s}; pass the relevant "
-            "--replace option.".format(target)
+            f"Refusing to replace existing output {target!s}; pass the relevant "
+            "--replace option."
         )
 
 
@@ -344,7 +338,7 @@ def _mapping(value: Any, *, label: str) -> dict[str, Any]:
     :raises TypeError: The value does not implement Mapping.
     """
     if not isinstance(value, Mapping):
-        raise TypeError("{} must be a JSON object.".format(label))
+        raise TypeError(f"{label} must be a JSON object.")
     return {str(key): item for key, item in value.items()}
 
 
@@ -369,14 +363,14 @@ def _wire_bytes(value: Any, *, label: str) -> bytes:
     if isinstance(value, bytes):
         return value
     if not isinstance(value, Mapping) or value.get("$type") != "bytes":
-        raise TypeError("{} did not contain Core wire bytes.".format(label))
+        raise TypeError(f"{label} did not contain Core wire bytes.")
     encoded = value.get("base64")
     if not isinstance(encoded, str):
-        raise TypeError("{} has no base64 string.".format(label))
+        raise TypeError(f"{label} has no base64 string.")
     try:
         return base64.b64decode(encoded, validate=True)
     except Exception as error:
-        raise ValueError("{} contains invalid base64 data.".format(label)) from error
+        raise ValueError(f"{label} contains invalid base64 data.") from error
 
 
 def _add_connection(parser: argparse.ArgumentParser) -> None:
@@ -404,7 +398,7 @@ def _add_connection(parser: argparse.ArgumentParser) -> None:
 @contextmanager
 def _open_metadata_core(
     args: argparse.Namespace,
-) -> Generator[Any, None, None]:
+) -> Generator[Any]:
     """
     Yield a surface Core session while redirecting all enclosed stdout to stderr.
 
@@ -570,11 +564,7 @@ def _read_item_ids_file(path: str | Path) -> list[int]:
             values.append(int(token))
         except ValueError as error:
             raise ValueError(
-                "Invalid item id on {} line {}: {!r}.".format(
-                    source,
-                    line_number,
-                    token,
-                )
+                f"Invalid item id on {source} line {line_number}: {token!r}."
             ) from error
     return values
 
@@ -598,10 +588,7 @@ def _read_control_text(path: Path) -> str:
         content = stream.read(_MAX_CONTROL_FILE_BYTES + 1)
     if len(content) > _MAX_CONTROL_FILE_BYTES:
         raise ValueError(
-            "Control JSON/id file exceeds the {} byte limit: {!s}".format(
-                _MAX_CONTROL_FILE_BYTES,
-                path,
-            )
+            f"Control JSON/id file exceeds the {_MAX_CONTROL_FILE_BYTES} byte limit: {path!s}"
         )
     return content.decode("utf-8-sig")
 
@@ -719,9 +706,7 @@ def _selected_item_ids(core: Any, args: argparse.Namespace) -> list[int]:
             raise ValueError("--page-size must be greater than zero.")
         return _all_item_ids(core, page_size=page_size)
     if not explicit:
-        raise ValueError(
-            "Select records with --all, --item-id, or --item-ids-file."
-        )
+        raise ValueError("Select records with --all, --item-id, or --item-ids-file.")
     return _dedupe_ids(explicit)
 
 
@@ -831,7 +816,9 @@ def cmd_metadata_dump_json(args: argparse.Namespace) -> int:
     return 0
 
 
-def _load_json_object(*, inline: str | None, path: str | None, label: str) -> dict[str, Any]:
+def _load_json_object(
+    *, inline: str | None, path: str | None, label: str
+) -> dict[str, Any]:
     """
     Load a JSON mapping from inline text or a bounded local file, defaulting empty.
 
@@ -877,7 +864,7 @@ def _normal_field(value: str) -> str:
     try:
         return _WRITE_FIELDS[token]
     except KeyError as error:
-        raise ValueError("Unsupported writable metadata field: {!r}.".format(value)) from error
+        raise ValueError(f"Unsupported writable metadata field: {value!r}.") from error
 
 
 def _extract_write_values(raw: Mapping[str, Any]) -> dict[str, Any]:
@@ -948,7 +935,7 @@ def _identifiers(values: Sequence[str]) -> dict[str, str | list[str]]:
         value = value.strip()
         if not separator or not scheme or not value:
             raise ValueError(
-                "Identifiers must use non-empty SCHEME=VALUE syntax: {!r}.".format(raw)
+                f"Identifiers must use non-empty SCHEME=VALUE syntax: {raw!r}."
             )
         collected.setdefault(scheme, []).append(value)
     return {
@@ -997,14 +984,14 @@ def _build_write_values(args: argparse.Namespace) -> tuple[dict[str, Any], list[
 
     clear_fields = [_normal_field(value) for value in (args.clear or [])]
     if clear_fields and not args.replace:
-        raise ValueError("--clear requires --replace so the empty value is authoritative.")
+        raise ValueError(
+            "--clear requires --replace so the empty value is authoritative."
+        )
     for field in clear_fields:
         values[field] = {} if field == "identifiers" else []
 
     fields = (
-        [_normal_field(value) for value in args.field]
-        if args.field
-        else list(values)
+        [_normal_field(value) for value in args.field] if args.field else list(values)
     )
     fields = list(dict.fromkeys(fields))
     if not fields:
@@ -1116,7 +1103,9 @@ def _transfer_limit(args: argparse.Namespace) -> int:
     return int(value * 1024 * 1024)
 
 
-def _read_bounded_file(path: str | Path, *, limit: int) -> tuple[Path, bytes, os.stat_result]:
+def _read_bounded_file(
+    path: str | Path, *, limit: int
+) -> tuple[Path, bytes, os.stat_result]:
     """
     Read a regular CLI-host file within a byte cap and compare before/after file stats.
 
@@ -1140,13 +1129,10 @@ def _read_bounded_file(path: str | Path, *, limit: int) -> tuple[Path, bytes, os
     with source.open("rb") as stream:
         details = os.fstat(stream.fileno())
         if not stat.S_ISREG(details.st_mode):
-            raise ValueError("Metadata input must be a regular file: {!s}".format(source))
+            raise ValueError(f"Metadata input must be a regular file: {source!s}")
         if details.st_size > limit:
             raise ValueError(
-                "Input is {} bytes; the transfer limit is {} bytes.".format(
-                    details.st_size,
-                    limit,
-                )
+                f"Input is {details.st_size} bytes; the transfer limit is {limit} bytes."
             )
         content = stream.read(limit + 1)
         after = os.fstat(stream.fileno())
@@ -1299,9 +1285,7 @@ def _metadata_file_write_payload(
         )
         inspected = metadata.get("metadata")
         payload["metadata"] = (
-            dict(inspected)
-            if isinstance(inspected, Mapping)
-            else metadata
+            dict(inspected) if isinstance(inspected, Mapping) else metadata
         )
     return payload
 
@@ -1476,10 +1460,7 @@ def cmd_metadata_file_write(args: argparse.Namespace) -> int:
         )
         if len(updated) > limit:
             raise ValueError(
-                "Updated artifact is {} bytes; the transfer limit is {} bytes.".format(
-                    len(updated),
-                    limit,
-                )
+                f"Updated artifact is {len(updated)} bytes; the transfer limit is {limit} bytes."
             )
         verified = _mapping(
             session.client.query(
@@ -1609,7 +1590,9 @@ def _wait_for_job(
     :raises RuntimeError: Submission lacks an ID or execution does not report success.
     :raises TimeoutError: A nonterminal job exceeds the local wait deadline.
     """
-    job_id = str(submission.get("job_id") or "")
+    from LiuXin_alpha.core.submissions import wait_for_submission
+
+    job_id = wait_for_submission(core.query, submission)
     if not job_id:
         raise RuntimeError("Core job submission did not return a job id.")
     started = time.monotonic()
@@ -1624,7 +1607,7 @@ def _wait_for_job(
             break
         if wait_timeout is not None and time.monotonic() - started >= wait_timeout:
             raise TimeoutError(
-                "Timed out waiting for metadata job {}; it was not cancelled.".format(job_id)
+                f"Timed out waiting for metadata job {job_id}; it was not cancelled."
             )
         time.sleep(max(0.01, poll_interval))
 
@@ -1781,7 +1764,9 @@ def cmd_metadata_online_cover(args: argparse.Namespace) -> int:
     return 0
 
 
-def _catalogue_parsers(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
+def _catalogue_parsers(
+    subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
+) -> None:
     """
     Register metadata show/get, dump-json/dump, set/write, and export-opf leaves.
 
@@ -1817,11 +1802,30 @@ def _catalogue_parsers(subparsers: argparse._SubParsersAction[argparse.ArgumentP
         help="Dump selected or all Item metadata to deterministic JSON.",
     )
     _add_connection(dump)
-    dump.add_argument("--all", action="store_true", dest="all_items", help="Dump every Item.")
-    dump.add_argument("--item-id", action="append", type=int, default=[], help="Item id to dump (repeatable).")
-    dump.add_argument("--item-ids-file", help="UTF-8 JSON array or newline-separated item ids.")
-    dump.add_argument("--page-size", type=int, default=250, help="Item enumeration page size (default: 250).")
-    dump.add_argument("--json-lines", action="store_true", help="Write one raw metadata object per line.")
+    dump.add_argument(
+        "--all", action="store_true", dest="all_items", help="Dump every Item."
+    )
+    dump.add_argument(
+        "--item-id",
+        action="append",
+        type=int,
+        default=[],
+        help="Item id to dump (repeatable).",
+    )
+    dump.add_argument(
+        "--item-ids-file", help="UTF-8 JSON array or newline-separated item ids."
+    )
+    dump.add_argument(
+        "--page-size",
+        type=int,
+        default=250,
+        help="Item enumeration page size (default: 250).",
+    )
+    dump.add_argument(
+        "--json-lines",
+        action="store_true",
+        help="Write one raw metadata object per line.",
+    )
     _add_metadata_shape(dump)
     _add_json_output(dump)
     dump.set_defaults(handler=cmd_metadata_dump_json)
@@ -1832,35 +1836,88 @@ def _catalogue_parsers(subparsers: argparse._SubParsersAction[argparse.ArgumentP
         help="Append or authoritatively replace writable catalogue metadata.",
     )
     _add_connection(write)
-    write.add_argument("item_id", type=int, help="Catalogue Item id used to resolve the WEMI stack.")
+    write.add_argument(
+        "item_id", type=int, help="Catalogue Item id used to resolve the WEMI stack."
+    )
     source = write.add_mutually_exclusive_group()
     source.add_argument("--values-file", help="JSON object or metadata-show JSON file.")
     source.add_argument("--values-json", help="Inline JSON object.")
-    write.add_argument("--field", action="append", default=[], help="Writable field selected from JSON (repeatable).")
-    write.add_argument("--tag", action="append", default=[], help="Tag value (repeatable).")
-    write.add_argument("--label", action="append", default=[], help="Label value (repeatable).")
-    write.add_argument("--genre", action="append", default=[], help="Genre value (repeatable).")
-    write.add_argument("--subject", action="append", default=[], help="Subject value (repeatable).")
-    write.add_argument("--series", action="append", default=[], help="Series value (repeatable).")
-    write.add_argument("--identifier", action="append", default=[], metavar="SCHEME=VALUE", help="Identifier (repeatable; schemes may repeat).")
-    write.add_argument("--clear", action="append", default=[], metavar="FIELD", help="Clear a writable field; requires --replace.")
-    write.add_argument("--replace", action="store_true", help="Replace selected fields instead of appending values.")
-    write.add_argument("--kind", choices=("liuxin", "liuxin-wemi", "calibre"), default="liuxin")
-    write.add_argument("--target-level", choices=("work", "expression", "manifestation", "item"), default="work")
-    write.add_argument("--no-mark-dirty", action="store_true", help="Do not enqueue the affected WEMI row for downstream metadata work.")
+    write.add_argument(
+        "--field",
+        action="append",
+        default=[],
+        help="Writable field selected from JSON (repeatable).",
+    )
+    write.add_argument(
+        "--tag", action="append", default=[], help="Tag value (repeatable)."
+    )
+    write.add_argument(
+        "--label", action="append", default=[], help="Label value (repeatable)."
+    )
+    write.add_argument(
+        "--genre", action="append", default=[], help="Genre value (repeatable)."
+    )
+    write.add_argument(
+        "--subject", action="append", default=[], help="Subject value (repeatable)."
+    )
+    write.add_argument(
+        "--series", action="append", default=[], help="Series value (repeatable)."
+    )
+    write.add_argument(
+        "--identifier",
+        action="append",
+        default=[],
+        metavar="SCHEME=VALUE",
+        help="Identifier (repeatable; schemes may repeat).",
+    )
+    write.add_argument(
+        "--clear",
+        action="append",
+        default=[],
+        metavar="FIELD",
+        help="Clear a writable field; requires --replace.",
+    )
+    write.add_argument(
+        "--replace",
+        action="store_true",
+        help="Replace selected fields instead of appending values.",
+    )
+    write.add_argument(
+        "--kind", choices=("liuxin", "liuxin-wemi", "calibre"), default="liuxin"
+    )
+    write.add_argument(
+        "--target-level",
+        choices=("work", "expression", "manifestation", "item"),
+        default="work",
+    )
+    write.add_argument(
+        "--no-mark-dirty",
+        action="store_true",
+        help="Do not enqueue the affected WEMI row for downstream metadata work.",
+    )
     _add_json_output(write)
     write.set_defaults(handler=cmd_metadata_set)
 
-    opf = subparsers.add_parser("export-opf", help="Export one Item's hydrated metadata as OPF XML.")
+    opf = subparsers.add_parser(
+        "export-opf", help="Export one Item's hydrated metadata as OPF XML."
+    )
     _add_connection(opf)
     opf.add_argument("item_id", type=int, help="Catalogue Item id.")
     opf.add_argument("--default-lang", help="Fallback OPF language code.")
-    opf.add_argument("--output", required=True, help="OPF output path, or '-' for stdout.")
-    opf.add_argument("--replace-output", action="store_true", help="Atomically replace an existing output file.")
+    opf.add_argument(
+        "--output", required=True, help="OPF output path, or '-' for stdout."
+    )
+    opf.add_argument(
+        "--replace-output",
+        action="store_true",
+        help="Atomically replace an existing output file.",
+    )
     opf.set_defaults(handler=cmd_metadata_export_opf)
 
 
-def _file_parsers(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
+def _file_parsers(
+    subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
+) -> None:
     """
     Register file capability, inspect/dump-json, and rewrite metadata leaves.
 
@@ -1879,42 +1936,103 @@ def _file_parsers(subparsers: argparse._SubParsersAction[argparse.ArgumentParser
     :param subparsers: Metadata action collection receiving the required file subtree.
     :return: None; leaf parsers and dispatch defaults are installed in place.
     """
-    parser = subparsers.add_parser("file", help="Inspect or safely rewrite metadata embedded in ebook files.")
+    parser = subparsers.add_parser(
+        "file", help="Inspect or safely rewrite metadata embedded in ebook files."
+    )
     commands = parser.add_subparsers(dest="metadata_file_command", required=True)
 
-    formats = commands.add_parser("formats", help="List enabled readable and writable file formats.")
+    formats = commands.add_parser(
+        "formats", help="List enabled readable and writable file formats."
+    )
     _add_connection(formats)
     _add_json_output(formats)
     formats.set_defaults(handler=cmd_metadata_file_formats)
 
-    inspect = commands.add_parser("inspect", aliases=["dump-json"], help="Read embedded metadata as JSON.")
+    inspect = commands.add_parser(
+        "inspect", aliases=["dump-json"], help="Read embedded metadata as JSON."
+    )
     _add_connection(inspect)
     inspect.add_argument("path", help="File on the CLI host.")
-    inspect.add_argument("--file-type", help="Format override, without or with a leading dot.")
-    inspect.add_argument("--max-transfer-mib", type=float, default=_DEFAULT_TRANSFER_MIB, help="Maximum client/Core transfer size in MiB (default: 512).")
+    inspect.add_argument(
+        "--file-type", help="Format override, without or with a leading dot."
+    )
+    inspect.add_argument(
+        "--max-transfer-mib",
+        type=float,
+        default=_DEFAULT_TRANSFER_MIB,
+        help="Maximum client/Core transfer size in MiB (default: 512).",
+    )
     _add_json_output(inspect)
     inspect.set_defaults(handler=cmd_metadata_file_inspect)
 
-    write = commands.add_parser("write", help="Create a rewritten artifact, or explicitly update an unmanaged file in place.")
+    write = commands.add_parser(
+        "write",
+        help="Create a rewritten artifact, or explicitly update an unmanaged file in place.",
+    )
     _add_connection(write)
     write.add_argument("path", help="Input file on the CLI host.")
-    write.add_argument("--file-type", help="Format override, without or with a leading dot.")
-    write.add_argument("--max-transfer-mib", type=float, default=_DEFAULT_TRANSFER_MIB, help="Maximum input and output transfer size in MiB (default: 512).")
+    write.add_argument(
+        "--file-type", help="Format override, without or with a leading dot."
+    )
+    write.add_argument(
+        "--max-transfer-mib",
+        type=float,
+        default=_DEFAULT_TRANSFER_MIB,
+        help="Maximum input and output transfer size in MiB (default: 512).",
+    )
     destination = write.add_mutually_exclusive_group(required=True)
-    destination.add_argument("--output", help="New artifact path (the safe default workflow).")
-    destination.add_argument("--in-place", action="store_true", help="Explicitly mutate this unmanaged path after verified staging; do not use for a managed Replica.")
+    destination.add_argument(
+        "--output", help="New artifact path (the safe default workflow)."
+    )
+    destination.add_argument(
+        "--in-place",
+        action="store_true",
+        help="Explicitly mutate this unmanaged path after verified staging; do not use for a managed Replica.",
+    )
     metadata_source = write.add_mutually_exclusive_group(required=True)
-    metadata_source.add_argument("--item-id", type=int, help="Hydrate metadata from this catalogue Item.")
-    metadata_source.add_argument("--metadata-file", help="JSON metadata object to embed.")
-    metadata_source.add_argument("--metadata-json", help="Inline JSON metadata object to embed.")
-    write.add_argument("--replace-output", action="store_true", help="Atomically replace an existing --output artifact.")
-    write.add_argument("--backup", help="Backup path for --in-place (default: INPUT.bak).")
-    write.add_argument("--backup-suffix", default=".bak", help="Default in-place backup suffix (default: .bak).")
-    write.add_argument("--no-backup", action="store_true", help="Disable the default in-place backup.")
-    write.add_argument("--replace-backup", action="store_true", help="Atomically replace an existing backup path.")
-    write.add_argument("--report-output", default="-", help="JSON write report path, or '-' for stdout.")
-    write.add_argument("--replace-report", action="store_true", help="Atomically replace an existing report output.")
-    write.add_argument("--compact", action="store_true", help="Write compact report JSON.")
+    metadata_source.add_argument(
+        "--item-id", type=int, help="Hydrate metadata from this catalogue Item."
+    )
+    metadata_source.add_argument(
+        "--metadata-file", help="JSON metadata object to embed."
+    )
+    metadata_source.add_argument(
+        "--metadata-json", help="Inline JSON metadata object to embed."
+    )
+    write.add_argument(
+        "--replace-output",
+        action="store_true",
+        help="Atomically replace an existing --output artifact.",
+    )
+    write.add_argument(
+        "--backup", help="Backup path for --in-place (default: INPUT.bak)."
+    )
+    write.add_argument(
+        "--backup-suffix",
+        default=".bak",
+        help="Default in-place backup suffix (default: .bak).",
+    )
+    write.add_argument(
+        "--no-backup", action="store_true", help="Disable the default in-place backup."
+    )
+    write.add_argument(
+        "--replace-backup",
+        action="store_true",
+        help="Atomically replace an existing backup path.",
+    )
+    write.add_argument(
+        "--report-output",
+        default="-",
+        help="JSON write report path, or '-' for stdout.",
+    )
+    write.add_argument(
+        "--replace-report",
+        action="store_true",
+        help="Atomically replace an existing report output.",
+    )
+    write.add_argument(
+        "--compact", action="store_true", help="Write compact report JSON."
+    )
     write.set_defaults(handler=cmd_metadata_file_write)
 
 
@@ -1939,18 +2057,55 @@ def _add_online_query(parser: argparse.ArgumentParser, *, plugins: bool) -> None
     """
     _add_connection(parser)
     parser.add_argument("--title", help="Candidate title.")
-    parser.add_argument("--author", action="append", default=[], help="Candidate author (repeatable).")
-    parser.add_argument("--identifier", action="append", default=[], metavar="SCHEME=VALUE", help="Candidate identifier (repeatable by scheme).")
-    parser.add_argument("--source-timeout", type=float, default=30.0, help="Online source timeout in seconds (default: 30).")
+    parser.add_argument(
+        "--author", action="append", default=[], help="Candidate author (repeatable)."
+    )
+    parser.add_argument(
+        "--identifier",
+        action="append",
+        default=[],
+        metavar="SCHEME=VALUE",
+        help="Candidate identifier (repeatable by scheme).",
+    )
+    parser.add_argument(
+        "--source-timeout",
+        type=float,
+        default=30.0,
+        help="Online source timeout in seconds (default: 30).",
+    )
     if plugins:
-        parser.add_argument("--plugin", action="append", default=[], help="Restrict identification to this plugin (repeatable).")
-    parser.add_argument("--job-timeout", type=float, help="Managed Core job execution timeout in seconds.")
-    parser.add_argument("--wait-timeout", type=float, help="CLI wait timeout; leaves the job running if exceeded.")
-    parser.add_argument("--poll-interval", type=float, default=0.2, help="Job polling interval in seconds (default: 0.2).")
-    parser.add_argument("--detach", action="store_true", help="Submit and return the job id without waiting.")
+        parser.add_argument(
+            "--plugin",
+            action="append",
+            default=[],
+            help="Restrict identification to this plugin (repeatable).",
+        )
+    parser.add_argument(
+        "--job-timeout",
+        type=float,
+        help="Managed Core job execution timeout in seconds.",
+    )
+    parser.add_argument(
+        "--wait-timeout",
+        type=float,
+        help="CLI wait timeout; leaves the job running if exceeded.",
+    )
+    parser.add_argument(
+        "--poll-interval",
+        type=float,
+        default=0.2,
+        help="Job polling interval in seconds (default: 0.2).",
+    )
+    parser.add_argument(
+        "--detach",
+        action="store_true",
+        help="Submit and return the job id without waiting.",
+    )
 
 
-def _online_parsers(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
+def _online_parsers(
+    subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
+) -> None:
     """
     Register online source discovery, identification, and cover/covers commands.
 
@@ -1967,23 +2122,37 @@ def _online_parsers(subparsers: argparse._SubParsersAction[argparse.ArgumentPars
     :param subparsers: Metadata action collection receiving the online subtree.
     :return: None; commands and aliases are registered without contacting sources.
     """
-    parser = subparsers.add_parser("online", help="Inspect sources and run online identify/cover jobs.")
+    parser = subparsers.add_parser(
+        "online", help="Inspect sources and run online identify/cover jobs."
+    )
     commands = parser.add_subparsers(dest="metadata_online_command", required=True)
 
-    sources = commands.add_parser("sources", help="List configured online metadata source capabilities.")
+    sources = commands.add_parser(
+        "sources", help="List configured online metadata source capabilities."
+    )
     _add_connection(sources)
     _add_json_output(sources)
     sources.set_defaults(handler=cmd_metadata_online_sources)
 
-    identify = commands.add_parser("identify", help="Run or submit an online metadata identification job.")
+    identify = commands.add_parser(
+        "identify", help="Run or submit an online metadata identification job."
+    )
     _add_online_query(identify, plugins=True)
     _add_json_output(identify)
     identify.set_defaults(handler=cmd_metadata_online_identify)
 
-    cover = commands.add_parser("cover", aliases=["covers"], help="Run or submit an online cover discovery job.")
+    cover = commands.add_parser(
+        "cover", aliases=["covers"], help="Run or submit an online cover discovery job."
+    )
     _add_online_query(cover, plugins=False)
-    cover.add_argument("--cover-output", help="Write discovered cover bytes to this path.")
-    cover.add_argument("--replace-cover-output", action="store_true", help="Atomically replace an existing cover output.")
+    cover.add_argument(
+        "--cover-output", help="Write discovered cover bytes to this path."
+    )
+    cover.add_argument(
+        "--replace-cover-output",
+        action="store_true",
+        help="Atomically replace an existing cover output.",
+    )
     _add_json_output(cover)
     cover.set_defaults(handler=cmd_metadata_online_cover)
 

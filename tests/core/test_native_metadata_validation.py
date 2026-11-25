@@ -1,14 +1,19 @@
 """Refuse malformed native operations and unauthorized batch escalation before writes."""
 
+from types import SimpleNamespace
 from unittest.mock import Mock
 
 import pytest
 
-from LiuXin_alpha.core import CoreHttpDaemon
+from LiuXin_alpha.core import CoreHttpDaemon, CoreRuntime
 from LiuXin_alpha.core.errors import CoreError
 from LiuXin_alpha.core.program_services.native_metadata import ROUTES
 from LiuXin_alpha.core.proxies.remote import RemoteCoreClient, RemoteProxyError
 from tests.core.test_metadata_workflow_boundary import public_client
+from tests.databases.caches.test_metadata_api import metadata_db as metadata_db
+from tests.databases.caches.test_metadata_api import (
+    metadata_template as metadata_template,
+)
 
 INVALID = (
     ("metadata.create", {"level": "files", "data": {}}),
@@ -206,19 +211,21 @@ INVALID = (
 @pytest.mark.parametrize("remote", (False, True))
 @pytest.mark.parametrize("name,payload", INVALID)
 def test_invalid_native_requests_never_call_metadata_mutators(
-    core_runtime_factory, remote, name, payload
+    metadata_db, remote, name, payload
 ):
     with (
-        core_runtime_factory() as runtime,
+        CoreRuntime(library=SimpleNamespace(database=metadata_db)) as runtime,
         public_client(runtime, remote) as (client, _),
     ):
-        api = Mock()
+        api = Mock(wraps=runtime.services.metadata)
         runtime.services._metadata = api
         query = name in {item.name for item in ROUTES if not item.write}
         with pytest.raises((CoreError, RemoteProxyError)) as failed:
             (client.query if query else client.command)(name, payload)
         assert failed.value.code == "invalid_payload"
-        assert not api.mock_calls
+        # Durable rejection may open an outer batch to retain the outcome,
+        # but must never invoke a domain mutation.
+        assert all(call[0] == "batch" for call in api.mock_calls)
 
 
 def test_all_native_writes_refused_by_read_only_transport(core_runtime_factory):
