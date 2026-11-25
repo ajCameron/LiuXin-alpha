@@ -2,33 +2,29 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
-from dataclasses import dataclass
+from collections.abc import Mapping, Sequence
 from typing import TYPE_CHECKING, Literal, Protocol, TypedDict
+
+from LiuXin_alpha.catalog.api.metadata_shared_values import (
+    SharedMetadataKind as SharedMetadataKind,
+)
+from LiuXin_alpha.catalog.api.metadata_shared_values import (
+    SharedMetadataPage as SharedMetadataPage,
+)
+from LiuXin_alpha.catalog.api.metadata_shared_values import (
+    SharedMetadataRecord as SharedMetadataRecord,
+)
+from LiuXin_alpha.catalog.api.metadata_shared_values import (
+    VocabularyKind as VocabularyKind,
+)
 
 if TYPE_CHECKING:
     from LiuXin_alpha.catalog.api.common import WemiLevel
     from LiuXin_alpha.catalog.api.metadata_results import MetadataWriteReceipt
-
-type VocabularyKind = Literal[
-    "tags", "labels", "genres", "subjects", "series", "languages", "ratings"
-]
-type SharedMetadataKind = Literal[
-    "agents",
-    "tags",
-    "labels",
-    "genres",
-    "subjects",
-    "series",
-    "languages",
-    "ratings",
-    "identifiers",
-    "item_identifiers",
-    "notes",
-    "comments",
-    "synopses",
-    "annotations",
-]
+    from LiuXin_alpha.catalog.api.metadata_revisions import (
+        SharedMetadataRevision,
+        SharedMetadataSnapshot,
+    )
 
 
 class AgentInput(TypedDict, total=False):
@@ -40,15 +36,6 @@ class AgentInput(TypedDict, total=False):
     type: str
     aliases: str | tuple[str, ...] | list[str] | None
     note: str | None
-
-
-@dataclass(frozen=True, slots=True)
-class SharedMetadataRecord:
-    """Detached metadata record identity and public aliases, without live SQL Rows."""
-
-    kind: SharedMetadataKind
-    entity_id: int
-    fields: Mapping[str, object]
 
 
 class MetadataRecordsReader(Protocol):
@@ -68,28 +55,70 @@ class MetadataRecordsReader(Protocol):
         """Return an ID-ordered page from the bound read source."""
         ...
 
+    def get_many(
+        self, entity_ids: Sequence[int], *, missing: Literal["none", "raise"] = "none"
+    ) -> tuple[SharedMetadataRecord | None, ...]:
+        """Read once, retaining input order, duplicate slots and confirmed misses."""
+        ...
+
+    def lookup(
+        self, fields: Mapping[str, object], *, limit: int = 100, offset: int = 0
+    ) -> SharedMetadataPage:
+        """Filter public aliases exactly, returning all candidates without resolving identity."""
+        ...
+
+
+class SuggestibleMetadataReader(MetadataRecordsReader, Protocol):
+    """Read literal text candidates without creating or choosing identities."""
+
+    def suggest(
+        self,
+        text: str,
+        *,
+        mode: Literal["exact", "prefix", "contains"] = "prefix",
+        limit: int = 20,
+        offset: int = 0,
+        filters: Mapping[str, object] | None = None,
+    ) -> SharedMetadataPage:
+        """Return a deterministic literal page; empty normalized text has no matches."""
+        ...
+
 
 class SharedMetadataInterface[InputT](MetadataRecordsReader, Protocol):
     """Coordinate record mutations using Catalog validation and public aliases.
 
-    Languages retain Catalog's read-only constant policy, even through the older
-    vocabulary selector. Context-owned records require their owner in the payload.
+    Context-owned records require their owner in the payload. Languages expose
+    MetadataRecordsReader instead and have no mutation methods.
     """
+
+    def read_for_edit(self, entity_id: int) -> SharedMetadataSnapshot:
+        """Read the authoritative full row and a record-scoped edit precondition."""
+        ...
 
     def create(self, data: InputT) -> MetadataWriteReceipt[int]:
         """Create through Catalog without implicit reuse or merging."""
         ...
 
-    def update(self, entity_id: int, data: InputT) -> MetadataWriteReceipt[int]:
+    def update(
+        self,
+        entity_id: int,
+        data: InputT,
+        *,
+        expected_revision: SharedMetadataRevision | None = None,
+    ) -> MetadataWriteReceipt[int]:
         """Edit supplied aliases and refresh all affected metadata projections."""
         ...
 
-    def delete(self, entity_id: int) -> MetadataWriteReceipt[int]:
+    def delete(
+        self, entity_id: int, *, expected_revision: SharedMetadataRevision | None = None
+    ) -> MetadataWriteReceipt[int]:
         """Delete under Catalog/schema constraints, reconciling linked metadata."""
         ...
 
 
-class AgentMetadataInterface(SharedMetadataInterface[AgentInput], Protocol):
+class AgentMetadataInterface(
+    SharedMetadataInterface[AgentInput], SuggestibleMetadataReader, Protocol
+):
     """Administer core Agents and create typed person/organisation identities."""
 
     def create_person(self, data: AgentInput) -> MetadataWriteReceipt[int]:
@@ -101,7 +130,12 @@ class AgentMetadataInterface(SharedMetadataInterface[AgentInput], Protocol):
         ...
 
     def rename(
-        self, entity_id: int, name: str, *, derive_sort: bool = False
+        self,
+        entity_id: int,
+        name: str,
+        *,
+        derive_sort: bool = False,
+        expected_revision: SharedMetadataRevision | None = None,
     ) -> MetadataWriteReceipt[int]:
         """Rename with Catalog's explicit preserve/derive sort-name policy.
 
@@ -114,7 +148,17 @@ class AgentMetadataInterface(SharedMetadataInterface[AgentInput], Protocol):
 class VocabularyMetadataInterface(
     SharedMetadataInterface[Mapping[str, object]], Protocol
 ):
-    """Manage native vocabularies, with explicit Work membership for Tags/Series."""
+    """Manage mutable native values without assuming hierarchy or membership."""
+
+
+class TextVocabularyMetadataInterface(
+    VocabularyMetadataInterface, SuggestibleMetadataReader, Protocol
+):
+    """Read literal candidates and administer mutable text vocabulary values."""
+
+
+class WorkMembershipMetadataInterface(TextVocabularyMetadataInterface, Protocol):
+    """Coordinate the Work memberships supported by Tags and Series."""
 
     def link_to_work(
         self, *, entity_id: int, work_id: int

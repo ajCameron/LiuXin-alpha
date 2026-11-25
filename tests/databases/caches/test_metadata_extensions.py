@@ -202,10 +202,8 @@ def test_shared_metadata_updates_refresh_search_and_preserve_policy(metadata_db,
         assert not vocabulary.unlink_from_work(entity_id=value, work_id=work).changed
         vocabulary.delete(value)
         assert vocabulary.get(value) is None
-    from LiuXin_alpha.catalog.api.common import CatalogMutationError
 
-    with pytest.raises(CatalogMutationError):
-        api.vocabulary("languages").create({"name": "Not a seeded language"})
+    assert not hasattr(api.vocabulary("languages"), "create")
     if cache is not None:
         cache.close()
 

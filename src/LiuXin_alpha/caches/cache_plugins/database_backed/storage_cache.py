@@ -617,11 +617,12 @@ class DatabaseBackedStorageCache(SchemaBackedStorageCache):
 
     def query_view(self) -> SchemaBackedStorageCache:
         """
-        Capture fresh table state once for one composed query.
+        Create fresh execution-local table state for one composed query.
 
-        Ordinary child proxies remain live. This ephemeral view avoids rebuilding
-        every table for each predicate field access. Its capture uses normal
-        database reads and does not establish a transaction snapshot.
+        Ordinary child proxies remain live. Native SQL views load identities,
+        populations and routes on demand using the caller's transaction. Older
+        database adapters retain an eager schema-backed capture. Neither route
+        starts a transaction; the metadata coordinator supplies its read snapshot.
 
         Example:
             One metadata get_many call can reuse the capture for all requested roots.
@@ -629,7 +630,16 @@ class DatabaseBackedStorageCache(SchemaBackedStorageCache):
 
         :return: Ephemeral captured storage; it does not own or close the database.
         """
-        view = SchemaBackedStorageCache(self.db)
+        from .query_view import DatabaseQueryView
+
+        macros = getattr(self.db, "macros", None)
+        native = all(
+            callable(getattr(macros, method, None))
+            for method in ("get_row", "get_rows")
+        ) and callable(getattr(getattr(self.db, "driver", None), "_row_to_dict", None))
+        view = (
+            DatabaseQueryView(self.db) if native else SchemaBackedStorageCache(self.db)
+        )
         view.read()
         return view
 
@@ -777,6 +787,22 @@ class DatabaseBackedStorageCache(SchemaBackedStorageCache):
         :return: None; same state and failure behavior as read.
         """
 
+        self.read(db=db)
+
+    def reload_data(self, db: DatabaseAPI | None = None) -> None:
+        """Refresh live state with one guarded rebuild.
+
+        Reusing the snapshot backend's existing table graph would walk live
+        proxies, whose attribute accesses each trigger another complete read.
+        A live reload therefore replaces the captured graph once and reinstalls
+        the existing proxy identities, just like a full reload.
+
+        Example:
+            Reloading a catalogue with many link tables performs one capture.
+
+        :param db: Optional replacement database; None retains the attachment.
+        :return: None; the same lifecycle and failure behavior as read.
+        """
         self.read(db=db)
 
     def _refresh_live_state(self, db: DatabaseAPI | None = None) -> None:

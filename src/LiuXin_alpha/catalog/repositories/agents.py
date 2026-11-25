@@ -13,9 +13,11 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Mapping, Sequence
 from contextlib import nullcontext
+from math import ceil, isfinite
 from typing import Any, ClassVar
 
 from LiuXin_alpha.databases.db_types.macro_types import LinkValue
+from LiuXin_alpha.databases.schema_specs import StorageLinkSpec
 from LiuXin_alpha.metadata.author_names import AuthorSortMethod, agent_name_to_sort
 
 from ..api.common import (
@@ -809,8 +811,9 @@ class AgentRepository(BaseRepository):
 
         Validate level, role, and optional integer priority before delegating endpoint
         checks and upsert to the transactional link helper. An existing identical ordered
-        credit keeps its priority when none is supplied; a new one receives a derived
-        priority. Explicit priorities pass through, including negative integers. Portable
+        credit keeps its priority when none is supplied; a new one receives a priority
+        above the link table maximum under the metadata writer reservation. Explicit
+        priorities pass through, including negative integers. Portable
         SQL traversal places larger priorities first. No Agent or WEMI row is created.
 
         Example:
@@ -825,6 +828,7 @@ class AgentRepository(BaseRepository):
         :return: None after the credit upsert succeeds.
         :raises ValueError: If level is unknown or role is not a nonblank string.
         :raises TypeError: If explicit priority is not a non-boolean integer, or an ID is invalid.
+        :raises CatalogMutationError: If the link schema does not include role in its identity.
         :raises CatalogNotFoundError: If either endpoint is missing.
         """
 
@@ -836,14 +840,89 @@ class AgentRepository(BaseRepository):
             not isinstance(priority, int) or isinstance(priority, bool)
         ):
             raise TypeError("priority must be an integer or None")
-        self._link(
-            WEMI_TABLES[level],
-            entity_id,
-            self.table_name,
-            agent_id,
-            link_type=role.strip(),
-            priority=priority,
-        )
+        table = WEMI_TABLES[level]
+        with self._macros.transaction():
+            self._macros.lock_metadata_snapshot()
+            self._require_table_row(table, entity_id)
+            self.require(agent_id)
+            spec = self._link_spec(table, self.table_name)
+            if not spec.type_part_of_identity:
+                raise CatalogMutationError(
+                    "Agent credits require endpoint-and-role identity; "
+                    "upgrade the catalogue link schema before editing credits"
+                )
+            existing = next(
+                (
+                    row for row in self._macros.get_link_rows(
+                        spec, entity_id, link_type=role.strip()
+                    )
+                    if row.secondary_id == agent_id
+                ),
+                None,
+            )
+            if existing is not None and (priority is None or priority == existing.priority):
+                # Preserve every stored link field for an idempotent request.
+                return
+            if priority is None and spec.ordered:
+                priority = self._credit_priority_base(spec) + 1
+            self._link(
+                table, entity_id, self.table_name, agent_id,
+                link_type=role.strip(), priority=priority,
+            )
+
+    def _credit_priority_base(self, spec: StorageLinkSpec) -> int:
+        """Find an unused priority range across both physical endpoint orientations.
+
+        Generated Agent links constrain ordering on the Agent endpoint. A WEMI
+        reader reverses that orientation, so its local maximum cannot safely
+        allocate a new value. Callers hold the metadata writer reservation.
+
+        :param spec: Directional Agent/WEMI link specification.
+        :return: Nonnegative integer at or above every stored priority.
+        :raises ValueError: If stored priorities are nonnumeric or nonfinite.
+        """
+        if spec.priority_link_col is None:
+            return 0
+        _, maximum = self._macros.get_column_extrema(spec.link_table, spec.priority_link_col)
+        if maximum is None:
+            return 0
+        if (
+            not isinstance(maximum, (int, float))
+            or isinstance(maximum, bool)
+            or not isfinite(maximum)
+        ):
+            raise ValueError("Invalid stored Agent credit priority")
+        return max(0, ceil(maximum))
+
+    def unlink_from_wemi(
+        self, *, agent_id: EntityId, level: WemiLevel, entity_id: EntityId, role: str
+    ) -> bool:
+        """Remove one Agent/role credit atomically, retaining every other association.
+
+        Both endpoints must exist even when the credit is absent. Only physical
+        rows selected by the exact role and Agent identity are deleted. This does
+        not rewrite retained credit priorities or their provenance.
+
+        :param agent_id: Existing Agent identity.
+        :param level: WEMI level owning the credit.
+        :param entity_id: Existing WEMI owner identity.
+        :param role: Nonblank role, stripped before exact comparison.
+        :return: Whether a selected credit was removed.
+        """
+        if level not in WEMI_TABLES or not isinstance(role, str) or not role.strip():
+            raise ValueError("Credit removal requires a valid WEMI level and nonblank role")
+        with self._macros.transaction():
+            self.require(agent_id)
+            self._require_table_row(WEMI_TABLES[level], entity_id)
+            spec = self._link_spec(WEMI_TABLES[level], self.table_name)
+            rows = self._macros.get_link_rows(spec, entity_id, link_type=role.strip())
+            selected = tuple(row for row in rows if row.secondary_id == agent_id)
+            identity = self._wrapper.get_id_column(spec.link_table)
+            for row in selected:
+                link_id = row.extra[identity]
+                self._validate_entity_id(link_id)
+                self._macros.delete_row(spec.link_table, link_id, id_column=identity)
+            return bool(selected)
 
     def replace_for_wemi(
         self,
@@ -857,10 +936,10 @@ class AgentRepository(BaseRepository):
         Replace one role's Agent credits while preserving credits under other roles.
 
         Validate level, role, and a non-text Sequence, then require every Agent in order
-        before requiring the WEMI endpoint and resolving its link spec. Delegate replacement
-        to the macro transaction; these preflight reads are outside it. Empty input clears
-        the selected role. Portable SQL macros reject duplicate logical credits and assign
-        missing ordered priorities from count down to one, so the first ID sorts first.
+        before requiring the WEMI endpoint and resolving its link spec. Validation and
+        replacement share a transaction and metadata writer reservation. Empty input
+        clears the selected role. Unique descending priorities above the table maximum
+        preserve supplied order without colliding with credits on other WEMI owners.
         No Agent rows are created or deleted.
 
         Example:
@@ -874,6 +953,7 @@ class AgentRepository(BaseRepository):
         :return: None after replacing the chosen role's links.
         :raises ValueError: If level/role or a nonnegative ID check fails.
         :raises TypeError: If agent_ids is not an accepted sequence or an ID has an invalid type.
+        :raises CatalogMutationError: If the link schema does not include role in its identity.
         :raises CatalogNotFoundError: If any required Agent or the source entity is missing.
         :raises Exception: Link-spec, role, duplicate-credit, and database failures propagate.
         """
@@ -886,16 +966,34 @@ class AgentRepository(BaseRepository):
             raise TypeError("agent_ids must be a sequence of integers")
         ordered_ids = tuple(agent_ids)
         for agent_id in ordered_ids:
-            self.require(agent_id)
+            self._validate_entity_id(agent_id)
+        if len(set(ordered_ids)) != len(ordered_ids):
+            raise ValueError("Agent credits must be unique within one role")
         table = WEMI_TABLES[level]
-        self._require_table_row(table, entity_id)
-        spec = self._link_spec(table, self.table_name)
-        self._macros.replace_links(
-            spec,
-            entity_id,
-            (LinkValue(agent_id, link_type=role.strip()) for agent_id in ordered_ids),
-            link_type=role.strip(),
-        )
+        with self._macros.transaction():
+            self._macros.lock_metadata_snapshot()
+            for agent_id in ordered_ids:
+                self.require(agent_id)
+            self._require_table_row(table, entity_id)
+            spec = self._link_spec(table, self.table_name)
+            if not spec.type_part_of_identity:
+                raise CatalogMutationError(
+                    "Agent credits require endpoint-and-role identity; "
+                    "upgrade the catalogue link schema before editing credits"
+                )
+            base = self._credit_priority_base(spec)
+            self._macros.replace_links(
+                spec,
+                entity_id,
+                (
+                    LinkValue(
+                        agent_id, link_type=role.strip(),
+                        priority=base + len(ordered_ids) - index if spec.ordered else None,
+                    )
+                    for index, agent_id in enumerate(ordered_ids)
+                ),
+                link_type=role.strip(),
+            )
 
     def list_for_wemi(self, *, level: WemiLevel, entity_id: EntityId) -> Sequence[RowMapping]:
         """

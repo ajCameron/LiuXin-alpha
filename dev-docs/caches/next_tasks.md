@@ -1,6 +1,6 @@
 # Next cache tasks
 
-Updated: **2026-11-18**. Completed slices and remaining cross-module work.
+Updated: **2026-11-22**. Completed slices and remaining cross-module work.
 
 Preserve the ReadCache/Cache split and shared Catalog write ownership. Optimize measured workloads without inventing another catalogue authority.
 
@@ -20,11 +20,14 @@ invalidation. This does not add global observation of raw SQL or arbitrary
 Catalog methods. The review names those boundaries and the existing destructive
 lifecycle/descriptor recovery coverage.
 
-The metadata adapter adds an outer-transaction completion guard shared across
-threads. A follow-up inspection should extend that protection to the older
-schema-directed writer routes: their deferred-refresh check still depends on the
-calling thread's macro depth. Their existing same-thread tests do not establish
-cross-thread safety while an enclosing transaction remains open.
+**Outer-transaction follow-up implemented, 2026-11-22.** The metadata adapter and
+schema-directed writers now share completion guards across threads and all three
+cache backends. Reads, reloads and competing writes reject pending publication;
+the owner can continue writing until commit or rollback. Guards cover destination
+resolution before SQL work, and borrowed raw units reject before mutation.
+Database-before-cache lock ordering also covers reads and reloads before the
+owner's first edit. The expanded lifecycle run passed 138 cases with six expected skips;
+see the [follow-up review](metadata-followups-2026-11-22.md).
 
 The [2026-11-16 review](../architectural_reviews/caches-review-2026-11-16.md)
 provides the first concrete repair slice: CR01 orders native custom-field
@@ -99,6 +102,38 @@ sibling ordering and explicit leaf/subtree deletion. Catalog owns hierarchy and
 attachment rules; the metadata facade coordinates cached reads and publication.
 See [vocabulary trees](metadata-api.md#vocabulary-trees) for the stricter deletion
 contract and [gated stress coverage](long-running-tests.md) for deep/wide workloads.
+
+**Metadata ergonomics added, 2026-11-22.** Shared bulk reads, literal picker
+queries, hydrated WEMI search pages, Work Tag/Series helpers, role-specific Agent
+credits and shared-row edit preconditions now use the same coordinator. Runtime
+and static capabilities agree. The [API guide](metadata-api.md) documents the
+complete application workflow, source/fallback rules and revision scope. The
+long lane includes picker/hydration and membership churn; live PostgreSQL checks
+cover the same workflows and independent shared-token writers. Future tuning
+should measure shared-table scans, live captures and coarse writer reservations
+before adding indexes or changing transaction scope. Validation passed 393 distinct
+cases, including all 39 new mandatory cases and five live PostgreSQL cases; the
+mandatory manifest now contains 3,069 cases. Full-size stress remains gated.
+
+**Follow-up implementation, 2026-11-22.** Existing PostgreSQL catalogues have an
+explicit, transactional [upgrade](../databases/postgres-catalog-upgrade.md), with
+nine live regression cases. The metadata long lane is available through the
+standard telemetry runner and passes all four modes at full size: 10,000 Tags,
+1,000 Works, 12 cycles and 24,000 individual relationship reads per mode. A realistic
+workflow benchmark measures scans, live captures, refreshes and independent-writer
+reservations. The [follow-up review](metadata-followups-2026-11-22.md) records
+completed validation, source fingerprints and remaining performance limits.
+Native live captures now load requested identities/populations/routes on
+demand. Sixteen capture regressions join the manifest, which preserves 3,139
+cases. Both the four-mode smoke and unchanged full soak pass after the user-selected
+capture optimization. Next performance work should address population-scanning
+pickers, complete relationship-route reads and conservative snapshot refreshes.
+
+Core's generic field-write routing repair is isolated in
+[PR #215](https://github.com/ajCameron/LiuXin-alpha/pull/215). It selects the bound
+metadata writer and preserves explicitly injected writers, with 214 targeted
+passing cases. Land that separate repair alongside the cache work; it is not an
+implicit fallback to a different writer after failure.
 
 Next, route more of Core's existing semantic metadata operations through this service,
 preserving its transport authorization and public receipt conventions. Do not

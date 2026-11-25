@@ -11,9 +11,10 @@ them; the runner explicitly sets `LIUXIN_RUN_CACHE_LONG_TESTS=1`.
 | Lane | Required cases | Coverage |
 | --- | --- | --- |
 | `synthetic` | 4 | Three native backends plus the explicit Calibre adapter. |
+| `metadata` | 4 | Picker, hydrated pages and membership churn, uncached and all three backends. |
 | `sqlite` | 6 | Three cache backends on both SQLite and SQLite_apsw. |
 | `postgres` | 3 | Three cache backends on disposable PostgreSQL schemas. |
-| `all` | 13 | Every case above; all must pass. |
+| `all` | 17 | Every case above; all must pass. |
 
 | Size | Synthetic records | Mutation/query steps per case | Database work rows | Load/write/rollback cycles per database case |
 | --- | --- | --- | --- | --- |
@@ -110,7 +111,10 @@ population and imports. Later cycles may benefit from database/driver caches.
 `first_query`, `repeated_query`, `after_commit` and `after_rollback` distinguish
 query phases. A live backend's repeated request still captures the database; it
 does not promise retained membership. `live_capture` is nested within its query
-sample, so those durations must not be added together.
+sample, so those durations must not be added together. Native live query views
+now load data on demand: `live_capture` measures view setup, while the parent
+operation includes the resulting row/link reads. Compare parent timings when
+evaluating this optimization; setup-only timings are not total capture cost.
 
 Synthetic timings distinguish construction/load, changed queries, repeated sorted
 pages and warm adapter searches. Oracle scans and assertions are outside the
@@ -173,3 +177,54 @@ local artifact paths and the final audit. The manual GitHub workflow was added
 and checked locally; it has not been dispatched remotely.
 
 Return to the [cache guide](README.md).
+
+## Metadata picker and relationship stress
+
+`test_metadata_ergonomics_long.py` exercises shared suggestions and bulk reads,
+hydrated pages against reference-search results, and repeated Tag/Agent credit
+changes. It covers uncached reads and all three cache backends. The shared long
+workload uses 128 shared records and 12 Works for smoke; full uses 10,000 shared
+records and 1,000 Works, with twelve relationship cycles. Measurements report
+operation times without imposing machine-specific thresholds.
+
+```bash
+PYTHONPATH=src .venv/bin/python scripts/run_cache_long_tests.py \
+  --lane metadata --size full --artifacts /tmp/liuxin-metadata-ergonomics-full
+```
+
+Use `--size smoke` to validate the harness at reduced scale. This lane requires
+all four cases and records source hashes, resource telemetry and timings just
+like the search lanes. The manual workflow uses Python 3.14 to match the current
+source syntax. PostgreSQL workflows
+and shared-token writer contention are separate opt-in tests in
+`test_metadata_ergonomics_postgres_live.py`, using `LIUXIN_TEST_POSTGRES_URL` and
+private disposable schemas. A gate skip is not a passing live-backend result.
+
+## Measured picker/select/edit/save workflow
+
+The [workflow benchmark](../../scripts/benchmark_metadata_workflows.py) uses a
+real SQLite catalogue, with 1,000 Tags, 100 Works and seven repetitions by default:
+
+```sh
+PYTHONPATH=src .venv/bin/python scripts/benchmark_metadata_workflows.py \
+  --tags 1000 --works 100 --repeats 7 --artifacts /tmp/metadata-workflow
+```
+
+It checks literal picker pages, shared selection, hydrated search, edit snapshots,
+conditional saves and changing Work memberships, uncached and on all backends.
+Each mode changes the membership set so later modes do not accidentally measure
+no-op saves. Actual live captures and full data/schema refreshes are timed inside
+their parent operation; these nested costs must not be added to the parent time.
+Setup/population and readback assertions stay outside operation timings.
+
+The independent-writer experiment deliberately holds a reservation for at least
+100 ms while another database handle edits a different Tag. Its reported wait
+demonstrates the scope of the coarse reservation; it is not an ordinary save
+latency measurement. `run.json` records workload/source identities, `partial.json`
+preserves completed modes, and only `result.json` with `completed: true` denotes
+a fully completed run. Compare on an otherwise idle machine; concurrent soaks
+and regression tests make timings diagnostic rather than isolated benchmarks.
+
+Add `--profile` with a fresh artifact directory to save one operation profile per
+mode. Profiles exclude population and readback assertions, and add overhead to
+the measured operations. Keep those timings separate from unprofiled runs.

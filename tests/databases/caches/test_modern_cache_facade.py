@@ -492,14 +492,17 @@ def test_snapshot_cache_defers_dirty_reads_until_outer_transaction_closes(
     if cache.capabilities.consistency.value == "live":
         pytest.skip("live backend does not require deferred snapshot refresh")
 
+    from LiuXin_alpha.databases.transaction_participants import completion_frame
+
     database.macros._macro_transaction_state = SimpleNamespace(depth=1)
-    CatalogCache(Catalog(cache.database), cache=cache).write_one("books", "title", 1, "Transaction")
+    with completion_frame(database.macros, owned=True):
+        CatalogCache(Catalog(cache.database), cache=cache).write_one("books", "title", 1, "Transaction")
 
-    assert cache.state == CacheState.DIRTY
-    with pytest.raises(CacheDirtyError):
-        cache.get("books", 1)
+        assert cache.state == CacheState.DIRTY
+        with pytest.raises(CacheDirtyError):
+            cache.get("books", 1)
 
-    database.macros._macro_transaction_state.depth = 0
+        database.macros._macro_transaction_state.depth = 0
     assert cache.get("books", 1).value["title"] == "Transaction"
     assert cache.state == CacheState.READY
 

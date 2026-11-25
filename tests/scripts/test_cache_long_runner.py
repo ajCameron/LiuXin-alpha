@@ -60,6 +60,18 @@ def test_postgres_selection_requires_database_before_running(tmp_path, monkeypat
         assert not (tmp_path / lane).exists()
 
 
+def test_metadata_lane_requires_all_cache_modes_and_is_included_in_all():
+    cases = runner.selected_cases("metadata")
+    assert len(cases) == 4
+    assert cases <= runner.selected_cases("all")
+    assert all("test_metadata_ergonomics_long.py::" in case for case in cases)
+    assert any(case.endswith("[None]") for case in cases)
+    assert (
+        "tests/databases/caches/test_metadata_ergonomics_long.py"
+        in runner.source_hashes()
+    )
+
+
 @pytest.mark.parametrize("outcome", ["passed", "skipped", "uncollected"])
 def test_runner_audits_required_phases_even_when_pytest_returns_zero(
     tmp_path, monkeypatch, outcome

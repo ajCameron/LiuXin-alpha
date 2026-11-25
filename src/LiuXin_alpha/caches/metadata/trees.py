@@ -12,8 +12,12 @@ from LiuXin_alpha.caches.api import (
     CacheSort,
 )
 from LiuXin_alpha.caches.metadata.reads import UNAVAILABLE, MetadataReadSource
-from LiuXin_alpha.caches.metadata.shared import VocabularyMetadata
+from LiuXin_alpha.caches.metadata.shared import (
+    TextVocabularyMetadata,
+    WorkMembershipMetadata,
+)
 from LiuXin_alpha.catalog.api.metadata_results import MetadataWriteReceipt
+from LiuXin_alpha.catalog.api.metadata_revisions import SharedMetadataRevision
 from LiuXin_alpha.catalog.api.metadata_shared import (
     SharedMetadataRecord,
     VocabularyKind,
@@ -77,7 +81,7 @@ class _CachedHierarchySource:
         )
 
 
-class HierarchicalVocabularyMetadata(VocabularyMetadata):
+class HierarchicalVocabularyMetadata(TextVocabularyMetadata):
     """Coordinate native tree operations without owning another cache or snapshot."""
 
     def __init__(
@@ -206,7 +210,11 @@ class HierarchicalVocabularyMetadata(VocabularyMetadata):
         )
 
     def delete(
-        self, entity_id: int, *, detach: bool = False
+        self,
+        entity_id: int,
+        *,
+        detach: bool = False,
+        expected_revision: SharedMetadataRevision | None = None,
     ) -> MetadataWriteReceipt[int]:
         """Delete only a leaf; declared attachments require detach=True."""
 
@@ -214,14 +222,21 @@ class HierarchicalVocabularyMetadata(VocabularyMetadata):
             self._tree_repository.delete(entity_id, detach=detach)
             return entity_id, True
 
-        return self._owner._write(operation)
+        return self._owner._write(
+            operation, expected=self._expected(entity_id, expected_revision)
+        )
 
     def update(
-        self, entity_id: int, data: Mapping[str, object]
+        self,
+        entity_id: int,
+        data: Mapping[str, object],
+        *,
+        expected_revision: SharedMetadataRevision | None = None,
     ) -> MetadataWriteReceipt[int]:
         """Apply scalar or structural edits with an accurate no-op receipt."""
         return self._owner._write(
-            lambda: (entity_id, self._tree_repository.update_changed(entity_id, data))
+            lambda: (entity_id, self._tree_repository.update_changed(entity_id, data)),
+            expected=self._expected(entity_id, expected_revision),
         )
 
     def delete_subtree(
@@ -236,3 +251,7 @@ class HierarchicalVocabularyMetadata(VocabularyMetadata):
                 True,
             )
         )
+
+
+class SeriesMetadata(HierarchicalVocabularyMetadata, WorkMembershipMetadata):
+    """Expose Series hierarchy and membership with their separate ordering rules."""

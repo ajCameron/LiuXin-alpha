@@ -10,9 +10,11 @@ from typing import Protocol
 
 from LiuXin_alpha.catalog.api.common import CatalogMutationError
 from LiuXin_alpha.catalog.api.metadata_results import MetadataWriteReceipt
+from LiuXin_alpha.catalog.api.metadata_revisions import SharedMetadataRevision
 from LiuXin_alpha.catalog.api.metadata_shared import (
     SharedMetadataRecord,
-    VocabularyMetadataInterface,
+    TextVocabularyMetadataInterface,
+    WorkMembershipMetadataInterface,
 )
 
 
@@ -46,7 +48,9 @@ class VocabularyTreeInput:
         object.__setattr__(self, "children", tuple(self.children))
 
 
-class HierarchicalVocabularyMetadataInterface(VocabularyMetadataInterface, Protocol):
+class HierarchicalVocabularyMetadataInterface(
+    TextVocabularyMetadataInterface, Protocol
+):
     """Manage one parent-linked vocabulary through coordinated metadata services.
 
     None denotes root scope. Reads are detached and bounded reads never return
@@ -110,13 +114,27 @@ class HierarchicalVocabularyMetadataInterface(VocabularyMetadataInterface, Proto
         ...
 
     def delete(
-        self, entity_id: int, *, detach: bool = False
+        self,
+        entity_id: int,
+        *,
+        detach: bool = False,
+        expected_revision: SharedMetadataRevision | None = None,
     ) -> MetadataWriteReceipt[int]:
         """Delete only a leaf; attachments require explicit detachment."""
         ...
 
     def delete_subtree(
-        self, entity_id: int, *, detach: bool = False, max_nodes: int = 10000
+        self,
+        entity_id: int,
+        *,
+        detach: bool = False,
+        max_nodes: int = 10000,
     ) -> MetadataWriteReceipt[tuple[int, ...]]:
         """Delete descendants before parents, optionally detaching known links."""
         ...
+
+
+class SeriesMetadataInterface(
+    HierarchicalVocabularyMetadataInterface, WorkMembershipMetadataInterface, Protocol
+):
+    """Combine Series hierarchy and Work membership without volume-number semantics."""
