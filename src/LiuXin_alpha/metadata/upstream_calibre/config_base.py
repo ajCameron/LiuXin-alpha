@@ -2,8 +2,7 @@
 # License: GPLv3 Copyright: 2011, Kovid Goyal <kovid at kovidgoyal.net>
 # Ported from calibre (https://calibre-ebook.com) 9.18: src/calibre/utils/config_base.py
 # Changes from upstream: only the tweaks and the JSON helpers are ported: tweaks are
-# read from calibre's default_tweaks.py, with no user tweaks file; and
-# 'from __future__ import annotations' is added.
+# read from calibre's default_tweaks.py, with no user tweaks file.
 # SPDX-License-Identifier: GPL-3.0-only
 """
 calibre's tweaks and the JSON helpers its metadata code uses.
@@ -12,8 +11,6 @@ Example:
     >>> tweaks["author_sort_copy_method"]
     'comma'
 """
-
-from __future__ import annotations
 
 from pathlib import Path
 from typing import Any

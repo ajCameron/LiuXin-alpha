@@ -1,12 +1,9 @@
 #!/usr/bin/env python
 # License: GPLv3 Copyright: 2008, Kovid Goyal <kovid at kovidgoyal.net>
 # Ported from calibre (https://calibre-ebook.com) 9.18: src/calibre/ebooks/compression/palmdoc.py
-# Changes from upstream: calibre imports point at upstream_calibre and its _compat, and
-# 'from __future__ import annotations' is added.
+# Changes from upstream: calibre imports point at upstream_calibre and its _compat.
 # calibre's cPalmdoc extension comes from LiuXin's utils plugin system (_compat.cPalmdoc).
 # SPDX-License-Identifier: GPL-3.0-only
-
-from __future__ import annotations
 
 import io
 from struct import pack

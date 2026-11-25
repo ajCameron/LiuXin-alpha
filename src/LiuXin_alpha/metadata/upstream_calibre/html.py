@@ -1,8 +1,7 @@
 #!/usr/bin/env python
 # License: GPLv3 Copyright: 2013, Kovid Goyal <kovid at kovidgoyal.net>
 # Ported from calibre (https://calibre-ebook.com) 9.18: src/calibre/ebooks/metadata/html.py
-# Changes from upstream: calibre imports point at upstream_calibre and its _compat, and
-# 'from __future__ import annotations' is added.
+# Changes from upstream: calibre imports point at upstream_calibre and its _compat.
 # LiuXin fixes are marked '# LiuXin:'.
 # html5-parser is replaced by lxml's HTML parser (_compat.html5_parse).
 # SPDX-License-Identifier: GPL-3.0-only
@@ -10,8 +9,6 @@
 """
 Try to read metadata from an HTML file.
 """
-
-from __future__ import annotations
 
 import re
 import unittest

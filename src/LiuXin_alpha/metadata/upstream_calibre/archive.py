@@ -1,14 +1,11 @@
 #!/usr/bin/env python
 # License: GPLv3 Copyright: 2010, Kovid Goyal <kovid@kovidgoyal.net>
 # Ported from calibre (https://calibre-ebook.com) 9.18: src/calibre/ebooks/metadata/archive.py
-# Changes from upstream: calibre imports point at upstream_calibre and its _compat, and
-# 'from __future__ import annotations' is added.
+# Changes from upstream: calibre imports point at upstream_calibre and its _compat.
 # Only is_comic, archive_type, RAR, SevenZip, fname_ok, get_comic_book_info, parse_comic_comment and get_comic_metadata are ported, with the imports they use;
 # the rest is conversion code the metadata readers do not use.
 # calibre.utils.unrar, which wraps the unrardll extension, is _unrar, on rarfile.
 # SPDX-License-Identifier: GPL-3.0-only
-
-from __future__ import annotations
 
 import io
 from posixpath import basename

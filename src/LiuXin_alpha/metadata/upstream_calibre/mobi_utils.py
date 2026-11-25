@@ -1,18 +1,15 @@
 #!/usr/bin/env python
 # License: GPLv3 Copyright: 2011, Kovid Goyal <kovid@kovidgoyal.net>
 # Ported from calibre (https://calibre-ebook.com) 9.18: src/calibre/ebooks/mobi/utils.py
-# Changes from upstream: calibre imports point at upstream_calibre and its _compat, and
-# 'from __future__ import annotations' is added.
+# Changes from upstream: calibre imports point at upstream_calibre and its _compat.
 # Its Qt image helpers and tinycss colour parsing, which only MOBI writing uses, are not ported.
 # SPDX-License-Identifier: GPL-3.0-only
-
-from __future__ import annotations
 
 import os
 import string
 import struct
 from collections import OrderedDict
-import zlib
+from compression import zlib
 from io import BytesIO
 from typing import IO, TYPE_CHECKING, TypedDict, cast
 

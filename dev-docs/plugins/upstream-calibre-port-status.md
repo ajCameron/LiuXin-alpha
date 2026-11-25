@@ -61,8 +61,9 @@ readers, not the conversion code.
   recognise an HTML first page holding only a cover image; SVG cover pages
   still work.
 - **html2text** stays optional. Only writing FB2 comments needs it.
-- **Python 3.12** must still parse every copy, as CI runs on it. calibre 9.18
-  uses Python 3.13 and 3.14 syntax, which the porter rewrites (#182).
+- **Python 3.14**, as for the rest of LiuXin. calibre 9.18 uses Python 3.13 and
+  3.14 syntax, which the porter rewrote for Python 3.12 (#182) until LiuXin
+  moved to 3.14; the copies now keep it (#219).
 - **Pillow** stays optional. The MOBI reader converts GIF images with it while
   reading an old book's text; without it they are skipped, which the metadata
   does not need.

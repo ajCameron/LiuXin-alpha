@@ -714,7 +714,8 @@ def test_ported_modules_import_nothing_from_calibre(module: Any) -> None:
         )
     }
     roots = {name.partition(".")[0] for name in imported}
-    assert not roots & {"calibre", "polyglot", "calibre_extensions", "compression"}
+    # compression is the standard library's (Python 3.14), as in calibre.
+    assert not roots & {"calibre", "polyglot", "calibre_extensions"}
 
 
 def test_examples_in_the_helpers_run() -> None:

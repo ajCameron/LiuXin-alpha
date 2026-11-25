@@ -14,11 +14,11 @@ turned up, and which readers are left.
 ## The rules
 
 - **Copy, don't rewrite.** A ported module is calibre's file with its imports
-  changed. The other edits are mechanical, so the copies run on Python 3.12
-  and 3.13 too: `from __future__ import annotations` is added, `except A, B:`
-  clauses (Python 3.14 syntax) are parenthesised, and defaults are dropped
-  from type parameters (`class C[T = str]`, Python 3.13 syntax), which only
-  type checkers read. A header comment records the source path and the
+  changed. LiuXin runs on Python 3.14, as calibre 9.18 does, so calibre's
+  syntax and its standard-library imports are kept as they are: `except A, B:`
+  clauses, type-parameter defaults, and the `compression` package. (Until #219
+  the porter also rewrote these, and added `from __future__ import annotations`,
+  for Python 3.12 and 3.13.) A header comment records the source path and the
   changes.
 - **Port only what the readers use.** Where a reader needs a few names from a
   large module, `PARTS` in the porting script lists them. The script keeps

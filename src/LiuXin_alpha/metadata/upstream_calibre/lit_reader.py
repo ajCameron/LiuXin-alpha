@@ -1,7 +1,6 @@
 # License: GPLv3 Copyright: 2008, Kovid Goyal <kovid at kovidgoyal.net> and Marshall T. Vandegrift <llasram@gmail.com>
 # Ported from calibre (https://calibre-ebook.com) 9.18: src/calibre/ebooks/lit/reader.py
-# Changes from upstream: calibre imports point at upstream_calibre and its _compat, and
-# 'from __future__ import annotations' is added.
+# Changes from upstream: calibre imports point at upstream_calibre and its _compat.
 # Only XML_DECL, OPF_DECL, HTML_DECL, DESENCRYPT_GUID, LZXCOMPRESS_GUID, CONTROL_TAG, CONTROL_WINDOW_SIZE, RESET_NENTRIES, RESET_HDRLEN, RESET_UCLENGTH, RESET_INTERVAL, FLAG_OPENING, FLAG_CLOSING, FLAG_BLOCK, FLAG_HEAD, FLAG_ATOM, u32, u16, int32, encint, msguid, read_utf8_char, consume_sized_utf8_string, encode, UnBinary, DirectoryEntry, ManifestItem, preserve, LitFile and LitContainer are ported, with the imports they use;
 # the rest is conversion code the metadata readers do not use.
 # calibre's lzx and msdes extensions come from LiuXin's utils plugins (_compat.lzx,
@@ -11,8 +10,6 @@
 """
 Support for reading LIT files.
 """
-
-from __future__ import annotations
 
 import functools
 import io

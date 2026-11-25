@@ -1,17 +1,12 @@
 # License: GPLv3 Copyright: 2010, Li Fanxi <lifanxi@freemindworld.com>
 # Ported from calibre (https://calibre-ebook.com) 9.18: src/calibre/ebooks/snb/snbfile.py
-# Changes from upstream: calibre imports point at upstream_calibre._compat, and
-# 'from __future__ import annotations' is added.
-# bz2 and zlib are imported directly, not from Python 3.14's compression package.
+# Changes from upstream: calibre imports point at upstream_calibre._compat.
 # SPDX-License-Identifier: GPL-3.0-only
 
-from __future__ import annotations
-
-import bz2
 import os
 import struct
 import sys
-import zlib
+from compression import bz2, zlib
 from typing import IO, cast
 
 from LiuXin_alpha.metadata.upstream_calibre._compat import guess_type

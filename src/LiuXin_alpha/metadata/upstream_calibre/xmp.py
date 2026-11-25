@@ -1,13 +1,9 @@
 #!/usr/bin/env python
 # License: GPLv3 Copyright: 2014, Kovid Goyal <kovid at kovidgoyal.net>
 # Ported from calibre (https://calibre-ebook.com) 9.18: src/calibre/ebooks/metadata/xmp.py
-# Changes from upstream: calibre imports point at upstream_calibre and its _compat, and
-# 'from __future__ import annotations' is added.
-# Except clauses naming several exceptions are parenthesised, for Python before 3.14.
+# Changes from upstream: calibre imports point at upstream_calibre and its _compat.
 # LiuXin fixes are marked '# LiuXin:'.
 # SPDX-License-Identifier: GPL-3.0-only
-
-from __future__ import annotations
 
 import json
 import re
@@ -193,7 +189,7 @@ def read_series(root: _Element) -> tuple[str, float] | tuple[None, None]:
                 for si in XPath('descendant::calibreSI:series_index')(item):
                     try:
                         series_index = float(si.text)
-                    except (TypeError, ValueError):
+                    except TypeError, ValueError:
                         continue
                     else:
                         break
@@ -320,7 +316,7 @@ def metadata_from_xmp_packet(raw_bytes: bytes) -> Metadata:
             rating = float(rating)
             if 0 <= rating <= 10:
                 mi.rating = rating
-        except (ValueError, TypeError):
+        except ValueError, TypeError:
             pass
     series, series_index = read_series(root)
     if series:
@@ -486,7 +482,7 @@ def create_series(calibre: _Element, series: str, series_index: float | None) ->
     val.text = series
     try:
         series_index = 1.0 if series_index is None else float(series_index)
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         series_index = 1.0
     si = s.makeelement(expand('calibreSI:series_index'))
     si.text = f'{series_index:.2f}'
@@ -585,7 +581,7 @@ def metadata_to_xmp_packet(mi: Metadata) -> bytes:
         assert mi.rating is not None
         try:
             r = float(mi.rating)
-        except (TypeError, ValueError):
+        except TypeError, ValueError:
             pass
         else:
             create_simple_property(calibre, 'calibre:rating', f'{r:g}')

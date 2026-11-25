@@ -1,8 +1,7 @@
 #!/usr/bin/env python
 # License: GPLv3 Copyright: 2008, Kovid Goyal <kovid at kovidgoyal.net>
 # Ported from calibre (https://calibre-ebook.com) 9.18: src/calibre/ebooks/metadata/rtf.py
-# Changes from upstream: calibre imports point at upstream_calibre and its _compat, and
-# 'from __future__ import annotations' is added.
+# Changes from upstream: calibre imports point at upstream_calibre and its _compat.
 # get_document_info stops at the end of the file: upstream loops forever when
 # the {\info group is never closed. The field patterns are linear-time stand-ins
 # from _compat: upstream's backtrack in cubic time on repeated never-closed
@@ -12,8 +11,6 @@
 """
 Edit metadata in RTF files.
 """
-
-from __future__ import annotations
 
 import codecs
 import re

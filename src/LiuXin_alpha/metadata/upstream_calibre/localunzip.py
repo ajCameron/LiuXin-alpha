@@ -1,9 +1,7 @@
 #!/usr/bin/env python
 # License: GPLv3 Copyright: 2012, Kovid Goyal <kovid at kovidgoyal.net>
 # Ported from calibre (https://calibre-ebook.com) 9.18: src/calibre/utils/localunzip.py
-# Changes from upstream: calibre imports point at upstream_calibre and its _compat, and
-# 'from __future__ import annotations' is added.
-# zlib is imported directly rather than through Python 3.14's compression package.
+# Changes from upstream: calibre imports point at upstream_calibre and its _compat.
 # SPDX-License-Identifier: GPL-3.0-only
 
 """
@@ -13,13 +11,11 @@ These are apparently produced in large numbers by the fruitcakes over at B&N.
 Tries to only use the local headers to extract data from the damaged zip file.
 """
 
-from __future__ import annotations
-
 import os
 import shutil
 import sys
 from collections import OrderedDict
-import zlib
+from compression import zlib
 from struct import calcsize, pack, unpack
 from typing import IO, TYPE_CHECKING, NamedTuple
 

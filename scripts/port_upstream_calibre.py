@@ -4,11 +4,8 @@ Port calibre modules into ``LiuXin_alpha.metadata.upstream_calibre``.
 Each module is copied from a calibre source tree with its imports rewritten by
 the tables below: calibre modules that are ported whole map to their module in
 the package, and smaller helpers map to names in ``_compat``. Nothing else in
-the code changes, apart from mechanical edits so the copies also run on Python
-3.12 and 3.13: ``from __future__ import annotations`` is added, ``except``
-clauses naming several exceptions are parenthesised, and defaults are dropped
-from type parameters, which only type checkers read. A header comment records
-the source path and those changes.
+the code changes: LiuXin runs on Python 3.14, as calibre 9.18 does, so its syntax
+is kept. A header comment records the source path and those changes.
 
 Run it again on a newer calibre to bring its changes across. An import the
 tables do not cover stops the run, so each new dependency is a deliberate
@@ -79,11 +76,7 @@ PORTS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
             "(_compat.html5_soup_parse); Beautiful Soup itself stays optional.",
         ),
     ),
-    (
-        "utils/localunzip.py",
-        "localunzip.py",
-        ("zlib is imported directly rather than through Python 3.14's compression package.",),
-    ),
+    ("utils/localunzip.py", "localunzip.py", ()),
     ("ebooks/metadata/epub.py", "epub.py", ()),
     ("ebooks/metadata/extz.py", "extz.py", ()),
     (
@@ -1110,7 +1103,6 @@ NAMES: dict[str, dict[str, str]] = {
 # Single names from elsewhere: C extensions, polyglot and standard-library
 # imports that LiuXin replaces. An empty module imports the name as a module.
 EXTERNAL: dict[tuple[str, str], tuple[str, str]] = {
-    ("compression", "zlib"): ("", "zlib"),
     ("dateutil.parser", "parse"): (COMPAT, "dateutil_parse"),
     ("html5_parser", "parse"): (COMPAT, "html5_parse"),
     ("html5_parser.soup", "parse"): (COMPAT, "html5_soup_parse"),
@@ -1158,7 +1150,6 @@ REWRITTEN_ROOTS = frozenset(
         "calibre_extensions",
         "tzlocal",
         "zoneinfo",
-        "compression",
         "html5_parser",
         "odf",
         "dateutil",
@@ -1171,7 +1162,10 @@ REWRITTEN_ROOTS = frozenset(
 
 def parenthesise_excepts(source: str) -> str:
     """
-    Parenthesise ``except A, B:`` clauses (PEP 758) for Python before 3.14.
+    Parenthesise ``except A, B:`` clauses (PEP 758), so Python before 3.14 can parse the source.
+
+    The porter parses only such a copy; lines and imports are unchanged by it, and the
+    ported module keeps calibre's form.
 
     Example:
         >>> parenthesise_excepts("try:\\n    x\\nexcept A, B as e:\\n    y\\n").splitlines()[2]
@@ -1187,40 +1181,6 @@ def parenthesise_excepts(source: str) -> str:
         source,
         flags=re.M,
     )
-
-
-def drop_type_parameter_defaults(source: str) -> str:
-    """
-    Drop the defaults of type parameters (PEP 696) for Python before 3.13.
-
-    Only type checkers read them, so the code runs the same without them.
-
-    Example:
-        >>> drop_type_parameter_defaults("class A[T = str]:\\n    pass\\n").splitlines()[0]
-        'class A[T]:'
-
-
-    :param source: Python source, parsed with Python 3.13 or later.
-    :return: The source without type-parameter defaults.
-    :raises SystemExit: For a default not on one line with its ``=``.
-    """
-    lines = source.split("\n")
-    cuts: list[tuple[int, int, int]] = []
-    for node in ast.walk(ast.parse(source)):
-        default = getattr(node, "default_value", None)
-        if not isinstance(node, ast.TypeVar | ast.ParamSpec | ast.TypeVarTuple) or default is None:
-            continue
-        line = lines[default.lineno - 1]
-        encoded = line.encode()
-        start = len(encoded[: default.col_offset].decode())
-        if default.end_lineno != default.lineno or "=" not in line[:start]:
-            raise SystemExit(f"cannot drop the type-parameter default on line {default.lineno}")
-        end = len(encoded[: default.end_col_offset].decode())
-        cut = len(line[: line.rindex("=", 0, start)].rstrip())
-        cuts.append((default.lineno - 1, cut, end))
-    for row, cut, end in sorted(cuts, reverse=True):
-        lines[row] = lines[row][:cut] + lines[row][end:]
-    return "\n".join(lines)
 
 
 def _defined_names(node: ast.stmt) -> set[str]:
@@ -1481,10 +1441,9 @@ def port_source(source: str, source_path: str, extra_header: tuple[str, ...] = (
     if source_path in PARTS:
         source = keep_only(source, source_path, PARTS[source_path])
     patched = apply_patches(source, source_path)
-    excepts_fixed = parenthesise_excepts(patched)
-    fixed = drop_type_parameter_defaults(excepts_fixed)
-    tree = ast.parse(fixed)
-    lines = fixed.split("\n")
+    # Parse with the clauses parenthesised, so Python before 3.14 can; lines are unchanged.
+    tree = ast.parse(parenthesise_excepts(patched))
+    lines = patched.split("\n")
     typing_lines: set[int] = set()
     for node in ast.walk(tree):
         if isinstance(node, ast.If) and getattr(node.test, "id", None) == "TYPE_CHECKING":
@@ -1505,24 +1464,13 @@ def port_source(source: str, source_path: str, extra_header: tuple[str, ...] = (
     for start, end, new in sorted(replacements, reverse=True):
         lines[start - 1 : end] = new
     text = "\n".join(lines)
-    if "from __future__ import annotations" not in text:
-        tree = ast.parse(text)
-        lines = text.split("\n")
-        first = tree.body[0] if tree.body else None
-        if isinstance(first, ast.Expr) and isinstance(getattr(first, "value", None), ast.Constant):
-            lines[first.end_lineno : first.end_lineno] = ["", "from __future__ import annotations"]  # type: ignore[index]
-        else:
-            at = next((i for i, row in enumerate(lines) if row.strip() and not row.startswith("#")), len(lines))
-            lines[at:at] = ["from __future__ import annotations", ""]
-        text = "\n".join(lines)
     lines = text.split("\n")
     at = 0
     while at < len(lines) and lines[at].startswith("#"):
         at += 1
     header = [
         f"# Ported from calibre (https://calibre-ebook.com) 9.18: src/calibre/{source_path}",
-        "# Changes from upstream: calibre imports point at upstream_calibre and its _compat, and",
-        "# 'from __future__ import annotations' is added.",
+        "# Changes from upstream: calibre imports point at upstream_calibre and its _compat.",
     ]
     if source_path in PARTS:
         kept = PARTS[source_path]
@@ -1530,17 +1478,13 @@ def port_source(source: str, source_path: str, extra_header: tuple[str, ...] = (
         verb, pronoun = ("is", "it uses") if len(kept) == 1 else ("are", "they use")
         header.append(f"# Only {listed} {verb} ported, with the imports {pronoun};")
         header.append("# the rest is conversion code the metadata readers do not use.")
-    if excepts_fixed != patched:
-        header.append("# Except clauses naming several exceptions are parenthesised, for Python before 3.14.")
-    if fixed != excepts_fixed:
-        header.append("# Type-parameter defaults are dropped, for Python before 3.13.")
     if patched != source:
         header.append("# LiuXin fixes are marked '# LiuXin:'.")
     header += [f"# {line}" for line in extra_header]
     header.append("# SPDX-License-Identifier: GPL-3.0-only")
     lines[at:at] = header
     out = "\n".join(lines)
-    ast.parse(out)
+    ast.parse(parenthesise_excepts(out))
     return out
 
 

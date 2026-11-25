@@ -1,13 +1,10 @@
 #!/usr/bin/env python
 # License: GPLv3 Copyright: 2019, Kovid Goyal <kovid at kovidgoyal.net>
 # Ported from calibre (https://calibre-ebook.com) 9.18: src/calibre/ebooks/BeautifulSoup.py
-# Changes from upstream: calibre imports point at upstream_calibre and its _compat, and
-# 'from __future__ import annotations' is added.
+# Changes from upstream: calibre imports point at upstream_calibre and its _compat.
 # html5-parser's soup builder is replaced by Beautiful Soup's lxml builder
 # (_compat.html5_soup_parse); Beautiful Soup itself stays optional.
 # SPDX-License-Identifier: GPL-3.0-only
-
-from __future__ import annotations
 
 import bs4
 from bs4 import CData, Comment, Declaration, NavigableString, ProcessingInstruction, SoupStrainer, Tag, __version__  # ruff: ignore[unused-import]

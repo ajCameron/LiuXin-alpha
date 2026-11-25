@@ -18,12 +18,9 @@
 # Contributor(s):
 #
 # Ported from calibre (https://calibre-ebook.com) 9.18: src/calibre/ebooks/metadata/odt.py
-# Changes from upstream: calibre imports point at upstream_calibre and its _compat, and
-# 'from __future__ import annotations' is added.
+# Changes from upstream: calibre imports point at upstream_calibre and its _compat.
 # calibre's copy of odfpy is replaced by the copy LiuXin ships in file_formats.odf.
 # SPDX-License-Identifier: GPL-3.0-only
-
-from __future__ import annotations
 
 import io
 import json
