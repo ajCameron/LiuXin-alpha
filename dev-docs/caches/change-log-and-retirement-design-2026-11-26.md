@@ -1,13 +1,13 @@
 # Change log and retirement — design note
 
-Date: **2026-11-26**. Status: **decisions 1, 2, 4, 5 and 6 settled on 2026-11-26; decision 3 open. Phase 1 (the change log) is in progress.**
+Date: **2026-11-26**. Status: **all six decisions settled on 2026-11-26. Phase 1 (the change log) is in progress.**
 
 This note answers [CACHE06](next_tasks.md#cache06-publish-additions-without-a-full-reload) and the add-only question in the [2026-11-26 cache review](../architectural_reviews/caches-review-2026-11-26.md). The direction chosen in discussion is:
 
 - the catalogue becomes append-only: records are retired rather than deleted;
 - the cache never applies a write itself. It copies the rows the database says changed.
 
-The section headed "Decisions" records what was settled and what remains open.
+The section headed "Decisions" records what was settled.
 
 ## Why not keep cache and database in step by writing to both
 
@@ -138,13 +138,13 @@ Link rows do not retire: they are physically removed, and the log entry keeps bo
 
 - Each declared unique identity index becomes partial: `WHERE <prefix>_retired_ms IS NULL`.
 - The CR05 identity check ignores retired rows.
-- Recommended (decision 3, still open): creating a name a retired row holds makes a new row. `revive(id)` brings the old one back explicitly, and fails if a live row has since taken its identity. The reasons:
+- Decided (decision 3): creating a name a retired row holds makes a new row. `revive(id)` brings the old one back explicitly, and fails if a live row has since taken its identity. The reasons:
   - links are physically removed, so automatic revival would return the old ID with none of its links;
   - a row retired by a merge points at its replacement, and reviving it would silently undo the merge;
   - revival would bring back attributes the caller did not supply, such as a genre's parent, which may itself be retired;
   - a name retired more than once has several candidates;
   - it matches the ingest rule that likely duplicates become new, flagged records rather than silent matches.
-- A create that matches a retired row can report it, so a UI or the ingest report can offer to revive it or, for a merged name, to use its replacement.
+- A create that matches a retired row reports it, with the retired row's ID and any replacement, so a UI or the ingest report can offer to revive it or, for a merged name, to use its replacement. The create itself never revives or redirects.
 
 ### Reads
 
@@ -190,11 +190,11 @@ Ingest can start after phase 1.
 
 ## Decisions
 
-Settled on 2026-11-26 unless marked open.
+Settled on 2026-11-26.
 
 1. **Where the log lives:** a dedicated `catalog_changes` table, not the maintenance journal made mandatory.
 2. **Link rows:** physically removed, with a log entry that records both ends. They do not retire.
-3. **Re-creating a retired name:** open. A new row is recommended; see "Unique identities".
+3. **Re-creating a retired name:** a new row; the create reports the retired match so a UI or ingest report can offer revival or the replacement. See "Unique identities".
 4. **Log retention:** kept as the catalogue's history. Limits on its growth are to be decided later, informed by ingest measurements.
 5. **Retired rows in caches:** excluded for now.
 6. **PostgreSQL ordering:** the transaction-ID horizon.

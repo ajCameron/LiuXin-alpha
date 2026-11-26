@@ -60,8 +60,8 @@ regression still pass, and a measured comparison is recorded. The chosen
 direction, a database-written change log the cache catches up from plus
 retirement instead of deletion, is set out in the
 [change log and retirement design](change-log-and-retirement-design-2026-11-26.md).
-Its decisions were settled on 2026-11-26 apart from how a retired name is
-re-created, which only affects retirement; phase 1, the change log, comes first.
+Its decisions were settled on 2026-11-26; phase 1, the change log, comes
+first.
 
 ## CACHE02. Define leases for physical cache replicas
 
