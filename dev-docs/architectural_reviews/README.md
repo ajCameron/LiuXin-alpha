@@ -43,6 +43,7 @@ access; existing subsystem contracts continue to describe shipped behaviour.
 
 | Document | Latest interpretation |
 | --- | --- |
+| [Cache review, 2026-11-26](caches-review-2026-11-26.md) | Fixed: torn snapshot reloads, raw identity-collision errors, unreadable reuse receipts, silent cascading deletes (now `detach=True`) and picker cost. Open: a full snapshot reload on every changed write, which blocks ingest through snapshot caches; proposes add-only incremental publication. |
 | [Cache architecture and optimization readiness, 2026-11-17](caches-review-2026-11-17.md) | Metadata-search core ready for measured optimization after stress repairs. Records validation scope, performance priorities and remaining lifecycle/registry work; whole-cache sign-off remains open. |
 | [Global review and task list, 2026-11-16](global-review-2026-11-16.md) | Open. Static review of maintainability, documentation and goals; no tests run. Proposes prioritized tasks G-L1 to G-C5. Same-day follow-up: GPL-3.0 chosen for the whole project, licence provenance inventory added, tracked local artefacts removed. |
 | [Databases package review, 2026-11-14](databases-review-2026-11-14.md) | Signed off at the documented boundaries on 2026-11-16. Repairs in PR #161 and the docstring follow-up in PR #165 are merged; the latter's database gate and full suite passed. Read the final closure and publication follow-up for exact evidence and remaining scope. Unsupported pre-release libraries require regeneration. |

@@ -283,12 +283,30 @@ and can reduce write concurrency. It does not reserve external file bytes.
 `metadata.agents` provides detached public-field reads, CRUD, person/organisation
 creation and explicit name/sort-policy renaming. `metadata.vocabulary(kind)`
 selects `tags`, `labels`, `genres`, `subjects`, `series`, `languages` or `ratings`.
-These services retain Catalog's normalization and deletion rules; Languages stay
+These services retain Catalog's normalization rules; Languages stay
 read-only seeded constants. Tags and Series additionally expose `link_to_work`
 and `unlink_from_work`, preserving retained membership metadata. Shared edits
 reconcile affected WEMI projections and search. No implicit matching or merging
 is introduced. Detailed Agent subtype editing remains with Catalog's existing
 aggregate services.
+
+As of **2026-11-26** ([review](../architectural_reviews/caches-review-2026-11-26.md)):
+
+- **Deletion of linked rows needs `detach=True`.** Deleting a Tag, Label, Rating
+  or Agent that link rows still attach to other entities raises
+  `CatalogInUseError`, with link-row counts per link table. `delete(id, detach=True)`
+  removes those links with it. Owned extension rows, such as an Agent's person
+  details, go with the Agent in either case. Tree vocabulary keeps its own leaf
+  rules (see [Vocabulary trees](#vocabulary-trees)). Core's `catalog.entity.delete`
+  takes the same optional `detach` flag.
+- **Collisions are typed.** A create, rename or move that would give a row a
+  unique identity another row holds raises `CatalogIdentityConflictError(table,
+  existing_id, identity)` before any SQL write. Core reports it as
+  `identity_conflict`. A caller that wants calibre's merge-on-rename asks the
+  user, then merges into `existing_id` explicitly.
+- **Reuse refreshes the snapshot when needed.** An `ensure_*` or
+  `works.add_tag(text=...)` that reuses a row another connection created since the
+  last reload refreshes the snapshot before returning `cache='current'`.
 
 `metadata.custom_fields` exposes native field definitions, stored values, atomic
 patches, queries, inventories, shared-value rename/delete, migration planning and
@@ -355,9 +373,13 @@ records = metadata.tags.get_many((tag_id, missing_id, tag_id))
 
 Lookup and suggestion return `SharedMetadataPage`, containing `records`, an
 exact `total_count`, `offset`, `limit`, `has_more`, `source`, `consistency` and
-`generation`. Zero limit still computes the total. These operations currently
-scan the shared table population; a small result limit is not a bound on scan
-cost. Separate calls do not pin a snapshot across offset pages.
+`generation`. Zero limit still computes the total. Suggestions scan the shared
+table population; a small result limit is not a bound on scan cost. Since
+**2026-11-26** they read plain row values rather than hydration rows, which made
+them about a hundred times cheaper ([CR08](../architectural_reviews/caches-review-2026-11-26.md#cr08-picker-cost)).
+A lookup with an exact text operand reads only rows sharing its text key, through
+the cache's text indexes or SQL's expression indexes, then applies the exact rule.
+Separate calls do not pin a snapshot across offset pages.
 
 ## Hydrated search pages
 
