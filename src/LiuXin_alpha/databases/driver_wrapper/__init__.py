@@ -269,6 +269,8 @@ class DriverWrapper(
         self._cached_link_row_dataclasses: dict[tuple[str, str], type | None] = {}
         self._link_table_name_cache: dict[tuple[str, str], str | Literal[False]] = {}
         self._link_table_name_cache_schema_version: int | str | None = None
+        self._interlinked_tables_cache: dict[str, frozenset[str]] = {}
+        self._interlinked_tables_cache_schema_version: int | str | None = None
 
     def _group_names(self, attr_name: str) -> tuple[str, ...]:
         """
@@ -1323,20 +1325,39 @@ class DriverWrapper(
         Find main tables linked to the named table by discovered interlink tables.
 
         Tests conventional link names against the interlink-table group. Intralinks are
-        excluded; no rows or foreign-key contents are inspected.
+        excluded; no rows or foreign-key contents are inspected. When the backend
+        reports a schema version, answers are kept per table until it changes: every
+        ``Row`` asks this on construction, and recomputing it ran one schema-version
+        query per main table.
 
         Example:
             >>> wrapper.get_interlinked_tables("works")  # doctest: +SKIP
 
 
         :param table_name: Table name in the current schema.
-        :return: Set of linked main-table names.
+        :return: New set of linked main-table names.
         """
+        cache = getattr(self, "_interlinked_tables_cache", None)
+        version_getter = getattr(self.driver, "direct_get_schema_version", None)
+        version = None
+        if cache is not None and callable(version_getter):
+            version = version_getter()
+            if version != getattr(
+                self, "_interlinked_tables_cache_schema_version", None
+            ):
+                cache.clear()
+                self._interlinked_tables_cache_schema_version = version
+            cached = cache.get(table_name)
+            if cached is not None:
+                return set(cached)
         linked_tables = set()
+        interlinks = self._interlink_table_names()
         for main_table in self._main_table_names():
             possible_interlink_table = self.get_link_table_name(main_table, table_name)
-            if possible_interlink_table in self._interlink_table_names():
+            if possible_interlink_table in interlinks:
                 linked_tables.add(main_table)
+        if cache is not None and version is not None:
+            cache[table_name] = frozenset(linked_tables)
         return linked_tables
 
     # ------------------------------------------------------------------------------------------------------------------

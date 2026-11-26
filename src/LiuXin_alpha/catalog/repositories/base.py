@@ -640,6 +640,7 @@ class BaseRepository:
             payload[self.id_column] = entity_id
         transaction = getattr(self._macros, "transaction", None)
         with transaction() if callable(transaction) else nullcontext():
+            self._validate_proposed({entity_id: payload}, {})
             new_id = self._macros.insert_row(
                 self.table_name, payload, id_column=self.id_column,
             )
@@ -676,16 +677,47 @@ class BaseRepository:
         self._update_many({entity_id: data})
 
     def _update_many(self, updates: Mapping[EntityId, RowInput]) -> None:
-        """Prepare every partial update before the first mutation in one transaction."""
+        """Prepare and validate every partial update before the first mutation."""
         transaction = getattr(self._macros, "transaction", None)
         with transaction() if callable(transaction) else nullcontext():
+            existing = {row_id: self.require(row_id) for row_id in updates}
             prepared = {
-                row_id: self._prepare_write(data, existing=self.require(row_id))
+                row_id: self._prepare_write(data, existing=existing[row_id])
                 for row_id, data in updates.items()
             }
+            self._validate_proposed(
+                {
+                    row_id: {**existing[row_id], **changes}
+                    for row_id, changes in prepared.items()
+                    if changes
+                },
+                existing,
+            )
             for row_id, changes in prepared.items():
                 if changes:
                     self._macros.update_row(self.table_name, row_id, changes, id_column=self.id_column)
+
+    def _validate_proposed(
+        self,
+        proposed: Mapping[EntityId | None, RowMapping],
+        existing: Mapping[EntityId, RowMapping],
+    ) -> None:
+        """
+        Check final rows against repository rules before any of them is written.
+
+        BaseRepository adds no rule; database constraints still apply. Subclasses
+        raise to refuse the whole batch.
+
+        Example:
+            ``self._validate_proposed({7: {**row, "tag": "New"}}, {7: row})`` runs
+            just before tag 7 is updated.
+
+
+        :param proposed: Final rows keyed by ID; None keys a row being inserted.
+        :param existing: Stored rows before the change, keyed by ID; empty on insert.
+        :return: None when every proposed row may be written.
+        """
+        del proposed, existing
 
     def delete(self, entity_id: EntityId) -> None:
         """
@@ -713,6 +745,52 @@ class BaseRepository:
             entity_id,
             id_column=self.id_column,
         )
+
+    def link_references(self, entity_id: EntityId) -> dict[str, int]:
+        """
+        Count declared link rows that attach this entity to other entities.
+
+        Interlinks to other main tables and this table's intralinks count, such as
+        a Tag's Work memberships or an Agent's credits. Owned extension rows, such
+        as an Agent's person details, are not links and do not count.
+
+        Example:
+            ``catalog.tags.link_references(tag_id)`` returns ``{"tag_work_links": 3}``
+            for a Tag on three Works.
+
+
+        :param entity_id: Entity whose links are counted; it need not exist.
+        :return: Nonzero row counts keyed by link table, in table-name order.
+        """
+        self._validate_entity_id(entity_id)
+        specs = [
+            self._wrapper.get_link_spec(self.table_name, other)
+            for other in sorted(self._wrapper.get_interlinked_tables(self.table_name))
+        ]
+        specs.append(self._wrapper.get_intralink_spec(self.table_name))
+        counts: dict[str, int] = {}
+        for spec in specs:
+            if not isinstance(spec, StorageLinkSpec):
+                continue
+            columns = {
+                column
+                for table, column in (
+                    (spec.primary_table, spec.primary_link_col),
+                    (spec.secondary_table, spec.secondary_link_col),
+                )
+                if table == self.table_name and column
+            }
+            total = sum(
+                int(
+                    self._macros.aggregate_rows(
+                        spec.link_table, where={column: entity_id}
+                    )["count"]
+                )
+                for column in sorted(columns)
+            )
+            if total:
+                counts[spec.link_table] = total
+        return dict(sorted(counts.items()))
 
     def _require_table_row(self, table: str, entity_id: EntityId) -> RowMapping:
         """

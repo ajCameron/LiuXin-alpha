@@ -21,6 +21,7 @@ from uuid import UUID
 
 from LiuXin_alpha.core.description import CorePayloadFieldDescription
 from LiuXin_alpha.core.errors import CoreDispatchError
+from LiuXin_alpha.catalog.api.common import CatalogInUseError
 from LiuXin_alpha.catalog.api.repositories import CATALOG_REPOSITORY_NAMES
 
 if TYPE_CHECKING:
@@ -40,6 +41,9 @@ _PARENT_SCOPED_REPOSITORIES = frozenset(
         "item_identifiers",
     }
 )
+# Deleting these while linked would silently detach them from other entities.
+_DETACH_GUARDED_REPOSITORIES = frozenset({"tags", "labels", "ratings", "agents"})
+_TREE_REPOSITORIES = frozenset({"genres", "subjects", "series"})
 
 
 def _field(
@@ -648,6 +652,7 @@ class CoreApplicationAPI:
             payload_fields=(
                 _field("repository", required=True, field_type="string"),
                 _field("entity_id", required=True, field_type="integer"),
+                _field("detach", field_type="boolean"),
             ),
             tags=("catalog", "write"),
             remote_capabilities=("write",),
@@ -2336,20 +2341,41 @@ class CoreApplicationAPI:
         return value is ignored, and reconciliation follows deletion without an
         adapter-owned transaction or additional confirmation field.
 
+        Tags, Labels, Ratings and Agents still linked to other entities, and tree
+        vocabulary with attachments, are refused unless the optional ``detach``
+        payload flag is true, matching the metadata API.
+
         Example:
             >>> receipt = CoreApplicationAPI().catalog_entity_delete(runtime, command)  # doctest: +SKIP
 
 
         :param runtime: Runtime providing required entity lookup, deletion, and reconciliation.
-        :param command: Command identifying an allowlisted repository and entity_id.
+        :param command: Command identifying an allowlisted repository and entity_id,
+            with an optional boolean ``detach``.
         :return: Reconciled receipt containing repository, entity_id, and the pre-delete entity as deleted.
+        :raises CoreDispatchError: ``detach`` is present but not a boolean.
+        :raises CatalogInUseError: The entity is linked and ``detach`` is not true.
         """
         payload = _payload(command)
         name = _required_text(payload, "repository")
         repository = self._repository(runtime, payload)
         entity_id = _required_int(payload, "entity_id")
+        detach = payload.get("detach", False)
+        if not isinstance(detach, bool):
+            raise CoreDispatchError("`detach` must be a boolean.")
         deleted = repository.require(entity_id)
-        repository.delete(entity_id)
+        if name in _TREE_REPOSITORIES:
+            repository.delete(entity_id, detach=detach)
+        else:
+            if name in _DETACH_GUARDED_REPOSITORIES and not detach:
+                references = repository.link_references(entity_id)
+                if references:
+                    raise CatalogInUseError(
+                        f"{name} row {entity_id} is linked to other entities; "
+                        "pass detach=true to remove those links with it",
+                        references,
+                    )
+            repository.delete(entity_id)
         return self._semantic_receipt(
             runtime,
             {

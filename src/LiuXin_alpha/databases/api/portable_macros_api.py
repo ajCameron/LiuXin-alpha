@@ -11,7 +11,7 @@ by both backends. MacrosAPI adds the optional legacy SQLite compatibility surfac
 from __future__ import annotations
 
 import abc
-from collections.abc import Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from contextlib import AbstractContextManager
 from typing import TYPE_CHECKING, Any
 
@@ -120,6 +120,28 @@ class PortableMacrosAPI(abc.ABC):
         Refuse nesting or borrowing an active transaction. PostgreSQL uses
         repeatable read and SQLite uses a deferred snapshot. The backend rejects
         writes; this operation does not reserve the database's writer boundary.
+        """
+
+    @abc.abstractmethod
+    def read_consistently[ResultT](
+        self, read: Callable[[], ResultT], *, attempts: int = 3
+    ) -> ResultT:
+        """
+        Run several reads so their results reflect one committed database state.
+
+        PostgreSQL uses one repeatable-read snapshot, which never blocks writers.
+        SQLite repeats the reads while another connection commits during them, then
+        holds a deferred read transaction for a final pass. An open transaction on
+        this thread is borrowed and the reads run once inside it. ``read`` must be
+        repeatable and must not write.
+
+        Example:
+            ``macros.read_consistently(storage.reload)`` publishes no torn snapshot.
+
+
+        :param read: Repeatable callback performing the reads.
+        :param attempts: Optimistic SQLite passes before the locked pass.
+        :return: The callback's result from a pass that saw no concurrent commit.
         """
 
     @abc.abstractmethod

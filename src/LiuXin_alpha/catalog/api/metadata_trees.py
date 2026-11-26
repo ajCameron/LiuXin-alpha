@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from types import MappingProxyType
 from typing import Protocol
 
-from LiuXin_alpha.catalog.api.common import CatalogMutationError
+from LiuXin_alpha.catalog.api.common import CatalogInUseError, CatalogMutationError
 from LiuXin_alpha.catalog.api.metadata_results import MetadataWriteReceipt
 from LiuXin_alpha.catalog.api.metadata_revisions import SharedMetadataRevision
 from LiuXin_alpha.catalog.api.metadata_shared import (
@@ -27,7 +27,7 @@ class HierarchyLimitError(ValueError):
     """A complete tree operation exceeds its explicit node budget."""
 
 
-class HierarchyInUseError(CatalogMutationError):  # type: ignore[misc]
+class HierarchyInUseError(CatalogInUseError):  # type: ignore[misc]
     """Children or metadata references prevent the requested deletion."""
 
 

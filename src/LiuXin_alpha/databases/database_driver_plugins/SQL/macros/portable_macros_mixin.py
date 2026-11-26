@@ -189,6 +189,33 @@ def _row_value(row: SQLRow, index: int, column: str) -> Any:
     return row[index]
 
 
+def _data_version(connection: SQLConnection) -> int:
+    """
+    Read SQLite's per-connection counter of commits made by other connections.
+
+    Two reads on the same connection differ exactly when another connection
+    committed in between; the connection's own commits and other connections'
+    rollbacks leave it unchanged.
+
+    Example:
+        ``_data_version(witness)`` before and after a group of reads on other
+        connections tells whether any commit could have split them.
+
+
+    :param connection: Open SQLite connection that performs no writes of its own.
+    :return: The current PRAGMA data_version value.
+    :raises DatabaseIntegrityError: SQLite returned no value.
+    """
+    cursor = connection.execute("PRAGMA data_version")
+    try:
+        row = cursor.fetchone()
+    finally:
+        cursor.close()
+    if row is None:
+        raise DatabaseIntegrityError("SQLite did not report its data version")
+    return int(_row_value(row, 0, "data_version"))
+
+
 def _canonical_db_value(value: object) -> FingerprintValue:
     """
     Encode a database value as a type-tagged, JSON-serializable fingerprint value.
@@ -665,6 +692,55 @@ class SQLPortableMacrosMixin(MacroHostState):
             if restore is not None:
                 connection, previous = restore
                 connection.execute(f"PRAGMA query_only={int(previous)}").close()
+
+    def read_consistently[ResultT](
+        self, read: Callable[[], ResultT], *, attempts: int = 3
+    ) -> ResultT:
+        """
+        Run several reads so their results reflect one committed database state.
+
+        PostgreSQL runs them in one repeatable-read snapshot, which never blocks
+        writers. Outside WAL mode SQLite has no snapshot that leaves writers free,
+        so its reads run optimistically: a separate witness connection records
+        ``PRAGMA data_version`` before and after, and a commit from any other
+        connection in between repeats the reads. After ``attempts`` optimistic
+        passes, a final pass holds a deferred read transaction; that is consistent
+        but makes other writers wait for it. An open transaction on this thread is
+        borrowed and the reads run once inside it, seeing its pending writes.
+
+        Example:
+            ``macros.read_consistently(lambda: (rows("works"), rows("tag_work_links")))``
+            never pairs links with a works list taken before their works committed.
+
+
+        :param read: Repeatable callback performing the reads; it must not write and
+            only the result of its last pass is returned.
+        :param attempts: Optimistic SQLite passes before the locked pass; at least one.
+        :return: The callback's result from a pass that saw no concurrent commit.
+        :raises ValueError: ``attempts`` is below one.
+        """
+        if attempts < 1:
+            raise ValueError("attempts must be at least one")
+        if self.current_transaction_connection() is not None:
+            return read()
+        driver = self._macro_driver()
+        get_connection: Callable[[], SQLConnection] | None = getattr(
+            driver, "get_connection", None
+        )
+        if hasattr(driver, "schema") or not callable(get_connection):
+            with self.read_transaction():
+                return read()
+        witness = get_connection()
+        try:
+            for _ in range(attempts):
+                before = _data_version(witness)
+                result = read()
+                if _data_version(witness) == before:
+                    return result
+        finally:
+            witness.close()
+        with self.read_transaction():
+            return read()
 
     def lock_metadata_snapshot(self) -> None:
         """Protect composed metadata checks against writes until transaction completion.

@@ -144,11 +144,57 @@ class AgentMetadataInterface(
         """
         ...
 
+    def delete(
+        self,
+        entity_id: int,
+        *,
+        detach: bool = False,
+        expected_revision: SharedMetadataRevision | None = None,
+    ) -> MetadataWriteReceipt[int]:
+        """
+        Delete an Agent; credits and Agent links require ``detach=True``.
+
+        Raises CatalogInUseError while links remain and ``detach`` is false.
+
+        Example:
+            ``metadata.agents.delete(agent_id, detach=True)`` also removes credits.
+
+
+        :param entity_id: Existing Agent identity.
+        :param detach: Also remove link rows attaching the Agent to other entities.
+        :param expected_revision: Optional Agent-row precondition.
+        :return: Receipt containing the deleted Agent identity.
+        """
+        ...
+
 
 class VocabularyMetadataInterface(
     SharedMetadataInterface[Mapping[str, object]], Protocol
 ):
     """Manage mutable native values without assuming hierarchy or membership."""
+
+    def delete(
+        self,
+        entity_id: int,
+        *,
+        detach: bool = False,
+        expected_revision: SharedMetadataRevision | None = None,
+    ) -> MetadataWriteReceipt[int]:
+        """
+        Delete a value; links to Works or other entities require ``detach=True``.
+
+        Raises CatalogInUseError while links remain and ``detach`` is false.
+
+        Example:
+            ``metadata.tags.delete(tag_id, detach=True)`` also removes memberships.
+
+
+        :param entity_id: Existing vocabulary identity.
+        :param detach: Also remove link rows attaching the value to other entities.
+        :param expected_revision: Optional full-row precondition.
+        :return: Receipt containing the deleted identity.
+        """
+        ...
 
 
 class TextVocabularyMetadataInterface(

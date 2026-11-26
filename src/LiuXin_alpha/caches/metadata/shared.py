@@ -10,6 +10,7 @@ from copy import deepcopy
 from typing import TYPE_CHECKING, cast
 
 from LiuXin_alpha.caches.metadata.reads import MetadataReadSource
+from LiuXin_alpha.catalog.api.common import CatalogInUseError
 from LiuXin_alpha.catalog.api.metadata_revisions import (
     SharedMetadataReference,
     SharedMetadataRevision,
@@ -154,6 +155,35 @@ class SharedMetadata(SharedMetadataReader):
         :param expected_revision: Optional authoritative full-row precondition.
         :return: Receipt containing the deleted shared identity.
         """
+        return self._delete(
+            entity_id, expected_revision=expected_revision, refuse_if_linked=False
+        )
+
+    def _delete(
+        self,
+        entity_id: int,
+        *,
+        expected_revision: SharedMetadataRevision | None,
+        refuse_if_linked: bool,
+    ) -> MetadataWriteReceipt[int]:
+        """
+        Delete under repository policy, optionally refusing a linked entity first.
+
+        The link check runs inside the same serialized write as the deletion, so a
+        link committed concurrently cannot slip between them.
+
+        Example:
+            ``self._delete(7, expected_revision=None, refuse_if_linked=True)`` raises
+            for a Tag still on a Work.
+
+
+        :param entity_id: Existing shared identity to delete.
+        :param expected_revision: Optional authoritative full-row precondition.
+        :param refuse_if_linked: Raise instead of deleting when link rows attach the
+            entity to other entities.
+        :return: Receipt containing the deleted shared identity.
+        :raises CatalogInUseError: The entity is linked and ``refuse_if_linked`` is true.
+        """
 
         def operation() -> tuple[int, bool]:
             """
@@ -165,12 +195,39 @@ class SharedMetadata(SharedMetadataReader):
 
             :return: Deleted identity and True after successful repository deletion.
             """
+            if refuse_if_linked:
+                self._repository.require(entity_id)
+                references = self._repository.link_references(entity_id)
+                if references:
+                    raise CatalogInUseError(
+                        f"{self._kind} row {entity_id} is linked to other entities; "
+                        "pass detach=True to remove those links with it",
+                        references,
+                    )
             self._repository.delete(entity_id)
             return entity_id, True
 
         return self._owner._write(
             operation, expected=self._expected(entity_id, expected_revision)
         )
+
+
+def _require_detach_flag(detach: object) -> bool:
+    """
+    Accept only a real boolean for the explicit detach choice.
+
+    Example:
+        >>> _require_detach_flag(True)
+        True
+
+
+    :param detach: Caller's detach argument.
+    :return: The same boolean.
+    :raises TypeError: The argument is not a bool.
+    """
+    if type(detach) is not bool:
+        raise TypeError("detach must be boolean")
+    return detach
 
 
 class AgentMetadata(SharedMetadata, SuggestibleMetadataReader):
@@ -275,9 +332,69 @@ class AgentMetadata(SharedMetadata, SuggestibleMetadataReader):
             operation, expected=self._expected(entity_id, expected_revision)
         )
 
+    def delete(
+        self,
+        entity_id: int,
+        *,
+        detach: bool = False,
+        expected_revision: SharedMetadataRevision | None = None,
+    ) -> MetadataWriteReceipt[int]:
+        """
+        Delete an Agent, refusing while credits or Agent links remain unless detached.
+
+        Deleting a credited Agent would remove its contributions from every Work,
+        Expression, Manifestation and Item at once, so that needs ``detach=True``.
+        Person or organisation details belong to the Agent and go with it.
+
+        Example:
+            ``metadata.agents.delete(agent_id, detach=True)`` removes the Agent and
+            its credits together.
+
+
+        :param entity_id: Existing Agent identity.
+        :param detach: Also remove link rows attaching the Agent to other entities.
+        :param expected_revision: Optional Agent-row precondition.
+        :return: Receipt containing the deleted Agent identity.
+        :raises CatalogInUseError: Links remain and ``detach`` is false.
+        """
+        return self._delete(
+            entity_id,
+            expected_revision=expected_revision,
+            refuse_if_linked=not _require_detach_flag(detach),
+        )
+
 
 class VocabularyMetadata(SharedMetadata):
     """Administer mutable values without advertising unsupported capabilities."""
+
+    def delete(
+        self,
+        entity_id: int,
+        *,
+        detach: bool = False,
+        expected_revision: SharedMetadataRevision | None = None,
+    ) -> MetadataWriteReceipt[int]:
+        """
+        Delete a value, refusing while it is linked to Works or others unless detached.
+
+        Tree vocabularies override this with their own leaf and subtree rules.
+
+        Example:
+            ``metadata.tags.delete(tag_id)`` raises while the Tag is on any Work;
+            ``metadata.tags.delete(tag_id, detach=True)`` removes those memberships too.
+
+
+        :param entity_id: Existing vocabulary identity.
+        :param detach: Also remove link rows attaching the value to other entities.
+        :param expected_revision: Optional full-row precondition.
+        :return: Receipt containing the deleted identity.
+        :raises CatalogInUseError: Links remain and ``detach`` is false.
+        """
+        return self._delete(
+            entity_id,
+            expected_revision=expected_revision,
+            refuse_if_linked=not _require_detach_flag(detach),
+        )
 
 
 class TextVocabularyMetadata(VocabularyMetadata, SuggestibleMetadataReader):

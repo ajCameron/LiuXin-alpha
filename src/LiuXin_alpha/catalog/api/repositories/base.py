@@ -166,3 +166,19 @@ class BaseRepositoryAPI(Protocol):
         :raises CatalogMutationError: If a concrete repository policy rejects deletion.
         :raises Exception: ID validation, database reads, and deletion/constraint errors propagate.
         """
+
+    def link_references(self, entity_id: EntityId) -> dict[str, int]:
+        """
+        Count declared link rows that attach this entity to other entities.
+
+        Interlinks to other main tables and this table's intralinks count; owned
+        extension rows, such as an Agent's person details, do not.
+
+        Example:
+            >>> catalog.tags.link_references(tag_id)  # doctest: +SKIP
+            {'tag_work_links': 3}
+
+
+        :param entity_id: Entity whose links are counted; it need not exist.
+        :return: Nonzero row counts keyed by link table, in table-name order.
+        """

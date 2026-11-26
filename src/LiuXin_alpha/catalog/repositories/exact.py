@@ -9,9 +9,11 @@ Read-only entities and entities requiring contextual creation have distinct rule
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import ClassVar
 
 from ..api.common import (
+    CatalogIdentityConflictError,
     CatalogMutationError,
     EntityId,
     MatchResult,
@@ -156,6 +158,65 @@ class ExactEntityRepository(BaseRepository):
 
         self._require_mutable()
         super().delete(entity_id)
+
+    def _validate_proposed(
+        self,
+        proposed: Mapping[EntityId | None, RowMapping],
+        existing: Mapping[EntityId, RowMapping],
+    ) -> None:
+        """
+        Refuse a row whose unique normalized identity another row already holds.
+
+        Checks each declared unique identity (such as ``tag_phash``, or a Genre's
+        ``genre_phash`` within ``genre_parent_id``) for inserts, and for updates that
+        change the identity or its scope; an unrelated edit to a row that already
+        shares its identity is left alone. A NULL scope means the root, so root
+        siblings must differ too. Rows in the same batch are compared with each
+        other rather than with their stored values.
+
+        Example:
+            Renaming Tag 3 to "Travel" while Tag 7 is "travel" raises
+            ``CatalogIdentityConflictError("tags", 7, {"tag_phash": "travel"})``.
+
+
+        :param proposed: Final rows keyed by ID; None keys a row being inserted.
+        :param existing: Stored rows before the change, keyed by ID; empty on insert.
+        :return: None when no identity is taken.
+        :raises CatalogIdentityConflictError: Another row holds a proposed identity.
+        """
+        specs = [
+            spec
+            for spec in self._wrapper.iter_normalized_identity_specs(
+                table=self.table_name
+            )
+            if spec.unique
+        ]
+        batch = {entity_id for entity_id in proposed if entity_id is not None}
+        claimed: dict[tuple[object, ...], EntityId | None] = {}
+        for entity_id, row in proposed.items():
+            before = None if entity_id is None else existing.get(entity_id)
+            for spec in specs:
+                columns = (spec.identity_column, *spec.scope_columns)
+                if row.get(spec.identity_column) is None:
+                    continue
+                where = {column: row.get(column) for column in columns}
+                marker = (spec.identity_column, *where.values())
+                if marker in claimed:
+                    holder = claimed[marker]
+                    raise CatalogIdentityConflictError(
+                        self.table_name, -1 if holder is None else holder, where
+                    )
+                claimed[marker] = entity_id
+                if before is not None and all(
+                    row.get(column) == before.get(column) for column in columns
+                ):
+                    continue
+                for found in self._macros.get_rows(self.table_name, where=where):
+                    other_id = found[self.id_column]
+                    if other_id != entity_id and other_id not in batch:
+                        raise CatalogIdentityConflictError(
+                            self.table_name, other_id, where
+                        )
 
     def matcher(self) -> ExactEntityMatcher:
         """

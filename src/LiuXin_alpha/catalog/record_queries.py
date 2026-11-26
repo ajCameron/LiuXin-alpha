@@ -13,6 +13,8 @@ from typing import TYPE_CHECKING, Literal, cast
 from LiuXin_alpha.catalog.matching.agent_matcher import AgentMatcher
 from LiuXin_alpha.catalog.matching.entity_specs import EXACT_ENTITY_SPEC_BY_TABLE
 from LiuXin_alpha.catalog.matching.exact_matcher import _normalise_exact_text
+from LiuXin_alpha.databases.db_types.query_types import TextMatch
+from LiuXin_alpha.databases.search_functions import text_key
 
 if TYPE_CHECKING:
     from LiuXin_alpha.catalog.repositories.base import BaseRepository
@@ -58,6 +60,33 @@ def filters(
             raise ValueError(f"Conflicting aliases for {alias!r}")
         result[column] = value
     return result
+
+
+def narrowing_text_match(expected: Mapping[str, object]) -> TextMatch | None:
+    """
+    Choose an exact text operand whose shared text key can narrow a lookup.
+
+    Exact comparison (NFKC, collapsed whitespace, optional casefold) implies equal
+    text keys (NFKC, casefold, collapsed whitespace), so rows with the operand's
+    key are a superset of the exact matches; ``select`` still applies the exact
+    rule. Operands with no key, such as NULL or blank text, cannot narrow.
+
+    Example:
+        >>> narrowing_text_match({"agent_canonical_name": " Ursula  LE Guin "})
+        TextMatch(columns=('agent_canonical_name',), term='ursula le guin', exact=True)
+        >>> narrowing_text_match({"agent_type": None}) is None
+        True
+
+
+    :param expected: Validated physical column operands from ``filters``.
+    :return: An exact TextMatch on the first keyed text operand, or None.
+    """
+    for column, wanted in expected.items():
+        if isinstance(wanted, str):
+            key = text_key(wanted)
+            if key:
+                return TextMatch((column,), key, exact=True)
+    return None
 
 
 def normalized(table: str, column: str, value: str) -> str:

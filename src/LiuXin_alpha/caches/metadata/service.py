@@ -13,7 +13,7 @@ retain their result in MetadataReconciliationError and never retry persistence.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterator, Mapping, Sequence
+from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from contextlib import AbstractContextManager, contextmanager, nullcontext
 from contextvars import ContextVar
 from copy import deepcopy
@@ -23,6 +23,7 @@ from typing import TYPE_CHECKING, Literal, cast, overload
 from LiuXin_alpha.caches.api import CacheConsistency, CacheQuery, CacheSort
 from LiuXin_alpha.caches.metadata.custom_fields import MetadataCustomFields
 from LiuXin_alpha.caches.metadata.reads import (
+    UNAVAILABLE,
     MetadataReadSource,
     MetadataValue,
     detached,
@@ -145,6 +146,31 @@ if TYPE_CHECKING:
     from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.work_containers.work_metadata_api import (
         WorkMetadataAPI,
     )
+
+
+def _snapshot_lacks(cache: ReadCache, rows: Iterable[tuple[str, int]]) -> bool:
+    """
+    Report whether a snapshot is missing any of the named rows.
+
+    A table the cache does not hold cannot show staleness, so it counts as present.
+
+    Example:
+        ``_snapshot_lacks(cache, (("tags", 7),))`` is True after another connection
+        created Tag 7 and the snapshot has not been reloaded.
+
+
+    :param cache: Loaded snapshot cache.
+    :param rows: ``(table, id)`` pairs that the database says exist.
+    :return: True when the cache answers a definite miss for at least one row.
+    """
+    for table, entity_id in rows:
+        try:
+            lookup = cache.get(table, entity_id)
+        except UNAVAILABLE:
+            continue
+        if lookup.complete and lookup.value is None:
+            return True
+    return False
 
 
 class MetadataAPI:
@@ -489,7 +515,10 @@ class MetadataAPI:
         """
         if not isinstance(text, str) or not text.strip():
             raise ValueError("text must be a nonblank string")
-        return self._write(lambda: self._catalog.tags.ensure({"name": text}))
+        return self._write(
+            lambda: self._catalog.tags.ensure({"name": text}),
+            present=lambda tag_id: (("tags", tag_id),),
+        )
 
     def ensure_label(self, text: str) -> MetadataWriteReceipt[int]:
         """Reuse an exact label or create it; existing attributes stay unchanged.
@@ -499,7 +528,10 @@ class MetadataAPI:
         """
         if not isinstance(text, str) or not text.strip():
             raise ValueError("text must be a nonblank string")
-        return self._write(lambda: self._catalog.labels.ensure({"name": text}))
+        return self._write(
+            lambda: self._catalog.labels.ensure({"name": text}),
+            present=lambda label_id: (("labels", label_id),),
+        )
 
     def ensure_genre(
         self, text: str, *, parent_id: int | None = None
@@ -517,7 +549,7 @@ class MetadataAPI:
                 self._catalog.genres.require(parent_id)
             return self._catalog.genres.ensure({"name": text, "parent_id": parent_id})
 
-        return self._write(operation)
+        return self._write(operation, present=lambda genre_id: (("genres", genre_id),))
 
     def ensure_subject(
         self, text: str, *, parent_id: int | None = None
@@ -535,7 +567,9 @@ class MetadataAPI:
                 self._catalog.subjects.require(parent_id)
             return self._catalog.subjects.ensure({"name": text, "parent_id": parent_id})
 
-        return self._write(operation)
+        return self._write(
+            operation, present=lambda subject_id: (("subjects", subject_id),)
+        )
 
     def ensure_series(
         self, text: str, *, parent_id: int | None = None
@@ -553,7 +587,9 @@ class MetadataAPI:
                 self._catalog.series.require(parent_id)
             return self._catalog.series.ensure({"name": text, "parent_id": parent_id})
 
-        return self._write(operation)
+        return self._write(
+            operation, present=lambda series_id: (("series", series_id),)
+        )
 
     def ensure_rating(
         self, value: float, *, out_of: float, source: str
@@ -568,7 +604,8 @@ class MetadataAPI:
         return self._write(
             lambda: self._catalog.ratings.ensure(
                 {"value": value, "out_of": out_of, "source": source}
-            )
+            ),
+            present=lambda rating_id: (("ratings", rating_id),),
         )
 
     @property
@@ -809,6 +846,7 @@ class MetadataAPI:
         *,
         expected: Sequence[MetadataEditRevision] = (),
         schema_changed: bool = False,
+        present: Callable[[ResultT], Iterable[tuple[str, int]]] | None = None,
     ) -> MetadataWriteReceipt[ResultT]:
         """
         Apply one semantic operation and publish an accurate persistence/cache receipt.
@@ -816,6 +854,11 @@ class MetadataAPI:
         Borrowed raw transactions are refused because their completion is not observable.
         Nested managed operations defer refresh. Publication failures retain the completed
         result and dirty the cache; persistence is never retried here.
+
+        A committed no-change write normally leaves a snapshot alone. When ``present``
+        names rows the result promises exist, such as the Tag that exact reuse found,
+        and the snapshot lacks one of them, another connection created it since the
+        last reload; the snapshot is reloaded so a "current" receipt can be read back.
 
         Example:
             If SQL commits and cache reload fails, the error retains a committed receipt.
@@ -826,6 +869,8 @@ class MetadataAPI:
             runs.
         :param schema_changed: Require a full schema/data reload after a committed
             change.
+        :param present: Optional map from the result to ``(table, id)`` rows it promises
+            exist, checked only after an unchanged committed write.
         :return: Receipt describing committed or caller-pending persistence and cache
             visibility.
         """
@@ -902,6 +947,15 @@ class MetadataAPI:
                         cache._advance_generation()
                     else:
                         cache.reload_data()
+                elif (
+                    not pending
+                    and present is not None
+                    and cache.capabilities.consistency != CacheConsistency.LIVE
+                    and _snapshot_lacks(cache, present(result))
+                ):
+                    # Exact reuse found a row another connection committed after
+                    # this snapshot; "current" must include what we just returned.
+                    cache.reload_data()
             except Exception as exc:
                 cache._full_reload_required = True
                 cache._mark_dependencies_dirty((), (), ())

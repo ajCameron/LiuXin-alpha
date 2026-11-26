@@ -257,6 +257,52 @@ class ReadCache(CacheAPI):
         self._generation += 1
         self._query_engine.reset()
 
+    def _read_snapshot(self) -> AbstractContextManager[object]:
+        """
+        Own one database read snapshot, or borrow the caller's open transaction.
+
+        Databases without portable read transactions, such as test doubles, keep
+        their per-read behavior. An open macro transaction on this thread is borrowed
+        without being completed, so its own pending writes stay visible.
+
+        Example:
+            ``with cache._read_snapshot(): storage.reload_data()`` reads every table
+            from the same committed database state.
+
+
+        :return: The macro read transaction context, or a no-op context.
+        """
+        macros = getattr(self.database, "macros", None)
+        read_transaction = getattr(macros, "read_transaction", None)
+        current = getattr(macros, "current_transaction_connection", None)
+        if callable(read_transaction) and callable(current) and current() is None:
+            return cast(AbstractContextManager[object], read_transaction())
+        return nullcontext()
+
+    def _read_consistently(self, operation: Callable[[], object]) -> None:
+        """
+        Run a full storage load so every table reflects one committed state.
+
+        The database repeats the operation when another connection commits during
+        it (SQLite) or runs it in one repeatable-read snapshot (PostgreSQL); see
+        ``read_consistently``. Each repeat rebuilds the whole snapshot. Databases
+        without that macro, such as test doubles, run the operation once.
+
+        Example:
+            ``self._read_consistently(self.storage.reload)`` never publishes links to
+            works that the same reload did not read.
+
+
+        :param operation: Repeatable full storage load/reload operation.
+        :return: None after a pass that saw no concurrent commit.
+        """
+        macros = getattr(self.database, "macros", None)
+        read_consistently = getattr(macros, "read_consistently", None)
+        if callable(read_consistently):
+            read_consistently(operation)
+        else:
+            operation()
+
     def _run_full_refresh(
         self,
         operation: Callable[[], object],
@@ -265,6 +311,10 @@ class ReadCache(CacheAPI):
     ) -> None:
         """
         Publish a complete lifecycle operation, or require recovery after failure.
+
+        A load or reload reads every table as one committed database state, so a
+        writer on another connection cannot commit between two table reads and leave
+        rows pointing at entities the snapshot lacks. See ``_read_consistently``.
 
         Example:
             A failed reload cannot leave the facade claiming a complete READY snapshot.
@@ -285,7 +335,10 @@ class ReadCache(CacheAPI):
         self._full_reload_required = True
         self._query_engine.reset()
         try:
-            operation()
+            if final_state == CacheState.READY:
+                self._read_consistently(operation)
+            else:
+                operation()
         except Exception:
             self._advance_generation()
             raise
@@ -647,17 +700,7 @@ class ReadCache(CacheAPI):
                 if callable(capture):
                     # Native execution views may read lazily. Finish an owned
                     # read unit, or borrow the caller's unit without completing it.
-                    macros = getattr(self.database, "macros", None)
-                    read_transaction = getattr(macros, "read_transaction", None)
-                    current = getattr(macros, "current_transaction_connection", None)
-                    scope = (
-                        cast(AbstractContextManager[object], read_transaction())
-                        if callable(read_transaction)
-                        and callable(current)
-                        and current() is None
-                        else nullcontext()
-                    )
-                    with scope:
+                    with self._read_snapshot():
                         view = cast(StorageCacheAPI, capture())
                         try:
                             engine = CacheQueryEngine(view, result_cache_size=0)

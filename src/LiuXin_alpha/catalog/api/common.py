@@ -93,6 +93,78 @@ class CatalogMutationError(CatalogError):
     """
 
 
+class CatalogIdentityConflictError(CatalogMutationError):
+    """
+    Report that a write would give a row the unique identity another row holds.
+
+    Raised before any SQL write, for example when renaming a Tag to an existing
+    Tag's name or moving a Genre beside a sibling of the same name. ``existing_id``
+    names the row that already holds the identity, so a caller can offer to merge
+    into it instead.
+
+    Example:
+        >>> error = CatalogIdentityConflictError("tags", 7, {"tag_phash": "travel"})
+        >>> error.table, error.existing_id, error.identity
+        ('tags', 7, {'tag_phash': 'travel'})
+    """
+
+    def __init__(
+        self, table: str, existing_id: int, identity: Mapping[str, Any]
+    ) -> None:
+        """
+        Record the table, the row holding the identity and the identity values.
+
+        Example:
+            >>> CatalogIdentityConflictError("labels", 2, {"label_text_norm": "x"}).args
+            ("labels row 2 already has this identity: {'label_text_norm': 'x'}",)
+
+
+        :param table: Physical table of the conflicting rows.
+        :param existing_id: ID of the row that already holds the identity.
+        :param identity: Unique identity column and scope values, copied.
+        :return: None after storing the details and message.
+        """
+        self.table = table
+        self.existing_id = existing_id
+        self.identity = dict(identity)
+        super().__init__(
+            f"{table} row {existing_id} already has this identity: {self.identity!r}"
+        )
+
+
+class CatalogInUseError(CatalogMutationError):
+    """
+    Report that a deletion would silently detach an entity from others.
+
+    Metadata deletions refuse in-use Tags, Labels, Ratings, Agents and tree
+    vocabulary unless the caller passes ``detach=True``. ``references`` counts the
+    link rows found per link table, when known.
+
+    Example:
+        >>> error = CatalogInUseError("Tag is in use", {"tag_work_links": 3})
+        >>> error.references
+        {'tag_work_links': 3}
+    """
+
+    def __init__(
+        self, message: str, references: Mapping[str, int] | None = None
+    ) -> None:
+        """
+        Record the explanation and, when known, the link rows found.
+
+        Example:
+            >>> CatalogInUseError("Node has children").references
+            {}
+
+
+        :param message: Human-readable reason the deletion was refused.
+        :param references: Link row counts keyed by link table, copied.
+        :return: None after storing the details and message.
+        """
+        super().__init__(message)
+        self.references = dict(references or {})
+
+
 class CatalogMatchError(CatalogError):
     """
     Carry an identity decision that a Catalog operation cannot resolve automatically.

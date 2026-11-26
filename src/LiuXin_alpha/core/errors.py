@@ -88,6 +88,41 @@ class CoreHandlerError(CoreError):
     code = "handler_error"
 
 
+def _catalog_mutation_details(
+    exc: BaseException,
+) -> tuple[str, dict[str, Any]] | None:
+    """
+    Classify refused Catalog mutations that a caller can act on.
+
+    An identity collision names the row that already holds the identity; an
+    in-use refusal counts the link rows that ``detach=True`` would remove.
+
+    Example:
+        >>> from LiuXin_alpha.catalog.api.common import CatalogInUseError
+        >>> _catalog_mutation_details(CatalogInUseError("in use", {"tag_work_links": 2}))
+        ('in_use', {'references': {'tag_work_links': 2}})
+        >>> _catalog_mutation_details(ValueError("other")) is None
+        True
+
+
+    :param exc: Failure to classify.
+    :return: Code and new details dictionary, or None for other failures.
+    """
+    from LiuXin_alpha.catalog.api.common import (
+        CatalogIdentityConflictError,
+        CatalogInUseError,
+    )
+
+    if isinstance(exc, CatalogIdentityConflictError):
+        return "identity_conflict", {
+            "table": exc.table,
+            "existing_id": exc.existing_id,
+        }
+    if isinstance(exc, CatalogInUseError):
+        return "in_use", {"references": dict(exc.references)}
+    return None
+
+
 def core_error_details(exc: BaseException) -> tuple[str, dict[str, Any]]:
     """
     Extract code/details while distinguishing cache-refresh failure from an uncommitted write.
@@ -113,15 +148,18 @@ def core_error_details(exc: BaseException) -> tuple[str, dict[str, Any]]:
     :return: Stable code and a new details dictionary, without the human-readable exception message.
     """
 
+    from dataclasses import asdict
+
+    from LiuXin_alpha.catalog.api.metadata_access import MetadataReconciliationError
+    from LiuXin_alpha.catalog.api.metadata_revisions import MetadataConflictError
+    from LiuXin_alpha.catalog.api.metadata_search import MetadataSearchValidationError
     from LiuXin_alpha.core.services import (
         CoreServiceReconciliationError,
     )
 
-    from dataclasses import asdict
-    from LiuXin_alpha.catalog.api.metadata_access import MetadataReconciliationError
-    from LiuXin_alpha.catalog.api.metadata_revisions import MetadataConflictError
-    from LiuXin_alpha.catalog.api.metadata_search import MetadataSearchValidationError
-
+    catalog_details = _catalog_mutation_details(exc)
+    if catalog_details is not None:
+        return catalog_details
     if isinstance(exc, MetadataReconciliationError):
         return "metadata_reconciliation_failed", {
             "receipt": asdict(exc.receipt),
