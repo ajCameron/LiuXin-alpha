@@ -84,7 +84,7 @@ fixes torn reloads, raw identity-collision errors, stale reuse receipts, silent
 cascading deletes and picker cost, and measures the full-reload cost that blocks
 ingest through snapshot caches.
 The [change log and retirement design](change-log-and-retirement-design-2026-11-26.md)
-proposes how to remove that cost: the database records every changed row and the
+sets out how to remove that cost: the database records every changed row and the
 cache copies only those, and records are retired rather than deleted.
 The [candidate and definition optimization](metadata-search-scope-optimization-2026-11-17.md)
 records the next adapter changes, matched measurements and regression evidence.

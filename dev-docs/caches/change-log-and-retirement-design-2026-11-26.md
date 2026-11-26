@@ -1,13 +1,13 @@
 # Change log and retirement — design note
 
-Date: **2026-11-26**. Status: **proposal for review; nothing here is implemented.**
+Date: **2026-11-26**. Status: **decisions 1, 2, 4, 5 and 6 settled on 2026-11-26; decision 3 open. Phase 1 (the change log) is in progress.**
 
 This note answers [CACHE06](next_tasks.md#cache06-publish-additions-without-a-full-reload) and the add-only question in the [2026-11-26 cache review](../architectural_reviews/caches-review-2026-11-26.md). The direction chosen in discussion is:
 
 - the catalogue becomes append-only: records are retired rather than deleted;
 - the cache never applies a write itself. It copies the rows the database says changed.
 
-The section headed "Decisions needed" lists what has to be settled before any code.
+The section headed "Decisions" records what was settled and what remains open.
 
 ## Why not keep cache and database in step by writing to both
 
@@ -55,13 +55,22 @@ There is one catalogue table, `catalog_changes`, with these columns:
 | `change_id` | Identity primary key; the log's order. |
 | `table_name` | Physical table changed. |
 | `row_id` | Row changed. |
-| `operation` | `insert`, `update`, `retire`, `revive` or `purge`. |
+| `operation` | `insert`, `update` or `delete`. Phase 2 adds `retire` and `revive`, which the update trigger reports when a row's retired timestamp is set or cleared. |
+| `old_ids` | For updates and deletes: JSON of the old row's ID column and its `*_id` columns. |
 | `txid` | PostgreSQL only: `pg_current_xact_id()`, for ordering (below). |
 | `created_ms` | Time of the change. |
 
-The log stores no values; the cache re-reads current rows by ID. It is installed with the catalogue, at a new schema revision, and covers every table a cache loads: main tables, link tables, extension tables and native custom-field tables. The triggers are generated from the same templates as maintenance capture.
+The log stores no bibliographic values; the cache re-reads current rows by ID. `old_ids` holds only identities, as the maintenance journal does. It lets a removed link keep both of its ends (book and tag, say), both as history and so a cache knows which records to refresh. The triggers are generated from the same templates as maintenance capture and use only standard SQL, so writers outside LiuXin are logged too.
 
-Recommended: a dedicated table, separate from `maintenance_changes`.
+It covers every table a cache loads: main tables, link tables, allowed-type tables and native custom-field tables. When a custom field creates its tables, their triggers are installed with them.
+
+**Installing it.** The log is an optional helper table rather than a new schema revision, so existing catalogues and test fixtures keep opening:
+
+- new catalogues get it at creation, on SQLite and PostgreSQL;
+- existing catalogues add it with an explicit, previewable install; opening a catalogue never installs it;
+- a cache uses the log only when it covers every table that cache loads; otherwise it keeps today's full reload.
+
+Decided: a dedicated table, separate from `maintenance_changes`.
 
 - **Different lifecycle.** The maintenance journal is optional, installed per subscription, and pruned once durable plugin obligations complete. A cache's cursor is per process and not durable, so it should not hold up or depend on obligations.
 - **Merging later is possible.** The two logs could be merged later if pruning rules align.
@@ -93,14 +102,17 @@ Recommended: a dedicated table, separate from `maintenance_changes`.
 - record each entry's `txid`;
 - on catch-up, take `pg_snapshot_xmin(pg_current_snapshot())`;
 - apply entries from transactions older than that horizon, which are all finished;
-- keep newer entries for the next pass;
 - the cursor is the horizon, not the highest `change_id` seen.
 
-The alternatives, re-reading a trailing time window or logical decoding, are listed under "Decisions needed".
+In practice each catch-up reads every visible entry at or above the stored horizon, applies them all, and stores the new horizon, taken in the same snapshot as the read. Entries from transactions that committed early are therefore applied straight away and applied again on the next pass. That is harmless because applying an entry only re-reads the row by ID. Waiting for the horizon to pass them instead would let one long-running writer elsewhere hold back the cache's view of this process's own writes.
+
+Decided: the transaction-ID horizon. The alternatives were re-reading a trailing time window, or PostgreSQL's logical decoding.
 
 ### Cost and pruning
 
-Each changed row costs one small extra insert, against today's full reload of about 191 tables per changed write. Entries older than every live cache's needs can be pruned by age or count; a cache behind the pruned range reloads in full. If Part 2 keeps the log as history, pruning becomes archiving instead.
+Each changed row costs one small extra insert, against today's full reload of about 191 tables per changed write.
+
+Decided: the log is kept as the catalogue's history, with no pruning for now. Growth will be measured during ingest. Limits, such as archiving old entries or compacting repeated updates, are phase 4 work. If entries are ever removed, a cache whose cursor falls behind the oldest remaining entry reloads in full.
 
 ### Verification
 
@@ -120,17 +132,23 @@ Each main and vocabulary table gets nullable columns, `NULL` meaning live:
 - `<prefix>_retired_reason`
 - `<prefix>_replaced_by_id`, set by merges.
 
-Whether link rows retire too is an open decision (below). Existing rows are live, so adding the columns rewrites no data.
+Link rows do not retire: they are physically removed, and the log entry keeps both ends (decision 2). Existing rows are live, so adding the columns rewrites no data.
 
 ### Unique identities
 
 - Each declared unique identity index becomes partial: `WHERE <prefix>_retired_ms IS NULL`.
 - The CR05 identity check ignores retired rows.
-- Creating a name a retired row holds makes a new row by default. `revive(id)` brings the old one back, and fails if a live row has since taken its identity.
+- Recommended (decision 3, still open): creating a name a retired row holds makes a new row. `revive(id)` brings the old one back explicitly, and fails if a live row has since taken its identity. The reasons:
+  - links are physically removed, so automatic revival would return the old ID with none of its links;
+  - a row retired by a merge points at its replacement, and reviving it would silently undo the merge;
+  - revival would bring back attributes the caller did not supply, such as a genre's parent, which may itself be retired;
+  - a name retired more than once has several candidates;
+  - it matches the ingest rule that likely duplicates become new, flagged records rather than silent matches.
+- A create that matches a retired row can report it, so a UI or the ingest report can offer to revive it or, for a merged name, to use its replacement.
 
 ### Reads
 
-Retired rows are hidden by default everywhere:
+Retired rows are hidden by default everywhere. Decided: caches exclude them entirely, rather than holding them behind a filter.
 
 - repository reads;
 - cache loads and catch-up;
@@ -165,19 +183,21 @@ Both run as previewable plan/apply operations; opening a catalogue never upgrade
    - Writes from other processes become visible.
    - The single-connection reload (CR10) belongs here.
 2. **Retirement for Tags, Labels, Ratings, Agents and tree vocabulary.** `delete` becomes retire; the identity indexes become partial; `purge` is added.
-3. **Retirement for WEMI entities and, if chosen, link rows.** After this, ordinary operations never cause a delete-driven reload.
-4. **Retention and history:** pruning or archiving the log, and history reads.
+3. **Retirement for WEMI entities.** Link rows are still removed physically, and the cache applies those removals from `old_ids` without reloading.
+4. **Retention and history:** limits on the log's growth, such as archiving, and history reads.
 
 Ingest can start after phase 1.
 
-## Decisions needed
+## Decisions
 
-1. **Where the log lives.** A dedicated `catalog_changes` table (recommended), or the maintenance journal made mandatory.
-2. **Link rows.** Should they retire too (full membership history, partial unique keys on link tables), or be physically removed with a log entry?
-3. **Re-creating a retired name.** A new row (recommended) or automatic revival.
-4. **Log retention.** Prune once caches no longer need it, or keep it as the catalogue's history.
-5. **Retired rows in caches.** Held but filtered (cheap history reads), or excluded (smaller caches; recommended to start).
-6. **PostgreSQL ordering.** The transaction-ID horizon (recommended), a trailing re-read window, or logical decoding.
+Settled on 2026-11-26 unless marked open.
+
+1. **Where the log lives:** a dedicated `catalog_changes` table, not the maintenance journal made mandatory.
+2. **Link rows:** physically removed, with a log entry that records both ends. They do not retire.
+3. **Re-creating a retired name:** open. A new row is recommended; see "Unique identities".
+4. **Log retention:** kept as the catalogue's history. Limits on its growth are to be decided later, informed by ingest measurements.
+5. **Retired rows in caches:** excluded for now.
+6. **PostgreSQL ordering:** the transaction-ID horizon.
 
 ## Risks
 

@@ -58,9 +58,10 @@ Done when an ingest-shaped workload's per-book cost does not grow with catalogue
 size on both snapshot backends, the differential workload and the CR04 interleaving
 regression still pass, and a measured comparison is recorded. The chosen
 direction, a database-written change log the cache catches up from plus
-retirement instead of deletion, is proposed in the
-[change log and retirement design](change-log-and-retirement-design-2026-11-26.md);
-its open decisions come first.
+retirement instead of deletion, is set out in the
+[change log and retirement design](change-log-and-retirement-design-2026-11-26.md).
+Its decisions were settled on 2026-11-26 apart from how a retired name is
+re-created, which only affects retirement; phase 1, the change log, comes first.
 
 ## CACHE02. Define leases for physical cache replicas
 
