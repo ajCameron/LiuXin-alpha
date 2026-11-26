@@ -56,9 +56,11 @@ Read a reload through one pinned connection (CR10).
 
 Done when an ingest-shaped workload's per-book cost does not grow with catalogue
 size on both snapshot backends, the differential workload and the CR04 interleaving
-regression still pass, and a measured comparison is recorded. An append-only
-catalogue (retire rather than delete) would simplify this further, but is a
-separate schema and policy decision.
+regression still pass, and a measured comparison is recorded. The chosen
+direction, a database-written change log the cache catches up from plus
+retirement instead of deletion, is proposed in the
+[change log and retirement design](change-log-and-retirement-design-2026-11-26.md);
+its open decisions come first.
 
 ## CACHE02. Define leases for physical cache replicas
 
