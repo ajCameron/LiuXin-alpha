@@ -613,8 +613,9 @@ class CoreServices:
         """
         Refresh an optional cache after an already committed write and add reconciliation status to its receipt.
 
-        Prefer ``reload_data`` for a falsey/missing ``schema_changed`` flag when
-        available; otherwise use full reload. Reload/selection exceptions become
+        For a falsey/missing ``schema_changed`` flag prefer ``catch_up``, which
+        re-reads only the rows the catalogue's change log names, then
+        ``reload_data``; otherwise use full reload. Reload/selection exceptions become
         CoreServiceReconciliationError with the original receipt. Later cache
         status/generation reads are outside that wrapper and can still raise raw
         errors after refresh. No write retry, cache dirty marking, or rollback is
@@ -643,9 +644,11 @@ class CoreServices:
             }
         try:
             schema_changed = bool(receipt.get("schema_changed", False))
-            reload_data = getattr(cache, "reload_data", None)
-            if not schema_changed and callable(reload_data):
-                reload_data()
+            refresh = getattr(cache, "catch_up", None)
+            if not callable(refresh):
+                refresh = getattr(cache, "reload_data", None)
+            if not schema_changed and callable(refresh):
+                refresh()
             else:
                 cache.reload()
         except Exception as exc:

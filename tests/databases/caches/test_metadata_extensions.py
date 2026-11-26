@@ -62,13 +62,13 @@ def test_batch_atomicity_one_reconciliation_and_nested_receipts(
     api, cache = service(metadata_db, mode)
     refreshes = []
     if cache is not None:
-        reload = cache.reload
+        catch_up = cache.catch_up
 
         def refresh():
             refreshes.append(True)
-            return reload()
+            return catch_up()
 
-        monkeypatch.setattr(cache, "reload", refresh)
+        monkeypatch.setattr(cache, "catch_up", refresh)
 
     def edits(metadata):
         first = metadata.works.create({"title": "First"})
@@ -110,7 +110,7 @@ def test_batch_commit_refresh_failure_retains_aggregate_result(
         raise OSError("refresh failed")
 
     with monkeypatch.context() as patch:
-        patch.setattr(cache, "reload", fail)
+        patch.setattr(cache, "catch_up", fail)
         with pytest.raises(MetadataReconciliationError) as caught:
             api.batch(
                 lambda metadata: (

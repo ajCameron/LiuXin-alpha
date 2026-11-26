@@ -409,7 +409,7 @@ def test_relationship_commit_receipt_pending_reads_and_retained_service_lifecycl
     publication = (
         "_advance_generation"
         if cache.capabilities.consistency == CacheConsistency.LIVE
-        else "reload_data"
+        else "catch_up"
     )
     original_publication = getattr(cache, publication)
     failures = []

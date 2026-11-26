@@ -46,7 +46,11 @@ regressions join the manifest, which now requires 3,167 cases.
 
 ## CACHE06. Publish additions without a full reload
 
-**Next; blocks ingest through snapshot caches.** Every changed metadata write on a
+**In progress (2026-11-26).** Snapshots now catch up from the catalogue change log
+instead of reloading every table; see
+[catching up from the change log](change-log-catch-up-2026-11-26.md) for the
+measured gain and what remains (row-level link refresh). The original problem:
+every changed metadata write on a
 snapshot backend calls `reload_data()`: about 1.2–1.5 s (`schema_backed`) and
 2.1–2.7 s (`numpy_vectorized`) per write on a 20–40 book catalogue locally, growing
 with size (CR09). Route writes that only insert rows and links, which is most of

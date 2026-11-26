@@ -96,6 +96,7 @@ def assert_pending_in_other_thread(api, cache, entity_id):
             lambda: cache.get("works", entity_id),
             cache.reload,
             cache.reload_data,
+            cache.catch_up,
             lambda: api.works.update(entity_id, {"title": "Must not write"}),
         ):
             with pytest.raises(CacheDirtyError):
@@ -341,6 +342,9 @@ def test_metadata_committed_refresh_failure_preserves_receipt(
         raise OSError("refresh unavailable")
 
     monkeypatch.setattr(cache.storage, method, fail)
+    # Catch-up re-reads the logged rows first and reloads in full only if that fails.
+    original_ids = cache.storage.reload_ids
+    monkeypatch.setattr(cache.storage, "reload_ids", lambda *_, **__: fail())
     with pytest.raises(MetadataReconciliationError) as caught:
         api.works.create({"title": "Saved once"})
     receipt = caught.value.receipt
@@ -353,6 +357,7 @@ def test_metadata_committed_refresh_failure_preserves_receipt(
             api.works.require(receipt.result)
         assert cache.state == CacheState.DIRTY
     monkeypatch.setattr(cache.storage, method, original)
+    monkeypatch.setattr(cache.storage, "reload_ids", original_ids)
     assert api.works.require(receipt.result).work.work_title == "Saved once"
     assert cache.state == CacheState.READY
     cache.close()

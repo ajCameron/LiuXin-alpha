@@ -73,7 +73,7 @@ def test_core_native_search_display_edit_conflict_and_recovery(
                 raise OSError("Refresh failed after commit")
 
             with monkeypatch.context() as patch:
-                patch.setattr(runtime.cache, "reload_data", fail)
+                patch.setattr(runtime.cache, "catch_up", fail)
                 with pytest.raises(CoreHandlerError) as committed:
                     runtime.command(
                         "metadata.update",

@@ -352,7 +352,7 @@ def test_contextual_writes_preserve_pending_and_committed_failure_receipts(
         raise OSError("refresh failed")
 
     with monkeypatch.context() as patch:
-        patch.setattr(cache, "reload_data", fail)
+        patch.setattr(cache, "catch_up", fail)
         with pytest.raises(MetadataReconciliationError) as caught:
             api.notes.update(receipt.result, {"text": "Committed"})
     assert caught.value.receipt.persistence == "committed"

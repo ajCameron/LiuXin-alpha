@@ -6,6 +6,10 @@ explicit dirty dependencies before reads; live backends provide fresh reads
 and reset query indexes as needed. The public Cache subclasses this facade without
 adding metadata policy. Higher-level services supply physical dependencies to
 reconcile after writes; this module does not interpret Catalog mutations.
+
+When the catalogue has the change log (``databases/change_log.py``) and it covers
+every table a snapshot loads, ``catch_up`` refreshes only the rows logged since
+the last load or catch-up, instead of reloading every table.
 """
 
 from __future__ import annotations
@@ -36,6 +40,12 @@ from LiuXin_alpha.caches.api.storage_cache_api.storage_cache_api import (
 )
 from LiuXin_alpha.caches.cache_plugins.registry import create_storage_cache
 from LiuXin_alpha.caches.query import CacheQueryEngine
+from LiuXin_alpha.databases import change_log
+from LiuXin_alpha.databases.change_log import (
+    ChangeCursor,
+    ChangeEntry,
+    ChangeLogUnavailable,
+)
 
 if TYPE_CHECKING:
     from LiuXin_alpha.databases.api.database_api.database_api import DatabaseAPI
@@ -55,6 +65,10 @@ class ReadCache(CacheAPI):
         Given an attached database, ``cache = ReadCache(database); cache.load()``
         establishes READY state before ``cache.get("books", 1)``.
     """
+
+    #: Most logged changes one catch-up applies row by row; a larger backlog,
+    #: such as a bulk import committed elsewhere, reloads in full instead.
+    CATCH_UP_LIMIT = 5000
 
     def __init__(
         self,
@@ -112,6 +126,8 @@ class ReadCache(CacheAPI):
         self._dirty_links: set[tuple[str, str]] = set()
         self._dirty_fields: set[str] = set()
         self._pending_refresh_transactions: set[object] = set()
+        self._change_cursor: ChangeCursor | None = None
+        self._catch_up_required = False
         self._query_engine = CacheQueryEngine(
             self.storage,
             plan_cache_size=plan_cache_size,
@@ -279,9 +295,9 @@ class ReadCache(CacheAPI):
             return cast(AbstractContextManager[object], read_transaction())
         return nullcontext()
 
-    def _read_consistently(self, operation: Callable[[], object]) -> None:
+    def _read_consistently[ResultT](self, operation: Callable[[], ResultT]) -> ResultT:
         """
-        Run a full storage load so every table reflects one committed state.
+        Run storage reads so every table reflects one committed state.
 
         The database repeats the operation when another connection commits during
         it (SQLite) or runs it in one repeatable-read snapshot (PostgreSQL); see
@@ -293,15 +309,14 @@ class ReadCache(CacheAPI):
             works that the same reload did not read.
 
 
-        :param operation: Repeatable full storage load/reload operation.
-        :return: None after a pass that saw no concurrent commit.
+        :param operation: Repeatable storage load, reload or catch-up operation.
+        :return: The operation's result from a pass that saw no concurrent commit.
         """
         macros = getattr(self.database, "macros", None)
         read_consistently = getattr(macros, "read_consistently", None)
         if callable(read_consistently):
-            read_consistently(operation)
-        else:
-            operation()
+            return cast(ResultT, read_consistently(operation))
+        return operation()
 
     def _run_full_refresh(
         self,
@@ -315,6 +330,8 @@ class ReadCache(CacheAPI):
         A load or reload reads every table as one committed database state, so a
         writer on another connection cannot commit between two table reads and leave
         rows pointing at entities the snapshot lacks. See ``_read_consistently``.
+        A successful load also records the change-log cursor taken with it, when
+        the log covers this snapshot; otherwise ``catch_up`` reloads in full.
 
         Example:
             A failed reload cannot leave the facade claiming a complete READY snapshot.
@@ -333,11 +350,15 @@ class ReadCache(CacheAPI):
         self._pending_query_results = None
         self._state = CacheState.DIRTY
         self._full_reload_required = True
+        self._change_cursor = None
         self._query_engine.reset()
         try:
             if final_state == CacheState.READY:
-                self._read_consistently(operation)
+                cursor = self._read_consistently(
+                    lambda: self._load_with_cursor(operation)
+                )
             else:
+                cursor = None
                 operation()
         except Exception:
             self._advance_generation()
@@ -347,8 +368,318 @@ class ReadCache(CacheAPI):
         self._dirty_links.clear()
         self._dirty_fields.clear()
         self._full_reload_required = False
+        self._catch_up_required = False
+        self._change_cursor = cursor
         self._state = final_state
         self._advance_generation()
+
+    def _log_schema(self) -> str | None:
+        """
+        Name the PostgreSQL schema holding the change log, or None for SQLite.
+
+        Example:
+            ``cache._log_schema()`` is ``"library"`` for a catalogue in that schema.
+
+
+        :return: The database driver's schema, or None.
+        """
+        schema = getattr(getattr(self.database, "driver", None), "schema", None)
+        return schema if isinstance(schema, str) and schema else None
+
+    @contextmanager
+    def _log_connection(self) -> Iterator[Any]:
+        """
+        Borrow this thread's open transaction, or own a short read snapshot, for log reads.
+
+        Example:
+            ``with cache._log_connection() as connection: ...`` reads the log
+            inside the caller's PostgreSQL snapshot during a consistent read.
+
+
+        :return: Context yielding a connection that accepts ``?`` placeholders.
+        :raises ChangeLogUnavailable: The database has no portable transactions.
+        """
+        macros = getattr(self.database, "macros", None)
+        current = getattr(macros, "current_transaction_connection", None)
+        read_transaction = getattr(macros, "read_transaction", None)
+        if not callable(current) or not callable(read_transaction):
+            raise ChangeLogUnavailable("The database exposes no portable transactions")
+        connection = current()
+        if connection is not None:
+            yield connection
+            return
+        with cast(AbstractContextManager[Any], read_transaction()) as owned:
+            yield owned
+
+    def _logged_tables(self) -> set[str] | None:
+        """
+        List the physical tables this snapshot reads, which the log must cover.
+
+        Example:
+            ``cache._logged_tables()`` includes ``"works"`` and ``"tag_work_links"``.
+
+
+        :return: Main and link table names, or None when a link view has no table name.
+        """
+        tables = {str(table) for table in self.storage.main_tables}
+        for link_table in self.storage.link_tables.values():
+            name = getattr(link_table, "table", None)
+            if not isinstance(name, str):
+                return None
+            tables.add(name)
+        return tables
+
+    def _load_with_cursor(self, operation: Callable[[], object]) -> ChangeCursor | None:
+        """
+        Take the change-log cursor, run a full load, then confirm the log covers it.
+
+        The cursor is read before the data, so a change committed in between is
+        both loaded and replayed later; replaying only re-reads rows by ID.
+
+        Example:
+            ``self._load_with_cursor(self.storage.reload)`` returns the cursor
+            ``catch_up`` continues from.
+
+
+        :param operation: Full storage load or reload.
+        :return: The cursor, or None when the snapshot is live, the log is absent,
+            or some table the snapshot read is not covered.
+        """
+        if self.storage.capabilities.live_reads:
+            operation()
+            return None
+        schema = self._log_schema()
+        try:
+            with self._log_connection() as connection:
+                cursor = change_log.current_cursor(connection, schema=schema)
+        except ChangeLogUnavailable:
+            cursor = None
+        operation()
+        if cursor is None:
+            return None
+        tables = self._logged_tables()
+        if tables is None:
+            return None
+        with self._log_connection() as connection:
+            covered = change_log.covered_tables(connection, schema=schema)
+        return cursor if tables <= covered else None
+
+    def _catch_up_plan(
+        self, entries: Iterable[ChangeEntry]
+    ) -> tuple[set[str], dict[str, set[int]], set[tuple[str, str]]]:
+        """
+        Group logged changes into the storage refreshes that apply them.
+
+        A main-table row is re-read by ID, or the whole table when the entry has
+        no row ID. A changed link row reloads every directed view of its table.
+        Tables this snapshot does not read are ignored.
+
+        Example:
+            An inserted Tag and its new ``tag_work_links`` row give
+            ``(set(), {"tags": {7}}, {("tags", "works"), ("works", "tags")})``.
+
+
+        :param entries: Logged changes in log order.
+        :return: Whole main tables, main-table row IDs and directed link views to refresh.
+        """
+        main = self.storage.main_tables
+        link_views: dict[str, list[tuple[str, str]]] = {}
+        for key, link_table in self.storage.link_tables.items():
+            link_views.setdefault(str(getattr(link_table, "table", "")), []).append(
+                (str(key[0]), str(key[1]))
+            )
+        tables: set[str] = set()
+        ids: dict[str, set[int]] = {}
+        links: set[tuple[str, str]] = set()
+        for entry in entries:
+            if entry.table in main:
+                if entry.row_id is None:
+                    tables.add(entry.table)
+                    continue
+                changed = ids.setdefault(entry.table, set())
+                changed.add(entry.row_id)
+                id_column = getattr(main[entry.table], "id_column", None)
+                previous = (entry.old_ids or {}).get(id_column) if id_column else None
+                if isinstance(previous, int):
+                    changed.add(previous)
+            else:
+                links.update(link_views.get(entry.table, ()))
+        for table in tables:
+            ids.pop(table, None)
+        return tables, ids, links
+
+    def _apply_logged_changes(self, cursor: ChangeCursor) -> tuple[ChangeCursor, bool]:
+        """
+        Read the log after a cursor and refresh exactly the rows and links it names.
+
+        Run it inside one read transaction (``_read_snapshot``): every refresh
+        borrows that connection, so the log and the rows it names are read from one
+        committed state and no further connection is opened. Holding the snapshot
+        makes another SQLite writer's commit wait until it ends; a catch-up is short,
+        unlike the full reload, which therefore reads optimistically instead.
+        Coverage is checked again first, so a log trigger dropped since the load
+        forces a full reload.
+
+        Example:
+            ``with self._read_snapshot(): self._apply_logged_changes(cursor)``
+
+
+        :param cursor: Cursor from the last load or catch-up.
+        :return: The advanced cursor and whether any entry was applied.
+        :raises ChangeLogUnavailable: The log cannot bring this snapshot up to date.
+        """
+        schema = self._log_schema()
+        tables = self._logged_tables()
+        with self._log_connection() as connection:
+            # A trigger dropped since the load would leave writes out of the log.
+            if tables is None or not tables <= change_log.covered_tables(
+                connection, schema=schema
+            ):
+                raise ChangeLogUnavailable("The log no longer covers this snapshot")
+            entries, after = change_log.read_changes(
+                connection, cursor, schema=schema, limit=self.CATCH_UP_LIMIT
+            )
+        tables, ids, links = self._catch_up_plan(entries)
+        for table in sorted(tables):
+            self.storage.reload_main_table(table)
+        for table in sorted(ids):
+            self.storage.reload_ids(table, ids[table])
+        for source, target in sorted(links):
+            self.storage.reload_link_table(source, target)
+        return after, bool(entries)
+
+    def _catch_up_locked(self) -> None:
+        """
+        Apply logged changes since the cursor, or reload in full when that is not possible.
+
+        The caller holds the operation lock, outside any open transaction. Without
+        a usable cursor, after a reinstalled log, a backlog over ``CATCH_UP_LIMIT``
+        or a failed refresh, this reloads in full as ``reload_data`` does. A pending
+        full-reload requirement, such as a schema change, reloads with discovery.
+
+        Example:
+            After this process commits a new Work, ``cache._catch_up_locked()``
+            re-reads that Work and its links rather than every table.
+
+
+        :return: None; the snapshot reflects every change committed before the call.
+        """
+        if self._full_reload_required:
+            # A failed refresh or a schema change needs schema discovery too.
+            self._run_full_refresh(self.storage.reload)
+            return
+        if self.capabilities.consistency == CacheConsistency.LIVE:
+            self._advance_generation()
+            return
+        cursor = self._change_cursor
+        if cursor is None:
+            self._reload_data_locked()
+            return
+        self._refresh_dirty()
+        self._pending_query_results = None
+        try:
+            # One short read transaction: every refresh borrows its connection,
+            # so the rows and the log come from one committed state.
+            with self._read_snapshot():
+                after, changed = self._apply_logged_changes(cursor)
+        except Exception:
+            self._reload_data_locked()
+            return
+        self._change_cursor = after
+        self._catch_up_required = False
+        self._state = CacheState.READY
+        if changed:
+            self._advance_generation()
+
+    def _reload_data_locked(self) -> None:
+        """
+        Run ``reload_data``'s full refresh with the operation lock already held.
+
+        Example:
+            ``self._reload_data_locked()`` is the catch-up fallback.
+
+
+        :return: None; the snapshot is reloaded and a new cursor taken.
+        """
+        reload_data = getattr(self.storage, "reload_data", None)
+        self._run_full_refresh(
+            reload_data if callable(reload_data) else self.storage.reload
+        )
+
+    def catch_up(self) -> None:
+        """
+        Bring a snapshot up to date with every committed change.
+
+        With the change log, only rows logged since the last load or catch-up
+        are re-read; this includes writes from other connections and processes.
+        Without it, or when the log cannot help, the snapshot reloads in full.
+        Live backends only advance the generation, unless a failed refresh or a
+        schema change still requires a full reload.
+
+        Example:
+            After another process adds a Tag, ``cache.catch_up()`` makes it
+            visible without reloading every table.
+
+
+        :return: None; advances the generation when anything changed.
+        :raises CacheClosedError: The facade is closed.
+        :raises CacheDirtyError: A transaction that must publish first is still open.
+        """
+        with self._operation_lock():
+            self._assert_ready()
+            if self._pending_refresh_transactions or self._transaction_is_open():
+                raise CacheDirtyError(
+                    "Cache catch-up is deferred until its transaction finishes"
+                )
+            self._catch_up_locked()
+
+    def _recovered_or_caught_up(self) -> bool:
+        """
+        Run a required full reload or catch-up before explicit dirty dependencies.
+
+        The caller holds the operation lock and has checked no transaction is open.
+        A required full reload, with schema discovery, settles everything. A required
+        catch-up applies logged changes; explicit dependencies may still follow.
+
+        Example:
+            In ``_refresh_dirty``, ``if self._recovered_or_caught_up(): return``.
+
+
+        :return: True when nothing remains for the explicit dependency refresh.
+        """
+        if getattr(self, "_full_reload_required", False):
+            self._run_full_refresh(self.storage.reload)
+            return True
+        if not getattr(self, "_catch_up_required", False):
+            return False
+        self._catch_up_required = False
+        self._state = CacheState.READY
+        self._catch_up_locked()
+        if not (
+            self._dirty_tables or self._dirty_ids or self._dirty_links or self._dirty_fields
+        ):
+            return True
+        self._state = CacheState.DIRTY
+        return False
+
+    def _require_catch_up(self) -> None:
+        """
+        Make the next read catch up from the log, or reload in full without a cursor.
+
+        Used for a write inside a transaction that has not committed yet: the
+        log will hold its rows if it commits and nothing if it rolls back.
+
+        Example:
+            ``cache._require_catch_up(); cache._defer_refresh_until_transaction_ends()``
+
+
+        :return: None; marks the facade DIRTY.
+        """
+        if self._change_cursor is None:
+            self._full_reload_required = True
+        else:
+            self._catch_up_required = True
+        self._mark_dependencies_dirty((), (), ())
 
     def load(self) -> None:
         """
@@ -411,10 +742,7 @@ class ReadCache(CacheAPI):
 
         with self._operation_lock():
             self._assert_open()
-            reload_data = getattr(self.storage, "reload_data", None)
-            self._run_full_refresh(
-                reload_data if callable(reload_data) else self.storage.reload
-            )
+            self._reload_data_locked()
 
     def clear(self) -> None:
         """
@@ -601,8 +929,7 @@ class ReadCache(CacheAPI):
             )
 
         try:
-            if getattr(self, "_full_reload_required", False):
-                self._run_full_refresh(self.storage.reload)
+            if self._recovered_or_caught_up():
                 return
             for table in sorted(self._dirty_tables):
                 self.storage.reload_main_table(table)

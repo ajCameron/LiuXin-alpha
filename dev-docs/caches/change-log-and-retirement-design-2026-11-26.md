@@ -1,6 +1,6 @@
 # Change log and retirement — design note
 
-Date: **2026-11-26**. Status: **all six decisions settled on 2026-11-26. Phase 1 (the change log) is in progress.**
+Date: **2026-11-26**. Status: **all six decisions settled on 2026-11-26. Phase 1 is in progress: the [change log](../databases/change-log.md) and [cache catch-up](change-log-catch-up-2026-11-26.md) are implemented.**
 
 This note answers [CACHE06](next_tasks.md#cache06-publish-additions-without-a-full-reload) and the add-only question in the [2026-11-26 cache review](../architectural_reviews/caches-review-2026-11-26.md). The direction chosen in discussion is:
 

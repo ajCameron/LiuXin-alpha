@@ -224,18 +224,18 @@ def test_whole_traversal_fallback_and_retained_lifecycle(metadata_db, monkeypatc
 
 def test_tree_publication_failure_preserves_committed_result(metadata_db, monkeypatch):
     api, cache = service(metadata_db, "schema_backed")
-    original = cache.reload_data
+    original = cache.catch_up
 
     def broken(*args, **kwargs):
         raise RuntimeError("publication failed")
 
-    monkeypatch.setattr(cache, "reload_data", broken)
+    monkeypatch.setattr(cache, "catch_up", broken)
     with pytest.raises(MetadataReconciliationError) as caught:
         api.genres.create_tree(node("Committed", node("Child")))
     assert caught.value.receipt.persistence == "committed"
     assert len(caught.value.receipt.result) == 2
-    monkeypatch.setattr(cache, "reload_data", original)
-    cache.reload_data()
+    monkeypatch.setattr(cache, "catch_up", original)
+    cache.catch_up()
     assert len(api.genres.subtree(caught.value.receipt.result[0])) == 2
     cache.close()
 

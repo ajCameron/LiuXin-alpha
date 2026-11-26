@@ -173,6 +173,62 @@ def _snapshot_lacks(cache: ReadCache, rows: Iterable[tuple[str, int]]) -> bool:
     return False
 
 
+def _reconcile_cache(
+    cache: ReadCache,
+    *,
+    pending: bool,
+    changed: bool,
+    schema_changed: bool,
+    promised: Callable[[], Iterable[tuple[str, int]]] | None,
+) -> None:
+    """
+    Bring a cache up to date after one coordinated write.
+
+    Inside a caller's transaction, the next read refreshes once it completes:
+    from the change log, which holds the rows if it commits and nothing if it
+    rolls back, or in full after a schema change. A committed change catches
+    up at once. A committed no-change write catches up only when the snapshot
+    lacks a row the result promises exists, such as a Tag that exact reuse
+    found after another connection created it.
+
+    Example:
+        ``_reconcile_cache(cache, pending=False, changed=True, schema_changed=False, promised=None)``
+        re-reads the logged rows.
+
+
+    :param cache: Loaded cache of the written database.
+    :param pending: Whether the write awaits an outer transaction's completion.
+    :param changed: Whether the write changed anything.
+    :param schema_changed: Whether it changed the schema, which needs discovery.
+    :param promised: Rows the result promises exist, read only when needed.
+    :return: None; refreshes now or arranges the refresh after the transaction.
+    """
+    live = cache.capabilities.consistency == CacheConsistency.LIVE
+    if pending and changed:
+        # Thread-local macro depth alone cannot stop another thread from
+        # publishing an old snapshot before the outer commit.
+        if schema_changed:
+            cache._full_reload_required = True
+            cache._mark_dependencies_dirty((), (), ())
+        else:
+            cache._require_catch_up()
+        cache._defer_refresh_until_transaction_ends()
+    elif changed:
+        if schema_changed:
+            cache.reload()
+        else:
+            # Live caches only advance their generation, unless a nested write
+            # inside this unit left a full reload pending.
+            cache.catch_up()
+    elif (
+        not pending
+        and promised is not None
+        and not live
+        and _snapshot_lacks(cache, promised())
+    ):
+        cache.catch_up()
+
+
 class MetadataAPI:
     """
     Implement MetadataAPIInterface with one Catalog and optional loaded cache.
@@ -737,7 +793,8 @@ class MetadataAPI:
 
         Child receipts remain pending. Caller-owned outer transactions retain commit
         ownership; cache reads after edits defer until completion. A successful outer
-        batch performs one full reconciliation, not necessarily one generation increment.
+        batch reconciles once: it catches up from the change log, or reloads in full
+        when a child changed the schema or the catalogue has no log.
 
         Example:
             >>> receipt = metadata.batch(lambda api: api.works.create({"title": "Dune"}).result)  # doctest: +SKIP
@@ -770,7 +827,8 @@ class MetadataAPI:
             finally:
                 self._batch_changes.reset(token)
 
-        return self._write(run, expected=tuple(expected), schema_changed=True)
+        # Children that change the schema require a full reload themselves.
+        return self._write(run, expected=tuple(expected))
 
     def _check_revisions(self, expected: Sequence[MetadataEditRevision]) -> None:
         """
@@ -855,10 +913,13 @@ class MetadataAPI:
         Nested managed operations defer refresh. Publication failures retain the completed
         result and dirty the cache; persistence is never retried here.
 
-        A committed no-change write normally leaves a snapshot alone. When ``present``
-        names rows the result promises exist, such as the Tag that exact reuse found,
-        and the snapshot lacks one of them, another connection created it since the
-        last reload; the snapshot is reloaded so a "current" receipt can be read back.
+        A committed change brings a snapshot up to date through ``catch_up``: with the
+        catalogue's change log only the logged rows are re-read, otherwise it reloads
+        in full. A committed no-change write normally leaves a snapshot alone. When
+        ``present`` names rows the result promises exist, such as the Tag that exact
+        reuse found, and the snapshot lacks one of them, another connection created it
+        since the last refresh; the snapshot catches up so a "current" receipt can be
+        read back.
 
         Example:
             If SQL commits and cache reload fails, the error retains a committed receipt.
@@ -934,28 +995,13 @@ class MetadataAPI:
             if cache is None:
                 return receipt
             try:
-                if pending and changed:
-                    # Thread-local macro depth alone cannot stop another thread
-                    # from publishing an old snapshot before the outer commit.
-                    cache._full_reload_required = True
-                    cache._mark_dependencies_dirty((), (), ())
-                    cache._defer_refresh_until_transaction_ends()
-                elif not pending and changed:
-                    if schema_changed:
-                        cache.reload()
-                    elif cache.capabilities.consistency == CacheConsistency.LIVE:
-                        cache._advance_generation()
-                    else:
-                        cache.reload_data()
-                elif (
-                    not pending
-                    and present is not None
-                    and cache.capabilities.consistency != CacheConsistency.LIVE
-                    and _snapshot_lacks(cache, present(result))
-                ):
-                    # Exact reuse found a row another connection committed after
-                    # this snapshot; "current" must include what we just returned.
-                    cache.reload_data()
+                _reconcile_cache(
+                    cache,
+                    pending=pending,
+                    changed=changed,
+                    schema_changed=schema_changed,
+                    promised=None if present is None else (lambda: present(result)),
+                )
             except Exception as exc:
                 cache._full_reload_required = True
                 cache._mark_dependencies_dirty((), (), ())
