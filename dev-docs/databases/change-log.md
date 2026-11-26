@@ -37,7 +37,10 @@ The log is an optional helper, so it needs no schema revision and older catalogu
 - **Existing catalogues** add it with `change_log.install(connection, schema=...)` inside a write transaction. Running `change_log.plan_install(...)` first lists the statements without writing anything.
 - **Opening** a catalogue never installs it.
 
-Reinstalling is safe: triggers are replaced and existing entries are kept. `log_uuid`, in `catalog_changes_metadata`, identifies one installation; a reader whose cursor came from a different installation must reload in full.
+Reinstalling is safe: triggers are replaced and existing entries are kept. `catalog_changes_metadata` holds two identities, and a reader whose cursor disagrees with either must reload in full:
+
+- `log_uuid` identifies one installation of the log;
+- `trigger_generation` counts trigger installations. Writes made while a trigger was missing are not in the log, so a cursor taken before triggers were (re)installed cannot be trusted. Creating a custom field's tables counts as one too.
 
 `covered_tables` reads coverage from the triggers actually present. A table that was renamed or rebuilt after its triggers were installed, or that was created without them, is not covered. A reader should not rely on the log for such a table.
 
@@ -55,7 +58,7 @@ Take the cursor before reading the data it accompanies. A change committed in be
 
 **PostgreSQL** assigns `change_id` before commit, so a later entry can commit first. The cursor is a transaction-ID horizon: `pg_snapshot_xmin`, read before the entries, below which every transaction has finished. Each read returns the visible entries at or above the stored horizon, skipping those already returned, which the cursor remembers in `seen` until the horizon passes them. An entry that commits late is therefore returned when it becomes visible. A long-running writer elsewhere delays nothing.
 
-`read_changes` raises `ChangeLogUnavailable` when the log is absent or was reinstalled, when its entries end before the cursor, or when more than `limit` entries are pending. In each case the reader reloads in full.
+`read_changes` raises `ChangeLogUnavailable` when the log is absent, when it or its triggers were reinstalled, when its entries end before the cursor, or when more than `limit` entries are pending. In each case the reader reloads in full.
 
 ## Not logged
 

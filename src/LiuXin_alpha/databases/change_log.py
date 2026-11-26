@@ -133,11 +133,15 @@ class ChangeCursor:
     :param log_uuid: Identity of the installed log; a reinstalled log has a new one.
     :param position: Last applied change (SQLite) or transaction horizon (PostgreSQL).
     :param seen: PostgreSQL only: change IDs at or above the horizon already returned.
+    :param generation: Trigger installations so far. Triggers dropped and installed
+        again may have missed writes in between, so a changed count invalidates the
+        cursor.
     """
 
     log_uuid: str
     position: int
     seen: frozenset[int] = field(default_factory=frozenset)
+    generation: int = 0
 
 
 def quote(name: str) -> str:
@@ -346,6 +350,43 @@ def present(connection: RowSQLConnection, *, schema: str | None = None) -> bool:
     return {LOG_TABLE, METADATA_TABLE} <= tables
 
 
+def _log_state(
+    connection: RowSQLConnection, schema: str | None
+) -> tuple[str, int]:
+    """
+    Read the installed log's identity and trigger-installation count.
+
+    Example:
+        >>> import sqlite3
+        >>> c = sqlite3.connect(":memory:")
+        >>> _ = install(c, tables=())
+        >>> _log_state(c, None)[1]
+        1
+
+
+    :param connection: Borrowed connection.
+    :param schema: PostgreSQL schema, or None for SQLite.
+    :return: The log's UUID and how many times triggers have been installed.
+    :raises ChangeLogUnavailable: The log is absent or its metadata is incomplete.
+    """
+    if not present(connection, schema=schema):
+        raise ChangeLogUnavailable(f"{LOG_TABLE} is not installed")
+    rows = _rows(
+        connection,
+        f"SELECT key, value FROM {_table_sql(METADATA_TABLE, schema)}",
+    )
+    values = {str(key): str(value) for key, value in rows}
+    if (
+        values.get("schema_version") != str(SCHEMA_VERSION)
+        or not values.get("log_uuid")
+        or not values.get("trigger_generation", "").isdigit()
+    ):
+        raise ChangeLogUnavailable(
+            f"{LOG_TABLE} has unsupported metadata: {sorted(values.items())!r}"
+        )
+    return values["log_uuid"], int(values["trigger_generation"])
+
+
 def log_uuid(connection: RowSQLConnection, *, schema: str | None = None) -> str:
     """
     Read the identity of the installed log.
@@ -363,18 +404,7 @@ def log_uuid(connection: RowSQLConnection, *, schema: str | None = None) -> str:
     :return: The UUID recorded when the log was installed.
     :raises ChangeLogUnavailable: The log is absent or its metadata is incomplete.
     """
-    if not present(connection, schema=schema):
-        raise ChangeLogUnavailable(f"{LOG_TABLE} is not installed")
-    rows = _rows(
-        connection,
-        f"SELECT key, value FROM {_table_sql(METADATA_TABLE, schema)}",
-    )
-    values = {str(key): str(value) for key, value in rows}
-    if values.get("schema_version") != str(SCHEMA_VERSION) or not values.get("log_uuid"):
-        raise ChangeLogUnavailable(
-            f"{LOG_TABLE} has unsupported metadata: {sorted(values.items())!r}"
-        )
-    return values["log_uuid"]
+    return _log_state(connection, schema)[0]
 
 
 def eligible(table: str) -> bool:
@@ -706,8 +736,11 @@ def install(
     """
     Create the log if absent and (re)install triggers, in the caller's transaction.
 
-    Existing entries are kept, so reinstalling triggers never loses history. The
-    caller owns the transaction and serializes concurrent installs. On SQLite the
+    Existing entries are kept, so reinstalling triggers never loses history. Each
+    call that installs triggers counts one more trigger generation, which makes
+    readers' earlier cursors refuse to continue: writes made while a trigger was
+    missing would not be in the log. The caller owns the transaction and
+    serializes concurrent installs. On SQLite the
     statements run under a savepoint, so outside a transaction the install
     commits as one unit and a failure leaves nothing behind.
 
@@ -739,16 +772,23 @@ def install(
     try:
         for statement in plan:
             _execute(connection, statement)
+        metadata = _table_sql(METADATA_TABLE, schema)
         if created:
-            metadata = _table_sql(METADATA_TABLE, schema)
             for key, value in (
                 ("schema_version", str(SCHEMA_VERSION)),
                 ("log_uuid", str(uuid.uuid4())),
                 ("installed_ms", str(int(time.time() * 1000))),
+                ("trigger_generation", "1"),
             ):
                 connection.execute(
                     f"INSERT INTO {metadata} (key, value) VALUES (?, ?)", (key, value)
                 ).close()
+        elif selected:
+            generation = _log_state(connection, schema)[1] + 1
+            connection.execute(
+                f"UPDATE {metadata} SET value = ? WHERE key = 'trigger_generation'",
+                (str(generation),),
+            ).close()
     except BaseException:
         if savepoint:
             _execute(connection, f"ROLLBACK TO {savepoint}")
@@ -879,11 +919,11 @@ def current_cursor(
     :return: Cursor positioned after every entry committed so far.
     :raises ChangeLogUnavailable: The log is absent.
     """
-    identity = log_uuid(connection, schema=schema)
+    identity, generation = _log_state(connection, schema)
     if schema:
-        return ChangeCursor(identity, _horizon(connection))
+        return ChangeCursor(identity, _horizon(connection), generation=generation)
     rows = _rows(connection, f"SELECT COALESCE(MAX(change_id), 0) FROM {quote(LOG_TABLE)}")
-    return ChangeCursor(identity, int(rows[0][0]))
+    return ChangeCursor(identity, int(rows[0][0]), generation=generation)
 
 
 def _entry(row: Sequence[Any]) -> ChangeEntry:
@@ -943,11 +983,17 @@ def read_changes(
     :param schema: PostgreSQL schema, or None for SQLite.
     :param limit: Most entries the caller will apply; more pending raises.
     :return: New entries in ``change_id`` order, and the advanced cursor.
-    :raises ChangeLogUnavailable: The log is absent or was reinstalled, its
-        entries end before the cursor, or more than ``limit`` entries are pending.
+    :raises ChangeLogUnavailable: The log is absent, it or its triggers were
+        reinstalled, its entries end before the cursor, or more than ``limit``
+        entries are pending.
     """
-    if log_uuid(connection, schema=schema) != cursor.log_uuid:
+    identity, generation = _log_state(connection, schema)
+    if identity != cursor.log_uuid:
         raise ChangeLogUnavailable(f"{LOG_TABLE} was reinstalled since the cursor")
+    if generation != cursor.generation:
+        raise ChangeLogUnavailable(
+            f"{LOG_TABLE} triggers were reinstalled since the cursor"
+        )
     log = _table_sql(LOG_TABLE, schema)
     columns = "change_id, table_name, row_id, operation, old_ids"
     fetch = None if limit is None else limit + 1 + len(cursor.seen)
@@ -968,7 +1014,7 @@ def read_changes(
         seen = frozenset(int(row[0]) for row in rows if int(row[5]) >= horizon)
         if limit is not None and len(entries) > limit:
             raise ChangeLogUnavailable(f"More than {limit} pending {LOG_TABLE} entries")
-        return entries, ChangeCursor(cursor.log_uuid, horizon, seen)
+        return entries, ChangeCursor(cursor.log_uuid, horizon, seen, generation)
     last = _rows(connection, f"SELECT COALESCE(MAX(change_id), 0) FROM {log}")
     if int(last[0][0]) < cursor.position:
         raise ChangeLogUnavailable(f"{LOG_TABLE} ends before the cursor")
@@ -981,7 +1027,7 @@ def read_changes(
         raise ChangeLogUnavailable(f"More than {limit} pending {LOG_TABLE} entries")
     entries = tuple(_entry(row) for row in rows)
     position = entries[-1].change_id if entries else cursor.position
-    return entries, ChangeCursor(cursor.log_uuid, position)
+    return entries, ChangeCursor(cursor.log_uuid, position, generation=generation)
 
 
 __all__ = [

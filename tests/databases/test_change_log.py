@@ -298,11 +298,15 @@ def test_existing_catalogue_installs_explicitly_and_keeps_history(catalogue):
         start = change_log.current_cursor(connection)
         with connection:
             connection.execute("INSERT INTO tags (tag) VALUES ('after install')")
+        entries, _ = change_log.read_changes(connection, start)
+        assert [(e.table, e.operation) for e in entries] == [("tags", "insert")]
+
         with connection:
             again = change_log.install(connection)
         assert again["log_uuid"] == installed["log_uuid"]
-        entries, _ = change_log.read_changes(connection, start)
-        assert [(e.table, e.operation) for e in entries] == [("tags", "insert")]
+        assert connection.execute("SELECT COUNT(*) FROM catalog_changes").fetchone() == (1,)
+        with pytest.raises(ChangeLogUnavailable, match="triggers were reinstalled"):
+            change_log.read_changes(connection, start)
 
 
 def test_reinstalled_log_or_large_backlog_needs_a_full_reload(catalogue):
@@ -338,6 +342,7 @@ def test_reinstalled_log_or_large_backlog_needs_a_full_reload(catalogue):
 def test_a_table_whose_triggers_are_missing_is_not_covered(catalogue):
     """
     Coverage is read from the triggers present, so a dropped trigger is noticed.
+    Reinstalling it invalidates older cursors, since writes in between were not logged.
 
     Example:
         >>> test_a_table_whose_triggers_are_missing_is_not_covered(path)  # doctest: +SKIP
@@ -352,8 +357,13 @@ def test_a_table_whose_triggers_are_missing_is_not_covered(catalogue):
             connection.execute(f'DROP TRIGGER "{name}"')
         covered = change_log.covered_tables(connection)
         assert "tags" not in covered and "works" in covered
-        assert change_log.install_table(connection, "tags")
+        before = change_log.current_cursor(connection)
+        with connection:
+            connection.execute("UPDATE tags SET tag = tag")
+            assert change_log.install_table(connection, "tags")
         assert "tags" in change_log.covered_tables(connection)
+        with pytest.raises(ChangeLogUnavailable):
+            change_log.read_changes(connection, before)
 
 
 def test_native_custom_field_tables_are_logged_from_creation(catalogue):
