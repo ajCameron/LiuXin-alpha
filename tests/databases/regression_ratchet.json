@@ -3309,6 +3309,20 @@
       "tests/databases/caches/test_reload_consistency.py::test_read_consistently_repeats_then_holds_a_read_transaction",
       "tests/databases/caches/test_reload_consistency.py::test_reload_repeats_when_another_connection_commits_midway[numpy_vectorized]",
       "tests/databases/caches/test_reload_consistency.py::test_reload_repeats_when_another_connection_commits_midway[schema_backed]"
+    ],
+    "catalog_change_log": [
+      "tests/databases/test_change_log.py::test_new_catalogue_logs_every_catalogue_table",
+      "tests/databases/test_change_log.py::test_metadata_writes_log_rows_and_both_ends_of_removed_links",
+      "tests/databases/test_change_log.py::test_cascades_other_connections_and_plain_sql_are_logged",
+      "tests/databases/test_change_log.py::test_rolled_back_changes_leave_no_entries",
+      "tests/databases/test_change_log.py::test_tables_without_an_integer_id_log_the_table",
+      "tests/databases/test_change_log.py::test_existing_catalogue_installs_explicitly_and_keeps_history",
+      "tests/databases/test_change_log.py::test_reinstalled_log_or_large_backlog_needs_a_full_reload",
+      "tests/databases/test_change_log.py::test_a_table_whose_triggers_are_missing_is_not_covered",
+      "tests/databases/test_change_log.py::test_native_custom_field_tables_are_logged_from_creation",
+      "tests/databases/test_change_log_postgres_live.py::test_new_postgres_catalogue_logs_every_catalogue_table",
+      "tests/databases/test_change_log_postgres_live.py::test_postgres_cascades_keep_both_ends_of_removed_links",
+      "tests/databases/test_change_log_postgres_live.py::test_out_of_order_commits_are_neither_skipped_nor_repeated"
     ]
   }
 }
