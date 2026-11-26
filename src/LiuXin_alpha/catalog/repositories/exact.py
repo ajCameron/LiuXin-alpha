@@ -9,7 +9,7 @@ Read-only entities and entities requiring contextual creation have distinct rule
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from typing import ClassVar
 
 from ..api.common import (
@@ -161,7 +161,7 @@ class ExactEntityRepository(BaseRepository):
 
     def _validate_proposed(
         self,
-        proposed: Mapping[EntityId | None, RowMapping],
+        proposed: Iterable[tuple[EntityId | None, RowMapping]],
         existing: Mapping[EntityId, RowMapping],
     ) -> None:
         """
@@ -179,21 +179,19 @@ class ExactEntityRepository(BaseRepository):
             ``CatalogIdentityConflictError("tags", 7, {"tag_phash": "travel"})``.
 
 
-        :param proposed: Final rows keyed by ID; None keys a row being inserted.
+        :param proposed: ``(id, final row)`` pairs; an ID of None marks an insert.
         :param existing: Stored rows before the change, keyed by ID; empty on insert.
         :return: None when no identity is taken.
         :raises CatalogIdentityConflictError: Another row holds a proposed identity.
         """
-        specs = [
-            spec
-            for spec in self._wrapper.iter_normalized_identity_specs(
-                table=self.table_name
-            )
-            if spec.unique
-        ]
-        batch = {entity_id for entity_id in proposed if entity_id is not None}
+        iter_specs = getattr(self._wrapper, "iter_normalized_identity_specs", None)
+        if not callable(iter_specs):
+            return  # Wrappers without identity declarations rely on SQL constraints.
+        specs = [spec for spec in iter_specs(table=self.table_name) if spec.unique]
+        rows = list(proposed)
+        batch = {entity_id for entity_id, _row in rows if entity_id is not None}
         claimed: dict[tuple[object, ...], EntityId | None] = {}
-        for entity_id, row in proposed.items():
+        for entity_id, row in rows:
             before = None if entity_id is None else existing.get(entity_id)
             for spec in specs:
                 columns = (spec.identity_column, *spec.scope_columns)

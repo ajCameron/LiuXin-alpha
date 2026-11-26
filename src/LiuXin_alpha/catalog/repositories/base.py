@@ -10,7 +10,7 @@ punctuation-preserving comparison text, distinct from fuzzy matching normalizati
 
 from __future__ import annotations
 
-from collections.abc import Iterator, Mapping, Sequence
+from collections.abc import Iterable, Iterator, Mapping, Sequence
 from contextlib import nullcontext
 from typing import TYPE_CHECKING, Any, ClassVar
 
@@ -640,7 +640,7 @@ class BaseRepository:
             payload[self.id_column] = entity_id
         transaction = getattr(self._macros, "transaction", None)
         with transaction() if callable(transaction) else nullcontext():
-            self._validate_proposed({entity_id: payload}, {})
+            self._validate_proposed(((entity_id, payload),), {})
             new_id = self._macros.insert_row(
                 self.table_name, payload, id_column=self.id_column,
             )
@@ -686,11 +686,11 @@ class BaseRepository:
                 for row_id, data in updates.items()
             }
             self._validate_proposed(
-                {
-                    row_id: {**existing[row_id], **changes}
+                [
+                    (row_id, {**existing[row_id], **changes})
                     for row_id, changes in prepared.items()
                     if changes
-                },
+                ],
                 existing,
             )
             for row_id, changes in prepared.items():
@@ -699,7 +699,7 @@ class BaseRepository:
 
     def _validate_proposed(
         self,
-        proposed: Mapping[EntityId | None, RowMapping],
+        proposed: Iterable[tuple[EntityId | None, RowMapping]],
         existing: Mapping[EntityId, RowMapping],
     ) -> None:
         """
@@ -709,11 +709,11 @@ class BaseRepository:
         raise to refuse the whole batch.
 
         Example:
-            ``self._validate_proposed({7: {**row, "tag": "New"}}, {7: row})`` runs
+            ``self._validate_proposed([(7, {**row, "tag": "New"})], {7: row})`` runs
             just before tag 7 is updated.
 
 
-        :param proposed: Final rows keyed by ID; None keys a row being inserted.
+        :param proposed: ``(id, final row)`` pairs; an ID of None marks an insert.
         :param existing: Stored rows before the change, keyed by ID; empty on insert.
         :return: None when every proposed row may be written.
         """

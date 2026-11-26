@@ -1338,8 +1338,8 @@ class DriverWrapper(
         :return: New set of linked main-table names.
         """
         cache = getattr(self, "_interlinked_tables_cache", None)
-        version_getter = getattr(self.driver, "direct_get_schema_version", None)
-        version = None
+        version_getter = self.driver.direct_get_schema_version
+        version: int | str | None = None
         if cache is not None and callable(version_getter):
             version = version_getter()
             if version != getattr(
