@@ -94,6 +94,7 @@ class SchemaBackedStorageCache(StorageCacheAPI):
     """
 
     plugin_name = "schema_backed"
+    _main_table_type = SchemaBackedMainTableCache
     plugin_capabilities = StorageCacheCapabilities(
         live_reads=False,
         live_child_objects=False,
@@ -349,7 +350,7 @@ class SchemaBackedStorageCache(StorageCacheAPI):
         schema = db.driver_wrapper.get_schema_spec(force_refresh=False)
         self._schema = schema
         self._main_tables = {
-            table_name: SchemaBackedMainTableCache(spec, db)
+            table_name: self._main_table_type(spec, db)
             for table_name, spec in schema.tables.items()
             if spec.is_main_table and spec.id_column is not None
         }

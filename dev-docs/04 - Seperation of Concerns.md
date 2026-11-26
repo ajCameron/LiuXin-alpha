@@ -160,10 +160,18 @@ reconciliation. Losing derived state must not lose authoritative library data.
 
 `caches.read_cache.ReadCache` supplies structured reads without importing Catalog.
 Catalog metadata retrieval can receive that read capability or compose it for a
-cache-backed hydration request. `caches.cache.Cache` extends it with writes which
-call Catalog. This split permits Catalog/cache collaboration without a dependency
-cycle. Catalog mutations do not reconcile cache maps or call upward into cache
-write callbacks.
+cache-backed hydration request. `caches.cache.Cache` remains a generic cache.
+`caches.metadata.CatalogCache` composes Catalog and a loaded core above both
+layers, exposing metadata services and coordinated writes. It shares the core's
+indexes and lock without inheriting its storage machinery. Catalog mutations do
+not reconcile cache maps or call upward into cache write callbacks.
+
+The **2026-11-21** decision separates generic database/cache mechanisms from
+Catalog semantics and Catalog-cache orchestration. Metadata-specific optimizations
+belong in the upper layer and reuse core indexes; generic performance work remains
+in caches and low-level SQL remains in databases. Import-direction checks forbid
+core caches from importing Catalog or `caches.metadata`, and forbid Catalog from
+importing the orchestration package. No new top-level package is introduced.
 
 Snapshot backends need explicit refresh/invalidation after external changes;
 live backends retain their declared read behaviour. Direct Catalog or raw database

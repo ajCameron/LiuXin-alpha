@@ -8714,6 +8714,12 @@ def test_text_browser_new_genre_wizard_creates_genre(driver_spec, tmp_path: Path
         )
         parent_id = int(parent_row["genre_id"])
 
+        from LiuXin_alpha.catalog.catalog import Catalog
+
+        catalog = Catalog(db)
+        for sibling in ("Fantasy", "Mystery"):
+            catalog.genres.create({"name": sibling, "parent_id": parent_id})
+
         input_stream = io.StringIO(
             "\n".join(
                 [
@@ -8996,6 +9002,9 @@ def test_text_browser_new_series_wizard_creates_series(driver_spec, tmp_path: Pa
             row_dict={"series": "Main Saga", "series_sort": "Main Saga"},
             table="series",
         )
+        from LiuXin_alpha.catalog.catalog import Catalog
+
+        Catalog(db).series.create({"name": "Prelude", "parent_id": int(parent_row["series_id"])})
         creator_row = Row.from_idless_row_dict(
             db,
             row_dict={

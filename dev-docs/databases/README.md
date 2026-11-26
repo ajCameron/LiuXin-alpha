@@ -1,5 +1,8 @@
 # Databases
 
+- [Explicit PostgreSQL Catalog repair](postgres-catalog-upgrade.md): preview and
+  atomically upgrade existing Series positions and typed relationship constraints.
+
 - [PostgreSQL schema discovery optimization, 2026-11-17](schema-discovery-optimization-2026-11-17.md):
   scoped fingerprint reuse, freshness checks, transaction ownership and measured
   reduction in discovery work for cache loading and metadata refresh.

@@ -4,14 +4,17 @@ Execute Catalog-owned metadata search plans with explicit page provenance.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import replace
 from typing import TYPE_CHECKING, cast
 
 from LiuXin_alpha.caches.api import CacheConsistency, CacheQuery, CacheQueryResult
-from LiuXin_alpha.caches.metadata_reads import UNAVAILABLE, MetadataReadSource
+from LiuXin_alpha.caches.metadata.read_operations import complete_read, provenance
+from LiuXin_alpha.caches.metadata.reads import UNAVAILABLE, MetadataReadSource
 from LiuXin_alpha.caches.projection import ProjectionQueryEngine
 from LiuXin_alpha.catalog.api.metadata_access import MetadataReference
 from LiuXin_alpha.catalog.api.metadata_search import (
+    HydratedMetadataSearchPage,
     MetadataSearchField,
     MetadataSearchPage,
     MetadataSearchRequest,
@@ -21,7 +24,7 @@ from LiuXin_alpha.catalog.repositories.base import BaseRepository
 from LiuXin_alpha.catalog.search import metadata_requests
 
 if TYPE_CHECKING:
-    from LiuXin_alpha.caches.metadata import MetadataAPI
+    from LiuXin_alpha.caches.metadata.service import MetadataAPI
     from LiuXin_alpha.catalog.api.common import WemiLevel
     from LiuXin_alpha.databases.api.database_api import DatabaseAPI
 
@@ -184,6 +187,48 @@ class MetadataSearch:
                 else:
                     return self._page(request, result, cached=True)
             return self._page(request, self._database_page(plan), cached=False)
+
+    def hydrated[MetadataT](
+        self,
+        request: MetadataSearchRequest,
+        hydrate: Callable[[MetadataReadSource, int], MetadataT],
+    ) -> HydratedMetadataSearchPage[MetadataT]:
+        """Search and hydrate a page against one source, restarting complete fallback."""
+        with self._owner._lock():
+            self._owner._assert_attached()
+            plan = metadata_requests.compile_request(
+                self._owner._catalog.search, request
+            )
+
+        def read(source: MetadataReadSource) -> HydratedMetadataSearchPage[MetadataT]:
+            """Hydrate exactly the selected page while retaining source provenance."""
+            result = (
+                self._database_page(plan)
+                if source.cache is None
+                else MetadataReadSource.complete(source.cache.query(plan))
+            )
+            references = tuple(
+                MetadataReference(request.level, self._identity(row.row_id))
+                for row in result.records
+            )
+            source.require_rows = True
+            records = tuple(
+                hydrate(source, reference.entity_id) for reference in references
+            )
+            origin, consistency, generation = provenance(self._owner, source)
+            return HydratedMetadataSearchPage(
+                request.level,
+                references,
+                result.total_count,
+                result.offset,
+                result.limit,
+                origin,
+                consistency,
+                generation,
+                records,
+            )
+
+        return complete_read(self._owner, read)
 
     def _page(
         self, request: MetadataSearchRequest, result: CacheQueryResult, *, cached: bool

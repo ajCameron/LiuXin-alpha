@@ -128,6 +128,7 @@ class MetadataSearchPage:
 
 
 __all__ = [
+    "HydratedMetadataSearchPage",
     "MetadataReference",
     "MetadataFilterOperator",
     "MetadataFilterValue",
@@ -139,3 +140,10 @@ __all__ = [
     "MetadataSearchValidationError",
     "MetadataSearchPage",
 ]
+
+
+@dataclass(frozen=True, slots=True)
+class HydratedMetadataSearchPage[MetadataT](MetadataSearchPage):
+    """Return detached metadata aligned with references from the same captured read."""
+
+    records: tuple[MetadataT, ...]

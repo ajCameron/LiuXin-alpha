@@ -56,11 +56,12 @@ pinned Calibre files and their existing GPL notices/provenance are unchanged.
   [PostgreSQL lane](../../tests/databases/caches/test_search_differential_postgres_live.py)
   runs the same checks on disposable schemas. PostgreSQL currently uses Catalog's
   semantic fallback rather than the SQLite normalized-search compiler; the tests
-  preserve that distinction. The immutable corpus reuses one real captured live
-  view per case. The original capture method is then restored for three requests
-  around an explicitly committed Catalog write, checking freshness without manual
-  invalidation. This avoids repeating an unchanged whole-catalog capture for each
-  Boolean combination while retaining the full predicate matrix.
+  preserve that distinction. Since the demand-driven capture change on November
+  22, every live query uses its real per-call capture and cleanup boundary,
+  including the immutable corpus. The graph case also checks three requests around
+  an explicitly committed Catalog write, proving freshness without manual
+  invalidation. The former shared-view shortcut is removed; all graph expressions,
+  nullable predicate trees and paging comparisons remain.
 - Structural performance assertions protect bounded LRUs, no row evaluation for
   warm membership, operand-copy isolation, and the exact 50 changed-ID/query-pair
   repair boundary. These have no wall-clock threshold.

@@ -13,6 +13,7 @@ from LiuXin_alpha.caches.api import (
     CacheState,
 )
 from LiuXin_alpha.caches.cache import Cache
+from LiuXin_alpha.caches.metadata import CatalogCache
 from LiuXin_alpha.catalog.catalog import Catalog
 from LiuXin_alpha.databases.database import Database
 from LiuXin_alpha.databases.db_types.query_types import ValueMatch
@@ -139,7 +140,9 @@ def test_writer_commit_failure_rollback_and_external_write(
     catalog = Catalog(db)
     cache = Cache(db, storage_type=storage_type)
     cache.load()
-    writer = cache.create_writer("route_sources", column, **options)
+    writer = CatalogCache(Catalog(cache.database), cache=cache).create_writer(
+        "route_sources", column, **options
+    )
     snapshot = cache.capabilities.consistency.value == "snapshot"
 
     def cached_value():

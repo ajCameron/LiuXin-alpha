@@ -21,7 +21,9 @@ class ItemIdentifierRepositoryAPI(BaseRepositoryAPI, Protocol):
     Specify Item-scoped observation CRUD and exact normalized lookup.
 
     Matching with item_id=None searches globally and returns the first stored copy;
-    match-or-create requires a real Item and reuses only within its scope. Runtime
+    match-or-create requires a real Item and reuses only within its scope.
+    Creates and updates require a live Item and nonblank raw scheme/value fields;
+    nullable physical placeholders are not complete semantic records. Runtime
     protocol membership does not validate method signatures or these semantics.
 
     Example:

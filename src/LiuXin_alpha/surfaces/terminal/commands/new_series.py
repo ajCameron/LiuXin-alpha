@@ -139,7 +139,7 @@ class NewSeriesWizardCommand(TerminalCommandAPI):
                 )
 
         parent_position_text = browser.prompt_text(
-            "Parent position (optional)", default=""
+            "Sibling position (zero-based; blank appends)", default=""
         )
         parent_position = _safe_int(parent_position_text)
         if parent_position_text.strip() and parent_position is None:

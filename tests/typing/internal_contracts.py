@@ -14,7 +14,7 @@ import argparse
 import sqlite3
 from collections.abc import Iterator, KeysView, Mapping, Sequence
 from contextlib import AbstractContextManager
-from typing import Any, Literal, Protocol, assert_type
+from typing import Any, Literal, Protocol, assert_type, cast
 
 import LiuXin_alpha.storage.api as storage
 from LiuXin_alpha.caches.api.storage_cache_api.storage_tables_api.link_tables_api.one_one_tables_api import (
@@ -1119,6 +1119,9 @@ def native_cache_contracts(db: DatabaseAPI) -> None:
         StorageCacheAPI,
     )
     from LiuXin_alpha.caches.cache import Cache, create_cache
+    from LiuXin_alpha.caches.metadata import CatalogCache
+    from LiuXin_alpha.catalog.api.common import DatabaseHandle
+    from LiuXin_alpha.catalog.catalog import Catalog
     from LiuXin_alpha.caches.cache_plugins.database_backed.storage_cache import (
         DatabaseBackedStorageCache,
     )
@@ -1141,8 +1144,9 @@ def native_cache_contracts(db: DatabaseAPI) -> None:
     assert_type(create_storage_cache(db), StorageCacheAPI)
     assert_type(create_cache(db), Cache)
     cache = Cache(db)
-    assert_type(cache.create_writer("books", "title"), SchemaCatalogWriter)
-    assert_type(cache.write_one("books", "title", 1, "Title"), Mapping[int, object])
+    cached = CatalogCache(Catalog(cast(DatabaseHandle, db)), cache=cache)
+    assert_type(cached.create_writer("books", "title"), SchemaCatalogWriter)
+    assert_type(cached.write_one("books", "title", 1, "Title"), Mapping[int, object])
     assert_type(cache.get("books", 1), CacheLookup[CacheRecord])
     for storage in (
         SchemaBackedStorageCache(db),
@@ -1163,23 +1167,22 @@ def native_cache_contracts(db: DatabaseAPI) -> None:
         assert_type(lookup.value.row_id, int)
         lookup.value.values["title"] = "wrong"  # expect-error: reportIndexIssue index
     cache.get("books", "one")  # expect-error: reportArgumentType arg-type
-    cache.write_one("b", "t", "x", None)  # expect-error: reportArgumentType arg-type
+    cached.write_one("b", "t", "x", None)  # expect-error: reportArgumentType arg-type
     Cache(object())  # expect-error: reportArgumentType arg-type
     CacheQuery("books", projection=(1,))  # expect-error: reportArgumentType arg-type
     CacheQuery("books", where=object())  # expect-error: reportArgumentType arg-type
     p = projection
     p.get_cached_value("x", "b.t")  # expect-error: reportArgumentType arg-type
     source = object()  # expect-error: reportAssignmentType assignment
-    receipt = cache.write_one("books", "title", 1, "Title")
+    receipt = cached.write_one("books", "title", 1, "Title")
     receipt[1] = "wrong"  # expect-error: reportIndexIssue index
 
     # Annotation exposes the abstract facade without concrete-class narrowing.
     def facade_contract(facade: CacheAPI) -> None:
-        from LiuXin_alpha.caches.api import CacheWriter
-
-        assert_type(facade.create_writer("books", "title"), CacheWriter)
         assert_type(facade.database, DatabaseAPI)
-        assert_type(facade.write_one("books", "title", 1, None), Mapping[int, object])
+        assert_type(facade.get("books", 1), CacheLookup[CacheRecord])
+        assert_type(facade.reconcile({1: "Title"}, tables=("books",)), None)
+        facade.create_writer  # expect-error: reportAttributeAccessIssue attr-defined
 
     facade_contract(cache)
 
@@ -1212,12 +1215,13 @@ def metadata_access_contracts() -> None:
     )
     from LiuXin_alpha.catalog.api.metadata_access import (
         MetadataAPIInterface,
-        MetadataEntityInterface,
+        MetadataWorkInterface,
         MetadataReconciliationError,
         MetadataReference,
         MetadataWriteReceipt,
     )
     from LiuXin_alpha.catalog.api.metadata_search import (
+        HydratedMetadataSearchPage,
         MetadataSearchField,
         MetadataSearchFilter,
         MetadataSearchPage,
@@ -1228,10 +1232,95 @@ def metadata_access_contracts() -> None:
 
     from LiuXin_alpha.catalog.api.metadata_payloads import WorkCreate, WorkUpdate
     from LiuXin_alpha.catalog.api.metadata_revisions import MetadataSnapshot
+    from LiuXin_alpha.catalog.api.metadata_shared import (
+        SharedMetadataRecord,
+        SharedMetadataPage,
+    )
+    from LiuXin_alpha.catalog.api.metadata_revisions import SharedMetadataSnapshot
+    from LiuXin_alpha.catalog.api.metadata_relationships import (
+        MetadataCredit,
+        MetadataMembership,
+    )
+    from LiuXin_alpha.catalog.api.metadata_trees import (
+        HierarchicalVocabularyMetadataInterface,
+        VocabularyTreeInput,
+    )
 
     def consume(api: MetadataAPIInterface) -> None:
+        assert_type(api.genres, HierarchicalVocabularyMetadataInterface)
+        assert_type(api.vocabulary("subjects"), HierarchicalVocabularyMetadataInterface)
         assert_type(
-            api.works, MetadataEntityInterface[WorkMetadataAPI, WorkCreate, WorkUpdate]
+            api.genres.ensure_path(("Fiction", "Fantasy")),
+            MetadataWriteReceipt[tuple[int, ...]],
+        )
+        assert_type(
+            api.series.create_tree(VocabularyTreeInput({"name": "Sequence"})),
+            MetadataWriteReceipt[tuple[int, ...]],
+        )
+        assert_type(api.genres.subtree(7), tuple[SharedMetadataRecord, ...])
+        assert_type(api.subjects.move(7, parent_id=None), MetadataWriteReceipt[int])
+        api.tags.ensure_path  # expect-error: reportAttributeAccessIssue attr-defined
+        ratings = api.vocabulary("ratings")
+        ratings.children  # expect-error: reportAttributeAccessIssue attr-defined
+        assert_type(api.ensure_tag("History"), MetadataWriteReceipt[int])
+        assert_type(api.ensure_genre("History", parent_id=7), MetadataWriteReceipt[int])
+        assert_type(
+            api.ensure_rating(3.5, out_of=5, source="reader"), MetadataWriteReceipt[int]
+        )
+        assert_type(
+            api.notes.add_for_wemi(level="work", entity_id=7, text="Note"),
+            MetadataWriteReceipt[int],
+        )
+        assert_type(
+            api.notes.list_for_wemi(level="work", entity_id=7),
+            tuple[SharedMetadataRecord, ...],
+        )
+        assert_type(
+            api.annotations.list_for_item(7, kind="bookmark"),
+            tuple[SharedMetadataRecord, ...],
+        )
+        assert_type(
+            api.item_identifiers.create(
+                {"item_id": 7, "scheme": "barcode", "value": "A"}
+            ),
+            MetadataWriteReceipt[int],
+        )
+        assert_type(
+            api.identifiers.link_to_agent(identifier_id=7, agent_id=8),
+            MetadataWriteReceipt[int],
+        )
+        assert_type(api.tags.get_many((7, 8)), tuple[SharedMetadataRecord | None, ...])
+        assert_type(api.tags.lookup({"name": "History"}), SharedMetadataPage)
+        assert_type(api.languages.suggest("en"), SharedMetadataPage)
+        assert_type(api.agents.read_for_edit(7), SharedMetadataSnapshot)
+        assert_type(
+            api.works.search("title:Garden"),
+            HydratedMetadataSearchPage[WorkMetadataAPI],
+        )
+        assert_type(api.works.list_tags(7), tuple[MetadataMembership, ...])
+        assert_type(api.items.list_credits(7), tuple[MetadataCredit, ...])
+        assert_type(api.works.add_tag(7, text="History"), MetadataWriteReceipt[int])
+        assert_type(api.works.add_tag(7, tag_id=8), MetadataWriteReceipt[int])
+        shared_token = api.tags.read_for_edit(7).revision
+        work_token = api.works.read_for_edit(8).revision
+        api.batch(
+            lambda service: service.tags.update(7, {"name": "Changed"}),
+            expected=(shared_token, work_token),
+        )
+        api.genres.link_to_work  # expect-error: reportAttributeAccessIssue attr-defined
+        api.ratings.suggest  # expect-error: reportAttributeAccessIssue attr-defined
+        api.items.add_tag  # expect-error: reportAttributeAccessIssue attr-defined
+        api.works.add_tag(7)  # expect-error: reportCallIssue call-overload
+        api.tags.suggest("x", mode="fuzzy")  # expect-error: reportArgumentType arg-type
+        assert_type(api.languages.get(7), SharedMetadataRecord | None)
+        api.languages.create  # expect-error: reportAttributeAccessIssue attr-defined
+        api.ensure_tag(7)  # expect-error: reportArgumentType arg-type
+        api.ensure_rating(3.5)  # expect-error: reportCallIssue call-arg
+        api.annotations.create(
+            {"item_id": "7"},  # expect-error: reportArgumentType typeddict-item
+        )
+        assert_type(
+            api.works, MetadataWorkInterface[WorkMetadataAPI, WorkCreate, WorkUpdate]
         )
         assert_type(api.works.get(7), WorkMetadataAPI | None)
         assert_type(api.works.get_many((7, 8)), tuple[WorkMetadataAPI | None, ...])
@@ -1286,13 +1375,14 @@ def metadata_access_contracts() -> None:
         item: ItemMetadataAPI = work  # expect-error: reportAssignmentType -
         del item
 
-    from LiuXin_alpha.caches.metadata import MetadataAPI
+    from LiuXin_alpha.caches.metadata import CatalogCache, MetadataAPI
     from LiuXin_alpha.caches.cache import Cache
     from LiuXin_alpha.catalog.catalog import Catalog
 
     def bind(catalog: Catalog, cache: Cache) -> MetadataAPIInterface:
         bound: MetadataAPIInterface = MetadataAPI(catalog, cache=cache)
-        assert_type(cache.metadata, MetadataAPIInterface)
+        cached: MetadataAPIInterface = CatalogCache(catalog, cache=cache)
+        assert_type(cached.works.require(7), WorkMetadataAPI)
         return bound
 
     receipt = MetadataWriteReceipt(
@@ -1312,7 +1402,7 @@ def metadata_access_contracts() -> None:
 
 def metadata_cache_link_read_contracts(row: RowAPI) -> None:
     """Cached association reads preserve the native metadata row protocol."""
-    from LiuXin_alpha.caches.metadata_reads import MetadataReadSource
+    from LiuXin_alpha.caches.metadata.reads import MetadataReadSource
     from LiuXin_alpha.catalog.api.retrieval.hydration import MetadataLinkRowSequence
 
     def consume(source: MetadataReadSource) -> None:

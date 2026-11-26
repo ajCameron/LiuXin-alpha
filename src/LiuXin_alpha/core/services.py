@@ -206,6 +206,34 @@ class CoreServices:
         return self._cache
 
     @property
+    def field_writer(self) -> Any:
+        """Select the schema-directed writer without adding writes to generic caches.
+
+        Native caches use the shared CatalogCache metadata composition. With no
+        cache, preserve the configured Catalog; externally supplied cache/writer
+        services retain their own write contract. A selected writer's errors
+        propagate without retrying through another persistence path.
+
+        Example:
+            >>> from types import SimpleNamespace
+            >>> catalog = object()
+            >>> services = CoreServices(library=SimpleNamespace(database=object()), catalog=catalog)
+            >>> services.field_writer is catalog
+            True
+
+        :return: Native coordinated metadata facade, injected writer, or Catalog.
+        """
+        if self._closed:
+            raise RuntimeError("Core services are closed")
+        if self.cache is None:
+            return self.catalog
+        from LiuXin_alpha.caches.read_cache import ReadCache
+
+        if isinstance(self.cache, ReadCache):
+            return self.metadata
+        return self.cache
+
+    @property
     def read_source(self) -> Any:
         """
         Return the injected read source or lazily choose a cache/database metadata adapter.
@@ -252,9 +280,17 @@ class CoreServices:
         if self._closed:
             raise RuntimeError("Core services are closed")
         if self._metadata is None:
-            from LiuXin_alpha.caches.metadata import MetadataAPI
+            from LiuXin_alpha.caches.metadata import CatalogCache, MetadataAPI
 
-            self._metadata = MetadataAPI(self.catalog, cache=self.cache, allow_database_fallback=self.cache_allow_database_fallback)
+            self._metadata = (
+                MetadataAPI(self.catalog)
+                if self.cache is None
+                else CatalogCache(
+                    self.catalog,
+                    cache=self.cache,
+                    allow_database_fallback=self.cache_allow_database_fallback,
+                )
+            )
         return self._metadata
 
     @property

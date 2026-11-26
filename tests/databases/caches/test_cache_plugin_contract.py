@@ -22,6 +22,8 @@ from LiuXin_alpha.catalog.write import (
     CatalogTableValueLinkWriter,
     LinkUpdate,
 )
+from LiuXin_alpha.caches.metadata import CatalogCache
+from LiuXin_alpha.catalog.catalog import Catalog
 from LiuXin_alpha.caches.cache import Cache
 from LiuXin_alpha.databases.db_types.macro_types import LinkValue
 from LiuXin_alpha.databases.schema_specs import (
@@ -247,14 +249,14 @@ def test_cache_api_creates_writers_and_reconciles_scalar_writes(
     :return: None; failed expectations raise AssertionError.
     """
     cache = Cache.from_storage(contract_cache)
-    writer = cache.create_writer("books", "title")
+    writer = CatalogCache(Catalog(cache.database), cache=cache).create_writer("books", "title")
 
     assert isinstance(writer, CatalogColumnWriter)
     planned = writer.build_one_update(1, "planned")
     assert planned.values == {1: "planned"}
     assert writer.apply_update(planned) == {1: "planned"}
     assert cache.get("books", 1).value["title"] == "planned"
-    assert cache.write_one("books", "title", 1, _UPDATED_TITLE) == {
+    assert CatalogCache(Catalog(cache.database), cache=cache).write_one("books", "title", 1, _UPDATED_TITLE) == {
         1: _UPDATED_TITLE
     }
     assert cache.get("books", 1).value["title"] == _UPDATED_TITLE
@@ -262,7 +264,7 @@ def test_cache_api_creates_writers_and_reconciles_scalar_writes(
     writer.write_one(2, "writer-bound update")
     assert cache.get("books", 2).value["title"] == "writer-bound update"
 
-    cache.write("books", "title", {1: "bulk update"})
+    CatalogCache(Catalog(cache.database), cache=cache).write("books", "title", {1: "bulk update"})
     assert cache.get("books", 1).value["title"] == "bulk update"
 
 
@@ -286,7 +288,7 @@ def test_cache_bound_writer_rejects_use_after_cache_detach(
     :return: None; failed expectations raise AssertionError.
     """
     cache = Cache.from_storage(contract_cache)
-    writer = cache.create_writer("books", "title")
+    writer = CatalogCache(Catalog(cache.database), cache=cache).create_writer("books", "title")
     before = unicode_contract_db._rows_by_table["books"][0]["title"]
 
     assert contract_cache.detach_db() is unicode_contract_db
@@ -311,10 +313,10 @@ def test_cache_api_reconciles_owned_one_to_one_writes(contract_cache) -> None:
     :return: None; failed expectations raise AssertionError.
     """
     cache = Cache.from_storage(contract_cache)
-    writer = cache.create_writer("books", "path")
+    writer = CatalogCache(Catalog(cache.database), cache=cache).create_writer("books", "path")
 
     assert isinstance(writer, CatalogOwnedRowOneToOneWriter)
-    result = cache.write_one(
+    result = CatalogCache(Catalog(cache.database), cache=cache).write_one(
         "books",
         "path",
         1,
@@ -350,7 +352,7 @@ def test_cache_api_reconciles_shared_link_bulk_and_single_writes(
     :return: None; failed expectations raise AssertionError.
     """
     cache = Cache.from_storage(contract_cache)
-    writer = cache.create_writer("books", "tag_name")
+    writer = CatalogCache(Catalog(cache.database), cache=cache).create_writer("books", "tag_name")
 
     assert isinstance(writer, CatalogTableValueLinkWriter)
     planned = writer.build_one_update(1, LinkValue(40))
@@ -359,7 +361,7 @@ def test_cache_api_reconciles_shared_link_bulk_and_single_writes(
 
     before = len(unicode_contract_db._rows_by_table["tags"])
     with pytest.raises(ValueError, match="requires a typed link spec"):
-        cache.write_one(
+        CatalogCache(Catalog(cache.database), cache=cache).write_one(
             "books",
             "tag_name",
             1,
@@ -368,11 +370,11 @@ def test_cache_api_reconciles_shared_link_bulk_and_single_writes(
         )
     assert len(unicode_contract_db._rows_by_table["tags"]) == before
 
-    cache.write_one("books", "tag_name", 1, "new cache API tag")
+    CatalogCache(Catalog(cache.database), cache=cache).write_one("books", "tag_name", 1, "new cache API tag")
     field = cache.storage.get_field("books.tags.tag_name")
     assert tuple(field.get_values_from_src_id(1)) == ("new cache API tag",)
 
-    cache.write(
+    CatalogCache(Catalog(cache.database), cache=cache).write(
         "books",
         "tag_name",
         additions={1: _TAG_1},
@@ -383,7 +385,7 @@ def test_cache_api_reconciles_shared_link_bulk_and_single_writes(
     }
 
     before = len(unicode_contract_db._rows_by_table["tags"])
-    cache.write(
+    CatalogCache(Catalog(cache.database), cache=cache).write(
         "books",
         "tag_name",
         deletions={1: "missing cache API tag"},
@@ -489,10 +491,10 @@ def test_cache_api_preserves_live_link_type_guards(typed_writer_cache) -> None:
     """
     storage, database = typed_writer_cache
     cache = Cache.from_storage(storage)
-    writer = cache.create_writer("typed_books", "tag_name")
+    writer = CatalogCache(Catalog(cache.database), cache=cache).create_writer("typed_books", "tag_name")
 
     with pytest.raises(ValueError, match="does not exist in allowed-types"):
-        cache.write_one(
+        CatalogCache(Catalog(cache.database), cache=cache).write_one(
             "typed_books",
             "tag_name",
             1,
@@ -514,7 +516,7 @@ def test_cache_api_preserves_live_link_type_guards(typed_writer_cache) -> None:
         ).get_values_from_src_id(1)
     ) == ("Ada",)
 
-    typed_result = cache.write(
+    typed_result = CatalogCache(Catalog(cache.database), cache=cache).write(
         "typed_books",
         "tag_name",
         {1: {"reviewer": "Grace"}},

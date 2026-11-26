@@ -12,6 +12,8 @@ import sqlite3
 
 import pytest
 
+from LiuXin_alpha.caches.metadata import CatalogCache
+from LiuXin_alpha.catalog.catalog import Catalog
 from LiuXin_alpha.caches.cache import create_cache
 from LiuXin_alpha.caches.cache_plugins import create_storage_cache
 from LiuXin_alpha.databases.database import Database
@@ -117,7 +119,7 @@ def test_storage_cache_catalog_writer_round_trips_through_real_database(
     with Database(metadata={"database_path": str(provisioned.db_path)}) as db:
         cache = create_cache(db, "schema_backed")
 
-        assert cache.write_one(
+        assert CatalogCache(Catalog(cache.database), cache=cache).write_one(
             "cache_write_sources",
             "cache_write_source_title",
             1,
@@ -127,7 +129,7 @@ def test_storage_cache_catalog_writer_round_trips_through_real_database(
             "cache_write_source_title"
         ] == "after"
 
-        writer = cache.create_writer(
+        writer = CatalogCache(Catalog(cache.database), cache=cache).create_writer(
             "cache_write_sources",
             "cache_write_value_name",
         )
@@ -140,7 +142,7 @@ def test_storage_cache_catalog_writer_round_trips_through_real_database(
             )
         ) == 0
 
-        rows = cache.write_one(
+        rows = CatalogCache(Catalog(cache.database), cache=cache).write_one(
             "cache_write_sources",
             "cache_write_value_name",
             1,

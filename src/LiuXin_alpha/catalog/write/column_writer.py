@@ -199,10 +199,11 @@ class CatalogColumnWriter[RawValueT, ValueT](
             or update.column_spec != self.column_spec
         ):
             raise ValueError("update target does not match writer target")
-        return cast(
-            Mapping[SrcTableID, ValueT],
-            self.catalog._apply_column_update(update),
-        )
+        with self._operation_scope():
+            return cast(
+                Mapping[SrcTableID, ValueT],
+                self.catalog._apply_column_update(update),
+            )
 
 
 __all__ = ["CatalogColumnWriter"]

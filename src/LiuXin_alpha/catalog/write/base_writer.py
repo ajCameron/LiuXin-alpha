@@ -12,6 +12,7 @@ Example:
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from contextlib import AbstractContextManager, nullcontext
 from typing import Any
 
 from LiuXin_alpha.catalog.write.host_api import CatalogWriterHostAPI
@@ -43,6 +44,20 @@ class BaseCatalogWriter[UpdateT, ResultT](ABC):
         """
 
         self._catalog = catalog
+
+    def _operation_scope(self) -> AbstractContextManager[None]:
+        """Enter an optional host lifetime guard before transaction acquisition.
+
+        Composed hosts can guard the complete application, including resolving
+        new destination values. Plain Catalog hosts need no additional scope.
+
+        Example:
+            A retained writer's host rejects closure before opening SQL work.
+
+        :return: Host-provided operation scope, or a no-op context.
+        """
+        scope = getattr(self.catalog, "_writer_scope", None)
+        return nullcontext() if scope is None else scope()
 
     @property
     def catalog(self) -> CatalogWriterHostAPI:
@@ -157,9 +172,7 @@ class BaseCatalogWriter[UpdateT, ResultT](ABC):
         :return: The deterministic value, row, identity or collection described above.
         """
 
-        return self.apply_update(
-            self.build_one_update(src_id, dst_value, **kwargs)
-        )
+        return self.apply_update(self.build_one_update(src_id, dst_value, **kwargs))
 
 
 class CatalogValueWriter[

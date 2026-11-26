@@ -1,67 +1,120 @@
 # Modern Catalog and cache boundary
 
-Reviewed **2026-10-20**. Current repositories, relationship ownership and retrieval boundaries were checked. See [next tasks](next_tasks.md) for remaining work; older run counts retain their original dates.
-
-Decision date: **2026-07-24**. Implementation checked: **2026-10-20**, against
-`fc5de7af`.
-
-Status: **Current contract, including the read-only / writable facade split.**
-
-The [2026-11-18 lifecycle review](../caches/invalidation-and-lifecycle-2026-11-18.md)
-adds a tested route matrix. Extension-table column writers now use portable row
-batching to join outer transactions. Shared-value writers can return a persistence
-receipt before deferred snapshot refresh; a failed later read raises
-`CacheDirtyError`. Immediate post-write reconciliation failures retain the
-receipt-bearing `CacheReconciliationError` contract.
+Updated **2026-11-21**. This decision supersedes the earlier writable-core
+facade split. The generic cache and database layers remain below Catalog semantics
+and Catalog-cache orchestration. Existing transaction and receipt guarantees remain.
 
 ## Decision
 
-When a composed cache is attached, application and library code should prefer
-its read and write APIs. `CacheAPI` is the performance-facing facade; `Catalog`
-remains the authoritative metadata-aware persistence service, and `databases`
-remains the raw storage layer.
-
-The dependency and call direction is:
+Use `CatalogCache` for metadata operations against an attached cache. It lives
+in `caches.metadata`, alongside the existing metadata service, avoiding another
+top-level package. `Catalog` remains the authoritative metadata persistence
+service. Generic `Cache` / `ReadCache` and `databases` supply mechanisms below
+these services.
 
 ```text
 application / library
         |
         v
-composed Cache facade
-        |
-        +-- query --> cached rows, relationships, and indexes
-        |
-        `-- write --> Catalog API --> database
+caches.metadata.CatalogCache
+        |                  |
+        | metadata policy  | physical reads / refresh
+        v                  v
+     Catalog          generic Cache / ReadCache
+        |                  |
+        v                  v
+     databases        storage-cache backends
                            |
-                           `-- authoritative result
-                                      |
-                                      v
-                              cache reconciliation
+                           v
+                        databases
 ```
 
-The write direction is:
+Catalog retrieval can also consume the lower read-cache capability explicitly;
+Catalog never imports the upper `caches.metadata` composition package. Core cache
+modules cannot import either Catalog or `caches.metadata`. These rules cover
+runtime, deferred and type-only imports in the architecture checker.
 
-```text
-caches.cache.Cache -> Catalog mutation -> database
+Metadata awareness is useful for efficient operations such as tag identity lookup,
+Work hydration and semantic search, but it does not require metadata policy inside
+the generic cache. The upper layer selects physical queries/indexes using Catalog's
+semantics. There is one set of cached state, indexes and locks. `CatalogCache`
+composes the core and reuses the `MetadataAPI` service implementation; it does not
+subclass the core cache or mirror its maps. Explicit operations such as
+`ensure_tag(text)` now live on the metadata contract and this upper implementation.
+Catalog owns exact identity and serialized reuse; the upper layer reports the
+write outcome and coordinates cache freshness. See the
+[core metadata coverage](../caches/metadata-api.md#core-metadata-coverage).
+
+Vocabulary trees follow the same boundary. Catalog's Genre, Subject and Series
+repositories own exact path reuse, cycle prevention, sibling ordering and explicit
+leaf/subtree deletion. Their CRUD and batch update paths share these rules.
+`caches.metadata` uses the shared Catalog traversal semantics with one captured
+read source and coordinates reconciliation after mutations. Bounded ordered child
+SQL lives in databases. See [vocabulary trees](../caches/metadata-api.md#vocabulary-trees)
+for the tighter deletion contract and unchanged globally unique Series identity.
+
+The **2026-11-22** ergonomics extension keeps literal shared-record selection
+and role/membership policy in Catalog. `catalog.record_queries` owns alias/type
+validation and literal comparison; `catalog.api` owns passive result values and
+capability protocols. The metadata adapter coordinates lookup, suggestions,
+hydrated search pages, memberships and shared edit preconditions through the
+same read/write boundaries. No metadata methods move into the generic cache.
+Agent credit priority allocation belongs to Catalog and uses the database's
+existing extrema and writer-reservation mechanisms; the facade does not issue SQL.
+
+## Composition and migration
+
+```python
+from LiuXin_alpha.caches.cache import create_cache
+from LiuXin_alpha.caches.metadata import CatalogCache, MetadataAPI
+from LiuXin_alpha.catalog.catalog import Catalog
+
+core = create_cache(database)
+catalog = Catalog(database)
+cached = CatalogCache(catalog, cache=core)
+
+receipt = cached.works.create({"title": "Dune"})
+work = cached.works.require(receipt.result)
+writer = cached.create_writer("works", "work_title")
+writer.write_one(receipt.result, "Dune: revised")
+
+# No cache required for a standalone metadata service.
+uncached = MetadataAPI(catalog)
 ```
 
-Read composition has a different direction:
+`CatalogCache` requires an already loaded core bound to the same database object.
+The composing caller owns and closes the core and database. `cached.cache is core`;
+physical operations use that core directly. Retained semantic services and writers
+reject a closed or reattached core. Database fallback is explicitly configured at
+construction and disabled by default. CoreServices retains its `metadata` property,
+constructing `CatalogCache` when configured with a cache and `MetadataAPI` otherwise.
 
-```text
-Catalog metadata retrieval -> caches.read_cache.ReadCache -> storage-cache backend
-```
+| Previous entry point | Current entry point |
+| --- | --- |
+| `cache.metadata.works` | `cached.works` |
+| `cache.metadata.search` | `cached.search` |
+| `cache.create_writer(...)` | `cached.create_writer(...)` |
+| `cache.write(...)` / `cache.write_one(...)` | `cached.write(...)` / `cached.write_one(...)` |
+| `cache.get(...)` / `cache.query(...)` | `core.get(...)` / `core.query(...)` |
+| `cache.close()` | `core.close()` |
 
-`ReadCache` owns lifecycle and structured reads without importing Catalog. The
-writable `Cache` subclasses it and adds the Catalog mutation bridge. Catalog
-retrieval may receive a cache read capability, wrap a raw storage-cache plugin in
-`ReadCache`, or compose a reader explicitly. It does not import the writable
-facade to assemble that reader.
+`Cache.metadata` and the core's writer entry points are removed. There are no
+forwarding methods on the core. The unused `CacheWriter` protocol is removed;
+schema writers retain the `catalog.write.SchemaCatalogWriter` return type. `MetadataAPI(catalog, cache=core)` remains a valid
+explicit service binding; `CatalogCache` additionally requires a cache and exposes
+the schema writer bridge.
 
-Catalog mutations must not mutate cache maps or invoke reconciliation callbacks.
-Cache-owned reconciliation consumes their authoritative results. This read/write
-split, rather than a blanket ban on Catalog receiving caches, avoids the import
-cycle. See [read-cache implementation](../../src/LiuXin_alpha/caches/read_cache.py),
-[writable facade](../../src/LiuXin_alpha/caches/cache.py) and
+Generic reconciliation accepts an authoritative receipt and physical dependencies:
+`core.reconcile(receipt, tables=..., links=..., fields=...)`. The writer bridge in
+`caches.metadata.writers` interprets Catalog updates and supplies these dependencies.
+The core owns refresh, dirty-state recovery and generation changes, without knowing
+whether a table describes Works, tags or unrelated data. Metadata service writes
+still conservatively refresh complete snapshots; this separation does not claim a
+new targeted-refresh optimization.
+
+See [generic cache](../../src/LiuXin_alpha/caches/cache.py),
+[core lifecycle and reconciliation](../../src/LiuXin_alpha/caches/read_cache.py),
+[Catalog-cache facade](../../src/LiuXin_alpha/caches/metadata/cache.py) and
 [metadata retrieval](../../src/LiuXin_alpha/catalog/retrieval/metadata.py).
 
 ## Read contract
@@ -105,17 +158,17 @@ refresh policy remain owned by the cache implementation. See
 
 ## Write contract
 
-With an attached cache, metadata-shaped writes use `cache.metadata`, for example
-`cache.metadata.works.update(work_id, {"title": "Revised title"})` or
-`cache.metadata.mutations.replace_metadata(...)`. These operations return explicit
+With an attached cache, metadata-shaped writes use `CatalogCache`, for example
+`cached.works.update(work_id, {"title": "Revised title"})` or
+`cached.mutations.replace_metadata(...)`. These operations return explicit
 persistence/freshness receipts and coordinate complete metadata dependencies.
 
-Schema-directed field writes retain their existing entry points:
+Schema-directed field writes use the same upper facade:
 
 ```python
-cache.create_writer(...)
-cache.write(...)
-cache.write_one(...)
+cached.create_writer(...)
+cached.write(...)
+cached.write_one(...)
 ```
 
 These methods do not create a second persistence implementation. The
@@ -203,7 +256,8 @@ dirtying after reconciliation failure, and recovery on the next safe read.
 
 | Layer | Owns | Does not own |
 | --- | --- | --- |
-| Composed Cache | Query/index service, immutable schema/results, lifecycle/generation, invalidation, Catalog-delegating writes, and reconciliation | Canonical metadata persistence, WEMI identity policy, or raw SQL |
+| Generic Cache / ReadCache | Query/index service, immutable schema/results, lifecycle/generation, invalidation and physical reconciliation | Metadata operations, Catalog imports, identity policy or persistence |
+| CatalogCache | Metadata reads, coordinated Catalog writes, dependency translation and cache publication | Independent metadata policy or a second copy of cache state |
 | StorageCache plugin | Cached storage-shaped rows, fields, links, and optional backend accelerators | Application query policy, Catalog writes, or UI state |
 | Catalog | Metadata semantics, matching, validation, WEMI-aware persistence, authoritative write results and hydration through an explicit read source | Cache map mutation or write reconciliation policy |
 | Database | Connections, transactions, SQL, schemas, constraints, migrations, and portable storage operations | Cache state or bibliographic policy |
@@ -216,14 +270,14 @@ a dependency on the cache layer.
 
 ## Metadata access interface direction — 2026-11-18
 
-**Interface and bound cache adapter implemented; Core caller migration remains pending.**
+**Interface, explicit CatalogCache facade and Core metadata binding implemented.**
 [MetadataAPIInterface](../../src/LiuXin_alpha/catalog/api/metadata_access.py) defines a
 native metadata-facing contract in `LiuXin_alpha.catalog.api.metadata_access`,
 alongside Catalog's existing public protocols. The [bound adapter](../caches/metadata-api.md) lives
 in `caches`, alongside its existing Catalog write bridge. This uses existing
 top-level packages. Importing the contract does not construct Catalog, cache or
-metadata services. Catalog and Cache retain their own APIs; `Cache.metadata` exposes the
-implementing service.
+metadata services. Catalog and the generic Cache retain their own APIs;
+`CatalogCache` implements the metadata service above them.
 
 The interface takes its vocabulary from Catalog: `works`, `expressions`,
 `manifestations`, `items`, `search` and `mutations`. Entity services offer
@@ -264,9 +318,10 @@ These are implementation requirements, not guarantees supplied by a Protocol or
 the passive receipt dataclass. Unsupported transaction capabilities must not
 silently weaken an atomic operation.
 
-The first contract covers native WEMI CRUD, reads, search and those compound
-operations. Matching, merges, custom-field administration and dedicated Agent and
-vocabulary services need explicit contracts before inclusion. Calibre projection
+The current contract covers native WEMI CRUD, reads, search, compound operations,
+Agent/vocabulary and custom-field administration, exact vocabulary ensures,
+identifiers, text attachments and Item annotations. General matching workflows
+and merges retain their separate Catalog contracts. Calibre projection
 and write policy remain in their compatibility layer. This is not whole-Catalog
 feature parity.
 

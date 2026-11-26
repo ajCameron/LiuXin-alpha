@@ -226,6 +226,17 @@ class PortableMacrosAPI(abc.ABC):
         """
 
     @abc.abstractmethod
+    def get_tree_children_page(
+        self, table: str, parent_id: int | None, *, position_column: str,
+        limit: int = 100, offset: int = 0,
+    ) -> tuple[Mapping[str, Any], ...]:
+        """Read bounded physical children by position (nulls last), then ID.
+
+        Discover the parent column from the table; validate the supplied ordering
+        column against its schema. None selects roots. The caller owns the snapshot.
+        """
+
+    @abc.abstractmethod
     def audit_query_indexes(self) -> QueryIndexReport:
         """Inspect known query indexes without changing schema or stored data."""
 

@@ -11,6 +11,8 @@ repository instance, and it does not enforce runtime transaction behavior.
 
 from __future__ import annotations
 
+from LiuXin_alpha.catalog.api.repositories.hierarchy import (HierarchicalRepositoryAPI, HierarchicalMembershipRepositoryAPI)
+
 from typing import Protocol, runtime_checkable
 
 from LiuXin_alpha.catalog.api.repositories.agents import AgentRepositoryAPI
@@ -108,9 +110,9 @@ class CatalogRepositoriesAPI(Protocol):
     notes: NoteRepositoryAPI
     tags: WorkMembershipRepositoryAPI
     labels: ExactEntityRepositoryAPI
-    genres: ExactEntityRepositoryAPI
-    subjects: ExactEntityRepositoryAPI
-    series: WorkMembershipRepositoryAPI
+    genres: HierarchicalRepositoryAPI
+    subjects: HierarchicalRepositoryAPI
+    series: HierarchicalMembershipRepositoryAPI
     languages: ExactEntityRepositoryAPI
     ratings: ExactEntityRepositoryAPI
     comments: CommentRepositoryAPI
@@ -153,6 +155,8 @@ class CatalogRepositoriesAPI(Protocol):
 
 
 __all__ = [
+    "HierarchicalRepositoryAPI",
+    "HierarchicalMembershipRepositoryAPI",
     "AgentRepositoryAPI",
     "AnnotationRepositoryAPI",
     "BaseRepositoryAPI",

@@ -17,13 +17,18 @@ services: that would bypass the required cache reconciliation on writes.
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
-from typing import TYPE_CHECKING, Literal, Protocol
+from typing import TYPE_CHECKING, Literal, Protocol, overload
 
+from LiuXin_alpha.catalog.api.metadata_relationships import (
+    MetadataCreditsInterface,
+    MetadataWorkMembershipsInterface,
+)
 from LiuXin_alpha.catalog.api.metadata_results import (
     MetadataReconciliationError,
     MetadataWriteReceipt,
 )
 from LiuXin_alpha.catalog.api.metadata_revisions import (
+    MetadataEditRevision,
     MetadataRevision,
     MetadataSnapshot,
 )
@@ -43,15 +48,30 @@ if TYPE_CHECKING:
         WorkUpdate,
     )
     from LiuXin_alpha.catalog.api.metadata_search import (
+        HydratedMetadataSearchPage,
         MetadataSearchField,
+        MetadataSearchFilter,
         MetadataSearchPage,
         MetadataSearchRequest,
+        MetadataSearchSort,
         MetadataSortField,
     )
     from LiuXin_alpha.catalog.api.metadata_shared import (
         AgentMetadataInterface,
+        AnnotationMetadataInterface,
+        IdentifierMetadataInterface,
+        ItemIdentifierMetadataInterface,
+        MetadataRecordsReader,
+        SuggestibleMetadataReader,
+        TextMetadataInterface,
+        TextVocabularyMetadataInterface,
         VocabularyKind,
         VocabularyMetadataInterface,
+        WorkMembershipMetadataInterface,
+    )
+    from LiuXin_alpha.catalog.api.metadata_trees import (
+        HierarchicalVocabularyMetadataInterface,
+        SeriesMetadataInterface,
     )
     from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.expression_containers.expression_metadata_api import (
         ExpressionMetadataAPI,
@@ -70,7 +90,9 @@ if TYPE_CHECKING:
     )
 
 
-class MetadataEntityInterface[MetadataT, CreateT, UpdateT](Protocol):
+class MetadataEntityInterface[MetadataT, CreateT, UpdateT](
+    MetadataCreditsInterface, Protocol
+):
     """Read and mutate one WEMI family using native metadata values.
 
     The service binds the database, optional cache and fallback policy once.
@@ -102,6 +124,18 @@ class MetadataEntityInterface[MetadataT, CreateT, UpdateT](Protocol):
         confirmed absent root raises CatalogNotFoundError instead of returning a
         partial tuple. Unavailable or corrupt reads always raise.
         """
+        ...
+
+    def search(
+        self,
+        query: str = "",
+        *,
+        filters: Sequence[MetadataSearchFilter] = (),
+        sort: Sequence[MetadataSearchSort] = (),
+        limit: int | None = 100,
+        offset: int = 0,
+    ) -> HydratedMetadataSearchPage[MetadataT]:
+        """Search this level and hydrate only its page from one captured read."""
         ...
 
     def read_for_edit(self, entity_id: int) -> MetadataSnapshot[MetadataT]:
@@ -136,6 +170,14 @@ class MetadataEntityInterface[MetadataT, CreateT, UpdateT](Protocol):
     ) -> MetadataWriteReceipt[int]:
         """Delete through Catalog policy and reconcile affected relationships too."""
         ...
+
+
+class MetadataWorkInterface[MetadataT, CreateT, UpdateT](
+    MetadataEntityInterface[MetadataT, CreateT, UpdateT],
+    MetadataWorkMembershipsInterface,
+    Protocol,
+):
+    """Combine Work metadata editing with its declared Tag and Series memberships."""
 
 
 class MetadataSearchInterface(Protocol):
@@ -251,16 +293,20 @@ class MetadataAPIInterface(Protocol):
     construction concern, not a per-operation argument.
     These properties must return coordinating services, never raw repositories.
     Catalog alone and Cache alone do not implement this interface.
+    caches.metadata.CatalogCache is the explicit composition with a required
+    loaded cache; MetadataAPI also permits uncached service use. The generic
+    cache core does not expose metadata operations or construct this service.
 
     This contract covers WEMI reads, search, CRUD, compound and batch writes,
-    edit preconditions, shared metadata and native custom-field administration.
+    edit preconditions, core record administration, exact vocabulary ensures and
+    native custom fields. Titles are embedded WEMI fields; languages are constants.
     Matching and merges remain Catalog services. Calibre views stay in their
     compatibility layer. No raw database, SQL rows or physical writer routes are
     part of this interface.
     """
 
     @property
-    def works(self) -> MetadataEntityInterface[WorkMetadataAPI, WorkCreate, WorkUpdate]:
+    def works(self) -> MetadataWorkInterface[WorkMetadataAPI, WorkCreate, WorkUpdate]:
         """Access abstract Works and their native metadata."""
         ...
 
@@ -302,8 +348,154 @@ class MetadataAPIInterface(Protocol):
         """Read and administer shared Agent identities with cache reconciliation."""
         ...
 
-    def vocabulary(self, kind: VocabularyKind) -> VocabularyMetadataInterface:
+    @overload
+    def vocabulary(self, kind: Literal["tags"]) -> WorkMembershipMetadataInterface: ...
+
+    @overload
+    def vocabulary(self, kind: Literal["series"]) -> SeriesMetadataInterface: ...
+
+    @overload
+    def vocabulary(
+        self, kind: Literal["genres", "subjects"]
+    ) -> HierarchicalVocabularyMetadataInterface: ...
+
+    @overload
+    def vocabulary(
+        self, kind: Literal["labels"]
+    ) -> TextVocabularyMetadataInterface: ...
+
+    @overload
+    def vocabulary(self, kind: Literal["languages"]) -> SuggestibleMetadataReader: ...
+
+    @overload
+    def vocabulary(self, kind: Literal["ratings"]) -> VocabularyMetadataInterface: ...
+
+    @overload
+    def vocabulary(self, kind: VocabularyKind) -> MetadataRecordsReader: ...
+
+    def vocabulary(self, kind: VocabularyKind) -> MetadataRecordsReader:
         """Select a native vocabulary; Languages retain Catalog's immutable policy."""
+        ...
+
+    @property
+    def tags(self) -> WorkMembershipMetadataInterface:
+        """Access Tag values through the coordinated metadata service."""
+        ...
+
+    @property
+    def labels(self) -> TextVocabularyMetadataInterface:
+        """Access operational Labels through the coordinated metadata service."""
+        ...
+
+    @property
+    def genres(self) -> HierarchicalVocabularyMetadataInterface:
+        """Access hierarchical Genres through the coordinated metadata service."""
+        ...
+
+    @property
+    def subjects(self) -> HierarchicalVocabularyMetadataInterface:
+        """Access hierarchical Subjects through the coordinated metadata service."""
+        ...
+
+    @property
+    def series(self) -> SeriesMetadataInterface:
+        """Access Series identities through the coordinated metadata service."""
+        ...
+
+    @property
+    def languages(self) -> SuggestibleMetadataReader:
+        """Access read-only language constants through the coordinated metadata service."""
+        ...
+
+    @property
+    def ratings(self) -> VocabularyMetadataInterface:
+        """Access Ratings with scale and source through the coordinated metadata service."""
+        ...
+
+    @property
+    def identifiers(self) -> IdentifierMetadataInterface:
+        """Access curated entity identifiers through the coordinated metadata service."""
+        ...
+
+    @property
+    def item_identifiers(self) -> ItemIdentifierMetadataInterface:
+        """Access raw Item identifier observations through the coordinated metadata service."""
+        ...
+
+    @property
+    def notes(self) -> TextMetadataInterface:
+        """Access Note records and WEMI attachments through the coordinated metadata service."""
+        ...
+
+    @property
+    def comments(self) -> TextMetadataInterface:
+        """Access contextual Comments and WEMI attachments through the coordinated metadata service."""
+        ...
+
+    @property
+    def synopses(self) -> TextMetadataInterface:
+        """Access Synopsis records and WEMI attachments through the coordinated metadata service."""
+        ...
+
+    @property
+    def annotations(self) -> AnnotationMetadataInterface:
+        """Access Item-scoped annotations through the coordinated metadata service."""
+        ...
+
+    def ensure_tag(self, text: str) -> MetadataWriteReceipt[int]:
+        """Reuse an exact tag or create it; existing attributes stay unchanged.
+
+        Reuse reports changed=False. Ambiguity raises; approximate matching is
+        disabled. Nested calls require a serialized outer transaction.
+        """
+        ...
+
+    def ensure_label(self, text: str) -> MetadataWriteReceipt[int]:
+        """Reuse an exact label or create it; existing attributes stay unchanged.
+
+        Reuse reports changed=False. Ambiguity raises; approximate matching is
+        disabled. Nested calls require a serialized outer transaction.
+        """
+        ...
+
+    def ensure_genre(
+        self, text: str, *, parent_id: int | None = None
+    ) -> MetadataWriteReceipt[int]:
+        """Reuse an exact genre or create it; existing attributes stay unchanged. Parent None explicitly selects a root.
+
+        Reuse reports changed=False. Ambiguity raises; approximate matching is
+        disabled. Nested calls require a serialized outer transaction.
+        """
+        ...
+
+    def ensure_subject(
+        self, text: str, *, parent_id: int | None = None
+    ) -> MetadataWriteReceipt[int]:
+        """Reuse an exact subject or create it; existing attributes stay unchanged. Parent None explicitly selects a root.
+
+        Reuse reports changed=False. Ambiguity raises; approximate matching is
+        disabled. Nested calls require a serialized outer transaction.
+        """
+        ...
+
+    def ensure_series(
+        self, text: str, *, parent_id: int | None = None
+    ) -> MetadataWriteReceipt[int]:
+        """Reuse an exact series or create it; existing attributes stay unchanged. Parent None explicitly selects a root.
+
+        Reuse reports changed=False. Ambiguity raises; approximate matching is
+        disabled. Nested calls require a serialized outer transaction.
+        """
+        ...
+
+    def ensure_rating(
+        self, value: float, *, out_of: float, source: str
+    ) -> MetadataWriteReceipt[int]:
+        """Reuse an exact rating or create it; existing attributes stay unchanged. Scale and source are required identity context.
+
+        Reuse reports changed=False. Ambiguity raises; approximate matching is
+        disabled. Nested calls require a serialized outer transaction.
+        """
         ...
 
     @property
@@ -315,7 +507,7 @@ class MetadataAPIInterface(Protocol):
         self,
         operation: Callable[[MetadataAPIInterface], ResultT],
         *,
-        expected: Sequence[MetadataRevision] = (),
+        expected: Sequence[MetadataEditRevision] = (),
     ) -> MetadataWriteReceipt[ResultT]:
         """Run related edits atomically and reconcile the cache once on success.
 
@@ -334,6 +526,7 @@ class MetadataAPIInterface(Protocol):
 __all__ = [
     "MetadataAPIInterface",
     "MetadataEntityInterface",
+    "MetadataWorkInterface",
     "MetadataMutationsInterface",
     "MetadataReconciliationError",
     "MetadataReference",

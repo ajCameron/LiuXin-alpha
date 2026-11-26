@@ -1,7 +1,7 @@
 """
 Bind native metadata operations to Catalog persistence and cache freshness.
 
-Use ``cache.metadata`` for the ordinary loaded-cache path, or construct
+Use ``CatalogCache(catalog, cache=cache)`` for the loaded-cache path, or construct
 ``MetadataAPI(catalog, cache=cache)`` explicitly. Omitting cache uses Catalog
 reads directly. The caller retains both lifetimes. Returned metadata is detached;
 changes are persisted only by an explicit entity or compound mutation method.
@@ -18,17 +18,39 @@ from contextlib import AbstractContextManager, contextmanager, nullcontext
 from contextvars import ContextVar
 from copy import deepcopy
 from dataclasses import replace
-from typing import TYPE_CHECKING, Literal, cast
+from typing import TYPE_CHECKING, Literal, cast, overload
 
 from LiuXin_alpha.caches.api import CacheConsistency, CacheQuery, CacheSort
-from LiuXin_alpha.caches.metadata_fields import MetadataCustomFields
-from LiuXin_alpha.caches.metadata_reads import (
+from LiuXin_alpha.caches.metadata.custom_fields import MetadataCustomFields
+from LiuXin_alpha.caches.metadata.reads import (
     MetadataReadSource,
     MetadataValue,
     detached,
 )
-from LiuXin_alpha.caches.metadata_search import MetadataSearch
-from LiuXin_alpha.caches.metadata_shared import AgentMetadata, VocabularyMetadata
+from LiuXin_alpha.caches.metadata.record_reads import (
+    SuggestibleMetadataReader as SuggestedReader,
+)
+from LiuXin_alpha.caches.metadata.records import (
+    AnnotationMetadata,
+    IdentifierMetadata,
+    ItemIdentifierMetadata,
+    TextMetadata,
+)
+from LiuXin_alpha.caches.metadata.relationships import (
+    EntityRelationshipMethods,
+    WorkRelationshipMethods,
+)
+from LiuXin_alpha.caches.metadata.search import MetadataSearch
+from LiuXin_alpha.caches.metadata.shared import (
+    AgentMetadata,
+    TextVocabularyMetadata,
+    VocabularyMetadata,
+    WorkMembershipMetadata,
+)
+from LiuXin_alpha.caches.metadata.trees import (
+    HierarchicalVocabularyMetadata,
+    SeriesMetadata,
+)
 from LiuXin_alpha.catalog.api.common import (
     CatalogNotFoundError,
     CreatedWemiStack,
@@ -41,12 +63,22 @@ from LiuXin_alpha.catalog.api.metadata_access import (
     MetadataReconciliationError,
     MetadataReference,
     MetadataSearchInterface,
+    MetadataWorkInterface,
     MetadataWriteReceipt,
 )
 from LiuXin_alpha.catalog.api.metadata_revisions import (
     MetadataConflictError,
+    MetadataEditRevision,
     MetadataRevision,
     MetadataSnapshot,
+    SharedMetadataRevision,
+    SharedMetadataSnapshot,
+)
+from LiuXin_alpha.catalog.api.metadata_search import (
+    HydratedMetadataSearchPage,
+    MetadataSearchFilter,
+    MetadataSearchRequest,
+    MetadataSearchSort,
 )
 from LiuXin_alpha.catalog.metadata_revisions import revision
 from LiuXin_alpha.catalog.repositories.base import WEMI_TABLES, BaseRepository
@@ -82,8 +114,20 @@ if TYPE_CHECKING:
     )
     from LiuXin_alpha.catalog.api.metadata_shared import (
         AgentMetadataInterface,
+        AnnotationMetadataInterface,
+        IdentifierMetadataInterface,
+        ItemIdentifierMetadataInterface,
+        MetadataRecordsReader,
+        SuggestibleMetadataReader,
+        TextMetadataInterface,
+        TextVocabularyMetadataInterface,
         VocabularyKind,
         VocabularyMetadataInterface,
+        WorkMembershipMetadataInterface,
+    )
+    from LiuXin_alpha.catalog.api.metadata_trees import (
+        HierarchicalVocabularyMetadataInterface,
+        SeriesMetadataInterface,
     )
     from LiuXin_alpha.catalog.catalog import Catalog
     from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.expression_containers.expression_metadata_api import (
@@ -114,7 +158,7 @@ class MetadataAPI:
     Direct database writes still require owner-driven invalidation.
 
     Example:
-        >>> metadata = cache.metadata  # doctest: +SKIP
+        >>> metadata = MetadataAPI(catalog, cache=cache)  # doctest: +SKIP
         >>> metadata.works.get_many((7, 9))  # doctest: +SKIP
     """
 
@@ -146,17 +190,21 @@ class MetadataAPI:
         self._batch_changes: ContextVar[list[bool] | None] = ContextVar(
             "metadata_batch_changes", default=None
         )
+        self._shared_revision_readers: dict[
+            str, Callable[[int], SharedMetadataSnapshot]
+        ] = {}
+        self._shared_tables: dict[str, str] = {}
         self._revision_readers: dict[WemiLevel, Callable[[int], MetadataRevision]] = {}
         with self._lock():
             self._assert_attached()
-        self._works: MetadataEntityInterface[
-            WorkMetadataAPI, WorkCreate, WorkUpdate
-        ] = _Entity(
-            self,
-            catalog.works,
-            lambda source, entity_id: WorkMetadataHydrator(
-                source, strict=True
-            ).from_work_id(entity_id),
+        self._works: MetadataWorkInterface[WorkMetadataAPI, WorkCreate, WorkUpdate] = (
+            _WorkEntity(
+                self,
+                catalog.works,
+                lambda source, entity_id: WorkMetadataHydrator(
+                    source, strict=True
+                ).from_work_id(entity_id),
+            )
         )
         self._expressions: MetadataEntityInterface[
             ExpressionMetadataAPI, ExpressionCreate, ExpressionUpdate
@@ -189,22 +237,33 @@ class MetadataAPI:
         self._mutations = _Mutations(self)
         self._agents = AgentMetadata(self, catalog.agents)
         self._custom_fields = MetadataCustomFields(self)
-        vocabulary_repositories: tuple[tuple[VocabularyKind, BaseRepository], ...] = (
-            ("tags", catalog.tags),
-            ("labels", catalog.labels),
-            ("genres", catalog.genres),
-            ("subjects", catalog.subjects),
-            ("series", catalog.series),
-            ("languages", catalog.languages),
-            ("ratings", catalog.ratings),
+        self._identifiers = IdentifierMetadata(self, catalog.identifiers)
+        self._item_identifiers = ItemIdentifierMetadata(self, catalog.item_identifiers)
+        self._notes = TextMetadata(self, catalog.notes)
+        self._comments = TextMetadata(self, catalog.comments)
+        self._synopses = TextMetadata(self, catalog.synopses)
+        self._annotations = AnnotationMetadata(self, catalog.annotations)
+        self._tags = WorkMembershipMetadata(self, catalog.tags, "tags")
+        self._labels = TextVocabularyMetadata(self, catalog.labels, "labels")
+        self._genres = HierarchicalVocabularyMetadata(self, catalog.genres, "genres")
+        self._subjects = HierarchicalVocabularyMetadata(
+            self, catalog.subjects, "subjects"
         )
-        self._vocabularies: dict[VocabularyKind, VocabularyMetadataInterface] = {
-            kind: VocabularyMetadata(self, repository, kind)
-            for kind, repository in vocabulary_repositories
+        self._series = SeriesMetadata(self, catalog.series, "series")
+        self._languages = SuggestedReader(self, catalog.languages, "languages")
+        self._ratings = VocabularyMetadata(self, catalog.ratings, "ratings")
+        self._vocabularies: dict[VocabularyKind, MetadataRecordsReader] = {
+            "tags": self._tags,
+            "labels": self._labels,
+            "genres": self._genres,
+            "subjects": self._subjects,
+            "series": self._series,
+            "languages": self._languages,
+            "ratings": self._ratings,
         }
 
     @property
-    def works(self) -> MetadataEntityInterface[WorkMetadataAPI, WorkCreate, WorkUpdate]:
+    def works(self) -> MetadataWorkInterface[WorkMetadataAPI, WorkCreate, WorkUpdate]:
         """
         Read and mutate Works through the coordinating metadata service.
 
@@ -291,15 +350,15 @@ class MetadataAPI:
 
     def _lock(self) -> AbstractContextManager[object]:
         """
-        Borrow the cache lock when a cache is configured.
+        Borrow the ordered database/cache boundary when a cache is configured.
 
         Example:
             Uncached operations still use database transactions but acquire no facade lock.
 
 
-        :return: The owning cache RLock, or a no-op context for uncached operation.
+        :return: The owning cache operation scope, or a no-op context for uncached operation.
         """
-        return nullcontext() if self._cache is None else self._cache._lock
+        return nullcontext() if self._cache is None else self._cache._operation_lock()
 
     @property
     def agents(self) -> AgentMetadataInterface:
@@ -314,7 +373,32 @@ class MetadataAPI:
         """
         return self._agents
 
-    def vocabulary(self, kind: VocabularyKind) -> VocabularyMetadataInterface:
+    @overload
+    def vocabulary(self, kind: Literal["tags"]) -> WorkMembershipMetadataInterface: ...
+
+    @overload
+    def vocabulary(self, kind: Literal["series"]) -> SeriesMetadataInterface: ...
+
+    @overload
+    def vocabulary(
+        self, kind: Literal["genres", "subjects"]
+    ) -> HierarchicalVocabularyMetadataInterface: ...
+
+    @overload
+    def vocabulary(
+        self, kind: Literal["labels"]
+    ) -> TextVocabularyMetadataInterface: ...
+
+    @overload
+    def vocabulary(self, kind: Literal["languages"]) -> SuggestibleMetadataReader: ...
+
+    @overload
+    def vocabulary(self, kind: Literal["ratings"]) -> VocabularyMetadataInterface: ...
+
+    @overload
+    def vocabulary(self, kind: VocabularyKind) -> MetadataRecordsReader: ...
+
+    def vocabulary(self, kind: VocabularyKind) -> MetadataRecordsReader:
         """
         Select one supported native vocabulary without exposing raw repositories.
 
@@ -331,6 +415,161 @@ class MetadataAPI:
             if kind not in self._vocabularies:
                 raise ValueError(f"Unknown metadata vocabulary: {kind!r}")
             return self._vocabularies[kind]
+
+    @property
+    def tags(self) -> WorkMembershipMetadataInterface:
+        """Access Tag values through the coordinated metadata service."""
+        return self._tags
+
+    @property
+    def labels(self) -> TextVocabularyMetadataInterface:
+        """Access operational Labels through the coordinated metadata service."""
+        return self._labels
+
+    @property
+    def genres(self) -> HierarchicalVocabularyMetadataInterface:
+        """Access hierarchical Genres through the coordinated metadata service."""
+        return self._genres
+
+    @property
+    def subjects(self) -> HierarchicalVocabularyMetadataInterface:
+        """Access hierarchical Subjects through the coordinated metadata service."""
+        return self._subjects
+
+    @property
+    def series(self) -> SeriesMetadataInterface:
+        """Access Series identities through the coordinated metadata service."""
+        return self._series
+
+    @property
+    def languages(self) -> SuggestibleMetadataReader:
+        """Access read-only language constants through the coordinated metadata service."""
+        return self._languages
+
+    @property
+    def ratings(self) -> VocabularyMetadataInterface:
+        """Access Ratings with scale and source through the coordinated metadata service."""
+        return self._ratings
+
+    @property
+    def identifiers(self) -> IdentifierMetadataInterface:
+        """Access curated entity identifiers through the coordinated metadata service."""
+        return self._identifiers
+
+    @property
+    def item_identifiers(self) -> ItemIdentifierMetadataInterface:
+        """Access raw Item identifier observations through the coordinated metadata service."""
+        return self._item_identifiers
+
+    @property
+    def notes(self) -> TextMetadataInterface:
+        """Access Note records and WEMI attachments through the coordinated metadata service."""
+        return self._notes
+
+    @property
+    def comments(self) -> TextMetadataInterface:
+        """Access contextual Comments and WEMI attachments through the coordinated metadata service."""
+        return self._comments
+
+    @property
+    def synopses(self) -> TextMetadataInterface:
+        """Access Synopsis records and WEMI attachments through the coordinated metadata service."""
+        return self._synopses
+
+    @property
+    def annotations(self) -> AnnotationMetadataInterface:
+        """Access Item-scoped annotations through the coordinated metadata service."""
+        return self._annotations
+
+    def ensure_tag(self, text: str) -> MetadataWriteReceipt[int]:
+        """Reuse an exact tag or create it; existing attributes stay unchanged.
+
+        Reuse reports changed=False. Ambiguity raises; approximate matching is
+        disabled. Nested calls require a serialized outer transaction.
+        """
+        if not isinstance(text, str) or not text.strip():
+            raise ValueError("text must be a nonblank string")
+        return self._write(lambda: self._catalog.tags.ensure({"name": text}))
+
+    def ensure_label(self, text: str) -> MetadataWriteReceipt[int]:
+        """Reuse an exact label or create it; existing attributes stay unchanged.
+
+        Reuse reports changed=False. Ambiguity raises; approximate matching is
+        disabled. Nested calls require a serialized outer transaction.
+        """
+        if not isinstance(text, str) or not text.strip():
+            raise ValueError("text must be a nonblank string")
+        return self._write(lambda: self._catalog.labels.ensure({"name": text}))
+
+    def ensure_genre(
+        self, text: str, *, parent_id: int | None = None
+    ) -> MetadataWriteReceipt[int]:
+        """Reuse an exact genre or create it; existing attributes stay unchanged. Parent None explicitly selects a root.
+
+        Reuse reports changed=False. Ambiguity raises; approximate matching is
+        disabled. Nested calls require a serialized outer transaction.
+        """
+        if not isinstance(text, str) or not text.strip():
+            raise ValueError("text must be a nonblank string")
+
+        def operation() -> tuple[int, bool]:
+            if parent_id is not None:
+                self._catalog.genres.require(parent_id)
+            return self._catalog.genres.ensure({"name": text, "parent_id": parent_id})
+
+        return self._write(operation)
+
+    def ensure_subject(
+        self, text: str, *, parent_id: int | None = None
+    ) -> MetadataWriteReceipt[int]:
+        """Reuse an exact subject or create it; existing attributes stay unchanged. Parent None explicitly selects a root.
+
+        Reuse reports changed=False. Ambiguity raises; approximate matching is
+        disabled. Nested calls require a serialized outer transaction.
+        """
+        if not isinstance(text, str) or not text.strip():
+            raise ValueError("text must be a nonblank string")
+
+        def operation() -> tuple[int, bool]:
+            if parent_id is not None:
+                self._catalog.subjects.require(parent_id)
+            return self._catalog.subjects.ensure({"name": text, "parent_id": parent_id})
+
+        return self._write(operation)
+
+    def ensure_series(
+        self, text: str, *, parent_id: int | None = None
+    ) -> MetadataWriteReceipt[int]:
+        """Reuse an exact series or create it; existing attributes stay unchanged. Parent None explicitly selects a root.
+
+        Reuse reports changed=False. Ambiguity raises; approximate matching is
+        disabled. Nested calls require a serialized outer transaction.
+        """
+        if not isinstance(text, str) or not text.strip():
+            raise ValueError("text must be a nonblank string")
+
+        def operation() -> tuple[int, bool]:
+            if parent_id is not None:
+                self._catalog.series.require(parent_id)
+            return self._catalog.series.ensure({"name": text, "parent_id": parent_id})
+
+        return self._write(operation)
+
+    def ensure_rating(
+        self, value: float, *, out_of: float, source: str
+    ) -> MetadataWriteReceipt[int]:
+        """Reuse an exact rating or create it; existing attributes stay unchanged. Scale and source are required identity context.
+
+        Reuse reports changed=False. Ambiguity raises; approximate matching is
+        disabled. Nested calls require a serialized outer transaction.
+        """
+        if not isinstance(source, str) or not source.strip():
+            raise ValueError("source must be a nonblank string")
+        return self._write(
+            lambda: self._catalog.ratings.ensure(
+                {"value": value, "out_of": out_of, "source": source}
+            )
+        )
 
     @property
     def custom_fields(self) -> MetadataCustomFieldsInterface:
@@ -454,7 +693,7 @@ class MetadataAPI:
         self,
         operation: Callable[[MetadataAPIInterface], ResultT],
         *,
-        expected: Sequence[MetadataRevision] = (),
+        expected: Sequence[MetadataEditRevision] = (),
     ) -> MetadataWriteReceipt[ResultT]:
         """
         Group semantic edits, preserving results and one final reconciliation.
@@ -496,7 +735,7 @@ class MetadataAPI:
 
         return self._write(run, expected=tuple(expected), schema_changed=True)
 
-    def _check_revisions(self, expected: Sequence[MetadataRevision]) -> None:
+    def _check_revisions(self, expected: Sequence[MetadataEditRevision]) -> None:
         """
         Check requested tokens within one reusable schema-read scope.
 
@@ -512,7 +751,9 @@ class MetadataAPI:
         with self._schema_scope():
             self._check_reserved_revisions(expected)
 
-    def _check_reserved_revisions(self, expected: Sequence[MetadataRevision]) -> None:
+    def _check_reserved_revisions(
+        self, expected: Sequence[MetadataEditRevision]
+    ) -> None:
         """
         Compare under one stable schema scope and writer reservation.
 
@@ -525,6 +766,27 @@ class MetadataAPI:
         """
         self._database.macros.lock_metadata_snapshot()
         for token in expected:
+            if isinstance(token, SharedMetadataRevision):
+                shared_reader = self._shared_revision_readers.get(token.reference.kind)
+                if shared_reader is None:
+                    raise ValueError(
+                        f"Unknown editable metadata kind: {token.reference.kind!r}"
+                    )
+                BaseRepository._validate_entity_id(token.reference.entity_id)
+                source = MetadataReadSource(
+                    self._database, None, allow_database_fallback=False
+                )
+                root = source.get_row_from_id(
+                    self._shared_tables[token.reference.kind], token.reference.entity_id
+                )
+                current = (
+                    None
+                    if root is None
+                    else shared_reader(token.reference.entity_id).revision
+                )
+                if current != token:
+                    raise MetadataConflictError(token, current)
+                continue
             if not isinstance(token, MetadataRevision):
                 raise TypeError("expected revisions must be MetadataRevision values")
             reader = self._revision_readers.get(token.reference.level)
@@ -545,7 +807,7 @@ class MetadataAPI:
         self,
         operation: Callable[[], tuple[ResultT, bool]],
         *,
-        expected: Sequence[MetadataRevision] = (),
+        expected: Sequence[MetadataEditRevision] = (),
         schema_changed: bool = False,
     ) -> MetadataWriteReceipt[ResultT]:
         """
@@ -653,7 +915,7 @@ class MetadataAPI:
             return replace(receipt, generation=cache.generation)
 
 
-class _Entity[MetadataT: MetadataValue]:
+class _Entity[MetadataT: MetadataValue](EntityRelationshipMethods):
     """
     Bind a WEMI repository without exposing its uncoordinated methods.
 
@@ -750,6 +1012,29 @@ class _Entity[MetadataT: MetadataValue]:
                 MetadataReference(self._level, entity_id), value.to_mapping(), root
             ),
             fields,
+        )
+
+    def search(
+        self,
+        query: str = "",
+        *,
+        filters: Sequence[MetadataSearchFilter] = (),
+        sort: Sequence[MetadataSearchSort] = (),
+        limit: int | None = 100,
+        offset: int = 0,
+    ) -> HydratedMetadataSearchPage[MetadataT]:
+        """Return native metadata and exact page evidence from one captured source."""
+        request = MetadataSearchRequest(
+            query=query,
+            level=self._level,
+            filters=tuple(filters),
+            sort=tuple(sort),
+            limit=limit,
+            offset=offset,
+        )
+        return self._owner._search.hydrated(
+            request,
+            lambda source, entity_id: detached(self._hydrate(source, entity_id)),
         )
 
     def read_for_edit(self, entity_id: int) -> MetadataSnapshot[MetadataT]:
@@ -1032,6 +1317,12 @@ class _Entity[MetadataT: MetadataValue]:
         if token.reference != MetadataReference(self._level, entity_id):
             raise ValueError("Revision belongs to a different metadata entity")
         return (token,)
+
+
+class _WorkEntity[MetadataT: MetadataValue](
+    WorkRelationshipMethods, _Entity[MetadataT]
+):
+    """Bind Work-only membership conveniences above the common WEMI service."""
 
 
 class _Mutations:

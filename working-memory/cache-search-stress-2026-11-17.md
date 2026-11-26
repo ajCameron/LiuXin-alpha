@@ -188,6 +188,11 @@ did not signal any process. Final harness Ruff check passes.
 
 ### 03:36 UTC checkpoint — finalized integration harness
 
+Historical checkpoint: the November 22 demand-driven capture follow-up removes
+the shared-view shortcut below. Every differential query now exercises real
+per-call capture and cleanup, while retaining all predicate and freshness checks.
+See [the current follow-up](cache-followups-2026-11-22.md).
+
 The previous decision to capture the unchanged fixture separately for every
 expression was superseded: it was repeating an expensive whole-catalog operation
 without testing freshness under any mutation. `_unchanged_query_view` now captures

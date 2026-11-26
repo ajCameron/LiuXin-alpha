@@ -1,5 +1,176 @@
 # Working Memory Index
 
+Metadata cache review follow-ups, **2026-11-22**:
+[`cache-followups-2026-11-22.md`](cache-followups-2026-11-22.md) tracks the separate
+Core repair, cache transaction lifecycle, realistic/full-size measurements and
+explicit PostgreSQL upgrade. Validation and delivery are still in progress.
+
+Metadata cache ergonomics, **2026-11-22**: the approved follow-up is implemented
+on `cache-metadata-ergonomics` in an isolated worktree. The current scope,
+validation evidence and delivery checkpoint are recorded in
+[`cache-metadata-ergonomics-2026-11-22.md`](cache-metadata-ergonomics-2026-11-22.md).
+This supersedes the earlier cache milestone's delivery status below. Foundation
+PR #213 remains open; the follow-up targets `cache-review` until it merges.
+
+Cache milestone commit checkpoint, **2026-11-21**, on `cache-review`.
+The user requested committing the completed metadata package regrouping,
+generic Cache / CatalogCache separation, core metadata operations, vocabulary
+tree lifecycle, tests and documentation. The countdown/ETA documentation
+preference is included. This commit contains those slices; earlier uncommitted
+notes below describe their implementation history. No push or PR was requested.
+
+Pre-commit audit was rerun against the working checkout: all 47 mandatory tree
+cases are covered by the saved passing results, all 18 final source fingerprints
+match the quality checkout, and the existing data-submodule edit matches its
+original baseline. The final tree validation totals 203 distinct passing cases,
+including four gated stress-smoke cases, with a complete quality pass. Full-size
+tree stress and live PostgreSQL remain unrun. Preserve the unrelated
+`LiuXin_alpha_data` change and all six stashes. Validation artifacts remain at
+`/tmp/liuxin-tree-20261121`.
+
+Vocabulary tree lifecycle implemented and validated, **2026-11-21**, on
+`cache-review` (uncommitted). User selected full Genre/Subject/Series lifecycle,
+preserved globally unique Series names, and explicit `detach=True` for attached
+vocabulary deletion. WEMI graph expansion is out of scope.
+
+New contracts: `catalog/api/metadata_trees.py` and
+`catalog/api/repositories/hierarchy.py`. Shared iterative/bounded traversal:
+`catalog/hierarchy.py`. Authoritative CRUD/tree policy:
+`catalog/repositories/hierarchy.py`, inherited by Genre/Subject/Series repositories.
+Cached orchestration: `caches/metadata/trees.py`, exposing typed literal vocabulary
+selections and named properties. No new top-level package or generic cache state.
+Methods: ensure_path/create_tree, roots/children/ancestors/subtree, move/reorder,
+leaf-only delete and explicit delete_subtree. CRUD and batch edits validate the
+final parent graph; ordered updates write parents before children. Position aliases
+are insertion indices; affected groups compact to zero-based order. Stored full
+labels/tree_id remain opaque and are not paths. Whole-traversal fallback discards
+partial cached reads. True no-op writes preserve cache generation. Deletion locks
+reference inventory before traversal, requires explicit detachment of declared
+links, and rejects unknown/referenced attachment owners. Physical bounded child
+SQL lives in portable macros/table_pages; no schema migration. Direct Catalog
+writes still require invalidation, and live cache capture costs are unchanged.
+
+All **47 mandatory tree cases** pass, plus **4 gated stress smoke cases**.
+A 2,000-level ordinary traversal test checks recursion safety. The first complete
+39-case run passed; expanded 45-case run passed in 638s; final 15-case affected
+follow-up and 2 extra cases pass. Existing Catalog and core-record/doc/tooling
+runs combine to **203 distinct passing tests**, audited in
+`/tmp/liuxin-tree-20261121/validation.json`. Mandatory manifest now has **3,030**
+distinct cases and preserves the previous 25 core-record cases. Gated suite skips
+all 4 cases by default. Full-size stress and live PostgreSQL were not run.
+
+Full quality runner passes (`quality-complete.log`): 453 formatted files, 482
+annotation-covered modules, 265 protected imports, 2,080 layer modules, 31 import
+budgets, 563 mypy files, and 122/118 rejected pyright/mypy negative contracts.
+The final two ordinary tests and corrected long-suite skip message also pass
+Ruff/format checks. `paths.txt` and source hashes match the isolated quality copy.
+Earlier failures (cached predicate construction, short protocol docs, typing of
+skipped legacy bases/row payloads, and negative-test line markers) are fixed; no
+outstanding failed case. Final SQL-lock/input-copy guards were checked in the
+15-case follow-up. All launched sessions were polled to completion.
+
+Dev-docs metadata guide, structure, Catalog boundary, next tasks and long-test
+instructions are updated. Stress tests run separately from the fixed search-long
+runner, using the same opt-in/size environment. Seven new files have intent-to-add
+only; no content staged, commit or push requested. The earlier metadata regroup,
+CatalogCache split, core records and countdown preference remain uncommitted.
+Existing data-submodule edit still matches its original baseline hash; stashes
+are untouched. Artifacts and audit script: `/tmp/liuxin-tree-20261121`.
+
+Core metadata coverage, **2026-11-21**, on `cache-review` (uncommitted).
+Expanded MetadataAPIInterface and its MetadataAPI/CatalogCache implementations:
+named vocabularies; six explicit ensure helpers for Tag/Label/Genre/Subject/Series/
+Rating; curated identifiers and owner-copy assignment; raw Item identifiers;
+Notes/Comments/Synopses with atomic WEMI attachment; Item annotations. Contextual
+implementations live in `caches/metadata/records.py`, contracts in
+`catalog/api/metadata_shared.py`. Languages expose a read-only named contract;
+titles remain embedded WEMI fields. Generic Cache has no metadata responsibilities.
+Catalog ExactEntityRepository.ensure owns exact reuse inside a serialized macro
+transaction, returning (id, created). Matching uses only supplied identity fields,
+so derived storage keys cannot hide historical rows. Ambiguity raises; existing
+attributes are preserved. Hierarchy helpers default to explicit root scope;
+ratings require scale and nonblank source. Ensure rejects unreserved outer units.
+Catalog also validates complete Item ownership/required values for semantic
+Annotation and ItemIdentifier writes; storage placeholders remain permissible.
+
+All **25 new mandatory regressions**, **89 affected Catalog cases**, and **38**
+documentation/tooling checks pass. Tests cover four read modes, SQLite/APSW
+contextual CRUD and independent-handle concurrency, no-op generations, ambiguity,
+rollback, pending/post-commit receipts and explicit cache fallback. The mandatory
+manifest now has **2,983 cases**; its earlier cases are preserved. The final quality
+runner passes: 446 formatted files, 482 annotation-covered files, 2,075 layer
+modules, 31 import budgets, 558 mypy files and 120/116 rejected negative contracts.
+Artifacts: `/tmp/liuxin-metadata-core-20261121`; `validation.json` audits all new
+node IDs, source fingerprints against the isolated quality checkout and the
+unchanged existing data-submodule edit. Runtime artifacts combine the eight ensure
+cases from core-third.xml, fourteen from core-rest-fixed.xml and three from
+core-extra.xml. Early fixtures used incompatible identifier ownership and a
+normalized macro insert for deliberately inconsistent historical data; corrected
+fixtures pass. No live PostgreSQL, performance benchmark or soak was repeated.
+No commit/push was requested for this step. Preserve all earlier uncommitted layer
+split/regrouping changes and unrelated stashes. Prior checkpoint follows.
+
+Catalog-cache layering, **2026-11-21**, on `cache-review` (uncommitted).
+User preferred a generic database/cache foundation with Catalog and Catalog-cache
+above it. `caches.metadata.CatalogCache(catalog, cache=core)` now requires and
+borrows a loaded core, inherits the existing MetadataAPI implementation, and
+exposes metadata services directly plus the moved schema writer conveniences.
+The generic `Cache` / `ReadCache` no longer expose `.metadata`, create_writer,
+write or write_one. CacheAPI now accepts physical reconciliation dependencies;
+the unused CacheWriter protocol is removed. Catalog update interpretation lives
+in `caches.metadata.writers`. Retained writers also check the supplied Catalog's
+binding. Generic reconciliation preserves unrelated earlier dirty dependencies.
+CoreServices.metadata chooses CatalogCache when configured with a cache and
+MetadataAPI otherwise. The generic core cannot import Catalog or caches.metadata;
+Catalog cannot import caches.metadata (architecture checks cover all contexts).
+Canonical docs, migration table, protocol docs, typed contracts and callers are
+updated. `ensure_tag` remains a future metadata operation, not part of this
+structural change. No new top-level package or duplicate cache state.
+Final validation artifacts: `/tmp/liuxin-catalog-cache-split-20261121`.
+`validation.json` audits **421 runtime cases** after one isolated teardown rerun,
+**6 expected backend skips**, **3 additional Catalog-rebinding cases**, **38**
+documentation/tooling tests, and **244 doctest examples** across **61 modules**.
+There were no runtime test-body failures. The sole broad-run teardown error was
+the root-artifact guard detecting `.mypy_cache` created by concurrent tooling;
+the exact affected SQLite transaction case passed setup/call/teardown in the
+working checkout. Final writer tests also run against that checkout.
+
+A clean full quality run passes in `/tmp/liuxin-catalog-cache-quality-20261121`
+(444 formatted files; 482 annotation-covered files; 263 protected import modules;
+2,074 layer modules; 31 import budgets; 557 mypy source files; 116/112 rejected
+negative contracts). Its 109 source/test/config fingerprints match the working
+checkout. Earlier quality setup errors (a moved expected-error marker and the
+original Python 3.12 environment selected by the negative-mypy harness) are
+superseded by this clean, isolated Python 3.14 run. The original `.venv` remains
+unchanged. Cold importing the generic core loads no Catalog or caches.metadata.
+Moved schema-write convenience methods are AST-identical to their previous
+implementations. The existing LiuXin_alpha_data submodule edit is unchanged.
+No long-running soak or live PostgreSQL lane was repeated for this layer split.
+Changes remain uncommitted and unpushed; preserve unrelated stashes. Prior
+regrouping follows.
+
+Cache metadata package regrouping, **2026-11-20**, on `cache-review` after
+PR #192 merged. The bound service now lives under `caches/metadata/`: `service.py`,
+`reads.py`, `search.py`, `shared.py` and `custom_fields.py`, with `MetadataAPI`
+exported by the package initializer. Public `caches.metadata.MetadataAPI` and
+`cache.metadata` entry points are unchanged. Catalog owns the protocols; the
+cache-wide descriptor registry and publication coordinator retain their existing
+homes. The former top-level `metadata_*.py` implementation modules are removed.
+Imports, formatting/lint scope and developer guides follow the new paths.
+Validation artifacts are in `/tmp/liuxin-cache-metadata-package-20261120`.
+All **129 mandatory metadata cases** passed setup, call and teardown across the
+main run and two isolated reruns. The first run's two teardown-only errors came
+from parallel tooling creating `.ruff_cache` and `.mypy_cache`; both cases passed
+cleanly in the working checkout. Full quality passed (555 mypy source files;
+115/111 negative contracts), **38** documentation/tooling tests passed, and all
+**242** docstring examples across **59** cache modules passed. Six fresh imports,
+normalized implementation AST comparison and wheel-content checks passed; the
+wheel includes every new module and none of the retired paths. Final source
+hashes match the validated checkout, and the existing data-submodule edit is
+unchanged. Runtime and typing use an isolated Python 3.14 environment without
+altering the original checkout's environment. No commit or push was requested
+for this regrouping; preserve unrelated stashes.
+
 PR publication checkpoint, **2026-11-19**. The user requested publishing the
 metadata extensions and cache documentation pass to existing PR #192:
 https://github.com/ajCameron/LiuXin-alpha/pull/192 . Work remains on

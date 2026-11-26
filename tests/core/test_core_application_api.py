@@ -1698,6 +1698,19 @@ def test_core_catalog_and_cache_api_round_trip_real_database(db) -> None:
         assert person["agent"]["agent_type"] == "person"
 
         field_tag = "Core Field Tag {}".format(uuid.uuid4())
+        for field in ("genre", "series"):
+            name = "Core {} {}".format(field, uuid.uuid4())
+            replacement = runtime.command(
+                "metadata.{}.replace".format(field),
+                {
+                    "item_id": stack["item_ids"][0],
+                    field: [name],
+                    "kind": "liuxin",
+                },
+            )
+            assert replacement["changed"] is True
+            table = "genres" if field == "genre" else "series"
+            assert any(row[field] == name for row in db.get_all_rows(table))
         field_write = runtime.command(
             "catalog.field.write-one",
             {

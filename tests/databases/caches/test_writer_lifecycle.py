@@ -6,6 +6,8 @@ from threading import Event
 import pytest
 
 from LiuXin_alpha.caches.api import CacheClosedError, CacheState
+from LiuXin_alpha.caches.metadata import CatalogCache
+from LiuXin_alpha.catalog.catalog import Catalog
 from tests.databases.caches.test_modern_cache_facade import modern_cache as modern_cache
 
 
@@ -14,7 +16,9 @@ def test_write_serializes_persistence_and_reconciliation_with_read_or_close(
     modern_cache, monkeypatch, operation
 ):
     cache, db = modern_cache
-    writer = cache.create_writer("books", "title")
+    writer = CatalogCache(Catalog(cache.database), cache=cache).create_writer(
+        "books", "title"
+    )
     prior = cache.get("books", 2).value
     original_title = prior["title"]
     entered, release, other_started = Event(), Event(), Event()
@@ -55,16 +59,19 @@ def test_write_serializes_persistence_and_reconciliation_with_read_or_close(
         cache.close()
 
 
-@pytest.mark.parametrize("owner", ("facade", "backend"))
+@pytest.mark.parametrize("owner", ("facade", "backend", "catalog"))
 def test_old_writer_rejects_changed_database_identity_before_persistence(
     modern_cache, monkeypatch, owner
 ):
     cache, db = modern_cache
-    writer = cache.create_writer("books", "title")
+    catalog = Catalog(db)
+    writer = CatalogCache(catalog, cache=cache).create_writer("books", "title")
     before = db.get_row_from_id("books", 2).row_dict["title"]
     with monkeypatch.context() as patch:
         if owner == "facade":
             patch.setattr(cache, "database", object())
+        elif owner == "catalog":
+            patch.setattr(catalog, "db", object())
         else:
             patch.setattr(cache.storage, "db", object())
         with pytest.raises(RuntimeError, match="attached to a different database"):

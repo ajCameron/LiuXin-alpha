@@ -6,7 +6,7 @@ on:
       lane:
         description: Workload to execute (all requires every backend to pass)
         type: choice
-        options: [all, synthetic, sqlite, postgres]
+        options: [all, synthetic, metadata, sqlite, postgres]
         default: all
       size:
         description: Full soak or reduced harness validation

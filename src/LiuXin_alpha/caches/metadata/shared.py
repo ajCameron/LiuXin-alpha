@@ -4,139 +4,90 @@ Coordinate shared metadata reads and writes with the bound metadata owner.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
+from contextlib import nullcontext
 from copy import deepcopy
 from typing import TYPE_CHECKING, cast
 
-from LiuXin_alpha.caches.api import CacheQuery, CacheSort
-from LiuXin_alpha.catalog.api.common import CatalogNotFoundError
+from LiuXin_alpha.caches.metadata.reads import MetadataReadSource
+from LiuXin_alpha.catalog.api.metadata_revisions import (
+    SharedMetadataReference,
+    SharedMetadataRevision,
+    SharedMetadataSnapshot,
+)
 from LiuXin_alpha.catalog.api.metadata_shared import (
     SharedMetadataKind,
-    SharedMetadataRecord,
 )
+from LiuXin_alpha.catalog.metadata_revisions import shared_revision
 from LiuXin_alpha.catalog.repositories.agents import AgentRepository
 from LiuXin_alpha.catalog.repositories.base import BaseRepository
 from LiuXin_alpha.catalog.repositories.work_memberships import WorkMembershipRepository
 
 if TYPE_CHECKING:
-    from LiuXin_alpha.caches.metadata import MetadataAPI
+    from LiuXin_alpha.caches.metadata.service import MetadataAPI
     from LiuXin_alpha.catalog.api.metadata_access import MetadataWriteReceipt
 
 
-class SharedMetadata:
-    """
-    Expose public aliases without leaking repository objects or live rows.
+from LiuXin_alpha.caches.metadata.record_reads import (
+    SharedMetadataReader,
+    SuggestibleMetadataReader,
+)
 
-    Example:
-        ``metadata.vocabulary("tags").require(tag_id)`` returns detached public aliases.
-    """
+
+class SharedMetadata(SharedMetadataReader):
+    """Coordinate mutable shared-record operations through Catalog."""
 
     def __init__(
         self, owner: MetadataAPI, repository: BaseRepository, kind: SharedMetadataKind
     ) -> None:
-        """
-        Bind shared-record operations to one Catalog repository.
+        """Register authoritative revision reads alongside mutable record operations."""
+        super().__init__(owner, repository, kind)
+        owner._shared_revision_readers[kind] = self._snapshot
+        owner._shared_tables[kind] = repository.table_name
 
-        Example:
-            The tags service binds the Tag repository and labels returned records as tags.
-
-
-        :param owner: Metadata service that owns attachment checks, transaction
-            coordination and cache freshness.
-        :param repository: Repository providing validation, aliases and deletion policy.
-        :param kind: Public shared-metadata family label for returned records.
-        :return: None; retains the bindings without reading rows.
-        """
-        self._owner = owner
-        self._repository = repository
-        self._kind: SharedMetadataKind = kind
-
-    def _record(self, row: Mapping[str, object]) -> SharedMetadataRecord:
-        """
-        Copy public aliases from a complete shared-record row.
-
-        Example:
-            Changing record.fields after a read does not persist shared metadata.
-
-
-        :param row: Physical row containing the repository's integer identity column.
-        :return: Detached SharedMetadataRecord; a malformed identity raises TypeError.
-        """
-        repository = self._repository
-        entity_id = row[repository.id_column]
-        if type(entity_id) is not int:
-            raise TypeError("Shared metadata identity must be an integer")
-        fields = {
-            alias: deepcopy(row[column])
-            for alias, column in repository.input_aliases.items()
-            if column != repository.id_column and column in row
-        }
-        return SharedMetadataRecord(self._kind, entity_id, fields)
-
-    def get(self, entity_id: int) -> SharedMetadataRecord | None:
-        """
-        Read a complete shared record, preserving known-miss semantics.
-
-        Example:
-            A missing tag does not trigger database fallback.
-
-
-        :param entity_id: Shared-record identity; booleans and negative IDs are invalid.
-        :return: Detached shared record, or None for a confirmed miss.
-        """
+    def _snapshot(self, entity_id: int) -> SharedMetadataSnapshot:
+        """Read a complete authoritative row and copy all public scalar aliases."""
         BaseRepository._validate_entity_id(entity_id)
-        with self._owner._reading():
-            row = self._owner._reads().get_row_from_id(
-                self._repository.table_name, entity_id
-            )
-            return (
-                None
-                if row is None
-                else self._record(cast(Mapping[str, object], row.row_dict))
-            )
+        source = MetadataReadSource(
+            self._owner._database,
+            None,
+            allow_database_fallback=False,
+            require_rows=True,
+        )
+        row = source.get_row_from_id(self._repository.table_name, entity_id)
+        assert row is not None
+        root = deepcopy(dict(cast(Mapping[str, object], row.row_dict)))
+        value = self._record(root)
+        return SharedMetadataSnapshot(
+            value,
+            shared_revision(SharedMetadataReference(self._kind, entity_id), root),
+            deepcopy(value.fields),
+        )
 
-    def require(self, entity_id: int) -> SharedMetadataRecord:
-        """
-        Require an existing shared identity.
+    def read_for_edit(self, entity_id: int) -> SharedMetadataSnapshot:
+        """Read authoritative content without requiring the bound cache to be current."""
+        with self._owner._lock():
+            self._owner._assert_attached()
+            macros = self._owner._database.macros
+            with (
+                nullcontext()
+                if macros.current_transaction_connection() is not None
+                else macros.read_transaction()
+            ):
+                with self._owner._schema_scope():
+                    return self._snapshot(entity_id)
 
-        Example:
-            ``metadata.agents.require(agent_id)`` requires an existing Agent.
-
-
-        :param entity_id: Shared-record identity; booleans and negative IDs are invalid.
-        :return: Detached shared record; a confirmed miss raises CatalogNotFoundError.
-        """
-        value = self.get(entity_id)
-        if value is None:
-            raise CatalogNotFoundError(f"Missing {self._kind} identity: {entity_id}")
-        return value
-
-    def list(
-        self, *, limit: int = 100, offset: int = 0
-    ) -> tuple[SharedMetadataRecord, ...]:
-        """
-        Read one complete ID-ordered page under the owner's cache lock.
-
-        Example:
-            ``metadata.vocabulary("tags").list(limit=20)`` reads a complete first page.
-
-
-        :param limit: Maximum shared records; zero returns an empty page.
-        :param offset: Number of ascending identities to skip.
-        :return: Tuple of detached shared records in identity order.
-        """
-        BaseRepository._validate_page(limit, offset)
-        with self._owner._reading():
-            rows = self._owner._reads().rows(
-                CacheQuery(
-                    table=self._repository.table_name,
-                    sort=(CacheSort(self._repository.id_column),),
-                    limit=limit,
-                    offset=offset,
-                ),
-                lambda: self._repository.list(limit=limit, offset=offset),
-            )
-            return tuple(self._record(row) for row in rows)
+    def _expected(
+        self, entity_id: int, token: SharedMetadataRevision | None
+    ) -> Sequence[SharedMetadataRevision]:
+        """Reject a precondition for another record before entering mutation."""
+        if token is None:
+            return ()
+        if not isinstance(
+            token, SharedMetadataRevision
+        ) or token.reference != SharedMetadataReference(self._kind, entity_id):
+            raise ValueError("Shared edit precondition belongs to a different record")
+        return (token,)
 
     def create(self, data: Mapping[str, object]) -> MetadataWriteReceipt[int]:
         """
@@ -146,13 +97,17 @@ class SharedMetadata:
             ``metadata.vocabulary("tags").create({"name": "Science"})`` creates one value.
 
 
-        :param data: Repository public aliases; omission preserves values on update.
+        :param data: Public aliases used to create the shared record.
         :return: Receipt containing the new shared identity.
         """
         return self._owner._write(lambda: (self._repository.create(data), True))
 
     def update(
-        self, entity_id: int, data: Mapping[str, object]
+        self,
+        entity_id: int,
+        data: Mapping[str, object],
+        *,
+        expected_revision: SharedMetadataRevision | None = None,
     ) -> MetadataWriteReceipt[int]:
         """
         Apply supplied public aliases and refresh affected projections.
@@ -163,6 +118,7 @@ class SharedMetadata:
 
         :param entity_id: Existing shared identity.
         :param data: Repository public aliases; omission preserves values on update.
+        :param expected_revision: Optional authoritative full-row precondition.
         :return: Receipt containing the edited shared identity.
         """
 
@@ -180,9 +136,13 @@ class SharedMetadata:
             self._repository.update(entity_id, data)
             return entity_id, bool(data)
 
-        return self._owner._write(operation)
+        return self._owner._write(
+            operation, expected=self._expected(entity_id, expected_revision)
+        )
 
-    def delete(self, entity_id: int) -> MetadataWriteReceipt[int]:
+    def delete(
+        self, entity_id: int, *, expected_revision: SharedMetadataRevision | None = None
+    ) -> MetadataWriteReceipt[int]:
         """
         Delegate deletion policy and reconcile dependent cached metadata.
 
@@ -191,6 +151,7 @@ class SharedMetadata:
 
 
         :param entity_id: Existing shared identity to delete under repository policy.
+        :param expected_revision: Optional authoritative full-row precondition.
         :return: Receipt containing the deleted shared identity.
         """
 
@@ -207,10 +168,12 @@ class SharedMetadata:
             self._repository.delete(entity_id)
             return entity_id, True
 
-        return self._owner._write(operation)
+        return self._owner._write(
+            operation, expected=self._expected(entity_id, expected_revision)
+        )
 
 
-class AgentMetadata(SharedMetadata):
+class AgentMetadata(SharedMetadata, SuggestibleMetadataReader):
     """
     Retain Agent-specific aggregate creation and name policy in Catalog.
 
@@ -266,7 +229,12 @@ class AgentMetadata(SharedMetadata):
         )
 
     def rename(
-        self, entity_id: int, name: str, *, derive_sort: bool = False
+        self,
+        entity_id: int,
+        name: str,
+        *,
+        derive_sort: bool = False,
+        expected_revision: SharedMetadataRevision | None = None,
     ) -> MetadataWriteReceipt[int]:
         """
         Apply Catalog's name/sort policy without dropping contributions.
@@ -282,6 +250,7 @@ class AgentMetadata(SharedMetadata):
         :param name: Replacement display name validated by Catalog.
         :param derive_sort: Derive a new sort name when true; preserve the existing one
             otherwise.
+        :param expected_revision: Optional Agent-row precondition; credits are excluded.
         :return: Receipt containing the Agent identity and Catalog's known change flag.
         """
         if type(derive_sort) is not bool:
@@ -302,10 +271,20 @@ class AgentMetadata(SharedMetadata):
             )
             return entity_id, bool(result["changed"])
 
-        return self._owner._write(operation)
+        return self._owner._write(
+            operation, expected=self._expected(entity_id, expected_revision)
+        )
 
 
 class VocabularyMetadata(SharedMetadata):
+    """Administer mutable values without advertising unsupported capabilities."""
+
+
+class TextVocabularyMetadata(VocabularyMetadata, SuggestibleMetadataReader):
+    """Combine mutable values with literal text suggestions."""
+
+
+class WorkMembershipMetadata(TextVocabularyMetadata):
     """
     Coordinate exact-value CRUD and Tag/Series membership changes.
 

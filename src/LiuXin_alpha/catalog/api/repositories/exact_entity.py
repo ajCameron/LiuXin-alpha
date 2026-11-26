@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from typing import Protocol, runtime_checkable
 
-from ..common import EntityId, MatchResult, MetadataCandidate, RowMapping
+from ..common import EntityId, MatchResult, MetadataCandidate, RowInput, RowMapping
 from .base import BaseRepositoryAPI
 
 
@@ -112,6 +112,15 @@ class ExactEntityRepositoryAPI(BaseRepositoryAPI, Protocol):
         :raises Exception: Delegated normalization, lookup, and comparison failures propagate.
         """
 
+        ...
+
+    def ensure(self, data: RowInput) -> tuple[EntityId, bool]:
+        """Validate and ensure exact identity under a serialized writer reservation.
+
+        Return (identity, created). Reuse preserves existing attributes; ambiguity
+        and conflict raise. Immutable/contextual entities reject this operation.
+        Nested calls require an already serialized managed transaction.
+        """
         ...
 
     def match_or_create(

@@ -1110,6 +1110,7 @@ TABLE_DEFINITIONS: tuple[TableDefinition, ...] = (
             '"series_name_norm" text null',
             '"series_sort" text null',
             '"series_parent_id" bigint null references "series" ("series_id") on delete set null on update cascade',
+            '"series_parent_position" bigint null',
             _epoch_column("series_created_timestamp_ep_k"),
             _epoch_column("series_modified_timestamp_ep_k"),
             _nullable_epoch_column("series_source_created_datestamp_ep_k"),

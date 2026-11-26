@@ -873,13 +873,14 @@ class MeatdataToBookRow(object):
 
     def run(self, force_book_id=None, preserve_uuid=None):
         """
-        Import the bibliographic metadata in one transaction, then publish attachments.
+        Import bibliographic metadata in one serialized transaction, then publish attachments.
 
         A late rating or other metadata failure rolls back the entire metadata
         unit, including a newly created WEMI stack. Optional cover/file operations
         run after that unit succeeds: filesystem effects are not rolled back by
         a database transaction, and their failure may leave committed metadata.
-        A caller-owned outer transaction retains its own commit responsibility.
+        A caller-owned serialized outer transaction retains its own commit responsibility.
+        The reservation covers shared hierarchy identity and sibling ordering.
 
         Example:
             Exercise MeatdataToBookRow.run through a consuming regression::
@@ -891,7 +892,7 @@ class MeatdataToBookRow(object):
         :param preserve_uuid: Value supplied for preserve uuid under the utility contract.
         :return: Projected title/book Rows after metadata and attachment operations.
         """
-        with self.db.macros.transaction():
+        with self.db.macros.transaction(serialized=True):
             title_row, book_row = self._run_metadata(
                 force_book_id=force_book_id, preserve_uuid=preserve_uuid
             )
