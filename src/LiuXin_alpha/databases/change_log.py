@@ -46,6 +46,24 @@ from LiuXin_alpha.databases.db_types.driver_types import RowSQLConnection
 
 LOG_TABLE = "catalog_changes"
 METADATA_TABLE = "catalog_changes_metadata"
+# Columns follow the catalogue's convention of table-prefixed, globally unique names,
+# which column-to-table lookups rely on.
+CHANGE_ID = "catalog_change_id"
+CHANGE_TABLE = "catalog_change_table"
+CHANGE_ROW_ID = "catalog_change_row_id"
+CHANGE_OPERATION = "catalog_change_operation"
+CHANGE_OLD_IDS = "catalog_change_old_ids"
+CHANGE_TXID = "catalog_change_txid"
+CHANGE_CREATED_MS = "catalog_change_created_ms"
+METADATA_KEY = "catalog_changes_metadata_key"
+METADATA_VALUE = "catalog_changes_metadata_value"
+_INSERT_COLUMNS = (
+    f"({CHANGE_TABLE}, {CHANGE_ROW_ID}, {CHANGE_OPERATION}, {CHANGE_OLD_IDS}, "
+    f"{CHANGE_CREATED_MS})"
+)
+_READ_COLUMNS = (
+    f"{CHANGE_ID}, {CHANGE_TABLE}, {CHANGE_ROW_ID}, {CHANGE_OPERATION}, {CHANGE_OLD_IDS}"
+)
 SCHEMA_VERSION = 1
 OPERATIONS = ("insert", "update", "delete", "truncate")
 _TRIGGER_PREFIX = "liuxin_c_"
@@ -372,7 +390,7 @@ def _log_state(
         raise ChangeLogUnavailable(f"{LOG_TABLE} is not installed")
     rows = _rows(
         connection,
-        f"SELECT key, value FROM {_table_sql(METADATA_TABLE, schema)}",
+        f"SELECT {METADATA_KEY}, {METADATA_VALUE} FROM {_table_sql(METADATA_TABLE, schema)}",
     )
     values = {str(key): str(value) for key, value in rows}
     if (
@@ -689,8 +707,7 @@ def _sqlite_table_statements(shape: TableShape) -> tuple[str, ...]:
         statements.append(f"DROP TRIGGER IF EXISTS {quote(name)}")
         statements.append(
             f"CREATE TRIGGER {quote(name)} AFTER {operation.upper()} ON {quote(shape.name)} "
-            f"BEGIN INSERT INTO {quote(LOG_TABLE)} "
-            "(table_name, row_id, operation, old_ids, created_ms) VALUES "
+            f"BEGIN INSERT INTO {quote(LOG_TABLE)} {_INSERT_COLUMNS} VALUES "
             f"({_literal(shape.name)}, {row_id}, {_literal(operation)}, {old}, "
             f"{_SQLITE_NOW_MS}); END"
         )
@@ -715,7 +732,7 @@ def _postgres_table_statements(shape: TableShape, schema: str) -> tuple[str, ...
     log = _table_sql(LOG_TABLE, schema)
     table = _table_sql(shape.name, schema)
     insert = (
-        f"INSERT INTO {log} (table_name, row_id, operation, old_ids, created_ms) VALUES "
+        f"INSERT INTO {log} {_INSERT_COLUMNS} VALUES "
         f"({_literal(shape.name)}, "
     )
     new_id = f"NEW.{quote(shape.id_column)}" if shape.id_column else "NULL"
@@ -756,26 +773,111 @@ def _log_statements(schema: str | None) -> tuple[str, ...]:
     """
     operations = ", ".join(_literal(operation) for operation in OPERATIONS)
     log = _table_sql(LOG_TABLE, schema)
-    metadata = _table_sql(METADATA_TABLE, schema)
-    if schema:
-        return (
-            f"CREATE TABLE {log} ("
-            "change_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY, "
-            "table_name TEXT NOT NULL, row_id BIGINT, "
-            f"operation TEXT NOT NULL CHECK (operation IN ({operations})), "
-            "old_ids TEXT, txid xid8 NOT NULL DEFAULT pg_current_xact_id(), "
-            "created_ms BIGINT NOT NULL)",
-            f"CREATE INDEX {quote(LOG_TABLE + '_txid_idx')} ON {log} (txid)",
-            f"CREATE TABLE {metadata} (key TEXT PRIMARY KEY, value TEXT NOT NULL)",
-        )
-    return (
-        f"CREATE TABLE {log} ("
-        "change_id INTEGER PRIMARY KEY AUTOINCREMENT, "
-        "table_name TEXT NOT NULL, row_id INTEGER, "
-        f"operation TEXT NOT NULL CHECK (operation IN ({operations})), "
-        "old_ids TEXT, created_ms INTEGER NOT NULL)",
-        f"CREATE TABLE {metadata} (key TEXT PRIMARY KEY, value TEXT NOT NULL)",
+    metadata = (
+        f"CREATE TABLE {_table_sql(METADATA_TABLE, schema)} "
+        f"({METADATA_KEY} TEXT PRIMARY KEY, {METADATA_VALUE} TEXT NOT NULL)"
     )
+    integer, identity = (
+        ("BIGINT", "BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY")
+        if schema
+        else ("INTEGER", "INTEGER PRIMARY KEY AUTOINCREMENT")
+    )
+    txid = (
+        f"{CHANGE_TXID} xid8 NOT NULL DEFAULT pg_current_xact_id(), " if schema else ""
+    )
+    table = (
+        f"CREATE TABLE {log} ({CHANGE_ID} {identity}, "
+        f"{CHANGE_TABLE} TEXT NOT NULL, {CHANGE_ROW_ID} {integer}, "
+        f"{CHANGE_OPERATION} TEXT NOT NULL CHECK ({CHANGE_OPERATION} IN ({operations})), "
+        f"{CHANGE_OLD_IDS} TEXT, {txid}{CHANGE_CREATED_MS} {integer} NOT NULL)"
+    )
+    if schema:
+        index = f"CREATE INDEX {quote(LOG_TABLE + '_txid_idx')} ON {log} ({CHANGE_TXID})"
+        return table, index, metadata
+    return table, metadata
+
+
+def _log_columns(schema: str | None) -> dict[str, tuple[tuple[str, str, bool], ...]]:
+    """
+    Declare the log tables' columns, as their DDL declares them.
+
+    Example:
+        >>> _log_columns(None)["catalog_changes"][0]
+        ('catalog_change_id', 'INTEGER', True)
+
+
+    :param schema: PostgreSQL schema, or None for SQLite.
+    :return: Per table, each column's name, declared type and whether it is the key.
+    """
+    integer = "BIGINT" if schema else "INTEGER"
+    changes = (
+        (CHANGE_ID, integer, True),
+        (CHANGE_TABLE, "TEXT", False),
+        (CHANGE_ROW_ID, integer, False),
+        (CHANGE_OPERATION, "TEXT", False),
+        (CHANGE_OLD_IDS, "TEXT", False),
+        *(((CHANGE_TXID, "xid8", False),) if schema else ()),
+        (CHANGE_CREATED_MS, integer, False),
+    )
+    metadata = ((METADATA_KEY, "TEXT", True), (METADATA_VALUE, "TEXT", False))
+    return {LOG_TABLE: changes, METADATA_TABLE: metadata}
+
+
+def _seed_column_metadata(connection: RowSQLConnection, schema: str | None) -> None:
+    """
+    Record column policies for the log's own columns, as for every catalogue column.
+
+    A catalogue keeps a ``column_metadata`` row per physical column. The log's
+    tables are created after the generator seeds that table, and on existing
+    catalogues long after, so the install records them itself. Existing rows are
+    kept; a catalogue without ``column_metadata`` is left alone.
+
+    Example:
+        >>> import sqlite3
+        >>> _seed_column_metadata(sqlite3.connect(":memory:"), None)
+
+
+    :param connection: Borrowed connection inside the install.
+    :param schema: PostgreSQL schema, or None for SQLite.
+    :return: None.
+    """
+    from LiuXin_alpha.databases.column_metadata import (
+        COLUMN_METADATA_TABLE,
+        column_options_to_json,
+        infer_column_metadata,
+    )
+
+    if COLUMN_METADATA_TABLE not in _base_tables(connection, schema):
+        return
+    target = _table_sql(COLUMN_METADATA_TABLE, schema)
+    for table, columns in _log_columns(schema).items():
+        for column, declared, primary in columns:
+            policy = infer_column_metadata(
+                table, column, declared, is_primary_key=primary, is_foreign_key=False
+            )
+            connection.execute(
+                f"INSERT INTO {target} (column_metadata_table_name, "
+                "column_metadata_column_name, column_metadata_case_sensitive, "
+                "column_metadata_semantic_role, column_metadata_normalization_profile, "
+                "column_metadata_comparison_column, column_metadata_empty_value_policy, "
+                "column_metadata_merge_policy, column_metadata_validation_profile, "
+                "column_metadata_formatting_options_json, "
+                "column_metadata_display_options_json) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING",
+                (
+                    policy.table,
+                    policy.column,
+                    int(policy.case_sensitive),
+                    policy.semantic_role.value,
+                    policy.normalization_profile.value,
+                    policy.comparison_column,
+                    policy.empty_value_policy.value,
+                    policy.merge_policy.value,
+                    policy.validation_profile.value,
+                    column_options_to_json(policy.formatting_options),
+                    column_options_to_json(policy.display_options),
+                ),
+            ).close()
 
 
 def plan_install(
@@ -818,6 +920,48 @@ def plan_install(
             else _sqlite_table_statements(shape)
         )
     return tuple(statements)
+
+
+def _record_install(
+    connection: RowSQLConnection, schema: str | None, *, created: bool, triggers: bool
+) -> str | None:
+    """
+    Write the log's metadata for a new install, or count a trigger reinstall.
+
+    Example:
+        >>> _record_install(connection, None, created=True, triggers=True)  # doctest: +SKIP
+        '6f1c...'
+
+
+    :param connection: Borrowed connection inside the install.
+    :param schema: PostgreSQL schema, or None for SQLite.
+    :param created: Whether this install created the log tables.
+    :param triggers: Whether this install (re)created any triggers.
+    :return: The new log's UUID, or None when the log already existed.
+    """
+    metadata = _table_sql(METADATA_TABLE, schema)
+    if not created:
+        if triggers:
+            generation = _log_state(connection, schema)[1] + 1
+            connection.execute(
+                f"UPDATE {metadata} SET {METADATA_VALUE} = ? "
+                f"WHERE {METADATA_KEY} = 'trigger_generation'",
+                (str(generation),),
+            ).close()
+        return None
+    identity = str(uuid.uuid4())
+    for key, value in (
+        ("schema_version", str(SCHEMA_VERSION)),
+        ("log_uuid", identity),
+        ("installed_ms", str(int(time.time() * 1000))),
+        ("trigger_generation", "1"),
+    ):
+        connection.execute(
+            f"INSERT INTO {metadata} ({METADATA_KEY}, {METADATA_VALUE}) VALUES (?, ?)",
+            (key, value),
+        ).close()
+    _seed_column_metadata(connection, schema)
+    return identity
 
 
 def install(
@@ -865,23 +1009,9 @@ def install(
     try:
         for statement in plan:
             _execute(connection, statement)
-        metadata = _table_sql(METADATA_TABLE, schema)
-        if created:
-            for key, value in (
-                ("schema_version", str(SCHEMA_VERSION)),
-                ("log_uuid", str(uuid.uuid4())),
-                ("installed_ms", str(int(time.time() * 1000))),
-                ("trigger_generation", "1"),
-            ):
-                connection.execute(
-                    f"INSERT INTO {metadata} (key, value) VALUES (?, ?)", (key, value)
-                ).close()
-        elif selected:
-            generation = _log_state(connection, schema)[1] + 1
-            connection.execute(
-                f"UPDATE {metadata} SET value = ? WHERE key = 'trigger_generation'",
-                (str(generation),),
-            ).close()
+        identity = _record_install(
+            connection, schema, created=created, triggers=bool(selected)
+        )
     except BaseException:
         if savepoint:
             _execute(connection, f"ROLLBACK TO {savepoint}")
@@ -889,7 +1019,9 @@ def install(
         raise
     if savepoint:
         _execute(connection, f"RELEASE {savepoint}")
-    return {"log_uuid": log_uuid(connection, schema=schema), "tables": selected}
+    if identity is None:
+        identity = log_uuid(connection, schema=schema)
+    return {"log_uuid": identity, "tables": selected}
 
 
 def install_table(
@@ -1015,7 +1147,9 @@ def current_cursor(
     identity, generation = _log_state(connection, schema)
     if schema:
         return ChangeCursor(identity, _horizon(connection), generation=generation)
-    rows = _rows(connection, f"SELECT COALESCE(MAX(change_id), 0) FROM {quote(LOG_TABLE)}")
+    rows = _rows(
+        connection, f"SELECT COALESCE(MAX({CHANGE_ID}), 0) FROM {quote(LOG_TABLE)}"
+    )
     return ChangeCursor(identity, int(rows[0][0]), generation=generation)
 
 
@@ -1028,7 +1162,7 @@ def _entry(row: Sequence[Any]) -> ChangeEntry:
         'tags'
 
 
-    :param row: ``change_id, table_name, row_id, operation, old_ids`` values.
+    :param row: Change ID, table, row ID, operation and old-identity values.
     :return: The decoded entry.
     """
     change_id, table, row_id, operation, old_ids = row[:5]
@@ -1088,15 +1222,14 @@ def read_changes(
             f"{LOG_TABLE} triggers were reinstalled since the cursor"
         )
     log = _table_sql(LOG_TABLE, schema)
-    columns = "change_id, table_name, row_id, operation, old_ids"
     fetch = None if limit is None else limit + 1 + len(cursor.seen)
     bound = "" if fetch is None else f" LIMIT {int(fetch)}"
     if schema:
         horizon = _horizon(connection)
         rows = _rows(
             connection,
-            f"SELECT {columns}, txid::text FROM {log} "
-            f"WHERE txid >= CAST(? AS xid8) ORDER BY change_id{bound}",
+            f"SELECT {_READ_COLUMNS}, {CHANGE_TXID}::text FROM {log} "
+            f"WHERE {CHANGE_TXID} >= CAST(? AS xid8) ORDER BY {CHANGE_ID}{bound}",
             (str(cursor.position),),
         )
         if fetch is not None and len(rows) >= fetch:
@@ -1108,12 +1241,13 @@ def read_changes(
         if limit is not None and len(entries) > limit:
             raise ChangeLogUnavailable(f"More than {limit} pending {LOG_TABLE} entries")
         return entries, ChangeCursor(cursor.log_uuid, horizon, seen, generation)
-    last = _rows(connection, f"SELECT COALESCE(MAX(change_id), 0) FROM {log}")
+    last = _rows(connection, f"SELECT COALESCE(MAX({CHANGE_ID}), 0) FROM {log}")
     if int(last[0][0]) < cursor.position:
         raise ChangeLogUnavailable(f"{LOG_TABLE} ends before the cursor")
     rows = _rows(
         connection,
-        f"SELECT {columns} FROM {log} WHERE change_id > ? ORDER BY change_id{bound}",
+        f"SELECT {_READ_COLUMNS} FROM {log} WHERE {CHANGE_ID} > ? "
+        f"ORDER BY {CHANGE_ID}{bound}",
         (cursor.position,),
     )
     if limit is not None and len(rows) > limit:

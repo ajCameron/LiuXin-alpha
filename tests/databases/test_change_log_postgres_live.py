@@ -95,14 +95,17 @@ def _insert_tag(raw, schema, name):
 
 def test_new_postgres_catalogue_logs_every_catalogue_table(pg_catalogue):
     """
-    A new PostgreSQL catalogue starts with an empty log covering every eligible table.
+    A new PostgreSQL catalogue has the log, covering every eligible table.
+
+    Opening it may already have logged bootstrap rows; a write after a fresh
+    cursor is the only entry read from it.
 
     Example:
         >>> test_new_postgres_catalogue_logs_every_catalogue_table(target)  # doctest: +SKIP
 
 
     :param pg_catalogue: Fresh catalogue and its metadata.
-    :return: ``None`` after checking coverage.
+    :return: ``None`` after checking coverage and one logged write.
     """
     _, metadata = pg_catalogue
     schema = metadata["schema"]
@@ -112,9 +115,13 @@ def test_new_postgres_catalogue_logs_every_catalogue_table(pg_catalogue):
         eligible = set(change_log.eligible_tables(connection, schema=schema))
         assert {"works", "tags", "tag_work_links"} <= eligible
         assert change_log.covered_tables(connection, schema=schema) == eligible
-        with raw.cursor() as cursor:
-            cursor.execute(f'SELECT COUNT(*) FROM "{schema}".catalog_changes')
-            assert cursor.fetchone() == (0,)
+        start = change_log.current_cursor(connection, schema=schema)
+        raw.rollback()
+        _insert_tag(raw, schema, "Logged")
+        raw.commit()
+        entries, _ = change_log.read_changes(connection, start, schema=schema)
+        raw.rollback()
+    assert [(e.table, e.operation) for e in entries] == [("tags", "insert")]
 
 
 def test_postgres_cascades_keep_both_ends_of_removed_links(pg_catalogue):

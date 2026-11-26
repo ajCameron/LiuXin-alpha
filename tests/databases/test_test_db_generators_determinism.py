@@ -20,6 +20,8 @@ from tests.support import test_resources_manager as trm
 
 
 ALL_TEST_DB_NAMES = tuple(f"test_db_{i}" for i in range(26))
+# The change log records its installation's identity and when each row changed.
+VOLATILE_TABLES = frozenset({"catalog_changes", "catalog_changes_metadata"})
 
 
 def _is_volatile_column(col_name: str) -> bool:
@@ -74,6 +76,8 @@ def _canonical_snapshot(db_path: Path) -> tuple[tuple[str, tuple[str, ...], tupl
 
         snapshot: list[tuple[str, tuple[str, ...], tuple[tuple[str, ...], ...]]] = []
         for table in tables:
+            if table in VOLATILE_TABLES:
+                continue
             cols = [
                 str(r[1])
                 for r in conn.execute(f"PRAGMA table_info(`{table}`);").fetchall()

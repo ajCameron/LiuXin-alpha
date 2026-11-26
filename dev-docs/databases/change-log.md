@@ -10,13 +10,15 @@ Every catalogue table has AFTER INSERT, UPDATE and DELETE triggers; PostgreSQL a
 
 | Column | Meaning |
 | --- | --- |
-| `change_id` | The log's order: SQLite `AUTOINCREMENT`, PostgreSQL identity. |
-| `table_name` | Physical table changed. |
-| `row_id` | Row changed. It is `NULL` for a table without a single integer key, such as the `*_links__types` vocabularies, and for a PostgreSQL `TRUNCATE`. Either way it means "treat the whole table as changed". |
-| `operation` | `insert`, `update`, `delete` or `truncate`. |
-| `old_ids` | For updates and deletes: JSON of the old row's ID column, its `*_id` columns and its foreign-key columns. |
-| `txid` | PostgreSQL only: the writing transaction, from `pg_current_xact_id()`. |
-| `created_ms` | Time of the change. |
+| `catalog_change_id` | The log's order: SQLite `AUTOINCREMENT`, PostgreSQL identity. |
+| `catalog_change_table` | Physical table changed. |
+| `catalog_change_row_id` | Row changed. It is `NULL` for a table without a single integer key, such as the `*_links__types` vocabularies, and for a PostgreSQL `TRUNCATE`. Either way it means "treat the whole table as changed". |
+| `catalog_change_operation` | `insert`, `update`, `delete` or `truncate`. |
+| `catalog_change_old_ids` | For updates and deletes: JSON of the old row's ID column, its `*_id` columns and its foreign-key columns. |
+| `catalog_change_txid` | PostgreSQL only: the writing transaction, from `pg_current_xact_id()`. |
+| `catalog_change_created_ms` | Time of the change. |
+
+Column names carry the table prefix, as every catalogue column does: column-to-table lookups rely on names being unique. The install also records a `column_metadata` policy for each of the log's columns, as the generator does for every other column.
 
 Entries commit or roll back with their change, so the log cannot disagree with the data. It includes:
 
