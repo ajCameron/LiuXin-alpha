@@ -286,7 +286,9 @@ class WorkRelationshipMethods(EntityRelationshipMethods):
             return identity, created or not present
 
         return self._owner._write(
-            operation, expected=self._relationship_expected(work_id, expected_revision)
+            operation,
+            expected=self._relationship_expected(work_id, expected_revision),
+            present=lambda identity: (("tags", identity),),
         )
 
     def remove_tag(

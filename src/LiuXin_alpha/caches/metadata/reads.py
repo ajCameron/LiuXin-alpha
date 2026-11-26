@@ -37,6 +37,7 @@ if TYPE_CHECKING:
         MetadataRowSequence,
         MetadataSearchTerm,
     )
+    from LiuXin_alpha.databases.db_types.query_types import TextMatch
     from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api.relation_target_api import (
         MetadataRecord,
     )
@@ -326,6 +327,96 @@ class MetadataReadSource:
             ),
             lambda: tuple(self._source.get_all_rows(table)),
         )
+
+    def get_all_row_dicts(self, table: str) -> tuple[dict[str, object], ...]:
+        """
+        Return a complete table population as detached physical values.
+
+        Scans that only filter column values, such as pickers, skip the read-only
+        ``Row`` wrapper that hydration needs. Building that wrapper runs schema
+        discovery for every row, which made each picker cost about a millisecond
+        per row on every backend.
+
+        Example:
+            ``source.get_all_row_dicts("tags")`` returns one fresh dictionary per tag,
+            from the cache when configured and complete.
+
+
+        :param table: Physical table whose rows are requested.
+        :return: Fresh column/value dictionaries from a complete cache read or the
+            selected database path, in source order.
+        """
+        return self._read(
+            lambda cache: tuple(
+                dict(record.values)
+                for record in self.complete(
+                    cache.query(CacheQuery(table=table))
+                ).records
+            ),
+            lambda: tuple(dict(row) for row in self.driver_wrapper.get_all_rows(table)),
+        )
+
+    def find_text_rows(
+        self, table: str, predicate: TextMatch
+    ) -> tuple[dict[str, object], ...]:
+        """
+        Return a superset of a table's rows whose text key matches, as detached values.
+
+        The cache answers through its text indexes and SQL through the text-key
+        expression indexes. A cache that cannot run the predicate, or a driver
+        without normalized search, returns the whole population instead: callers
+        must still apply their exact rule to every returned row.
+
+        Example:
+            ``source.find_text_rows("agents", TextMatch(("agent_canonical_name",),
+            "ursula le guin", exact=True))`` reads the matching agents only.
+
+
+        :param table: Physical table to search.
+        :param predicate: Exact text-key predicate prepared with the shared text policy.
+        :return: Fresh column/value dictionaries in ID order or source order.
+        """
+
+        def cached(cache: ReadCache) -> tuple[dict[str, object], ...]:
+            """
+            Use the cache's text match, or its whole table if unsupported.
+
+            Example:
+                A backend without text-match support still answers from its rows.
+
+
+            :param cache: Selected complete cache view.
+            :return: Fresh dictionaries for the matching or all cached rows.
+            """
+            try:
+                result = cache.query(CacheQuery(table=table, where=predicate))
+            except UnsupportedCacheQueryError:
+                result = cache.query(CacheQuery(table=table))
+            return tuple(
+                dict(record.values) for record in self.complete(result).records
+            )
+
+        def database() -> tuple[dict[str, object], ...]:
+            """
+            Use SQL's normalized text match, or the whole table if unsupported.
+
+            Example:
+                SQLite evaluates the shared text key through its expression index.
+
+
+            :return: Fresh dictionaries for the matching or all stored rows.
+            """
+            macros = self._source.database.macros
+            if not macros.supports_normalized_search():
+                return tuple(
+                    dict(row) for row in self.driver_wrapper.get_all_rows(table)
+                )
+            return tuple(
+                dict(row)
+                for row in macros.find_rows_matching(table, predicate, limit=None)
+            )
+
+        return self._read(cached, database)
 
     def search(
         self, table: str, column: str, search_term: MetadataSearchTerm

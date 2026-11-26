@@ -3279,6 +3279,36 @@
       "tests/databases/caches/test_live_query_capture.py::test_capture_retains_sqlite_declared_value_conversion[SQLite]",
       "tests/databases/caches/test_live_query_capture.py::test_capture_retains_sqlite_declared_value_conversion[SQLite_apsw]",
       "tests/databases/caches/test_live_query_capture.py::test_postgres_capture_converts_binary_buffers_before_copy"
+    ],
+    "cache_review_2026_11_26": [
+      "tests/databases/caches/test_delete_detach.py::test_core_entity_delete_honours_detach",
+      "tests/databases/caches/test_delete_detach.py::test_linked_values_and_agents_need_detach[None]",
+      "tests/databases/caches/test_delete_detach.py::test_linked_values_and_agents_need_detach[database_backed]",
+      "tests/databases/caches/test_delete_detach.py::test_linked_values_and_agents_need_detach[numpy_vectorized]",
+      "tests/databases/caches/test_delete_detach.py::test_linked_values_and_agents_need_detach[schema_backed]",
+      "tests/databases/caches/test_identity_conflicts.py::test_renames_moves_and_creates_report_the_existing_row[None]",
+      "tests/databases/caches/test_identity_conflicts.py::test_renames_moves_and_creates_report_the_existing_row[database_backed]",
+      "tests/databases/caches/test_identity_conflicts.py::test_renames_moves_and_creates_report_the_existing_row[numpy_vectorized]",
+      "tests/databases/caches/test_identity_conflicts.py::test_renames_moves_and_creates_report_the_existing_row[schema_backed]",
+      "tests/databases/caches/test_picker_reads.py::test_exact_lookup_reads_only_text_key_candidates[False-None]",
+      "tests/databases/caches/test_picker_reads.py::test_exact_lookup_reads_only_text_key_candidates[False-database_backed]",
+      "tests/databases/caches/test_picker_reads.py::test_exact_lookup_reads_only_text_key_candidates[False-numpy_vectorized]",
+      "tests/databases/caches/test_picker_reads.py::test_exact_lookup_reads_only_text_key_candidates[False-schema_backed]",
+      "tests/databases/caches/test_picker_reads.py::test_exact_lookup_reads_only_text_key_candidates[True-None]",
+      "tests/databases/caches/test_picker_reads.py::test_exact_lookup_reads_only_text_key_candidates[True-database_backed]",
+      "tests/databases/caches/test_picker_reads.py::test_exact_lookup_reads_only_text_key_candidates[True-numpy_vectorized]",
+      "tests/databases/caches/test_picker_reads.py::test_exact_lookup_reads_only_text_key_candidates[True-schema_backed]",
+      "tests/databases/caches/test_picker_reads.py::test_interlinked_tables_are_kept_until_the_schema_version_changes",
+      "tests/databases/caches/test_picker_reads.py::test_pickers_never_build_hydration_rows[None]",
+      "tests/databases/caches/test_picker_reads.py::test_pickers_never_build_hydration_rows[database_backed]",
+      "tests/databases/caches/test_picker_reads.py::test_pickers_never_build_hydration_rows[numpy_vectorized]",
+      "tests/databases/caches/test_picker_reads.py::test_pickers_never_build_hydration_rows[schema_backed]",
+      "tests/databases/caches/test_reload_consistency.py::test_exact_reuse_of_another_connections_row_refreshes_the_snapshot[numpy_vectorized]",
+      "tests/databases/caches/test_reload_consistency.py::test_exact_reuse_of_another_connections_row_refreshes_the_snapshot[schema_backed]",
+      "tests/databases/caches/test_reload_consistency.py::test_read_consistently_borrows_an_open_transaction",
+      "tests/databases/caches/test_reload_consistency.py::test_read_consistently_repeats_then_holds_a_read_transaction",
+      "tests/databases/caches/test_reload_consistency.py::test_reload_repeats_when_another_connection_commits_midway[numpy_vectorized]",
+      "tests/databases/caches/test_reload_consistency.py::test_reload_repeats_when_another_connection_commits_midway[schema_backed]"
     ]
   }
 }

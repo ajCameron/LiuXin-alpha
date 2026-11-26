@@ -170,6 +170,8 @@ class HierarchicalRepository(ExactEntityRepository):  # type: ignore[misc]
                 identity: {**old[identity], **data}
                 for identity, data in prepared.items()
             }
+            # A rename or move must not reach a sibling's name as a raw driver error.
+            self._validate_proposed(proposed.items(), old)
             depths: dict[int, int] = {}
             for identity in proposed:
                 seen = {identity}

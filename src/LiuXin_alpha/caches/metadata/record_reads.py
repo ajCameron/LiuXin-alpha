@@ -190,19 +190,26 @@ class SharedMetadataReader:
         text: str | None = None,
         mode: Literal["exact", "prefix", "contains"] = "prefix",
     ) -> SharedMetadataPage:
-        """Validate public operands before reading one complete shared population."""
+        """Validate public operands, then read only the rows that could match.
+
+        An exact text operand narrows the read through the shared text key; other
+        queries, including literal suggestions, read the whole shared population.
+        """
         BaseRepository._validate_page(limit, offset)
         with self._owner._lock():
             self._owner._assert_attached()
             expected = record_queries.filters(
                 self._repository, fields, allow_empty=text is not None
             )
+        narrowing = record_queries.narrowing_text_match(expected)
+        table = self._repository.table_name
 
         def read(source: MetadataReadSource) -> SharedMetadataPage:
             """Filter and page rows from the chosen source, retaining exact provenance."""
             rows = (
-                cast(Mapping[str, object], row.row_dict)
-                for row in source.get_all_rows(self._repository.table_name)
+                source.get_all_row_dicts(table)
+                if narrowing is None
+                else source.find_text_rows(table, narrowing)
             )
             selected = record_queries.select(
                 self._repository, rows, expected, text=text, mode=mode

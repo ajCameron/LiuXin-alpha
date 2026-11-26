@@ -36,6 +36,30 @@ recoverable; CR03 prevents partial invalidation from leaving stale query indexes
 behind a READY facade. CR01 is repaired by the native registry; CR02/CR03 were repaired on 2026-11-17
 with whole-request validation and dirty full-recovery semantics.
 
+**Review follow-up, 2026-11-26.** The [cache review](../architectural_reviews/caches-review-2026-11-26.md)
+repairs CR04 (full reloads now read one committed state through
+`macros.read_consistently`, without blocking other writers), CR05 (identity
+collisions raise `CatalogIdentityConflictError`), CR06 (exact reuse of another
+connection's row refreshes the snapshot) and CR07 (linked Tags, Labels, Ratings and
+Agents need `detach=True`). CR08 makes pickers about a hundred times cheaper. 28
+regressions join the manifest, which now requires 3,167 cases.
+
+## CACHE06. Publish additions without a full reload
+
+**Next; blocks ingest through snapshot caches.** Every changed metadata write on a
+snapshot backend calls `reload_data()`: about 1.2–1.5 s (`schema_backed`) and
+2.1–2.7 s (`numpy_vectorized`) per write on a 20–40 book catalogue locally, growing
+with size (CR09). Route writes that only insert rows and links, which is most of
+ingest, through targeted `reconcile(...)` of the IDs the writer reports. Keep the
+full reload for updates and deletions until each has a proven narrower dependency.
+Read a reload through one pinned connection (CR10).
+
+Done when an ingest-shaped workload's per-book cost does not grow with catalogue
+size on both snapshot backends, the differential workload and the CR04 interleaving
+regression still pass, and a measured comparison is recorded. An append-only
+catalogue (retire rather than delete) would simplify this further, but is a
+separate schema and policy decision.
+
 ## CACHE02. Define leases for physical cache replicas
 
 **Next; STOR05 and ING02.** Work with storage to pin materialized inputs used by active workflows. Keep this byte-retention contract separate from catalogue snapshot invalidation.

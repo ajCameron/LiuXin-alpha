@@ -1,7 +1,6 @@
 """Exercise vocabulary forests through real Catalog and metadata/cache services."""
 
 from concurrent.futures import ThreadPoolExecutor
-from sqlite3 import IntegrityError
 from threading import Barrier
 
 import pytest
@@ -14,6 +13,7 @@ from LiuXin_alpha.caches.api import (
 from LiuXin_alpha.caches.metadata import MetadataAPI
 from LiuXin_alpha.catalog.api.common import (
     CatalogAmbiguousMatchError,
+    CatalogIdentityConflictError,
     CatalogMutationError,
     CatalogNotFoundError,
 )
@@ -164,7 +164,7 @@ def test_tree_rollback_limits_identity_and_pending_receipts(metadata_db, mode):
             api.genres.ensure_path(("Missing parent",), parent_id=999999)
         with pytest.raises(ValueError):
             api.genres.create({"name": "Position", "position": 100})
-        with pytest.raises(IntegrityError):
+        with pytest.raises(CatalogIdentityConflictError):
             api.genres.create_tree(
                 node("Rollback", node("Duplicate"), node("Duplicate"))
             )
@@ -172,7 +172,7 @@ def test_tree_rollback_limits_identity_and_pending_receipts(metadata_db, mode):
         other_root, branch = api.genres.ensure_path(("Other", "Branch")).result
         another = api.genres.ensure_path(("Root", "Branch")).result[-1]
         assert another != branch
-        with pytest.raises(IntegrityError):
+        with pytest.raises(CatalogIdentityConflictError):
             api.genres.move(branch, parent_id=root)
         assert ids(api.genres.children(other_root)) == (branch,)
         api.series.ensure_path(("First series", "Shared series"))

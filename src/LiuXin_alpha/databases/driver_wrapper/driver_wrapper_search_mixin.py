@@ -107,8 +107,11 @@ class DriverWrapperSearchMixin(DriverWrapperBase):
         """
         Load every row into memory, optionally ordering by a validated column.
 
-        Delegates to the driver's direct_get_all_rows hook. The following backend
-        details describe the shared SQL/SQLite implementation; backend errors propagate.
+        An active macro transaction supplies these reads without being completed, so
+        several whole-table reads inside read_transaction() share one consistent
+        snapshot. Otherwise delegate to the driver's direct_get_all_rows hook. The
+        following backend details describe the shared SQL/SQLite implementation;
+        backend errors propagate.
 
         Close the query connection after successful iteration. Use only when
         materializing the whole table is acceptable.
@@ -124,6 +127,16 @@ class DriverWrapperSearchMixin(DriverWrapperBase):
             ignored.
         :return: A list of converted row dictionaries.
         """
+        if self.macros.current_transaction_connection() is not None:
+            rows = [
+                dict(row)
+                for row in self.macros.get_rows(
+                    table, order_by=() if sort_column is None else (sort_column,)
+                )
+            ]
+            if reverse and sort_column is not None:
+                rows.reverse()
+            return rows
         return self.driver.direct_get_all_rows(table, sort_column, reverse)
 
     @observed("read", count="all")
