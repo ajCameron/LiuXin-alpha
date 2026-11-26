@@ -192,6 +192,10 @@ def create_postgres_schema(conn: SQLConnection, *, schema: str = "public") -> No
                         "if not exists ", ""
                     )
                 )
+            # Log every later row change, so caches can catch up row by row.
+            from LiuXin_alpha.databases import change_log
+
+            change_log.install(conn, schema=schema)
     except Exception as exc:
         raise DatabaseDriverError(f"Unable to create PostgreSQL schema: {exc}") from exc
 

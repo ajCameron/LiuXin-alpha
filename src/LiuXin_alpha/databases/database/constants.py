@@ -35,6 +35,9 @@ HELPER_TABLES = frozenset(
         "maintenance_changes",
         "maintenance_obligations",
         "maintenance_projections",
+        # Catalogue change log (databases/change_log.py)
+        "catalog_changes",
+        "catalog_changes_metadata",
         "preferences",
         # FRBR plugin data
         "works_plugin_data",
@@ -69,6 +72,9 @@ OPTIONAL_HELPER_TABLES = frozenset(
         "maintenance_changes",
         "maintenance_obligations",
         "maintenance_projections",
+        # Catalogues created before the change log add it explicitly.
+        "catalog_changes",
+        "catalog_changes_metadata",
         "column_metadata",
         "normalized_identities",
         # Storage bootstrapping owns the additive migration from catalogues

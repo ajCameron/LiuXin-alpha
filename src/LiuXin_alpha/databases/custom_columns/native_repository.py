@@ -349,6 +349,11 @@ class CustomFieldRepository:
             columns.append(f"UNIQUE ({q(ss + '_book')}, {q(unique)})")
         conn.execute(f"CREATE TABLE {q(storage)} ({', '.join(columns)})").close()
         self.install_cleanup(conn, definition)
+        from LiuXin_alpha.databases import change_log
+
+        schema = getattr(self.db.driver, "schema", None) if self.postgres else None
+        for created in dict.fromkeys((table, storage)):
+            change_log.install_table(conn, created, schema=schema)
 
     def cleanup_triggers(
         self, conn: SQLConnection, definition: FieldDefinition
