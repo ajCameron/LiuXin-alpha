@@ -451,6 +451,151 @@ def eligible_tables(
     return tuple(table for table in _base_tables(connection, schema) if eligible(table))
 
 
+def _shape(
+    name: str,
+    columns: Sequence[str],
+    primary: Sequence[tuple[str, str]],
+    foreign: Iterable[str],
+) -> TableShape:
+    """
+    Derive a table's shape from its columns, primary key and foreign-key columns.
+
+    Example:
+        >>> _shape("t", ["t_id", "t_name"], [("t_id", "INTEGER")], ())
+        TableShape(name='t', id_column='t_id', identity_columns=('t_id',))
+
+
+    :param name: Physical table name.
+    :param columns: Column names in table order.
+    :param primary: Primary-key columns with their declared types.
+    :param foreign: Columns that reference another table.
+    :return: The table's shape.
+    """
+    foreign = set(foreign)
+    id_column = (
+        primary[0][0]
+        if len(primary) == 1 and primary[0][1].lower() in _INTEGER_TYPES
+        else None
+    )
+    identity = tuple(
+        column
+        for column in columns
+        if column == id_column or column.endswith("_id") or column in foreign
+    )
+    return TableShape(name, id_column, identity)
+
+
+def _postgres_shapes(
+    connection: RowSQLConnection, schema: str
+) -> dict[str, TableShape]:
+    """
+    Inspect every table in a PostgreSQL schema with three catalogue queries.
+
+    Example:
+        >>> _postgres_shapes(postgres_connection, "library")["tags"].id_column  # doctest: +SKIP
+        'tag_id'
+
+
+    :param connection: Borrowed PostgreSQL connection.
+    :param schema: Schema to inspect.
+    :return: Shapes keyed by table name.
+    """
+    columns: dict[str, list[str]] = {}
+    for table, column in _rows(
+        connection,
+        "SELECT table_name, column_name FROM information_schema.columns "
+        "WHERE table_schema = ? ORDER BY table_name, ordinal_position",
+        (schema,),
+    ):
+        columns.setdefault(str(table), []).append(str(column))
+    primary: dict[str, list[tuple[str, str]]] = {}
+    for table, column, kind in _rows(
+        connection,
+        "SELECT c.relname, a.attname, format_type(a.atttypid, a.atttypmod) "
+        "FROM pg_index i JOIN pg_class c ON c.oid = i.indrelid "
+        "JOIN pg_namespace n ON n.oid = c.relnamespace "
+        "JOIN pg_attribute a ON a.attrelid = c.oid AND a.attnum = ANY(i.indkey) "
+        "WHERE i.indisprimary AND n.nspname = ?",
+        (schema,),
+    ):
+        primary.setdefault(str(table), []).append((str(column), str(kind)))
+    foreign: dict[str, set[str]] = {}
+    for table, column in _rows(
+        connection,
+        "SELECT c.relname, a.attname FROM pg_constraint k "
+        "JOIN pg_class c ON c.oid = k.conrelid "
+        "JOIN pg_namespace n ON n.oid = c.relnamespace "
+        "JOIN pg_attribute a ON a.attrelid = c.oid AND a.attnum = ANY(k.conkey) "
+        "WHERE k.contype = 'f' AND n.nspname = ?",
+        (schema,),
+    ):
+        foreign.setdefault(str(table), set()).add(str(column))
+    return {
+        table: _shape(table, names, primary.get(table, ()), foreign.get(table, ()))
+        for table, names in columns.items()
+    }
+
+
+def _sqlite_shape(connection: RowSQLConnection, table: str) -> TableShape | None:
+    """
+    Inspect one SQLite table.
+
+    Example:
+        >>> import sqlite3
+        >>> _sqlite_shape(sqlite3.connect(":memory:"), "missing") is None
+        True
+
+
+    :param connection: Borrowed SQLite connection.
+    :param table: Physical table name.
+    :return: Its shape, or None when the table does not exist.
+    """
+    info = _rows(connection, f"PRAGMA table_info({quote(table)})")
+    if not info:
+        return None
+    foreign = (
+        str(row[3]) for row in _rows(connection, f"PRAGMA foreign_key_list({quote(table)})")
+    )
+    return _shape(
+        table,
+        [str(row[1]) for row in info],
+        [(str(row[1]), str(row[2])) for row in info if row[5]],
+        foreign,
+    )
+
+
+def _shapes(
+    connection: RowSQLConnection, tables: Iterable[str], schema: str | None
+) -> list[TableShape]:
+    """
+    Inspect several tables, in the order given.
+
+    Example:
+        >>> import sqlite3
+        >>> c = sqlite3.connect(":memory:")
+        >>> _ = c.execute("CREATE TABLE tags (tag_id INTEGER PRIMARY KEY)")
+        >>> [shape.id_column for shape in _shapes(c, ["tags"], None)]
+        ['tag_id']
+
+
+    :param connection: Borrowed connection.
+    :param tables: Physical table names.
+    :param schema: PostgreSQL schema, or None for SQLite.
+    :return: One shape per table.
+    :raises ValueError: A table does not exist.
+    """
+    known = _postgres_shapes(connection, schema) if schema else None
+    shapes = []
+    for table in tables:
+        shape = (
+            known.get(table) if known is not None else _sqlite_shape(connection, table)
+        )
+        if shape is None:
+            raise ValueError(f"No such table: {table}")
+        shapes.append(shape)
+    return shapes
+
+
 def inspect_table(
     connection: RowSQLConnection, table: str, *, schema: str | None = None
 ) -> TableShape:
@@ -474,61 +619,7 @@ def inspect_table(
     :return: The table's shape.
     :raises ValueError: The table does not exist.
     """
-    if schema:
-        columns = [
-            str(row[0])
-            for row in _rows(
-                connection,
-                "SELECT column_name FROM information_schema.columns "
-                "WHERE table_schema = ? AND table_name = ? ORDER BY ordinal_position",
-                (schema, table),
-            )
-        ]
-        primary = [
-            (str(row[0]), str(row[1]))
-            for row in _rows(
-                connection,
-                "SELECT a.attname, format_type(a.atttypid, a.atttypmod) "
-                "FROM pg_index i JOIN pg_class c ON c.oid = i.indrelid "
-                "JOIN pg_namespace n ON n.oid = c.relnamespace "
-                "JOIN pg_attribute a ON a.attrelid = c.oid AND a.attnum = ANY(i.indkey) "
-                "WHERE i.indisprimary AND n.nspname = ? AND c.relname = ?",
-                (schema, table),
-            )
-        ]
-        foreign = {
-            str(row[0])
-            for row in _rows(
-                connection,
-                "SELECT a.attname FROM pg_constraint k "
-                "JOIN pg_class c ON c.oid = k.conrelid "
-                "JOIN pg_namespace n ON n.oid = c.relnamespace "
-                "JOIN pg_attribute a ON a.attrelid = c.oid AND a.attnum = ANY(k.conkey) "
-                "WHERE k.contype = 'f' AND n.nspname = ? AND c.relname = ?",
-                (schema, table),
-            )
-        }
-    else:
-        info = _rows(connection, f"PRAGMA table_info({quote(table)})")
-        columns = [str(row[1]) for row in info]
-        primary = [(str(row[1]), str(row[2])) for row in info if row[5]]
-        foreign = {
-            str(row[3])
-            for row in _rows(connection, f"PRAGMA foreign_key_list({quote(table)})")
-        }
-    if not columns:
-        raise ValueError(f"No such table: {table}")
-    id_column = (
-        primary[0][0]
-        if len(primary) == 1 and primary[0][1].lower() in _INTEGER_TYPES
-        else None
-    )
-    identity = tuple(
-        column
-        for column in columns
-        if column == id_column or column.endswith("_id") or column in foreign
-    )
-    return TableShape(table, id_column, identity)
+    return _shapes(connection, (table,), schema)[0]
 
 
 def _sqlite_old_ids(shape: TableShape) -> str:
@@ -717,8 +808,7 @@ def plan_install(
         if not eligible(table):
             raise ValueError(f"{table} is not a catalogue table the log can cover")
     statements = [] if present(connection, schema=schema) else list(_log_statements(schema))
-    for table in selected:
-        shape = inspect_table(connection, table, schema=schema)
+    for shape in _shapes(connection, selected, schema):
         statements.extend(
             _postgres_table_statements(shape, schema)
             if schema
