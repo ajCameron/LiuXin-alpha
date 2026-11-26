@@ -42,7 +42,6 @@ from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
-from LiuXin_alpha.databases.database.constants import HELPER_TABLES
 from LiuXin_alpha.databases.db_types.driver_types import RowSQLConnection
 
 LOG_TABLE = "catalog_changes"
@@ -421,6 +420,10 @@ def eligible(table: str) -> bool:
     :param table: Physical table name.
     :return: Whether triggers should log the table.
     """
+    # Deferred: the constants live in the Database facade package, which caches
+    # importing this module should not load.
+    from LiuXin_alpha.databases.database.constants import HELPER_TABLES
+
     return not (
         table in HELPER_TABLES
         or table in (LOG_TABLE, METADATA_TABLE)
