@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+# Contains code derived from calibre (https://calibre-ebook.com): src/calibre/ebooks/rtf2xml/check_encoding.py
+# Upstream: copyright 2002 Paul Henry Tremblay; licence GPL (version not stated), per calibre COPYRIGHT.
 
 
 """

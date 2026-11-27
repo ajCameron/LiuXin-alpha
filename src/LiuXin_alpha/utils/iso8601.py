@@ -1,5 +1,9 @@
 #!/usr/bin/env python2
 # vim:fileencoding=utf-8
+# SPDX-License-Identifier: GPL-3.0-only
+# Contains code derived from calibre (https://calibre-ebook.com): src/calibre/utils/iso8601.py
+# Upstream: copyright 2016, Kovid Goyal <kovid at kovidgoyal.net>; licence GPL v3, per calibre COPYRIGHT.
+
 # License: GPLv3 Copyright: 2016, Kovid Goyal <kovid at kovidgoyal.net>
 
 """

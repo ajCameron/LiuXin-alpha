@@ -1,5 +1,9 @@
 #!/usr/bin/env python
 # vim:fileencoding=utf-8
+# SPDX-License-Identifier: GPL-3.0-only
+# Contains code derived from calibre (https://calibre-ebook.com): src/polyglot/io.py
+# Upstream: copyright 2019, Kovid Goyal <kovid at kovidgoyal.net>; licence GPL v3, per calibre COPYRIGHT.
+
 # License: GPL v3 Copyright: 2019, Kovid Goyal <kovid at kovidgoyal.net>
 
 
