@@ -99,6 +99,9 @@ meaning belongs to metadata/Catalog; physical storage policy belongs to storage.
   2026-11-01 progress/batch overhead measurements.
 - [Schema overview](<../03 - Database Schema.md>): current WEMI graph, assets,
   replicas, generated relations, compatibility views and schema source map.
+- [FRBR schema sketch](frbr-schema-sketch.md): every `table_sql` table by group,
+  declared foreign keys, requested link tables and aggregate views, generated from
+  the generator's sources by `scripts/generate_frbr_ascii_schema.py`.
 - [Worked link examples](wemi-link-examples.md): WEMI rows and paths, novels with
   introductions, omnibuses, shared editions, copy counts, primary selection,
   credits and payload attachments.

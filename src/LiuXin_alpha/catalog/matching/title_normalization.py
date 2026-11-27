@@ -1,3 +1,7 @@
+# SPDX-License-Identifier: GPL-3.0-only
+# Contains code derived from calibre (https://calibre-ebook.com): src/calibre/db/utils.py
+# Upstream: copyright 2013, Kovid Goyal <kovid at kovidgoyal.net>; licence GPL v3, per calibre COPYRIGHT.
+
 """
 Normalize titles for Catalog's legacy fuzzy-comparison policy.
 

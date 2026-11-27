@@ -1,3 +1,7 @@
+# SPDX-License-Identifier: GPL-3.0-only
+# Contains code derived from calibre (https://calibre-ebook.com): src/calibre/customize/builtins.py
+# Upstream: copyright 2008, Kovid Goyal <kovid at kovidgoyal.net>; licence GPL v3, per calibre COPYRIGHT.
+
 """
 Register built-in post-import processing plugins.
 
