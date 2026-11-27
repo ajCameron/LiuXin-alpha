@@ -464,49 +464,63 @@ class ReadCache(CacheAPI):
             covered = change_log.covered_tables(connection, schema=schema)
         return cursor if tables <= covered else None
 
+    def _link_views(self) -> dict[str, list[tuple[str, str]]]:
+        """
+        Map each physical link table to the directed views this snapshot holds of it.
+
+        Example:
+            ``{"tag_work_links": [("tags", "works"), ("works", "tags")]}``
+
+
+        :return: View keys by physical link-table name.
+        """
+        views: dict[str, list[tuple[str, str]]] = {}
+        for key, link_table in self.storage.link_tables.items():
+            views.setdefault(str(getattr(link_table, "table", "")), []).append(
+                (str(key[0]), str(key[1]))
+            )
+        return views
+
     def _catch_up_plan(
         self, entries: Iterable[ChangeEntry]
-    ) -> tuple[set[str], dict[str, set[int]], set[tuple[str, str]]]:
+    ) -> tuple[set[str], dict[str, set[int]], set[str]]:
         """
         Group logged changes into the storage refreshes that apply them.
 
-        A main-table row is re-read by ID, or the whole table when the entry has
-        no row ID. A changed link row reloads every directed view of its table.
+        A row is re-read by ID: a main-table row through ``reload_ids`` (with its
+        old ID too, if an update changed it), a link row through
+        ``reload_link_rows``. An entry without a row ID refreshes its whole table.
         Tables this snapshot does not read are ignored.
 
         Example:
             An inserted Tag and its new ``tag_work_links`` row give
-            ``(set(), {"tags": {7}}, {("tags", "works"), ("works", "tags")})``.
+            ``(set(), {"tags": {7}, "tag_work_links": {41}}, set())``.
 
 
         :param entries: Logged changes in log order.
-        :return: Whole main tables, main-table row IDs and directed link views to refresh.
+        :return: Whole tables to reload, row IDs to re-read by table, and the
+            subset of whole tables that are link tables.
         """
         main = self.storage.main_tables
-        link_views: dict[str, list[tuple[str, str]]] = {}
-        for key, link_table in self.storage.link_tables.items():
-            link_views.setdefault(str(getattr(link_table, "table", "")), []).append(
-                (str(key[0]), str(key[1]))
-            )
-        tables: set[str] = set()
-        ids: dict[str, set[int]] = {}
-        links: set[tuple[str, str]] = set()
+        links = self._link_views()
+        whole: set[str] = set()
+        rows: dict[str, set[int]] = {}
         for entry in entries:
-            if entry.table in main:
-                if entry.row_id is None:
-                    tables.add(entry.table)
-                    continue
-                changed = ids.setdefault(entry.table, set())
-                changed.add(entry.row_id)
-                id_column = getattr(main[entry.table], "id_column", None)
-                previous = (entry.old_ids or {}).get(id_column) if id_column else None
-                if isinstance(previous, int):
-                    changed.add(previous)
-            else:
-                links.update(link_views.get(entry.table, ()))
-        for table in tables:
-            ids.pop(table, None)
-        return tables, ids, links
+            if entry.table not in main and entry.table not in links:
+                continue
+            if entry.row_id is None:
+                whole.add(entry.table)
+                continue
+            changed = rows.setdefault(entry.table, set())
+            changed.add(entry.row_id)
+            cached = main.get(entry.table)
+            id_column = getattr(cached, "id_column", None) if cached is not None else None
+            previous = (entry.old_ids or {}).get(id_column) if id_column else None
+            if isinstance(previous, int):
+                changed.add(previous)
+        for table in whole:
+            rows.pop(table, None)
+        return whole, rows, whole & set(links)
 
     def _apply_logged_changes(self, cursor: ChangeCursor) -> tuple[ChangeCursor, bool]:
         """
@@ -539,13 +553,18 @@ class ReadCache(CacheAPI):
             entries, after = change_log.read_changes(
                 connection, cursor, schema=schema, limit=self.CATCH_UP_LIMIT
             )
-        tables, ids, links = self._catch_up_plan(entries)
-        for table in sorted(tables):
+        whole, rows, whole_links = self._catch_up_plan(entries)
+        views = self._link_views()
+        # Main tables first, so link refreshes project current endpoint rows.
+        for table in sorted(whole - whole_links):
             self.storage.reload_main_table(table)
-        for table in sorted(ids):
-            self.storage.reload_ids(table, ids[table])
-        for source, target in sorted(links):
-            self.storage.reload_link_table(source, target)
+        for table in sorted(set(rows) - set(views)):
+            self.storage.reload_ids(table, rows[table])
+        for table in sorted(whole_links):
+            for source, target in views[table]:
+                self.storage.reload_link_table(source, target)
+        for table in sorted(set(rows) & set(views)):
+            self.storage.reload_link_rows(table, rows[table])
         return after, bool(entries)
 
     def _catch_up_locked(self) -> None:

@@ -87,8 +87,9 @@ The [change log and retirement design](change-log-and-retirement-design-2026-11-
 sets out how to remove that cost: the database records every changed row and the
 cache copies only those, and records are retired rather than deleted.
 [Catching up from the change log](change-log-catch-up-2026-11-26.md) records its
-first phase: snapshots now re-read only logged rows after a write, with measurements
-and the remaining work.
+first phase: snapshots now re-read only logged rows after a write, and
+`schema_backed` re-reads changed link rows by ID, so its write cost no longer grows
+with catalogue size.
 The [candidate and definition optimization](metadata-search-scope-optimization-2026-11-17.md)
 records the next adapter changes, matched measurements and regression evidence.
 The [native sorting and pagination pass](pagination-optimization-2026-11-18.md)
