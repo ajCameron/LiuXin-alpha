@@ -22,6 +22,7 @@ def assert_other_thread_rejected(api, cache, work, column_writer, link_writer):
             lambda: cache.get("works", work),
             cache.reload,
             cache.reload_data,
+            cache.catch_up,
             lambda: api.works.require(work),
             lambda: column_writer.write_one(work, "Must not persist"),
             lambda: link_writer.write_one(work, "Must not exist"),

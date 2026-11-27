@@ -3323,6 +3323,17 @@
       "tests/databases/test_change_log_postgres_live.py::test_new_postgres_catalogue_logs_every_catalogue_table",
       "tests/databases/test_change_log_postgres_live.py::test_postgres_cascades_keep_both_ends_of_removed_links",
       "tests/databases/test_change_log_postgres_live.py::test_out_of_order_commits_are_neither_skipped_nor_repeated"
+    ],
+    "cache_change_log_catch_up": [
+      "tests/databases/caches/test_change_log_catch_up.py::test_catch_up_matches_a_full_reload_without_reloading[schema_backed]",
+      "tests/databases/caches/test_change_log_catch_up.py::test_catch_up_matches_a_full_reload_without_reloading[numpy_vectorized]",
+      "tests/databases/caches/test_change_log_catch_up.py::test_catch_up_shows_writes_from_another_connection[schema_backed]",
+      "tests/databases/caches/test_change_log_catch_up.py::test_catch_up_shows_writes_from_another_connection[numpy_vectorized]",
+      "tests/databases/caches/test_change_log_catch_up.py::test_rolled_back_batch_and_committed_batch[schema_backed]",
+      "tests/databases/caches/test_change_log_catch_up.py::test_rolled_back_batch_and_committed_batch[numpy_vectorized]",
+      "tests/databases/caches/test_change_log_catch_up.py::test_falls_back_to_a_full_reload_when_the_log_cannot_help[schema_backed]",
+      "tests/databases/caches/test_change_log_catch_up.py::test_falls_back_to_a_full_reload_when_the_log_cannot_help[numpy_vectorized]",
+      "tests/databases/caches/test_change_log_catch_up.py::test_uncovered_table_disables_catch_up"
     ]
   }
 }
