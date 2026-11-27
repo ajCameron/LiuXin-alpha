@@ -58,7 +58,8 @@ remains a sign-off blocker.
 ## Implementation and validation checkpoint
 
 Implemented contracts are documented in the [operator runbook](recovery-operations.md).
-The evidence below distinguishes completed acceptance from the running long gate.
+The evidence below records completed acceptance, including the eight-hour soak,
+and the remaining platform limits.
 
 - Native metadata UUID/key journal, transactional outcomes, replay/conflict,
   passive `commands.outcome`, and result pruning that retains identity tombstones.
@@ -144,7 +145,7 @@ extension/transaction/concurrency regressions in 1,360.89s. Five command-journal
 rollback/refresh-failure checks passed again after the cache correction. The full
 quality gate also passed after both corrections, and the final documentation
 selection passed 22 checks. Cache and scale evidence is recorded below. This
-review does not extend the documented platform or duration guarantees.
+review's platform and duration coverage remains bounded by that evidence.
 
 ## Evidence and limits
 
@@ -202,6 +203,7 @@ histogram p95 upper bounds, not claimed universal service guarantees:
 | 10,000 / 60s | 0.837s | 1.149s | 0.061s | 0.155s | 186 MiB |
 | 100,000 / 120s | 0.686s | 1.061s | 0.051s | 0.144s | 559 MiB |
 | 1,000,000 / 300s | 0.531s | 0.743s | 0.048s | 0.109s | 4,335 MiB |
+| 10,000 / eight hours | 0.337s | 0.481s | 0.039s | 0.083s | 195 MiB |
 
 The warm reference passed all four declared latency targets. The larger cases
 passed their correctness checks and record latency without extending that SLO.
@@ -215,20 +217,31 @@ including the earlier failed measurement, remain under
 measurements. The million-Work result and source hashes are in
 `/tmp/liuxin-core-review-million28`. An earlier million-Work invocation was
 interrupted during construction to apply the cache correction and is not counted.
-Other backend latency and long-duration stability remain unclaimed.
+Long-duration results for other backend/cache/transport combinations remain unclaimed.
 The reference workload measures indexed `read_for_edit` and scalar metadata updates.
 It does not establish relationship/schema-publication latency. Some complete
 workflow cases take minutes; stack samples show schema inspection during full
 NumPy cache refreshes. Keep that cost visible when choosing further optimizations.
 
 The gated runner supports all 24 backend/cache/transport combinations, 100,000 and
-million-Work workloads, and eight-hour soaks. At the user's request, the eight-hour
-SQLite/schema-backed/HTTP soak started at **2026-11-25 22:56:29 UTC** with four
-clients and the background ledger workflow. It is **running**, not yet passing;
-its status, source hashes and eventual report are under
-`/tmp/liuxin-core-review-soak29`, with output in
-`/tmp/liuxin-core-review-soak29.log`. The detached supervisor records the eventual
-exit status. Defining or starting a gate does not establish full-duration success.
+million-Work workloads, and eight-hour soaks. The **eight-hour soak passed** on
+**2026-11-26 at 18:09:57 UTC**, with exit code 0. It exercised 10,000 Works using
+SQLite, the schema-backed cache, HTTP, four clients and the background ledger
+workflow. The measured interval was **28,800.63 seconds**, with 437,280 reads,
+109,320 writes, 36,440 replay checks, 156,596 health checks and 156,596 cancellation
+checks. All four declared latency targets passed. Peak process RSS was
+204,685,312 bytes (195 MiB). Pytest reported one passing case in 28,819.05s and
+only the existing ISO-639 deprecation warning.
+
+The [retained soak result](evidence/soak-2026-11-26.json) records the measurements,
+supervisor outcome and source provenance at commit
+`b190042ae91e55b21a1f03061fa504e56a47348a`. All 1,462 recorded source hashes were
+verified against that commit. The full manifest and log remain local artifacts
+under `/tmp/liuxin-core-review-soak29` and `/tmp/liuxin-core-review-soak29.log`.
+The start wall timestamp was 2026-11-25 22:56:29 UTC; wall time advanced farther
+than the measured runtime. Host/VM suspension is a possible explanation, not a
+confirmed diagnosis. This is a local Linux/WSL2 result for the stated configuration.
+
 Protocol buffers and adapter scan budgets do not cap
 the entire Python heap, every backend's internal buffering or blocking third-party
 I/O. Windows execution locks and process termination have not been exercised here.

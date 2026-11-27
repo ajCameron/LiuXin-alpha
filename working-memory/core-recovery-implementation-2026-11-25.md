@@ -89,7 +89,7 @@ and JUnit hashes. Reproducer: `/tmp/liuxin-audit-core-acceptance.py`.
   HTTP passed92.91s; p95 read.837s,write1.149s,health.061s,cancel.155s; RSS186MiB.
 - load-large15:100kWorks passed177.42s; p95 read.686s,write1.061s,health.051s,
   cancel.144s; RSS559MiB. Source hashes and host load averages retained with artifacts.
-- Million-Work evidence and the running eight-hour gate are recorded below.
+- Million-Work evidence and the passing eight-hour gate are recorded below.
   Windows locking remains untested.
   Scalar reference latency does NOT establish relationship/schema publication
   latency; full NumPy schema refresh remains expensive and is documented.
@@ -114,16 +114,24 @@ and JUnit hashes. Reproducer: `/tmp/liuxin-audit-core-acceptance.py`.
   the receipt bug was found; it is not a passing scale measurement.
 - PR base is `cache-metadata-ergonomics` at `21539083` (open PR #214). Existing
   dependency stack is #213 → #215 → #214. Do not merge those PRs implicitly.
-- User explicitly requested starting the eight-hour soak now. Detached supervisor
-  PID1466605 and worker1466607 started2026-11-25T22:56:29UTC. Verified alive after
-  launching; do not start a duplicate. `/tmp/liuxin-core-review-soak29/status.json`
-  records state, PIDs and eventual exit/elapsed time; source hashes and final
-  report share that directory. Log: `/tmp/liuxin-core-review-soak29.log`.
-  It is RUNNING, not passed. Expected finish after06:56UTC26Nov plus setup/cleanup.
-  Native Windows verification remains unrun.
+- Eight-hour soak PASSED, exit0, finished2026-11-26T18:09:57UTC. The user requested
+  adding the result to PR #226 on2026-11-27. Measured workload28,800.63s;
+  supervisor elapsed28,821.08s; pytest1passed/1existing warning in28,819.05s.
+  SQLite/schema_backed/HTTP,10kWorks,4clients plus background ledger workflow.
+  437,280reads/109,320writes/36,440replays and156,596each health/cancel checks.
+  p95upper read.337s,write.481s,health.039s,cancel.083s; peakRSS195MiB.
+  All four reference latency targets passed. Persisted result/provenance:
+  `dev-docs/core/evidence/soak-2026-11-26.json`; all1,462 recorded source hashes
+  match tested commit `b190042ae91e55b21a1f03061fa504e56a47348a`.
+  Original status/result/manifest: `/tmp/liuxin-core-review-soak29`; output:
+  `/tmp/liuxin-core-review-soak29.log`. Start wall timestamp22:56:29UTC25Nov;
+  wall time exceeded elapsed runtime, possibly host/VM suspension (unconfirmed).
+  No active soak remains. Native Windows verification remains unrun.
+- Soak evidence follow-up validation: all22 documentation link/public-boundary
+  checks passed9.64s; retained JSON matches the original result and all four
+  latency targets. This follow-up changes documentation/evidence only.
 
-Delivery uses `core-review` with PR base `cache-metadata-ergonomics`; inspect the
-branch's PR for the remote review/check status. Preserve the original checkout
-and stashes. The next operational follow-up is to read the overnight soak result
-and record it, then arrange native Windows verification. Do not claim universal
-backend latency or broad operational sign-off.
+Delivery uses `core-review` in PR #226 with base `cache-metadata-ergonomics`;
+inspect the PR for remote review/check status. Preserve the original checkout
+and stashes. The next operational follow-up is native Windows verification.
+Do not claim universal backend latency or broad operational sign-off.

@@ -1,0 +1,63 @@
+{
+  "source_commit": "b190042ae91e55b21a1f03061fa504e56a47348a",
+  "source_manifest": {
+    "sha256": "fe8b9058a8ea4ab5fb6cdbb2fa7c1e6c314189c7cfb59044d3b24851b3941277",
+    "tracked_files": 1462,
+    "all_recorded_hashes_match_commit": true
+  },
+  "execution": {
+    "state": "passed",
+    "started_utc": "2026-11-25T22:56:29.265804+00:00",
+    "finished_utc": "2026-11-26T18:09:57.849768+00:00",
+    "duration_seconds": 28800,
+    "elapsed_seconds": 28821.084880554932,
+    "exit_code": 0
+  },
+  "result": {
+    "size": "soak",
+    "records": 10000,
+    "duration_requested_seconds": 28800,
+    "backend": "SQLite",
+    "cache": "schema_backed",
+    "transport": "http",
+    "clients": 4,
+    "python": "3.14.10",
+    "platform": "Linux-6.18.33.1-microsoft-standard-WSL2-x86_64-with-glibc2.39",
+    "cpu_count": 8,
+    "load_average_start": [
+      3.52197265625,
+      3.23291015625,
+      2.03662109375
+    ],
+    "elapsed_seconds": 28800.627717552008,
+    "samples": {
+      "health": {
+        "count": 156596,
+        "p95_upper_seconds": 0.03886617761671022
+      },
+      "read": {
+        "count": 437280,
+        "p95_upper_seconds": 0.33650424955324637
+      },
+      "cancel": {
+        "count": 156596,
+        "p95_upper_seconds": 0.08248564182121876
+      },
+      "write": {
+        "count": 109320,
+        "p95_upper_seconds": 0.480610931717894
+      },
+      "replay": {
+        "count": 36440,
+        "p95_upper_seconds": 0.3432343345443113
+      }
+    },
+    "passed": true,
+    "load_average_end": [
+      1.40380859375,
+      1.474609375,
+      1.56201171875
+    ],
+    "process_peak_rss_bytes_through_case": 204685312
+  }
+}

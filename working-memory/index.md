@@ -4,9 +4,10 @@ Core recovery completion and focused review, **2026-11-25**: see
 [`core-recovery-implementation-2026-11-25.md`](core-recovery-implementation-2026-11-25.md)
 for durable command outcomes, workflow delivery, guarded recovery, bounded Core
 execution and verification. The review corrected late-handler deadline reporting
-and cache readiness receipts after caught nested rollbacks. Commits and a PR are
-authorized; the PR builds on the pending metadata work in #214. Canonical contracts
-and evidence live in `dev-docs/core/recovery-operations.md` and
+and cache readiness receipts after caught nested rollbacks. PR #226 builds on the
+metadata work in #214. Follow-up **2026-11-27** records the passing eight-hour
+SQLite/schema-backed/HTTP soak, retained result and verified source provenance.
+Canonical contracts and evidence live in `dev-docs/core/recovery-operations.md` and
 `dev-docs/core/recovery-completion-2026-11-25.md`.
 
 Whole-Core review, **2026-11-23**: the

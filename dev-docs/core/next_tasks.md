@@ -1,10 +1,10 @@
 # Core next tasks
 
-Updated **2026-11-25**. The implemented [recovery completion programme](recovery-completion-2026-11-25.md)
+Updated **2026-11-27**. The implemented [recovery completion programme](recovery-completion-2026-11-25.md)
 and [operator contract](recovery-operations.md) record completion of slices 4–8
-and the executed acceptance for slice 9. The million-Work reference passed; the
-eight-hour soak is running. Windows execution-lock verification remains unrun;
-this page does not imply whole-Core sign-off.
+and the executed acceptance for slice 9. The million-Work reference and the
+eight-hour SQLite/schema-backed/HTTP soak passed. Windows execution-lock
+verification remains unrun; this page does not imply whole-Core sign-off.
 The [whole-Core review and completion plan](review-and-completion-plan-2026-11-23.md)
 defines the full functionality target, ten findings and nine ordered completion
 slices. The architecture below remains the foundation; whole-module sign-off is
@@ -127,9 +127,9 @@ extends CORE-01 through CORE-05 with the remaining public and operational work:
    guarded cleanup and migrated callers. PostgreSQL language constants and the
    explicit existing-catalogue upgrade preserve IDs/references; reads do not bootstrap.
 9. **Recorded acceptance complete:** backend/cache/local-HTTP smoke matrix, recovery
-   scenarios, 10,000/100,000/million-Work references and runbooks. The eight-hour
-   soak is running; its result and Windows verification remain for broader
-   operational sign-off. See the
+   scenarios, 10,000/100,000/million-Work references, the eight-hour
+   SQLite/schema-backed/HTTP soak and runbooks. Windows verification remains for
+   broader operational sign-off. See the
    [completion evidence](recovery-completion-2026-11-25.md#evidence-and-limits).
 
 The review distinguishes implemented work from proposals. Its sign-off criteria
