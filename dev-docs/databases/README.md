@@ -117,6 +117,8 @@ meaning belongs to metadata/Catalog; physical storage policy belongs to storage.
 - [Driver-wrapper reads and diagnostics](driver-wrapper-features-2026-11-04.md):
   native schema facts, connection ownership, resumable scans, backend capability
   reports, optional observations and hierarchy cycle detection.
+- [Catalogue change log](change-log.md): every changed row recorded in its own
+  transaction, so caches can refresh only changed rows; installing and reading it.
 - [Maintenance modes](maintenance-modes.md): transactional prompt effects,
   durable lazy delivery, Catalog consumers and explicit operator controls.
 - [Malformed-plugin and failure validation](maintenance-adversarial-validation-2026-11-03.md):

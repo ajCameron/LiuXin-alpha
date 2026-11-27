@@ -611,6 +611,9 @@ class _RecordingSchemaConnection:
         self.statements.append(sql)
         if sql.startswith("select exists ("):
             return _ResultCursor([(False,)])
+        if sql.startswith("SELECT "):
+            # Catalogue inspection, such as the change log's, finds nothing to cover.
+            return _ResultCursor([])
         return _ResultCursor([(1,)])
 
     def __enter__(self):
@@ -686,6 +689,7 @@ def test_postgresql_schema_builder_executes_core_and_storage_tables() -> None:
         in ddl_lower
     )
     assert 'create table "column_metadata"' in ddl_lower
+    assert 'create table "liuxin_test"."catalog_changes"' in ddl_lower
     assert (
         "values ('works', 'work_title', 0, 'title', "
         "'unicode_nfc_trim_casefold', null, 'null_or_blank_is_missing', "

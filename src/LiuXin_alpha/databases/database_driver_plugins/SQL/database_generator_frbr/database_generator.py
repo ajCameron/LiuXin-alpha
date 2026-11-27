@@ -522,6 +522,12 @@ class SQLiteDatabaseGenerator(SQLiteTableLinkingMixin, DatabaseGeneratorAPI):
         # 12) Lock constant tables so they are stable reference data.
         self.lock_constant_tables()
 
+        # 13) Log every later row change, so caches can catch up row by row.
+        # Seed rows above predate the log; it records changes from here on.
+        from LiuXin_alpha.databases import change_log
+
+        change_log.install(self.conn)
+
         from LiuXin_alpha.databases.schema_revision import CURRENT_SCHEMA_REVISION
 
         self.conn.execute(
