@@ -252,9 +252,11 @@ class WorkMatcher:
         Build a descriptive Work candidate when title and corroboration rules qualify it.
 
         Compare the first supplied title with every stored variant, choosing the greatest similarity
-        and the first variant on ties. Title evidence weighs six; append available field evidence
-        and, for integer-ID rows, credited-Agent evidence. An exact title qualifies without support;
-        an approximate title must meet its cutoff and have at least one exact corroborating item.
+        and the first variant on ties. A title below the approximate cutoff cannot qualify, so the
+        row is rejected before any further evidence is read. Title evidence weighs six; append
+        available field evidence and, for integer-ID rows, credited-Agent evidence. An exact title
+        qualifies without support; an approximate title must meet its cutoff and have at least one
+        exact corroborating item.
 
         Qualification does not enforce the final acceptance threshold. Disagreements can reduce the
         returned confidence below acceptance, as the example shows. The row is retained by
@@ -282,11 +284,17 @@ class WorkMatcher:
         titles = self._row_titles(row)
         if expected_title is None or not titles:
             return None
-        title_field, actual_title = max(
-            titles,
-            key=lambda item: text_similarity(expected_title, item[1]),
+        title_field, actual_title, title_score = max(
+            (
+                (field, value, text_similarity(expected_title, value))
+                for field, value in titles
+            ),
+            key=lambda item: item[2],
         )
-        title_score = text_similarity(expected_title, actual_title)
+        if title_score != 1.0 and title_score < self.policy.approximate_text_threshold:
+            # Neither exact nor approximate: no other evidence can qualify the
+            # row, so skip the field comparison and the Agent relationship read.
+            return None
         title_evidence = MatchEvidence(
             title_field,
             "exact" if title_score == 1.0 else "approximate",
