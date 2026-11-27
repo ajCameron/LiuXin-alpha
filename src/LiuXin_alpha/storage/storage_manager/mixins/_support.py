@@ -740,6 +740,9 @@ class _StorageManagerSupportMixin(_StorageManagerState):
         hashers = self._new_hashers(algorithms)
         with self.get(location) as source:
             while True:
+                from LiuXin_alpha.storage.operation_context import checkpoint
+
+                checkpoint()
                 chunk = source.read(1024 * 1024)
                 if not chunk:
                     break

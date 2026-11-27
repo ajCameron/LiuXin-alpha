@@ -3,6 +3,12 @@
 Status: **implemented named application API, with explicit ownership and access-control limits**.
 API version: `2.0`. Source reviewed **2026-10-20**, working tree based on `fc5de7af`.
 
+**2026-11-25 contract update:** native metadata commands retain transactional
+outcomes; long workflows return durable acceptance and resolve completion through
+jobs. Read the [recovery contract and runbook](recovery-operations.md) before
+retrying a lost response. It also defines current content ranges, event gaps,
+readiness and dispatch limits. Endpoint discovery reports each recovery policy.
+
 ## Boundary
 
 `CoreRuntime` is LiuXin's application composition root. A complete client can
@@ -48,23 +54,69 @@ The equivalent RPC client is:
 client = core_client(endpoint="http://127.0.0.1:8765")
 ```
 
+## Configuration and reopening
+
+A local Core captures one concrete application store and its database connection
+options before bootstrap. Named dispatch, lazy services and cleanup bind that
+store; another profile cannot redirect an existing graph. Worker submissions and
+retries retain it, while reopened connections carry the captured target, backend
+metadata and PostgreSQL schema. SQLite/APSW paths are made absolute.
+
+Application preferences, library preferences and component files keep distinct
+owners. Some installation/component singletons remain process-scoped; see the
+[capture/reload inventory and worker semantics](configuration-ownership.md).
+A remote client's local profile never selects the server's preference store.
+
 ## Discovery and compatibility
 
 `api.describe` is authoritative for every registered operation, payload,
 summary, tag, and transport-stability flag.
 
-`capabilities.list` is the program-level compatibility contract. It reports:
+`capabilities.list` snapshots the actual command and query registrations, including
+extensions added or replaced after startup. It reports:
 
-- `complete_program_boundary`: whether every operation in the v2 program
-  capability matrix is registered;
-- each capability family, its operation names, and any missing operations;
-- per-operation direct/RPC call modes and local implementation status;
-- operations whose successful execution depends on the selected driver,
-  plugins, network, paths, or external tools.
+- `inventory_complete=true`: every registration in that snapshot is represented;
+- families derived from registration tags, with their operation names;
+- per-route implementation support, prerequisite declarations, direct/RPC exposure,
+  required remote capabilities and transport-stability policy;
+- `readiness_probed=false` and per-route `readiness="not_probed"`.
 
-`complete_program_boundary` describes contract coverage, not the availability
-of every external dependency. Interfaces can therefore fail fast or hide an
-environment-dependent action without probing internal subsystem objects.
+Each operation has a `routes` array so a command and query with the same name keep
+their separate contracts. Availability is `available` for a supported implementation
+without declared prerequisites, `conditional` when prerequisites are declared, or
+`unavailable` when a passive support check reports a missing implementation. An
+operation with differing command/query availability reports `mixed`.
+Built-in `maintenance.clean` is unavailable; an injected implementation can provide
+it. A local-only extension advertises only `direct` in `call_modes`.
+
+This replaces `complete_program_boundary`; completeness refers only to registered
+routes, not completion of the whole application. Availability is not a readiness
+probe or a grant of permission. Capability inspection does not construct lazy
+maintenance or probe tools, drivers or networks; the ordinary dispatch preference
+context still applies. Support callbacks must not open resources or start workers. HTTP roles see the same inventory and must
+still satisfy each route's server-enforced `remote_capabilities`.
+
+## Request and registration contracts
+
+Core captures each handler, authority declaration and result policy together.
+Replacing a route affects later dispatches; an in-flight command or query keeps
+the registration selected when it was admitted.
+
+After authorization and before handler execution, dispatch enforces declared
+required fields and JSON primitive types. Integer IDs exclude booleans, fractions
+and numeric strings; flags require booleans and numbers must be finite. Optional
+means a field may be absent. Explicit `null` is accepted only when its declared
+type includes `null`. Strings remain strings; required-text adapters reject blanks.
+Failures carry `invalid_payload` with the parameter name. Nested domain values and
+undeclared extension fields remain the receiving adapter's responsibility; this
+is not a generic nested schema validator. Shared adapters also validate identity
+arrays and workflow controls before their domain operations.
+
+CLI parsing may turn textual arguments into those primitives before dispatch.
+Core no longer truncates `1.9` to row ID `1`, interprets `"false"` as true, or
+stringifies a missing required name. Extensions declaring payload types must use
+JSON names (`string`, `integer`, `number`, `boolean`, `object`, `array`, `null`) or
+`|` unions. Invalid or duplicate declarations fail before replacing a registration.
 
 The command and query named `invoke` remain compatibility/diagnostic escape
 hatches and are marked `transport_stable=false`. New interface code must use a
@@ -183,6 +235,15 @@ Core selects one structured read source. With a configured Cache, structured
 rows, relations, and metadata hydration use the cache-backed source. Without
 one, the same endpoints evaluate against the Database.
 
+The [native metadata workflow](native-metadata.md) exposes WEMI creation/deletion,
+shared records and suggestions, relationships, vocabulary trees, bounded atomic
+batches and search-schema discovery alongside search/read/edit. It uses `CoreServices.metadata`, bound
+to Catalog and the optional native cache. Its service owns complete reads,
+revision checks and reconciliation; Core does not refresh its receipts again.
+An injected legacy read source still controls row/Item projection routes and
+does not replace this native service. See the
+[integration review](integration-review-2026-11-23.md) for the route map.
+
 Structured cache queries do not silently switch to the Database. A table or
 query shape unsupported by the selected cache raises `read_query_unavailable`
 in both direct and RPC modes, with `table` and `reason` details. Unknown fields
@@ -191,6 +252,10 @@ show an explicit unavailable marker for optional counts, but must not turn a
 failed required read into an empty result. Count-only database queries
 (`rows.query` with `limit=0`) filter and count without ordering or projecting
 row identities. See [read-model-failures.md](../surfaces/read-model-failures.md).
+
+The legacy `search.global` scan also propagates required table-read errors. It
+does not skip failed tables and report a successful partial count. New WEMI
+consumers should use `metadata.search` for its typed request and snapshot contract.
 
 Semantic catalog writes go through Catalog. Normalized field commands
 (`catalog.field.write` and `catalog.field.write-one`) select
@@ -256,6 +321,21 @@ the owner; repeated shutdown does not retry failed closers. A supplied
 Cache must use Core's Database; a cache created through `cache_type=...` is
 owned by Core.
 
+Dependency identities are checked before cache preparation. Startup failure
+closes newly created caches, restores a displaced storage binding, and stops a
+new durable job service before unwinding its library graph. Borrowed resources
+remain open. Lazy service construction shares a lifetime guard with close;
+acquisition through closed CoreServices is rejected. Database locking precedes
+the service lock. Switching libraries composes a new graph rather than rebinding
+retained readers and semantic services in place.
+
+Shutdown attempts durable-job stop, service cleanup and opted-in manager shutdown
+independently, reporting collected failures as an exception group. Within Core
+services, storage unbind failure cannot prevent cache close or later cleanup.
+An older owner only detaches its own cache binding, preserving a replacement
+session's binding. Cache status-reporting failures after a write retain the same
+committed receipt and error classification as reload failures.
+
 `CoreRuntime.database`, `.catalog`, `.cache`, and `.read_source` exist for
 composition, testing, and compatibility. They are not members of
 `CoreClientAPI` and must not become interface dependencies.
@@ -271,9 +351,12 @@ point. The same interface model and wire records are used in both modes.
 `surfaces.core.SurfaceCoreSession` is the normal surface-session owner. It owns
 locally created runtimes, borrows remote clients, and adapts supplied legacy
 Database objects for embedding/testing. CLI one-shot operations also compose
-`LibraryServices` explicitly, and lower-layer path wrappers remain. New surface
-behaviour should depend on the client contract; existing adapters are not proof
-that all privileged Python objects are inaccessible.
+`LibraryServices` explicitly. Synchronous local-disk/rclone/wget/native-HTML
+path operations live in [`core.store_registration`](../../src/LiuXin_alpha/core/store_registration.py),
+with their [import and CLI migration](../architectural_reviews/lifecycle-opening-path-review-2026-10-09.md#registration-caller-migration)
+documented separately. They are Python composition helpers, not remote endpoints.
+New surface behaviour should depend on the client contract; existing adapters
+are not proof that all privileged Python objects are inaccessible.
 
 Production surface modules are checked by the
 [AST boundary test](../../tests/surfaces/test_core_boundary_enforcement.py), which rejects

@@ -101,6 +101,9 @@ class DigitalAssetIngestMixin(_StorageManagerState):
         total = 0
         with tempfile.SpooledTemporaryFile(max_size=8 * 1024 * 1024) as spool:
             while True:
+                from LiuXin_alpha.storage.operation_context import checkpoint
+
+                checkpoint()
                 chunk = stream.read(1024 * 1024)
                 if not chunk:
                     break
@@ -741,6 +744,15 @@ class DigitalAssetIngestMixin(_StorageManagerState):
 
         if digital_asset_id is None:
             observed = self._calculate_location_digests(location, ("sha256",))
+            after = self.stat(location)
+            if (info.size, info.modified_at, info.version) != (
+                after.size,
+                after.modified_at,
+                after.version,
+            ):
+                raise storage_errors.StoragePreconditionFailed(
+                    "Adopted source changed while hashing"
+                )
             with self._lock:
                 existing = self._find_asset_locked(observed, info.size)
             asset_created = existing is None
@@ -772,6 +784,15 @@ class DigitalAssetIngestMixin(_StorageManagerState):
                 location,
                 tuple(digest.algorithm for digest in asset_record.digests),
             )
+            after = self.stat(location)
+            if (info.size, info.modified_at, info.version) != (
+                after.size,
+                after.modified_at,
+                after.version,
+            ):
+                raise storage_errors.StoragePreconditionFailed(
+                    "Adopted source changed while hashing"
+                )
             self._require_same_identity(asset_record, info.size, observed)
             asset_created = False
 

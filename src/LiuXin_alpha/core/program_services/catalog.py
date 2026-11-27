@@ -3,8 +3,8 @@ Adapt Core field discovery, WEMI adjacency, identifiers, Agent names/links, and 
 
 Repositories retain level validation and semantic mutation policy. Write receipts
 are projected and reconciled after repository calls without an adapter transaction.
-Global search is a full materialized scan with suppressed initial table-read errors,
-not a completeness-guaranteed indexed search or an authorization boundary.
+Global search is a bounded materialized scan. Required table-read failures propagate;
+it does not provide an indexed search or an authorization boundary.
 """
 
 from __future__ import annotations
@@ -13,6 +13,8 @@ from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any
 
 from LiuXin_alpha.core.errors import CoreDispatchError
+from LiuXin_alpha.core.execution_bounds import SCAN_ROWS, bounded_table_rows
+from LiuXin_alpha.core.payloads import boolean
 from LiuXin_alpha.core.program_services.payloads import (
     _agent_role,
     _callable,
@@ -105,7 +107,7 @@ def catalog_fields_list(
     Enumerate one field-metadata family and project each key's metadata in provider order.
 
     Kind is stripped/lowercased, with falsey input selecting all. include_composites
-    is truth-tested but used only for custom fields. Keys are not deduplicated or
+    must be a boolean but is used only for custom fields. Keys are not deduplicated or
     sorted by this adapter, and no per-key lookup failures are suppressed.
 
     Example:
@@ -120,7 +122,7 @@ def catalog_fields_list(
     payload = _payload(query)
     metadata = runtime.services.field_metadata
     kind = str(payload.get("kind") or "all").strip().lower()
-    include_composites = bool(payload.get("include_composites", True))
+    include_composites = boolean(payload, "include_composites", True)
     if kind == "sortable":
         keys = metadata.sortable_field_keys()
     elif kind == "displayable":
@@ -228,7 +230,7 @@ def catalog_identifiers_list(
 
 
     :param runtime: Runtime exposing Catalog identifier repository capabilities.
-    :param query: Query containing level and required integer-convertible entity_id.
+    :param query: Query containing level and required integer entity_id.
     :return: Normalized requested level/ID, projected identifier list, and list count.
     """
     payload = _payload(query)
@@ -273,7 +275,7 @@ def catalog_identifiers_primary_values(
 
 
     :param runtime: Runtime whose identifier repository implements primary_values_for_wemi.
-    :param query: Query containing required level text and integer-convertible entity_id.
+    :param query: Query containing required level text and integer entity_id.
     :return: Lowercased level/ID, identifier dictionary, and length of the original result.
     """
     payload = _payload(query)
@@ -345,11 +347,11 @@ def catalog_agents_list(
 
 def search_global(runtime: CoreRuntime, query: CoreQuery) -> dict[str, Any]:
     """
-    Scan selected tables for a casefolded text substring, then page all accumulated matches.
+    Scan at most 10,000 rows across selected tables, then page substring matches.
 
     A normalized nonempty tables list preserves requested order; otherwise all
-    advertised names are sorted. Initial get_all_rows errors skip that table, but
-    later iteration/projection errors propagate. Search uses flattened projected
+    advertised names are sorted. Table-read, iteration and projection errors
+    propagate without returning a partial success. Search uses flattened projected
     values, not keys, and the entire text as one substring rather than split terms.
     Zero limit still scans/counts. Limit defaults to 100 and is capped at 1000;
     bounds are nonnegative, with explicit None reaching assertions.
@@ -360,7 +362,7 @@ def search_global(runtime: CoreRuntime, query: CoreQuery) -> dict[str, Any]:
 
     :param runtime: Runtime whose selected read_source enumerates tables and rows.
     :param query: Query with required text and optional tables, offset, and limit.
-    :return: Text, successfully opened table names, page items, observed total, bounds, and has_more; no completeness guarantee for skipped tables.
+    :return: Text, searched table names, page items, observed total, bounds, and has_more.
     """
     payload = _payload(query)
     text = _required_text(payload, "text")
@@ -375,14 +377,10 @@ def search_global(runtime: CoreRuntime, query: CoreQuery) -> dict[str, Any]:
     limit = min(limit, 1000)
     matches: list[dict[str, Any]] = []
     searched: list[str] = []
+    remaining = SCAN_ROWS
     for table in tables:
-        try:
-            rows = runtime.read_source.get_all_rows(
-                table,
-                iterator_return=False,
-            )
-        except Exception:
-            continue
+        rows = bounded_table_rows(runtime.read_source, table, maximum=remaining)
+        remaining -= len(rows)
         searched.append(table)
         for row in rows:
             rendered = plain(row)

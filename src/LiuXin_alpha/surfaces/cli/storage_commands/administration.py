@@ -20,6 +20,7 @@ from pathlib import Path
 from typing import Any
 
 from LiuXin_alpha.surfaces.cli.common import (
+    complete_command,
     decode_wire_bytes,
     emit_bytes,
     emit_json,
@@ -226,7 +227,7 @@ def cmd_storage_store_evacuate(args: argparse.Namespace) -> int:
         }
     )
     with open_cli_core(args, enable_storage_manager=True) as core:
-        result = core.command("storage.store.evacuate.apply", payload)
+        result = complete_command(core, "storage.store.evacuate.apply", payload, args)
     emit_json(result, args)
     return 0 if bool(result.get("ok", False)) else 1
 
@@ -587,12 +588,14 @@ def cmd_storage_replica_verify(args: argparse.Namespace) -> int:
     :return: Zero for truthy receipt.healthy, otherwise one, after publishing the full receipt.
     """
     with open_cli_core(args, enable_storage_manager=True) as core:
-        result = core.command(
+        result = complete_command(
+            core,
             "storage.replica.verify",
             {
                 "replica_id": int(args.replica_id),
                 "calculate_digests": not bool(args.no_digests),
             },
+            args,
         )
     emit_json(result, args)
     return 0 if bool(result.get("healthy", False)) else 1
@@ -618,6 +621,6 @@ def cmd_storage_asset_verify(args: argparse.Namespace) -> int:
     if args.all_replicas:
         payload["all_replicas"] = True
     with open_cli_core(args, enable_storage_manager=True) as core:
-        result = core.command("storage.asset.verify", payload)
+        result = complete_command(core, "storage.asset.verify", payload, args)
     emit_json(result, args)
     return 0 if bool(result.get("healthy", False)) else 1

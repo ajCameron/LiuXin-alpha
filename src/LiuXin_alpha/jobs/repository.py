@@ -69,6 +69,8 @@ CREATE TABLE IF NOT EXISTS job_runs (
     payload_json TEXT,
     job_name TEXT,
     retry_of_job_run_id INTEGER,
+    timeout_s REAL,
+    recovery_state TEXT,
     lease_expires_timestamp_ep_k INTEGER,
     cancel_requested INTEGER NOT NULL DEFAULT 0,
     not_before_timestamp_ep_k INTEGER,
@@ -184,6 +186,8 @@ class JobRepository:
                 "payload_json": "TEXT",
                 "job_name": "TEXT",
                 "retry_of_job_run_id": "INTEGER",
+                "timeout_s": "REAL",
+                "recovery_state": "TEXT",
             }
             for name, sql_type in additions.items():
                 if name not in columns:
@@ -466,6 +470,7 @@ class JobRepository:
         request_key: str,
         acknowledge_possible_effects: bool = False,
         reuse_successor: bool = False,
+        automatic: bool = False,
     ) -> JobRun:
         """Create one explicit successor of a failed/cancelled/interrupted attempt.
 
@@ -484,11 +489,14 @@ class JobRepository:
             raise ValueError("acknowledge_possible_effects must be a bool")
         if type(reuse_successor) is not bool:
             raise ValueError("reuse_successor must be a bool")
+        if type(automatic) is not bool:
+            raise ValueError("automatic must be a bool")
         request = self._request_json(
             {
                 "operation": "retry",
                 "parent_run_id": job_run_id,
                 "acknowledge_possible_effects": acknowledge_possible_effects,
+                **({"automatic": True} if automatic else {}),
             }
         )
         with self._connection(write=True) as conn:
@@ -496,6 +504,8 @@ class JobRepository:
             if previous is not None:
                 return previous
             parent = self._run_from_row(self._run_row(conn, job_run_id))
+            if automatic and parent.cancel_requested:
+                raise ValueError("Cancelled actions cannot continue automatically")
             if parent.state not in (
                 JobRunState.FAILED,
                 JobRunState.TIMED_OUT,
@@ -533,6 +543,7 @@ class JobRepository:
                 job_kind=parent.job_kind,
                 job_name=parent.job_name,
                 payload_json=parent.payload_json,
+                timeout_s=parent.timeout_s,
             )
             run = self._enqueue(
                 conn, captured, trigger_kind=JobTriggerKind.REPAIR, parent=parent
@@ -550,6 +561,12 @@ class JobRepository:
         parent: JobRun | None = None,
     ) -> JobRun:
         """Insert a captured attempt and event in the caller's write unit."""
+        if definition.timeout_s is not None and (
+            isinstance(definition.timeout_s, bool)
+            or not math.isfinite(definition.timeout_s)
+            or definition.timeout_s <= 0
+        ):
+            raise ValueError("Job timeout must be finite and positive")
         self._apply_concurrency_policy_on_enqueue(definition, connection=conn)
         now = now_ep_k()
         parent_id = None if parent is None else parent.job_run_id
@@ -558,8 +575,8 @@ class JobRepository:
             """
             INSERT INTO job_runs(job_definition_id, job_kind, job_name, payload_json,
                 trigger_kind, state, attempt_number, not_before_timestamp_ep_k,
-                queued_timestamp_ep_k, retry_of_job_run_id)
-            VALUES (?, ?, ?, ?, ?, 'queued', ?, ?, ?, ?)
+                queued_timestamp_ep_k, retry_of_job_run_id, timeout_s)
+            VALUES (?, ?, ?, ?, ?, 'queued', ?, ?, ?, ?, ?)
             """,
             (
                 definition.job_definition_id,
@@ -571,6 +588,7 @@ class JobRepository:
                 not_before,
                 now,
                 parent_id,
+                definition.timeout_s,
             ),
         )
         run_id = int(cur.lastrowid)
@@ -830,14 +848,65 @@ class JobRepository:
             )
 
     def mark_failed(
-        self, job_run_id: int, *, worker_id: str, lease_token: str, error_text: str
+        self,
+        job_run_id: int,
+        *,
+        worker_id: str,
+        lease_token: str,
+        error_text: str,
+        result_json: str | None = None,
     ) -> JobRun:
         """Record the current running owner's terminal receipt and event atomically."""
         with self._connection(write=True) as conn:
             run = self._require_claim(
                 conn, job_run_id, worker_id, lease_token, states=("running",)
             )
-            return self._finish(conn, run, JobRunState.FAILED, error_text=error_text)
+            return self._finish(
+                conn,
+                run,
+                JobRunState.FAILED,
+                error_text=error_text,
+                result_json=result_json,
+            )
+
+    def mark_timed_out(
+        self,
+        job_run_id: int,
+        *,
+        worker_id: str,
+        lease_token: str,
+        error_text: str,
+        result_json: str | None = None,
+    ) -> JobRun:
+        """Record a deadline acknowledged by the executor, without claiming rollback."""
+        with self._connection(write=True) as connection:
+            run = self._require_claim(
+                connection, job_run_id, worker_id, lease_token, states=("running",)
+            )
+            return self._finish(
+                connection,
+                run,
+                JobRunState.TIMED_OUT,
+                error_text=error_text,
+                result_json=result_json,
+            )
+
+    def latest_attempt(self, job_run_id: int) -> JobRun:
+        """Resolve a retained attempt's successor chain in one bounded ledger read."""
+        with self._connection() as connection:
+            rows = connection.execute(
+                "WITH RECURSIVE chain(id, depth) AS (SELECT ?, 0 UNION ALL "
+                "SELECT r.job_run_id, c.depth + 1 FROM job_runs r "
+                "JOIN chain c ON r.retry_of_job_run_id=c.id WHERE c.depth < 256) "
+                "SELECT r.*, c.depth FROM chain c JOIN job_runs r ON r.job_run_id=c.id "
+                "ORDER BY c.depth DESC LIMIT 1",
+                (job_run_id,),
+            ).fetchall()
+            if not rows:
+                raise KeyError(job_run_id)
+            if rows[0]["depth"] == 256:
+                raise ValueError("Excessive retry ancestry")
+            return self._run_from_row(rows[0])
 
     def mark_cancelled(
         self,
@@ -869,6 +938,54 @@ class JobRepository:
         """
         with self._connection(write=True) as conn:
             return self._request_cancel(conn, self._run_row(conn, job_run_id))
+
+    def cancel_action(self, job_run_id: int) -> bool:
+        """Cancel the latest attempt atomically against automatic successor creation."""
+        with self._connection(write=True) as connection:
+            row = self._run_row(connection, job_run_id)
+            for _ in range(256):
+                child = connection.execute(
+                    "SELECT * FROM job_runs WHERE retry_of_job_run_id=?",
+                    (row["job_run_id"],),
+                ).fetchone()
+                if child is None:
+                    break
+                row = child
+            else:
+                raise ValueError("Excessive retry ancestry")
+            if row["state"] == "aborted":
+                connection.execute(
+                    "UPDATE job_runs SET cancel_requested=1, recovery_state='held' WHERE job_run_id=?",
+                    (row["job_run_id"],),
+                )
+                if not row["cancel_requested"]:
+                    self._append_event(
+                        connection,
+                        row["job_run_id"],
+                        JobEventKind.CANCEL_REQUESTED,
+                        "Cancelled automatic continuation; prior effects remain uncertain",
+                    )
+                return True
+            return self._request_cancel(connection, row)
+
+    def record_recovery_decision(self, job_run_id: int, decision: str) -> None:
+        """Retain changed recovery decisions without producing repeated polling events."""
+        if decision not in {"held", "waiting_executor", "resumed"}:
+            raise ValueError("Unknown recovery decision")
+        with self._connection(write=True) as connection:
+            row = self._run_row(connection, job_run_id)
+            if row["state"] != "aborted" or row["recovery_state"] == decision:
+                return
+            connection.execute(
+                "UPDATE job_runs SET recovery_state=? WHERE job_run_id=?",
+                (decision, job_run_id),
+            )
+            self._append_event(
+                connection,
+                job_run_id,
+                JobEventKind.LOG,
+                "Recovery decision: " + decision,
+            )
 
     def get_run(self, job_run_id: int) -> JobRun:
         """
@@ -975,6 +1092,61 @@ class JobRepository:
         with self._connection() as conn:
             rows = conn.execute(sql, tuple(params)).fetchall()
         return [self._run_from_row(row) for row in rows]
+
+    def list_runs_page(
+        self,
+        *,
+        limit: int = 100,
+        offset: int = 0,
+        states: Iterable[JobRunState] | None = None,
+        awaiting_recovery_as_queued: bool = False,
+    ) -> tuple[list[JobRun], int]:
+        """Read a bounded page and count in one ledger snapshot.
+
+        Active recovery may present undecided, uncancelled aborted attempts as
+        queued. This changes filtering only; returned records retain their facts.
+        An explicitly empty state filter selects no rows.
+        """
+        if (
+            type(limit) is not int
+            or not 1 <= limit <= 1000
+            or type(offset) is not int
+            or offset < 0
+        ):
+            raise ValueError("Run pages require limit 1..1000 and a nonnegative offset")
+        selected = (
+            None
+            if states is None
+            else tuple(dict.fromkeys(JobRunState(value).value for value in states))
+        )
+        expression = "state"
+        if awaiting_recovery_as_queued:
+            expression = (
+                "CASE WHEN state='aborted' AND cancel_requested=0 "
+                "AND (recovery_state IS NULL OR recovery_state='waiting_executor') "
+                "THEN 'queued' ELSE state END"
+            )
+        where = (
+            ""
+            if selected is None
+            else " WHERE "
+            + expression
+            + " IN ("
+            + ",".join("?" for _ in selected)
+            + ")"
+        )
+        with self._connection() as connection:
+            connection.execute("BEGIN")
+            total = connection.execute(
+                "SELECT COUNT(*) FROM job_runs" + where, selected or ()
+            ).fetchone()[0]
+            rows = connection.execute(
+                "SELECT * FROM job_runs"
+                + where
+                + " ORDER BY job_run_id LIMIT ? OFFSET ?",
+                (*(selected or ()), limit, offset),
+            ).fetchall()
+        return [self._run_from_row(row) for row in rows], total
 
     def list_events(
         self, job_run_id: int, *, after_event_id: int = 0, limit: int | None = None
@@ -1396,6 +1568,8 @@ class JobRepository:
             job_definition_id=int(row["job_definition_id"]),
             job_name=row["job_name"],
             retry_of_job_run_id=row["retry_of_job_run_id"],
+            timeout_s=row["timeout_s"],
+            recovery_state=row["recovery_state"],
             job_kind=str(row["job_kind"]),
             trigger_kind=JobTriggerKind(str(row["trigger_kind"])),
             state=JobRunState(str(row["state"])),

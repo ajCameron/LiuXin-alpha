@@ -1,4 +1,3 @@
-
 """
 Define immutable helper-table names and capabilities allowed to be absent.
 
@@ -7,9 +6,6 @@ outside OPTIONAL_HELPER_TABLES. Capability readers may infer defaults for option
 tables; this classification never bypasses the base schema-revision admission check.
 Storage bootstrap owns its journal/ledger migration.
 """
-
-
-from __future__ import unicode_literals
 
 # Todo: MOOOVEEEE
 HELPER_TABLES = frozenset(
@@ -29,6 +25,8 @@ HELPER_TABLES = frozenset(
         "metadata_dirtied_books",
         "new_books",
         "normalized_identities",
+        "application_command_outcomes",
+        "application_command_outbox",
         "maintenance_metadata",
         "maintenance_plugins",
         "maintenance_subscriptions",
@@ -63,6 +61,8 @@ OPTIONAL_HELPER_TABLES = frozenset(
     {
         # PostgreSQL has no SQLite expression indexes.
         "search_index_metadata",
+        "application_command_outcomes",
+        "application_command_outbox",
         "maintenance_metadata",
         "maintenance_plugins",
         "maintenance_subscriptions",

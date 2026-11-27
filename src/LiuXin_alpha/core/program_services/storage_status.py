@@ -17,6 +17,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
+from LiuXin_alpha.core.payloads import boolean
 from LiuXin_alpha.core.program_services.payloads import _payload, plain
 from LiuXin_alpha.storage import api as storage_api
 from LiuXin_alpha.storage.utils.store_configuration import store_configuration_from_row
@@ -323,13 +324,13 @@ def storage_status(
 
 
     :param runtime: Runtime providing storage observations/registries and canonical Store rows.
-    :param query: Query with optional truth-tested refresh_stores=False; no paging/filter fields are consumed.
+    :param query: Query with optional boolean refresh_stores=False; no paging/filter fields are consumed.
     :return: Overall health/time, accounting summary, sorted Store records, invalid-row diagnostics, overview issues, and manager status projection.
     """
     payload = _payload(query)
     manager = runtime.library.storage
     status = manager.get_operational_status(
-        refresh_stores=bool(payload.get("refresh_stores", False))
+        refresh_stores=boolean(payload, "refresh_stores", False)
     )
     manager_configurations = {
         configuration.store_uuid: configuration

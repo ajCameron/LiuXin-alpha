@@ -9,11 +9,16 @@ from __future__ import annotations
 import json
 import socket
 import threading
+import time
 import uuid
+from contextlib import nullcontext
 
+from LiuXin_alpha.jobs.execution_guard import execution_guard, resource_guard
 from LiuXin_alpha.jobs.handler_api import (
     JobCancelled,
+    JobDeadlineExceeded,
     JobHandlerRegistry,
+    JobOutcomeFailure,
     JobRunContext,
 )
 from LiuXin_alpha.jobs.models import JobProgressUpdate, now_ep_k
@@ -76,6 +81,9 @@ class JobWorker:
             job_run_id=run_id,
             started_timestamp_ep_k=now_ep_k(),
             lease_for_s=self.lease_for_s,
+            deadline_monotonic=None
+            if run.timeout_s is None
+            else time.monotonic() + run.timeout_s,
             **claim,
         )
         renewal_stop = threading.Event()
@@ -115,13 +123,59 @@ class JobWorker:
                     progress_message="Starting",
                 )
             )
-            result = handler.run(payload_json=payload, run_context=context)
+            with (
+                execution_guard(self.repository, run_id)
+                if handler.guarded_execution
+                else nullcontext(),
+                resource_guard(self.repository, handler.execution_key(payload)),
+            ):
+                # Recheck after acquiring exclusion: an expired predecessor may
+                # have paused before reaching this region and later survived.
+                context.raise_if_cancel_requested()
+                result = handler.run(payload_json=payload, run_context=context)
             if lease_lost.is_set():
                 raise JobLeaseLost(f"Lease renewal failed for run {run_id}")
             result_json = json.dumps(result, sort_keys=True, allow_nan=False)
-            self.repository.mark_succeeded(run_id, **claim, result_json=result_json)
+            # Returning from blocking work is a checkpoint even if the handler
+            # has no explicit final check. Preserve its completed-effect receipt.
+            if context.deadline_exceeded():
+                self.repository.mark_timed_out(
+                    run_id,
+                    **claim,
+                    error_text="Execution deadline reached after handler returned; inspect retained effects",
+                    result_json=result_json,
+                )
+            else:
+                self.repository.mark_succeeded(run_id, **claim, result_json=result_json)
+        except JobOutcomeFailure as exc:
+            try:
+                finish = (
+                    self.repository.mark_cancelled
+                    if exc.cancelled
+                    else self.repository.mark_failed
+                )
+                finish(
+                    run_id,
+                    **claim,
+                    error_text=exception_message(exc),
+                    result_json=json.dumps(exc.result, sort_keys=True, allow_nan=False),
+                )
+            except JobLeaseLost:
+                pass
         except JobLeaseLost:
             pass  # The old owner cannot overwrite the current run or its events.
+        except JobDeadlineExceeded as exc:
+            try:
+                self.repository.mark_timed_out(
+                    run_id,
+                    **claim,
+                    error_text=exception_message(exc),
+                    result_json=None
+                    if exc.result is None
+                    else json.dumps(exc.result, allow_nan=False),
+                )
+            except JobLeaseLost:
+                pass
         except JobCancelled as exc:
             self._finish_if_owned(run_id, claim, exception_message(exc), cancelled=True)
         except Exception as exc:

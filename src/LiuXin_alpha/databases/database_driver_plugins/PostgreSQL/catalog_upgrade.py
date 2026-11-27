@@ -224,6 +224,20 @@ def _inspect(connection: SQLConnection, schema: str) -> CatalogSchemaUpgradePlan
                 statements.append(
                     f"ALTER TABLE {qualified} ADD CONSTRAINT {_q(change.new_name)} UNIQUE ({names})"
                 )
+    from .language_upgrade import COLUMNS, plan_rows
+
+    languages = _rows(
+        connection,
+        "SELECT "
+        + ", ".join(_q(column) for column in COLUMNS)
+        + " FROM "
+        + _qualified_table(schema, "languages")
+        + " ORDER BY language_id",
+    )
+    state.append(("languages", languages))
+    language_statements, language_blockers = plan_rows(languages, schema)
+    statements.extend(language_statements)
+    blockers.extend(language_blockers)
     fingerprint = hashlib.sha256(
         json.dumps(state, sort_keys=True, default=str).encode()
     ).hexdigest()
@@ -279,6 +293,7 @@ def apply_catalog_schema_upgrade(
             "series",
             "database_metadata",
             "schema_revision",
+            "languages",
             *(change.table for change in _changes()),
         }
     )

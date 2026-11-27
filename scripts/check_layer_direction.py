@@ -97,8 +97,10 @@ FORBIDDEN_TARGETS: Mapping[str, frozenset[str]] = {
     ),
     "catalog": frozenset({"core", "library", "storage", "surfaces"}),
     "caches": frozenset({"core", "library", "storage", "surfaces"}),
+    "ingest": frozenset({"core", "surfaces"}),
     "library": frozenset({"core", "surfaces"}),
     "core": frozenset({"surfaces"}),
+    "utils": frozenset({"startup_scripts"}),
 }
 
 

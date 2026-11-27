@@ -140,8 +140,16 @@ class _Core:
             return {"operation": name, **values}
         if name == "browse.categories":
             return {"categories": []}
-        if name == "acquisition.read":
-            return {"resource": {"kind": values["kind"]}, "content": _wire(b"cover")}
+        if name == "acquisition.read-range":
+            return {
+                "resource": {"kind": values["kind"]},
+                "content": _wire(b"cover"),
+                "offset": 0,
+                "next_offset": 5,
+                "total_bytes": 5,
+                "complete": True,
+                "version": "fixture",
+            }
         if name == "backup.plan":
             return {
                 "packs": [],
@@ -560,7 +568,7 @@ def test_catalogue_search_and_acquisition_download_are_core_backed(
     output = tmp_path / "cover.jpg"
     assert cli_main(["acquire", "get", *_connection(), "image", "2", str(output)]) == 0
     assert output.read_bytes() == b"cover"
-    assert fake_core.queries[-1][0] == "acquisition.read"
+    assert fake_core.queries[-1][0] == "acquisition.read-range"
     assert "size" in capsys.readouterr().err
 
 

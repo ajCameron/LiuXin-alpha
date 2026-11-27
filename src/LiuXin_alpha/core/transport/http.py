@@ -5,8 +5,8 @@ Provides health, API descriptions, named command/query envelopes, and one-event
 long polling. Namespace prefixes only route URLs. Explicit server policy controls
 endpoint authority, bearer authentication, Host checks and browser-origin refusal.
 This adapter does not terminate TLS.
-Declared request bodies are size-limited, but socket reads have no added deadline
-and event history is not a durable or lossless delivery service.
+Requests have bounded admission, buffers and total read deadlines. Event history
+is bounded and reports cursor gaps; it is not a durable delivery service.
 """
 
 from __future__ import annotations
@@ -14,13 +14,17 @@ from __future__ import annotations
 import dataclasses
 import ipaddress
 import json
+import math
 import secrets
 import threading
 import urllib.parse
-
+import uuid
+from collections.abc import Callable
+from contextlib import ExitStack
+from copy import deepcopy
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from typing import Any, Callable, Optional
+from typing import Any
 
 from LiuXin_alpha.core.authorization import CoreAuthorizationError, CoreTransportPolicy
 from LiuXin_alpha.core.commands import CoreCommand
@@ -28,6 +32,11 @@ from LiuXin_alpha.core.errors import core_error_details
 from LiuXin_alpha.core.events import CoreEvent
 from LiuXin_alpha.core.queries import CoreQuery
 from LiuXin_alpha.core.runtime import CoreRuntime
+from LiuXin_alpha.core.transport.bounds import (
+    BoundedHTTPServer,
+    BufferBudget,
+    DeadlineReader,
+)
 from LiuXin_alpha.core.wire import to_wire
 
 
@@ -37,7 +46,7 @@ class CoreHttpDaemon:
 
     Construction stores configuration without binding a socket. Start/stop control
     the transport, not runtime shutdown. Retains up to 1,000 recent events with
-    daemon-local sequence numbers; stopping/restarting does not reset that history.
+    instance-local sequence numbers; each listener restart creates a new stream.
     Lifecycle methods are not serialized against concurrent starts/stops.
 
     Example:
@@ -54,15 +63,15 @@ class CoreHttpDaemon:
         host: str = "127.0.0.1",
         port: int = 0,
         endpoint_namespace: str | None = None,
-        max_request_bytes: int = 1024 * 1024 * 1024,
+        max_request_bytes: int = 4 * 1024 * 1024,
         policy: CoreTransportPolicy | None = None,
     ) -> None:
         """
         Borrow a runtime, normalize listener settings, and initialize empty event/lifecycle state.
 
         Host/port are not bound or availability-checked. Only the integer-converted
-        body limit is range-validated here. The default limit is one GiB of declared
-        request data, not a global memory or concurrent-request budget.
+        body limit is range-validated here. The default limit is four MiB. The listener
+        additionally bounds concurrency, raw buffers and total read deadlines.
 
         Example:
             >>> from unittest.mock import Mock
@@ -86,6 +95,7 @@ class CoreHttpDaemon:
         self.max_request_bytes = int(max_request_bytes)
         if self.max_request_bytes < 1:
             raise ValueError("max_request_bytes must be >= 1.")
+        self._buffers = BufferBudget()
         self.policy = policy or CoreTransportPolicy()
         try:
             loopback = ipaddress.ip_address(self.host).is_loopback
@@ -94,14 +104,18 @@ class CoreHttpDaemon:
         if not loopback and self.policy.bearer_token is None:
             raise ValueError("Non-loopback Core HTTP requires a bearer token.")
 
-        self._server: Optional[ThreadingHTTPServer] = None
-        self._thread: Optional[threading.Thread] = None
+        self._server: ThreadingHTTPServer | None = None
+        self._thread: threading.Thread | None = None
         self._unsubscribe: Callable[[], None] | None = None
 
         self._event_lock = threading.Condition()
+        self._event_stream = str(uuid.uuid4())
         self._event_sequence = 0
         self._events: list[tuple[int, dict[str, Any]]] = []
+        self._event_bytes = 0
+        self._event_sizes: list[int] = []
         self._running = False
+        self._lifecycle_lock = threading.RLock()
 
     @staticmethod
     def _normalize_namespace(namespace: str | None) -> str:
@@ -141,9 +155,7 @@ class CoreHttpDaemon:
             raise ValueError("Request body cannot be empty.")
         if length > self.max_request_bytes:
             raise ValueError(
-                "Request body exceeds the configured {} byte limit.".format(
-                    self.max_request_bytes
-                )
+                f"Request body exceeds the configured {self.max_request_bytes} byte limit."
             )
         return length
 
@@ -212,7 +224,7 @@ class CoreHttpDaemon:
         :raises RuntimeError: If the server has not started or has been cleared by stop.
         """
         host, port = self.server_address
-        return "http://{}:{}{}".format(host, port, self.base_path)
+        return f"http://{host}:{port}{self.base_path}"
 
     @property
     def health_url(self) -> str:
@@ -280,14 +292,18 @@ class CoreHttpDaemon:
         return self.base_url + "/events/next"
 
     def start(self) -> None:
+        """Start once under lifecycle exclusion; unwind every partially acquired resource."""
+        with self._lifecycle_lock:
+            self._start_locked()
+
+    def _start_locked(self) -> None:
         """
         Bind a threaded listener, launch its serving thread, and subscribe to runtime events.
 
         An already-running flag makes this a no-op. The handler class captures
         this daemon and exposes only the configured routes. The server/thread are
-        installed before subscribing, and running is marked last; a later failure
-        can leave a listener behind while stop still sees a false running flag.
-        Startup does not provide rollback. Each HTTP request checks the configured authority.
+        installed only after subscription and thread startup succeed. Failures
+        release the listener and subscription. Each request checks configured authority.
 
         Example:
             >>> daemon.start()  # doctest: +SKIP
@@ -301,6 +317,11 @@ class CoreHttpDaemon:
         daemon = self
 
         class _Handler(BaseHTTPRequestHandler):
+            def setup(self) -> None:
+                self._request_buffers = ExitStack()
+                super().setup()
+                self.rfile = DeadlineReader(self.rfile, self.connection, 10.0)
+
             """
             Serve this daemon's HTTP/1.1 routes with JSON responses and suppressed request logging.
 
@@ -313,6 +334,12 @@ class CoreHttpDaemon:
 
             server_version = "LiuXinCoreHTTP/0.1"
             protocol_version = "HTTP/1.1"
+
+            def finish(self) -> None:
+                try:
+                    super().finish()
+                finally:
+                    self._request_buffers.close()
 
             def log_message(self, format: str, *args: object) -> None:
                 """
@@ -334,8 +361,8 @@ class CoreHttpDaemon:
                 """
                 Encode an entire JSON response and send its status, byte length, close header, and body.
 
-                Standard json defaults apply, with sorted keys and unescaped
-                Unicode. No strict wire conversion or response-size limit is added.
+                Strict wire conversion enforces the shared eight MiB response budget.
+                Encoding reserves capacity in the aggregate raw-buffer budget.
                 Encoding happens before headers; socket failures can occur after
                 a partial response and are not recovered here.
 
@@ -347,16 +374,38 @@ class CoreHttpDaemon:
                 :param payload: Dictionary serializable by the standard JSON encoder.
                 :return: ``None`` after writing and flushing the UTF-8 response bytes.
                 """
-                data = json.dumps(payload, ensure_ascii=False, sort_keys=True).encode(
-                    "utf-8"
-                )
-                self.send_response(int(status))
-                self.send_header("Content-Type", "application/json; charset=utf-8")
-                self.send_header("Content-Length", str(len(data)))
-                self.send_header("Connection", "close")
-                self.end_headers()
-                self.wfile.write(data)
-                self.wfile.flush()
+                # Reserve conversion and both JSON string/byte buffers together.
+                # Hold the reservation until the response is sent or fails.
+                try:
+                    with daemon._buffers.reserve(24 * 1024 * 1024):
+                        try:
+                            payload = to_wire(payload)
+                        except Exception as exc:
+                            status = HTTPStatus.INTERNAL_SERVER_ERROR
+                            payload = {
+                                "ok": False,
+                                "error_code": "response_limit",
+                                "error": str(exc),
+                                "command_id": payload.get("command_id"),
+                            }
+                        data = json.dumps(
+                            payload, ensure_ascii=True, sort_keys=True, allow_nan=False
+                        ).encode("utf-8")
+                        self.connection.settimeout(30.0)
+                        self.send_response(int(status))
+                        self.send_header(
+                            "Content-Type", "application/json; charset=utf-8"
+                        )
+                        self.send_header("Content-Length", str(len(data)))
+                        self.send_header("Connection", "close")
+                        self.end_headers()
+                        self.wfile.write(data)
+                        self.wfile.flush()
+                except ValueError:
+                    self.send_error(
+                        HTTPStatus.SERVICE_UNAVAILABLE,
+                        "Response buffer budget exhausted",
+                    )
 
             def _send_core_error(
                 self,
@@ -393,9 +442,9 @@ class CoreHttpDaemon:
                 Validate Content-Length, read that many requested bytes, and parse a UTF-8 JSON object.
 
                 Missing/zero, negative, malformed, and oversized declarations are
-                rejected before reading. No read deadline or actual-length equality
-                check is added; an early EOF with otherwise valid JSON can parse.
-                Chunked transfer decoding is not implemented by this helper.
+                rejected before reading. A single 30-second body deadline includes slow
+                partial reads; early EOF and ambiguous framing are rejected.
+                Chunked transfer decoding is unsupported.
 
                 Example:
                     >>> payload = handler._read_json_body()  # doctest: +SKIP
@@ -404,20 +453,27 @@ class CoreHttpDaemon:
                 :return: Parsed dictionary body without validating endpoint-specific fields.
                 :raises ValueError: For invalid declared length, malformed UTF-8/JSON, or nonobject JSON.
                 """
-                raw_length = self.headers.get("Content-Length", "0").strip()
-                try:
-                    content_length = int(raw_length)
-                except Exception:
-                    raise ValueError("Invalid Content-Length header.")
-                content_length = daemon.validate_request_body_length(content_length)
-                raw = self.rfile.read(content_length)
-                try:
-                    payload = json.loads(raw.decode("utf-8"))
-                except Exception as exc:
-                    raise ValueError("Malformed JSON body: {}".format(exc))
-                if not isinstance(payload, dict):
-                    raise ValueError("JSON payload must be an object.")
-                return payload
+                if self.headers.get("Transfer-Encoding") is not None:
+                    raise ValueError("Transfer-Encoding is unsupported")
+                if len(self.headers.get_all("Content-Length", [])) != 1:
+                    raise ValueError("Exactly one Content-Length is required")
+                raw_length = self.headers.get("Content-Length", "").strip()
+                if not raw_length.isascii() or not raw_length.isdecimal():
+                    raise ValueError("Invalid Content-Length header")
+                content_length = daemon.validate_request_body_length(int(raw_length))
+                self.rfile.reset(30.0)
+                self._request_buffers.enter_context(
+                    daemon._buffers.reserve(content_length)
+                )
+                with daemon._buffers.reserve(content_length):
+                    raw = self.rfile.read(content_length)
+                    try:
+                        payload = json.loads(raw.decode("utf-8"))
+                    except (ValueError, RecursionError) as exc:
+                        raise ValueError(f"Malformed JSON body: {exc}") from exc
+                    if not isinstance(payload, dict):
+                        raise ValueError("JSON payload must be an object")
+                    return to_wire(payload, max_bytes=daemon.max_request_bytes)
 
             def _authorize_request(self, *, body: bool = False) -> bool:
                 """Reject browser, host, credential and media-type failures before dispatch.
@@ -425,13 +481,18 @@ class CoreHttpDaemon:
                 Example:
                     >>> allowed = handler._authorize_request(body=True)  # doctest: +SKIP
                 """
-                if self.headers.get("Origin") is not None or self.headers.get(
-                    "Sec-Fetch-Site", ""
-                ).lower() == "cross-site":
-                    self._send_json(HTTPStatus.FORBIDDEN, {
-                        "ok": False, "error": "Browser-origin RPC is not supported.",
-                        "error_code": "permission_denied",
-                    })
+                if (
+                    self.headers.get("Origin") is not None
+                    or self.headers.get("Sec-Fetch-Site", "").lower() == "cross-site"
+                ):
+                    self._send_json(
+                        HTTPStatus.FORBIDDEN,
+                        {
+                            "ok": False,
+                            "error": "Browser-origin RPC is not supported.",
+                            "error_code": "permission_denied",
+                        },
+                    )
                     return False
                 host = self.headers.get("Host", "").lower()
                 server_host, server_port = daemon.server_address
@@ -441,34 +502,48 @@ class CoreHttpDaemon:
                 if server_host == "127.0.0.1":
                     allowed.add(f"localhost:{server_port}")
                 if len(self.headers.get_all("Host", [])) != 1 or host not in allowed:
-                    self._send_json(HTTPStatus.FORBIDDEN, {
-                        "ok": False, "error": "Unrecognized HTTP Host.",
-                        "error_code": "permission_denied",
-                    })
+                    self._send_json(
+                        HTTPStatus.FORBIDDEN,
+                        {
+                            "ok": False,
+                            "error": "Unrecognized HTTP Host.",
+                            "error_code": "permission_denied",
+                        },
+                    )
                     return False
                 expected = daemon.policy.bearer_token
                 if expected is not None:
-                    scheme, _, token = self.headers.get("Authorization", "").partition(" ")
+                    scheme, _, token = self.headers.get("Authorization", "").partition(
+                        " "
+                    )
                     if (
                         len(self.headers.get_all("Authorization", [])) != 1
                         or scheme.lower() != "bearer"
                         or not token.isascii()
                         or not secrets.compare_digest(token, expected)
                     ):
-                        self._send_json(HTTPStatus.UNAUTHORIZED, {
-                            "ok": False, "error": "Valid bearer authentication required.",
-                            "error_code": "authentication_required",
-                        })
+                        self._send_json(
+                            HTTPStatus.UNAUTHORIZED,
+                            {
+                                "ok": False,
+                                "error": "Valid bearer authentication required.",
+                                "error_code": "authentication_required",
+                            },
+                        )
                         return False
                 if body and (
                     len(self.headers.get_all("Content-Type", [])) != 1
                     or self.headers.get_content_type() != "application/json"
                     or self.headers.get_content_charset("utf-8").lower() != "utf-8"
                 ):
-                    self._send_json(HTTPStatus.UNSUPPORTED_MEDIA_TYPE, {
-                        "ok": False, "error": "UTF-8 application/json is required.",
-                        "error_code": "unsupported_media_type",
-                    })
+                    self._send_json(
+                        HTTPStatus.UNSUPPORTED_MEDIA_TYPE,
+                        {
+                            "ok": False,
+                            "error": "UTF-8 application/json is required.",
+                            "error_code": "unsupported_media_type",
+                        },
+                    )
                     return False
                 return True
 
@@ -591,11 +666,14 @@ class CoreHttpDaemon:
                 if rel_path == "/health":
                     try:
                         result = daemon.runtime.execute_query(
-                            CoreQuery(name="health"), capabilities=daemon.policy.capabilities
+                            CoreQuery(name="health.live"),
+                            capabilities=daemon.policy.capabilities,
                         ).result
                     except Exception as exc:
                         self._send_core_error(
-                            HTTPStatus.FORBIDDEN if isinstance(exc, CoreAuthorizationError) else HTTPStatus.INTERNAL_SERVER_ERROR,
+                            HTTPStatus.FORBIDDEN
+                            if isinstance(exc, CoreAuthorizationError)
+                            else HTTPStatus.INTERNAL_SERVER_ERROR,
                             exc,
                         )
                         return
@@ -618,7 +696,9 @@ class CoreHttpDaemon:
                         ).result
                     except Exception as exc:
                         self._send_core_error(
-                            HTTPStatus.FORBIDDEN if isinstance(exc, CoreAuthorizationError) else HTTPStatus.INTERNAL_SERVER_ERROR,
+                            HTTPStatus.FORBIDDEN
+                            if isinstance(exc, CoreAuthorizationError)
+                            else HTTPStatus.INTERNAL_SERVER_ERROR,
                             exc,
                         )
                         return
@@ -627,14 +707,21 @@ class CoreHttpDaemon:
 
                 if rel_path == "/events/next":
                     if "admin" not in daemon.policy.capabilities:
-                        self._send_core_error(HTTPStatus.FORBIDDEN, CoreAuthorizationError(
-                            "Global event history requires administrative authority."
-                        ))
+                        self._send_core_error(
+                            HTTPStatus.FORBIDDEN,
+                            CoreAuthorizationError(
+                                "Global event history requires administrative authority."
+                            ),
+                        )
                         return
                     after = self._safe_int(query.get("after", ["0"])[0], 0)
                     timeout = self._safe_float(query.get("timeout", ["10"])[0], 10.0)
                     timeout = max(0.0, min(timeout, 60.0))
-                    result = daemon.get_next_event(after=after, timeout=timeout)
+                    result = daemon.get_next_event(
+                        after=after,
+                        timeout=timeout,
+                        stream=query.get("stream", [None])[0],
+                    )
                     self._send_json(HTTPStatus.OK, {"ok": True, "result": result})
                     return
 
@@ -672,7 +759,7 @@ class CoreHttpDaemon:
 
                 try:
                     body = self._read_json_body()
-                except ValueError as exc:
+                except (ValueError, TypeError, TimeoutError) as exc:
                     self._send_json(
                         HTTPStatus.BAD_REQUEST, {"ok": False, "error": str(exc)}
                     )
@@ -684,6 +771,8 @@ class CoreHttpDaemon:
                         if not query_name:
                             raise ValueError("Query name cannot be blank.")
                         payload = body.get("payload", {})
+                        if not isinstance(payload, dict):
+                            raise ValueError("Query payload must be an object")
                         query_id = body.get("query_id")
                         correlation_id = body.get("correlation_id")
                         query_envelope_kwargs: dict[str, Any] = {
@@ -702,7 +791,7 @@ class CoreHttpDaemon:
                     except Exception as exc:
                         self._send_json(
                             HTTPStatus.BAD_REQUEST,
-                            {"ok": False, "error": "Bad query payload: {}".format(exc)},
+                            {"ok": False, "error": f"Bad query payload: {exc}"},
                         )
                         return
 
@@ -712,7 +801,9 @@ class CoreHttpDaemon:
                         )
                     except Exception as exc:
                         self._send_core_error(
-                            HTTPStatus.FORBIDDEN if isinstance(exc, CoreAuthorizationError) else HTTPStatus.BAD_REQUEST,
+                            HTTPStatus.FORBIDDEN
+                            if isinstance(exc, CoreAuthorizationError)
+                            else HTTPStatus.BAD_REQUEST,
                             exc,
                         )
                         return
@@ -728,6 +819,8 @@ class CoreHttpDaemon:
                         if not command_name:
                             raise ValueError("Command name cannot be blank.")
                         payload = body.get("payload", {})
+                        if not isinstance(payload, dict):
+                            raise ValueError("Command payload must be an object")
                         command_id = body.get("command_id")
                         correlation_id = body.get("correlation_id")
                         command_envelope_kwargs: dict[str, Any] = {
@@ -748,7 +841,7 @@ class CoreHttpDaemon:
                             HTTPStatus.BAD_REQUEST,
                             {
                                 "ok": False,
-                                "error": "Bad command payload: {}".format(exc),
+                                "error": f"Bad command payload: {exc}",
                             },
                         )
                         return
@@ -759,7 +852,9 @@ class CoreHttpDaemon:
                         )
                     except Exception as exc:
                         self._send_core_error(
-                            HTTPStatus.FORBIDDEN if isinstance(exc, CoreAuthorizationError) else HTTPStatus.BAD_REQUEST,
+                            HTTPStatus.FORBIDDEN
+                            if isinstance(exc, CoreAuthorizationError)
+                            else HTTPStatus.BAD_REQUEST,
                             exc,
                         )
                         return
@@ -773,23 +868,42 @@ class CoreHttpDaemon:
                     HTTPStatus.NOT_FOUND, {"ok": False, "error": "Unknown endpoint."}
                 )
 
-        server = ThreadingHTTPServer((self.host, self.port), _Handler)
+        with self._event_lock:
+            self._event_stream = str(uuid.uuid4())
+            self._event_sequence = 0
+            self._events.clear()
+            self._event_sizes.clear()
+            self._event_bytes = 0
+        server = BoundedHTTPServer((self.host, self.port), _Handler)
         server.daemon_threads = True
-        self._server = server
-        self._thread = threading.Thread(
+        thread = threading.Thread(
             target=server.serve_forever, kwargs={"poll_interval": 0.1}, daemon=True
         )
-        self._thread.start()
-
-        self._unsubscribe = self.runtime.subscribe(self._on_runtime_event)
+        unsubscribe = None
+        try:
+            unsubscribe = self.runtime.subscribe(self._on_runtime_event)
+            thread.start()
+        except BaseException:
+            try:
+                if unsubscribe is not None:
+                    unsubscribe()
+            finally:
+                server.server_close()
+            raise
+        self._server, self._thread, self._unsubscribe = server, thread, unsubscribe
         self._running = True
 
     def stop(self) -> None:
+        """Stop the owned listener once without closing the borrowed runtime."""
+        with self._lifecycle_lock:
+            self._stop_locked()
+
+    def _stop_locked(self) -> None:
         """
         Clear running state, unsubscribe, wake event waiters, and attempt listener shutdown and bounded thread join.
 
-        A false running flag makes this a no-op, including after partially failed
-        startup. Unsubscribe/server-close errors are suppressed. The final serving
+        A false running flag makes this a no-op. Unsubscribe/server-close errors
+        are suppressed. The final serving
         thread join waits at most two seconds; request threads are daemon threads
         and are not explicitly awaited here. The runtime and event history remain.
 
@@ -849,70 +963,91 @@ class CoreHttpDaemon:
         :param event: Dataclass event converted with asdict before being stored in the daemon's history.
         :return: ``None`` after appending, trimming history if necessary, and notifying event waiters.
         """
-        event_payload = dataclasses.asdict(event)
+        event_payload = to_wire(event, max_bytes=128 * 1024)
+        size = len(json.dumps(event_payload, ensure_ascii=True))
         with self._event_lock:
+            if event.event_type == "events.resync_required":
+                self._event_stream = str(uuid.uuid4())
+                self._events.clear()
+                self._event_sizes.clear()
+                self._event_bytes = 0
+                self._event_sequence = 0
             self._event_sequence += 1
             self._events.append((self._event_sequence, event_payload))
-            # Keep a small ring of recent events for late joiners.
-            if len(self._events) > 1000:
-                self._events = self._events[-1000:]
+            self._event_sizes.append(size)
+            self._event_bytes += size
+            while len(self._events) > 1000 or self._event_bytes > 8 * 1024 * 1024:
+                self._events.pop(0)
+                self._event_bytes -= self._event_sizes.pop(0)
             self._event_lock.notify_all()
 
-    def get_next_event(self, *, after: int, timeout: float) -> dict[str, Any]:
+    def get_next_event(
+        self, *, after: int, timeout: float, stream: str | None = None
+    ) -> dict[str, Any]:
+        """Poll an instance-aware cursor, reporting loss before any later event.
+
+        A gap requires clients to reread authoritative state. The returned cursor
+        starts after the observed gap; job recovery uses the durable jobs ledger.
+        Payloads are detached so one reader cannot corrupt retained history.
         """
-        Return the first retained event after a cursor, optionally waiting once for an event notification.
-
-        Does not consume history. Old cursors can skip discarded records without
-        a gap indication. If no record is available, waits once only when running
-        and timeout is positive; notifications/spurious wakeups can return early
-        without an event. Direct calls do not apply the HTTP route's 60-second
-        clamp. Returned event dictionaries are new but nested payload values remain
-        shared with stored history.
-
-        Example:
-            >>> from unittest.mock import Mock
-            >>> CoreHttpDaemon(Mock()).get_next_event(after=7, timeout=0)
-            {'event': None, 'next_sequence': 7}
-
-
-        :param after: Cursor integer-coerced without nonnegative validation; only later sequence numbers qualify.
-        :param timeout: Maximum duration in seconds for a single condition wait, float-coerced without range/finite validation.
-        :return: Event plus its next cursor, or None event with the unchanged supplied cursor.
-        """
-        after_seq = int(after)
-        timeout_s = float(timeout)
-
-        def _find_next() -> tuple[int, dict[str, Any]] | None:
-            """
-            Scan retained history in order for the first sequence greater than the captured cursor.
-
-            The caller holds the condition lock; this helper acquires no lock or
-            copy and returns the stored payload object directly.
-
-            Example:
-                >>> found = _find_next()  # doctest: +SKIP
-
-
-            :return: First qualifying sequence/payload pair, or ``None`` if history has no later event.
-            """
-            for seq, payload in self._events:
-                if seq > after_seq:
-                    return seq, payload
-            return None
-
+        if type(after) is not int or after < 0:
+            raise ValueError("Event sequence must be a nonnegative integer")
+        if (
+            not isinstance(timeout, (int, float))
+            or not math.isfinite(timeout)
+            or not 0 <= timeout <= 60
+        ):
+            raise ValueError(
+                "Event timeout must be finite and between zero and 60 seconds"
+            )
         with self._event_lock:
-            found = _find_next()
-            if found is None and self._running and timeout_s > 0:
-                self._event_lock.wait(timeout=timeout_s)
-                found = _find_next()
 
-        if found is None:
-            return {"event": None, "next_sequence": after_seq}
+            def inspect() -> dict[str, Any]:
+                oldest = (
+                    self._events[0][0] if self._events else self._event_sequence + 1
+                )
+                reason = (
+                    "restart"
+                    if stream is not None and stream != self._event_stream
+                    else "cursor_required"
+                    if stream is None and after > 0
+                    else "overflow"
+                    if after < oldest - 1
+                    else "invalid_cursor"
+                    if after > self._event_sequence
+                    else None
+                )
+                result: dict[str, Any] = {
+                    "stream": self._event_stream,
+                    "oldest_sequence": oldest,
+                    "newest_sequence": self._event_sequence,
+                    "gap": reason is not None,
+                    "reason": reason,
+                    "event": None,
+                    "next_sequence": self._event_sequence if reason else after,
+                }
+                if reason is None:
+                    for sequence, event in self._events:
+                        if sequence > after:
+                            result.update(
+                                event={"sequence": sequence, **deepcopy(event)},
+                                next_sequence=sequence,
+                            )
+                            break
+                return result
 
-        seq, payload = found
-        return {"event": {"sequence": seq, **payload}, "next_sequence": seq}
+            result = inspect()
+            if (
+                result["event"] is None
+                and not result["gap"]
+                and self._running
+                and timeout > 0
+            ):
+                self._event_lock.wait(timeout=timeout)
+                result = inspect()
+            return result
 
-    def __enter__(self) -> "CoreHttpDaemon":
+    def __enter__(self) -> CoreHttpDaemon:
         """
         Start the listener and return this daemon for a with block.
 

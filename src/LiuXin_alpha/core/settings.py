@@ -8,8 +8,8 @@ pointers can chain to manifests with cycle detection. Deployment values select t
 resources, and path resolution is not confinement to a system root.
 
 Persistence writes only the selected manifest path and pointer metadata, not the
-manifest contents. Redaction is a limited display helper, not a comprehensive
-secret scrubber or safe-URL validator. Selection helpers can consult the user's
+manifest contents. Diagnostic redaction recursively copies supported values and masks secret fields
+and URL credentials; it never changes the selected connection settings. Selection helpers can consult the user's
 environment and config directory unless explicitly disabled by their arguments.
 """
 
@@ -17,13 +17,15 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
+import re
 import tempfile
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlsplit, urlunsplit
+from urllib.parse import parse_qsl, unquote_plus, urlencode, urlsplit, urlunsplit
 
 from LiuXin_alpha.configuration import ConfigurationPaths, user_configuration_directory
 
@@ -627,40 +629,72 @@ def apply_system_profile(args: argparse.Namespace) -> ResolvedSystemProfile | No
     return resolved
 
 
+_REDACTED = "<redacted>"
+_SECRET_MARKERS = (
+    "password",
+    "passwd",
+    "secret",
+    "token",
+    "key",
+    "credential",
+    "authorization",
+)
+_MAX_REDACTION_DEPTH = 20
+
+
+def _secret_key(key: str) -> bool:
+    """Recognize secret labels, including percent-encoded URL query keys."""
+    token = unquote_plus(key).casefold()
+    return any(marker in token for marker in _SECRET_MARKERS)
+
+
+def _diagnostic_value(value: Any, active: set[int], depth: int = 0) -> Any:
+    """Copy a diagnostic tree, masking cycles, excessive depth and opaque values."""
+    if depth > _MAX_REDACTION_DEPTH:
+        return _REDACTED
+    if isinstance(value, str):
+        if "://" in value or value.startswith("//"):
+            return _redact_url(value, _depth=depth)
+        # Connection strings and header-like values are not safe diagnostic prose.
+        if re.search(
+            r"(?i)(?:password|passwd|secret|token|credential|authorization|api[_-]?key)\s*[:=]",
+            value,
+        ):
+            return _REDACTED
+        return value
+    if value is None or type(value) in (bool, int):
+        return value
+    if isinstance(value, float):
+        return value if math.isfinite(value) else _REDACTED
+    if isinstance(value, (Mapping, list, tuple)):
+        identity = id(value)
+        if identity in active:
+            return _REDACTED
+        active.add(identity)
+        try:
+            if isinstance(value, Mapping):
+                return {
+                    str(key): _REDACTED
+                    if _secret_key(str(key))
+                    else _diagnostic_value(item, active, depth + 1)
+                    for key, item in value.items()
+                }
+            return [_diagnostic_value(item, active, depth + 1) for item in value]
+        finally:
+            active.remove(identity)
+    return _REDACTED
+
+
 def redacted_manifest(values: Mapping[str, Any]) -> dict[str, Any]:
+    """Return an independent diagnostic tree with known credential forms masked.
+
+    Traverse nested mappings and arrays. Mask secret-labelled fields, URL userinfo
+    passwords, sensitive query values and fragments. Malformed URLs, cycles,
+    excessive depth and opaque objects fail closed. Ordinary text is retained;
+    this is structured configuration redaction, not arbitrary-secret detection.
+    The original connection values and their nested containers are never changed.
     """
-    Copy manifest fields while masking selected secret-like keys and recognized URL passwords.
-
-    Keys are stringified. Any case-insensitive password/secret/token/key substring
-    masks that whole value, including benign names containing those substrings.
-    Only exact database/core_endpoint string fields receive URL-password redaction;
-    only a database_metadata mapping is recursively processed. Other nested values
-    remain shared and untouched. Usernames, query strings, fragments, arbitrary
-    nested secrets, and malformed credential URLs can remain visible: this is not
-    a comprehensive sanitizer or a guarantee that the result is safe to publish.
-
-    Example:
-        >>> redacted_manifest({"password": "example", "database": "postgres://user:example@db/catalogue"})
-        {'password': '<redacted>', 'database': 'postgres://user:<redacted>@db/catalogue'}
-
-
-    :param values: Manifest-like mapping copied shallowly except for the explicitly recursive metadata field.
-    :return: New string-key dict with the limited masks applied, leaving the input mapping unchanged.
-    """
-
-    result = {str(key): value for key, value in values.items()}
-    for key in tuple(result):
-        token = key.casefold()
-        if any(marker in token for marker in ("password", "secret", "token", "key")):
-            result[key] = "<redacted>"
-    for key in ("database", "core_endpoint"):
-        value = result.get(key)
-        if isinstance(value, str):
-            result[key] = _redact_url(value)
-    metadata = result.get("database_metadata")
-    if isinstance(metadata, Mapping):
-        result["database_metadata"] = redacted_manifest(metadata)
-    return result
+    return _diagnostic_value(values, set())
 
 
 def _manifest_path_value(manifest: Path, value: Any) -> Path:
@@ -685,41 +719,46 @@ def _manifest_path_value(manifest: Path, value: Any) -> Path:
     return path.resolve(strict=False)
 
 
-def _redact_url(value: str) -> str:
-    """
-    Replace a parsed URL's password with a literal marker when a scheme and valid authority can be inspected.
-
-    Parsing failures, absent schemes/passwords, and invalid ports return the
-    original string, potentially with credentials still present. Rebuilding keeps
-    username, path, query, and fragment and uses the parsed hostname/port; it is
-    not lossless URL normalization and does not restore brackets around IPv6 hosts.
-    Other secret-bearing components are not scrubbed.
-
-    Example:
-        >>> _redact_url("https://reader:example@example.invalid:8443/books?q=1")
-        'https://reader:<redacted>@example.invalid:8443/books?q=1'
-
-
-    :param value: URL-like string to inspect without network access.
-    :return: Rebuilt password-masked URL when supported, otherwise the original string unchanged.
-    """
+def _redact_url(value: str, *, _depth: int = 0) -> str:
+    """Sanitize a URL for display; refuse malformed authorities instead of echoing them."""
+    if _depth > _MAX_REDACTION_DEPTH or any(ord(char) < 32 for char in value):
+        return _REDACTED
     try:
         parsed = urlsplit(value)
-    except ValueError:
-        return value
-    if not parsed.scheme or parsed.password is None:
-        return value
-    hostname = parsed.hostname or ""
-    try:
-        port = parsed.port
-    except ValueError:
-        return value
-    if port is not None:
-        hostname += f":{port}"
-    username = "" if parsed.username is None else parsed.username + ":<redacted>@"
-    return urlunsplit(
-        (parsed.scheme, username + hostname, parsed.path, parsed.query, parsed.fragment)
-    )
+        if not parsed.netloc or (not parsed.scheme and not value.startswith("//")):
+            return _REDACTED
+        # Accessing these properties validates brackets and port syntax.
+        if not parsed.hostname:
+            return _REDACTED
+        _ = parsed.port
+        authority = parsed.netloc
+        if "@" in authority:
+            userinfo, _, host = authority.rpartition("@")
+            username, separator, _password = userinfo.partition(":")
+            authority = username + (":" + _REDACTED if separator else "") + "@" + host
+        query = urlencode(
+            [
+                (
+                    key,
+                    _REDACTED
+                    if _secret_key(key)
+                    else _diagnostic_value(item, set(), _depth + 1),
+                )
+                for key, item in parse_qsl(parsed.query, keep_blank_values=True)
+            ],
+            safe="<>",
+        )
+        return urlunsplit(
+            (
+                parsed.scheme,
+                authority,
+                parsed.path,
+                query,
+                _REDACTED if parsed.fragment else "",
+            )
+        )
+    except TypeError, ValueError, UnicodeError:
+        return _REDACTED
 
 
 def _fsync_directory(path: Path) -> None:

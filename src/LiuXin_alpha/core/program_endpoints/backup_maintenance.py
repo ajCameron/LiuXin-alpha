@@ -147,6 +147,9 @@ def install_commands(
         payload_fields=(field("workflow_id", required=True, field_type="integer"),),
         tags=("backup", "storage", "jobs", "write"),
         remote_capabilities=("execute",),
+        requirements=(
+            "Requires a path-backed database and tools required by the workflow kind.",
+        ),
     )
 
     command(
@@ -161,6 +164,9 @@ def install_commands(
         ),
         tags=("backup", "storage", "jobs", "write"),
         remote_capabilities=("execute",),
+        requirements=(
+            "Requires a path-backed database and the configured mksquashfs executable.",
+        ),
     )
 
     command(
@@ -179,6 +185,9 @@ def install_commands(
         ),
         tags=("backup", "storage", "jobs", "write"),
         remote_capabilities=("execute",),
+        requirements=(
+            "Requires a path-backed database and the configured mksquashfs executable.",
+        ),
     )
 
     command(
@@ -197,6 +206,9 @@ def install_commands(
         ),
         tags=("backup", "storage", "jobs", "write"),
         remote_capabilities=("execute",),
+        requirements=(
+            "Requires a path-backed database and the configured mksquashfs executable.",
+        ),
     )
 
     command(
@@ -215,18 +227,9 @@ def install_commands(
         ),
         tags=("maintenance", "write"),
         remote_capabilities=("admin",),
-    )
-
-    command(
-        "maintenance.clean",
-        api.maintenance_clean,
-        summary="Request selected-row cleanup; unavailable in the built-in service.",
-        payload_fields=(
-            field("table", required=True, field_type="string"),
-            field("row_ids", required=True, field_type="array"),
+        requirements=(
+            "Requires a compatible maintenance service and installed plugin schema.",
         ),
-        tags=("maintenance", "write"),
-        remote_capabilities=("admin",),
     )
 
     command(

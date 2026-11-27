@@ -5,14 +5,17 @@ Implemented for PR review **2026-10-20**, as A09's first production workflow.
 `storage.audit.start` accepts a bounded page selection and returns a durable job
 ID promptly. A worker opens its own LibraryServices graph and verifies Replicas
 through storage. `jobs.get/list/wait/result/cancel/retry` route the returned ID to
-the durable ledger; other jobs retain their utility manager and existing IDs.
+the durable ledger. Supported Core long workflows now also use the ledger through
+the [recovery programme](../core/recovery-operations.md); generic utility jobs retain
+their existing IDs and process-local contract.
 `jobs.events` exposes bounded event cursors and completed per-Replica receipts.
 
 ## Composition and identity
 
 For a path-opened SQLite/APSW library with storage enabled, `create_core` configures
-a lazy `<library filename>.jobs.sqlite` sidecar. Construction creates neither a
-ledger nor a worker thread. Pass `durable_job_path` to choose another local path;
+a `<library filename>.jobs.sqlite` sidecar. The service constructor remains passive;
+normal factory startup starts supervision. Use `start_jobs=False` for inspection
+without polling. Pass `durable_job_path` to choose another local path;
 CLI local composition accepts `--job-ledger`. PostgreSQL requires an explicit
 local ledger path. A borrowed library/database without a database path does not
 automatically acquire a worker capable of reopening it.
@@ -87,9 +90,9 @@ final receipt is stored.
 
 Expired running attempts become `aborted`, with uncertain effects recorded.
 Inspection after reopening recovers that status; no interrupted audit is
-automatically replayed. Queued work starts when its submission is repeated or
-another audit starts polling. This is an on-demand worker, not an installed
-background service.
+automatically replayed. Normal factory startup resumes accepted queued work;
+inspection composition can suppress polling with `start_jobs=False`. Supervision
+lives in the application process; no system background service is installed.
 
 Explicit `jobs.retry` preserves captured intent and ancestry. Supply a new
 `request_key`, and `acknowledge_possible_effects=True` for an attempt that entered
@@ -104,9 +107,10 @@ revision checks. Byte publication and ingest recovery remain storage concerns.
 
 ## Scope
 
-Only this workflow is migrated. Utility jobs, maintenance scheduling, conversion,
-ingest and checkpointed backup retain their existing execution/recovery owners.
-Definition timeouts and automatic retries are not implemented by this worker.
+This document describes the audit contract. The recovery programme also migrates
+conversion, ingest, backup and maintenance workflows to the existing ledger.
+Execution deadlines are cooperative and retain late receipts. Automatic
+continuation remains limited to registered domain proofs; interrupted audits are held.
 Audit results/events are retained; operator retention/rotation is future work.
 
 [Integration tests](../../tests/core/test_durable_storage_audit.py) cover local/HTTP

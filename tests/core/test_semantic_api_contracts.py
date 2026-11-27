@@ -76,7 +76,9 @@ def _tree_runtime(rows: dict[int, dict[str, int | None]]) -> SimpleNamespace:
             if snapshot[key]["node_parent_id"] == where["node_parent_id"]
         ]
 
-    macros = Mock(spec_set=["get_row", "get_rows", "update_row", "delete_row", "transaction"])
+    macros = Mock(
+        spec_set=["get_row", "get_rows", "update_row", "delete_row", "transaction"]
+    )
     macros.transaction.side_effect = lambda *, serialized=False: nullcontext()
     macros.get_row.side_effect = get_row
     macros.get_rows.side_effect = get_rows
@@ -89,7 +91,9 @@ def _tree_runtime(rows: dict[int, dict[str, int | None]]) -> SimpleNamespace:
         database=database,
         services=SimpleNamespace(
             reconcile=Mock(side_effect=dict),
-            catalog=SimpleNamespace(repositories=SimpleNamespace(for_table=Mock(return_value=None))),
+            catalog=SimpleNamespace(
+                repositories=SimpleNamespace(for_table=Mock(return_value=None))
+            ),
         ),
     )
 
@@ -247,20 +251,17 @@ def test_tree_delete_counts_reverse_breadth_first_attempts() -> None:
     assert result["deleted"] is True and result["deleted_count"] == 4
 
 
-def test_tree_root_and_array_id_coercion_are_not_equivalent() -> None:
-    """
-    Preserve direct int coercion for root IDs but reject decimal-text conversion of floating array IDs.
-
-    Example:
-        >>> test_tree_root_and_array_id_coercion_are_not_equivalent()
-
-
-    :return: None if the root helper truncates a fraction while tree-search array conversion raises ValueError.
-    """
-    assert trees._required_int({"row_id": 1.9}, "row_id") == 1
-    query = CoreQuery("tree.search", {"table": "nodes", "row_id": 1, "row_ids": [1.0]})
-    with pytest.raises(ValueError):
+@pytest.mark.parametrize("value", (1.9, 1.0, True, "1"))
+def test_tree_root_and_array_ids_require_integers(value) -> None:
+    """Neither a scalar root nor an array identity can select a coerced row."""
+    with pytest.raises(CoreDispatchError) as scalar:
+        trees._required_int({"row_id": value}, "row_id")
+    query = CoreQuery(
+        "tree.search", {"table": "nodes", "row_id": 1, "row_ids": [value]}
+    )
+    with pytest.raises(CoreDispatchError) as array:
         trees.CoreDatabaseSemanticsAPI.tree_search(_branching_runtime(), query)
+    assert scalar.value.code == array.value.code == "invalid_payload"
 
 
 @pytest.mark.parametrize(
@@ -422,12 +423,12 @@ def test_browse_table_signature_retry_also_catches_internal_type_errors() -> Non
     ]
 
 
-def test_browse_search_failure_falls_back_to_full_equality_scan() -> None:
+def test_browse_search_failure_falls_back_to_bounded_equality_scan() -> None:
     """
     Suppress a search error and use exact Python equality against fully read row values.
 
     Example:
-        >>> test_browse_search_failure_falls_back_to_full_equality_scan()
+        >>> test_browse_search_failure_falls_back_to_bounded_equality_scan()
 
 
     :return: None if only the integer-valued match survives the fallback rather than the textual lookalike.
@@ -445,7 +446,7 @@ def test_browse_search_failure_falls_back_to_full_equality_scan() -> None:
     assert browse._search_rows(runtime, "items", "item_manifestation_id", 7) == [
         {"item_id": 1, "item_manifestation_id": 7}
     ]
-    source.get_all_rows.assert_called_once_with("items", iterator_return=False)
+    source.get_all_rows.assert_called_once_with("items", iterator_return=True)
 
 
 def test_acquisition_remote_hint_precedes_existing_local_bytes(tmp_path: Path) -> None:
@@ -506,7 +507,7 @@ def test_acquisition_store_hint_does_not_prove_a_read_will_succeed(
             macros=SimpleNamespace(get_row=Mock(return_value=store))
         ),
         services=SimpleNamespace(
-            library=SimpleNamespace(storage=SimpleNamespace(read_bytes=reader))
+            library=SimpleNamespace(storage=SimpleNamespace(get=Mock(), stat=reader))
         ),
     )
     row = {

@@ -2,8 +2,24 @@
 
 Reviewed **2026-10-20** against the working tree based on `fc5de7af`.
 
+**Durable execution update, 2026-11-25:** named long operations now use the
+catalogue outbox and the existing top-level jobs ledger. Their public result is an
+acceptance receipt; domain adapters still return completion receipts to workers.
+`core.workflow_operations` selects the explicit adapters and `workflow_delivery`
+binds captured settings, execution claims and cancellation. Storage restoration
+and exact recreation live in `storage.workflows.recreation`. See the
+[recovery contract](recovery-operations.md) for the operation families, retries,
+held publication and caller migration.
+
 The program API and storage CLI retain their public entry points, but their
 compatibility files no longer implement workflows.
+
+**Registration caller follow-up, 2026-11-23:**
+[`core.store_registration`](../../src/LiuXin_alpha/core/store_registration.py)
+owns the four synchronous path helpers through LibraryServices; the standalone
+local registration command lives in `surfaces.cli.store_registration`. Domain
+registration functions borrow handles, and existing Core workflow jobs continue
+to use those functions. See the [migration contract](../architectural_reviews/lifecycle-opening-path-review-2026-10-09.md#registration-caller-migration).
 
 ## Core
 
@@ -22,6 +38,7 @@ Implementation ownership is by responsibility:
 | `discovery` | Capability inventory and job results/logs |
 | `database`, `schema`, `preferences` | Database administration, schema/custom fields, preferences |
 | `catalog` | Catalogue identity, hierarchy, fields, and search |
+| `native_metadata` | Native WEMI search/read/edit envelopes through `CoreServices.metadata`; Catalog/MetadataAPI/CatalogCache own domain rules, revisions and cache publication |
 | `metadata`, `conversion`, `ingest` | Metadata read/write and serializable content-job submission |
 | `backup`, `maintenance` | Durable backup workflows and maintenance operations |
 | `store_resolution`, `stores` | Store identity/configuration lookup and administration |
@@ -29,6 +46,11 @@ Implementation ownership is by responsibility:
 | `storage_integrity`, `storage_repair`, `storage_recovery` | Verification, bounded repair, interrupted-ingest recovery |
 | `storage_evacuation` | Core envelope adapter for evacuation |
 | `evacuation_models`, `evacuation_planning`, `evacuation_execution`, `storage_placement` | Typed evacuation workflow and shared placement rules |
+
+The [2026-11-23 integration review](integration-review-2026-11-23.md) distinguishes
+native metadata operations from the older Catalog and Item/file-shaped routes.
+Native metadata receipts already describe reconciliation and must not be passed
+through Core's legacy post-operation refresh a second time.
 
 Evacuation planning returns immutable values containing Asset/Replica/Store
 identities, replacement destinations, copy targets, and transfer estimates.

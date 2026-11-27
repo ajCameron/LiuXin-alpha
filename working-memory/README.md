@@ -2,6 +2,10 @@
 
 Short, dated handoff notes for active work.
 
+- [Core recovery implementation and review, 2026-11-25](core-recovery-implementation-2026-11-25.md)
+- [Whole-Core review and completion plan, 2026-11-23](core-full-review-2026-11-23.md)
+- [Core lifecycle caller migration, 2026-11-23](core-lifecycle-callers-2026-11-23.md)
+- [Core integration review, 2026-11-23](core-review-2026-11-23.md)
 - [Core cache-write routing follow-up, 2026-11-22](core-cache-write-routing-2026-11-22.md)
 
 Use this folder for:

@@ -25,8 +25,11 @@ mutation is not falsely labelled cancelled.
 
 ## SURF03. Finish entry-point composition through the owner
 
-**Following; architecture A11.** Migrate remaining path-opening and legacy composition wrappers through 
-LibraryServices/SurfaceCoreSession where appropriate. 
+**Selected caller slice implemented, 2026-11-23; architecture A11.** The standalone
+local-disk registration command moved to `surfaces.cli.store_registration` and
+uses Core's path helper. Ingest/storage path helpers now live in
+`core.store_registration`; LibraryServices remains their owner. Future legacy
+composition migrations should use LibraryServices/SurfaceCoreSession as appropriate.
 Preserve the bounded PostgreSQL provisioning and renderer exceptions deliberately.
 
 Done when the migrated entry point has one explicit resource owner on success and partial startup failure, and the exact

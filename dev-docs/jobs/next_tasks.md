@@ -1,10 +1,11 @@
 # Next job tasks
 
-Date: **2026-10-20**. JOB01 and JOB02's audit workflow are implemented for PR review;
-broader migration remains open.
-
-Core routes the selected storage audit to durable state. Other jobs retain the
-utility manager. Architecture A09 is convergence work, not a package rename.
+Updated **2026-11-25**. The [Core recovery programme](../core/recovery-completion-2026-11-25.md)
+completes supported long-workflow migration, guarded continuation, cooperative
+deadlines and cancellation receipts. The earlier slices below retain their
+historical scope. Generic utility submissions remain explicitly process-local;
+domain journals retain publication evidence. Full-duration and Windows acceptance
+remain recorded limits, and scheduling policy is separately owned.
 
 ## JOB01. Release long waits from Core dispatch
 

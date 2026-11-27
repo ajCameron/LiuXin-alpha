@@ -17,8 +17,7 @@ import enum
 import math
 import pathlib
 import uuid
-
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Mapping, Sequence
 from typing import Any
 
 
@@ -35,132 +34,124 @@ class CoreWireError(TypeError):
     """
 
 
-def to_wire(value: Any, *, _path: str = "$") -> Any:
+def to_wire(
+    value: Any,
+    *,
+    _path: str = "$",
+    max_bytes: int = 8 * 1024 * 1024,
+    max_depth: int = 48,
+    max_values: int = 100_000,
+) -> Any:
+    """Detach and encode a bounded result, rejecting cycles and ambiguous keys.
+
+    Limits apply equally to direct and HTTP dispatch. Shared, acyclic subtrees are
+    allowed. Dataclass fields are visited without ``asdict`` so recursive values
+    cannot escape the depth/cycle guard. Byte limits use strict UTF-8 JSON.
     """
-    Recursively encode supported values and reject unsupported leaves and nonfinite floats.
+    import json
 
-    Stable Core handlers call this before returning, including for local calls.
-    That keeps in-process and RPC results identical instead of allowing local
-    callers to accidentally depend on returned database rows or cache records.
-    Primitive subclasses pass through; other enums encode their values. Bytes
-    use base64, temporal objects use ISO text, and decimals retain their string
-    spelling without a separate finiteness check. Dataclasses use ``asdict``;
-    mapping-valued ``row_dict`` attributes are then preferred over mapping access.
+    active: set[int] = set()
+    remaining = max_values
 
-    Mapping keys are stringified and checked for collisions. The later duck-typed
-    ``keys``/``__getitem__`` fallback builds a dictionary first, so its colliding
-    keys can already have collapsed. Sets are sorted by ``repr``, not a guarantee
-    of cross-process order for custom objects. Sequences become lists; arbitrary
-    iterators and bytearrays are not accepted as sequences. There is no cycle or
-    depth guard, and some attribute/dataclass errors propagate without wrapping.
-
-    Example:
-        >>> to_wire({"payload": b"hi", "values": (1, 2)})
-        {'payload': {'$type': 'bytes', 'base64': 'aGk='}, 'values': [1, 2]}
-        >>> to_wire({"score": float("nan")})
-        Traceback (most recent call last):
-        ...
-        LiuXin_alpha.core.wire.CoreWireError: Core result at $.score contains a non-finite float.
-
-
-    :param value: Result tree whose supported leaves and containers are converted recursively.
-    :param _path: Diagnostic location of the current value; recursive calls extend this label.
-    :return: JSON-compatible scalar, list, or dictionary representation of supported input.
-    :raises CoreWireError: For nonfinite floats, detected mapping collisions, unsupported values, or failed row-like materialization.
-    """
-
-    if value is None or isinstance(value, (bool, int, str)):
-        return value
-    if isinstance(value, float):
-        if not math.isfinite(value):
-            raise CoreWireError(
-                "Core result at {} contains a non-finite float.".format(_path)
-            )
-        return value
-    if isinstance(value, enum.Enum):
-        return to_wire(value.value, _path=_path)
-    if isinstance(value, bytes):
-        return {
-            "$type": "bytes",
-            "base64": base64.b64encode(value).decode("ascii"),
-        }
-    if isinstance(value, (datetime.datetime, datetime.date, datetime.time)):
-        return {
-            "$type": type(value).__name__,
-            "iso": value.isoformat(),
-        }
-    if isinstance(value, decimal.Decimal):
-        return {
-            "$type": "decimal",
-            "value": str(value),
-        }
-    if isinstance(value, (pathlib.Path, uuid.UUID)):
-        return str(value)
-    if dataclasses.is_dataclass(value) and not isinstance(value, type):
-        return to_wire(dataclasses.asdict(value), _path=_path)
-
-    row_dict = getattr(value, "row_dict", None)
-    if isinstance(row_dict, Mapping):
-        return to_wire(dict(row_dict), _path=_path)
-
-    if isinstance(value, Mapping):
-        converted: dict[str, Any] = {}
-        for key, item in value.items():
-            wire_key = str(key)
-            if wire_key in converted:
+    def visit(item: Any, path: str, depth: int) -> Any:
+        nonlocal remaining
+        remaining -= 1
+        if depth > max_depth or remaining < 0:
+            raise CoreWireError(f"Core result at {path} exceeds the structural budget.")
+        if item is None or isinstance(item, (bool, int)):
+            return item
+        if isinstance(item, str):
+            if len(item) > max_bytes:
+                raise CoreWireError(f"Core result at {path} exceeds the byte budget.")
+            return item
+        if isinstance(item, float):
+            if not math.isfinite(item):
                 raise CoreWireError(
-                    "Core result at {} has colliding mapping key {!r}.".format(
-                        _path,
-                        wire_key,
-                    )
+                    f"Core result at {path} contains a non-finite float."
                 )
-            converted[wire_key] = to_wire(
-                item,
-                _path="{}.{}".format(_path, wire_key),
-            )
-        return converted
-    if isinstance(value, (set, frozenset)):
-        return [
-            to_wire(item, _path="{}[]".format(_path))
-            for item in sorted(value, key=repr)
-        ]
-    if isinstance(value, Sequence) and not isinstance(
-        value,
-        (str, bytes, bytearray),
-    ):
-        return [
-            to_wire(item, _path="{}[{}]".format(_path, index))
-            for index, item in enumerate(value)
-        ]
-
-    keys = getattr(value, "keys", None)
-    get_item = getattr(value, "__getitem__", None)
-    if callable(keys) and callable(get_item):
+            return item
+        if isinstance(item, enum.Enum):
+            return visit(item.value, path, depth + 1)
+        if isinstance(item, bytes):
+            if len(item) > max_bytes * 3 // 4:
+                raise CoreWireError(f"Core result at {path} exceeds the byte budget.")
+            return {"$type": "bytes", "base64": base64.b64encode(item).decode("ascii")}
+        if isinstance(item, (datetime.datetime, datetime.date, datetime.time)):
+            return {"$type": type(item).__name__, "iso": item.isoformat()}
+        if isinstance(item, decimal.Decimal):
+            if not item.is_finite():
+                raise CoreWireError(
+                    f"Core result at {path} contains a non-finite decimal."
+                )
+            return {"$type": "decimal", "value": str(item)}
+        if isinstance(item, (pathlib.Path, uuid.UUID)):
+            return visit(str(item), path, depth + 1)
+        identity = id(item)
+        if identity in active:
+            raise CoreWireError(f"Core result at {path} contains a cycle.")
+        active.add(identity)
         try:
-            raw_keys = keys()
-            if not isinstance(raw_keys, Iterable):
-                raise TypeError("keys() did not return an iterable")
-            return to_wire(
-                {str(key): get_item(key) for key in raw_keys},
-                _path=_path,
-            )
-        except Exception as exc:
-            raise CoreWireError(
-                "Core result at {} exposes keys but cannot be materialized: {}".format(
-                    _path,
-                    exc,
+            if dataclasses.is_dataclass(item) and not isinstance(item, type):
+                pairs = (
+                    (field.name, getattr(item, field.name))
+                    for field in dataclasses.fields(item)
                 )
-            ) from exc
+            elif isinstance(item, Mapping):
+                pairs = item.items()
+            elif isinstance(getattr(item, "row_dict", None), Mapping):
+                return visit(item.row_dict, path, depth + 1)
+            elif isinstance(item, (set, frozenset)):
+                if len(item) > remaining:
+                    raise CoreWireError(
+                        f"Core result at {path} exceeds the structural budget."
+                    )
+                return [
+                    visit(child, f"{path}[]", depth + 1)
+                    for child in sorted(item, key=repr)
+                ]
+            elif isinstance(item, Sequence) and not isinstance(
+                item, (str, bytes, bytearray)
+            ):
+                return [
+                    visit(child, f"{path}[{index}]", depth + 1)
+                    for index, child in enumerate(item)
+                ]
+            elif callable(getattr(item, "keys", None)) and callable(
+                getattr(item, "__getitem__", None)
+            ):
+                pairs = ((key, item[key]) for key in item.keys())
+            else:
+                raise CoreWireError(
+                    f"Core result at {path} is not transport-safe: {type(item).__name__}"
+                )
+            converted: dict[str, Any] = {}
+            for key, child in pairs:
+                wire_key = str(key)
+                if wire_key in converted:
+                    raise CoreWireError(
+                        f"Core result at {path} has colliding mapping key {wire_key!r}."
+                    )
+                if len(wire_key) > max_bytes:
+                    raise CoreWireError(
+                        f"Core result at {path} exceeds the byte budget."
+                    )
+                converted[wire_key] = visit(child, f"{path}.{wire_key}", depth + 1)
+            return converted
+        finally:
+            active.remove(identity)
 
-    raise CoreWireError(
-        "Core result at {} is not transport-safe: {}".format(
-            _path,
-            type(value).__name__,
-        )
-    )
+    result = visit(value, _path, 0)
+    size = 0
+    try:
+        for chunk in json.JSONEncoder(ensure_ascii=True, allow_nan=False).iterencode(
+            result
+        ):
+            size += len(chunk)
+            if size > max_bytes:
+                raise CoreWireError(f"Core result at {_path} exceeds the byte budget.")
+    except (ValueError, OverflowError) as exc:
+        raise CoreWireError(f"Core result at {_path} cannot be encoded: {exc}") from exc
+    return result
 
 
-__all__ = [
-    "CoreWireError",
-    "to_wire",
-]
+__all__ = ["CoreWireError", "to_wire"]

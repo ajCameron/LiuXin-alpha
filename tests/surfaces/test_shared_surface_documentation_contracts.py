@@ -98,9 +98,10 @@ def test_named_path_normalization_and_relative_xdg_root(
     :return: None after name rejection, suffix appending, and named/active path-resolution assertions.
     """
     monkeypatch.setenv("XDG_CONFIG_HOME", "relative-config")
-    assert profiles.default_named_profile_path(" reading ") == Path(
-        "relative-config/liuxin/profiles/reading.json"
-    ).resolve()
+    assert (
+        profiles.default_named_profile_path(" reading ")
+        == Path("relative-config/liuxin/profiles/reading.json").resolve()
+    )
     assert (
         profiles.default_named_profile_path("reading.json").name == "reading.json.json"
     )
@@ -605,16 +606,8 @@ def test_namespace_application_bypasses_explicit_transport_and_copies_only_selec
     assert args.resolved_system_manifest == str(profile.path)
 
 
-def test_redaction_is_limited_and_preserves_unrecognized_nested_values() -> None:
-    """
-    Mask recognized key substrings and URL passwords without claiming arbitrary nested/query/invalid-URL secrets are removed.
-
-    Example:
-        >>> test_redaction_is_limited_and_preserves_unrecognized_nested_values()
-
-
-    :return: None after exact masks, retained username/query data, malformed-URL fallback, and shallow alias checks.
-    """
+def test_redaction_copies_nested_values_and_masks_url_credentials() -> None:
+    """Diagnostics redact nested and URL credentials while retaining safe context."""
     extra = {"password": "nested-example"}
     original = {
         "monkey": "benign substring",
@@ -627,19 +620,26 @@ def test_redaction_is_limited_and_preserves_unrecognized_nested_values() -> None
     assert result["monkey"] == result["PASSWORD"] == "<redacted>"
     assert (
         result["database"]
-        == "postgres://reader:<redacted>@db:5432/catalogue?token=query-example#fragment"
+        == "postgres://reader:<redacted>@DB:5432/catalogue?token=<redacted>#<redacted>"
     )
     assert result["database_metadata"]["token"] == "<redacted>"
-    assert result["extra"] is result["database_metadata"]["extra"] is extra
-    assert original["PASSWORD"] == "example"
-    malformed = "https://reader:example@example.invalid:bad/books"
-    assert profiles._redact_url(malformed) == malformed
+    assert (
+        result["extra"]
+        == result["database_metadata"]["extra"]
+        == {"password": "<redacted>"}
+    )
+    assert result["extra"] is not extra
+    assert original["PASSWORD"] == "example" and extra["password"] == "nested-example"
+    assert (
+        profiles._redact_url("https://reader:example@example.invalid:bad/books")
+        == "<redacted>"
+    )
     assert profiles._redact_url("//reader:example@example.invalid/books").startswith(
-        "//reader:example@"
+        "//reader:<redacted>@"
     )
     assert (
         profiles._redact_url("https://reader:example@[::1]/books")
-        == "https://reader:<redacted>@::1/books"
+        == "https://reader:<redacted>@[::1]/books"
     )
 
 

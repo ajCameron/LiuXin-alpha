@@ -481,13 +481,14 @@ class FakeMacros:
         return None if row is None else dict(row.row_dict)
 
     def get_tree_children_page(
-        self, table, parent_id, *, position_column, limit=100, offset=0
+        self, table, parent_id, *, position_column, limit=100, offset=0, exclude_ids=()
     ):
         """Read the fixture's explicit root/child order without invoking SQL."""
         stem = self.db.driver_wrapper.get_id_column(table).removesuffix("_id")
         rows = [
             dict(row.row_dict) for row in self.db.rows_by_table.get(table, [])
             if row.row_dict.get(stem + "_parent_id") == parent_id
+            and row.row_dict.get(stem + "_id") not in exclude_ids
         ]
         rows.sort(key=lambda row: (
             row.get(position_column) is None,

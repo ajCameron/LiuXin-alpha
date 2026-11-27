@@ -1,9 +1,27 @@
 # Core next tasks
 
-Updated **2026-10-20** with the A06 transport and A09 wait-dispatch contracts.
-Status: **CORE-01 and the CORE-02 wait slice implemented for PR review; remaining work proposed**, following the [architecture sequence](../architectural_reviews/next_tasks.md).
+Updated **2026-11-27**. The implemented [recovery completion programme](recovery-completion-2026-11-25.md)
+and [operator contract](recovery-operations.md) record completion of slices 4–8
+and the executed acceptance for slice 9. The million-Work reference and the
+eight-hour SQLite/schema-backed/HTTP soak passed. Windows execution-lock
+verification remains unrun; this page does not imply whole-Core sign-off.
+The [whole-Core review and completion plan](review-and-completion-plan-2026-11-23.md)
+defines the full functionality target, ten findings and nine ordered completion
+slices. The architecture below remains the foundation; whole-module sign-off is
+still pending. Follow the [architecture sequence](../architectural_reviews/next_tasks.md)
+for cross-package dependencies.
 The named API, LibraryServices lifecycle, category policy and application
 configuration store already exist. Preserve them while closing these gaps.
+
+**Integration follow-up, 2026-11-23:** the
+[metadata/lifecycle review](integration-review-2026-11-23.md) maps the native and
+existing Catalog routes and repairs Core startup, cleanup, closed-service and
+required-read failure boundaries. It also exercises a public native metadata
+workflow across local/RPC clients and all cache modes. Validation passed 405
+regressions (one PostgreSQL maintenance case skipped without a test server URL),
+22 documentation checks and the complete quality gate. This addresses composition
+within CORE-03. The caller migration below is a separate follow-up commit;
+configuration closure is recorded under CORE-04 below.
 
 ## CORE-01 — Enforce endpoint permissions
 
@@ -21,23 +39,33 @@ and plugin sandboxing remain separate deployment/design work.
 
 ## CORE-02 — Separate waiting from database dispatch
 
-**Wait and durable audit slices implemented for review.** The built-in
+**Wait, durable audit and durable maintenance slices implemented.** The built-in
 `jobs.wait` and `jobs.result` queries use concurrent dispatch while ordinary
 handlers retain serialization. Registration replacement and queued shutdown
 have explicit contracts; see [job waiting](../jobs/core-wait-dispatch.md).
-Other synchronous long operations still need migration.
+Core's durable service delivers catalogue outbox work through explicit drains or
+normal startup supervision. The recovery programme migrates the supported ingest,
+conversion, backup/restoration and maintenance families to the existing job ledger.
 
 Concurrent local/HTTP tests cover responsive reads/cancellation, wait timeouts and
 shutdown while work remains active. The [durable audit](../jobs/core-storage-audit.md)
 uses jobs' repository for run identity and receipts, with independently owned
-worker services. Other workflow migrations remain open under the jobs plan.
+worker services. Guarded restart, cancellation and uncertainty contracts are now
+documented in the recovery runbook.
 
 ## CORE-03 — Complete lifecycle caller migration
 
-**Architecture A11.** Move remaining ingest/storage path-opening wrappers to
-Core/surface entry points and migrate callers to handle-based domain operations.
-Keep one-shot composition in LibraryServices; do not create a second graph owner.
-Audit partial construction before cleanup callbacks are registered.
+**Selected caller migration implemented, 2026-11-23; architecture A11.** All four
+local-disk/rclone/wget/native-HTML path helpers now live in
+[`core.store_registration`](../../src/LiuXin_alpha/core/store_registration.py).
+The local-disk CLI lives in `surfaces.cli.store_registration`; repository callers use the
+new imports. Ingest/storage retain borrowed-handle operations without upward
+Core imports or compatibility reexports. LibraryServices remains the graph owner.
+The earlier integration review covers partial startup/cleanup; the follow-up
+covers helper failure paths, real registration callers and CLI behavior.
+The direction baseline drops the storage-to-Core allowance and explicitly bars
+ingest from Core/surfaces. Resolved settings propagation is covered by CORE-04. Database opt-ins and
+maintenance scheduling remain separately scoped work.
 
 Done when the selected lower-layer module has no upward Core import, failures
 close newly owned resources, borrowed services survive, and the dependency
@@ -46,28 +74,67 @@ transaction rollback and safe database creation remain database responsibilities
 
 ## CORE-04 — Finish configuration and operational-path scope
 
-**Architecture A12.** Inventory startup/scratch consumers and component singletons
-that capture a profile at first use. Remove the `ptempfiles` startup-package edge,
-using the existing passive path owner. Preserve distinct application, library and
-component setting scopes.
+**Architecture A12 — implemented, 2026-11-23.** `ptempfiles` now uses the
+passive utility path owner, guarded by a no-utils-to-startup import rule. Core
+captures concrete stores and resolved connection options for graph lifetimes;
+workers carry metadata/schema and retain the submitting store on retries.
+Construction, lazy services and cleanup restore preference contexts on failure.
 
-Done when targeted fresh imports install no legacy hooks or directories, explicit
-profiles remain isolated through worker submission, and components document their
-capture/reload behaviour. Do not describe process-copy worker settings as live
-cross-process synchronization.
+The [configuration ownership inventory](configuration-ownership.md) documents
+application/library/component scopes, reload behavior, process-singleton limits,
+and process-copy worker semantics. Acceptance includes fresh imports, queued and
+spawned two-profile work, SQLite/APSW reopening, PostgreSQL URL/service schemas,
+and backend-startup failure recovery. See the configuration follow-up in the
+[whole-Core review](review-and-completion-plan-2026-11-23.md#configuration-closure-follow-up)
+for validation evidence.
 
 ## CORE-05 — Keep the public client contract honest
 
 The local factory currently returns CoreRuntime directly. Decide whether a
 restricted local adapter is needed by a concrete consumer; until then document
 protocol discipline without claiming object isolation. Inventory new endpoints
-through the existing provider/handler/service owners and expose real conditional
-availability through discovery.
+through the existing provider/handler/service owners. Registration-derived discovery
+and passive support/prerequisite declarations are implemented by slice 1. Slice 7
+adds explicit readiness probes without catalogue repair or cache initialization.
 
 Done when client-facing docs and examples match factory identity, shutdown
 ownership, wire values and errors. Add a restricted adapter only with caller
 migration and direct/remote contract tests; it would not replace CORE-01's server
 policy. Move domain policy out of Core only after its receiving owner is specified.
+
+## Whole functionality completion order
+
+The [detailed plan](review-and-completion-plan-2026-11-23.md#ordered-implementation-plan)
+extends CORE-01 through CORE-05 with the remaining public and operational work:
+
+1. **Implemented:** registration-based discovery, strict primitive validation,
+   captured command registration and recursive diagnostic redaction. See the
+   [contract follow-up](review-and-completion-plan-2026-11-23.md#contract-corrections-follow-up).
+2. **Implemented:** CORE-04 configuration/connection propagation and lifetime inventory.
+3. **Implemented and locally verified, 2026-11-24:** the
+   [native metadata API](native-metadata.md) exposes WEMI construction/CRUD, shared
+   records, trees, relationships, discovery and bounded atomic batches. See the
+   [completion evidence](review-and-completion-plan-2026-11-23.md#native-metadata-completion-follow-up)
+   for backend/cache/local-HTTP coverage, failure recovery and remaining limits.
+4. **Implemented:** recoverable command identities, effect receipts and
+   post-disconnect lookup, including transactional native metadata outcomes.
+5. **Implemented:** durable ingestion, conversion, backup/restoration and
+   maintenance workflows using the existing job owners and domain recovery evidence.
+6. **Implemented and measured:** scan/content/HTTP budgets and mixed-load tests.
+   Warm reference latency targets pass; larger and longer gates retain explicit limits.
+7. **Implemented:** event gap/restart recovery, bounded delivery and readiness probes.
+8. **Implemented:** native disk adoption, verified restoration/exact recreation,
+   guarded cleanup and migrated callers. PostgreSQL language constants and the
+   explicit existing-catalogue upgrade preserve IDs/references; reads do not bootstrap.
+9. **Recorded acceptance complete:** backend/cache/local-HTTP smoke matrix, recovery
+   scenarios, 10,000/100,000/million-Work references, the eight-hour
+   SQLite/schema-backed/HTTP soak and runbooks. Windows verification remains for
+   broader operational sign-off. See the
+   [completion evidence](recovery-completion-2026-11-25.md#evidence-and-limits).
+
+The review distinguishes implemented work from proposals. Its sign-off criteria
+require actual supported workflow implementations; truthful unavailable labels
+are necessary but do not replace completion.
 
 ## Validation and close-out
 

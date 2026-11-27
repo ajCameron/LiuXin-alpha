@@ -9,22 +9,24 @@ Example:
 
         python -m pytest -q tests/core/test_core_runtime_phase1.py
 """
+
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Callable
 
 import pytest
 
-from LiuXin_alpha.databases.database import Database
 from LiuXin_alpha.core import CoreCommand, CoreQuery, CoreRuntime
 from LiuXin_alpha.core.proxies import LocalLibraryProxy
 from LiuXin_alpha.core.proxies.local import looks_like_write_method
+from LiuXin_alpha.databases.database import Database
 from LiuXin_alpha.library.library import Library
-from LiuXin_alpha.utils.jobs.manager import InMemoryJobManager
 
 
-def test_core_runtime_health_and_invoke_paths(core_runtime_factory: Callable[..., CoreRuntime]) -> None:
+def test_core_runtime_health_and_invoke_paths(
+    core_runtime_factory: Callable[..., CoreRuntime],
+) -> None:
     """
     Perform the test core runtime health and invoke paths operation under explicit file-format and conversion rules.
 
@@ -48,12 +50,16 @@ def test_core_runtime_health_and_invoke_paths(core_runtime_factory: Callable[...
     result = runtime.invoke_query(target="library", method="echo", args=("hello",))
     assert result == "echo:hello"
 
-    write_result = runtime.invoke_command(target="database", method="set_value", args=(7,))
+    write_result = runtime.invoke_command(
+        target="database", method="set_value", args=(7,)
+    )
     assert write_result == 7
     assert runtime.invoke_query(target="database", method="get_value") == 7
 
 
-def test_core_runtime_emits_command_lifecycle_events(core_runtime_factory: Callable[..., CoreRuntime]) -> None:
+def test_core_runtime_emits_command_lifecycle_events(
+    core_runtime_factory: Callable[..., CoreRuntime],
+) -> None:
     """
     Perform the test core runtime emits command lifecycle events operation under explicit file-format and conversion rules.
 
@@ -84,10 +90,12 @@ def test_core_runtime_emits_command_lifecycle_events(core_runtime_factory: Calla
     result = runtime.execute_command(command)
     assert result.ok is True
 
+    assert runtime.wait_for_events(2)
     event_types = [event.event_type for event in events]
     assert "command.started" in event_types
     assert "write.completed" in event_types
     assert "command.finished" in event_types
+    assert runtime.wait_for_events(2)
     write_events = [event for event in events if event.event_type == "write.completed"]
     assert len(write_events) == 1
     assert write_events[0].payload["target"] == "database"
@@ -127,9 +135,15 @@ def test_core_runtime_api_describe_exposes_named_handlers_and_targets(
     targets = {entry["name"]: entry for entry in described["targets"]}
     assert set(targets) >= {"library", "database", "storage"}
 
-    library_methods = {method["name"]: method for method in targets["library"]["methods"]}
-    database_methods = {method["name"]: method for method in targets["database"]["methods"]}
-    storage_methods = {method["name"]: method for method in targets["storage"]["methods"]}
+    library_methods = {
+        method["name"]: method for method in targets["library"]["methods"]
+    }
+    database_methods = {
+        method["name"]: method for method in targets["database"]["methods"]
+    }
+    storage_methods = {
+        method["name"]: method for method in targets["storage"]["methods"]
+    }
 
     assert library_methods["echo"]["write"] is False
     assert library_methods["echo"]["parameters"][0]["name"] == "text"
@@ -137,11 +151,15 @@ def test_core_runtime_api_describe_exposes_named_handlers_and_targets(
     assert database_methods["get_value"]["write"] is False
     assert storage_methods["ping"]["write"] is False
 
-    db_only = runtime.execute_query(CoreQuery(name="api.describe", payload={"target": "db"})).result
+    db_only = runtime.execute_query(
+        CoreQuery(name="api.describe", payload={"target": "db"})
+    ).result
     assert [entry["name"] for entry in db_only["targets"]] == ["database"]
 
 
-def test_local_proxy_auto_dispatches_read_and_write(core_runtime_factory: Callable[..., CoreRuntime]) -> None:
+def test_local_proxy_auto_dispatches_read_and_write(
+    core_runtime_factory: Callable[..., CoreRuntime],
+) -> None:
     """
     Perform the test local proxy auto dispatches read and write operation under explicit file-format and conversion rules.
 
@@ -182,6 +200,7 @@ def test_local_proxy_bootstrap_storage_manager_routes_via_command() -> None:
     :return: The normalized value, metadata record, path, stream result or collection
         described above.
     """
+
     @dataclass
     class _FakeDatabase:
         """
@@ -192,6 +211,7 @@ def test_local_proxy_bootstrap_storage_manager_routes_via_command() -> None:
 
                 python -m pytest -q tests/core/test_core_runtime_phase1.py
         """
+
         bootstrapped: int = 0
 
         def bootstrap_storage_manager(self, *, clear_existing: bool = False):
@@ -209,7 +229,10 @@ def test_local_proxy_bootstrap_storage_manager_routes_via_command() -> None:
                 described above.
             """
             self.bootstrapped += 1
-            return {"bootstrapped": self.bootstrapped, "clear_existing": bool(clear_existing)}
+            return {
+                "bootstrapped": self.bootstrapped,
+                "clear_existing": bool(clear_existing),
+            }
 
     @dataclass
     class _FakeStorage:
@@ -221,6 +244,7 @@ def test_local_proxy_bootstrap_storage_manager_routes_via_command() -> None:
 
                 python -m pytest -q tests/core/test_core_runtime_phase1.py
         """
+
         pass
 
     @dataclass
@@ -233,6 +257,7 @@ def test_local_proxy_bootstrap_storage_manager_routes_via_command() -> None:
 
                 python -m pytest -q tests/core/test_core_runtime_phase1.py
         """
+
         database: _FakeDatabase
         storage: _FakeStorage
 
@@ -249,6 +274,7 @@ def test_local_proxy_bootstrap_storage_manager_routes_via_command() -> None:
     assert looks_like_write_method("bootstrap_storage_manager") is True
     assert result["bootstrapped"] == 1
     assert result["clear_existing"] is True
+    assert runtime.wait_for_events(2)
     event_types = [event.event_type for event in events]
     assert "command.started" in event_types
     assert "command.finished" in event_types
@@ -496,7 +522,9 @@ def test_core_runtime_library_delete_impact_reports_direct_references(tmp_path) 
         assert impact["row_id"] == row_id
         assert impact["reference_total"] >= 1
         assert any(
-            item["table"] == "folders" and item["column"] == "folder_store_id" and int(item["count"]) >= 1
+            item["table"] == "folders"
+            and item["column"] == "folder_store_id"
+            and int(item["count"]) >= 1
             for item in impact["reference_counts"]
         )
         assert any(
@@ -506,143 +534,27 @@ def test_core_runtime_library_delete_impact_reports_direct_references(tmp_path) 
             and item["sample_rows"][0]["folder_relpath"] == "root"
             for item in impact["reference_counts"]
         )
-        assert impact["warning"] == "Delete may fail or cascade depending on schema constraints."
-
-
-def test_core_runtime_sync_store_start_submits_job(monkeypatch) -> None:
-    """
-    Perform the test core runtime sync store start submits job operation under explicit file-format and conversion rules.
-
-    Example:
-        Exercise test core runtime sync store start submits job through a consuming regression::
-
-            python -m pytest -q tests/core/test_core_runtime_phase1.py
-
-
-    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
-    :return: The normalized value, metadata record, path, stream result or collection
-        described above.
-    """
-    sync_job_module = pytest.importorskip(
-        "LiuXin_alpha.core.workflow_jobs",
-        reason="Core workflow jobs are not exposed in this checkout.",
-    )
-
-    @dataclass
-    class _FakeDatabase:
-        """
-        Provide the fakedatabase contract for validated ebook processing.
-
-        Example:
-            Exercise test core runtime sync store start submits job. FakeDatabase through a consuming regression::
-
-                python -m pytest -q tests/core/test_core_runtime_phase1.py
-        """
-        value: int = 0
-
-    @dataclass
-    class _FakeStorage:
-        """
-        Provide the fakestorage contract for validated ebook processing.
-
-        Example:
-            Exercise test core runtime sync store start submits job. FakeStorage through a consuming regression::
-
-                python -m pytest -q tests/core/test_core_runtime_phase1.py
-        """
-        ping_count: int = 0
-
-    @dataclass
-    class _FakeLibrary:
-        """
-        Provide the fakelibrary contract for validated ebook processing.
-
-        Example:
-            Exercise test core runtime sync store start submits job. FakeLibrary through a consuming regression::
-
-                python -m pytest -q tests/core/test_core_runtime_phase1.py
-        """
-        database: _FakeDatabase
-        storage: _FakeStorage
-
-    captured: dict[str, object] = {}
-
-    def _fake_run_sync_store_job(**kwargs):
-        """
-        Perform the fake run sync store job operation under explicit file-format and conversion rules.
-
-        Example:
-            Exercise test core runtime sync store start submits job. fake run sync store job through a consuming regression::
-
-                python -m pytest -q tests/core/test_core_runtime_phase1.py
-
-
-        :param kwargs: Keyword values forwarded to the compatibility implementation.
-        :return: The normalized value, metadata record, path, stream result or collection
-            described above.
-        """
-        captured.update(kwargs)
-        return {"ok": True, "inserted_files": 1}
-
-    monkeypatch.setattr(sync_job_module, "run_sync_store_job", _fake_run_sync_store_job)
-
-    manager = InMemoryJobManager(max_workers=1, default_backend="serial")
-    try:
-        library = _FakeLibrary(
-            database=_FakeDatabase(value=0),
-            storage=_FakeStorage(),
+        assert (
+            impact["warning"]
+            == "Delete may fail or cascade depending on schema constraints."
         )
-        runtime = CoreRuntime(library=library, core_version="test-phase1", job_manager=manager)
-        result = runtime.execute_command(
-            CoreCommand(
-                name="sync.store.start",
-                payload={
-                    "sync_kwargs": {
-                        "database_path": "/tmp/fake.sqlite",
-                        "db_type": "SQLite",
-                        "mode": "local",
-                        "store_root_uri": "/tmp/store",
-                        "store_name": "fake_store",
-                        "store_kind": "on_disk_existing_unmanaged_drive",
-                        "source_label": "on_disk_unmanaged_import",
-                        "ebook_extensions": None,
-                        "compute_hash": False,
-                        "capture_hashes": False,
-                        "follow_symlinks": False,
-                        "attach_store_links": False,
-                        "refresh_storage_manager": False,
-                        "max_http_requests_per_hour": None,
-                        "rclone_args": (),
-                        "crawler_recurse": True,
-                        "crawler_max_depth": None,
-                        "crawler_timeout_s": None,
-                        "crawler_no_parent": True,
-                        "crawler_span_hosts": False,
-                        "crawler_respect_robots": True,
-                        "crawler_user_agent": None,
-                        "wget_no_verbose": True,
-                        "wget_args": (),
-                        "crawler_incremental_db_writes": True,
-                        "progress_output": False,
-                        "progress_every": 100,
-                    },
-                    "job_backend": "serial",
-                    "job_timeout_s": 5.0,
-                    "job_no_output": True,
-                    "label": "sync:local:1",
-                },
-            )
-        ).result
-        job_id = str(result["job_id"])
-        info = manager.wait(job_id, timeout=2.0)
-        assert info.state == "succeeded"
-        assert captured.get("mode") == "local"
-        assert captured.get("database_path") == "/tmp/fake.sqlite"
-    finally:
-        manager.shutdown(wait=True, cancel_pending=True)
 
 
-def test_core_runtime_sync_store_cancel_reports_unknown_job(core_runtime_factory: Callable[..., CoreRuntime]) -> None:
+def test_core_runtime_sync_store_requires_durable_owner(core_runtime_factory) -> None:
+    from LiuXin_alpha.core.errors import CoreError
+
+    runtime = core_runtime_factory()
+    with pytest.raises(CoreError) as failure:
+        runtime.command(
+            "sync.store.start",
+            {"sync_kwargs": {"database_path": "/tmp/fake.sqlite", "db_type": "SQLite"}},
+        )
+    assert failure.value.code == "capability_unavailable"
+
+
+def test_core_runtime_sync_store_cancel_reports_unknown_job(
+    core_runtime_factory: Callable[..., CoreRuntime],
+) -> None:
     """
     Perform the test core runtime sync store cancel reports unknown job operation under explicit file-format and conversion rules.
 

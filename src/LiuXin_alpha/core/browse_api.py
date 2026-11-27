@@ -23,9 +23,9 @@ from urllib.parse import urljoin
 from LiuXin_alpha.core.application_api import CoreApplicationAPI
 from LiuXin_alpha.core.description import CorePayloadFieldDescription
 from LiuXin_alpha.core.errors import CoreDispatchError
+from LiuXin_alpha.core.payloads import boolean, integer_value
+from LiuXin_alpha.core.payloads import required_int as _required_int
 from LiuXin_alpha.core.queries import CoreQuery
-from LiuXin_alpha.storage.api import Location
-from LiuXin_alpha.storage.utils.store_configuration import store_configuration_from_row
 
 if TYPE_CHECKING:
     from LiuXin_alpha.core.runtime import CoreRuntime
@@ -38,7 +38,7 @@ _CATEGORY_TABLES: dict[str, tuple[str, ...]] = {
 }
 
 
-def _category_count(runtime: "CoreRuntime", table: str) -> int:
+def _category_count(runtime: CoreRuntime, table: str) -> int:
     """Count without materializing rows, retaining structured cache capability errors."""
     source = runtime.services.read_source
     if not callable(getattr(source, "query_cache", None)):
@@ -60,7 +60,7 @@ def _require_complete_category_read(result: Mapping[str, Any], table: str) -> No
         )
 
 
-def _category_tables(runtime: "CoreRuntime", category: str) -> list[str]:
+def _category_tables(runtime: CoreRuntime, category: str) -> list[str]:
     """Select category sources once for the catalogue, never per linked Work.
 
     Populated tags take precedence; empty tags yield to an available labels
@@ -75,7 +75,7 @@ def _category_tables(runtime: "CoreRuntime", category: str) -> list[str]:
 
 
 def _category_related_rows(
-    runtime: "CoreRuntime",
+    runtime: CoreRuntime,
     table: str,
     row_id: int,
     related_table: str,
@@ -100,7 +100,7 @@ def _field(
     field_type: str | None = None,
 ) -> CorePayloadFieldDescription:
     """
-    Build a browse/acquisition payload-field declaration for introspection, not runtime validation.
+    Build a browse/acquisition payload-field declaration for introspection and primitive validation.
 
     Example:
         >>> _field("work_id", required=True, field_type="integer").name
@@ -109,7 +109,7 @@ def _field(
 
     :param name: Public payload key described by the declaration.
     :param required: Whether clients should see the field as mandatory.
-    :param field_type: Optional transport-facing type label, not an executable validator.
+    :param field_type: Optional transport-facing type label, enforced by CoreRuntime for primitive values.
     :return: New field-description record retaining the supplied values.
     """
     return CorePayloadFieldDescription(
@@ -141,32 +141,6 @@ def _payload(envelope: Any) -> dict[str, Any]:
     return dict(raw)
 
 
-def _required_int(payload: Mapping[str, Any], name: str) -> int:
-    """
-    Convert a required non-None, non-boolean field using int without imposing an ID range.
-
-    Fractions may truncate. TypeError/ValueError are wrapped; overflow or other
-    custom conversion errors propagate without translation.
-
-    Example:
-        >>> _required_int({"work_id": "7"}, "work_id")
-        7
-
-
-    :param payload: Mapping carrying the required integer-convertible value.
-    :param name: Exact request key, also included in the validation error text.
-    :return: Converted integer, including zero or negative values if supplied.
-    :raises CoreDispatchError: For missing/None/bool values or conversion TypeError/ValueError.
-    """
-    value = payload.get(name)
-    if value is None or isinstance(value, bool):
-        raise CoreDispatchError("`{}` must be an integer.".format(name))
-    try:
-        return int(value)
-    except (TypeError, ValueError) as exc:
-        raise CoreDispatchError("`{}` must be an integer.".format(name)) from exc
-
-
 def _row_mapping(row: Any) -> dict[str, Any]:
     """
     Copy a Mapping row or its Mapping-valued row_dict attribute, rejecting other read-source values.
@@ -195,7 +169,7 @@ def _row_mapping(row: Any) -> dict[str, Any]:
     )
 
 
-def _tables(runtime: "CoreRuntime") -> set[str]:
+def _tables(runtime: CoreRuntime) -> set[str]:
     """
     Ask the read source for table names without forced refresh, retrying the call without keywords on TypeError.
 
@@ -223,7 +197,7 @@ def _tables(runtime: "CoreRuntime") -> set[str]:
     return {str(value) for value in values}
 
 
-def _id_column(runtime: "CoreRuntime", table: str) -> str:
+def _id_column(runtime: CoreRuntime, table: str) -> str:
     """
     Prefer the driver's ID-column method, falling back to a trailing-s-stripped table name plus _id.
 
@@ -251,13 +225,13 @@ def _id_column(runtime: "CoreRuntime", table: str) -> str:
     return "{}_id".format(table.rstrip("s"))
 
 
-def _all_rows(runtime: "CoreRuntime", table: str) -> list[dict[str, Any]]:
+def _all_rows(runtime: CoreRuntime, table: str) -> list[dict[str, Any]]:
     """
-    Materialize every read-source row for a table, retrying without iterator_return on TypeError.
+    Materialize a bounded read-source table for the legacy browse projection.
 
     Missing/noncallable get_all_rows yields empty. The keyword retry can mask an
     internal TypeError from the first call; final-call, iteration, and row-shape
-    errors propagate. No filtering or row limit is imposed here.
+    errors propagate. A scan exceeding 10,000 rows fails before partial projection.
 
     Example:
         >>> from types import SimpleNamespace
@@ -273,15 +247,14 @@ def _all_rows(runtime: "CoreRuntime", table: str) -> list[dict[str, Any]]:
     method = getattr(source, "get_all_rows", None)
     if not callable(method):
         return []
-    try:
-        rows = method(table, iterator_return=False)
-    except TypeError:
-        rows = method(table)
+    from LiuXin_alpha.core.execution_bounds import bounded_table_rows
+
+    rows = bounded_table_rows(source, table)
     return [_row_mapping(row) for row in cast(Iterable[object], rows)]
 
 
 def _interlinked_tables(
-    runtime: "CoreRuntime",
+    runtime: CoreRuntime,
     table: str,
 ) -> list[str]:
     """
@@ -324,7 +297,7 @@ def _interlinked_tables(
 
 
 def _get_row(
-    runtime: "CoreRuntime",
+    runtime: CoreRuntime,
     table: str,
     row_id: int,
 ) -> dict[str, Any] | None:
@@ -353,7 +326,7 @@ def _get_row(
 
 
 def _search_rows(
-    runtime: "CoreRuntime",
+    runtime: CoreRuntime,
     table: str,
     column: str,
     value: Any,
@@ -386,7 +359,7 @@ def _search_rows(
 
 
 def _related_rows(
-    runtime: "CoreRuntime",
+    runtime: CoreRuntime,
     row: Mapping[str, Any],
     table: str,
 ) -> list[dict[str, Any]]:
@@ -496,10 +469,10 @@ def _primary_text(table: str, row: Mapping[str, Any]) -> str:
         "human_agents": ("agent_canonical_name", "agent_name"),
         "org_agents": ("agent_canonical_name", "agent_name"),
     }.get(table, ()) + (
-        "{}_title".format(stem),
-        "{}_name".format(stem),
-        "{}_label".format(stem),
-        "{}_value".format(stem),
+        f"{stem}_title",
+        f"{stem}_name",
+        f"{stem}_label",
+        f"{stem}_value",
         "title",
         "name",
         "label",
@@ -514,7 +487,7 @@ def _primary_text(table: str, row: Mapping[str, Any]) -> str:
         if key.endswith(("_title", "_name", "_label")) and value not in (None, ""):
             return str(value)
     return "{} {}".format(
-        table.rstrip("s").replace("_", " ").title(), row.get("{}_id".format(stem), "")
+        table.rstrip("s").replace("_", " ").title(), row.get(f"{stem}_id", "")
     )
 
 
@@ -543,7 +516,7 @@ def _flatten(value: Any) -> str:
 
 
 def _work_summary(
-    runtime: "CoreRuntime",
+    runtime: CoreRuntime,
     row: Mapping[str, Any],
     *,
     related: Mapping[str, Sequence[Mapping[str, Any]]] | None = None,
@@ -616,7 +589,7 @@ def _work_summary(
 
 
 def _work_summaries(
-    runtime: "CoreRuntime", rows: Sequence[Mapping[str, Any]]
+    runtime: CoreRuntime, rows: Sequence[Mapping[str, Any]]
 ) -> list[dict[str, Any]]:
     """Enrich only the visible Work page using the selected source's batch reads.
 
@@ -659,7 +632,7 @@ def _work_summaries(
 
 
 def _work_item_ids(
-    runtime: "CoreRuntime",
+    runtime: CoreRuntime,
     work: Mapping[str, Any],
 ) -> list[int]:
     """
@@ -752,7 +725,7 @@ def _legacy_file_record(row: Mapping[str, Any]) -> dict[str, Any]:
 
 
 def _asset_records(
-    runtime: "CoreRuntime",
+    runtime: CoreRuntime,
     item_ids: Iterable[int],
 ) -> list[dict[str, Any]]:
     """
@@ -905,7 +878,7 @@ def _asset_records(
 
 
 def _work_files(
-    runtime: "CoreRuntime",
+    runtime: CoreRuntime,
     work: Mapping[str, Any],
 ) -> list[dict[str, Any]]:
     """
@@ -944,7 +917,7 @@ def _work_files(
 
 
 def _store_row(
-    runtime: "CoreRuntime",
+    runtime: CoreRuntime,
     store_id: Any,
 ) -> dict[str, Any] | None:
     """
@@ -974,7 +947,7 @@ def _store_row(
 
 
 def _resolution(
-    runtime: "CoreRuntime",
+    runtime: CoreRuntime,
     *,
     kind: str,
     row: Mapping[str, Any],
@@ -1034,7 +1007,7 @@ def _resolution(
         local_paths = (row.get("image_original_path"), row.get("image_path"))
         remote_urls = (row.get("image_source"), row.get("image_original_path"))
     else:
-        raise CoreDispatchError("Unknown acquisition kind `{}`.".format(kind))
+        raise CoreDispatchError(f"Unknown acquisition kind `{kind}`.")
 
     for value in remote_urls:
         url = str(value or "").strip()
@@ -1089,7 +1062,7 @@ def _resolution(
 
 
 def _resource_row(
-    runtime: "CoreRuntime",
+    runtime: CoreRuntime,
     *,
     kind: str,
     resource_id: int,
@@ -1124,80 +1097,30 @@ def _resource_row(
             id_column="asset_replica_id",
         )
         return None if value is None else dict(value)
-    raise CoreDispatchError("Unknown acquisition kind `{}`.".format(kind))
+    raise CoreDispatchError(f"Unknown acquisition kind `{kind}`.")
 
 
 def _resource_bytes(
-    runtime: "CoreRuntime",
-    *,
-    kind: str,
-    row: Mapping[str, Any],
+    runtime: CoreRuntime, *, kind: str, row: Mapping[str, Any]
 ) -> bytes:
-    """
-    Read whole bytes from a direct local path, managed Store location, or legacy Store-root path fallback.
+    """Read a small resource; larger transfers require the versioned range API."""
+    from LiuXin_alpha.core.acquisition_ranges import read_range
 
-    Direct local-file read failures propagate. Managed configuration/read/type-check
-    Exceptions are suppressed before trying the root/key path. The fallback strips
-    a literal file:// prefix without URL decoding and joins trusted, unconfined
-    keys; absolute keys or parent components can escape the root. No size limit,
-    digest verification, or HTTP fetching is implemented here. Non-file/image kinds
-    use Replica fields; callers must validate kind before reaching this helper.
-
-    Example:
-        >>> content = _resource_bytes(runtime, kind="replica", row=replica_row)  # doctest: +SKIP
-
-
-    :param runtime: Runtime providing Store rows and services.library.storage.read_bytes for managed locations.
-    :param kind: Legacy-file/image selects direct-path fields; other tokens select Replica Store/key fields.
-    :param row: Resource location mapping; paths and keys are consumed as trusted metadata.
-    :return: Entire resource as bytes, loaded into memory; managed readers must return bytes rather than bytearray.
-    :raises CoreDispatchError: With acquisition_unavailable when no read path succeeds or remains available.
-    """
-    local_paths: tuple[Any, ...]
-    if kind == "legacy-file":
-        local_paths = (row.get("file_original_path"), row.get("file_path"))
-        store_id = row.get("file_store_id")
-        storage_key = row.get("file_storage_key")
-    elif kind == "image":
-        local_paths = (row.get("image_original_path"), row.get("image_path"))
-        store_id = row.get("image_store_id")
-        storage_key = row.get("image_storage_key")
-    else:
-        local_paths = ()
-        store_id = row.get("asset_replica_store_id")
-        storage_key = row.get("asset_replica_storage_key")
-    for value in local_paths:
-        path_text = str(value or "").strip()
-        if path_text and Path(path_text).is_file():
-            return Path(path_text).read_bytes()
-    store = _store_row(runtime, store_id)
-    if store is not None and storage_key:
-        try:
-            configuration = store_configuration_from_row(
-                store,
-                fallback_store_id=int(store_id),
-            )
-            location = Location(
-                configuration.store_uuid,
-                str(storage_key),
-            )
-            value = runtime.services.library.storage.read_bytes(location)
-            if not isinstance(value, bytes):
-                raise TypeError("Storage byte reader returned a non-byte value.")
-            return value
-        except Exception:
-            pass
-        root = str(store.get("store_root_uri") or store.get("store_url") or "").strip()
-        if root.startswith("file://"):
-            root = root[7:]
-        if root and not root.startswith(("http://", "https://")):
-            path = Path(root) / str(storage_key)
-            if path.is_file():
-                return path.read_bytes()
-    raise CoreDispatchError(
-        "The acquisition resource is not readable by this Core.",
-        code="acquisition_unavailable",
+    prefix = (
+        "file"
+        if kind == "legacy-file"
+        else "image"
+        if kind == "image"
+        else "asset_replica"
     )
+    store = _store_row(runtime, row.get(prefix + "_store_id"))
+    result = read_range(runtime, kind=kind, row=row, store=store)
+    if not result["complete"]:
+        raise CoreDispatchError(
+            "Use acquisition.read-range for resources larger than one MiB",
+            code="acquisition_range_required",
+        )
+    return result["content"]
 
 
 class CoreBrowseAPI:
@@ -1214,7 +1137,7 @@ class CoreBrowseAPI:
         >>> adapter.install(runtime)  # doctest: +SKIP
     """
 
-    def install(self, runtime: "CoreRuntime") -> None:
+    def install(self, runtime: CoreRuntime) -> None:
         """
         Register four browse and four acquisition queries with explicit summaries, payload metadata, and tags.
 
@@ -1307,6 +1230,20 @@ class CoreBrowseAPI:
             remote_capabilities=("read",),
         )
         query(
+            "acquisition.read-range",
+            self.acquisition_read_range,
+            summary="Read at most one MiB with an optional resource version precondition.",
+            payload_fields=(
+                _field("kind", required=True, field_type="string"),
+                _field("id", required=True, field_type="integer"),
+                _field("offset", field_type="integer"),
+                _field("length", field_type="integer"),
+                _field("if_version", field_type="string"),
+            ),
+            tags=("acquisition", "storage", "read"),
+            remote_capabilities=("read",),
+        )
+        query(
             "acquisition.cover",
             self.acquisition_cover,
             summary="Return cover candidates for one work.",
@@ -1316,7 +1253,7 @@ class CoreBrowseAPI:
         )
 
     @staticmethod
-    def categories(runtime: "CoreRuntime", query: "CoreQuery") -> dict[str, Any]:
+    def categories(runtime: CoreRuntime, query: CoreQuery) -> dict[str, Any]:
         """Return category counts and their authoritative entity-table selections.
 
         An optional category limits the read to that category. Counts use the
@@ -1336,9 +1273,7 @@ class CoreBrowseAPI:
             elif category in _CATEGORY_TABLES:
                 selected = _category_tables(runtime, category)
             else:
-                raise CoreDispatchError(
-                    "Unknown browse category `{}`.".format(category)
-                )
+                raise CoreDispatchError(f"Unknown browse category `{category}`.")
             for table in selected:
                 if table not in counts:
                     counts[table] = _category_count(runtime, table)
@@ -1355,13 +1290,13 @@ class CoreBrowseAPI:
 
     @staticmethod
     def category_items(
-        runtime: "CoreRuntime",
-        query: "CoreQuery",
+        runtime: CoreRuntime,
+        query: CoreQuery,
     ) -> dict[str, Any]:
         """
         Page fully projected Works or category entities after reading, counting relationships, and sorting in memory.
 
-        limit/offset default to 100/0, use int coercion, and clamp to 0..10,000/nonnegative.
+        limit/offset default to 100/0, require integers, and clamp to 0..1,000/nonnegative.
         ascending defaults True. For all/newest, recent/newest sorting uses reverse=
         ascending, so True puts larger Work IDs first; this differs from works().
         Other Work sorts use casefolded titles. Entity popularity sorts by Work count
@@ -1374,17 +1309,17 @@ class CoreBrowseAPI:
 
 
         :param runtime: Runtime providing full category/Work reads, relationship counts, and summary projection.
-        :param query: Query with required category (all/newest/authors/tags/series), optional limit/offset/sort, and truth-converted ascending.
+        :param query: Query with required category (all/newest/authors/tags/series), optional limit/offset/sort, and boolean ascending.
         :return: Category, paged records, full projected total_count, normalized pagination, and end-of-result complete flag.
         :raises CoreDispatchError: If the stripped/lowercased category token is unknown; conversion/backend failures may also propagate.
         """
         payload = _payload(query)
         category = str(payload.get("category") or "").strip().lower()
         if category not in {*_CATEGORY_TABLES, "all", "newest"}:
-            raise CoreDispatchError("Unknown browse category `{}`.".format(category))
-        limit = max(0, min(int(payload.get("limit", 100)), 10_000))
-        offset = max(0, int(payload.get("offset", 0)))
-        ascending = bool(payload.get("ascending", True))
+            raise CoreDispatchError(f"Unknown browse category `{category}`.")
+        limit = max(0, min(integer_value(payload.get("limit", 100), "limit"), 1_000))
+        offset = max(0, integer_value(payload.get("offset", 0), "offset"))
+        ascending = boolean(payload, "ascending", True)
         sort = str(payload.get("sort") or "name").strip().lower()
         if category in {"all", "newest"}:
             works = _all_rows(runtime, "works")
@@ -1472,8 +1407,8 @@ class CoreBrowseAPI:
 
     @staticmethod
     def works(
-        runtime: "CoreRuntime",
-        query: "CoreQuery",
+        runtime: CoreRuntime,
+        query: CoreQuery,
     ) -> dict[str, Any]:
         """
         Page Work summaries selected by category identity and raw-row text, then sorted by title or numeric ID.
@@ -1491,16 +1426,16 @@ class CoreBrowseAPI:
 
 
         :param runtime: Runtime providing Work/category reads, relationship lookup, and summary projection.
-        :param query: Query with optional category/category_id/text/sort/ascending and int-coerced limit/offset (defaults 100/0, clamped to 0..10,000/nonnegative).
+        :param query: Query with optional category/category_id/text/sort/ascending and int-coerced limit/offset (defaults 100/0, clamped to 0..1,000/nonnegative).
         :return: Paged Work records, full post-text-filter count, pagination values, and end-of-result complete flag.
         :raises CoreDispatchError: For unknown category or invalid required entity ID; lower-level read/conversion errors propagate.
         """
         payload = _payload(query)
         category = str(payload.get("category") or "all").strip().lower()
         text = str(payload.get("text") or "").strip().casefold()
-        limit = max(0, min(int(payload.get("limit", 100)), 10_000))
-        offset = max(0, int(payload.get("offset", 0)))
-        ascending = bool(payload.get("ascending", category != "newest"))
+        limit = max(0, min(integer_value(payload.get("limit", 100), "limit"), 1_000))
+        offset = max(0, integer_value(payload.get("offset", 0), "offset"))
+        ascending = boolean(payload, "ascending", category != "newest")
         sort = (
             str(payload.get("sort") or ("recent" if category == "newest" else "title"))
             .strip()
@@ -1527,7 +1462,7 @@ class CoreBrowseAPI:
         elif category in {"all", "newest"}:
             rows = _all_rows(runtime, "works")
         else:
-            raise CoreDispatchError("Unknown browse category `{}`.".format(category))
+            raise CoreDispatchError(f"Unknown browse category `{category}`.")
         if text:
             rows = [row for row in rows if text in _flatten(row)]
         if sort == "recent":
@@ -1551,8 +1486,8 @@ class CoreBrowseAPI:
 
     @staticmethod
     def work(
-        runtime: "CoreRuntime",
-        query: "CoreQuery",
+        runtime: CoreRuntime,
+        query: CoreQuery,
     ) -> dict[str, Any]:
         """
         Project one Work with nonempty related-table rows, associated Item IDs, and unresolved file/Replica listings.
@@ -1567,7 +1502,7 @@ class CoreBrowseAPI:
 
 
         :param runtime: Runtime providing Work lookup, relationship introspection, and legacy/managed file metadata.
-        :param query: Query with required integer-convertible work_id, excluding None/bool.
+        :param query: Query with required integer work_id, excluding None/bool.
         :return: work=None alone for absence; otherwise work summary, related mapping, sorted Item IDs, and format listings.
         """
         work_id = _required_int(_payload(query), "work_id")
@@ -1588,8 +1523,8 @@ class CoreBrowseAPI:
 
     @staticmethod
     def acquisition_formats(
-        runtime: "CoreRuntime",
-        query: "CoreQuery",
+        runtime: CoreRuntime,
+        query: CoreQuery,
     ) -> dict[str, Any]:
         """
         List a Work's legacy files and managed Replicas, adding a current resolution hint for each resource.
@@ -1604,7 +1539,7 @@ class CoreBrowseAPI:
 
 
         :param runtime: Runtime supplying Work/file relationships, managed resource rows, and Store/path resolution.
-        :param query: Query with required integer-convertible work_id.
+        :param query: Query with required integer work_id.
         :return: work_id and ordered format dictionaries augmented in place with resolution hints or None.
         """
         work_id = _required_int(_payload(query), "work_id")
@@ -1631,8 +1566,8 @@ class CoreBrowseAPI:
 
     @staticmethod
     def acquisition_resolve(
-        runtime: "CoreRuntime",
-        query: "CoreQuery",
+        runtime: CoreRuntime,
+        query: CoreQuery,
     ) -> dict[str, Any]:
         """
         Normalize kind/ID, require the resource row, and return its redirect/Core/unavailable delivery hint.
@@ -1645,7 +1580,7 @@ class CoreBrowseAPI:
 
 
         :param runtime: Runtime providing resource-row lookup and Store/local-path resolution.
-        :param query: Query with kind (legacy-file/image/replica, stripped/lowercased) and required integer-convertible id.
+        :param query: Query with kind (legacy-file/image/replica, stripped/lowercased) and required integer id.
         :return: Resource identity/name and delivery/readable fields, plus location or Store/key details when applicable.
         :raises CoreDispatchError: For unknown kinds or acquisition_not_found when the row/lookup capability is absent.
         """
@@ -1655,15 +1590,15 @@ class CoreBrowseAPI:
         row = _resource_row(runtime, kind=kind, resource_id=resource_id)
         if row is None:
             raise CoreDispatchError(
-                "Unknown {} {}.".format(kind, resource_id),
+                f"Unknown {kind} {resource_id}.",
                 code="acquisition_not_found",
             )
         return _resolution(runtime, kind=kind, row=row)
 
     @staticmethod
     def acquisition_read(
-        runtime: "CoreRuntime",
-        query: "CoreQuery",
+        runtime: CoreRuntime,
+        query: CoreQuery,
     ) -> dict[str, Any]:
         """
         Resolve one resource and, when marked readable, load its entire content for outer Core wire encoding.
@@ -1678,7 +1613,7 @@ class CoreBrowseAPI:
 
 
         :param runtime: Runtime providing resource resolution and whole-byte acquisition reads.
-        :param query: Query with normalized supported kind and required integer-convertible id.
+        :param query: Query with normalized supported kind and required integer id.
         :return: Resource resolution plus raw bytes content; no byte cap or streaming iterator is supplied here.
         :raises CoreDispatchError: For missing/unknown resources, unreadable resolution, or exhausted acquisition read paths.
         """
@@ -1688,7 +1623,7 @@ class CoreBrowseAPI:
         row = _resource_row(runtime, kind=kind, resource_id=resource_id)
         if row is None:
             raise CoreDispatchError(
-                "Unknown {} {}.".format(kind, resource_id),
+                f"Unknown {kind} {resource_id}.",
                 code="acquisition_not_found",
             )
         resolved = _resolution(runtime, kind=kind, row=row)
@@ -1704,9 +1639,58 @@ class CoreBrowseAPI:
         }
 
     @staticmethod
+    def acquisition_read_range(
+        runtime: CoreRuntime, query: CoreQuery
+    ) -> dict[str, Any]:
+        """Read a bounded resource range; the caller retains version across chunks."""
+        from LiuXin_alpha.core.acquisition_ranges import read_range
+
+        payload = _payload(query)
+        kind = str(payload.get("kind") or "").strip().lower()
+        row = _resource_row(
+            runtime, kind=kind, resource_id=_required_int(payload, "id")
+        )
+        if row is None:
+            raise CoreDispatchError(
+                "Unknown acquisition resource", code="acquisition_not_found"
+            )
+        resolved = _resolution(runtime, kind=kind, row=row)
+        if not resolved["readable"]:
+            raise CoreDispatchError(
+                "Resource requires redirect",
+                code="acquisition_redirect",
+                details=resolved,
+            )
+        prefix = (
+            "file"
+            if kind == "legacy-file"
+            else "image"
+            if kind == "image"
+            else "asset_replica"
+        )
+        store = _store_row(runtime, row.get(prefix + "_store_id"))
+        if not runtime._content_slots.acquire(blocking=False):
+            raise CoreDispatchError("All acquisition readers are busy", code="busy")
+        try:
+            return {
+                "resource": resolved,
+                **read_range(
+                    runtime,
+                    kind=kind,
+                    row=row,
+                    store=store,
+                    offset=payload.get("offset", 0),
+                    length=payload.get("length", 1024 * 1024),
+                    if_version=payload.get("if_version"),
+                ),
+            }
+        finally:
+            runtime._content_slots.release()
+
+    @staticmethod
     def acquisition_cover(
-        runtime: "CoreRuntime",
-        query: "CoreQuery",
+        runtime: CoreRuntime,
+        query: CoreQuery,
     ) -> dict[str, Any]:
         """
         List directly related image rows as cover candidates with MIME and acquisition-resolution hints.
@@ -1720,7 +1704,7 @@ class CoreBrowseAPI:
 
 
         :param runtime: Runtime providing Work/image relationships and stored-location resolution.
-        :param query: Query with required integer-convertible work_id.
+        :param query: Query with required integer work_id.
         :return: work_id and cover candidate dictionaries containing image ID, display name, MIME, and resolution.
         """
         work_id = _required_int(_payload(query), "work_id")
@@ -1752,7 +1736,7 @@ class CoreBrowseAPI:
         return {"work_id": work_id, "covers": covers}
 
 
-def install_browse_api(runtime: "CoreRuntime") -> CoreBrowseAPI:
+def install_browse_api(runtime: CoreRuntime) -> CoreBrowseAPI:
     """
     Construct a stateless browse adapter, register its eight queries, and return it without taking resource ownership.
 

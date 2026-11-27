@@ -13,9 +13,8 @@ import argparse
 import dataclasses
 import json
 import time
-
 from collections.abc import Mapping
-from typing import Any, Optional
+from typing import Any
 
 from LiuXin_alpha.core.workflow_jobs import (
     run_sync_store_job as _core_run_sync_store_job,
@@ -46,28 +45,28 @@ class _SyncStoreOptions:
 
     store_ref: str
     source_label: str
-    ebook_extensions: Optional[list[str]]
+    ebook_extensions: list[str] | None
     compute_hash: bool
     capture_hashes: bool
     follow_symlinks: bool
     refresh_storage_manager: bool
     attach_store_links: bool
-    max_http_requests_per_hour: Optional[float]
+    max_http_requests_per_hour: float | None
     rclone_http_no_slash: bool
     rclone_http_no_head: bool
     crawler_recurse: bool
-    crawler_max_depth: Optional[int]
-    crawler_timeout_s: Optional[float]
+    crawler_max_depth: int | None
+    crawler_timeout_s: float | None
     crawler_no_parent: bool
     crawler_span_hosts: bool
     crawler_respect_robots: bool
-    crawler_user_agent: Optional[str]
+    crawler_user_agent: str | None
     wget_no_verbose: bool
     wget_args: tuple[str, ...]
     crawler_incremental_db_writes: bool
     background: bool
-    job_backend: Optional[str]
-    job_timeout_s: Optional[float]
+    job_backend: str | None
+    job_timeout_s: float | None
     job_no_output: bool
     job_panel: bool
     show_progress: bool
@@ -75,7 +74,7 @@ class _SyncStoreOptions:
     json_output: bool
 
 
-def _split_extensions(raw: Optional[str]) -> Optional[list[str]]:
+def _split_extensions(raw: str | None) -> list[str] | None:
     """
     Split extension text into ordered unique lowercase entries with leading dots removed.
 
@@ -147,11 +146,9 @@ def _optional_positive_float(value: str, *, option: str) -> float | None:
     try:
         parsed = float(value)
     except Exception as exc:
-        raise ValueError(
-            "{} requires a numeric value or 'none'.".format(option)
-        ) from exc
+        raise ValueError(f"{option} requires a numeric value or 'none'.") from exc
     if parsed <= 0:
-        raise ValueError("{} must be > 0, or use 'none'.".format(option))
+        raise ValueError(f"{option} must be > 0, or use 'none'.")
     return parsed
 
 
@@ -174,11 +171,9 @@ def _optional_positive_int(value: str, *, option: str) -> int | None:
     try:
         parsed = int(value)
     except Exception as exc:
-        raise ValueError(
-            "{} requires an integer value or 'none'.".format(option)
-        ) from exc
+        raise ValueError(f"{option} requires an integer value or 'none'.") from exc
     if parsed <= 0:
-        raise ValueError("{} must be >= 1.".format(option))
+        raise ValueError(f"{option} must be >= 1.")
     return parsed
 
 
@@ -212,7 +207,7 @@ def _parse_sync_store_options(
     :raises ValueError: If parsing, required-value checks, or configured numeric checks fail.
     """
     if not args:
-        raise ValueError("Usage: {}".format(usage))
+        raise ValueError(f"Usage: {usage}")
 
     raw_tokens = [
         token
@@ -232,7 +227,7 @@ def _parse_sync_store_options(
             value = str(raw_tokens[index + 1]).strip()
             if not value:
                 raise ValueError("--wget-arg requires a non-blank value.")
-            tokens.append("--wget-arg={}".format(value))
+            tokens.append(f"--wget-arg={value}")
             index += 2
             continue
         tokens.append(token)
@@ -366,7 +361,7 @@ def _parse_sync_store_options(
     try:
         values = parser.parse_args(tokens)
     except (argparse.ArgumentError, SystemExit) as exc:
-        raise ValueError("Usage: {}".format(usage)) from exc
+        raise ValueError(f"Usage: {usage}") from exc
 
     if not str(values.source).strip():
         raise ValueError("--source requires a non-blank value.")
@@ -463,7 +458,7 @@ def run_sync_store_job(**kwargs: Any) -> dict[str, object]:
     return _core_run_sync_store_job(**kwargs)
 
 
-def _safe_int(value: str) -> Optional[int]:
+def _safe_int(value: str) -> int | None:
     """
     Parse stripped text as an integer, returning ``None`` for ordinary conversion failures.
 
@@ -503,16 +498,14 @@ def _resolve_store_row(browser, store_ref: str):
     if store_id is not None:
         row = browser.db.get_row_from_id("stores", store_id)
         if row is None:
-            raise ValueError("No store found for id {}.".format(store_id))
+            raise ValueError(f"No store found for id {store_id}.")
         return row
     rows = browser.db.search("stores", "store_name", str(store_ref))
     if not rows:
-        raise ValueError("No store found for name {!r}.".format(store_ref))
+        raise ValueError(f"No store found for name {store_ref!r}.")
     if len(rows) > 1:
         raise ValueError(
-            "Multiple stores found for name {!r}; use store id instead.".format(
-                store_ref
-            )
+            f"Multiple stores found for name {store_ref!r}; use store id instead."
         )
     return rows[0]
 
@@ -767,7 +760,12 @@ class SyncStoreCommand(TerminalCommandAPI):
                 "label": "sync:{}:{}".format(mode, store_row["store_id"]),
             },
         )
-        job_id = str((result or {}).get("job_id") or "")
+        from LiuXin_alpha.core.submissions import wait_for_submission
+
+        job_id = wait_for_submission(
+            lambda name, payload: browser.execute_core_query(name, payload=payload),
+            result or {},
+        )
         if not job_id:
             raise RuntimeError("Core sync command did not return a job id.")
 
@@ -789,16 +787,14 @@ class SyncStoreCommand(TerminalCommandAPI):
                         ],
                     )
                 ],
-                title="Sync job submitted: {}".format(job_id),
+                title=f"Sync job submitted: {job_id}",
                 max_cell_width=120,
             )
-            browser.emit(
-                "  Use `jobs show {} --wait` to inspect completion.".format(job_id)
-            )
+            browser.emit(f"  Use `jobs show {job_id} --wait` to inspect completion.")
             if options.job_panel:
                 if browser.supports_job_output_panel():
                     browser.attach_job_output_panel(job_id)
-                    browser.emit("output_panel: attached to job {}".format(job_id))
+                    browser.emit(f"output_panel: attached to job {job_id}")
                 else:
                     browser.emit("output_panel: unavailable in this UI mode")
             return True

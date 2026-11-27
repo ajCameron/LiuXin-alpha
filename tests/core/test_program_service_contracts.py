@@ -37,20 +37,20 @@ from LiuXin_alpha.storage.api import ReplicaMode, ReplicaState, StoreConfigurati
 @pytest.mark.parametrize(
     ("value", "expected"),
     [
-        ([" a ", "", "a", "A", None], ["a", "A", "None"]),
-        ("  a b  ", ["a b"]),
-        (b"AB", ["65", "66"]),
+        ([" a ", "", "a", "A"], ["a", "A"]),
+        (["  a b  "], ["a b"]),
+        (("A", "B"), ["A", "B"]),
         ([], []),
     ],
 )
-def test_text_lists_stringify_deduplicate_and_keep_case(
+def test_text_lists_strip_deduplicate_and_keep_case(
     value: object, expected: list[str]
 ) -> None:
     """
-    Retain the helper's distinct scalar-string, byte-iterable, blank, duplicate, and case behavior.
+    Normalize string arrays while retaining order and case, rejecting other shapes.
 
     Example:
-        >>> test_text_lists_stringify_deduplicate_and_keep_case(b"AB", ["65", "66"])
+        >>> test_text_lists_strip_deduplicate_and_keep_case(["A", "B"], ["A", "B"])
 
 
     :param value: Parametrized text or iterable field presented to _text_list.
@@ -133,61 +133,37 @@ def test_plain_retains_opaque_values_and_filters_attribute_fallback() -> None:
     assert payloads.plain(source) == {"public": ["a", "b"]}
 
 
-def test_job_submission_receipt_reports_requested_options() -> None:
-    """
-    Distinguish requested job settings from effective backend choice or completion status.
+def test_job_submission_captures_detached_intent(monkeypatch) -> None:
+    from LiuXin_alpha.core import command_recovery
 
-    The recording manager accepts everything: explicit None label becomes text,
-    a false timeout becomes 0.0, and a nonempty no-output string becomes True.
-
-    Example:
-        >>> test_job_submission_receipt_reports_requested_options()
-
-
-    :return: None after verifying worker identity, shallow argument copying, options, and default timeout sentinel.
-    """
-    submit = Mock(return_value="job-7")
-    runtime = SimpleNamespace(job_manager=SimpleNamespace(submit=submit))
+    submit = Mock(
+        return_value={"state": "accepted", "command_id": "logical", "job_id": None}
+    )
+    monkeypatch.setattr(command_recovery, "submit_workflow", submit)
+    runtime = SimpleNamespace(_durable_jobs=object())
     arguments = {"formats": ["EPUB"]}
     receipt = payloads._job_submit(
         runtime,
-        {
-            "label": None,
-            "job_timeout_s": False,
-            "job_backend": "thread",
-            "job_no_output": "false",
-        },
+        {"label": "Convert", "job_no_output": True},
         function_name="run_conversion_job",
         kwargs=arguments,
         default_label="convert",
     )
-    request = submit.call_args.args[0]
-    assert request.module_name == "LiuXin_alpha.core.workflow_jobs"
-    assert request.function_name == "run_conversion_job"
-    assert request.kwargs == arguments and request.kwargs is not arguments
-    assert request.kwargs["formats"] is arguments["formats"]
-    assert submit.call_args.kwargs == {
-        "timeout": 0.0,
-        "no_output": True,
-        "backend": "thread",
-        "label": "None",
-    }
-    assert receipt == {
-        "job_id": "job-7",
-        "label": "None",
-        "backend": "thread",
-        "timeout_s": 0.0,
-        "no_output": True,
-    }
-    default = payloads._job_submit(
-        runtime,
-        {},
-        function_name="run_conversion_job",
-        kwargs={},
-        default_label="convert",
-    )
-    assert default["timeout_s"] is None and default["backend"] == ""
-    assert submit.call_args.kwargs["timeout"] == -1.0
+    captured = submit.call_args.kwargs
+    arguments["formats"].append("PDF")
+    assert captured["kwargs"] == {"formats": ["EPUB"]}
+    assert captured["function_name"] == "run_conversion_job"
+    assert captured["timeout"] == -1.0 and captured["backend"] is None
+    assert receipt["state"] == "accepted" and receipt["job_id"] is None
+    with pytest.raises(CoreDispatchError) as failure:
+        payloads._job_submit(
+            SimpleNamespace(),
+            {},
+            function_name="run_conversion_job",
+            kwargs={},
+            default_label="convert",
+        )
+    assert failure.value.code == "capability_unavailable"
 
 
 @pytest.mark.parametrize("offset", [0, 1])
@@ -274,17 +250,18 @@ def test_store_update_checks_topology_before_write_but_status_afterward(
     assert manager.update_store.call_args.args[1].store_name == "new name"
 
 
-def test_global_search_skips_call_failures_but_not_iteration_failures() -> None:
+def test_global_search_counts_unicode_matches_and_propagates_read_failures() -> None:
     """
-    Skip an initial table-read error, count a Unicode match at limit zero, and expose later iterator errors.
+    Propagate required read failures and count a Unicode match at limit zero.
 
     Example:
-        >>> test_global_search_skips_call_failures_but_not_iteration_failures()
+        >>> test_global_search_counts_unicode_matches_and_propagates_read_failures()
 
 
-    :return: None after verifying observed-table reporting, count-only scanning, and the iteration-error boundary.
+    :return: None after verifying read failures, count-only scanning and iteration errors.
     """
     reader = Mock()
+    reader.get_record_count.return_value = 1
     reader.get_all_rows.side_effect = [
         RuntimeError("table unavailable"),
         [{"title": "Straße"}],
@@ -293,6 +270,9 @@ def test_global_search_skips_call_failures_but_not_iteration_failures() -> None:
     query = SimpleNamespace(
         payload={"text": "STRASSE", "tables": ["broken", "works"], "limit": 0}
     )
+    with pytest.raises(RuntimeError, match="table unavailable"):
+        catalog.search_global(runtime, query)
+    query.payload["tables"] = ["works"]
     result = catalog.search_global(runtime, query)
     assert result["tables"] == ["works"] and result["total"] == 1
     assert result["items"] == [] and result["has_more"] is True
@@ -592,7 +572,9 @@ def test_repair_counts_attempts_and_only_estimates_successful_transfers(
     monkeypatch.setattr(storage_repair, "_storage_repair_plan_payload", planner)
     manager = Mock()
     manager.replicate_digital_asset.side_effect = (
-        [RuntimeError("copy failed"), {}] if failed_first else [{}]
+        [RuntimeError("copy failed"), SimpleNamespace(state=ReplicaState.VERIFIED)]
+        if failed_first
+        else [SimpleNamespace(state=ReplicaState.VERIFIED)]
     )
     result = storage_repair.storage_repair_apply(
         SimpleNamespace(library=SimpleNamespace(storage=manager)),
@@ -717,7 +699,7 @@ def test_program_protocol_documentation_matches_its_service_owners() -> None:
                 inspect.signature(owner).parameters
             )
             checked += 1
-    assert checked == 93
+    assert checked == 92
     for name, alias in vars(CoreProgramAPI).items():
         if isinstance(alias, staticmethod):
             function = getattr(CoreProgramAPI, name)

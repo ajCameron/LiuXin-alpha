@@ -4,18 +4,22 @@ Validate program-service payloads, adapt legacy objects, and submit named Core w
 Legacy metadata adapters are tried in a defined order before iterable or
 attribute fallbacks. plain prepares results for the outer wire encoder but is
 not itself a JSON validator or cycle/size guard: bytes and unsupported opaque
-objects can remain. Validation helpers perform intentionally different coercions
-for text, integer, and iterable fields; they do not provide authorization.
+objects can remain. Primitive validation uses Core's shared strict helpers;
+text arrays require string elements. These helpers do not provide authorization.
 """
 
 from __future__ import annotations
 
 import dataclasses
 from collections.abc import Iterable, Mapping, Sequence
+from copy import deepcopy
 from typing import TYPE_CHECKING, Any
 
 from LiuXin_alpha.core.errors import CoreDispatchError
-from LiuXin_alpha.utils.jobs import JobRequest
+from LiuXin_alpha.core.payloads import boolean, invalid_payload, number_value
+from LiuXin_alpha.core.payloads import optional_int as _optional_int
+from LiuXin_alpha.core.payloads import required_int as _required_int
+from LiuXin_alpha.core.payloads import required_text as _required_text
 
 if TYPE_CHECKING:
     from LiuXin_alpha.core.runtime import CoreRuntime
@@ -41,89 +45,6 @@ def _payload(envelope: Any) -> dict[str, Any]:
     if not isinstance(raw, Mapping):
         raise CoreDispatchError("Core payload must be an object.")
     return dict(raw)
-
-
-def _required_text(payload: Mapping[str, Any], name: str) -> str:
-    """
-    Stringify and strip one required field, rejecting empty text but accepting explicit None as "None".
-
-    Example:
-        >>> _required_text({"table": " works "}, "table")
-        'works'
-
-
-    :param payload: Request mapping supplying the field.
-    :param name: Exact key used for lookup and the absence/blank error.
-    :return: Nonempty stripped string, without case normalization or type restrictions.
-    :raises CoreDispatchError: If the key is absent or its stringified value is blank.
-    """
-    value = str(payload.get(name, "")).strip()
-    if not value:
-        raise CoreDispatchError(f"`{name}` is required.")
-    return value
-
-
-def _required_int(payload: Mapping[str, Any], name: str) -> int:
-    """
-    Require a non-boolean field convertible by int, wrapping all ordinary conversion failures.
-
-    Numeric fractions can truncate; no lower or upper bound is enforced.
-
-    Example:
-        >>> _required_int({"row_id": "7"}, "row_id")
-        7
-
-
-    :param payload: Mapping with a required integer-convertible value.
-    :param name: Field key also used in the dispatch error message.
-    :return: Converted integer, including zero or negative values.
-    :raises CoreDispatchError: If the key is absent, its value is bool, or int raises Exception.
-    """
-    if name not in payload or isinstance(payload[name], bool):
-        raise CoreDispatchError(f"`{name}` must be an integer.")
-    try:
-        return int(payload[name])
-    except Exception as exc:
-        raise CoreDispatchError(f"`{name}` must be an integer.") from exc
-
-
-def _optional_int(
-    payload: Mapping[str, Any],
-    name: str,
-    *,
-    default: int | None = None,
-    minimum: int | None = None,
-) -> int | None:
-    """
-    Convert an optional integer field, retaining None and applying a lower bound only when supplied.
-
-    Missing keys use default; explicit None bypasses both default and minimum.
-    Unlike the application API helper, this helper has no minimum by default.
-
-    Example:
-        >>> _optional_int({"offset": -2}, "offset")
-        -2
-
-
-    :param payload: Mapping carrying the optional field.
-    :param name: Field key used for lookup and validation messages.
-    :param default: Value used only when the key is absent, subject to the same validation.
-    :param minimum: Optional inclusive lower bound for non-None converted values.
-    :return: None or converted integer; numeric fractions may truncate.
-    :raises CoreDispatchError: For bool, ordinary conversion failures, or a violated minimum.
-    """
-    value = payload.get(name, default)
-    if value is None:
-        return None
-    if isinstance(value, bool):
-        raise CoreDispatchError(f"`{name}` must be an integer or null.")
-    try:
-        converted = int(value)
-    except Exception as exc:
-        raise CoreDispatchError(f"`{name}` must be an integer or null.") from exc
-    if minimum is not None and converted < minimum:
-        raise CoreDispatchError(f"`{name}` must be >= {minimum}.")
-    return converted
 
 
 def _mapping(
@@ -158,34 +79,33 @@ def _text_list(
     payload: Mapping[str, Any],
     name: str,
     *,
-    default: Iterable[str] = (),
+    default: Sequence[str] = (),
 ) -> list[str]:
     """
-    Strip and deduplicate stringified iterable values in first-occurrence order, dropping blanks.
+    Strip and deduplicate an array of strings, dropping blanks in first-occurrence order.
 
-    A scalar str becomes one entry, while bytes iterate into integer values.
-    Mappings and non-iterables are rejected; generators are consumed. None elements
-    become "None", but a None field is invalid. No case normalization is applied.
+    Scalars, bytes, mappings, generators and non-string elements are rejected.
+    No case normalization is applied.
 
     Example:
         >>> _text_list({"tags": [" a ", "", "a", "B"]}, "tags")
         ['a', 'B']
 
 
-    :param payload: Request mapping supplying a text or iterable field.
+    :param payload: Request mapping supplying a string-array field.
     :param name: Field key used for lookup and errors.
     :param default: Iterable consumed when the key is absent; empty by default.
     :return: Ordered list of unique nonempty stripped strings.
-    :raises CoreDispatchError: If the selected value is a Mapping or is not iterable.
+    :raises CoreDispatchError: If the selected value is not a list/tuple of strings.
     """
     raw = payload.get(name, default)
-    if isinstance(raw, str):
-        raw = [raw]
-    if not isinstance(raw, Iterable) or isinstance(raw, Mapping):
-        raise CoreDispatchError(f"`{name}` must be an array of strings.")
+    if not isinstance(raw, (list, tuple)):
+        invalid_payload(name, "must be an array of strings.")
     values: list[str] = []
     for item in raw:
-        token = str(item).strip()
+        if not isinstance(item, str):
+            invalid_payload(name, "must contain only strings.")
+        token = item.strip()
         if token and token not in values:
             values.append(token)
     return values
@@ -356,28 +276,38 @@ def _flatten_text(value: Any) -> str:
 
 def _database_path(runtime: CoreRuntime) -> str:
     """
-    Require nonblank database_path metadata for a worker that reopens a path-backed database.
+    Return the captured absolute file path or PostgreSQL selector for a worker.
 
-    The returned text is not stripped or checked for existence, confinement, or
-    backend suitability. Metadata must be a Mapping; other representations are rejected.
+    The Core graph captures connection options at construction. Borrowed test or
+    standalone adapters without CoreServices resolve their own metadata here.
 
     Example:
         >>> path = _database_path(runtime)  # doctest: +SKIP
 
 
     :param runtime: Runtime exposing database.metadata with a database_path value.
-    :return: Stringified nonblank path metadata, preserving surrounding whitespace.
+    :return: Captured database path or server selector.
     :raises CoreDispatchError: If path metadata is unavailable, using database_path_unavailable.
     """
-    metadata = getattr(runtime.database, "metadata", None)
-    if isinstance(metadata, Mapping):
-        value = metadata.get("database_path")
-        if value is not None and str(value).strip():
-            return str(value)
-    raise CoreDispatchError(
-        "This workflow requires a path-backed database.",
-        code="database_path_unavailable",
+    return _database_connection(runtime)["database_path"]
+
+
+def _database_connection(runtime: CoreRuntime) -> dict[str, Any]:
+    """Copy the Core graph's captured connection options for a worker submission."""
+    from LiuXin_alpha.core.connections import capture_database_connection
+
+    services = getattr(runtime, "services", None)
+    connection = (
+        services.database_connection
+        if services is not None
+        else capture_database_connection(runtime.database)
     )
+    if connection is None:
+        raise CoreDispatchError(
+            "This workflow requires a reopenable database connection.",
+            code="database_path_unavailable",
+        )
+    return connection
 
 
 def _database_type(runtime: CoreRuntime) -> str:
@@ -393,8 +323,14 @@ def _database_type(runtime: CoreRuntime) -> str:
     :param runtime: Runtime whose database optionally advertises a backend type.
     :return: Backend label without stripping, validation, or alias normalization.
     """
-    value = getattr(runtime.database, "type", None)
-    return str(value or "SQLite")
+    connection = getattr(
+        getattr(runtime, "services", None), "database_connection", None
+    )
+    return (
+        connection["db_type"]
+        if connection is not None
+        else str(getattr(runtime.database, "type", None) or "SQLite")
+    )
 
 
 def _agent_role(value: Any) -> str:
@@ -434,8 +370,8 @@ def _job_submit(
     Submit a named Core workflow JobRequest and report the requested submission settings.
 
     Missing/None job_timeout_s sends -1.0 to the manager but reports None; supplied
-    values use float without adapter range/finite validation. Backend passes through,
-    no_output is truth-tested, and a stripped blank label uses default_label while
+    values must be finite numbers. Backend passes through, no_output must be a
+    boolean, and a stripped blank label uses default_label while
     explicit None becomes "None". Receipt construction follows submission and may
     itself fail; the manager owns validation, scheduling, and effective backend choice.
 
@@ -446,30 +382,36 @@ def _job_submit(
     :param runtime: Runtime whose job_manager accepts JobRequest and execution options.
     :param payload: Optional job_timeout_s, job_backend, job_no_output, and label fields.
     :param function_name: Worker name within LiuXin_alpha.core.workflow_jobs; not resolved or allowlisted here.
-    :param kwargs: Shallow-copied keyword arguments carried by the job request, not a serialization proof.
+    :param kwargs: Independently copied worker options; database jobs receive the captured Core connection. This is not a serialization proof.
     :param default_label: Label used when the stringified/stripped requested label is empty.
     :return: job_id, label, requested backend text, timeout_s, and no_output; not a completion result.
     """
     timeout_raw = payload.get("job_timeout_s")
-    timeout = -1.0 if timeout_raw is None else float(timeout_raw)
-    backend = payload.get("job_backend")
-    no_output = bool(payload.get("job_no_output", False))
-    label = str(payload.get("label", "")).strip() or default_label
-    job_id = runtime.job_manager.submit(
-        JobRequest(
-            module_name="LiuXin_alpha.core.workflow_jobs",
-            function_name=function_name,
-            kwargs=dict(kwargs),
-        ),
-        timeout=timeout,
-        no_output=no_output,
-        backend=backend,
-        label=label,
+    timeout = (
+        -1.0 if timeout_raw is None else number_value(timeout_raw, "job_timeout_s")
     )
-    return {
-        "job_id": job_id,
-        "label": label,
-        "backend": "" if backend is None else str(backend),
-        "timeout_s": None if timeout_raw is None else float(timeout_raw),
-        "no_output": no_output,
-    }
+    backend = payload.get("job_backend")
+    no_output = boolean(payload, "job_no_output", False)
+    label = str(payload.get("label", "")).strip() or default_label
+    worker_kwargs = deepcopy(dict(kwargs))
+    if "database_path" in worker_kwargs:
+        worker_kwargs.update(_database_connection(runtime))
+    if getattr(runtime, "_durable_jobs", None) is None:
+        raise CoreDispatchError(
+            "Workflow submission requires a configured durable jobs ledger",
+            code="capability_unavailable",
+        )
+    from LiuXin_alpha.core.command_recovery import submit_workflow
+
+    return submit_workflow(
+        runtime,
+        function_name=function_name,
+        kwargs=worker_kwargs,
+        label=label,
+        timeout=timeout,
+        backend=backend,
+        no_output=no_output,
+    )
+
+
+__all__ = ["_required_int", "_required_text", "_optional_int"]

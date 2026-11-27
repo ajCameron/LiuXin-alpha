@@ -2,15 +2,23 @@
 Compose the database-bound services used by CoreRuntime and coordinate cache reconciliation and cleanup.
 
 Construction prepares an optional cache and shares it with storage. Catalog,
-read-source, preference, field, and maintenance facades are resolved lazily when
-not injected. Ownership flags govern cleanup; they do not make construction,
+read-source, field, and maintenance facades are resolved lazily when
+not injected. Application settings and reopening options are captured eagerly;
+Profile-sensitive construction and cleanup bind the captured store. Ownership
+flags govern cleanup; they do not make construction,
 reconciliation, or shutdown an atomic operation.
 """
 
 from __future__ import annotations
 
-from collections.abc import Mapping
-from typing import TYPE_CHECKING, Any
+from collections.abc import Callable, Iterator, Mapping
+from contextlib import AbstractContextManager, contextmanager, nullcontext
+from copy import deepcopy
+from threading import RLock
+from typing import TYPE_CHECKING, Any, cast
+
+from LiuXin_alpha.configuration import capture_preferences, use_preferences
+from LiuXin_alpha.core.connections import capture_database_connection
 
 if TYPE_CHECKING:
     from LiuXin_alpha.catalog.api.metadata_access import MetadataAPIInterface
@@ -60,9 +68,9 @@ class CoreServices:
 
     Database identity, not path equality, constrains supplied Catalog/cache/read
     services when they advertise an attached database. Constructed caches are
-    owned by default; injected caches are borrowed. Lazy access is not guarded by
-    this object's close flag or by an internal lock, so callers own lifecycle and
-    concurrency coordination.
+    owned by default; injected caches are borrowed. Lazy construction and close
+    share a lifecycle lock. Returned collaborators retain their own operation
+    contracts; the service lock does not serialize their subsequent use.
 
     Example:
         >>> from types import SimpleNamespace
@@ -95,9 +103,10 @@ class CoreServices:
 
         ``library.database`` wins unless it is ``None``, then ``library.db`` is
         tried. A created cache is owned by default; a supplied backend can be
-        wrapped and loaded/reloaded without thereby becoming owned. Preparation
-        precedes dependency validation. Failures do not undo cache preparation or
-        close resources already created by this constructor.
+        wrapped and loaded/reloaded without thereby becoming owned. Dependencies
+        are validated before preparation. Failed construction restores its storage
+        binding and closes newly created caches, including failed initial loads.
+        Borrowed collaborators remain open.
 
         Example:
             >>> from types import SimpleNamespace
@@ -112,7 +121,7 @@ class CoreServices:
         :param cache_type: Optional selector used to construct an owned cache for this database.
         :param cache_kwargs: Optional keyword arguments copied into cache construction when a type is supplied.
         :param read_source: Optional explicit metadata read source; otherwise derived lazily from cache/database.
-        :param preferences: Optional application preference mapping; otherwise resolved from database or global configuration.
+        :param preferences: Application store captured now; fallback is database preferences then the current selection. Live proxies resolve to their concrete store.
         :param library_preferences: Optional library preference facade; otherwise DBPrefs is constructed lazily.
         :param field_metadata: Optional field metadata object; an explicit refresh discards even this injected object.
         :param maintenance: Optional borrowed maintenance service; otherwise borrowed from database or constructed lazily.
@@ -137,11 +146,16 @@ class CoreServices:
 
         self.library = library
         self.database = database
+        self._database_connection = capture_database_connection(database)
         self._catalog = catalog
         self._metadata: MetadataAPIInterface | None = None
         self._cache = cache
         self._read_source = read_source
-        self._preferences = preferences
+        self._preferences = capture_preferences(
+            preferences
+            if preferences is not None
+            else getattr(database, "preferences", None)
+        )
         self._library_preferences = library_preferences
         self._field_metadata = field_metadata
         self._maintenance = maintenance
@@ -150,25 +164,61 @@ class CoreServices:
         self.cache_allow_database_fallback = bool(cache_allow_database_fallback)
         self.close_library_on_shutdown = bool(close_library_on_shutdown)
         self._closed = False
-
-        owns_cache = False
-        if cache_type is not None:
-            from LiuXin_alpha.caches.cache import create_cache
-
-            self._cache = create_cache(
-                self.database,
-                str(cache_type),
-                **dict(cache_kwargs or {}),
-            )
-            owns_cache = True
-        elif self._cache is not None:
-            self._prepare_supplied_cache()
-
-        if close_cache_on_shutdown is None:
-            close_cache_on_shutdown = owns_cache
+        self._lifecycle_lock = RLock()
+        self._owns_cache = False
+        self._storage_binding: tuple[Any, Any] | None = None
         self.close_cache_on_shutdown = bool(close_cache_on_shutdown)
-        self._validate_dependencies()
-        self._bind_storage_cache()
+
+        with use_preferences(self._preferences):
+            try:
+                self._validate_dependencies()
+                if cache_type is not None:
+                    from LiuXin_alpha.caches.cache import create_cache
+
+                    options = dict(cache_kwargs or {})
+                    load = options.pop("load", True)
+                    self._cache = create_cache(
+                        self.database, str(cache_type), load=False, **options
+                    )
+                    self._owns_cache = True
+                    if load:
+                        self._cache.load()
+                elif self._cache is not None:
+                    self._prepare_supplied_cache()
+
+                if close_cache_on_shutdown is None:
+                    self.close_cache_on_shutdown = self._owns_cache
+                self._validate_dependencies()
+                self._bind_storage_cache()
+            except BaseException as startup_error:
+                failures = self._cleanup(startup=True)
+                if failures:
+                    raise BaseExceptionGroup(
+                        "Core service startup and rollback failed",
+                        [startup_error, *failures],
+                    ) from None
+                raise
+
+    @contextmanager
+    def _service_scope(self) -> Iterator[None]:
+        """Take the database boundary before serializing construction and close."""
+        with self._lifecycle_lock:
+            if self._closed:
+                raise RuntimeError("Core services are closed")
+        with self._database_boundary(), self._lifecycle_lock:
+            if self._closed:
+                raise RuntimeError("Core services are closed")
+            with use_preferences(self._preferences):
+                yield
+
+    def _database_boundary(self) -> AbstractContextManager[object]:
+        """Share the database mutex when coordinating native graph bindings."""
+        lock = getattr(self.database, "lock", None)
+        return (
+            cast(AbstractContextManager[object], lock)
+            if callable(getattr(lock, "__enter__", None))
+            else nullcontext()
+        )
 
     @property
     def catalog(self) -> Any:
@@ -184,11 +234,12 @@ class CoreServices:
 
         :return: Shared Catalog-like object, without revalidating its binding on each access.
         """
-        if self._catalog is None:
-            from LiuXin_alpha.catalog.catalog import Catalog
+        with self._service_scope():
+            if self._catalog is None:
+                from LiuXin_alpha.catalog.catalog import Catalog
 
-            self._catalog = Catalog(self.database)
-        return self._catalog
+                self._catalog = Catalog(self.database)
+            return self._catalog
 
     @property
     def cache(self) -> Any | None:
@@ -223,15 +274,14 @@ class CoreServices:
 
         :return: Native coordinated metadata facade, injected writer, or Catalog.
         """
-        if self._closed:
-            raise RuntimeError("Core services are closed")
-        if self.cache is None:
-            return self.catalog
-        from LiuXin_alpha.caches.read_cache import ReadCache
+        with self._service_scope():
+            if self.cache is None:
+                return self.catalog
+            from LiuXin_alpha.caches.read_cache import ReadCache
 
-        if isinstance(self.cache, ReadCache):
-            return self.metadata
-        return self.cache
+            if isinstance(self.cache, ReadCache):
+                return self.metadata
+            return self.cache
 
     @property
     def read_source(self) -> Any:
@@ -251,24 +301,25 @@ class CoreServices:
 
         :return: Shared metadata read-source facade, creating it on first unconfigured access.
         """
-        if self._read_source is None:
-            if self.cache is None:
-                from LiuXin_alpha.catalog.retrieval.hydration import (
-                    DatabaseMetadataReadSource,
-                )
+        with self._service_scope():
+            if self._read_source is None:
+                if self.cache is None:
+                    from LiuXin_alpha.catalog.retrieval.hydration import (
+                        DatabaseMetadataReadSource,
+                    )
 
-                self._read_source = DatabaseMetadataReadSource(self.database)
-            else:
-                from LiuXin_alpha.catalog.retrieval.hydration import (
-                    CacheMetadataReadSource,
-                )
+                    self._read_source = DatabaseMetadataReadSource(self.database)
+                else:
+                    from LiuXin_alpha.catalog.retrieval.hydration import (
+                        CacheMetadataReadSource,
+                    )
 
-                self._read_source = CacheMetadataReadSource(
-                    self.cache,
-                    self.database,
-                    allow_database_fallback=self.cache_allow_database_fallback,
-                )
-        return self._read_source
+                    self._read_source = CacheMetadataReadSource(
+                        self.cache,
+                        self.database,
+                        allow_database_fallback=self.cache_allow_database_fallback,
+                    )
+            return self._read_source
 
     @property
     def metadata(self) -> MetadataAPIInterface:
@@ -277,29 +328,35 @@ class CoreServices:
         The metadata service owns reconciliation for its writes. Callers must not
         pass its receipts through reconcile() for a second cache refresh.
         """
-        if self._closed:
-            raise RuntimeError("Core services are closed")
-        if self._metadata is None:
-            from LiuXin_alpha.caches.metadata import CatalogCache, MetadataAPI
+        with self._service_scope():
+            if self._metadata is None:
+                from LiuXin_alpha.caches.metadata import CatalogCache, MetadataAPI
 
-            self._metadata = (
-                MetadataAPI(self.catalog)
-                if self.cache is None
-                else CatalogCache(
-                    self.catalog,
-                    cache=self.cache,
-                    allow_database_fallback=self.cache_allow_database_fallback,
+                self._metadata = (
+                    MetadataAPI(self.catalog)
+                    if self.cache is None
+                    else CatalogCache(
+                        self.catalog,
+                        cache=self.cache,
+                        allow_database_fallback=self.cache_allow_database_fallback,
+                    )
                 )
-            )
-        return self._metadata
+            return self._metadata
+
+    @property
+    def database_connection(self) -> dict[str, Any] | None:
+        """Return an independent copy of this graph's private reopening options."""
+        with self._service_scope():
+            return deepcopy(self._database_connection)
 
     @property
     def preferences(self) -> Any:
         """
-        Resolve application preferences from injection, the database attribute, or the global mapping, in that order.
+        Return the concrete application store captured at service construction.
 
-        Only ``None`` triggers fallback, so an empty injected mapping is retained.
-        The selected object is shared and cached rather than copied.
+        Injection wins over the database store and then the current selection.
+        Empty mappings are retained; a live proxy is resolved once. Values remain
+        shared within this process, but another profile cannot redirect the store.
 
         Example:
             >>> from types import SimpleNamespace
@@ -311,14 +368,8 @@ class CoreServices:
         :return: Supplied/resolved preference object without enforcing a mapping interface here.
         """
 
-        if self._preferences is None:
-            configured = getattr(self.database, "preferences", None)
-            if configured is None:
-                from LiuXin_alpha.preferences import preferences
-
-                configured = preferences
-            self._preferences = configured
-        return self._preferences
+        with self._service_scope():
+            return self._preferences
 
     @property
     def library_preferences(self) -> Any:
@@ -335,11 +386,12 @@ class CoreServices:
         :return: Shared library preference facade; default construction may access database state.
         """
 
-        if self._library_preferences is None:
-            from LiuXin_alpha.databases.dbprefs import DBPrefs
+        with self._service_scope():
+            if self._library_preferences is None:
+                from LiuXin_alpha.databases.dbprefs import DBPrefs
 
-            self._library_preferences = DBPrefs(self.database)
-        return self._library_preferences
+                self._library_preferences = DBPrefs(self.database)
+            return self._library_preferences
 
     @property
     def field_metadata(self) -> Any:
@@ -361,23 +413,30 @@ class CoreServices:
         :return: Shared field metadata object, potentially constructed and populated on this access.
         """
 
-        if self._field_metadata is None:
-            from LiuXin_alpha.caches.field_metadata import FieldMetadata
-            from LiuXin_alpha.databases.schema_specs import StorageSchemaSpec
+        with self._service_scope():
+            if self._field_metadata is None:
+                from LiuXin_alpha.caches.field_metadata import FieldMetadata
+                from LiuXin_alpha.databases.schema_specs import StorageSchemaSpec
 
-            wrapper = getattr(self.database, "driver_wrapper", None)
-            get_schema = getattr(wrapper, "get_schema_spec", None)
-            schema = get_schema() if callable(get_schema) else None
-            if schema is not None and not isinstance(schema, StorageSchemaSpec):
-                raise TypeError("driver_wrapper.get_schema_spec() must return a StorageSchemaSpec")
-            candidate = FieldMetadata(schema)
-            if wrapper is not None and hasattr(self.database, "driver"):
-                from LiuXin_alpha.databases.custom_columns.native_service import CustomFieldService
-                from LiuXin_alpha.caches.custom_fields import CustomFieldCache
+                wrapper = getattr(self.database, "driver_wrapper", None)
+                get_schema = getattr(wrapper, "get_schema_spec", None)
+                schema = get_schema() if callable(get_schema) else None
+                if schema is not None and not isinstance(schema, StorageSchemaSpec):
+                    raise TypeError(
+                        "driver_wrapper.get_schema_spec() must return a StorageSchemaSpec"
+                    )
+                candidate = FieldMetadata(schema)
+                if wrapper is not None and hasattr(self.database, "driver"):
+                    from LiuXin_alpha.caches.custom_fields import CustomFieldCache
+                    from LiuXin_alpha.databases.custom_columns.native_service import (
+                        CustomFieldService,
+                    )
 
-                CustomFieldCache(CustomFieldService(self.database), candidate).refresh()
-            self._field_metadata = candidate
-        return self._field_metadata
+                    CustomFieldCache(
+                        CustomFieldService(self.database), candidate
+                    ).refresh()
+                self._field_metadata = candidate
+            return self._field_metadata
 
     def refresh_field_metadata(self) -> Any:
         """
@@ -393,8 +452,9 @@ class CoreServices:
         :return: Newly constructed field metadata from the normal property path.
         """
 
-        self._field_metadata = None
-        return self.field_metadata
+        with self._service_scope():
+            self._field_metadata = None
+            return self.field_metadata
 
     @property
     def maintenance(self) -> Any:
@@ -414,16 +474,19 @@ class CoreServices:
         :return: Shared database-bound maintenance service, constructing it only when neither source supplies one.
         """
 
-        if self._maintenance is None:
-            self._maintenance = getattr(self.database, "maintenance", None)
-        if self._maintenance is None:
-            if not self.enable_maintenance:
-                raise RuntimeError("Maintenance is disabled for this library session.")
-            from LiuXin_alpha.databases.maintenance.service import Maintainer
+        with self._service_scope():
+            if self._maintenance is None:
+                self._maintenance = getattr(self.database, "maintenance", None)
+            if self._maintenance is None:
+                if not self.enable_maintenance:
+                    raise RuntimeError(
+                        "Maintenance is disabled for this library session."
+                    )
+                from LiuXin_alpha.databases.maintenance.service import Maintainer
 
-            self._maintenance = Maintainer(self.database)
-            self._owns_maintenance = True
-        return self._maintenance
+                self._maintenance = Maintainer(self.database)
+                self._owns_maintenance = True
+            return self._maintenance
 
     def _prepare_supplied_cache(self) -> None:
         """
@@ -461,10 +524,10 @@ class CoreServices:
         """
         Reject supplied Catalog/cache/read-source objects that advertise a different database identity.
 
-        Missing or None bindings are accepted. Catalog/cache may advertise ``db``
-        when no ``database`` attribute exists; read sources are checked only for
+        Missing bindings are accepted. Catalog/cache may advertise ``db``
+        when ``database`` is absent or None; read sources are checked only for
         ``database``. This checks object identity, not equivalent paths or URLs.
-        Attribute access can raise, including the eagerly evaluated ``db`` fallback.
+        The legacy alias is read only when the primary binding is absent.
 
         Example:
             >>> from types import SimpleNamespace
@@ -482,22 +545,19 @@ class CoreServices:
         ):
             if dependency is None:
                 continue
-            attached = getattr(
-                dependency,
-                "database",
-                (getattr(dependency, "db", None) if label != "read source" else None),
-            )
+            attached = getattr(dependency, "database", None)
+            if attached is None and label != "read source":
+                attached = getattr(dependency, "db", None)
             if attached is not None and attached is not self.database:
-                raise ValueError(
-                    "Core {} must use the Core library database.".format(label)
-                )
+                raise ValueError(f"Core {label} must use the Core library database.")
 
     def _bind_storage_cache(self) -> None:
         """
         Bind the configured cache into database storage when its binding hook is callable.
 
         No-cache and unsupported-hook cases do nothing; storage lookup and hook
-        failures propagate. This also binds borrowed caches and adds no undo step.
+        failures propagate. Retain the old binding for construction rollback;
+        successful owners only detach their own cache during opted-in close.
 
         Example:
             >>> from types import SimpleNamespace
@@ -508,18 +568,23 @@ class CoreServices:
         :return: ``None`` after optional storage-cache binding.
         """
 
-        cache = self.cache
-        storage = getattr(self.database, "storage", None)
-        bind = getattr(storage, "bind_metadata_cache", None)
-        if cache is not None and callable(bind):
-            bind(cache)
+        with self._service_scope():
+            cache = self.cache
+            storage = getattr(self.database, "storage", None)
+            bind = getattr(storage, "bind_metadata_cache", None)
+            if cache is not None and callable(bind):
+                self._storage_binding = (
+                    storage,
+                    getattr(storage, "metadata_cache", None),
+                )
+                bind(cache)
 
     def describe(self) -> dict[str, Any]:
         """
         Report service type names and cache status while leaving most uninitialized services lazy.
 
-        Application preferences are an exception: their property is resolved to
-        report its type. Cache status/capabilities and database maintenance
+        Application preferences were captured at construction; this reports
+        their type without rebinding. Cache status/capabilities and database maintenance
         attributes are read directly; failures propagate instead of becoming
         healthy-looking placeholders. This is not a snapshot of one atomic state.
 
@@ -532,58 +597,61 @@ class CoreServices:
 
         :return: New description dictionary with advertised lazy/default names and current cache fields.
         """
-        cache = self.cache
-        cache_payload: dict[str, Any] = {
-            "configured": cache is not None,
-        }
-        if cache is not None:
-            cache_payload.update(
-                {
-                    "state": str(cache.state),
-                    "generation": int(cache.generation),
-                    "consistency": str(cache.capabilities.consistency),
-                    "allow_database_fallback": bool(self.cache_allow_database_fallback),
-                }
-            )
-        return {
-            "library": type(self.library).__name__,
-            "database": type(self.database).__name__,
-            "catalog": (
-                type(self._catalog).__name__
-                if self._catalog is not None
-                else "Catalog (lazy)"
-            ),
-            "cache": cache_payload,
-            "read_source": (
-                type(self._read_source).__name__
-                if self._read_source is not None
-                else (
-                    "CacheMetadataReadSource (lazy)"
-                    if cache is not None
-                    else "DatabaseMetadataReadSource (lazy)"
+        with self._service_scope():
+            cache = self.cache
+            cache_payload: dict[str, Any] = {
+                "configured": cache is not None,
+            }
+            if cache is not None:
+                cache_payload.update(
+                    {
+                        "state": str(cache.state),
+                        "generation": int(cache.generation),
+                        "consistency": str(cache.capabilities.consistency),
+                        "allow_database_fallback": bool(
+                            self.cache_allow_database_fallback
+                        ),
+                    }
                 )
-            ),
-            "preferences": type(self.preferences).__name__,
-            "library_preferences": (
-                type(self._library_preferences).__name__
-                if self._library_preferences is not None
-                else "DBPrefs (lazy)"
-            ),
-            "field_metadata": (
-                type(self._field_metadata).__name__
-                if self._field_metadata is not None
-                else "FieldMetadata (lazy)"
-            ),
-            "maintenance": (
-                type(self._maintenance).__name__
-                if self._maintenance is not None
-                else (
-                    type(getattr(self.database, "maintenance", None)).__name__
-                    if getattr(self.database, "maintenance", None) is not None
-                    else "Maintainer (lazy)"
-                )
-            ),
-        }
+            return {
+                "library": type(self.library).__name__,
+                "database": type(self.database).__name__,
+                "catalog": (
+                    type(self._catalog).__name__
+                    if self._catalog is not None
+                    else "Catalog (lazy)"
+                ),
+                "cache": cache_payload,
+                "read_source": (
+                    type(self._read_source).__name__
+                    if self._read_source is not None
+                    else (
+                        "CacheMetadataReadSource (lazy)"
+                        if cache is not None
+                        else "DatabaseMetadataReadSource (lazy)"
+                    )
+                ),
+                "preferences": type(self.preferences).__name__,
+                "library_preferences": (
+                    type(self._library_preferences).__name__
+                    if self._library_preferences is not None
+                    else "DBPrefs (lazy)"
+                ),
+                "field_metadata": (
+                    type(self._field_metadata).__name__
+                    if self._field_metadata is not None
+                    else "FieldMetadata (lazy)"
+                ),
+                "maintenance": (
+                    type(self._maintenance).__name__
+                    if self._maintenance is not None
+                    else (
+                        type(getattr(self.database, "maintenance", None)).__name__
+                        if getattr(self.database, "maintenance", None) is not None
+                        else "Maintainer (lazy)"
+                    )
+                ),
+            }
 
     def refresh_read_source(self) -> bool:
         """
@@ -601,10 +669,11 @@ class CoreServices:
 
         :return: Boolean hook result, or ``False`` when no callable refresh method is available.
         """
-        refresh = getattr(self.read_source, "refresh", None)
-        if not callable(refresh):
-            return False
-        return bool(refresh())
+        with self._service_scope():
+            refresh = getattr(self.read_source, "refresh", None)
+            if not callable(refresh):
+                return False
+            return bool(refresh())
 
     def reconcile(
         self,
@@ -615,10 +684,10 @@ class CoreServices:
 
         Prefer ``reload_data`` for a falsey/missing ``schema_changed`` flag when
         available; otherwise use full reload. Reload/selection exceptions become
-        CoreServiceReconciliationError with the original receipt. Later cache
-        status/generation reads are outside that wrapper and can still raise raw
-        errors after refresh. No write retry, cache dirty marking, or rollback is
-        performed here. A preexisting receipt ``cache`` field is replaced.
+        CoreServiceReconciliationError with the original receipt, including
+        failures while describing the refreshed cache. No write retry, cache dirty
+        marking, or rollback is performed here. A preexisting receipt ``cache``
+        field is replaced.
 
         Example:
             >>> from types import SimpleNamespace
@@ -629,39 +698,98 @@ class CoreServices:
 
         :param receipt: Canonical committed-write outcome, optionally carrying a truth-tested schema-change flag.
         :return: Shallow-copied receipt with a new cache configuration/reconciliation status dictionary.
-        :raises CoreServiceReconciliationError: If selecting or invoking cache reload raises an ordinary exception.
+        :raises CoreServiceReconciliationError: If service access, cache reload or status reporting raises an ordinary exception.
         """
 
-        cache = self.cache
-        if cache is None:
-            return {
-                **dict(receipt),
-                "cache": {
-                    "configured": False,
-                    "reconciled": False,
-                },
-            }
         try:
-            schema_changed = bool(receipt.get("schema_changed", False))
-            reload_data = getattr(cache, "reload_data", None)
-            if not schema_changed and callable(reload_data):
-                reload_data()
-            else:
-                cache.reload()
+            with self._service_scope():
+                cache = self.cache
+                if cache is None:
+                    return {
+                        **dict(receipt),
+                        "cache": {"configured": False, "reconciled": False},
+                    }
+                schema_changed = bool(receipt.get("schema_changed", False))
+                reload_data = getattr(cache, "reload_data", None)
+                if not schema_changed and callable(reload_data):
+                    reload_data()
+                else:
+                    cache.reload()
+                return {
+                    **dict(receipt),
+                    "cache": {
+                        "configured": True,
+                        "reconciled": True,
+                        "state": str(cache.state),
+                        "generation": int(cache.generation),
+                    },
+                }
         except Exception as exc:
             raise CoreServiceReconciliationError(
                 "Canonical write committed but Core cache reconciliation failed.",
                 receipt=receipt,
             ) from exc
-        return {
-            **dict(receipt),
-            "cache": {
-                "configured": True,
-                "reconciled": True,
-                "state": str(cache.state),
-                "generation": int(cache.generation),
-            },
-        }
+
+    def _cleanup(self, *, startup: bool) -> list[BaseException]:
+        """Claim cleanup once, attempt each closer, and preserve every failure."""
+        with self._lifecycle_lock:
+            if self._closed:
+                return []
+            self._closed = True
+        failures: list[BaseException] = []
+
+        def attempt(closer: Callable[[], Any]) -> None:
+            try:
+                closer()
+            except BaseException as error:
+                failures.append(error)
+
+        close_cache = self._owns_cache if startup else self.close_cache_on_shutdown
+        if (startup or close_cache) and self._storage_binding is not None:
+            storage, previous = self._storage_binding
+
+            def detach() -> None:
+                # Another session may have replaced this binding while sharing
+                # a borrowed database. Its cache is outside our lifetime.
+                with self._database_boundary():
+                    if getattr(storage, "metadata_cache", self._cache) is self._cache:
+                        storage.bind_metadata_cache(previous if startup else None)
+
+            attempt(detach)
+        if close_cache and self._cache is not None:
+            attempt(self._cache.close)
+        if self._owns_maintenance and self._maintenance is not None:
+
+            def stop() -> None:
+                closer = getattr(self._maintenance, "stop", None)
+                if callable(closer):
+                    closer()
+
+            attempt(stop)
+
+            def join() -> None:
+                engine = getattr(self._maintenance, "maintainer", None)
+                wait = getattr(engine, "join", None)
+                if callable(wait):
+                    wait(timeout=1)
+
+            attempt(join)
+        if not startup and self.close_library_on_shutdown:
+
+            def close_library() -> None:
+                closer = getattr(self.library, "close", None)
+                if callable(closer):
+                    closer()
+
+            attempt(close_library)
+        return failures
+
+    def _abort_startup(self) -> None:
+        """Roll back a constructed service bundle whose runtime failed to open."""
+        with use_preferences(self._preferences):
+            failures = self._cleanup(startup=True)
+        if failures:
+            raise BaseExceptionGroup("Core service startup rollback failed", failures)
 
     def close(self) -> None:
         """
@@ -670,8 +798,8 @@ class CoreServices:
         Cache cleanup first unbinds it from storage when possible. Borrowed caches
         retained by policy are not unbound. The closed flag is set before cleanup;
         every selected closer is attempted, failures are raised as a group, and
-        subsequent close calls do not retry. This method neither closes an injected
-        Catalog/read source nor prevents later lazy property access.
+        subsequent close calls do not retry. This method does not close an injected
+        Catalog/read source. Later service-property access rejects the closed owner.
 
         Example:
             >>> from types import SimpleNamespace
@@ -682,33 +810,8 @@ class CoreServices:
 
         :return: ``None`` after attempted first cleanup or immediately on a repeated call.
         """
-        if self._closed:
-            return
-        self._closed = True
-        failures: list[BaseException] = []
-        if self.close_cache_on_shutdown and self.cache is not None:
-            try:
-                storage = getattr(self.database, "storage", None)
-                unbind = getattr(storage, "bind_metadata_cache", None)
-                if callable(unbind):
-                    unbind(None)
-                self.cache.close()
-            except BaseException as error:
-                failures.append(error)
-        if self._owns_maintenance and self._maintenance is not None:
-            try:
-                stop = getattr(self._maintenance, "stop", None)
-                if callable(stop):
-                    stop()
-            except BaseException as error:
-                failures.append(error)
-        if self.close_library_on_shutdown:
-            try:
-                close = getattr(self.library, "close", None)
-                if callable(close):
-                    close()
-            except BaseException as error:
-                failures.append(error)
+        with use_preferences(self._preferences):
+            failures = self._cleanup(startup=False)
         if failures:
             raise BaseExceptionGroup("Core service cleanup failed", failures)
 

@@ -7,6 +7,7 @@ comes from JobRepository; this adapter owns polling, not a second run-state regi
 
 from __future__ import annotations
 
+import builtins
 import json
 import math
 import threading
@@ -39,10 +40,10 @@ class DurableJobView(ManagedJob):
 class DurableJobService:
     """Own one library's lazy ledger and worker with independently opened services.
 
-    Construction opens no files or threads. Submission starts polling. Reopening
-    and inspection recover expired attempts explicitly; a pending run resumes when
-    its delivery is resubmitted or another audit starts the worker. Maintenance
-    uses explicit bounded drains or opt-in continued polling. Shutdown stops
+    Construction opens no files or threads. Normal factory startup starts polling;
+    explicit inspection composition can suppress it. Accepted work is delivered
+    through the catalogue outbox. Proven continuations use the generic jobs owner.
+    Maintenance uses bounded drains or opt-in polling. Shutdown stops
     polling without cancelling queued work or preempting an active handler.
     """
 
@@ -52,6 +53,7 @@ class DurableJobService:
         path: str | Path,
         library_uuid: str,
         open_library: Callable[[], AbstractContextManager[Any]],
+        open_outbox_library: Callable[[], AbstractContextManager[Any]] | None = None,
         lease_for_s: float = 60.0,
     ) -> None:
         if not library_uuid or library_uuid.lower() == "none":
@@ -67,6 +69,8 @@ class DurableJobService:
             library_uuid=library_uuid, open_library=open_library
         )
         self._open_library = open_library
+        self._open_outbox_library = open_outbox_library or open_library
+        self._workflow_polling = False
         self._maintenance_polling = False
         self._lease_for_s = lease_for_s
         self._lock = threading.RLock()
@@ -117,6 +121,9 @@ class DurableJobService:
         registry = JobHandlerRegistry()
         registry.register(self._handler)
         registry.register(self._maintenance_handler)
+        from LiuXin_alpha.core.workflow_delivery import WorkflowHandler
+
+        registry.register(WorkflowHandler(self.library_uuid))
         worker = JobWorker(
             repository=self.repository, handlers=registry, lease_for_s=self._lease_for_s
         )
@@ -132,7 +139,26 @@ class DurableJobService:
     def _poll_work(self, worker: JobWorker) -> None:
         """Use the same worker registry for audits and maintenance outbox deliveries."""
         next_publication = 0.0
+        next_submission = 0.0
+        recovery_cursor = 0
         while not worker._stop.is_set():
+            if self._workflow_polling and time.monotonic() >= next_submission:
+                try:
+                    from LiuXin_alpha.core.workflow_delivery import publish
+
+                    publish(self)
+                    from LiuXin_alpha.jobs.recovery import resume_interrupted
+
+                    _, recovery_cursor = resume_interrupted(
+                        self.repository, worker.handlers, after_run_id=recovery_cursor
+                    )
+                except Exception as error:
+                    from LiuXin_alpha.utils.logging import default_log
+
+                    default_log.error(
+                        "Workflow outbox delivery failed (%s)", type(error).__name__
+                    )
+                next_submission = time.monotonic() + 2.0
             if self._maintenance_polling and time.monotonic() >= next_publication:
                 next_publication = time.monotonic() + 2.0
                 try:
@@ -145,8 +171,26 @@ class DurableJobService:
                         "Maintenance outbox publication failed: %s",
                         exception_message(error),
                     )
-            if not worker.run_once():
-                worker._stop.wait(0.25)
+            if worker._stop.is_set():
+                break
+            try:
+                if not worker.run_once():
+                    worker._stop.wait(0.25)
+            except Exception as error:
+                from LiuXin_alpha.utils.logging import default_log
+
+                default_log.error(
+                    "Durable worker poll failed (%s)", type(error).__name__
+                )
+                worker._stop.wait(1.0)
+
+    def start(self) -> None:
+        """Resume accepted queued work through the existing generic worker."""
+        with self._lock:
+            self._check_open()
+            self.repository.recover_expired_runs()
+            self._workflow_polling = True
+            self._start_worker()
 
     def publish_maintenance(self, *, limit: int = 128) -> dict[str, Any]:
         """Reopen the catalogue and hand committed obligations to this library ledger."""
@@ -208,6 +252,9 @@ class DurableJobService:
             raise ValueError("Maintenance publication limit must be between 1 and 500")
         registry = JobHandlerRegistry()
         registry.register(self._maintenance_handler)
+        from LiuXin_alpha.core.workflow_delivery import WorkflowHandler
+
+        registry.register(WorkflowHandler(self.library_uuid))
         worker = JobWorker(
             repository=self.repository,
             handlers=registry,
@@ -275,6 +322,13 @@ class DurableJobService:
             else run.state.value
         )
         terminal = state not in ("pending", "running")
+        if (
+            run.state is JobRunState.ABORTED
+            and self._workflow_polling
+            and run.recovery_state in (None, "waiting_executor")
+            and not run.cancel_requested
+        ):
+            state, terminal = "pending", False
         execution = None
         if terminal:
             execution = JobExecution(
@@ -284,11 +338,19 @@ class DurableJobService:
                 timed_out=run.state is JobRunState.TIMED_OUT,
                 aborted=run.state in (JobRunState.ABORTED, JobRunState.CANCELLED),
             )
+        function = "run_storage_audit"
+        module = "LiuXin_alpha.core.storage_audit_jobs"
+        if run.job_kind == "core.workflow.v1":
+            function = json.loads(run.payload_json or "{}").get("function", "unknown")
+            module = "LiuXin_alpha.core.workflow_jobs"
+        elif run.job_kind != "core.storage.audit.v1":
+            function = run.job_kind
+            module = "LiuXin_alpha.core.maintenance_jobs"
         return DurableJobView(
             job_id=self._job_id(run.job_run_id),
             request=JobRequest(
-                module_name="LiuXin_alpha.core.storage_audit_jobs",
-                function_name="run_storage_audit",
+                module_name=module,
+                function_name=function,
             ),
             state=cast(JobState, state),
             label=run.job_name,
@@ -299,7 +361,7 @@ class DurableJobService:
             finished_at=None
             if run.finished_timestamp_ep_k is None
             else run.finished_timestamp_ep_k / 1000,
-            timeout_s=-1,
+            timeout_s=-1 if run.timeout_s is None else run.timeout_s,
             backend_name="durable",
             execution=execution,
             retry_of_job_id=None
@@ -312,6 +374,7 @@ class DurableJobService:
                 "state": run.state.value,
                 "attempt_number": run.attempt_number,
                 "cancel_requested": run.cancel_requested,
+                "recovery_state": run.recovery_state,
                 "progress": {
                     "current": run.progress_current,
                     "total": run.progress_total,
@@ -324,7 +387,10 @@ class DurableJobService:
     def get(self, job_id: str) -> DurableJobView:
         run_id = self._run_id(job_id)
         self.repository.recover_expired_runs()
-        return self._view(self.repository.get_run(run_id))
+        result = self._view(self.repository.get_run(run_id))
+        latest = self.repository.latest_attempt(run_id)
+        result.durable["current_job_id"] = self._job_id(latest.job_run_id)
+        return result
 
     def list(self, *, states: Iterable[JobState] | None = None) -> list[ManagedJob]:
         self.repository.recover_expired_runs()
@@ -332,12 +398,38 @@ class DurableJobService:
         jobs = [self._view(run) for run in self.repository.list_runs()]
         return [job for job in jobs if not selected or job.state in selected]
 
+    def list_page(
+        self,
+        *,
+        states: Iterable[JobState] | None = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> tuple[builtins.list[ManagedJob], int]:
+        """Hydrate only the requested ledger page, retaining an SQL count."""
+        selected: builtins.list[JobRunState] | None = None
+        if states is not None:
+            selected = []
+            for state in states:
+                selected.extend(
+                    (JobRunState.QUEUED, JobRunState.LEASED)
+                    if state == "pending"
+                    else (JobRunState(state),)
+                )
+        rows, total = self.repository.list_runs_page(
+            limit=limit,
+            offset=offset,
+            states=selected,
+            awaiting_recovery_as_queued=self._workflow_polling,
+        )
+        return [self._view(run) for run in rows], total
+
     def wait(self, job_id: str, *, timeout: float | None = None) -> ManagedJob:
         if timeout is not None and (not math.isfinite(timeout) or timeout < 0):
             raise ValueError("Wait timeout must be finite and nonnegative")
         deadline = None if timeout is None else time.monotonic() + timeout
         while True:
-            job = self.get(job_id)
+            self.repository.recover_expired_runs()
+            job = self._view(self.repository.latest_attempt(self._run_id(job_id)))
             if job.done or (deadline is not None and time.monotonic() >= deadline):
                 return job
             time.sleep(
@@ -361,7 +453,7 @@ class DurableJobService:
         return job.execution
 
     def cancel(self, job_id: str) -> bool:
-        return self.repository.request_cancel(self._run_id(job_id))
+        return self.repository.cancel_action(self._run_id(job_id))
 
     def retry(
         self,
@@ -417,8 +509,8 @@ class DurableJobService:
             if self._worker is not None:
                 self._worker.stop()
             thread = self._thread
-        if wait and thread is not None:
-            thread.join()
+        if thread is not None and thread is not threading.current_thread():
+            thread.join(timeout=5.0 if wait else 0.25)
 
 
 class RoutedJobManager(JobManagerAPI):
@@ -456,6 +548,29 @@ class RoutedJobManager(JobManagerAPI):
     def list(self, *, states: Iterable[JobState] | None = None) -> list[ManagedJob]:
         selected = None if states is None else tuple(states)
         return self.utility.list(states=selected) + self.durable.list(states=selected)
+
+    def list_page(
+        self,
+        *,
+        states: Iterable[JobState] | None = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> tuple[builtins.list[ManagedJob], int]:
+        """Preserve utility-then-ledger order without loading durable history."""
+        selected = None if states is None else tuple(states)
+        utility, utility_total = self.utility.list_page(
+            states=selected, limit=limit, offset=offset
+        )
+        # The ledger count is needed even when the utility page fills the window.
+        durable, durable_total = self.durable.list_page(
+            states=selected,
+            limit=max(1, limit - len(utility)),
+            offset=max(0, offset - utility_total),
+        )
+        return (
+            utility + durable[: limit - len(utility)],
+            utility_total + durable_total,
+        )
 
     def wait(self, job_id: str, *, timeout: float | None = None) -> ManagedJob:
         return self._owner(job_id).wait(job_id, timeout=timeout)

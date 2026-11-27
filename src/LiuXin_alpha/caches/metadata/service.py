@@ -187,9 +187,9 @@ class MetadataAPI:
         self._database = catalog.db
         self._cache = cache
         self._fallback = allow_database_fallback
-        self._batch_changes: ContextVar[list[bool] | None] = ContextVar(
-            "metadata_batch_changes", default=None
-        )
+        self._batch_changes: ContextVar[
+            list[tuple[bool, bool, Mapping[str, Sequence[int]] | None]] | None
+        ] = ContextVar("metadata_batch_changes", default=None)
         self._shared_revision_readers: dict[
             str, Callable[[int], SharedMetadataSnapshot]
         ] = {}
@@ -700,7 +700,8 @@ class MetadataAPI:
 
         Child receipts remain pending. Caller-owned outer transactions retain commit
         ownership; cache reads after edits defer until completion. A successful outer
-        batch performs one full reconciliation, not necessarily one generation increment.
+        batch reconciles collected row or schema dependencies after commit,
+        not necessarily with one generation increment.
 
         Example:
             >>> receipt = metadata.batch(lambda api: api.works.create({"title": "Dune"}).result)  # doctest: +SKIP
@@ -714,6 +715,9 @@ class MetadataAPI:
             persistence/cache state.
         """
 
+        schema_changes = False
+        row_changes: dict[str, list[int]] | None = {}
+
         def run() -> tuple[ResultT, bool]:
             """
             Collect child change flags for this callback and restore the enclosing batch.
@@ -725,15 +729,32 @@ class MetadataAPI:
             :return: Callback result paired with whether any successful child requested
                 a change.
             """
-            changes: list[bool] = []
+            nonlocal schema_changes, row_changes
+            changes: list[tuple[bool, bool, Mapping[str, Sequence[int]] | None]] = []
             token = self._batch_changes.set(changes)
             try:
                 result = operation(self)
-                return result, any(changes)
+                schema_changes = any(
+                    changed and schema for changed, schema, _ in changes
+                )
+                for changed, _, ids in changes:
+                    if changed:
+                        if ids is None:
+                            row_changes = None
+                            break
+                        assert row_changes is not None
+                        for table, identities in ids.items():
+                            row_changes.setdefault(table, []).extend(identities)
+                return result, any(changed for changed, _, _ in changes)
             finally:
                 self._batch_changes.reset(token)
 
-        return self._write(run, expected=tuple(expected), schema_changed=True)
+        return self._write(
+            run,
+            expected=tuple(expected),
+            schema_changed=lambda: schema_changes,
+            row_changes=lambda: row_changes,
+        )
 
     def _check_revisions(self, expected: Sequence[MetadataEditRevision]) -> None:
         """
@@ -808,7 +829,10 @@ class MetadataAPI:
         operation: Callable[[], tuple[ResultT, bool]],
         *,
         expected: Sequence[MetadataEditRevision] = (),
-        schema_changed: bool = False,
+        schema_changed: bool | Callable[[], bool] = False,
+        row_changes: Mapping[str, Sequence[int]]
+        | Callable[[], Mapping[str, Sequence[int]] | None]
+        | None = None,
     ) -> MetadataWriteReceipt[ResultT]:
         """
         Apply one semantic operation and publish an accurate persistence/cache receipt.
@@ -826,6 +850,8 @@ class MetadataAPI:
             runs.
         :param schema_changed: Require a full schema/data reload after a committed
             change.
+        :param row_changes: Known changed table identities, or None when dependency
+            repair requires a full data refresh. A callable resolves after the operation.
         :return: Receipt describing committed or caller-pending persistence and cache
             visibility.
         """
@@ -861,9 +887,13 @@ class MetadataAPI:
             if completed is None:
                 raise RuntimeError("Metadata operation did not return a result")
             result, changed = completed
+            schema_changed = (
+                schema_changed() if callable(schema_changed) else schema_changed
+            )
+            row_changes = row_changes() if callable(row_changes) else row_changes
             batch_changes = self._batch_changes.get()
             if batch_changes is not None:
-                batch_changes.append(changed)
+                batch_changes.append((changed, schema_changed, row_changes))
             receipt = MetadataWriteReceipt(
                 result=result,
                 changed=changed,
@@ -898,10 +928,29 @@ class MetadataAPI:
                 elif not pending and changed:
                     if schema_changed:
                         cache.reload()
+                    elif (
+                        row_changes is not None
+                        and cache.capabilities.consistency != CacheConsistency.LIVE
+                    ):
+                        # Entry refreshed any pre-existing dirty state. Only our
+                        # successful nested edits installed the conservative guard.
+                        cache._full_reload_required = False
+                        cache.invalidate(ids=row_changes)
+                        cache._refresh_dirty()
                     elif cache.capabilities.consistency == CacheConsistency.LIVE:
-                        cache._advance_generation()
+                        if cache._full_reload_required:
+                            # Pending children dirty the shared facade even for a
+                            # live backend. Retire that guard before claiming ready.
+                            cache.reload_data()
+                        else:
+                            cache._advance_generation()
                     else:
                         cache.reload_data()
+                elif not pending:
+                    # A caught child rollback can leave a conservative dirty
+                    # guard even when no successful child changed canonical data.
+                    # Retire it before describing this cache as current.
+                    cache._refresh_dirty()
             except Exception as exc:
                 cache._full_reload_required = True
                 cache._mark_dependencies_dirty((), (), ())
@@ -1259,7 +1308,16 @@ class _Entity[MetadataT: MetadataValue](EntityRelationshipMethods):
             return entity_id, bool(data)
 
         return self._owner._write(
-            operation, expected=self._expected(entity_id, expected_revision)
+            operation,
+            expected=self._expected(entity_id, expected_revision),
+            # FK edits also alter synthesized link views. Keep their full data
+            # refresh; scalar aliases change only this row and its projections.
+            row_changes={self._repository.table_name: (entity_id,)}
+            if all(
+                not self._repository.input_aliases.get(key, key).endswith("_id")
+                for key in data
+            )
+            else None,
         )
 
     def delete(

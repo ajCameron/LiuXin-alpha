@@ -136,10 +136,14 @@ class SquashfsBackupWorkflow(BackupWorkflowAPI):
         self._workspace: BackupStagingWorkspace | None
         if _resume_staging:
             if staging_target is None:
-                raise StorePreconditionFailed("resuming a backup requires retained staging.")
+                raise StorePreconditionFailed(
+                    "resuming a backup requires retained staging."
+                )
             staging_root = pathlib.Path(staging_target).expanduser().absolute()
             self._workspace = (
-                None if _staging_workspace is None else BackupStagingWorkspace(
+                None
+                if _staging_workspace is None
+                else BackupStagingWorkspace(
                     pathlib.Path(_staging_workspace).expanduser().absolute(),
                     builder_store_uuid,
                 )
@@ -149,14 +153,18 @@ class SquashfsBackupWorkflow(BackupWorkflowAPI):
             elif not staging_root.is_dir():
                 raise StorePreconditionFailed("legacy backup staging is missing.")
         else:
-            self._workspace = BackupStagingWorkspace.create(staging_target, builder_store_uuid)
+            self._workspace = BackupStagingWorkspace.create(
+                staging_target, builder_store_uuid
+            )
             staging_root = self._workspace.members
         try:
             build_output = (
                 self._workspace.path / "artifact.squashfs"
                 if isinstance(output_target, Location) and self._workspace is not None
                 else _local_build_output(
-                    output_target, str(staging_root), builder_store_uuid=builder_store_uuid,
+                    output_target,
+                    str(staging_root),
+                    builder_store_uuid=builder_store_uuid,
                 )
             )
             if (
@@ -164,7 +172,9 @@ class SquashfsBackupWorkflow(BackupWorkflowAPI):
                 and self._workspace is not None
                 and build_output.is_relative_to(self._workspace.path)
             ):
-                raise StorePreconditionFailed("local backup output must be outside its workspace.")
+                raise StorePreconditionFailed(
+                    "local backup output must be outside its workspace."
+                )
             self._builder = SquashfsBuildStorageBackend(
                 url=str(build_output),
                 name=self._workflow_name,
@@ -245,8 +255,10 @@ class SquashfsBackupWorkflow(BackupWorkflowAPI):
                 ("compression", self._builder._compression),
                 ("deterministic", "1" if self._builder._deterministic else "0"),
                 ("builder_store_uuid", str(self._builder.store_ref)),
-            ) + (
-                () if self._workspace is None
+            )
+            + (
+                ()
+                if self._workspace is None
                 else (("staging_workspace", str(self._workspace.path)),)
             ),
         )
@@ -332,9 +344,7 @@ class SquashfsBackupWorkflow(BackupWorkflowAPI):
             expected_size=expected_size,
             expected_digest=expected_digest,
             source_digital_asset_id=(
-                None
-                if source_asset is None
-                else source_asset.digital_asset_id
+                None if source_asset is None else source_asset.digital_asset_id
             ),
         )
         self._append_source(declaration)
@@ -409,10 +419,7 @@ class SquashfsBackupWorkflow(BackupWorkflowAPI):
                 )
                 source_replica_id = replica.replica_id
         if source_asset is not None:
-            if (
-                expected_size is not None
-                and expected_size != source_asset.size_bytes
-            ):
+            if expected_size is not None and expected_size != source_asset.size_bytes:
                 raise StoreIntegrityError(
                     "backup Location size differs from its Digital Asset."
                 )
@@ -425,9 +432,7 @@ class SquashfsBackupWorkflow(BackupWorkflowAPI):
             expected_size=expected_size,
             expected_digest=expected_digest,
             source_digital_asset_id=(
-                None
-                if source_asset is None
-                else source_asset.digital_asset_id
+                None if source_asset is None else source_asset.digital_asset_id
             ),
             source_replica_id=source_replica_id,
             source_store_ref=source_location.store_ref,
@@ -620,7 +625,9 @@ class SquashfsBackupWorkflow(BackupWorkflowAPI):
             )
         options = declaration.option_map()
         if "staging_workspace" in options and "builder_store_uuid" not in options:
-            raise StorePreconditionFailed("owned backup staging requires a saved builder identity.")
+            raise StorePreconditionFailed(
+                "owned backup staging requires a saved builder identity."
+            )
         workflow = cls(
             declaration.output_target,
             workflow_name=declaration.workflow_name,
@@ -654,8 +661,9 @@ class SquashfsBackupWorkflow(BackupWorkflowAPI):
 
         Reject COMPLETE or CANCELLED through status.resumable. First reconstruct the declaration and
         builder, then restore workflow ID, status, cursor, reports, milestones, output, and error. A
-        FAILED checkpoint remains FAILED until run_next explicitly retries. Reconstruction does not
-        validate staged bytes or persist the restored object, and updated_at is not retained.
+        FAILED checkpoint remains FAILED until run_next explicitly retries. Reconstruction
+        rechecks every completed staged source against its saved size/digest evidence.
+        It does not persist the restored object, and updated_at is not retained.
 
         Example:
             >>> resumed = SquashfsBackupWorkflow.from_checkpoint(  # doctest: +SKIP
@@ -682,6 +690,14 @@ class SquashfsBackupWorkflow(BackupWorkflowAPI):
         workflow._completed_steps = list(checkpoint.completed_steps)
         workflow._output_artifact_reference = checkpoint.output_artifact_reference
         workflow._last_error = checkpoint.last_error
+        # A saved cursor is not proof that already staged members are unchanged.
+        # Recheck them before any resumed source write or archive publication.
+        for source in checkpoint.declaration.sources[: checkpoint.next_source_index]:
+            if source.archive_path is None:
+                raise StorePreconditionFailed("checkpoint has no staged source path")
+            workflow._verify_staged(
+                workflow._builder.locate(source.archive_path), source
+            )
         return workflow
 
     def _append_source(self, source: BackupSourceDeclaration) -> None:
@@ -700,8 +716,7 @@ class SquashfsBackupWorkflow(BackupWorkflowAPI):
         :return: None after appending; duplicate member paths raise ValueError without modifying the list.
         """
         if any(
-            existing.archive_path == source.archive_path
-            for existing in self._sources
+            existing.archive_path == source.archive_path for existing in self._sources
         ):
             raise ValueError(f"duplicate backup archive path: {source.archive_path!r}.")
         self._sources.append(source)
@@ -766,7 +781,10 @@ class SquashfsBackupWorkflow(BackupWorkflowAPI):
             location = source.location
             assert location is not None
             current = self._storage_manager.stat(location)
-            if source.expected_size is not None and current.size != source.expected_size:
+            if (
+                source.expected_size is not None
+                and current.size != source.expected_size
+            ):
                 raise StoreIntegrityError("backup source size changed before staging.")
             with self._storage_manager.get(location) as input_stream:
                 info = self._builder.store_stream(
@@ -814,7 +832,9 @@ class SquashfsBackupWorkflow(BackupWorkflowAPI):
                 source.expected_digest.algorithm,
             )
             if observed != source.expected_digest:
-                raise StoreIntegrityError("existing staged source has the wrong digest.")
+                raise StoreIntegrityError(
+                    "existing staged source has the wrong digest."
+                )
 
     def _seal_and_publish(self) -> None:
         """
@@ -885,10 +905,13 @@ class SquashfsBackupWorkflow(BackupWorkflowAPI):
                 target_store = self._storage_manager.get_store(
                     self._output_target.store_ref
                 )
-                if target_store.compute_digest(
-                    self._output_target,
-                    digest.algorithm,
-                ) != digest:
+                if (
+                    target_store.compute_digest(
+                        self._output_target,
+                        digest.algorithm,
+                    )
+                    != digest
+                ):
                     raise
             self._output_artifact_reference = self._output_target
         else:
@@ -1012,8 +1035,11 @@ def _file_digest(path: pathlib.Path) -> Digest:
     :return: SHA-256 Digest containing the lowercase hexadecimal hash of the streamed bytes.
     """
     digest = hashlib.sha256()
+    from LiuXin_alpha.storage.operation_context import checkpoint
+
     with path.open("rb") as source:
         while chunk := source.read(1024 * 1024):
+            checkpoint()
             digest.update(chunk)
     return Digest("sha256", digest.hexdigest())
 

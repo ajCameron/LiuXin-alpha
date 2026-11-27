@@ -41,9 +41,18 @@ def test_repository_matches_reviewed_layer_baseline() -> None:
         ("caches.metadata.cache", "catalog.catalog", True),
         ("caches.metadata.cache", "caches.read_cache", True),
         ("catalog.retrieval", "caches.read_cache", True),
+        ("ingest.remote_html", "core.store_registration", False),
+        ("ingest.remote_html", "surfaces.cli.store_registration", False),
+        ("storage.reconcile.store_db_sync", "core.library_services", False),
+        ("storage.reconcile.store_db_sync", "surfaces.cli.store_registration", False),
+        ("utils.ptempfiles", "startup_scripts.prefs_folder_manager", False),
+        ("utils.ptempfiles", "utils.paths", True),
+        ("core.store_registration", "ingest.remote_html", True),
+        ("core.store_registration", "storage.reconcile.store_db_sync", True),
+        ("surfaces.cli.store_registration", "core.store_registration", True),
     ),
 )
-def test_catalog_cache_composition_stays_above_the_generic_core(
+def test_composition_stays_above_domain_operations(
     tmp_path: Path, context: ImportKind, source: str, target: str, allowed: bool
 ) -> None:
     """Enforce the composition boundary for runtime, deferred and type-only imports."""

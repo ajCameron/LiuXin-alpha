@@ -15,16 +15,12 @@ if TYPE_CHECKING:
     from LiuXin_alpha.databases.api.database_api.database_api import DatabaseAPI
 
 import dataclasses
+from collections.abc import Iterable, Mapping, Sequence
 from types import SimpleNamespace
 from typing import (
     TYPE_CHECKING,
     Any,
-    Iterable,
-    Mapping,
-    Optional,
-    Sequence,
     TypeVar,
-    Union,
     cast,
 )
 
@@ -79,7 +75,7 @@ class _SchemaBackedRelationFieldBase(FieldBasicInterfaceAPI[T]):
 
     def _init_relation_field(
         self,
-        cache: "SchemaBackedStorageCache",
+        cache: SchemaBackedStorageCache,
         db: DatabaseAPI,
     ) -> None:
         """
@@ -101,8 +97,8 @@ class _SchemaBackedRelationFieldBase(FieldBasicInterfaceAPI[T]):
         self._db = db
         self._src_to_dst_ids: dict[int, tuple[int, ...]] = {}
         self._dst_to_src_ids: dict[int, tuple[int, ...]] = {}
-        self._src_to_values: dict[int, tuple[Optional[T], ...]] = {}
-        self._dst_to_values: dict[int, Optional[T]] = {}
+        self._src_to_values: dict[int, tuple[T | None, ...]] = {}
+        self._dst_to_values: dict[int, T | None] = {}
 
     @property
     def field_key(self) -> str:
@@ -151,7 +147,7 @@ class _SchemaBackedRelationFieldBase(FieldBasicInterfaceAPI[T]):
 
     def get_main_table(
         self,
-        name: Union[str, StorageCacheSingleTableAPI],
+        name: str | StorageCacheSingleTableAPI,
     ) -> StorageCacheSingleTableAPI:
         """
         Resolve a field endpoint through the owning root cache.
@@ -179,7 +175,7 @@ class _SchemaBackedRelationFieldBase(FieldBasicInterfaceAPI[T]):
 
         return self._link_table()
 
-    def _value_for_dst_id(self, dst_id: int) -> Optional[T]:
+    def _value_for_dst_id(self, dst_id: int) -> T | None:
         """
         Read the projected column from a cached destination-row snapshot.
 
@@ -197,7 +193,7 @@ class _SchemaBackedRelationFieldBase(FieldBasicInterfaceAPI[T]):
         dst_id = int(dst_id)
         if self.dst_table.has_id(dst_id):
             return cast(
-                Optional[T],
+                T | None,
                 self.dst_table.get_row_snapshot(dst_id).get(self.dst_table_cache_col),
             )
         return None
@@ -207,7 +203,7 @@ class _SchemaBackedRelationFieldBase(FieldBasicInterfaceAPI[T]):
         src_id: int,
         *,
         require_ordering: bool = False,
-        type_filter: Optional[str] = None,
+        type_filter: str | None = None,
     ) -> tuple[int, ...]:
         """
         Read ordered destination IDs through the bound directed link table.
@@ -241,7 +237,7 @@ class _SchemaBackedRelationFieldBase(FieldBasicInterfaceAPI[T]):
         dst_id: int,
         *,
         require_ordering: bool = False,
-        type_filter: Optional[str] = None,
+        type_filter: str | None = None,
     ) -> tuple[int, ...]:
         """
         Read ordered source IDs through the bound directed link table.
@@ -275,8 +271,8 @@ class _SchemaBackedRelationFieldBase(FieldBasicInterfaceAPI[T]):
         src_id: int,
         *,
         require_ordering: bool = False,
-        type_filter: Optional[str] = None,
-    ) -> tuple[Optional[T], ...]:
+        type_filter: str | None = None,
+    ) -> tuple[T | None, ...]:
         """
         Project current cached destination values for a source's accepted links.
 
@@ -309,8 +305,8 @@ class _SchemaBackedRelationFieldBase(FieldBasicInterfaceAPI[T]):
         self,
         src_id: int,
         *,
-        type_filter: Optional[str] = None,
-    ) -> Optional[T]:
+        type_filter: str | None = None,
+    ) -> T | None:
         """
         Return the first accepted projected value without enforcing relation singularity.
 
@@ -350,10 +346,14 @@ class _SchemaBackedRelationFieldBase(FieldBasicInterfaceAPI[T]):
 
         src_to_dst_ids: dict[int, tuple[int, ...]] = {}
         dst_to_src_ids: dict[int, list[int]] = {}
-        src_to_values: dict[int, tuple[Optional[T], ...]] = {}
-        dst_to_values: dict[int, Optional[T]] = {}
+        src_to_values: dict[int, tuple[T | None, ...]] = {}
+        dst_to_values: dict[int, T | None] = {}
 
-        for src_id in sorted(int(row_id) for row_id in self.src_table.row_ids):
+        # Unlinked sources are omitted from every projection. Traverse the
+        # sparse link index instead of every catalogue row for every field.
+        for src_id in sorted(self._link_table().linked_source_ids()):
+            if not self.src_table.has_id(src_id):
+                continue
             dst_ids = self._ordered_dst_ids_for_src(src_id, require_ordering=True)
             if not dst_ids:
                 continue
@@ -362,7 +362,7 @@ class _SchemaBackedRelationFieldBase(FieldBasicInterfaceAPI[T]):
             src_to_dst_ids[src_id] = dst_ids
             src_to_values[src_id] = values
 
-            for dst_id, value in zip(dst_ids, values):
+            for dst_id, value in zip(dst_ids, values, strict=True):
                 dst_to_src_ids.setdefault(dst_id, []).append(src_id)
                 dst_to_values[dst_id] = value
 
@@ -481,7 +481,7 @@ class _SchemaBackedRelationFieldBase(FieldBasicInterfaceAPI[T]):
                 values = tuple(self._value_for_dst_id(dst_id) for dst_id in dst_ids)
                 self._src_to_dst_ids[src_id] = dst_ids
                 self._src_to_values[src_id] = values
-                for dst_id, value in zip(dst_ids, values):
+                for dst_id, value in zip(dst_ids, values, strict=True):
                     src_ids = set(self._dst_to_src_ids.get(dst_id, ()))
                     src_ids.add(src_id)
                     self._dst_to_src_ids[dst_id] = tuple(sorted(src_ids))
@@ -535,10 +535,10 @@ class _SchemaBackedRelationFieldBase(FieldBasicInterfaceAPI[T]):
         }
 
         dst_to_src_ids: dict[int, list[int]] = {}
-        dst_to_values: dict[int, Optional[T]] = {}
+        dst_to_values: dict[int, T | None] = {}
         for src_id, dst_ids in self._src_to_dst_ids.items():
             values = self._src_to_values.get(src_id, ())
-            for dst_id, value in zip(dst_ids, values):
+            for dst_id, value in zip(dst_ids, values, strict=False):
                 dst_to_src_ids.setdefault(dst_id, []).append(src_id)
                 dst_to_values[dst_id] = value
 
@@ -547,7 +547,7 @@ class _SchemaBackedRelationFieldBase(FieldBasicInterfaceAPI[T]):
         }
         self._dst_to_values = dst_to_values
 
-    def _flattened_values(self) -> list[Optional[T]]:
+    def _flattened_values(self) -> list[T | None]:
         """
         Flatten stored projections in ascending source-ID order.
 
@@ -565,7 +565,7 @@ class _SchemaBackedRelationFieldBase(FieldBasicInterfaceAPI[T]):
         :return: New list retaining each source tuple's order, duplicate links and None.
         """
 
-        values: list[Optional[T]] = []
+        values: list[T | None] = []
         for src_id in sorted(self._src_to_values):
             values.extend(self._src_to_values[src_id])
         return values
@@ -623,7 +623,7 @@ class _SchemaBackedRelationFieldBase(FieldBasicInterfaceAPI[T]):
                 f"Field {self.field_key!r} cannot create related rows without also creating links"
             )
 
-    def _update_dst_values(self, dst_values_map: dict[int, Optional[T]]) -> None:
+    def _update_dst_values(self, dst_values_map: dict[int, T | None]) -> None:
         """
         Update destination scalar values through the bound main-table helper.
 
@@ -671,7 +671,7 @@ class _SchemaBackedRelationFieldBase(FieldBasicInterfaceAPI[T]):
             require_ordering=bool(self._link_table_cache().link_spec.ordered),
         )
 
-    def _get_unique_dst_id_for_value(self, value: T) -> Optional[int]:
+    def _get_unique_dst_id_for_value(self, value: T) -> int | None:
         """
         Resolve an exact destination-column value to at most one cached ID.
 
@@ -942,7 +942,7 @@ class _SchemaBackedRelationFieldBase(FieldBasicInterfaceAPI[T]):
 
         resolved: list[tuple[int, Any]] = []
         seen_dst_ids: set[int] = set()
-        dst_updates: dict[int, Optional[T]] = {}
+        dst_updates: dict[int, T | None] = {}
 
         for link_update in replacements:
             dst_id = self._resolve_explicit_dst_target(
@@ -957,7 +957,7 @@ class _SchemaBackedRelationFieldBase(FieldBasicInterfaceAPI[T]):
                 )
             seen_dst_ids.add(dst_id)
 
-            desired_value = cast(Optional[T], getattr(link_update, "dst_col_val", None))
+            desired_value = cast(T | None, getattr(link_update, "dst_col_val", None))
             if dst_id in dst_updates and dst_updates[dst_id] != desired_value:
                 raise ValueError(
                     f"Field {self.field_key!r} received conflicting values for dst id {dst_id}"
@@ -1023,7 +1023,7 @@ class _SchemaBackedRelationFieldBase(FieldBasicInterfaceAPI[T]):
 
     def _ensure_existing_sequence_targets(
         self,
-        updates: Mapping[int, Sequence[Optional[T]]],
+        updates: Mapping[int, Sequence[T | None]],
     ) -> dict[int, tuple[int, ...]]:
         """
         Match each supplied value sequence to the existing ordered destination sequence.
@@ -1097,7 +1097,7 @@ class _SchemaBackedRelationFieldBase(FieldBasicInterfaceAPI[T]):
             raise KeyError((int(src_id), int(dst_id)))
         return dict(row.row_dict)
 
-    def _column_for_extra(self, extra_name: str) -> Optional[str]:
+    def _column_for_extra(self, extra_name: str) -> str | None:
         """
         Resolve a supported logical link property to its physical column name.
 
@@ -1288,7 +1288,7 @@ class _SchemaBackedRelationFieldBase(FieldBasicInterfaceAPI[T]):
         src_id: int,
         dst_id: int,
         extra_type: Any,
-    ) -> Optional[str | bool | int]:
+    ) -> str | bool | int | None:
         """
         Read a supported logical property from one unique cached association.
 
@@ -1311,14 +1311,14 @@ class _SchemaBackedRelationFieldBase(FieldBasicInterfaceAPI[T]):
         column_name = self._column_for_extra(str(extra_type))
         if column_name is None:
             return None
-        return cast(Optional[str | bool | int], row_dict.get(column_name))
+        return cast(str | bool | int | None, row_dict.get(column_name))
 
     def set_extra(
         self,
         src_id: int,
         dst_id: int,
         extra_type: Any,
-        new_extra_value: Optional[str | bool | int],
+        new_extra_value: str | bool | int | None,
     ) -> None:
         """
         Write one supported logical property, including None, then rebind relation values.
@@ -1385,4 +1385,4 @@ class _SchemaBackedRelationFieldBase(FieldBasicInterfaceAPI[T]):
 
         :return: Installed backend-specific directed link table.
         """
-        return cast(SchemaBackedLinkTable, getattr(self, "link_table"))
+        return cast(SchemaBackedLinkTable, getattr(self, "link_table"))  # noqa: B009 - supplied by concrete cardinality classes

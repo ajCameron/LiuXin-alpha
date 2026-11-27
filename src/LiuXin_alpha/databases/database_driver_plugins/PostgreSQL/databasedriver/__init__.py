@@ -1733,7 +1733,9 @@ class DatabaseDriver(
         Fetch and cast all rows with optional validated column ordering.
 
         Without sort_column, no ordering is requested and reverse has no effect.
-        The entire result is materialized before the short connection closes.
+        Borrow an active managed transaction to share its snapshot and writes;
+        otherwise own a short connection. Materialize the result and close its
+        cursor before returning, leaving a borrowed connection open.
 
         Example:
             ``driver.direct_get_all_rows("works", sort_column="work_id", reverse=True)``
@@ -1755,12 +1757,17 @@ class DatabaseDriver(
             direction = "desc" if reverse else "asc"
             order_sql = f" order by {_q(sort_column)} {direction}"
 
-        conn = self._short_connection()
+        active = self.macros.current_transaction_connection()
+        conn = active if active is not None else self._short_connection()
         try:
             cur = conn.execute(f"select * from {self._table_sql(table)}{order_sql}")
-            return [self._row_to_dict_from_db_row(table=table, headings=headings, row=row) for row in cur.fetchall()]
+            try:
+                return [self._row_to_dict_from_db_row(table=table, headings=headings, row=row) for row in cur.fetchall()]
+            finally:
+                cur.close()
         finally:
-            conn.close()
+            if active is None:
+                conn.close()
 
     def direct_get_row_dict_from_id(self, table: str, row_id: int) -> dict[str, Any] | bool:
         """

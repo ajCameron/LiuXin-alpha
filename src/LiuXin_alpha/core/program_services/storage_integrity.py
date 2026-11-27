@@ -13,6 +13,7 @@ from collections.abc import Sequence
 from typing import TYPE_CHECKING, Any
 
 from LiuXin_alpha.core.errors import CoreDispatchError
+from LiuXin_alpha.core.payloads import boolean, integer_value
 from LiuXin_alpha.core.program_services.payloads import (
     _optional_int,
     _payload,
@@ -34,7 +35,7 @@ def storage_reconcile_plan(
     Partition current recovery suggestions into reload/verification actions and explicitly deferred operations.
 
     Classification uses action names only, retaining manager order without executing
-    them. refresh_stores is truth-tested and may request fresh backend observations.
+    them. refresh_stores must be a boolean and may request fresh backend observations.
     The advertised safe scope is a declaration, not validation of each action payload.
 
     Example:
@@ -47,7 +48,7 @@ def storage_reconcile_plan(
     """
     payload = _payload(query)
     status = runtime.library.storage.get_operational_status(
-        refresh_stores=bool(payload.get("refresh_stores", False))
+        refresh_stores=boolean(payload, "refresh_stores", False)
     )
     automatic = []
     deferred = []
@@ -76,7 +77,7 @@ def storage_replica_verify(
     """
     Verify one replica through the manager and expose the report's health flag.
 
-    calculate_digests defaults True and is truth-tested. The manager owns backend
+    calculate_digests is a boolean defaulting to True. The manager owns backend
     reads and observation updates; no adapter byte/time cap or independent health
     readback is added. Verification and subsequent projection failures propagate.
 
@@ -85,14 +86,14 @@ def storage_replica_verify(
 
 
     :param runtime: Runtime supplying storage.verify_replica.
-    :param command: Command with required integer-convertible replica_id and optional calculate_digests.
+    :param command: Command with required integer replica_id and optional calculate_digests.
     :return: Replica ID, truth-tested report.healthy, and the projected verification report.
     """
     payload = _payload(command)
     replica_id = _required_int(payload, "replica_id")
     report = runtime.library.storage.verify_replica(
         replica_id,
-        calculate_digests=bool(payload.get("calculate_digests", True)),
+        calculate_digests=boolean(payload, "calculate_digests", True),
     )
     return {
         "replica_id": replica_id,
@@ -108,10 +109,9 @@ def storage_asset_verify(
     """
     Verify an Asset using optional replica selection and report readability as the top-level healthy flag.
 
-    replica_ids is None or a non-string Sequence of str/int/float values excluding
-    bool. int conversion can truncate fractions; TypeError/ValueError are wrapped,
-    but overflow remains visible. Duplicates and an explicit empty list are retained.
-    all_replicas is forwarded only when present, truth-tested even for None, leaving
+    replica_ids is None or a non-string Sequence of integers, excluding booleans,
+    floats and numeric strings. Duplicates and an explicit empty list are retained.
+    all_replicas is a boolean forwarded only when present, leaving
     the manager's default untouched when omitted. Readability need not mean every
     replica is healthy.
 
@@ -125,34 +125,28 @@ def storage_asset_verify(
     :raises CoreDispatchError: If Asset ID or replica-selection validation fails.
     """
     payload = _payload(command)
+    asset_id, verify_options = asset_verification_options(payload)
+    report = runtime.library.storage.verify_digital_asset(asset_id, **verify_options)
+    return {
+        "asset_id": asset_id,
+        "healthy": bool(report.readable),
+        "report": plain(report),
+    }
+
+
+def asset_verification_options(payload: dict[str, Any]) -> tuple[int, dict[str, Any]]:
+    """Validate nested selection before either durable acceptance or storage access."""
     asset_id = _required_int(payload, "asset_id")
     raw_ids = payload.get("replica_ids")
     replica_ids = None
     if raw_ids is not None:
         if not isinstance(raw_ids, Sequence) or isinstance(raw_ids, (str, bytes)):
             raise CoreDispatchError("`replica_ids` must be an array or null.")
-        replica_ids = []
-        for value in raw_ids:
-            if isinstance(value, bool) or not isinstance(value, (str, int, float)):
-                raise CoreDispatchError("`replica_ids` must contain integers.")
-            try:
-                replica_ids.append(int(value))
-            except (TypeError, ValueError) as error:
-                raise CoreDispatchError(
-                    "`replica_ids` must contain integers."
-                ) from error
+        replica_ids = [integer_value(value, "replica_ids") for value in raw_ids]
     verify_options: dict[str, Any] = {"replica_ids": replica_ids}
     if "all_replicas" in payload:
-        verify_options["all_replicas"] = bool(payload["all_replicas"])
-    report = runtime.library.storage.verify_digital_asset(
-        asset_id,
-        **verify_options,
-    )
-    return {
-        "asset_id": asset_id,
-        "healthy": bool(report.readable),
-        "report": plain(report),
-    }
+        verify_options["all_replicas"] = boolean(payload, "all_replicas")
+    return asset_id, verify_options
 
 
 def storage_audit(
@@ -174,7 +168,7 @@ def storage_audit(
 
 
     :param runtime: Runtime whose storage manager enumerates and verifies replicas.
-    :param command: Command with optional limit, offset, and truth-tested calculate_digests=True.
+    :param command: Command with optional limit, offset, and boolean calculate_digests=True.
     :return: Page results, selected health/error counts, full non-deleted count, effective bounds, and has_more.
     """
     payload = _payload(command)
@@ -188,7 +182,7 @@ def storage_audit(
         runtime.library.storage,
         limit=limit,
         offset=offset,
-        calculate_digests=bool(payload.get("calculate_digests", True)),
+        calculate_digests=boolean(payload, "calculate_digests", True),
     )
 
 
@@ -217,7 +211,7 @@ def storage_audit_start(runtime: CoreRuntime, command: CoreCommand) -> dict[str,
         job_id = runtime.durable_jobs.submit_audit(
             limit=limit,
             offset=offset,
-            calculate_digests=bool(payload.get("calculate_digests", True)),
+            calculate_digests=boolean(payload, "calculate_digests", True),
             request_key=key,
         )
     except ValueError as error:
@@ -251,7 +245,7 @@ def storage_reconcile_apply(
 
 
     :param runtime: Runtime supplying manager reload, replica enumeration/verification, and status snapshots.
-    :param command: Command with optional max_actions and truth-tested include_offline=False for reload.
+    :param command: Command with optional max_actions and boolean include_offline=False for reload.
     :return: Before/after status, action receipts, truncation flag, later-health ok, and the fixed deferred-scope explanation.
     """
     payload = _payload(command)
@@ -263,7 +257,7 @@ def storage_reconcile_apply(
     receipts: list[dict[str, Any]] = []
     try:
         reload_report = manager.reload_stores(
-            include_offline=bool(payload.get("include_offline", False)),
+            include_offline=boolean(payload, "include_offline", False),
             replace_existing=True,
         )
     except Exception as error:

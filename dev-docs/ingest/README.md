@@ -16,6 +16,11 @@ See [next tasks](next_tasks.md).
 | [ingest.sources](../../src/LiuXin_alpha/ingest/sources) | Native/wget discovery adapters and shared crawl policy. | Discovered hints remain untrusted input. |
 | [ingest.adding](../../src/LiuXin_alpha/ingest/adding.py) | Retained filename grouping and legacy Calibre-style helpers. | Some integration paths reference absent metadata APIs; importability is not operational support. |
 
+The four local-disk/rclone/wget/native-HTML `*_with_database_path` conveniences
+live in [`core.store_registration`](../../src/LiuXin_alpha/core/store_registration.py).
+Ingest and storage accept open handles; they no longer open graphs through Core
+or reexport the path helpers. See the [caller migration](../architectural_reviews/lifecycle-opening-path-review-2026-10-09.md#registration-caller-migration).
+
 ## Boundaries and recovery
 
 For a bibliographic import, turn extracted facts into an explicit metadata

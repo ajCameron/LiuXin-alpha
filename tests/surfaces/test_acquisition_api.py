@@ -72,7 +72,7 @@ class _DummyCore:
         {'work': None}
     """
 
-    def __init__(self, host: "_DummyHost") -> None:
+    def __init__(self, host: _DummyHost) -> None:
         """
         Retain the fixture host by reference so later test mutations affect query receipts.
 
@@ -108,9 +108,7 @@ class _DummyCore:
         payload = dict(payload or {})
         if name == "browse.work":
             return {
-                "work": self.host.work_row
-                if int(payload["work_id"]) == 1
-                else None
+                "work": self.host.work_row if int(payload["work_id"]) == 1 else None
             }
         if name == "acquisition.cover":
             if self.host.image_row is None:
@@ -146,7 +144,7 @@ class _DummyCore:
                     }
                 )
             return {"formats": formats}
-        if name == "acquisition.read":
+        if name == "acquisition.read-range":
             if payload["kind"] == "image":
                 stored = self.host.stored_payload
                 if isinstance(stored, Exception):
@@ -154,12 +152,22 @@ class _DummyCore:
                 return {
                     "resource": self._image_resolution(),
                     "content": b"file" if stored is None else stored,
+                    "offset": 0,
+                    "next_offset": len(b"file" if stored is None else stored),
+                    "total_bytes": len(b"file" if stored is None else stored),
+                    "complete": True,
+                    "version": "fixture",
                 }
             return {
                 "resource": {"delivery": "core", "readable": True},
                 "content": b"download",
+                "offset": 0,
+                "next_offset": 8,
+                "total_bytes": 8,
+                "complete": True,
+                "version": "fixture",
             }
-        raise AssertionError("Unexpected Core query: {}".format(name))
+        raise AssertionError(f"Unexpected Core query: {name}")
 
     def _image_resolution(self) -> dict[str, object]:
         """
@@ -220,7 +228,9 @@ class _DummyHost:
         self.placeholder_dimensions: list[tuple[int, int]] = []
         self.core = _DummyCore(self)
 
-    def acquisition_text_response(self, status: str, text: str, *, content_type: str) -> _Response:
+    def acquisition_text_response(
+        self, status: str, text: str, *, content_type: str
+    ) -> _Response:
         """
         Encode fixture text into a one-chunk response with the selected status and media type.
 
@@ -234,7 +244,11 @@ class _DummyHost:
         :param content_type: Content-Type header value supplied by the adapter.
         :return: In-memory response containing one byte chunk.
         """
-        return _Response(status=status, headers=[("Content-Type", content_type)], body=[text.encode("utf-8")])
+        return _Response(
+            status=status,
+            headers=[("Content-Type", content_type)],
+            body=[text.encode("utf-8")],
+        )
 
     def acquisition_bytes_response(
         self,
@@ -260,7 +274,11 @@ class _DummyHost:
         """
         return _Response(
             status="200 OK",
-            headers=[("Content-Type", content_type_override or "application/octet-stream"), ("X-Name", download_name), ("X-Disposition", disposition)],
+            headers=[
+                ("Content-Type", content_type_override or "application/octet-stream"),
+                ("X-Name", download_name),
+                ("X-Disposition", disposition),
+            ],
             body=[payload],
         )
 
@@ -276,9 +294,19 @@ class _DummyHost:
         :param location: Location header value retained unchanged.
         :return: Redirect response with a single empty byte chunk.
         """
-        return _Response(status="302 Found", headers=[("Location", location)], body=[b""])
+        return _Response(
+            status="302 Found", headers=[("Location", location)], body=[b""]
+        )
 
-    def acquisition_file_response(self, path: Path, *, download_name: str, environ, disposition: str = "attachment", content_type_override: str | None = None) -> _Response:
+    def acquisition_file_response(
+        self,
+        path: Path,
+        *,
+        download_name: str,
+        environ,
+        disposition: str = "attachment",
+        content_type_override: str | None = None,
+    ) -> _Response:
         """
         Retain a legacy file-response fixture that records path metadata but never opens the file.
 
@@ -296,7 +324,12 @@ class _DummyHost:
         del environ
         return _Response(
             status="200 OK",
-            headers=[("Content-Type", content_type_override or "application/octet-stream"), ("X-Path", str(path)), ("X-Name", download_name), ("X-Disposition", disposition)],
+            headers=[
+                ("Content-Type", content_type_override or "application/octet-stream"),
+                ("X-Path", str(path)),
+                ("X-Name", download_name),
+                ("X-Disposition", disposition),
+            ],
             body=[b"file"],
         )
 
@@ -433,7 +466,9 @@ class _DummyHost:
         """
         return "image/png"
 
-    def acquisition_placeholder_cover_svg(self, work_row, *, width: int, height: int) -> bytes:
+    def acquisition_placeholder_cover_svg(
+        self, work_row, *, width: int, height: int
+    ) -> bytes:
         """
         Record placeholder dimensions and encode a minimal SVG-shaped size marker without rendering artwork.
 
@@ -448,7 +483,7 @@ class _DummyHost:
         :return: UTF-8 bytes containing the requested dimensions inside an svg element.
         """
         self.placeholder_dimensions.append((width, height))
-        return f"<svg>{width}x{height}</svg>".encode("utf-8")
+        return f"<svg>{width}x{height}</svg>".encode()
 
     def acquisition_related_rows_by_table(self, work_row) -> dict[str, list[object]]:
         """
@@ -464,7 +499,9 @@ class _DummyHost:
         """
         return {"files": list(self.file_rows)}
 
-    def acquisition_work_file_rows(self, related_rows_by_table: dict[str, list[object]]) -> list[object]:
+    def acquisition_work_file_rows(
+        self, related_rows_by_table: dict[str, list[object]]
+    ) -> list[object]:
         """
         Copy a legacy files group without additional relationship traversal or filtering.
 
@@ -520,7 +557,11 @@ class _DummyHost:
         :return: 200 response with fixed download bytes.
         """
         del environ
-        return _Response(status="200 OK", headers=[("X-File-Id", str(raw_file_id))], body=[b"download"])
+        return _Response(
+            status="200 OK",
+            headers=[("X-File-Id", str(raw_file_id))],
+            body=[b"download"],
+        )
 
 
 def _decode_response(response: _Response) -> tuple[str, dict[str, str], bytes]:
@@ -584,7 +625,9 @@ def test_acquisition_api_rejects_invalid_book_id() -> None:
     :return: None after bad-request status, media type, and message assertions.
     """
     api = AcquisitionCompatApi(_DummyHost())
-    status, headers, body = _decode_response(api.serve_compat_get("epub", "bad", {}, {}))
+    status, headers, body = _decode_response(
+        api.serve_compat_get("epub", "bad", {}, {})
+    )
     assert status == "400 Bad Request"
     assert headers["Content-Type"] == "text/plain"
     assert b"Invalid book id" in body
@@ -662,8 +705,12 @@ def test_cover_requests_reject_invalid_or_missing_books() -> None:
     """
     api = AcquisitionCompatApi(_DummyHost())
 
-    invalid = _decode_response(api.serve_cover_or_thumb("bad", query={}, environ={}, thumb=True))
-    missing = _decode_response(api.serve_cover_or_thumb("2", query={}, environ={}, thumb=True))
+    invalid = _decode_response(
+        api.serve_cover_or_thumb("bad", query={}, environ={}, thumb=True)
+    )
+    missing = _decode_response(
+        api.serve_cover_or_thumb("2", query={}, environ={}, thumb=True)
+    )
 
     assert invalid[0] == "400 Bad Request"
     assert b"Invalid book id" in invalid[2]

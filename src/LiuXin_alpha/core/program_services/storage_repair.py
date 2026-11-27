@@ -132,7 +132,7 @@ def _storage_repair_plan_payload(
                     "digital_asset_derivation_id": int(
                         replication.exact_recreation_derivation_id
                     ),
-                    "reason": "no executor is selected by storage repair",
+                    "reason": "review storage.asset.recreation.plan and submit storage.asset.recreate with its expected_state",
                 }
             )
         warnings.extend(
@@ -249,6 +249,9 @@ def storage_repair_apply(
     transferred = 0
     truncated = False
     for action in plan["actions"]:
+        from LiuXin_alpha.core.workflow_context import checkpoint
+
+        checkpoint()
         if len(receipts) >= max_actions:
             truncated = True
             break
@@ -290,6 +293,8 @@ def storage_repair_apply(
                 action_name == "verify_replica"
                 and not bool(getattr(result, "healthy", False))
             )
+            if action_name == "replicate_digital_asset":
+                action_ok = result.state is storage_api.ReplicaState.VERIFIED
             receipt.update({"ok": action_ok, "result": plain(result)})
             if not action_ok:
                 receipt["error"] = "Replica verification did not pass."

@@ -13,12 +13,14 @@ Catalog-owned rows to repositories. Cache reconciliation follows the commit.
 from __future__ import annotations
 
 import dataclasses
-
 from collections.abc import Iterable, Mapping, Sequence
 from typing import TYPE_CHECKING, Any, cast
 
 from LiuXin_alpha.core.description import CorePayloadFieldDescription
 from LiuXin_alpha.core.errors import CoreDispatchError
+from LiuXin_alpha.core.payloads import integer_value
+from LiuXin_alpha.core.payloads import required_int as _required_int
+from LiuXin_alpha.core.payloads import required_text as _required_text
 
 if TYPE_CHECKING:
     from LiuXin_alpha.core.commands import CoreCommand
@@ -42,7 +44,7 @@ def _field(
 
     :param name: Public request key described by the declaration.
     :param required: Whether introspection advertises the key as mandatory.
-    :param field_type: Optional transport-facing type label, not an executable validator.
+    :param field_type: Optional transport-facing type label, enforced by CoreRuntime for primitive values.
     :return: New field-description record containing the supplied values.
     """
     return CorePayloadFieldDescription(
@@ -76,52 +78,8 @@ def _payload(envelope: Any) -> dict[str, Any]:
     return dict(raw)
 
 
-def _required_text(payload: Mapping[str, Any], name: str) -> str:
-    """
-    Stringify and strip a required payload value, rejecting missing or whitespace-only text.
-
-    Explicit None becomes "None" and other non-string values are accepted through str.
-
-    Example:
-        >>> _required_text({"table": " series "}, "table")
-        'series'
 
 
-    :param payload: Request mapping containing the requested key.
-    :param name: Exact key to look up and name in a missing-value error.
-    :return: Nonempty stripped text, without table/column existence validation.
-    :raises CoreDispatchError: If text conversion produces an empty string.
-    """
-    value = str(payload.get(name, "")).strip()
-    if not value:
-        raise CoreDispatchError("`{}` is required.".format(name))
-    return value
-
-
-def _required_int(payload: Mapping[str, Any], name: str) -> int:
-    """
-    Convert a required non-None, non-boolean value with int, without imposing a numeric range.
-
-    Fractional numbers may truncate. TypeError/ValueError are wrapped, while
-    OverflowError or other custom conversion failures propagate unchanged.
-
-    Example:
-        >>> _required_int({"row_id": "12"}, "row_id")
-        12
-
-
-    :param payload: Request mapping supplying an integer-convertible value.
-    :param name: Exact required key, also used in the validation message.
-    :return: Converted integer, including zero or negative values.
-    :raises CoreDispatchError: If the value is missing, None, bool, or fails conversion with TypeError/ValueError.
-    """
-    value = payload.get(name)
-    if value is None or isinstance(value, bool):
-        raise CoreDispatchError("`{}` must be an integer.".format(name))
-    try:
-        return int(value)
-    except (TypeError, ValueError) as exc:
-        raise CoreDispatchError("`{}` must be an integer.".format(name)) from exc
 
 
 def _plain(value: Any) -> Any:
@@ -839,7 +797,7 @@ class CoreDatabaseSemanticsAPI:
 
 
         :param runtime: Runtime providing parent-linked schema and portable tree macros.
-        :param query: Query with required table text and integer-convertible row_id, excluding None/bool.
+        :param query: Query with required table text and integer row_id, excluding None/bool.
         :return: root record containing table, raw row identity, and a shallow values dictionary.
         :raises CoreDispatchError: If the row/ancestors are missing, lineage cycles, or tree capability is unavailable.
         """
@@ -872,7 +830,7 @@ class CoreDatabaseSemanticsAPI:
 
 
         :param runtime: Runtime providing parent-linked schema and portable tree macros.
-        :param query: Query with required table and integer-convertible row_id identifying the parent.
+        :param query: Query with required table and integer row_id identifying the parent.
         :return: records list of immediate child wrappers; an existing leaf returns an empty list.
         :raises CoreDispatchError: If the parent is missing or request/tree capability validation fails.
         """
@@ -909,7 +867,7 @@ class CoreDatabaseSemanticsAPI:
 
 
         :param runtime: Runtime providing parent-linked schema and portable tree macros.
-        :param query: Query with required table and integer-convertible row_id whose ancestors are followed.
+        :param query: Query with required table and integer row_id whose ancestors are followed.
         :return: Root-first records list, each with table, row_id, and raw values.
         :raises CoreDispatchError: For missing rows, cycles, identity mismatch, or unavailable tree support.
         """
@@ -948,7 +906,7 @@ class CoreDatabaseSemanticsAPI:
 
 
         :param runtime: Runtime providing tree-schema introspection and portable root/child reads.
-        :param query: Query with required table and integer-convertible root row_id.
+        :param query: Query with required table and integer root row_id.
         :return: Fully materialized records list including the requested root first.
         :raises CoreDispatchError: If traversal finds a repeated identity or required row/schema/capability is absent.
         """
@@ -980,16 +938,16 @@ class CoreDatabaseSemanticsAPI:
         Walk the entire subtree and return sorted unique requested IDs present in it, including the root.
 
         row_ids must be a non-string Sequence; sets/generators are rejected. Each
-        non-boolean element is converted by int(str(value)), so float 1.0 is not
-        accepted as it would be by the separate root-ID parser. Conversion failures
-        propagate, and even an empty requested sequence still triggers traversal.
+        element must be an integer, excluding booleans, floats and numeric strings.
+        Invalid elements produce invalid_payload; even an empty requested sequence
+        still triggers traversal.
 
         Example:
             >>> result = CoreDatabaseSemanticsAPI.tree_search(runtime, query)  # doctest: +SKIP
 
 
         :param runtime: Runtime providing tree introspection and complete subtree traversal.
-        :param query: Query with table, root row_id, and required row_ids Sequence of integer-text-convertible values.
+        :param query: Query with table, root row_id, and required row_ids Sequence of integer values.
         :return: row_ids list sorted numerically and deduplicated, not preserving request order.
         """
         payload = _payload(query)
@@ -998,9 +956,7 @@ class CoreDatabaseSemanticsAPI:
             raise CoreDispatchError("`row_ids` must be an array.")
         ids = []
         for value in raw_ids:
-            if isinstance(value, bool):
-                raise CoreDispatchError("Every `row_ids` value must be an integer.")
-            ids.append(int(str(value)))
+            ids.append(integer_value(value, "row_ids"))
         table = _required_text(payload, "table")
         found = {
             int(value[_tree_columns(runtime, table)[0]])
@@ -1021,7 +977,7 @@ class CoreDatabaseSemanticsAPI:
         Validate requested parent/children and cycle safety, then set every listed child's parent and reconcile.
 
         Tree validation and row updates share a serialized portable transaction. Catalog-owned
-        tables use their repositories. IDs are converted via int(str(value)); booleans are
+        tables use their repositories. IDs require integers; booleans, fractions and numeric strings are
         rejected and duplicates retained. An empty sequence still yields a nested
         receipt and reconciliation. A later update failure rolls back earlier writes;
         reconciliation runs after commit, and update return values are ignored.
@@ -1046,9 +1002,7 @@ class CoreDatabaseSemanticsAPI:
                 raise CoreDispatchError("`child_ids` must be an array.")
             child_ids: list[int] = []
             for value in raw_ids:
-                if isinstance(value, bool):
-                    raise CoreDispatchError("Every `child_ids` value must be an integer.")
-                child_id = int(str(value))
+                child_id = integer_value(value, "child_ids")
                 _tree_get(runtime, table, child_id)
                 if child_id == parent_id:
                     raise CoreDispatchError(
@@ -1106,7 +1060,7 @@ class CoreDatabaseSemanticsAPI:
 
 
         :param runtime: Runtime providing tree traversal, delete_row macros, and service reconciliation.
-        :param command: Command with confirm=True, required table, and integer-convertible root row_id.
+        :param command: Command with confirm=True, required table, and integer root row_id.
         :return: Reconciled deleted=True receipt with the former root record and number of planned row deletions.
         :raises CoreDispatchError: If confirmation is not the boolean True or tree/request validation fails.
         """

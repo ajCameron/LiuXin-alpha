@@ -5,14 +5,13 @@ Ensure helpers normalize the root, construct a backend, and upsert Store metadat
 without crawling. Registration then delegates to the shared pipeline; Store rows
 and incremental file writes can survive a later failure. This is catalogue
 registration of discovered addresses, not copying ebook bytes or a transaction
-covering the whole crawl. Legacy database-path helpers delegate ownership to
-Core's library lifecycle boundary.
+covering the whole crawl. All operations borrow an already-open database;
+entry-point composition belongs to Core.
 """
 
 from __future__ import annotations
 
 import json
-import pathlib
 import time
 
 from collections.abc import Iterable, Sequence
@@ -621,209 +620,9 @@ def register_native_html_readonly_store_files(
     )
 
 
-def register_wget_html_readonly_with_database_path(
-    *,
-    database_path: str | pathlib.Path,
-    remote_url: str,
-    db_type: str = "SQLite",
-    store_name: Optional[str] = None,
-    store_kind: str = "wget_html_readonly",
-    max_http_requests_per_hour: float | None = None,
-    wget_exe: str = "wget",
-    wget_args: Optional[Sequence[str]] = None,
-    timeout_s: float | None = 300.0,
-    recurse: bool = True,
-    max_depth: int | None = None,
-    no_parent: bool = True,
-    span_hosts: bool = False,
-    respect_robots: bool = True,
-    user_agent: str | None = None,
-    no_verbose: bool = True,
-    max_observed_urls: int = 100_000,
-    max_output_chars: int = 8 * 1024 * 1024,
-    ebook_extensions: Optional[Iterable[str]] = None,
-    source_label: str = "wget_html_import",
-    attach_store_links: bool = True,
-    refresh_storage_manager: bool = True,
-    incremental_db_writes: bool = True,
-    progress_callback: Optional[ProgressCallback] = None,
-) -> RemoteHtmlRegistrationReport:
-    """
-    Open an existing catalogue context and delegate wget URL registration within it.
-
-    Wrap database_path in pathlib.Path then str without expanduser/resolve; this
-    is a filesystem-path convenience, not a general connection-string adapter.
-    Database creation and backup are disabled. Construction/body/exit failures
-    propagate, and completed registration writes are not rolled back by this
-    wrapper. The report is returned only after the delegated library owner closes.
-
-    Example:
-        >>> report = register_wget_html_readonly_with_database_path(database_path='catalogue.sqlite', remote_url='https://example.test/books/')  # doctest: +SKIP
-
-
-    :param database_path: Existing catalogue path passed through Path/string conversion.
-    :param remote_url: HTTP(S) discovery root checked by the delegated ensure helper.
-    :param db_type: Database driver selector, defaulting to SQLite.
-    :param store_name: Store display name, or falsey for generated naming.
-    :param store_kind: Persisted Store kind label.
-    :param max_http_requests_per_hour: Crawl rate, or None for preference/default selection.
-    :param wget_exe: Executable selector forwarded to discovery.
-    :param wget_args: Extra trusted invocation tokens forwarded and persisted in policy.
-    :param timeout_s: Crawl-process timeout seconds, or None.
-    :param recurse: Whether recursive spider traversal is enabled.
-    :param max_depth: Optional recursive wget level.
-    :param no_parent: Root-parent restriction forwarded to backend options.
-    :param span_hosts: Whether other same-scheme authorities are allowed.
-    :param respect_robots: Whether crawler robots policy remains enabled.
-    :param user_agent: Optional request-agent text.
-    :param no_verbose: Request reduced wget diagnostic verbosity.
-    :param max_observed_urls: Extracted URL-occurrence ceiling.
-    :param max_output_chars: Retained diagnostic-character ceiling.
-    :param ebook_extensions: Allowed registration suffixes, or None for the shared ebook set.
-    :param source_label: File provenance label forwarded to registration.
-    :param attach_store_links: Whether to add supported missing association rows.
-    :param refresh_storage_manager: Whether to attempt post-write manager bootstrap.
-    :param incremental_db_writes: Whether file registration occurs during crawl callbacks.
-    :param progress_callback: Optional progress consumer invoked while the delegated library graph is open.
-    :return: Delegated registration report after successful lifecycle-owner cleanup.
-    """
-    from LiuXin_alpha.core.library_services import LibraryServices
-
-    with LibraryServices.open(
-        database_path=pathlib.Path(database_path),
-        db_type=db_type,
-        create=False,
-        backup=False,
-        enable_maintenance=False,
-    ) as lifecycle:
-        db = lifecycle.database
-        return register_wget_html_readonly_store_files(
-            db,
-            remote_url=remote_url,
-            store_name=store_name,
-            store_kind=store_kind,
-            max_http_requests_per_hour=max_http_requests_per_hour,
-            wget_exe=wget_exe,
-            wget_args=wget_args,
-            timeout_s=timeout_s,
-            recurse=recurse,
-            max_depth=max_depth,
-            no_parent=no_parent,
-            span_hosts=span_hosts,
-            respect_robots=respect_robots,
-            user_agent=user_agent,
-            no_verbose=no_verbose,
-            max_observed_urls=max_observed_urls,
-            max_output_chars=max_output_chars,
-            ebook_extensions=ebook_extensions,
-            source_label=source_label,
-            attach_store_links=attach_store_links,
-            refresh_storage_manager=refresh_storage_manager,
-            incremental_db_writes=incremental_db_writes,
-            progress_callback=progress_callback,
-        )
-
-
-def register_native_html_readonly_with_database_path(
-    *,
-    database_path: str | pathlib.Path,
-    remote_url: str,
-    db_type: str = "SQLite",
-    store_name: Optional[str] = None,
-    store_kind: str = "native_html_readonly",
-    max_http_requests_per_hour: float | None = None,
-    timeout_s: float | None = 30.0,
-    recurse: bool = True,
-    max_depth: int | None = None,
-    no_parent: bool = True,
-    span_hosts: bool = False,
-    respect_robots: bool = True,
-    user_agent: str | None = None,
-    max_html_bytes: int = 2_000_000,
-    max_pages: int = 10_000,
-    max_observed_urls: int = 100_000,
-    ebook_extensions: Optional[Iterable[str]] = None,
-    source_label: str = "native_html_import",
-    attach_store_links: bool = True,
-    refresh_storage_manager: bool = True,
-    incremental_db_writes: bool = True,
-    progress_callback: Optional[ProgressCallback] = None,
-) -> RemoteHtmlRegistrationReport:
-    """
-    Open an existing catalogue context and delegate native-crawler URL registration.
-
-    Path conversion is lexical, without expanduser/resolve; create=False and
-    backup=False are explicit. Constructor/body/cleanup exceptions propagate,
-    and no all-registration transaction or rollback is introduced here.
-
-    Example:
-        >>> report = register_native_html_readonly_with_database_path(database_path='catalogue.sqlite', remote_url='https://example.test/books/')  # doctest: +SKIP
-
-
-    :param database_path: Existing database path converted through pathlib.Path and str.
-    :param remote_url: Root normalized by the delegated native Store ensure helper.
-    :param db_type: Database driver selector, defaulting to SQLite.
-    :param store_name: Explicit display name, or falsey for a generated name.
-    :param store_kind: Kind label stored on the configured Store row.
-    :param max_http_requests_per_hour: Native request rate, or None for shared preference selection.
-    :param timeout_s: Per-request timeout seconds, or None.
-    :param recurse: Enable descendant page traversal.
-    :param max_depth: Optional descendant depth ceiling.
-    :param no_parent: Restrict same-authority results to the root path.
-    :param span_hosts: Permit other same-scheme authorities.
-    :param respect_robots: Enable native robots checks with their existing fail-open policy.
-    :param user_agent: Optional header/robots agent string.
-    :param max_html_bytes: HTML-body byte ceiling, clamped by the ensure helper.
-    :param max_pages: Maximum dequeued normalized page URLs.
-    :param max_observed_urls: Maximum raw parsed link occurrences.
-    :param ebook_extensions: Registration suffix collection, or None for BOOK_EXTENSIONS.
-    :param source_label: File provenance label for persisted rows.
-    :param attach_store_links: Insert missing supported file/Store associations.
-    :param refresh_storage_manager: Attempt clearing manager bootstrap after registration.
-    :param incremental_db_writes: Register accepted callbacks immediately rather than after discovery.
-    :param progress_callback: Optional observer receiving events while the database remains open.
-    :return: Delegated report after registration and database-context cleanup succeed.
-    """
-    from LiuXin_alpha.core.library_services import LibraryServices
-
-    with LibraryServices.open(
-        database_path=pathlib.Path(database_path),
-        db_type=db_type,
-        create=False,
-        backup=False,
-        enable_maintenance=False,
-    ) as lifecycle:
-        db = lifecycle.database
-        return register_native_html_readonly_store_files(
-            db,
-            remote_url=remote_url,
-            store_name=store_name,
-            store_kind=store_kind,
-            max_http_requests_per_hour=max_http_requests_per_hour,
-            timeout_s=timeout_s,
-            recurse=recurse,
-            max_depth=max_depth,
-            no_parent=no_parent,
-            span_hosts=span_hosts,
-            respect_robots=respect_robots,
-            user_agent=user_agent,
-            max_html_bytes=max_html_bytes,
-            max_pages=max_pages,
-            max_observed_urls=max_observed_urls,
-            ebook_extensions=ebook_extensions,
-            source_label=source_label,
-            attach_store_links=attach_store_links,
-            refresh_storage_manager=refresh_storage_manager,
-            incremental_db_writes=incremental_db_writes,
-            progress_callback=progress_callback,
-        )
-
-
 __all__ = [
     "ensure_wget_html_readonly_store",
     "ensure_native_html_readonly_store",
     "register_wget_html_readonly_store_files",
-    "register_wget_html_readonly_with_database_path",
     "register_native_html_readonly_store_files",
-    "register_native_html_readonly_with_database_path",
 ]

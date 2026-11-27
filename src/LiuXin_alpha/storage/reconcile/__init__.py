@@ -27,11 +27,8 @@ from LiuXin_alpha.storage.reconcile.squashfs_db_sync import (
 from LiuXin_alpha.storage.reconcile.store_db_sync import (
     ensure_rclone_http_readonly_store,
     ensure_unmanaged_store_for_disk,
-    main,
     register_existing_disk_as_unmanaged_store,
-    register_existing_disk_with_database_path,
     register_rclone_http_readonly_store_files,
-    register_rclone_http_readonly_with_database_path,
 )
 
 __all__ = [
@@ -48,8 +45,5 @@ __all__ = [
     "ensure_rclone_http_readonly_store",
     "ensure_unmanaged_store_for_disk",
     "register_existing_disk_as_unmanaged_store",
-    "register_existing_disk_with_database_path",
     "register_rclone_http_readonly_store_files",
-    "register_rclone_http_readonly_with_database_path",
-    "main",
 ]

@@ -19,6 +19,7 @@ def read_page(
     offset: int = 0,
     after_id: int | None = None,
     position_column: str | None = None,
+    exclude_ids: Sequence[int] = (),
 ) -> tuple[tuple[dict[str, Any], ...], bool]:
     """Read at most limit+1 rows using validated physical names and bound data.
 
@@ -37,6 +38,12 @@ def read_page(
             raise InputIntegrityError("after_id cannot be combined with offset")
     conditions: list[str] = []
     values: list[Any] = []
+    if exclude_ids:
+        if any(type(value) is not int for value in exclude_ids):
+            raise InputIntegrityError("Excluded row IDs must be integers")
+        placeholders = ", ".join("?" for _ in exclude_ids)
+        conditions.append(f"{quote_identifier(id_column)} NOT IN ({placeholders})")
+        values.extend(exclude_ids)
     if after_id is not None:
         conditions.append(f"{quote_identifier(id_column)} > ?")
         values.append(after_id)

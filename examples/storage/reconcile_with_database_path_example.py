@@ -22,7 +22,7 @@ from _example_utils import bootstrap_src_path, dump_json
 
 bootstrap_src_path()
 
-from LiuXin_alpha.storage.reconcile import register_existing_disk_with_database_path
+from LiuXin_alpha.core.store_registration import register_existing_disk_with_database_path
 
 
 def parse_args() -> argparse.Namespace:
@@ -43,7 +43,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--disk-root", required=True, help="Disk root to scan")
     parser.add_argument("--db-type", default="SQLite", help="Database driver type")
     parser.add_argument("--store-name", default=None, help="Optional store name override")
-    parser.add_argument("--no-hash", action="store_true", help="Skip SHA256 hashing")
+    parser.add_argument("--no-hash", action="store_true", help="Skip content hashing")
     parser.add_argument("--follow-symlinks", action="store_true", help="Follow symlinked directories")
     parser.add_argument("--no-store-links", action="store_true", help="Do not create file_store_links rows")
     parser.add_argument("--no-refresh-storage", action="store_true", help="Skip storage manager refresh")

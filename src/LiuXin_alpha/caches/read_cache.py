@@ -266,6 +266,10 @@ class ReadCache(CacheAPI):
         """
         Publish a complete lifecycle operation, or require recovery after failure.
 
+        Reuse one driver-verified schema scope across the composed refresh.
+        Its exit check must succeed before publishing READY. This shares schema
+        discovery without changing the operation's SQL transaction ownership.
+
         Example:
             A failed reload cannot leave the facade claiming a complete READY snapshot.
 
@@ -285,7 +289,23 @@ class ReadCache(CacheAPI):
         self._full_reload_required = True
         self._query_engine.reset()
         try:
-            operation()
+            scope = None
+            if final_state == CacheState.READY:
+                driver = getattr(self.database, "driver", None)
+                scope = getattr(driver, "schema_read_scope", None)
+            with (
+                (
+                    cast(AbstractContextManager[object], scope())
+                    if callable(scope)
+                    else nullcontext()
+                ),
+                (
+                    self.database.macros.read_transaction()
+                    if final_state == CacheState.READY and self.database is not None
+                    else nullcontext()
+                ),
+            ):
+                operation()
         except Exception:
             self._advance_generation()
             raise

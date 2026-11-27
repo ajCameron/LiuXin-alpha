@@ -171,9 +171,15 @@ class ReplicaLifecycleMixin(_StorageManagerState):
             placement_hints=effective_placement_hints,
         )
         with self.get(source_record.location) as source:
+            from LiuXin_alpha.storage.operation_context import (
+                checked_reader,
+                checkpoint,
+            )
+
+            checkpoint()
             store.put(
                 location,
-                source,
+                checked_reader(source),
                 expected_size=asset_record.size_bytes,
                 expected_digest=self._preferred_digest(asset_record),
                 placement_hints=effective_placement_hints,

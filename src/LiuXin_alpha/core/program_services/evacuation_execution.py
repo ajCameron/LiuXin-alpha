@@ -104,6 +104,9 @@ def _place_replacements(
     )
     succeeded = True
     for destination in entry.destination_store_refs:
+        from LiuXin_alpha.core.workflow_context import checkpoint
+
+        checkpoint()
         receipt: dict[str, object] = {
             "action": "replicate_digital_asset",
             "digital_asset_id": int(entry.asset_id),
@@ -202,6 +205,9 @@ def _remove_sources(
     :return: None after all lookups/removal attempts finish; partial removals are not rolled back on failure.
     """
     for replica_id in entry.source_replica_ids:
+        from LiuXin_alpha.core.workflow_context import checkpoint
+
+        checkpoint()
         record = manager.get_replica_record(replica_id)
         delete_bytes = not retain_bytes and record.mode is not api.ReplicaMode.UNMANAGED
         receipt: dict[str, object] = {
@@ -252,6 +258,9 @@ def execute_evacuation(
     source = manager.get_store_configuration(plan.source.store_uuid)
     execution.source_bytes_retained = keep_source_bytes or source.read_only
     for entry in plan.entries:
+        from LiuXin_alpha.core.workflow_context import checkpoint
+
+        checkpoint()
         if len(execution.actions) >= limits.max_actions:
             execution.truncated = True
             break

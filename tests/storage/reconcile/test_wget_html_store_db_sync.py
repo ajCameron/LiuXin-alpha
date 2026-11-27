@@ -12,10 +12,10 @@ from uuid import UUID
 
 import pytest
 
+from LiuXin_alpha.core.store_registration import register_wget_html_readonly_with_database_path
 from LiuXin_alpha.ingest.remote_html import (
     ensure_wget_html_readonly_store,
     register_wget_html_readonly_store_files,
-    register_wget_html_readonly_with_database_path,
 )
 from LiuXin_alpha.ingest.sources.wget_utils import WgetResult
 from LiuXin_alpha.storage.store_backend_plugins.wget_html_readonly import (

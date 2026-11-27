@@ -11,7 +11,7 @@ by both backends. MacrosAPI adds the optional legacy SQLite compatibility surfac
 from __future__ import annotations
 
 import abc
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Mapping, Sequence
 from contextlib import AbstractContextManager
 from typing import TYPE_CHECKING, Any
 
@@ -228,12 +228,14 @@ class PortableMacrosAPI(abc.ABC):
     @abc.abstractmethod
     def get_tree_children_page(
         self, table: str, parent_id: int | None, *, position_column: str,
-        limit: int = 100, offset: int = 0,
+        limit: int = 100, offset: int = 0, exclude_ids: Sequence[int] = (),
     ) -> tuple[Mapping[str, Any], ...]:
         """Read bounded physical children by position (nulls last), then ID.
 
         Discover the parent column from the table; validate the supplied ordering
-        column against its schema. None selects roots. The caller owns the snapshot.
+        column against its schema. None selects roots. Exclusions apply before
+        pagination; the semantic caller supplies any reserved IDs to omit.
+        The caller owns the snapshot.
         """
 
     @abc.abstractmethod

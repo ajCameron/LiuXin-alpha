@@ -215,6 +215,8 @@ def put(
     if expected_size is not None and expected_size < 0:
         raise ValueError("expected_size must not be negative.")
 
+    from LiuXin_alpha.storage.operation_context import checkpoint
+    checkpoint()
     session = store.begin_write(
         location,
         mode=mode,
@@ -223,12 +225,14 @@ def put(
     )
     with session:
         while True:
+            checkpoint()
             chunk = source.read(chunk_size)
             if not chunk:
                 break
             if not isinstance(chunk, bytes):
                 raise TypeError("source must be a binary stream returning bytes.")
             _write_all(session, chunk)
+        checkpoint()
         return session.commit()
 
 
@@ -333,7 +337,9 @@ def compute_digest(
         ) from exc
 
     with store.open_read(location) as source:
+        from LiuXin_alpha.storage.operation_context import checkpoint
         while True:
+            checkpoint()
             chunk = source.read(chunk_size)
             if not chunk:
                 break

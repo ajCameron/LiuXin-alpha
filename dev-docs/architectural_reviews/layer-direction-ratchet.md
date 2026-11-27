@@ -1,7 +1,8 @@
 # Layer-direction ratchet
 
 Decision date: **2026-10-11**. Source and checks reviewed **2026-10-20**,
-working tree based on `fc5de7af`.
+working tree based on `fc5de7af`. Direction rules and measurements refreshed
+**2026-11-23** after the Core registration caller migration.
 
 Status: **enforced whole-package baseline; existing debt remains explicit**
 
@@ -31,6 +32,7 @@ The ratchet encodes the ownership direction documented in
 - storage cannot depend upward on cache, metadata, Catalog, Library, Core, or
   surfaces;
 - Catalog cannot depend on storage, Library, Core, or surfaces;
+- ingest cannot depend on Core or surfaces;
 - Library cannot depend on Core or surfaces; and
 - Core cannot depend on surfaces.
 
@@ -52,12 +54,15 @@ The authoritative host-prefix list is `PLUGIN_HOST_PREFIXES` in
 checker reuses it. Combining the packages did not relax those boundaries. See
 the [composition contract](../plugins/plugin-composition.md).
 
-A broad source-package rule for `caches` is intentionally absent from
-`FORBIDDEN_TARGETS`. This does not leave its semantic ownership undecided:
-Catalog owns persistent metadata reads/writes, `ReadCache` supplies reusable read
-state, and writable `Cache` delegates mutations to Catalog. The
-[cache contract](../catalog/catalog-cache-boundary.md) governs those roles; the
-checker still needs a reviewed rule for the remaining mixed cache dependencies.
+Caches cannot depend on Core, Library, storage or surfaces. Metadata composition
+lives in `caches.metadata`, which can depend on Catalog; generic cache modules
+cannot depend on that composition layer or on Catalog. Catalog may use generic
+cache contracts but cannot import `caches.metadata`. The
+[cache contract](../catalog/catalog-cache-boundary.md) describes these roles.
+
+The November 23 caller migration removes the deferred storage-to-Core allowance.
+Both ingest and storage now leave path-opening registration to Core, with CLI
+presentation in surfaces. The new ingest rule covers all import contexts.
 
 ## Exact baseline
 
@@ -91,11 +96,11 @@ Run the normal check to enforce it:
 
 ## Current measurement
 
-The normal check passed on **2026-10-20**: **1,792 source modules, 15 reviewed
-backward edges and 28 unresolved dynamic imports**. Candidate measurements agree
-with the checked-in baseline: largest runtime/combined components **217/217**,
+The normal check passed on **2026-11-23**: **2,090 source modules, 9 reviewed
+backward edges and 29 unresolved dynamic imports**. Candidate measurements agree
+with the checked-in baseline: largest runtime/combined components **214/214**,
 domain component **9**, Catalog/cache cross-package components **0/0**. The
-protected modern check separately passes for **243 modules**.
+protected modern check separately passes for **268 modules**.
 
 A strongly connected component (SCC) is a set of mutually reachable modules. The
 domain measurement uses the induced graph of caches, Catalog, databases, metadata
@@ -105,8 +110,8 @@ containing both packages. These scopes are not interchangeable: a zero result
 there does not mean the entire graph is acyclic or that the packages have no edges.
 
 On October 19 the package merger relocated three dynamic-import entries without
-adding an allowance or increasing a cycle ceiling. These counts remain unchanged
-at this source checkpoint. Recognized literal imports do not resolve arbitrary
+adding an allowance or increasing a cycle ceiling. Those relocation-only counts were unchanged
+at the October checkpoint. Recognized literal imports do not resolve arbitrary
 dynamic expressions, and parent-package execution needs the complementary
 [cold-import check](import-footprint-ratchet.md).
 

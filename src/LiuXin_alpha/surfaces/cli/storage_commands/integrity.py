@@ -13,7 +13,7 @@ from __future__ import annotations
 import argparse
 from typing import Any
 
-from LiuXin_alpha.surfaces.cli.common import emit_json, open_cli_core
+from LiuXin_alpha.surfaces.cli.common import complete_command, emit_json, open_cli_core
 from LiuXin_alpha.surfaces.cli.storage_commands.core_access import (
     _storage_command,
     _storage_query,
@@ -103,12 +103,14 @@ def cmd_storage_reconcile(args: argparse.Namespace) -> int:
             "Storage reconciliation requires --yes; run `reconcile plan` first."
         )
     with open_cli_core(args, enable_storage_manager=True) as core:
-        result = core.command(
+        result = complete_command(
+            core,
             "storage.reconcile.apply",
             {
                 "max_actions": int(args.max_actions),
                 "include_offline": bool(args.include_offline),
             },
+            args,
         )
     emit_json(result, args)
     return 0 if bool(result.get("ok", False)) else 1
@@ -149,7 +151,7 @@ def cmd_storage_repair(args: argparse.Namespace) -> int:
         }
     )
     with open_cli_core(args, enable_storage_manager=True) as core:
-        result = core.command("storage.repair.apply", payload)
+        result = complete_command(core, "storage.repair.apply", payload, args)
     emit_json(result, args)
     return 0 if bool(result.get("ok", False)) else 1
 
@@ -204,7 +206,7 @@ def cmd_storage_recovery_action(args: argparse.Namespace) -> int:
         else "storage.recovery.recover-pending"
     )
     with open_cli_core(args, enable_storage_manager=True) as core:
-        result = core.command(operation, payload)
+        result = complete_command(core, operation, payload, args)
     emit_json(result, args)
     return 0 if bool(result.get("ok", False)) else 1
 

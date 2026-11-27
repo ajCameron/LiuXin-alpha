@@ -4,8 +4,9 @@ Implemented **2026-10-20** as the next A09 prerequisite, after
 [responsive Core waiting](core-wait-dispatch.md). The durable repository is still
 separate from Core's default utility manager. The following prerequisite adds
 [submission identity and retry ancestry](submission-identity.md), used by the
-[Core storage audit](core-storage-audit.md). Other workflows retain their current
-execution and recovery owners.
+[Core storage audit](core-storage-audit.md). The
+[2026-11-25 recovery programme](../core/recovery-operations.md) extends these
+contracts to the supported Core long workflows without replacing domain owners.
 
 ## One owner for each transition
 
@@ -28,14 +29,15 @@ A failed event write rolls back the corresponding state change.
 | Leased, expired | A worker may reclaim it with a new token; the old token cannot start. |
 | Running, unexpired | Its claim may report progress, renew, log and finish. |
 | Running, expired | Recovery records `aborted` with an uncertain-effects explanation. |
-| Terminal | Late worker updates and further cancellation requests cannot change it. |
+| Terminal | Late worker updates cannot replace the receipt. Cancelling an aborted logical action can hold automatic continuation without erasing uncertain effects. |
 
 `recover_expired_runs()` is also available without running a worker. Normal
 worker polling performs this recovery before claiming more work. Recovery
 does not replay a handler. A stale process may still be executing external code;
 fencing prevents it from overwriting the ledger, not from touching an external
-system. A workflow must inspect its own publication/checkpoint evidence before
-an explicit retry.
+system. Guarded automatic continuation additionally takes an OS lock across the
+retry lineage and requires a registered domain proof; uncertain work remains held.
+An explicit retry still requires possible-effects acknowledgement after inspection.
 
 ## Worker and handler contract
 
@@ -45,11 +47,14 @@ serialization failures become durable failures while the worker still owns
 the claim. Results must be JSON-compatible; unsupported objects are not silently
 converted to strings.
 
-Runs capture their kind, label and JSON payload when enqueued. Editing a definition
-affects later submissions, not the handler/input selected for an already queued
-run. The worker does not currently enforce the definition's execution timeout,
-heartbeat-timeout or retry declarations; its configured lease duration governs
-claim renewal. Automatic retries are not provided.
+Runs capture their kind, label, JSON payload and execution timeout when enqueued;
+retries retain that captured timeout. Editing a definition affects later submissions.
+The worker checks a monotonic deadline at cooperative checkpoints and after a
+handler returns, retaining a late result in the timed-out receipt. This cannot
+preempt arbitrary blocking code. Deadline expiry takes precedence over simultaneous
+cancellation; neither claims rollback. The configured lease duration still governs
+claim renewal, independently of execution time. Definition heartbeat-timeout and
+retry/backoff declarations do not enable generic automatic replay.
 
 `JobRunContext` supplies the current token to progress, log and heartbeat calls.
 Handlers can call `raise_if_cancel_requested()` at appropriate domain checkpoints.

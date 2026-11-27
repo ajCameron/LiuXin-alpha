@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 
 from LiuXin_alpha.core.errors import CoreDispatchError
+from LiuXin_alpha.core.payloads import boolean
 from LiuXin_alpha.core.program_services.payloads import (
     _callable,
     _database_callable,
@@ -342,7 +343,7 @@ def database_backup(
 
 
     :param runtime: Runtime providing the selected database and its optional driver backup capability.
-    :param command: Command with optional output_path and truth-tested verify=False.
+    :param command: Command with optional output_path and boolean verify=False.
     :return: backed_up=True, stringified backup_path or None, and optional quick_check outcome/messages.
     :raises CoreDispatchError: For unsupported explicit paths, unavailable verification paths, SQLite verification errors, or a non-ok check.
     """
@@ -362,7 +363,7 @@ def database_backup(
         result = None
     backup_path = result or output_path
     verification: dict[str, Any] | None = None
-    if bool(payload.get("verify", False)):
+    if boolean(payload, "verify", False):
         if backup_path in (None, ""):
             raise CoreDispatchError(
                 "The backend did not report a file path that Core can verify."

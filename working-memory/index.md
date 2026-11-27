@@ -1,5 +1,37 @@
 # Working Memory Index
 
+Core recovery completion and focused review, **2026-11-25**: see
+[`core-recovery-implementation-2026-11-25.md`](core-recovery-implementation-2026-11-25.md)
+for durable command outcomes, workflow delivery, guarded recovery, bounded Core
+execution and verification. The review corrected late-handler deadline reporting
+and cache readiness receipts after caught nested rollbacks. PR #226 builds on the
+metadata work in #214. Follow-up **2026-11-27** records the passing eight-hour
+SQLite/schema-backed/HTTP soak, retained result and verified source provenance.
+Canonical contracts and evidence live in `dev-docs/core/recovery-operations.md` and
+`dev-docs/core/recovery-completion-2026-11-25.md`.
+
+Whole-Core review, **2026-11-23**: the
+[`full review handoff`](core-full-review-2026-11-23.md) records the detailed
+assessment and completion plan beyond the earlier metadata/lifecycle slice.
+The canonical guide is `dev-docs/core/review-and-completion-plan-2026-11-23.md`.
+It covers ten findings, nine implementation slices and whole-functionality gates;
+the additional Core/configuration selection passed 107 tests with one live
+PostgreSQL skip.
+
+Core lifecycle caller follow-up, **2026-11-23**: the four registration path
+helpers moved to Core, the standalone local-disk command moved to surfaces,
+and lower-layer compatibility exports were removed. See
+[`core-lifecycle-callers-2026-11-23.md`](core-lifecycle-callers-2026-11-23.md)
+for the separate commit after `eb096f3c`: 229 tests and the complete quality
+gate passed.
+
+Core integration review, **2026-11-23**: branch `core-review` starts from the
+reviewed metadata work at `21539083`. Ownership, metadata routing and public
+editing contracts are covered in
+[`core-review-2026-11-23.md`](core-review-2026-11-23.md). The completed review passed
+405 regressions (one live PostgreSQL maintenance skip), 22 documentation checks
+and the complete quality gate. Original checkout and six stashes are unchanged.
+
 Metadata cache review follow-ups, **2026-11-22**:
 [`cache-followups-2026-11-22.md`](cache-followups-2026-11-22.md) tracks the separate
 Core repair, cache transaction lifecycle, realistic/full-size measurements and

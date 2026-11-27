@@ -234,7 +234,9 @@ def test_queued_handlers_refuse_execution_after_shutdown(core_runtime_factory, k
             pending.result(timeout=3)
     assert not entered.is_set()
     if kind == "command":
-        assert [event.event_type for event in events].count("command.failed") == 1
+        assert runtime.wait_for_events(2)
+        assert [event.event_type for event in events].count("core.shutdown") == 1
+        assert "command.finished" not in [event.event_type for event in events]
 
 
 def test_query_replacement_keeps_inflight_result_policy(core_runtime_factory):

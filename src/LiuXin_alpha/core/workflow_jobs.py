@@ -2,7 +2,9 @@
 Run named Core jobs using fresh library handles and lazily imported workflow implementations.
 
 Database-backed workers open an existing library with creation and automatic
-backup disabled, and close their handle before returning. They do not add a
+backup disabled, carrying the captured target/schema metadata and submitting
+application store. Their graph context binds that store through execution and
+cleanup. They close their handle before returning and do not add a
 transaction around filesystem, network, and database effects. Report conversion
 is recursive but is not a JSON encoder: bytes and unsupported objects can remain.
 Worker exceptions propagate to the job runner; returned report-level errors are
@@ -17,26 +19,44 @@ from pathlib import Path
 from typing import Any, cast
 from uuid import UUID
 
+from LiuXin_alpha.core.payloads import boolean, integer_value
+
 
 def _open_library_services(
     *,
     database_path: str,
     db_type: str,
+    database_metadata: Mapping[str, Any] | None = None,
     create: bool = False,
     storage_startup_on_add: bool = False,
 ):
     """Open a one-shot library through Core's sole lifecycle owner."""
 
     from LiuXin_alpha.core.library_services import LibraryServices
+    from LiuXin_alpha.core.workflow_context import checkpoint, expected_library_uuid
 
-    return LibraryServices.open(
+    checkpoint()
+    lifecycle = LibraryServices.open(
         database_path=database_path,
         db_type=db_type,
+        database_metadata=database_metadata,
         create=create,
         backup=False,
         storage_startup_on_add=storage_startup_on_add,
         enable_maintenance=False,
     )
+    expected = expected_library_uuid()
+    if expected is not None and str(lifecycle.library.db.uuid) != expected:
+        lifecycle.close()
+        raise ValueError("Workflow target catalogue identity changed")
+    return lifecycle
+
+
+def run_application_operation_job(**kwargs: Any) -> dict[str, Any]:
+    """Dispatch the explicitly registered long operations using an owned graph."""
+    from LiuXin_alpha.core.workflow_operations import run
+
+    return run(**kwargs)
 
 
 def _plain(value: Any) -> Any:
@@ -92,6 +112,7 @@ def run_ingest_disk_job(
     *,
     database_path: str,
     db_type: str,
+    database_metadata: Mapping[str, Any] | None = None,
     disk_path: str,
     store_name: str | None = None,
     ebook_extensions: list[str] | None = None,
@@ -116,6 +137,7 @@ def run_ingest_disk_job(
 
 
     :param database_path: Existing database location understood by the selected driver.
+    :param database_metadata: Captured target/schema and backend connection options.
     :param db_type: Library database driver selector.
     :param disk_path: Local directory to register and scan for ebook candidates.
     :param store_name: Requested store name, or ``None`` for the registration helper's default.
@@ -133,10 +155,16 @@ def run_ingest_disk_job(
     with _open_library_services(
         database_path=database_path,
         db_type=db_type,
+        database_metadata=database_metadata,
         create=False,
     ) as lifecycle:
         library = lifecycle.library
-        report = library.register_unmanaged_disk(
+        from LiuXin_alpha.core.workflow_context import checkpoint
+        from LiuXin_alpha.ingest.native_disk import register_native_disk
+
+        report = register_native_disk(
+            library,
+            checkpoint=checkpoint,
             disk_path=disk_path,
             store_name=store_name,
             ebook_extensions=ebook_extensions,
@@ -156,6 +184,7 @@ def run_sync_store_job(
     *,
     database_path: str,
     db_type: str,
+    database_metadata: Mapping[str, Any] | None = None,
     mode: str,
     store_root_uri: str,
     store_name: str | None,
@@ -196,6 +225,7 @@ def run_sync_store_job(
 
 
     :param database_path: Existing database location passed to the selected reconciler.
+    :param database_metadata: Captured target/schema and backend connection options.
     :param db_type: Database driver selector for the reconciler's library handle.
     :param mode: ``local``, ``rclone``, ``wget``, or ``native`` dispatch token.
     :param store_root_uri: Local disk path or remote root URL, according to mode.
@@ -256,7 +286,7 @@ def run_sync_store_job(
         if event == "crawl-log":
             line = str(details.get("line") or "").strip()
             if line:
-                print("JOB sync: {}".format(line), flush=True)
+                print(f"JOB sync: {line}", flush=True)
             return
         if event in {"start", "scan", "crawl-observation", "error", "done"}:
             print(
@@ -277,20 +307,20 @@ def run_sync_store_job(
     callback = progress if progress_output else None
     normalized = str(mode or "").strip().lower()
     if normalized not in {"rclone", "wget", "native", "local"}:
-        raise ValueError("Unknown sync mode: {!r}".format(mode))
+        raise ValueError(f"Unknown sync mode: {mode!r}")
 
     from LiuXin_alpha.ingest.remote_html import (
         register_native_html_readonly_store_files,
         register_wget_html_readonly_store_files,
     )
     from LiuXin_alpha.storage.reconcile import (
-        register_existing_disk_as_unmanaged_store,
         register_rclone_http_readonly_store_files,
     )
 
     with _open_library_services(
         database_path=database_path,
         db_type=db_type,
+        database_metadata=database_metadata,
     ) as lifecycle:
         library = lifecycle.library
         if normalized == "rclone":
@@ -353,11 +383,14 @@ def run_sync_store_job(
                 progress_callback=callback,
             )
         else:
-            report = register_existing_disk_as_unmanaged_store(
-                library.db,
+            from LiuXin_alpha.core.workflow_context import checkpoint
+            from LiuXin_alpha.ingest.native_disk import register_native_disk
+
+            report = register_native_disk(
+                library,
+                checkpoint=checkpoint,
                 disk_path=store_root_uri,
                 store_name=store_name,
-                store_kind=store_kind,
                 ebook_extensions=ebook_extensions,
                 source_label=source_label,
                 compute_hash=compute_hash,
@@ -377,6 +410,7 @@ def run_ingest_remote_html_job(
     *,
     database_path: str,
     db_type: str,
+    database_metadata: Mapping[str, Any] | None = None,
     kind: str,
     options: Mapping[str, Any],
 ) -> dict[str, Any]:
@@ -395,6 +429,7 @@ def run_ingest_remote_html_job(
 
 
     :param database_path: Existing database location used to open a temporary library handle.
+    :param database_metadata: Captured target/schema and backend connection options.
     :param db_type: Library database driver selector.
     :param kind: Wget/native HTML registration token, with hyphenated spellings accepted.
     :param options: Keyword arguments shallow-copied into the chosen registration call.
@@ -410,11 +445,12 @@ def run_ingest_remote_html_job(
     }
     method_name = methods.get(token)
     if method_name is None:
-        raise ValueError("Unsupported remote HTML ingest kind: {!r}".format(kind))
+        raise ValueError(f"Unsupported remote HTML ingest kind: {kind!r}")
     plain: Any = None
     with _open_library_services(
         database_path=database_path,
         db_type=db_type,
+        database_metadata=database_metadata,
         create=False,
     ) as lifecycle:
         library = lifecycle.library
@@ -430,6 +466,7 @@ def run_ingest_web_job(
     *,
     database_path: str,
     db_type: str,
+    database_metadata: Mapping[str, Any] | None = None,
     options: Mapping[str, Any] | None = None,
     resume: str | None = None,
 ) -> dict[str, Any]:
@@ -440,16 +477,32 @@ def run_ingest_web_job(
     from LiuXin_alpha.ingest.web.models import WebIngestOptions
     from LiuXin_alpha.ingest.web.repository import WebIngestRepository
 
-    with _open_library_services(database_path=database_path, db_type=db_type, create=False) as lifecycle:
+    with _open_library_services(
+        database_path=database_path,
+        db_type=db_type,
+        database_metadata=database_metadata,
+        create=False,
+    ) as lifecycle:
         if resume:
-            saved = WebIngestRepository(lifecycle.library.database, create=False).run(str(UUID(resume)))
+            saved = WebIngestRepository(lifecycle.library.database, create=False).run(
+                str(UUID(resume))
+            )
             values = json.loads(saved["web_ingest_run_options_json"])
         else:
             values = dict(options or {})
-            if not values.get("state_directory") and str(db_type).lower() in {"sqlite", "apsw"}:
-                values["state_directory"] = str(Path(database_path).expanduser().resolve().parent / "web-ingest")
+            if not values.get("state_directory") and str(db_type).lower() in {
+                "sqlite",
+                "apsw",
+            }:
+                values["state_directory"] = str(
+                    Path(database_path).expanduser().resolve().parent / "web-ingest"
+                )
         controls = WebIngestOptions.from_mapping(values)
-        return WebIngestApplication(lifecycle.library, controls, resume=resume).run().to_dict()
+        return (
+            WebIngestApplication(lifecycle.library, controls, resume=resume)
+            .run()
+            .to_dict()
+        )
 
 
 def run_conversion_job(
@@ -462,8 +515,8 @@ def run_conversion_job(
     Run the native ebook converter with high-priority option recommendations and report output metadata.
 
     Paths expand home notation but are not resolved to absolute paths. Conversion
-    and output replacement policies belong to ``Plumber``; this wrapper supplies
-    no staging/rollback layer. A normal converter return need not mean an output
+    runs against a sibling staging file; the publication owner refuses to
+    overwrite a destination and checks cancellation before atomic publication. A normal converter return need not mean an output
     exists: the result records a post-run filesystem observation, not validation
     of ebook contents. Stat errors and conversion exceptions propagate.
 
@@ -483,24 +536,26 @@ def run_conversion_job(
 
     source = str(Path(input_path).expanduser())
     destination = str(Path(output_path).expanduser())
-    plumber = Plumber(source, destination, default_log)
-    recommendations = [
-        (str(name), value, OptionRecommendation.HIGH)
-        for name, value in dict(options or {}).items()
-    ]
-    if recommendations:
-        plumber.merge_ui_recommendations(recommendations)
-    plumber.run()
-    output = Path(destination)
+    from LiuXin_alpha.core.workflow_context import checkpoint
+    from LiuXin_alpha.file_formats.conversion.publication import publish_conversion
+
+    def convert(staging: str):
+        plumber = Plumber(source, staging, default_log)
+        recommendations = [
+            (str(name), value, OptionRecommendation.HIGH)
+            for name, value in dict(options or {}).items()
+        ]
+        if recommendations:
+            plumber.merge_ui_recommendations(recommendations)
+        plumber.run()
+        return {
+            "input_format": getattr(plumber, "input_fmt", None),
+            "output_format": getattr(plumber, "output_fmt", None),
+        }
+
     return {
         "input_path": source,
-        "output_path": destination,
-        "input_format": getattr(plumber, "input_fmt", None),
-        "output_format": getattr(plumber, "output_fmt", None),
-        "exists": output.exists(),
-        "size_bytes": (
-            output.stat().st_size if output.exists() and output.is_file() else None
-        ),
+        **publish_conversion(destination, convert, checkpoint=checkpoint),
     }
 
 
@@ -599,18 +654,22 @@ def backup_workflow_spec_from_mapping(payload: Mapping[str, Any]) -> Any:
                 expected_size=(
                     None
                     if raw.get("expected_size") is None
-                    else int(cast(Any, raw["expected_size"]))
+                    else integer_value(raw["expected_size"], "expected_size")
                 ),
                 expected_digest=expected_digest,
                 source_digital_asset_id=(
                     None
                     if raw.get("source_digital_asset_id") is None
-                    else int(cast(Any, raw["source_digital_asset_id"]))
+                    else integer_value(
+                        raw["source_digital_asset_id"], "source_digital_asset_id"
+                    )
                 ),
                 source_replica_id=(
                     None
                     if raw.get("source_asset_replica_id") is None
-                    else int(cast(Any, raw["source_asset_replica_id"]))
+                    else integer_value(
+                        raw["source_asset_replica_id"], "source_asset_replica_id"
+                    )
                 ),
             )
         )
@@ -630,9 +689,9 @@ def backup_workflow_spec_from_mapping(payload: Mapping[str, Any]) -> Any:
         workflow_kind=BackupWorkflowKind(str(payload["workflow_kind"])),
         output_target=reference(output_raw),
         sources=tuple(sources),
-        verify_after_build=bool(payload.get("verify_after_build", True)),
-        cleanup_staging_after_success=bool(
-            payload.get("cleanup_staging_after_success", False)
+        verify_after_build=boolean(payload, "verify_after_build", True),
+        cleanup_staging_after_success=boolean(
+            payload, "cleanup_staging_after_success", False
         ),
         staging_target=(None if staging_raw is None else reference(staging_raw)),
         options=options,
@@ -643,6 +702,7 @@ def run_squashfs_backup_job(
     *,
     database_path: str,
     db_type: str,
+    database_metadata: Mapping[str, Any] | None = None,
     workflow_spec: Mapping[str, Any],
     verify_after_build: bool = True,
     cleanup_staging_after_success: bool = False,
@@ -664,6 +724,7 @@ def run_squashfs_backup_job(
 
 
     :param database_path: Existing database location used for the storage-enabled library handle.
+    :param database_metadata: Captured target/schema and backend connection options.
     :param db_type: Library database driver selector.
     :param workflow_spec: Mapping decoded into a backup declaration before opening the library.
     :param verify_after_build: Effective verification flag, overriding the declaration after truth conversion.
@@ -695,6 +756,7 @@ def run_squashfs_backup_job(
     with _open_library_services(
         database_path=database_path,
         db_type=db_type,
+        database_metadata=database_metadata,
         create=False,
     ) as lifecycle:
         library = lifecycle.library
@@ -713,6 +775,7 @@ def run_publish_open_squashfs_store_job(
     *,
     database_path: str,
     db_type: str,
+    database_metadata: Mapping[str, Any] | None = None,
     store_id: int,
     output_archive: str | None = None,
     compression: str = "zstd",
@@ -737,6 +800,7 @@ def run_publish_open_squashfs_store_job(
 
 
     :param database_path: Existing database location containing the store and its designations.
+    :param database_metadata: Captured target/schema and backend connection options.
     :param db_type: Library database driver selector.
     :param store_id: Store row ID converted to an integer for publication.
     :param output_archive: Optional output path override; ``None`` lets publication use the store root.
@@ -754,6 +818,7 @@ def run_publish_open_squashfs_store_job(
     with _open_library_services(
         database_path=database_path,
         db_type=db_type,
+        database_metadata=database_metadata,
         create=False,
     ) as lifecycle:
         library = lifecycle.library
@@ -777,6 +842,7 @@ def run_publish_squashfs_files_job(
     *,
     database_path: str,
     db_type: str,
+    database_metadata: Mapping[str, Any] | None = None,
     file_ids: list[int],
     archive: str,
     store_name: str | None = None,
@@ -801,6 +867,7 @@ def run_publish_squashfs_files_job(
 
 
     :param database_path: Existing database location holding the source file rows.
+    :param database_metadata: Captured target/schema and backend connection options.
     :param db_type: Library database driver selector.
     :param file_ids: Ordered file row identifiers converted to integers for designation.
     :param archive: Archive path stringified for the library publication helper.
@@ -818,11 +885,12 @@ def run_publish_squashfs_files_job(
     with _open_library_services(
         database_path=database_path,
         db_type=db_type,
+        database_metadata=database_metadata,
         create=False,
     ) as lifecycle:
         library = lifecycle.library
         report = library.publish_squashfs_archive_from_file_ids(
-            file_ids=[int(value) for value in file_ids],
+            file_ids=[integer_value(value, "file_ids") for value in file_ids],
             archive_path=str(archive),
             store_name=store_name,
             compression=str(compression),
@@ -841,18 +909,18 @@ def run_persisted_backup_job(
     *,
     database_path: str,
     db_type: str,
+    database_metadata: Mapping[str, Any] | None = None,
     workflow_id: int,
 ) -> dict[str, Any]:
     """
     Resume a saved backup, checkpoint each returned step, and register only a complete artifact.
 
-    Saves the initial progress state, then each ``run_next`` result until terminal.
-    There is no worker-level timeout, external cancellation event, or no-progress
-    guard. Exceptions between a workflow effect and checkpoint save propagate;
-    this adapter does not atomically couple those operations or undo either one.
+    Saves each returned step in a serialized catalogue transaction. Cooperative
+    cancellation/deadline checks precede the next step. Exceptions between an
+    external effect and checkpoint save remain uncertain; they do not imply rollback.
 
     Complete results are registered with source links. Other terminal results are
-    recorded in the repository without raising merely because they are incomplete.
+    recorded in the repository and classified by the durable workflow handler.
     A registration that does not unpack to a dictionary becomes ``None`` in the
     response rather than raising a serialization error.
 
@@ -863,13 +931,14 @@ def run_persisted_backup_job(
 
 
     :param database_path: Existing database containing the durable workflow/checkpoint records.
+    :param database_metadata: Captured target/schema and backend connection options.
     :param db_type: Library database driver selector.
     :param workflow_id: Workflow row ID, integer-coerced for repository and registration calls.
     :return: Workflow ID, unpacked last checkpoint state, and optional registered-output dictionary.
     :raises RuntimeError: If no result payload was assembled before leaving the library context.
     """
 
-    from LiuXin_alpha.storage.api import WorkflowStatus
+    from LiuXin_alpha.storage.api import BackupWorkflowResult, WorkflowStatus
     from LiuXin_alpha.storage.backup import (
         BackupArtifactRegistry,
         BackupWorkflowRepository,
@@ -880,37 +949,58 @@ def run_persisted_backup_job(
     with _open_library_services(
         database_path=database_path,
         db_type=db_type,
+        database_metadata=database_metadata,
         create=False,
     ) as lifecycle:
         library = lifecycle.library
         repository = BackupWorkflowRepository(library.db)
         checkpoint = repository.load_checkpoint(int(workflow_id))
-        workflow = SquashfsBackupWorkflow.from_checkpoint(
-            checkpoint,
-            storage_manager=library.storage,
-        )
-        state = workflow.progress()
-        repository.save_checkpoint(int(workflow_id), state)
-        while not state.status.terminal:
-            state = workflow.run_next()
-            repository.save_checkpoint(int(workflow_id), state)
+        if checkpoint.status is WorkflowStatus.COMPLETE:
+            state = checkpoint
+            result = BackupWorkflowResult(
+                checkpoint.declaration,
+                checkpoint.status,
+                workflow_id=checkpoint.workflow_id,
+                output_artifact_reference=checkpoint.output_artifact_reference,
+                source_reports=checkpoint.source_reports,
+                completed_steps=checkpoint.completed_steps,
+                final_checkpoint=checkpoint,
+            )
+        else:
+            workflow = SquashfsBackupWorkflow.from_checkpoint(
+                checkpoint, storage_manager=library.storage
+            )
+            state = workflow.progress()
+            with library.db.macros.transaction(serialized=True):
+                repository.save_checkpoint(int(workflow_id), state)
+            while not state.status.terminal:
+                from LiuXin_alpha.core.workflow_context import (
+                    checkpoint as check_cancel,
+                )
+
+                check_cancel()
+                state = workflow.run_next()
+                with library.db.macros.transaction(serialized=True):
+                    repository.save_checkpoint(int(workflow_id), state)
+            result = workflow.run_to_completion()
 
         registered: dict[str, Any] | None = None
-        result = workflow.run_to_completion()
         if result.status is WorkflowStatus.COMPLETE:
-            registration = BackupArtifactRegistry(
-                library.db,
-                storage_manager=library.storage,
-            ).register_artifact(
-                int(workflow_id),
-                result,
-                link_sources=True,
-            )
+            with library.db.macros.transaction(serialized=True):
+                registration = BackupArtifactRegistry(
+                    library.db,
+                    storage_manager=library.storage,
+                ).register_artifact(
+                    int(workflow_id),
+                    result,
+                    link_sources=True,
+                )
             registered_plain = _plain(registration)
             if isinstance(registered_plain, dict):
                 registered = cast(dict[str, Any], registered_plain)
         else:
-            repository.record_result(int(workflow_id), result)
+            with library.db.macros.transaction(serialized=True):
+                repository.record_result(int(workflow_id), result)
 
         result_payload = {
             "workflow_id": int(workflow_id),
@@ -951,8 +1041,7 @@ def run_metadata_identify_job(
     :return: Result list with unpacked metadata/OPF bytes/cache flags, its count, and the collected log dump.
     """
 
-    from threading import Event
-
+    from LiuXin_alpha.core.workflow_context import Cancellation
     from LiuXin_alpha.metadata.facade import metadata_to_opf_bytes
     from LiuXin_alpha.metadata.web_sources.identify import identify
     from LiuXin_alpha.metadata.web_sources.worker import GUILog
@@ -960,7 +1049,7 @@ def run_metadata_identify_job(
     log = GUILog()  # type: ignore[no-untyped-call]
     results = identify(  # type: ignore[no-untyped-call]
         log,
-        Event(),
+        Cancellation(),
         title=title,
         authors=authors,
         identifiers=dict(identifiers or {}),
@@ -1013,13 +1102,18 @@ def run_metadata_cover_job(
     from LiuXin_alpha.metadata.web_sources.worker import GUILog
 
     log = GUILog()  # type: ignore[no-untyped-call]
+    from LiuXin_alpha.core.workflow_context import Cancellation, checkpoint
+
+    checkpoint()
     result = download_cover(
         log,
         title=title,
         authors=authors,
         identifiers=dict(identifiers or {}),
         timeout=float(timeout),
+        abort=Cancellation(),
     )
+    checkpoint()
     if result is None:
         return {"found": False, "cover": None, "log": log.dump()}
     plugin, width, height, image_format, data = result

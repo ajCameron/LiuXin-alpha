@@ -15,9 +15,9 @@ if TYPE_CHECKING:
     from LiuXin_alpha.databases.api.database_api.database_api import DatabaseAPI
 
 from collections import defaultdict
-from collections.abc import Callable
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from copy import deepcopy
-from typing import Any, Mapping, Optional, Sequence, cast
+from typing import Any, cast
 
 from LiuXin_alpha.caches.api.storage_cache_api.storage_tables_api.base_table_api import (
     TableMetadata,
@@ -128,7 +128,7 @@ class SchemaBackedLinkTable(
         self._by_src: dict[int, list[_CachedLinkRecord]] = {}
         self._by_dst: dict[int, list[_CachedLinkRecord]] = {}
         self._by_pair: dict[tuple[int, int], list[_CachedLinkRecord]] = {}
-        self._id_column: Optional[str] = None
+        self._id_column: str | None = None
         self._table_type = TableTypes.MANY_MANY
         self._priority = bool(link_spec.priority_link_col)
         self._typed = bool(link_spec.type_link_col)
@@ -242,7 +242,7 @@ class SchemaBackedLinkTable(
         )
 
     def _record_matches(
-        self, record: _CachedLinkRecord, type_filter: Optional[str]
+        self, record: _CachedLinkRecord, type_filter: str | None
     ) -> bool:
         """
         Apply an optional exact link-type restriction to one cached record.
@@ -451,7 +451,7 @@ class SchemaBackedLinkTable(
                 if priority_value is not None:
                     try:
                         priority = float(priority_value)
-                    except (TypeError, ValueError):
+                    except TypeError, ValueError:
                         priority = None
             link_type = None
             if self.link_spec.type_link_col:
@@ -520,12 +520,19 @@ class SchemaBackedLinkTable(
 
         self.read(db)
 
+    def linked_source_ids(self) -> Iterable[int]:
+        """Return source keys with physical links, including dangling endpoints.
+
+        Consumers hold the cache facade lock while traversing this snapshot index.
+        """
+        return self._by_src.keys()
+
     def _records_for_src(
         self,
         src_id: int,
         *,
         require_ordering: bool = False,
-        type_filter: Optional[str] = None,
+        type_filter: str | None = None,
     ) -> list[_CachedLinkRecord]:
         """
         Filter and order cached records for one source ID.
@@ -556,7 +563,7 @@ class SchemaBackedLinkTable(
         dst_id: int,
         *,
         require_ordering: bool = False,
-        type_filter: Optional[str] = None,
+        type_filter: str | None = None,
     ) -> list[_CachedLinkRecord]:
         """
         Filter and order cached records for one destination ID.
@@ -587,7 +594,7 @@ class SchemaBackedLinkTable(
         src_id: int,
         dst_id: int,
         *,
-        type_filter: Optional[str] = None,
+        type_filter: str | None = None,
     ) -> list[_CachedLinkRecord]:
         """
         Filter and order cached records for one directed endpoint pair.
@@ -665,7 +672,7 @@ class SchemaBackedLinkTable(
         records: Sequence[_CachedLinkRecord],
         *,
         insist_on_singular: bool = True,
-    ) -> Optional[_CachedLinkRecord]:
+    ) -> _CachedLinkRecord | None:
         """
         Return an optional first record while enforcing singularity when requested.
 
@@ -688,7 +695,7 @@ class SchemaBackedLinkTable(
             raise RuntimeError(f"Expected one link row, found {len(records)}")
         return records[0]
 
-    def _src_row(self, src_id: int) -> Optional[Row]:
+    def _src_row(self, src_id: int) -> Row | None:
         """
         Read a source Row only when its main-table cache contains the ID.
 
@@ -708,7 +715,7 @@ class SchemaBackedLinkTable(
             return None
         return self._src_table.get_row(src_id)
 
-    def _dst_row(self, dst_id: int) -> Optional[Row]:
+    def _dst_row(self, dst_id: int) -> Row | None:
         """
         Read a destination Row only when its main-table cache contains the ID.
 
@@ -732,7 +739,7 @@ class SchemaBackedLinkTable(
         self,
         src_id: int,
         dst_id: int,
-        type_filter: Optional[str] = None,
+        type_filter: str | None = None,
     ) -> bool:
         """
         Test whether any cached row matches a directed endpoint pair.
@@ -753,7 +760,7 @@ class SchemaBackedLinkTable(
     def has_src(
         self,
         dst_id: int,
-        type_filter: Optional[str] = None,
+        type_filter: str | None = None,
     ) -> bool:
         """
         Test whether the given destination has any accepted source links.
@@ -776,7 +783,7 @@ class SchemaBackedLinkTable(
     def has_dst(
         self,
         src_id: int,
-        type_filter: Optional[str] = None,
+        type_filter: str | None = None,
     ) -> bool:
         """
         Test whether the given source has any accepted destination links.
@@ -799,7 +806,7 @@ class SchemaBackedLinkTable(
     def has_dsts(
         self,
         src_id: int,
-        type_filter: Optional[str] = None,
+        type_filter: str | None = None,
     ) -> bool:
         """
         Test whether the given source has any accepted destination links.
@@ -822,7 +829,7 @@ class SchemaBackedLinkTable(
     def has_srcs(
         self,
         dst_id: int,
-        type_filter: Optional[str] = None,
+        type_filter: str | None = None,
     ) -> bool:
         """
         Test whether the given destination has any accepted source links.
@@ -847,8 +854,8 @@ class SchemaBackedLinkTable(
         src_id: int,
         dst_id: int,
         insist_on_singular: bool = True,
-        type_filter: Optional[str] = None,
-    ) -> Optional[Any]:
+        type_filter: str | None = None,
+    ) -> Any | None:
         """
         Return one optional link value for a directed pair.
 
@@ -906,8 +913,8 @@ class SchemaBackedLinkTable(
     def get_link_for_src(
         self,
         src_id: int,
-        type_filter: Optional[str] = None,
-    ) -> Optional[Any]:
+        type_filter: str | None = None,
+    ) -> Any | None:
         """
         Project one optional source-selected link record.
 
@@ -937,7 +944,7 @@ class SchemaBackedLinkTable(
         self,
         src_id: int,
         require_ordering: bool = False,
-        type_filter: Optional[str] = None,
+        type_filter: str | None = None,
     ) -> Sequence[Any]:
         """
         Project all source-selected link records.
@@ -966,8 +973,8 @@ class SchemaBackedLinkTable(
     def get_link_for_dst(
         self,
         dst_id: int,
-        type_filter: Optional[str] = None,
-    ) -> Optional[Any]:
+        type_filter: str | None = None,
+    ) -> Any | None:
         """
         Project one optional destination-selected link record.
 
@@ -997,7 +1004,7 @@ class SchemaBackedLinkTable(
         self,
         dst_id: int,
         require_ordering: bool = False,
-        type_filter: Optional[str] = None,
+        type_filter: str | None = None,
     ) -> Sequence[Any]:
         """
         Project all destination-selected link records.
@@ -1028,8 +1035,8 @@ class SchemaBackedLinkTable(
         src_id: int,
         dst_id: int,
         insist_on_singular: bool = True,
-        type_filter: Optional[str] = None,
-    ) -> Optional[Row]:
+        type_filter: str | None = None,
+    ) -> Row | None:
         """
         Return one optional link-row snapshot for a directed pair.
 
@@ -1087,8 +1094,8 @@ class SchemaBackedLinkTable(
     def get_link_row_for_src(
         self,
         src_id: int,
-        type_filter: Optional[str] = None,
-    ) -> Optional[Row]:
+        type_filter: str | None = None,
+    ) -> Row | None:
         """
         Project one optional source-selected link record.
 
@@ -1118,7 +1125,7 @@ class SchemaBackedLinkTable(
         self,
         src_id: int,
         require_ordering: bool = False,
-        type_filter: Optional[str] = None,
+        type_filter: str | None = None,
     ) -> Sequence[Row]:
         """
         Project all source-selected link records.
@@ -1147,8 +1154,8 @@ class SchemaBackedLinkTable(
     def get_link_row_for_dst(
         self,
         dst_id: int,
-        type_filter: Optional[str] = None,
-    ) -> Optional[Row]:
+        type_filter: str | None = None,
+    ) -> Row | None:
         """
         Project one optional destination-selected link record.
 
@@ -1178,7 +1185,7 @@ class SchemaBackedLinkTable(
         self,
         dst_id: int,
         require_ordering: bool = False,
-        type_filter: Optional[str] = None,
+        type_filter: str | None = None,
     ) -> Sequence[Row]:
         """
         Project all destination-selected link records.
@@ -1207,8 +1214,8 @@ class SchemaBackedLinkTable(
     def get_src_id(
         self,
         dst_id: int,
-        type_filter: Optional[str] = None,
-    ) -> Optional[int]:
+        type_filter: str | None = None,
+    ) -> int | None:
         """
         Read the unique optional source ID linked to a destination.
 
@@ -1235,7 +1242,7 @@ class SchemaBackedLinkTable(
         self,
         dst_id: int,
         require_ordering: bool = False,
-        type_filter: Optional[str] = None,
+        type_filter: str | None = None,
     ) -> Sequence[int]:
         """
         List linked source IDs in cached association order.
@@ -1263,8 +1270,8 @@ class SchemaBackedLinkTable(
     def get_src_row(
         self,
         dst_id: int,
-        type_filter: Optional[str] = None,
-    ) -> Optional[Row]:
+        type_filter: str | None = None,
+    ) -> Row | None:
         """
         Read the unique linked source Row when its main-table cache still contains it.
 
@@ -1291,7 +1298,7 @@ class SchemaBackedLinkTable(
         self,
         dst_id: int,
         require_ordering: bool = False,
-        type_filter: Optional[str] = None,
+        type_filter: str | None = None,
     ) -> Sequence[Row]:
         """
         Materialize linked source Rows and omit absent endpoint rows.
@@ -1323,7 +1330,7 @@ class SchemaBackedLinkTable(
         self,
         dst_id: int,
         src_column: str,
-        type_filter: Optional[str] = None,
+        type_filter: str | None = None,
     ) -> Any:
         """
         Project one column from the unique linked source row snapshot.
@@ -1355,7 +1362,7 @@ class SchemaBackedLinkTable(
         dst_id: int,
         src_column: str,
         require_ordering: bool = False,
-        type_filter: Optional[str] = None,
+        type_filter: str | None = None,
     ) -> Sequence[Any]:
         """
         Project a column from each linked source row snapshot in link order.
@@ -1387,7 +1394,7 @@ class SchemaBackedLinkTable(
         dst_value: Any,
         dst_column: str,
         require_ordering: bool = False,
-        type_filter: Optional[str] = None,
+        type_filter: str | None = None,
     ) -> Sequence[int]:
         """
         Find source IDs linked to opposite-table rows matching a column value.
@@ -1422,7 +1429,7 @@ class SchemaBackedLinkTable(
         dst_value: Any,
         dst_column: str,
         require_ordering: bool = False,
-        type_filter: Optional[str] = None,
+        type_filter: str | None = None,
     ) -> Sequence[Row]:
         """
         Materialize source Rows linked to opposite-table value matches.
@@ -1458,8 +1465,8 @@ class SchemaBackedLinkTable(
     def get_dst_id(
         self,
         src_id: int,
-        type_filter: Optional[str] = None,
-    ) -> Optional[int]:
+        type_filter: str | None = None,
+    ) -> int | None:
         """
         Read the unique optional destination ID linked to a source.
 
@@ -1486,7 +1493,7 @@ class SchemaBackedLinkTable(
         self,
         src_id: int,
         require_ordering: bool = False,
-        type_filter: Optional[str] = None,
+        type_filter: str | None = None,
     ) -> Sequence[int]:
         """
         List linked destination IDs in cached association order.
@@ -1514,8 +1521,8 @@ class SchemaBackedLinkTable(
     def get_dst_row(
         self,
         src_id: int,
-        type_filter: Optional[str] = None,
-    ) -> Optional[Row]:
+        type_filter: str | None = None,
+    ) -> Row | None:
         """
         Read the unique linked destination Row when its main-table cache still contains it.
 
@@ -1542,7 +1549,7 @@ class SchemaBackedLinkTable(
         self,
         src_id: int,
         require_ordering: bool = False,
-        type_filter: Optional[str] = None,
+        type_filter: str | None = None,
     ) -> Sequence[Row]:
         """
         Materialize linked destination Rows and omit absent endpoint rows.
@@ -1574,7 +1581,7 @@ class SchemaBackedLinkTable(
         self,
         src_id: int,
         dst_column: str,
-        type_filter: Optional[str] = None,
+        type_filter: str | None = None,
     ) -> Any:
         """
         Project one column from the unique linked destination row snapshot.
@@ -1606,7 +1613,7 @@ class SchemaBackedLinkTable(
         src_id: int,
         dst_column: str,
         require_ordering: bool = False,
-        type_filter: Optional[str] = None,
+        type_filter: str | None = None,
     ) -> Sequence[Any]:
         """
         Project a column from each linked destination row snapshot in link order.
@@ -1638,7 +1645,7 @@ class SchemaBackedLinkTable(
         src_value: Any,
         src_column: str,
         require_ordering: bool = False,
-        type_filter: Optional[str] = None,
+        type_filter: str | None = None,
     ) -> Sequence[int]:
         """
         Find destination IDs linked to opposite-table rows matching a column value.
@@ -1673,7 +1680,7 @@ class SchemaBackedLinkTable(
         src_value: Any,
         src_column: str,
         require_ordering: bool = False,
-        type_filter: Optional[str] = None,
+        type_filter: str | None = None,
     ) -> Sequence[Row]:
         """
         Materialize destination Rows linked to opposite-table value matches.
@@ -1776,9 +1783,9 @@ class SchemaBackedLinkTable(
     def _delete_matching_records(
         self,
         *,
-        src_ids: Optional[set[int]] = None,
-        dst_ids: Optional[set[int]] = None,
-        row_ids: Optional[set[int]] = None,
+        src_ids: set[int] | None = None,
+        dst_ids: set[int] | None = None,
+        row_ids: set[int] | None = None,
     ) -> None:
         """
         Delete physical row IDs selected from cached records by any supplied criterion.
@@ -1856,7 +1863,7 @@ class SchemaBackedLinkTable(
 
     def _find_existing_pair_row(
         self, src_id: int, dst_id: int
-    ) -> Optional[dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """
         Deep-copy the first cached row payload for a directed pair.
 
@@ -1884,7 +1891,7 @@ class SchemaBackedLinkTable(
         src_id: int,
         dst_id: int,
         *,
-        updates: Optional[Mapping[str, Any]] = None,
+        updates: Mapping[str, Any] | None = None,
     ) -> None:
         """
         Apply cardinality deletions then add or update a pair using cached existence.
@@ -1933,7 +1940,7 @@ class SchemaBackedLinkTable(
         self,
         src_id: int,
         dst_id: int,
-        column: Optional[str],
+        column: str | None,
         value: Any,
     ) -> None:
         """

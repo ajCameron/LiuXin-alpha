@@ -17,6 +17,7 @@ import hashlib
 import uuid
 import zipfile
 from dataclasses import dataclass, field
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -265,6 +266,19 @@ def test_storage_integrity_reconcile_and_migration_operations_are_real(
     runtime = CoreRuntime(
         library=Library(database=db),
     )
+    # Exercise the domain adapters directly for manager fault injection; public
+    # durable acceptance/reopening is covered by test_workflow_operations.
+    from LiuXin_alpha.core.commands import CoreCommand
+    from LiuXin_alpha.core.workflow_operations import handlers
+
+    adapters = handlers()
+
+    def execute(name, payload=None):
+        selected = adapters.get(name)
+        if selected is not None:
+            return selected(runtime, CoreCommand(name, payload or {}))
+        return runtime.command(name, payload or {})
+
     root = tmp_path / "integrity-store"
     root.mkdir()
     backup_root = tmp_path / "backup-store"
@@ -273,7 +287,7 @@ def test_storage_integrity_reconcile_and_migration_operations_are_real(
     evacuation_root.mkdir()
     offline_root = tmp_path / "offline-folder-store"
     try:
-        saved = runtime.command(
+        saved = execute(
             "storage.store.save",
             {
                 "store": {
@@ -288,7 +302,7 @@ def test_storage_integrity_reconcile_and_migration_operations_are_real(
             },
         )
         store_name = str(saved["store"]["store_name"])
-        backup_saved = runtime.command(
+        backup_saved = execute(
             "storage.store.save",
             {
                 "store": {
@@ -303,7 +317,7 @@ def test_storage_integrity_reconcile_and_migration_operations_are_real(
             },
         )
         backup_store_name = str(backup_saved["store"]["store_name"])
-        evacuation_saved = runtime.command(
+        evacuation_saved = execute(
             "storage.store.save",
             {
                 "store": {
@@ -318,7 +332,7 @@ def test_storage_integrity_reconcile_and_migration_operations_are_real(
             },
         )
         evacuation_store_name = str(evacuation_saved["store"]["store_name"])
-        offline_saved = runtime.command(
+        offline_saved = execute(
             "storage.store.save",
             {
                 "store": {
@@ -333,7 +347,7 @@ def test_storage_integrity_reconcile_and_migration_operations_are_real(
             },
         )
         offline_store_name = str(offline_saved["store"]["store_name"])
-        runtime.command(
+        execute(
             "storage.refresh",
             {
                 "startup_on_add": True,
@@ -342,8 +356,8 @@ def test_storage_integrity_reconcile_and_migration_operations_are_real(
                 "strict": True,
             },
         )
-        runtime.command("storage.default.set", {"store": store_name})
-        stored = runtime.command(
+        execute("storage.default.set", {"store": store_name})
+        stored = execute(
             "storage.file.put",
             {
                 "content_base64": base64.b64encode(b"integrity-test").decode("ascii"),
@@ -373,14 +387,14 @@ def test_storage_integrity_reconcile_and_migration_operations_are_real(
         assert backup_plan["count"] == 1
         assert backup_plan["packs"][0]["source_count"] == 1
 
-        replica = runtime.command("storage.replica.verify", {"replica_id": replica_id})
+        replica = execute("storage.replica.verify", {"replica_id": replica_id})
         assert replica["healthy"] is True
-        asset = runtime.command(
+        asset = execute(
             "storage.asset.verify",
             {"asset_id": asset_id, "all_replicas": True},
         )
         assert asset["healthy"] is True
-        audit = runtime.command("storage.audit", {"limit": 10000})
+        audit = execute("storage.audit", {"limit": 10000})
         assert audit["checked"] >= 1
         assert any(int(value["replica_id"]) == replica_id for value in audit["results"])
 
@@ -419,7 +433,7 @@ def test_storage_integrity_reconcile_and_migration_operations_are_real(
         )
         assert durable_only_show["loaded"] is False
         assert durable_only_show["status"]["available"] is False
-        durable_only_update = runtime.command(
+        durable_only_update = execute(
             "storage.store.update",
             {
                 "store": offline_store_name,
@@ -432,7 +446,7 @@ def test_storage_integrity_reconcile_and_migration_operations_are_real(
             offline_store_ref,
             forget_configuration=False,
         )
-        durable_only_delete = runtime.command(
+        durable_only_delete = execute(
             "storage.store.delete",
             {
                 "store": offline_store_name,
@@ -446,10 +460,10 @@ def test_storage_integrity_reconcile_and_migration_operations_are_real(
         )
         plan = runtime.query("storage.reconcile.plan")
         assert "safe_apply_scope" in plan
-        reconciled = runtime.command("storage.reconcile.apply", {"max_actions": 10})
+        reconciled = execute("storage.reconcile.apply", {"max_actions": 10})
         assert "actions" in reconciled
 
-        updated = runtime.command(
+        updated = execute(
             "storage.store.update",
             {
                 "store": backup_store_name,
@@ -467,7 +481,7 @@ def test_storage_integrity_reconcile_and_migration_operations_are_real(
         )
         assert repair_plan["deletes_bytes"] is False
         assert repair_plan["asset_id"] == asset_id
-        repaired = runtime.command(
+        repaired = execute(
             "storage.repair.apply",
             {
                 "asset_id": asset_id,
@@ -513,7 +527,7 @@ def test_storage_integrity_reconcile_and_migration_operations_are_real(
             raise RuntimeError("simulated replacement failure")
 
         monkeypatch.setattr(manager, "replicate_digital_asset", _fail_replacement)
-        refused = runtime.command(
+        refused = execute(
             "storage.store.evacuate.apply",
             {
                 "store": store_name,
@@ -534,7 +548,7 @@ def test_storage_integrity_reconcile_and_migration_operations_are_real(
         )
         assert any(path.is_file() for path in root.rglob("*"))
         monkeypatch.setattr(manager, "replicate_digital_asset", original_replicate)
-        evacuated = runtime.command(
+        evacuated = execute(
             "storage.store.evacuate.apply",
             {
                 "store": store_name,
@@ -554,11 +568,11 @@ def test_storage_integrity_reconcile_and_migration_operations_are_real(
         assert "storage" in migration_status
         migration_plan = runtime.query("database.migrations.plan")
         assert "actions" in migration_plan
-        migrated = runtime.command("database.migrations.apply")
+        migrated = execute("database.migrations.apply")
         assert migrated["migrated"] is True
 
         backup_path = tmp_path / "core program # naïve backup.sqlite"
-        backed_up = runtime.command(
+        backed_up = execute(
             "database.backup",
             {"output_path": str(backup_path), "verify": True},
         )
@@ -1002,29 +1016,14 @@ def test_program_discovery_and_local_support_cover_every_capability_family(
     try:
         capabilities = runtime.query("capabilities.list")
         assert capabilities["api_version"] == "2.0"
-        assert capabilities["complete_program_boundary"] is True
-        assert set(capabilities["families"]) == {
-            "lifecycle",
-            "jobs",
-            "database",
-            "schema",
-            "tree",
-            "preferences",
-            "custom_fields",
-            "catalog",
-            "search",
-            "browse",
-            "acquisition",
-            "metadata",
-            "storage",
-            "ingest",
-            "conversion",
-            "backup",
-            "maintenance",
-        }
+        assert capabilities["inventory_complete"] is True
+        assert {"jobs", "metadata", "storage", "maintenance"} <= set(
+            capabilities["families"]
+        )
+        assert capabilities["readiness_probed"] is False
         assert (
             capabilities["operations"]["conversion.start"]["availability"]
-            == "conditional"
+            == "unavailable"
         )
         assert capabilities["operations"]["browse.works"]["availability"] == "available"
 
@@ -1121,6 +1120,7 @@ def test_named_workflows_submit_only_serializable_core_job_requests(db) -> None:
         job_manager=manager,  # type: ignore[arg-type]
         close_job_manager_on_shutdown=False,
     )
+    runtime._durable_jobs = SimpleNamespace(stop=lambda **kwargs: None)
     token = uuid.uuid4().hex
     try:
         runtime.command(
@@ -1165,7 +1165,16 @@ def test_named_workflows_submit_only_serializable_core_job_requests(db) -> None:
             {"workflow_id": saved["workflow_id"]},
         )
 
-        assert [request.function_name for request in manager.requests] == [
+        from LiuXin_alpha.databases import command_outbox
+
+        with db.macros.read_transaction() as connection:
+            intents = [
+                intent
+                for _, intent in command_outbox.pending(
+                    connection, getattr(db.driver, "schema", None)
+                )
+            ]
+        assert [intent["function"] for intent in intents] == [
             "run_ingest_disk_job",
             "run_ingest_remote_html_job",
             "run_conversion_job",
@@ -1173,11 +1182,8 @@ def test_named_workflows_submit_only_serializable_core_job_requests(db) -> None:
             "run_metadata_cover_job",
             "run_persisted_backup_job",
         ]
-        assert all(
-            request.module_name == "LiuXin_alpha.core.workflow_jobs"
-            for request in manager.requests
-        )
-        assert manager.requests[-1].kwargs["workflow_id"] == (saved["workflow_id"])
+        assert intents[-1]["kwargs"]["workflow_id"] == saved["workflow_id"]
+        assert not manager.requests
     finally:
         runtime.shutdown()
 

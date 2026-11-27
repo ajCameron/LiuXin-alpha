@@ -12,10 +12,10 @@ import json
 
 import pytest
 
+from LiuXin_alpha.core.store_registration import register_native_html_readonly_with_database_path
 from LiuXin_alpha.ingest.remote_html import (
     ensure_native_html_readonly_store,
     register_native_html_readonly_store_files,
-    register_native_html_readonly_with_database_path,
 )
 from LiuXin_alpha.storage.store_backend_plugins.native_html_readonly import (
     native_html_storage_backend as backend_module,

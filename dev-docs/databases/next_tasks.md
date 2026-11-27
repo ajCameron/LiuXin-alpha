@@ -401,3 +401,25 @@ follow-up addresses the first two measured sources of overhead:
    creation is corrected; index migration deliberately does not perform this DDL.
 4. Consider native indexed normalized search on PostgreSQL, preserving the exact
    shared text/identifier semantics before advertising the capability.
+
+## PostgreSQL language constants — 2026-11-24
+
+**Implementation follow-up, 2026-11-25:** new PostgreSQL catalogues now use the
+same ISO-639 constants as SQLite. The PostgreSQL catalogue upgrade includes an
+explicit additive language-data plan, preserving existing IDs and references and
+refusing stale/conflicting plans. Native reads remain passive. The Core
+[recovery completion evidence](../core/recovery-completion-2026-11-25.md) records
+the active backend acceptance; the original finding below is historical.
+
+**Open database-bootstrap follow-up.** Core's
+[native metadata acceptance](../core/review-and-completion-plan-2026-11-23.md#native-metadata-completion-follow-up)
+confirmed that fresh PostgreSQL schemas create `languages` without the ISO-639
+constants supplied by SQLite creation. The read-only API correctly returns the
+stored empty list; its tests load explicit fixture data for subsequent reads.
+
+Seed constants through database creation and define an explicit upgrade/repair
+policy for existing catalogues. Preserve stable IDs, existing language references,
+user data and restore behavior; test fresh creation, repeat application, partially
+populated tables, conflicts and rollback. Core/cache queries must remain reads.
+This is separate from the completed native metadata transport interface and does
+not establish default language-data parity between backends.

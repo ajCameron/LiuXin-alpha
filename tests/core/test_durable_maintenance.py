@@ -7,6 +7,7 @@ from LiuXin_alpha.core.factory import create_core
 def test_core_rebuilds_historical_works_through_existing_jobs(tmp_path):
     path = tmp_path / "rebuild.sqlite"
     with create_core(
+        start_jobs=False,
         database_path=path,
         create=True,
         enable_storage_manager=False,
@@ -20,6 +21,7 @@ def test_core_rebuilds_historical_works_through_existing_jobs(tmp_path):
         assert first["scheduled_this_call"] == 1
         assert not list(tmp_path.glob("*.jobs.sqlite"))
     with create_core(
+        start_jobs=False,
         database_path=path,
         enable_storage_manager=False,
         enable_maintenance=False,
@@ -48,6 +50,7 @@ def test_core_retires_completed_job_history_without_starting_polling(
     from LiuXin_alpha.core import maintenance_history
 
     with create_core(
+        start_jobs=False,
         database_path=tmp_path / "history.sqlite",
         create=True,
         enable_storage_manager=False,
@@ -73,6 +76,7 @@ def test_core_installs_pauses_retries_and_drains_without_storage_manager(
 ):
     path = tmp_path / "catalog.sqlite"
     with create_core(
+        start_jobs=False,
         database_path=path,
         create=True,
         enable_storage_manager=False,
@@ -138,6 +142,7 @@ def test_core_previews_upgrades_and_republishes_pending_work(tmp_path, monkeypat
 
     path = tmp_path / "upgrade.sqlite"
     with create_core(
+        start_jobs=False,
         database_path=path,
         create=True,
         enable_storage_manager=False,
@@ -152,6 +157,7 @@ def test_core_previews_upgrades_and_republishes_pending_work(tmp_path, monkeypat
 
     monkeypatch.setattr(maintenance, "WorkSummaryPlugin", NewSummary)
     with create_core(
+        start_jobs=False,
         database_path=path,
         enable_storage_manager=False,
         enable_maintenance=False,
@@ -206,6 +212,7 @@ def test_drain_refills_after_dependency_layer_without_republishing_each_job(
 
     monkeypatch.setattr(maintenance, "catalog_maintenance", attach)
     with create_core(
+        start_jobs=False,
         database_path=tmp_path / "pages.sqlite",
         create=True,
         enable_storage_manager=False,
@@ -244,6 +251,7 @@ def test_drain_refills_after_dependency_layer_without_republishing_each_job(
 def test_readonly_core_status_after_restart_does_not_start_worker(tmp_path):
     path = tmp_path / "catalog.sqlite"
     with create_core(
+        start_jobs=False,
         database_path=path,
         create=True,
         enable_storage_manager=False,
@@ -252,7 +260,10 @@ def test_readonly_core_status_after_restart_does_not_start_worker(tmp_path):
         core.command("maintenance.run", {"action": "install"})
         core.catalog.works.create({"title": "waiting"})
     with create_core(
-        database_path=path, enable_storage_manager=False, enable_maintenance=False
+        start_jobs=False,
+        database_path=path,
+        enable_storage_manager=False,
+        enable_maintenance=False,
     ) as reopened:
         assert reopened.query("maintenance.status")["pending"]
         assert reopened.durable_jobs._thread is None
@@ -267,6 +278,7 @@ def test_long_lived_polling_picks_up_later_commits(tmp_path):
 
     path = tmp_path / "catalog.sqlite"
     with create_core(
+        start_jobs=False,
         database_path=path,
         create=True,
         enable_storage_manager=False,
@@ -299,6 +311,7 @@ def test_live_postgres_core_reopens_and_delivers_through_the_jobs_service(tmp_pa
     cleanup = connect_postgres(metadata, prompt_for_password=False)
     try:
         with create_core(
+            start_jobs=False,
             database_path=url,
             db_type="PostgreSQL",
             database_metadata=metadata,
@@ -326,6 +339,7 @@ def test_maintenance_drain_leaves_older_storage_audit_queued(tmp_path):
     from LiuXin_alpha.jobs.models import JobDefinition, JobRunState
 
     with create_core(
+        start_jobs=False,
         database_path=tmp_path / "catalog.sqlite",
         create=True,
         enable_storage_manager=False,
@@ -359,17 +373,17 @@ def test_maintenance_drain_leaves_older_storage_audit_queued(tmp_path):
 def test_selective_cleanup_reports_unavailable_and_preserves_rows(tmp_path):
     import pytest
 
-    from LiuXin_alpha.core.errors import CoreHandlerError
+    from LiuXin_alpha.core.errors import CoreDispatchError
 
     with create_core(
+        start_jobs=False,
         database_path=tmp_path / "catalog.sqlite",
         create=True,
         enable_storage_manager=False,
         enable_maintenance=True,
     ) as core:
         work_id = core.catalog.works.create({"title": "must remain"})
-        with pytest.raises(CoreHandlerError) as failure:
+        with pytest.raises(CoreDispatchError) as failure:
             core.command("maintenance.clean", {"table": "works", "row_ids": [work_id]})
-        assert failure.value.code == "capability_unavailable"
-        assert "no rows were changed" in str(failure.value)
+        assert "Unknown command handler" in str(failure.value)
         assert core.catalog.works.get(work_id) is not None

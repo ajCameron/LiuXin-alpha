@@ -197,10 +197,15 @@ class _Core:
             raise outcome
         if name == "acquisition.resolve":
             return dict(outcome)
-        if name == "acquisition.read":
+        if name == "acquisition.read-range":
             return {
                 "resource": dict(outcome),
                 "content": self.contents[resource_id],
+                "offset": 0,
+                "next_offset": len(self.contents[resource_id]),
+                "total_bytes": len(self.contents[resource_id]),
+                "complete": True,
+                "version": "fixture",
             }
         raise AssertionError(f"Unexpected Core query: {name}")
 
@@ -427,7 +432,10 @@ def test_storage_resolution_returns_a_core_backed_file() -> None:
     assert stored.read_bytes() == b"cover-bytes"
     assert core.queries == [
         ("acquisition.resolve", {"kind": "image", "id": 7}),
-        ("acquisition.read", {"kind": "image", "id": 7}),
+        (
+            "acquisition.read-range",
+            {"kind": "image", "id": 7, "offset": 0, "length": 1024 * 1024},
+        ),
     ]
 
 

@@ -83,7 +83,8 @@ class DriverSearchMixinAPI(abc.ABC):
         Abstract backend hook. The behavior below describes the shared SQL/SQLite
         implementation; this declaration itself has no operational body.
 
-        Close the query connection after successful iteration. Use only when
+        Borrow an active managed transaction to share its snapshot and writes;
+        otherwise own and close a short query connection. Use only when
         materializing the whole table is acceptable.
 
         Example:

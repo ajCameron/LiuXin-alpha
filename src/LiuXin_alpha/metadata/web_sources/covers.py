@@ -53,12 +53,18 @@ def _iter_cover_plugins():
     try:
         from LiuXin_alpha.plugins.application import metadata_plugins
     except Exception as err:
-        default_log.log_exception("Unable to import metadata_plugins for cover download.", err, "DEBUG")
+        default_log.log_exception(
+            "Unable to import metadata_plugins for cover download.", err, "DEBUG"
+        )
         return []
     try:
-        return [plugin for plugin in metadata_plugins(["cover"]) if plugin.is_configured()]
+        return [
+            plugin for plugin in metadata_plugins(["cover"]) if plugin.is_configured()
+        ]
     except Exception as err:
-        default_log.log_exception("Failed to enumerate cover metadata plugins.", err, "DEBUG")
+        default_log.log_exception(
+            "Failed to enumerate cover metadata plugins.", err, "DEBUG"
+        )
         return []
 
 
@@ -94,6 +100,7 @@ class Worker(Thread):
 
             python -m pytest -q tests/metadata/web_sources/test_web_sources_covers.py
     """
+
     def __init__(
         self,
         plugin,
@@ -227,7 +234,7 @@ def run_download(
     abort: Event,
     title=None,
     authors=None,
-    identifiers={},
+    identifiers=None,
     timeout: float = 30,
     get_best_cover: bool = False,
 ):
@@ -256,6 +263,7 @@ def run_download(
     if authors == [_("Unknown")]:
         authors = None
 
+    identifiers = {} if identifiers is None else identifiers
     plugins = _iter_cover_plugins()
     raw_queue = Queue()
 
@@ -348,7 +356,9 @@ def run_download(
             log("\n" + "*" * 80)
 
 
-def download_cover(log, title=None, authors=None, identifiers={}, timeout: float = 30):
+def download_cover(
+    log, title=None, authors=None, identifiers=None, timeout: float = 30, *, abort=None
+):
     """
     Synchronous cover download.
 
@@ -366,8 +376,9 @@ def download_cover(log, title=None, authors=None, identifiers={}, timeout: float
     :param timeout: Maximum duration in seconds for the network or worker operation.
     :return: None.
     """
+    identifiers = {} if identifiers is None else identifiers
     result_queue = Queue()
-    abort = Event()
+    abort = Event() if abort is None else abort
     run_download(
         log,
         result_queue,

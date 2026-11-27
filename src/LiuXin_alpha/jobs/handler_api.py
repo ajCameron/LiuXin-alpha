@@ -13,6 +13,7 @@ Example:
 from __future__ import annotations
 
 import dataclasses
+import time
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any
 
@@ -26,6 +27,27 @@ class JobCancelled(RuntimeError):
     """A handler acknowledged cancellation at a cooperative checkpoint."""
 
 
+class JobDeadlineExceeded(RuntimeError):
+    """An executor acknowledged its captured deadline; prior effects may remain."""
+
+    def __init__(self, message: str, result: dict[str, Any] | None = None):
+        super().__init__(message)
+        self.result = result
+
+
+class JobOutcomeFailure(RuntimeError):
+    """Preserve a domain's partial-effect receipt when its workflow did not succeed."""
+
+    def __init__(
+        self, message: str, result: dict[str, Any], *, cancelled: bool = False
+    ):
+        super().__init__(message)
+        import json
+
+        self.result = json.loads(json.dumps(result, allow_nan=False))
+        self.cancelled = cancelled
+
+
 class JobHandlerAPI(ABC):
     """
     Runtime handler for one durable job kind.
@@ -37,6 +59,16 @@ class JobHandlerAPI(ABC):
     """
 
     job_kind: str
+
+    guarded_execution = False
+
+    def execution_key(self, payload_json: str) -> str | None:
+        """Optionally exclude different commands operating on one durable domain object."""
+        return None
+
+    def can_resume(self, payload_json: str) -> bool:
+        """Return true only when repeating captured intent is safe for this domain."""
+        return False
 
     @abstractmethod
     def validate_payload(self, payload_json: str) -> None:
@@ -96,6 +128,7 @@ class JobRunContext:
     started_timestamp_ep_k: int
     lease_token: str
     lease_for_s: float = 60.0
+    deadline_monotonic: float | None = None
 
     def heartbeat(self, message: str | None = None) -> None:
         """
@@ -155,11 +188,23 @@ class JobRunContext:
         run = self.repository.check_claim(
             self.job_run_id, worker_id=self.worker_id, lease_token=self.lease_token
         )
-        return bool(run.cancel_requested)
+        return bool(run.cancel_requested) or self.deadline_exceeded()
+
+    def deadline_exceeded(self) -> bool:
+        """Observe the attempt's monotonic execution deadline without changing state."""
+        return (
+            self.deadline_monotonic is not None
+            and time.monotonic() >= self.deadline_monotonic
+        )
 
     def raise_if_cancel_requested(self) -> None:
         """Acknowledge cancellation before the next domain effect or checkpoint."""
-        if self.is_cancel_requested():
+        cancelled = self.is_cancel_requested()
+        if self.deadline_exceeded():
+            raise JobDeadlineExceeded(
+                "Execution deadline reached at a handler checkpoint; inspect prior effects"
+            )
+        if cancelled:
             raise JobCancelled("Cancelled at a handler checkpoint")
 
     def log(self, message: str, *, event_json: str | None = None) -> None:

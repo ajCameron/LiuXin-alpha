@@ -172,6 +172,10 @@ describes environment-dependent checks.
 Remote inventory is also distinct from downloading and verifying content.
 The retained [reconciliation helpers](../src/LiuXin_alpha/storage/reconcile/)
 and `Library.register_*_store` routes include legacy `files` registration.
+They borrow an open graph. Path-based registration now lives in
+[`core.store_registration`](../src/LiuXin_alpha/core/store_registration.py), with
+the standalone command in `surfaces.cli.store_registration`; see the
+[migration contract](architectural_reviews/lifecycle-opening-path-review-2026-10-09.md#registration-caller-migration).
 Those rows are not interchangeable with a complete modern Asset/Replica graph.
 Use [mixed ingest](storage_and_backup/mixed_ingest_operations.md) for acquisition
 budgets and resumption, and [terminal composition](surfaces/terminal/terminal-composition.md)
