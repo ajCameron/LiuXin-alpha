@@ -675,6 +675,25 @@ class ContentWorkflowsHandlers(Protocol):
         """
         ...
 
+    def ingest_metadata_plan_start(
+        self, runtime: CoreRuntime, command: CoreCommand
+    ) -> Mapping[str, object]:
+        """
+        Submit a read-only plan of the books a Store's unattached files would add.
+
+        See :func:`LiuXin_alpha.core.program_services.ingest.ingest_metadata_plan_start`
+        for the maintained implementation's validation and failure boundaries.
+
+        Example:
+            >>> result = handler.ingest_metadata_plan_start(runtime, command)  # doctest: +SKIP
+
+
+        :param runtime: Runtime supplying a path-backed database identity and job manager.
+        :param command: Command with store_id and optional extensions, limit, max_file_mb, report_path and progress_output.
+        :return: run_ingest_metadata_plan_job submission receipt.
+        """
+        ...
+
     def ingest_remote_html_start(
         self, runtime: CoreRuntime, command: CoreCommand
     ) -> Mapping[str, object]:

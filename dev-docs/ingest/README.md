@@ -14,6 +14,7 @@ See [next tasks](next_tasks.md).
 | [ingest.remote_html](../../src/LiuXin_alpha/ingest/remote_html.py) | Composes remote discovery and registers discovered addresses/files. | Registration is not a byte download or an all-crawl transaction. |
 | [ingest.web](../../src/LiuXin_alpha/ingest/web) | Records remote candidates and optionally acquires verified copies through managed storage. | Registration creates no placeholder Assets; durable capture receipts distinguish observations from retained bytes. |
 | [ingest.sources](../../src/LiuXin_alpha/ingest/sources) | Native/wget discovery adapters and shared crawl policy. | Discovered hints remain untrusted input. |
+| [ingest.embedded_metadata](../../src/LiuXin_alpha/ingest/embedded_metadata) | Reads a synced Store's unattached files and plans, without writing, the books their embedded metadata would add. | A dry run only; the write phase is not built yet. See [embedded metadata](embedded-metadata.md). |
 | [ingest.adding](../../src/LiuXin_alpha/ingest/adding.py) | Retained filename grouping and legacy Calibre-style helpers. | Some integration paths reference absent metadata APIs; importability is not operational support. |
 
 ## Boundaries and recovery

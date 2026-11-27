@@ -452,6 +452,91 @@ def run_ingest_web_job(
         return WebIngestApplication(lifecycle.library, controls, resume=resume).run().to_dict()
 
 
+def run_ingest_metadata_plan_job(
+    *,
+    database_path: str,
+    db_type: str,
+    store_id: int,
+    extensions: list[str] | None = None,
+    limit: int | None = None,
+    max_bytes: int | None = None,
+    report_path: str | None = None,
+    progress_output: bool = True,
+    progress_every: int = 100,
+) -> dict[str, Any]:
+    """
+    Plan, without writing, the books a Store's unattached files would add.
+
+    The worker opens its own read handle, reads each file through the Store,
+    matches against the catalogue and writes the full plan as JSON. The returned
+    result carries the summary, the plan's path and a small sample. Progress
+    lines go to stdout for the job log.
+
+    Example:
+        >>> result = run_ingest_metadata_plan_job(  # doctest: +SKIP
+        ...     database_path="library.sqlite", db_type="SQLite", store_id=1,
+        ... )
+
+
+    :param database_path: Existing catalogue location.
+    :param db_type: Database driver selector.
+    :param store_id: Store whose files are read.
+    :param extensions: Optional extensions to read; None reads every readable one.
+    :param limit: Optional maximum number of files to read.
+    :param max_bytes: Largest file to read; None uses the planner's default.
+    :param report_path: Plan file; None writes beside the catalogue.
+    :param progress_output: Whether to print progress lines.
+    :param progress_every: Files between progress lines.
+    :return: Summary, plan path, and samples of books and failures.
+    """
+    from LiuXin_alpha.ingest.embedded_metadata import (
+        DEFAULT_MAX_BYTES,
+        default_plan_path,
+        plan_result,
+        plan_store_metadata,
+        write_plan,
+    )
+
+    every = max(1, int(progress_every))
+
+    def progress(done: int, total: int) -> None:
+        """
+        Print a progress line every ``every`` files and at the end.
+
+        Example:
+            >>> progress(100, 250)  # doctest: +SKIP
+
+
+        :param done: Files read so far.
+        :param total: Files chosen for reading.
+        :return: None.
+        """
+        if done == total or done % every == 0:
+            print(f"metadata plan: read {done}/{total} files", flush=True)
+
+    with _open_library_services(
+        database_path=database_path,
+        db_type=db_type,
+        create=False,
+    ) as lifecycle:
+        plan = plan_store_metadata(
+            database=lifecycle.database,
+            library=lifecycle.library,
+            catalog=lifecycle.core_services.catalog,
+            store_id=int(store_id),
+            extensions=extensions,
+            limit=limit,
+            max_bytes=DEFAULT_MAX_BYTES if max_bytes is None else int(max_bytes),
+            progress=progress if progress_output else None,
+        )
+    target = (
+        Path(report_path)
+        if report_path
+        else default_plan_path(database_path, int(store_id))
+    )
+    return plan_result(plan, write_plan(plan, target))
+
+
 def run_conversion_job(
     *,
     input_path: str,

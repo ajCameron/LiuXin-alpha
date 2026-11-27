@@ -96,7 +96,7 @@ The tables below summarize the required v2 program boundary.
 | Metadata | database hydration/write and OPF export, file format/inspect/write, online source discovery, and identify/cover jobs under `metadata.*` |
 | Stores and files | store list/get/save/probe/delete/default, file list/locate/read/put/copy/delete, location stat, source registration, refresh and synchronization under `storage.*` and `sync.*` |
 | Assets and policies | resource describe/list/get/CRUD, asset detail/policy assignment, policy assessment/planning/violations under `storage.*` |
-| Ingest | `ingest.formats`, `ingest.disk.start`, `ingest.remote-html.start` |
+| Ingest | `ingest.formats`, `ingest.disk.start`, `ingest.metadata.plan` (a dry run; see [embedded metadata](../ingest/embedded-metadata.md)), `ingest.remote-html.start` |
 | Conversion | `conversion.formats`, `conversion.options`, `conversion.start` |
 | Backup | `backup.plan`, workflow list/get/save/start, `backup.squashfs.start`, `backup.squashfs.publish-store.start`, and `backup.squashfs.publish-files.start` |
 | Maintenance | `maintenance.status`, `maintenance.duplicates.find`, `maintenance.run`, `maintenance.clean`, `maintenance.merge` |

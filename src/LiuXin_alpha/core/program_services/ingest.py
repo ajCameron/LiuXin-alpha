@@ -18,7 +18,9 @@ from LiuXin_alpha.core.program_services.payloads import (
     _database_type,
     _job_submit,
     _mapping,
+    _optional_int,
     _payload,
+    _required_int,
     _required_text,
     _text_list,
 )
@@ -101,6 +103,56 @@ def ingest_disk_start(
         function_name="run_ingest_disk_job",
         kwargs=kwargs,
         default_label="ingest disk",
+    )
+
+
+def ingest_metadata_plan_start(
+    runtime: CoreRuntime,
+    command: CoreCommand,
+) -> dict[str, Any]:
+    """
+    Submit a read-only plan of the books a Store's unattached files would add.
+
+    The job reads each file's embedded metadata through its Store, matches it
+    against the catalogue and writes the plan as JSON; it creates no records.
+    Without ``report_path`` the plan goes to an ``ingest-plans`` folder beside
+    the catalogue. Store existence and file readability are checked by the job.
+
+    Example:
+        >>> receipt = ingest_metadata_plan_start(runtime, command)  # doctest: +SKIP
+
+
+    :param runtime: Runtime supplying a path-backed database identity and job manager.
+    :param command: Command with store_id and optional extensions, limit, max_file_mb, report_path and progress_output, plus shared job fields.
+    :return: run_ingest_metadata_plan_job submission receipt.
+    :raises CoreDispatchError: If store_id, limit or max_file_mb is not a positive integer, or no database path is available.
+    """
+    payload = _payload(command)
+    store_id = _required_int(payload, "store_id")
+    if store_id < 1:
+        raise CoreDispatchError("`store_id` must be >= 1.")
+    max_file_mb = _optional_int(payload, "max_file_mb", minimum=1)
+    report_path = str(payload.get("report_path") or "").strip() or None
+    kwargs = {
+        "database_path": _database_path(runtime),
+        "db_type": _database_type(runtime),
+        "store_id": store_id,
+        "extensions": (
+            _text_list(payload, "extensions")
+            if payload.get("extensions") is not None
+            else None
+        ),
+        "limit": _optional_int(payload, "limit", minimum=1),
+        "max_bytes": None if max_file_mb is None else max_file_mb * 1024 * 1024,
+        "report_path": report_path,
+        "progress_output": bool(payload.get("progress_output", True)),
+    }
+    return _job_submit(
+        runtime,
+        payload,
+        function_name="run_ingest_metadata_plan_job",
+        kwargs=kwargs,
+        default_label=f"ingest metadata plan store {store_id}",
     )
 
 
