@@ -22,6 +22,18 @@ default it goes to `ingest-plans/metadata-plan-store-<id>-<UTC time>.json` besid
 the catalogue. The job result holds the summary, the plan's path and a sample of
 ten books and ten failures. Without `--dry-run`, the command refuses.
 
+To try it in the terminal UI, sync a Store, then plan a sample before planning everything:
+
+```text
+sync store 1 to-db
+ingest metadata 1 --dry-run --limit 50
+ingest metadata 1 --dry-run --background
+```
+
+On a remote read-only Store, such as a wget or rclone HTTP Store, each file read
+is a download through the Store's own rate limit. Start with `--limit`, and
+narrow with `--extensions` if only some formats matter.
+
 The code lives in [`ingest.embedded_metadata`](../../src/LiuXin_alpha/ingest/embedded_metadata):
 
 | Module | Job |
