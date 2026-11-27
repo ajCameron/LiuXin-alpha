@@ -129,6 +129,34 @@ def test_new_catalogue_logs_every_catalogue_table(catalogue):
         assert len(change_log.log_uuid(connection)) == 36
 
 
+def test_opening_a_catalogue_records_no_change(catalogue):
+    """
+    Opening a catalogue, with its usual bootstrap-row repair, adds nothing to the log.
+
+    The first open may create the sentinel rows; every later open must leave
+    the log alone, or each reader of the catalogue would look like a writer.
+
+    Example:
+        >>> test_opening_a_catalogue_records_no_change(path)  # doctest: +SKIP
+
+
+    :param catalogue: Fresh catalogue file.
+    :return: ``None`` after checking the log is unchanged.
+    """
+    options = {**OPTIONS, "repair_bootstrap_rows": True}
+    metadata = {"database_path": str(catalogue)}
+    with Database(metadata=metadata, create=False, **options):
+        pass
+    with closing(_raw(catalogue)) as connection:
+        before = connection.execute("SELECT COUNT(*) FROM catalog_changes").fetchone()
+    for _ in range(2):
+        with Database(metadata=metadata, create=False, **options):
+            pass
+    with closing(_raw(catalogue)) as connection:
+        after = connection.execute("SELECT COUNT(*) FROM catalog_changes").fetchone()
+    assert after == before
+
+
 def test_metadata_writes_log_rows_and_both_ends_of_removed_links(catalogue):
     """
     Each written row is logged once per change, and a removed link keeps its ends.
