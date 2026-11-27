@@ -513,8 +513,8 @@ class ReadCache(CacheAPI):
                 continue
             changed = rows.setdefault(entry.table, set())
             changed.add(entry.row_id)
-            table = main.get(entry.table)
-            id_column = getattr(table, "id_column", None) if table is not None else None
+            cached = main.get(entry.table)
+            id_column = getattr(cached, "id_column", None) if cached is not None else None
             previous = (entry.old_ids or {}).get(id_column) if id_column else None
             if isinstance(previous, int):
                 changed.add(previous)
