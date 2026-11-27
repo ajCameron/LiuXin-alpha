@@ -3322,7 +3322,11 @@
       "tests/databases/test_change_log.py::test_native_custom_field_tables_are_logged_from_creation",
       "tests/databases/test_change_log_postgres_live.py::test_new_postgres_catalogue_logs_every_catalogue_table",
       "tests/databases/test_change_log_postgres_live.py::test_postgres_cascades_keep_both_ends_of_removed_links",
-      "tests/databases/test_change_log_postgres_live.py::test_out_of_order_commits_are_neither_skipped_nor_repeated"
+      "tests/databases/test_change_log_postgres_live.py::test_out_of_order_commits_are_neither_skipped_nor_repeated",
+      "tests/databases/database/database_contract/test_db_bootstrap_integrity_helpers.py::test_ensure_null_rows_writes_nothing_when_sentinels_are_valid[apsw]",
+      "tests/databases/database/database_contract/test_db_bootstrap_integrity_helpers.py::test_ensure_null_rows_writes_nothing_when_sentinels_are_valid[sqlite]",
+      "tests/ingest/test_embedded_metadata_plan.py::test_opening_a_catalogue_records_no_change",
+      "tests/ingest/test_embedded_metadata_plan.py::test_plan_store_metadata_end_to_end_writes_nothing"
     ],
     "cache_change_log_catch_up": [
       "tests/databases/caches/test_change_log_catch_up.py::test_catch_up_matches_a_full_reload_without_reloading[schema_backed]",

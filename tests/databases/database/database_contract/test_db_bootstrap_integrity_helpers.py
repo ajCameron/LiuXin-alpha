@@ -323,6 +323,53 @@ def test_ensure_null_rows_is_idempotent(open_db):
     assert agent0.get("agent_canonical_name") == AGENTS_NULL_CANONICAL_NAME
 
 
+def test_ensure_null_rows_writes_nothing_when_sentinels_are_valid(open_db, monkeypatch):
+    """
+    Check that valid sentinel rows are left alone, so opening a catalogue records no change.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_bootstrap_integrity_helpers.py::test_ensure_null_rows_writes_nothing_when_sentinels_are_valid
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :param monkeypatch: Pytest fixture used to count wrapper writes.
+    :return: None; failed expectations raise AssertionError.
+    """
+
+    db = open_db
+    db.ensure_null_rows()
+    writes: list[str] = []
+    wrapper = db.driver_wrapper
+    for name in ("add_row", "update_row"):
+        original = getattr(wrapper, name)
+
+        def counted(*args, _name=name, _original=original, **kwargs):
+            """
+            Record a wrapper write before performing it.
+
+            Example:
+                Installed in place of the wrapper's add_row and update_row.
+
+
+            :param args: Positional arguments for the wrapped write.
+            :param _name: Name of the wrapped write.
+            :param _original: The wrapped write.
+            :param kwargs: Keyword arguments for the wrapped write.
+            :return: The wrapped write's result.
+            """
+            writes.append(_name)
+            return _original(*args, **kwargs)
+
+        monkeypatch.setattr(wrapper, name, counted)
+
+    db.ensure_null_rows()
+
+    assert writes == []
+
+
 def test_ensure_null_rows_repairs_series_null_value(open_db):
     """
     Change the null series to text and check sentinel repair restores None.
