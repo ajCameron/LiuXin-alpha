@@ -689,8 +689,9 @@ class ContentWorkflowsHandlers(Protocol):
 
 
         :param runtime: Runtime supplying a path-backed database identity and job manager.
-        :param command: Command with store_id and optional extensions, limit, max_file_mb, report_path and progress_output.
+        :param command: Command with store_id and optional extensions, limit, max_file_mb, report_path and progress_output, plus shared job fields.
         :return: run_ingest_metadata_plan_job submission receipt.
+        :raises CoreDispatchError: If store_id, limit or max_file_mb is not a positive integer, or no database path is available.
         """
         ...
 
