@@ -13,8 +13,8 @@ A snapshot cache (`schema_backed`, `numpy_vectorized`) used to reload every tabl
 | Logged change | Refresh |
 | --- | --- |
 | Main-table row | `reload_ids(table, ids)`, plus the old ID if an update changed it |
-| Main-table entry with no row ID (text-keyed table, PostgreSQL `TRUNCATE`) | `reload_main_table(table)` |
-| Link-table row | `reload_link_table` for every directed view of that table |
+| Entry with no row ID (text-keyed table, PostgreSQL `TRUNCATE`) | `reload_main_table(table)`, or `reload_link_table` for every view of a link table |
+| Link-table row | `reload_link_rows(table, ids)`: on `schema_backed`, every directed view re-reads those rows by ID and each relation field on it re-projects only the sources whose links changed (2026-11-27); other backends reload each view |
 | Any other table | Nothing; the snapshot does not read it |
 
 The refreshes reuse the backends' existing hooks, so every derived field they maintain is rebuilt the same way a full reload rebuilds it.
@@ -64,8 +64,29 @@ by not opening a connection per refresh.
 The comparison script creates a catalogue, loads a cache and times
 `create_wemi_stack` plus `works.add_tag` per book.
 
+## Row-level link refresh (2026-11-27)
+
+The first version reloaded a whole link table, and rebound every field on it, for each changed link row. On `schema_backed` that cost grew with the link table. Now:
+
+- **`SchemaBackedLinkTable.refresh_rows(ids)`** re-reads only those link rows by ID and repairs its record, endpoint, pair and row-ID indexes in place.
+  - A changed row keeps its ordering position; a new row is placed after every existing one, as a full read in ID order would place it. A removed row is found through the cache's own copy, so the log's `old_ids` are not needed here.
+  - Cardinality is reclassified from maintained counts of repeated endpoints, so there is no scan and no database query.
+  - It returns the sources and destinations whose links changed. A table without an ID column returns None, and the view reloads in full.
+- **`SchemaBackedStorageCache.reload_link_rows`** does that for every directed view of the table. It then calls `refresh_table_ids` on each relation field of the view, for just those sources. A stale view or field reloads in full as before.
+- **`StorageCacheAPI.reload_link_rows`** is the default for other backends: it reloads each view in full.
+
+The differential test now also compares every field's projected values with a fresh load. That covers ordered memberships with removals in the middle, and multiple credits. On `schema_backed` it also checks that no link table is reloaded. Skipping the field repair makes it fail.
+
+| `schema_backed` | First quarter | Last quarter |
+| --- | --- | --- |
+| 30 books | 0.26 s | 0.20 s |
+| 300 books | 0.22 s | 0.23 s |
+
+Per-book cost is now flat with catalogue size on `schema_backed`, which is the default backend. That closes CACHE06 for it. About 120 ms of each write is catch-up: re-projecting fields, many of which deep-copy row snapshots, scales with the number of fields, not catalogue size. About 65 ms is opening connections (CR10).
+
 ## Remaining work
 
-- **Row-level link refresh.** A changed link row still reloads its whole link table and rebinds the fields on it. Most of the remaining cost is there, and it grows with the size of the link table. Re-reading link rows by ID, with the old ends from `old_ids` for removals, removes it on `schema_backed`. `numpy_vectorized` also reloads a whole main table for `reload_ids`, since it has no row-level main-table refresh.
+- **`numpy_vectorized`** still reloads a whole main table for `reload_ids`, and each view of a changed link table, so its cost still grows with size. It needs row-level refresh of its arrays.
+- **Field re-projection** copies row snapshots; projecting without a deep copy would cut the catch-up's constant cost.
 - **Connections on the write path.** Each metadata write still opens several connections, each validating the schema revision (about 10 ms each locally). This is CR10's cost, outside the cache.
 - **Automatic catch-up before reads,** as above.

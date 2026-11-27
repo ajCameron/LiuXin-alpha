@@ -1067,6 +1067,37 @@ class StorageCacheAPI(abc.ABC):
         del ids
         self.reload_main_table(table, db=db)
 
+    def reload_link_rows(
+        self,
+        link_table: str,
+        row_ids: Iterable[int],
+        db: DatabaseAPI | None = None,
+    ) -> None:
+        """
+        Refresh changed rows of one physical link table in every directed view.
+
+        The default reloads each view of that table in full; backends that can
+        re-read link rows by ID override it.
+
+        Example:
+            After the change log names ``tag_work_links`` row 41, refresh both the
+            works-to-tags and tags-to-works views.
+
+
+        :param link_table: Physical link-table name.
+        :param row_ids: Changed link-row IDs, ignored by this default.
+        :param db: Optional database override; None uses the current attachment.
+        :return: None; every view of the table and its fields are refreshed.
+        """
+
+        del row_ids
+        for source, target in [
+            key
+            for key, view in self.link_tables.items()
+            if getattr(view, "table", None) == link_table
+        ]:
+            self.reload_link_table(source, target, db=db)
+
     @abc.abstractmethod
     def reload_link_table(
         self,

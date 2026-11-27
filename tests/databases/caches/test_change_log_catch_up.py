@@ -99,17 +99,44 @@ class _ReloadCounter:
             monkeypatch.setattr(storage, name, counted)
 
 
-def _snapshot(cache):
+def _field_values(cache):
     """
-    Read every main-table row and every link row a cache holds.
+    Read every field's projected values, as plain comparable data.
 
     Example:
-        >>> _snapshot(cache)["works"]  # doctest: +SKIP
+        >>> _field_values(cache)["works.tags"][7]  # doctest: +SKIP
+        ('Fantasy',)
+
+
+    :param cache: Loaded cache.
+    :return: Mapping of field keys to their ID-to-value maps; sequences become tuples.
+    """
+    values = {}
+    for key, field in cache.storage.fields.items():
+        try:
+            mapping = field.ids_values_map
+        except Exception:  # noqa: BLE001 - fields without a bulk map are skipped
+            continue
+        if callable(mapping):
+            mapping = mapping()
+        values[str(key)] = {
+            int(row_id): tuple(value) if isinstance(value, (list, tuple)) else value
+            for row_id, value in dict(mapping).items()
+        }
+    return values
+
+
+def _snapshot(cache):
+    """
+    Read every main-table row, link row and field value a cache holds.
+
+    Example:
+        >>> _snapshot(cache)[0]["works"]  # doctest: +SKIP
         {1: {...}}
 
 
     :param cache: Loaded cache.
-    :return: Mapping of table names to rows, and of directed link views to rows.
+    :return: Table rows by table, link rows by directed view, and field values.
     """
     tables = {}
     for table in sorted(cache.storage.main_tables):
@@ -124,7 +151,7 @@ def _snapshot(cache):
             for source_id in tables[source]
             for record in cache.link_records(source, source_id, target)
         )
-    return tables, links
+    return tables, links, _field_values(cache)
 
 
 def _fresh_snapshot(db, mode):
@@ -172,7 +199,8 @@ def test_catch_up_matches_a_full_reload_without_reloading(catalogue, monkeypatch
     A mixed workload leaves the caught-up snapshot equal to a freshly loaded one.
 
     Inserts, renames, link additions and removals, credits and deletions with
-    detach all go through the log; none of them reloads the snapshot in full.
+    detach all go through the log; none of them reloads the snapshot in full, and
+    ``schema_backed`` re-reads changed link rows without reloading a link table.
 
     Example:
         >>> test_catch_up_matches_a_full_reload_without_reloading(path, mp, "schema_backed")  # doctest: +SKIP
@@ -187,6 +215,25 @@ def test_catch_up_matches_a_full_reload_without_reloading(catalogue, monkeypatch
         cache = create_cache(db, mode)
         assert cache._change_cursor is not None
         counter = _ReloadCounter(cache.storage, monkeypatch)
+        link_reloads = []
+        reload_link_table = cache.storage.reload_link_table
+
+        def counted_link_reload(*args, **kwargs):
+            """
+            Record one whole link-table reload, then run it.
+
+            Example:
+                >>> cache.storage.reload_link_table("works", "tags")  # doctest: +SKIP
+
+
+            :param args: Positional arguments for the original method.
+            :param kwargs: Keyword arguments for the original method.
+            :return: The original method's result.
+            """
+            link_reloads.append(args[:2])
+            return reload_link_table(*args, **kwargs)
+
+        monkeypatch.setattr(cache.storage, "reload_link_table", counted_link_reload)
         api = CatalogCache(Catalog(db), cache=cache)
 
         first = _stack(api, "First")
@@ -202,12 +249,23 @@ def test_catch_up_matches_a_full_reload_without_reloading(catalogue, monkeypatch
         api.works.add_credit(first.work_id, agent_id=agent, role="aut")
         assert _snapshot(cache) == _fresh_snapshot(db, mode)
 
+        # Ordered memberships: add several, remove one from the middle, add again.
+        names = ("Alpha", "Beta", "Gamma")
+        added = [api.works.add_tag(second.work_id, text=name).result for name in names]
+        api.works.remove_tag(second.work_id, added[1])
+        api.works.add_tag(second.work_id, text="Delta")
+        other = api.agents.create_person({"name": "Second Author"}).result
+        api.works.add_credit(first.work_id, agent_id=other, role="aut")
+        assert _snapshot(cache) == _fresh_snapshot(db, mode)
+
         api.agents.delete(agent, detach=True)
         api.tags.delete(tag, detach=True)
         assert _snapshot(cache) == _fresh_snapshot(db, mode)
         assert api.works.list_tags(first.work_id) == ()
         assert api.works.require(first.work_id).work.work_title == "First, renamed"
         assert counter.count == 0
+        if mode == "schema_backed":
+            assert link_reloads == []
         cache.close()
 
 

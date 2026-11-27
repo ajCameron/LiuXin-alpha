@@ -1226,6 +1226,55 @@ class SchemaBackedStorageCache(StorageCacheAPI):
                 field.read(self._require_db())
                 self._stale_fields.discard(field.field_key)
 
+    def reload_link_rows(
+        self,
+        link_table: str,
+        row_ids: Iterable[int],
+        db: DatabaseAPI | None = None,
+    ) -> None:
+        """
+        Re-read changed rows of one physical link table in every directed view.
+
+        Each view repairs its record indexes from those rows alone, then each
+        relation field on that view re-projects only the sources whose links
+        changed. A view that is already stale, or whose table has no ID column,
+        is reloaded in full instead, as is a stale field.
+
+        Example:
+            Linking a Tag to Work 7 re-reads that one ``tag_work_links`` row, then
+            re-projects Work 7's tags and the Tag's works.
+
+
+        :param link_table: Physical link-table name.
+        :param row_ids: Changed link-row IDs.
+        :param db: Optional database retained on the root.
+        :return: None; the views and their fields reflect the re-read rows.
+        """
+
+        changed = {int(row_id) for row_id in row_ids}
+        if not changed:
+            return
+        root_db = self._require_db(db)
+        for key, view in list(self._link_tables.items()):
+            if view.table != link_table:
+                continue
+            affected = None if key in self._stale_link_tables else view.refresh_rows(changed)
+            if affected is None:
+                self.reload_link_table(*key)
+                continue
+            sources = affected[0]
+            for field in self._field_objects.values():
+                if self._field_link_key(field) != key:
+                    continue
+                refresh_table_ids = getattr(field, "refresh_table_ids", None)
+                if field.field_key in self._stale_fields or not callable(
+                    refresh_table_ids
+                ):
+                    field.read(root_db)
+                    self._stale_fields.discard(field.field_key)
+                elif sources:
+                    refresh_table_ids(key[0], sources)
+
     def reload_field(
         self,
         name: Union[FieldKey, FieldBasicInterfaceAPI[Any]],

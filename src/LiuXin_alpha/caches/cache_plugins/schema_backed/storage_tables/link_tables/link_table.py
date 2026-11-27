@@ -14,8 +14,9 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from LiuXin_alpha.databases.api.database_api.database_api import DatabaseAPI
 
+import bisect
 from collections import defaultdict
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from copy import deepcopy
 from typing import Any, Mapping, Optional, Sequence, cast
 
@@ -128,6 +129,11 @@ class SchemaBackedLinkTable(
         self._by_src: dict[int, list[_CachedLinkRecord]] = {}
         self._by_dst: dict[int, list[_CachedLinkRecord]] = {}
         self._by_pair: dict[tuple[int, int], list[_CachedLinkRecord]] = {}
+        self._by_row_id: dict[int, _CachedLinkRecord] = {}
+        self._next_sequence = 0
+        self._repeated_src = 0
+        self._repeated_dst = 0
+        self._unique_columns: set[str] = set()
         self._id_column: Optional[str] = None
         self._table_type = TableTypes.MANY_MANY
         self._priority = bool(link_spec.priority_link_col)
@@ -381,6 +387,7 @@ class SchemaBackedLinkTable(
             return TableTypes.MANY_MANY
 
         unique_columns = self._unique_single_columns()
+        self._unique_columns = unique_columns
         src_unique = self._src_link_col in unique_columns
         dst_unique = self._dst_link_col in unique_columns
         if src_unique and dst_unique:
@@ -439,36 +446,9 @@ class SchemaBackedLinkTable(
         )
         records: list[_CachedLinkRecord] = []
         for sequence, row_dict in enumerate(row_dicts):
-            row_copy = deepcopy(dict(row_dict))
-            src_id = row_copy.get(self._src_link_col)
-            dst_id = row_copy.get(self._dst_link_col)
-            if src_id is None or dst_id is None:
-                continue
-            row_id = row_copy.get(self._id_column) if self._id_column else None
-            priority = None
-            if self.link_spec.priority_link_col:
-                priority_value = row_copy.get(self.link_spec.priority_link_col)
-                if priority_value is not None:
-                    try:
-                        priority = float(priority_value)
-                    except (TypeError, ValueError):
-                        priority = None
-            link_type = None
-            if self.link_spec.type_link_col:
-                raw_type = row_copy.get(self.link_spec.type_link_col)
-                if raw_type is not None:
-                    link_type = str(raw_type)
-            records.append(
-                _CachedLinkRecord(
-                    src_id=int(src_id),
-                    dst_id=int(dst_id),
-                    row_dict=row_copy,
-                    row_id=int(row_id) if row_id is not None else None,
-                    link_type=link_type,
-                    priority=priority,
-                    sequence=sequence,
-                )
-            )
+            record = self._record_from_row(row_dict, sequence)
+            if record is not None:
+                records.append(record)
 
         by_src: dict[int, list[_CachedLinkRecord]] = defaultdict(list)
         by_dst: dict[int, list[_CachedLinkRecord]] = defaultdict(list)
@@ -483,7 +463,237 @@ class SchemaBackedLinkTable(
         self._by_src = {key: list(value) for key, value in by_src.items()}
         self._by_dst = {key: list(value) for key, value in by_dst.items()}
         self._by_pair = {key: list(value) for key, value in by_pair.items()}
+        self._by_row_id = {
+            record.row_id: record for record in records if record.row_id is not None
+        }
+        self._next_sequence = len(row_dicts)
+        self._repeated_src = sum(1 for value in self._by_src.values() if len(value) > 1)
+        self._repeated_dst = sum(1 for value in self._by_dst.values() if len(value) > 1)
         self._table_type = self._infer_table_type(records)
+
+    def _record_from_row(
+        self, row_dict: Mapping[str, Any], sequence: int
+    ) -> _CachedLinkRecord | None:
+        """
+        Copy one physical link row into an oriented record, or skip it.
+
+        Rows with a missing or None endpoint are skipped. Endpoints and a non-None
+        row ID are converted with int; a priority that cannot convert becomes
+        None, and a non-None link type becomes a string.
+
+        Example:
+            A row whose destination column is NULL yields None and is not indexed.
+
+
+        :param row_dict: Physical row mapping, copied recursively.
+        :param sequence: Ordering position recorded on the new record.
+        :return: The new record, or None for a row without both endpoints.
+        """
+
+        row_copy = deepcopy(dict(row_dict))
+        src_id = row_copy.get(self._src_link_col)
+        dst_id = row_copy.get(self._dst_link_col)
+        if src_id is None or dst_id is None:
+            return None
+        row_id = row_copy.get(self._id_column) if self._id_column else None
+        priority = None
+        if self.link_spec.priority_link_col:
+            priority_value = row_copy.get(self.link_spec.priority_link_col)
+            if priority_value is not None:
+                try:
+                    priority = float(priority_value)
+                except (TypeError, ValueError):
+                    priority = None
+        link_type = None
+        if self.link_spec.type_link_col:
+            raw_type = row_copy.get(self.link_spec.type_link_col)
+            if raw_type is not None:
+                link_type = str(raw_type)
+        return _CachedLinkRecord(
+            src_id=int(src_id),
+            dst_id=int(dst_id),
+            row_dict=row_copy,
+            row_id=int(row_id) if row_id is not None else None,
+            link_type=link_type,
+            priority=priority,
+            sequence=sequence,
+        )
+
+    def _index_record(self, record: _CachedLinkRecord) -> None:
+        """
+        Insert one record into every index, in sequence order.
+
+        Example:
+            Re-indexing an updated link with its old sequence puts it back in place.
+
+
+        :param record: Record not currently indexed.
+        :return: None; updates the record list, endpoint, pair and row-ID indexes.
+        """
+
+        def by_sequence(item: _CachedLinkRecord) -> int:
+            """
+            Order records by their ordering position.
+
+            Example:
+                ``by_sequence(record)`` is ``record.sequence``.
+
+
+            :param item: Cached record.
+            :return: Its sequence.
+            """
+            return item.sequence
+
+        bisect.insort(self._records, record, key=by_sequence)
+        src_records = self._by_src.setdefault(record.src_id, [])
+        bisect.insort(src_records, record, key=by_sequence)
+        if len(src_records) == 2:
+            self._repeated_src += 1
+        dst_records = self._by_dst.setdefault(record.dst_id, [])
+        bisect.insort(dst_records, record, key=by_sequence)
+        if len(dst_records) == 2:
+            self._repeated_dst += 1
+        pair = self._by_pair.setdefault((record.src_id, record.dst_id), [])
+        bisect.insort(pair, record, key=by_sequence)
+        if record.row_id is not None:
+            self._by_row_id[record.row_id] = record
+
+    @staticmethod
+    def _drop_record(
+        index: dict[Any, list[_CachedLinkRecord]], key: Any, record: _CachedLinkRecord
+    ) -> int:
+        """
+        Remove this exact record object from one index bucket.
+
+        Example:
+            ``self._drop_record(self._by_src, record.src_id, record)``
+
+
+        :param index: Endpoint or pair index.
+        :param key: Bucket key.
+        :param record: Record to remove; compared by identity.
+        :return: The bucket's remaining length; an emptied bucket is dropped.
+        """
+
+        records = index.get(key, [])
+        for position, item in enumerate(records):
+            if item is record:
+                del records[position]
+                break
+        if not records:
+            index.pop(key, None)
+        return len(records)
+
+    def _unindex_record(self, record: _CachedLinkRecord) -> None:
+        """
+        Remove one indexed record from every index.
+
+        Example:
+            Unindexing a removed tag link drops it from its Work's and Tag's lists.
+
+
+        :param record: Record currently indexed.
+        :return: None; empty endpoint and pair buckets are dropped.
+        """
+
+        position = bisect.bisect_left(
+            self._records, record.sequence, key=lambda item: item.sequence
+        )
+        if position < len(self._records) and self._records[position] is record:
+            del self._records[position]
+        else:
+            self._records = [item for item in self._records if item is not record]
+        if self._drop_record(self._by_src, record.src_id, record) == 1:
+            self._repeated_src -= 1
+        if self._drop_record(self._by_dst, record.dst_id, record) == 1:
+            self._repeated_dst -= 1
+        self._drop_record(self._by_pair, (record.src_id, record.dst_id), record)
+        if record.row_id is not None:
+            self._by_row_id.pop(record.row_id, None)
+
+    def _observed_table_type(self) -> TableTypes:
+        """
+        Classify cardinality as ``_infer_table_type`` does, from maintained counts.
+
+        The declared cardinality and unique-index metadata are reused from the last
+        full read, so no database query or scan of the records is needed.
+
+        Example:
+            A second link for an existing source turns an inferred ONE_ONE view into ONE_MANY.
+
+
+        :return: The view's cardinality for its current records.
+        """
+
+        declared = {
+            LinkCardinality.ONE_TO_ONE: TableTypes.ONE_ONE,
+            LinkCardinality.ONE_TO_MANY: TableTypes.ONE_MANY,
+            LinkCardinality.MANY_TO_ONE: TableTypes.MANY_ONE,
+            LinkCardinality.MANY_TO_MANY: TableTypes.MANY_MANY,
+        }.get(self.link_spec.cardinality)
+        if declared is not None:
+            return declared
+        src_unique = self._src_link_col in self._unique_columns
+        dst_unique = self._dst_link_col in self._unique_columns
+        if src_unique or dst_unique:
+            return {
+                (True, True): TableTypes.ONE_ONE,
+                (True, False): TableTypes.MANY_ONE,
+                (False, True): TableTypes.ONE_MANY,
+            }[(src_unique, dst_unique)]
+        return {
+            (False, False): TableTypes.ONE_ONE,
+            (True, False): TableTypes.ONE_MANY,
+            (False, True): TableTypes.MANY_ONE,
+            (True, True): TableTypes.MANY_MANY,
+        }[(self._repeated_src > 0, self._repeated_dst > 0)]
+
+    def refresh_rows(self, row_ids: Iterable[int]) -> tuple[set[int], set[int]] | None:
+        """
+        Re-read selected physical link rows by ID and repair the indexes in place.
+
+        A changed row keeps its ordering position; a new row is placed after every
+        existing one, as a full read of rows in ID order would place it. A row that
+        no longer exists is dropped. Cardinality is reclassified from maintained
+        counts. Endpoint tables and relation fields are not touched.
+
+        Example:
+            After a Tag is linked to Work 7, ``refresh_rows({41})`` returns
+            ``({7}, {3})`` for the works-to-tags view.
+
+
+        :param row_ids: Physical link-row IDs that changed.
+        :return: Source and destination IDs whose links changed, old and new; or
+            None when the table has no ID column, so only a full read can refresh it.
+        """
+
+        if self._id_column is None:
+            return None
+        db = self._require_attachment()
+        sources: set[int] = set()
+        destinations: set[int] = set()
+        for row_id in sorted({int(value) for value in row_ids}):
+            old = self._by_row_id.get(row_id)
+            if old is not None:
+                self._unindex_record(old)
+                sources.add(old.src_id)
+                destinations.add(old.dst_id)
+            row = db.get_row_from_id(self.table, row_id)
+            if row is None:
+                continue
+            if old is not None:
+                sequence = old.sequence
+            else:
+                sequence = self._next_sequence
+                self._next_sequence += 1
+            record = self._record_from_row(cast(Mapping[str, Any], row.row_dict), sequence)
+            if record is None:
+                continue
+            self._index_record(record)
+            sources.add(record.src_id)
+            destinations.add(record.dst_id)
+        self._table_type = self._observed_table_type()
+        return sources, destinations
 
     def read(self, db: DatabaseAPI | None) -> None:
         """
