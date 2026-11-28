@@ -134,7 +134,7 @@ def test_normalise_drops_placeholders_and_falls_back_to_the_file_name() -> None:
     assert facts.publisher is None
     assert facts.series_index is None
     assert facts.cover == ("jpeg", 4)
-    assert facts.has_comments is False
+    assert facts.comments is None
 
 
 def test_calendar_date_applies_the_boundary_rules() -> None:
@@ -775,9 +775,9 @@ def test_worker_writes_the_plan_and_returns_a_summary(tmp_path: Path) -> None:
     assert written["failures"][0]["file"]["storage_key"] == "shelf/broken.epub"
 
 
-def test_terminal_command_requires_dry_run_and_shows_the_plan(tmp_path: Path) -> None:
+def test_terminal_command_requires_a_mode_and_shows_the_plan(tmp_path: Path) -> None:
     """
-    Without ``--dry-run`` the command refuses; with it, the plan summary and sample print.
+    Without ``--dry-run`` or ``--apply`` the command refuses; a dry run prints the summary and sample.
 
     Example:
         python -m pytest -q tests/ingest/test_embedded_metadata_plan.py
@@ -801,7 +801,7 @@ def test_terminal_command_requires_dry_run_and_shows_the_plan(tmp_path: Path) ->
     ) as db:
         shell = TextDatabaseBrowser(db, output=output)
         with pytest.raises(
-            ValueError, match="write phase of metadata ingest isn't built yet"
+            ValueError, match="Pass `--dry-run` to plan, or `--apply <plan>`"
         ):
             shell.execute_line("ingest metadata 1")
         shell.execute_line(

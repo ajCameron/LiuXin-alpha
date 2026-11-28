@@ -1,8 +1,8 @@
 # Reading embedded metadata at ingest
 
-Started **2026-11-27**. This covers the read half, a dry run. The write phase is
-not built yet. This is the first caller for
-[ING01](next_tasks.md#ing01-define-candidate-to-write-receipts).
+Started **2026-11-27**. The step has two halves: a dry run that plans the books,
+and an apply step (added 2026-11-28) that writes a reviewed plan. This is the
+first caller for [ING01](next_tasks.md#ing01-define-candidate-to-write-receipts).
 
 ## What it does
 
@@ -20,14 +20,26 @@ The command submits the Core command `ingest.metadata.plan`, which runs the
 `run_ingest_metadata_plan_job` worker. The worker writes the full plan as JSON. By
 default it goes to `ingest-plans/metadata-plan-store-<id>-<UTC time>.json` beside
 the catalogue. The job result holds the summary, the plan's path and a sample of
-ten books and ten failures. Without `--dry-run`, the command refuses.
+ten books and ten failures.
 
-To try it in the terminal UI, sync a Store, then plan a sample before planning everything:
+The apply step writes a plan, after you've reviewed it:
+
+```text
+ingest metadata <store_id|store_name> --apply <plan.json> [--limit <n>]
+    [--report <path>] [--json]
+```
+
+It submits `ingest.metadata.apply`, which runs in the Core process (see
+[Applying a plan](#applying-a-plan)). The command needs exactly one of
+`--dry-run` and `--apply`.
+
+To try it in the terminal UI, sync a Store, then plan and apply a sample before
+doing everything:
 
 ```text
 sync store 1 to-db
-ingest metadata 1 --dry-run --limit 50
-ingest metadata 1 --dry-run --background
+ingest metadata 1 --dry-run --limit 50 --report plan.json
+ingest metadata 1 --apply plan.json
 ```
 
 On a remote read-only Store, such as a wget or rclone HTTP Store, each file read
@@ -42,6 +54,7 @@ The code lives in [`ingest.embedded_metadata`](../../src/LiuXin_alpha/ingest/emb
 | `reading` | File selection, reading through the Store, normalisation |
 | `planning` | Name resolution, the Work check, grouping formats, duplicates within the run |
 | `runner` | One Store end to end, plan file, job result |
+| `applying` | Loading a plan, re-checking it, writing each book, the apply report |
 
 ## Steps
 
@@ -114,20 +127,74 @@ Other flags:
 - **Only the primary format's tags and credits are used.** Other formats are
   read and kept in the plan, but their tags aren't merged into the book's.
 
-## The write phase (next)
+## Applying a plan
 
-The plan records what the write phase needs:
-- every format's facts;
-- the decision for each name;
-- the Work check;
-- the cover's format and size.
+The apply step writes what the plan describes, so what you reviewed is what gets
+written. Before applying, you can edit the plan:
+- change a book's `"action"` from `"create"` to `"skip"` to leave it out;
+- set a name's `"decision"` to `"reuse"` with an `"entity_id"` to pick the row
+  for an ambiguous match.
 
-The write phase will run in the process that owns the cache, not in a worker:
-1. Re-check each decision against the catalogue as it is then, because it can
-   change between the dry run and the write.
-2. Call `create_wemi_stack` and `write_container`.
-3. Attach the files with `file_item_id`.
-4. Store the cover's original bytes.
-5. Report what was created, skipped and failed.
+It runs in the Core process, which owns the cache, not in a job worker. Each book
+is one `metadata.batch`. Any failure rolls back that whole book and the run
+continues with the next. On success the cache reconciles once, from the change
+log.
+
+### Checks before each book
+
+- **Files.** Each file must still be registered in the plan's Store, at the same
+  storage key, with no Item. Otherwise the book is skipped, so applying a plan
+  twice skips what the first run attached.
+- **Reused names.** A name planned as `reuse` must still exist, or the book is
+  skipped.
+- **New or ambiguous names.** These are looked up again. A unique match is
+  reused; this is usually a row an earlier book in the same run created, so a new
+  tag is created once. Otherwise a new row is created, following the rule that a
+  reviewable duplicate is safer than a wrong merge.
+- **Languages.** A language that isn't seeded is reported, never created.
+
+`--limit <n>` stops after `n` books are created. The remaining books are reported
+as `not_attempted`, so a large plan can be applied in runs.
+
+### What it writes
+
+| From the plan | Written as |
+| --- | --- |
+| The book | One Work (title, sort title, creator sort) and one Expression (first language) |
+| Each format | Its own Manifestation (ebook, format, publication year and date) and Item (digital, with source path and Store name), and its file attached through `file_item_id` |
+| Authors | `aut` credits on the Work, in file order |
+| Publisher | `pbl` credit on every Manifestation of the book |
+| Identifiers | On each format's own Manifestation |
+| Tags, series | Linked to the Work |
+| Description | A comment on the Work, as the file holds it (often HTML) |
+
+A date flagged `date_may_be_partial` stores only its year.
+
+Links carry the origin `ingest.embedded_metadata`.
+
+### Not stored yet
+
+These are reported per book under `not_stored`:
+- **Series positions.** The native series model links Works to series without
+  volume numbers.
+- **Second and later languages.** The Expression takes the first.
+- **Covers.** There is no write path yet for storing a cover's bytes as an image
+  in a managed Store. The cover stays inside its original file, which is never
+  deleted.
+
+### The report
+
+The full report goes beside the plan, as `<plan>.applied-<UTC time>.json`, unless
+`--report` names a file. For each book it records:
+- the outcome and reason;
+- the new Work, Manifestation and Item ids;
+- the files attached;
+- the names created;
+- what wasn't stored.
+
+The terminal shows a summary and the skipped or failed books.
+
+Measured on 300 books against 300 existing Works: about 0.2 s per book, flat from
+the first books to the last. Most of that is the cache catch-up after each book.
 
 Return to [ingest](README.md).

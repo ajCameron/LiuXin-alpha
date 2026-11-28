@@ -156,6 +156,66 @@ def ingest_metadata_plan_start(
     )
 
 
+def ingest_metadata_apply(
+    runtime: CoreRuntime,
+    command: CoreCommand,
+) -> dict[str, Any]:
+    """
+    Write a reviewed metadata plan into the catalogue, one book per transaction.
+
+    This runs in the Core process, which owns the cache: each book is one
+    metadata batch that rolls back on failure and reconciles once. Every planned
+    decision is re-checked first; books whose files or reused names changed are
+    skipped and reported. The full report goes beside the plan unless report_path
+    is given.
+
+    Example:
+        >>> result = ingest_metadata_apply(runtime, command)  # doctest: +SKIP
+
+
+    :param runtime: Runtime supplying the metadata API, Catalog and database.
+    :param command: Command with plan_path and optional store_id, limit and report_path.
+    :return: Summary, report path, and samples of created and problem books.
+    :raises CoreDispatchError: If the plan cannot be read, is for another Store, or limit is not a positive integer.
+    """
+    from pathlib import Path
+
+    from LiuXin_alpha.ingest.embedded_metadata import (
+        PlanError,
+        apply_plan,
+        apply_result,
+        default_report_path,
+        load_plan,
+        write_report,
+    )
+
+    payload = _payload(command)
+    plan_path = _required_text(payload, "plan_path")
+    store_id = _optional_int(payload, "store_id", minimum=1)
+    limit = _optional_int(payload, "limit", minimum=1)
+    report_path = str(payload.get("report_path") or "").strip() or None
+    try:
+        plan = load_plan(plan_path)
+    except PlanError as exc:
+        raise CoreDispatchError(str(exc)) from exc
+    planned_store = int(plan["store"]["store_id"])
+    if store_id is not None and planned_store != store_id:
+        raise CoreDispatchError(
+            f"The plan is for Store {planned_store}, not Store {store_id}."
+        )
+    services = runtime.services
+    report = apply_plan(
+        plan,
+        metadata=services.metadata,
+        catalog=services.catalog,
+        database=runtime.database,
+        plan_path=str(Path(plan_path).expanduser().resolve()),
+        limit=limit,
+    )
+    target = Path(report_path) if report_path else default_report_path(plan_path)
+    return apply_result(report, write_report(report, target))
+
+
 def ingest_remote_html_start(
     runtime: CoreRuntime,
     command: CoreCommand,

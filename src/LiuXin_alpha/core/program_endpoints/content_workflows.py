@@ -204,6 +204,20 @@ def install_commands(
     )
 
     command(
+        "ingest.metadata.apply",
+        api.ingest_metadata_apply,
+        summary="Write a reviewed metadata plan into the catalogue, one book per transaction.",
+        payload_fields=(
+            field("plan_path", required=True, field_type="string"),
+            field("store_id", field_type="integer|null"),
+            field("limit", field_type="integer|null"),
+            field("report_path", field_type="string|null"),
+        ),
+        tags=("ingest", "metadata", "write"),
+        remote_capabilities=("write",),
+    )
+
+    command(
         "ingest.metadata.plan",
         api.ingest_metadata_plan_start,
         summary="Plan, without writing, the books a Store's unattached files would add.",

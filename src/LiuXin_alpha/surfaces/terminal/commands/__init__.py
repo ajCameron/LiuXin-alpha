@@ -188,6 +188,7 @@ MUTATING_COMMAND_CLASSES = (
     NewWorkWizardCommand,
     NewManifestationWizardCommand,
     IngestDiskCommand,
+    IngestMetadataCommand,
     SyncStoreCommand,
 )
 

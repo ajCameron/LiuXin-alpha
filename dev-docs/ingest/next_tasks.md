@@ -16,7 +16,9 @@ Consolidate receipts and semantic boundaries before moving modules. Keep nested-
 
 Done when ambiguous/conflicting matches require an explicit outcome, rejected values leave no partial bibliographic change, and the receipt identifies stored versus merely discovered data.
 
-Progress **2026-11-27**: the [embedded-metadata dry run](embedded-metadata.md) is the first caller. It plans candidates from files' embedded metadata, with provenance and a decision for every match, and writes nothing. The write phase and its receipt are next.
+Progress **2026-11-28**: [embedded metadata](embedded-metadata.md) is the first caller.
+- The dry run (2026-11-27) plans candidates with provenance and a decision for every match.
+- The apply step writes a reviewed plan, one book per transaction. It re-checks every decision first and writes a per-book receipt saying what was created, skipped or not stored.
 
 ## ING02. Pin source materialization during work
 

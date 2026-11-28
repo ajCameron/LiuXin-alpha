@@ -183,17 +183,17 @@ def normalise(
     return FileFacts(
         file=file,
         title=title,
-        title_sort=_clean(_field(book, "title_sort")),
+        title_sort=_single_name(_field(book, "title_sort")),
         authors=authors,
-        author_sort=_clean(_field(book, "author_sort")),
+        author_sort=_single_name(_field(book, "author_sort")),
         languages=_languages(_field(book, "languages")),
         pubdate=pubdate,
-        publisher=_publisher(_field(book, "publisher")),
+        publisher=_single_name(_field(book, "publisher")),
         identifiers=_identifiers(_field(book, "identifiers")),
         tags=_names(_field(book, "tags")),
         series=series,
         series_index=_series_index(_field(book, "series_index")) if series else None,
-        has_comments=_clean(_field(book, "comments")) is not None,
+        comments=_comments(_field(book, "comments")),
         cover=_cover(_field(book, "cover_data")),
         notes=tuple(notes),
     )
@@ -509,17 +509,17 @@ def _languages(values: Any) -> tuple[str, ...]:
     return tuple(codes)
 
 
-def _publisher(value: Any) -> str | None:
+def _single_name(value: Any) -> str | None:
     """
-    Clean a publisher name, dropping placeholders.
+    Clean a single name or sort string, dropping calibre's placeholders.
 
     Example:
-        >>> _publisher("Unknown") is None
-        True
+        >>> _single_name("Unknown") is None, _single_name(" Shelley,  Mary ")
+        (True, 'Shelley, Mary')
 
 
-    :param value: Publisher text or None.
-    :return: Cleaned name, or None.
+    :param value: Text or None.
+    :return: Cleaned text, or None.
     """
     names = _names(value)
     return names[0] if names else None
@@ -546,6 +546,27 @@ def _identifiers(value: Any) -> tuple[tuple[str, str], ...]:
         if key and text and key.lower() not in _RECORD_IDENTIFIER_SCHEMES:
             pairs.append((key.lower(), text))
     return tuple(sorted(pairs))
+
+
+def _comments(value: Any) -> str | None:
+    """
+    Keep a description as written, dropping one that is only whitespace.
+
+    Unlike names, descriptions keep their own spacing and markup: the catalogue
+    stores the text the file holds.
+
+    Example:
+        >>> _comments("<p>A  tale.</p>"), _comments("  ")
+        ('<p>A  tale.</p>', None)
+
+
+    :param value: Reader value.
+    :return: The text, or None.
+    """
+    if value is None:
+        return None
+    text = str(value)
+    return text if text.strip() else None
 
 
 def _series_index(value: Any) -> float | None:
