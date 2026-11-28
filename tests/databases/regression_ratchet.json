@@ -3337,6 +3337,20 @@
       "tests/databases/caches/test_change_log_catch_up.py::test_falls_back_to_a_full_reload_when_the_log_cannot_help[schema_backed]",
       "tests/databases/caches/test_change_log_catch_up.py::test_falls_back_to_a_full_reload_when_the_log_cannot_help[numpy_vectorized]",
       "tests/databases/caches/test_change_log_catch_up.py::test_uncovered_table_disables_catch_up"
+    ],
+    "normalized-identity-transaction-reads": [
+      "tests/databases/test_normalized_identity_connections.py::test_a_catalogue_write_opens_only_its_own_connection[PostgreSQL]",
+      "tests/databases/test_normalized_identity_connections.py::test_a_catalogue_write_opens_only_its_own_connection[SQLite]",
+      "tests/databases/test_normalized_identity_connections.py::test_a_catalogue_write_opens_only_its_own_connection[SQLite_apsw]",
+      "tests/databases/test_normalized_identity_connections.py::test_declaration_reads_borrow_the_active_transaction[PostgreSQL]",
+      "tests/databases/test_normalized_identity_connections.py::test_declaration_reads_borrow_the_active_transaction[SQLite]",
+      "tests/databases/test_normalized_identity_connections.py::test_declaration_reads_borrow_the_active_transaction[SQLite_apsw]",
+      "tests/databases/test_normalized_identity_connections.py::test_declaration_reads_outside_a_transaction_close_their_connection[PostgreSQL]",
+      "tests/databases/test_normalized_identity_connections.py::test_declaration_reads_outside_a_transaction_close_their_connection[SQLite]",
+      "tests/databases/test_normalized_identity_connections.py::test_declaration_reads_outside_a_transaction_close_their_connection[SQLite_apsw]",
+      "tests/databases/test_normalized_identity_connections.py::test_declarations_are_read_as_the_transaction_sees_them[PostgreSQL]",
+      "tests/databases/test_normalized_identity_connections.py::test_declarations_are_read_as_the_transaction_sees_them[SQLite]",
+      "tests/databases/test_normalized_identity_connections.py::test_declarations_are_read_as_the_transaction_sees_them[SQLite_apsw]"
     ]
   }
 }

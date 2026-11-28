@@ -42,7 +42,7 @@ Timings come from the local development VM, under Python 3.13 with the 3.14-only
 | CR07 | Deleting linked flat vocabulary or Agents cascaded silently | Fixed |
 | CR08 | Pickers cost about a millisecond per row on every backend | Fixed |
 | CR09 | Every changed write reloads the whole snapshot | Open |
-| CR10 | Each reload opens one connection per table | Open |
+| CR10 | Each reload opens one connection per table | Open; the write path's share fixed 2026-11-28 |
 
 ### CR04. Torn snapshot reloads
 
@@ -146,6 +146,15 @@ Snapshot times grow with catalogue size. An ingest that writes a stack, tags, a 
 ### CR10. One connection per table per reload (open)
 
 `direct_get_all_rows` opens and configures a fresh connection for each table: about 190 per reload, roughly half of a reload's time locally. CR04's optimistic pass keeps this behaviour. A single pinned read connection for the reload would halve the time, and on SQLite it should be combined with the data-version witness.
+
+**Update 2026-11-28: the write path's share is fixed.** Every catalogue write read its normalized-identity declarations through a fresh connection, about 13 times per book, and each new connection validated the schema revision. Inside a managed transaction they are now read on the transaction's own connection. Measured locally:
+
+| Workload | Before | After |
+| --- | --- | --- |
+| A WEMI stack plus a Tag per book (two writes), `schema_backed` cache, 120 books | 0.19 s per book | 0.07–0.09 s per book |
+| The ingest apply step from #234, 200 books | 131 ms per book | 30 ms per book |
+
+The ingest catalogues were identical table by table, apart from generated IDs and paths. Each write transaction still opens its own connection. The reload's one connection per table, above, is still open.
 
 ## An add-only cache
 
