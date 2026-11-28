@@ -195,6 +195,10 @@ The full report goes beside the plan, as `<plan>.applied-<UTC time>.json`, unles
 The terminal shows a summary and the skipped or failed books.
 
 Measured on 300 books against 300 existing Works: about 0.2 s per book, flat from
-the first books to the last. Most of that is the cache catch-up after each book.
+the first books to the last. Profiling shows about 60% of that is opening database
+connections: every write read its normalized-identity declarations through a new
+connection, about 13 per book. The cache catch-up is about 15%. #236 reads the
+declarations on the open transaction instead, which brings the apply step to about
+30 ms per book.
 
 Return to [ingest](README.md).
