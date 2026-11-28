@@ -129,7 +129,7 @@ class FileFacts:
     :ivar tags: Tag names in file order.
     :ivar series: Series name, or None.
     :ivar series_index: Position in the series, or None.
-    :ivar has_comments: Whether a description was present.
+    :ivar comments: The description, as the file holds it (often HTML), or None.
     :ivar cover: ``(image extension, byte count)`` of an embedded cover, or None.
     :ivar notes: Flags raised while normalising this file.
     """
@@ -146,7 +146,7 @@ class FileFacts:
     tags: tuple[str, ...] = ()
     series: str | None = None
     series_index: float | None = None
-    has_comments: bool = False
+    comments: str | None = None
     cover: tuple[str, int] | None = None
     notes: tuple[str, ...] = ()
 
@@ -174,7 +174,7 @@ class FileFacts:
             "tags": list(self.tags),
             "series": self.series,
             "series_index": self.series_index,
-            "has_comments": self.has_comments,
+            "comments": self.comments,
             "cover": (
                 None
                 if self.cover is None
@@ -324,7 +324,8 @@ class PlannedBook:
     Describe one book the write phase would create, with its formats.
 
     The first file supplies the book-level values; every file becomes its own
-    Manifestation and Item under one Work and Expression.
+    Manifestation and Item under one Work and Expression. In the JSON plan each
+    book carries ``"action": "create"``; a reviewer can change it to ``"skip"``.
 
     Example:
         >>> book = PlannedBook(1, (FileFacts(IngestFile(1, "a.epub", "epub"), title="A"),))
@@ -383,6 +384,7 @@ class PlannedBook:
         primary = self.files[0]
         return {
             "index": self.index,
+            "action": "create",
             "title": primary.title,
             "pubdate": primary.pubdate,
             "series_index": primary.series_index,

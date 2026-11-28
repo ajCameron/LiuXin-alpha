@@ -37,6 +37,7 @@ def epub_bytes(
     tags: Sequence[str] = (),
     series: str | None = None,
     series_index: float | None = None,
+    description: str | None = None,
 ) -> bytes:
     """
     Return an EPUB 2 book carrying the given metadata.
@@ -55,6 +56,7 @@ def epub_bytes(
     :param tags: ``dc:subject`` values.
     :param series: calibre series name, or None.
     :param series_index: calibre series index, used with ``series``.
+    :param description: ``dc:description`` text, or None.
     :return: Zipped EPUB bytes.
     """
     metadata = [f"<dc:title>{escape(title)}</dc:title>"]
@@ -75,6 +77,8 @@ def epub_bytes(
         metadata.append(f"<dc:date>{escape(date)}</dc:date>")
     if publisher:
         metadata.append(f"<dc:publisher>{escape(publisher)}</dc:publisher>")
+    if description:
+        metadata.append(f"<dc:description>{escape(description)}</dc:description>")
     if series:
         metadata.append(f'<meta name="calibre:series" content="{escape(series)}"/>')
         if series_index is not None:

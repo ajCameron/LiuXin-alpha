@@ -675,6 +675,26 @@ class ContentWorkflowsHandlers(Protocol):
         """
         ...
 
+    def ingest_metadata_apply(
+        self, runtime: CoreRuntime, command: CoreCommand
+    ) -> Mapping[str, object]:
+        """
+        Write a reviewed metadata plan into the catalogue, one book per transaction.
+
+        See :func:`LiuXin_alpha.core.program_services.ingest.ingest_metadata_apply`
+        for the maintained implementation's checks and failure boundaries.
+
+        Example:
+            >>> result = handler.ingest_metadata_apply(runtime, command)  # doctest: +SKIP
+
+
+        :param runtime: Runtime supplying the metadata API, Catalog and database.
+        :param command: Command with plan_path and optional store_id, limit and report_path.
+        :return: Summary, report path, and samples of created and problem books.
+        :raises CoreDispatchError: If the plan cannot be read, is for another Store, or limit is not a positive integer.
+        """
+        ...
+
     def ingest_metadata_plan_start(
         self, runtime: CoreRuntime, command: CoreCommand
     ) -> Mapping[str, object]:
