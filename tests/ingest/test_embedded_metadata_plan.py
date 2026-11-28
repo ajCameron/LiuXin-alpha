@@ -65,9 +65,9 @@ def _row(
     }
 
 
-def test_select_files_counts_each_skip_reason_and_keeps_key_order() -> None:
+def test_select_files_counts_each_skip_reason_and_keeps_folder_order() -> None:
     """
-    Attached, filtered, unreadable and over-limit files are counted; the rest come in key order.
+    Attached, filtered, unreadable and over-limit files are counted; the rest come in folder order.
 
     Example:
         python -m pytest -q tests/ingest/test_embedded_metadata_plan.py
@@ -76,18 +76,18 @@ def test_select_files_counts_each_skip_reason_and_keeps_key_order() -> None:
     :return: None.
     """
     rows = [
-        _row(1, "c.epub"),
-        _row(2, "a.epub"),
-        _row(3, "b.epub", item_id=9),
-        _row(4, "d.bin"),
-        _row(5, "e.pdf"),
-        _row(6, "f.epub"),
+        _row(1, "x/c.epub"),
+        _row(2, "w/a.epub"),
+        _row(3, "x/b.epub", item_id=9),
+        _row(4, "x/d.bin"),
+        _row(5, "x/e.pdf"),
+        _row(6, "y/f.epub"),
     ]
     files, skipped = select_files(
         rows, readable={"epub", "pdf"}, extensions=["EPUB"], limit=2
     )
 
-    assert [item.storage_key for item in files] == ["a.epub", "c.epub"]
+    assert [item.storage_key for item in files] == ["w/a.epub", "x/c.epub"]
     assert skipped == {
         "already_attached": 1,
         "extension_filtered": 2,
@@ -801,7 +801,7 @@ def test_terminal_command_requires_a_mode_and_shows_the_plan(tmp_path: Path) -> 
     ) as db:
         shell = TextDatabaseBrowser(db, output=output)
         with pytest.raises(
-            ValueError, match="Pass `--dry-run` to plan, or `--apply <plan>`"
+            ValueError, match="Pass `--dry-run` to plan, `--apply <plan>` to write"
         ):
             shell.execute_line("ingest metadata 1")
         shell.execute_line(

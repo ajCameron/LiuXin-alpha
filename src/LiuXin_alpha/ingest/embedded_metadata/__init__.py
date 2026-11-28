@@ -5,8 +5,9 @@ Ingest's "reading embedded metadata" step has two halves. The dry run reads the
 files a Store sync registered through their Store, normalises their metadata,
 matches it against the catalogue with Catalog's read-only matchers, groups it
 into books and writes a reviewable plan. The apply step writes that plan, one
-book per transaction, re-checking every decision first. See
-``dev-docs/ingest/embedded-metadata.md``.
+book per transaction, re-checking every decision first. A stream runs the two
+in small batches of whole folders, writing each batch's books as soon as it is
+planned. See ``dev-docs/ingest/embedded-metadata.md``.
 """
 
 from __future__ import annotations
@@ -41,6 +42,7 @@ from LiuXin_alpha.ingest.embedded_metadata.runner import (
     default_plan_path,
     plan_result,
     plan_store_metadata,
+    stream_batch_path,
     write_plan,
 )
 
@@ -67,6 +69,7 @@ __all__ = [
     "plan_store_metadata",
     "read_file",
     "select_files",
+    "stream_batch_path",
     "write_plan",
     "write_report",
 ]

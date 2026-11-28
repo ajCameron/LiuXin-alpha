@@ -100,6 +100,8 @@ class AppliedBook:
     :ivar created: Count of new names created, by kind.
     :ivar not_stored: Values read from the files that the catalogue cannot hold yet.
     :ivar flags: The plan's review flags, carried through.
+    :ivar authors: The planned author names, in file order.
+    :ivar formats: The planned formats' extensions, primary first.
     """
 
     index: int
@@ -113,6 +115,8 @@ class AppliedBook:
     created: Mapping[str, int] = field(default_factory=dict)
     not_stored: tuple[str, ...] = ()
     flags: tuple[str, ...] = ()
+    authors: tuple[str, ...] = ()
+    formats: tuple[str, ...] = ()
 
     def to_dict(self) -> dict[str, Any]:
         """
@@ -137,6 +141,8 @@ class AppliedBook:
             "created": dict(self.created),
             "not_stored": list(self.not_stored),
             "flags": list(self.flags),
+            "authors": list(self.authors),
+            "formats": list(self.formats),
         }
 
 
@@ -333,9 +339,14 @@ def default_report_path(plan_path: str | Path, *, now: datetime | None = None) -
     return plan.with_name(f"{plan.stem}.applied-{moment:%Y%m%dT%H%M%SZ}.json")
 
 
-def apply_result(report: ApplyReport, report_path: Path) -> dict[str, Any]:
+def apply_result(
+    report: ApplyReport, report_path: Path, *, include_books: bool = False
+) -> dict[str, Any]:
     """
     Build the compact command result: summary, report path and samples.
+
+    A stream asks for every book, so it can show each one as it is added; its
+    batches are small.
 
     Example:
         >>> sorted(apply_result(ApplyReport(store={}, plan_path="p.json"), Path("r.json")))
@@ -344,6 +355,7 @@ def apply_result(report: ApplyReport, report_path: Path) -> dict[str, Any]:
 
     :param report: Completed report.
     :param report_path: Where the full report was written.
+    :param include_books: Whether to add a ``books`` list with every book's result.
     :return: JSON-ready mapping.
     """
     problems = [
@@ -352,7 +364,7 @@ def apply_result(report: ApplyReport, report_path: Path) -> dict[str, Any]:
         if book.outcome in {OUTCOME_SKIPPED, OUTCOME_FAILED}
     ]
     created = [book for book in report.books if book.outcome == OUTCOME_CREATED]
-    return {
+    result = {
         "store": dict(report.store),
         "plan_path": report.plan_path,
         "summary": report.summary(),
@@ -360,6 +372,9 @@ def apply_result(report: ApplyReport, report_path: Path) -> dict[str, Any]:
         "books_sample": [book.to_dict() for book in created[:SAMPLE_SIZE]],
         "problems_sample": [book.to_dict() for book in problems[:SAMPLE_SIZE]],
     }
+    if include_books:
+        result["books"] = [book.to_dict() for book in report.books]
+    return result
 
 
 class _BookWriter:
@@ -922,7 +937,7 @@ def _not_stored(
 
 def _book_result(book: Mapping[str, Any], outcome: str, **values: Any) -> AppliedBook:
     """
-    Build a result carrying the book's index, title and flags.
+    Build a result carrying the book's index, title, flags, authors and formats.
 
     Example:
         >>> _book_result({"index": 3, "title": "T", "flags": ["no_authors"]}, "skipped").flags
@@ -939,6 +954,11 @@ def _book_result(book: Mapping[str, Any], outcome: str, **values: Any) -> Applie
         title=str(book.get("title") or ""),
         outcome=outcome,
         flags=tuple(str(flag) for flag in book.get("flags") or ()),
+        authors=tuple(str(item.get("value") or "") for item in _list(book, "authors")),
+        formats=tuple(
+            str(dict(item.get("file") or {}).get("extension") or "")
+            for item in _list(book, "formats")
+        ),
         **values,
     )
 

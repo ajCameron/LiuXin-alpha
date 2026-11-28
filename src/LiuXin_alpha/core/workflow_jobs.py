@@ -463,14 +463,19 @@ def run_ingest_metadata_plan_job(
     report_path: str | None = None,
     progress_output: bool = True,
     progress_every: int = 100,
+    after_folder: str | None = None,
+    first_index: int = 1,
+    stream: str | None = None,
+    batch: int | None = None,
 ) -> dict[str, Any]:
     """
     Plan, without writing, the books a Store's unattached files would add.
 
     The worker opens its own read handle, reads each file through the Store,
     matches against the catalogue and writes the full plan as JSON. The returned
-    result carries the summary, the plan's path and a small sample. Progress
-    lines go to stdout for the job log.
+    result carries the summary, the plan's path, the last folder read and a
+    small sample. Progress lines go to stdout for the job log. A stream calls it
+    once per batch of whole folders.
 
     Example:
         >>> result = run_ingest_metadata_plan_job(  # doctest: +SKIP
@@ -487,13 +492,18 @@ def run_ingest_metadata_plan_job(
     :param report_path: Plan file; None writes beside the catalogue.
     :param progress_output: Whether to print progress lines.
     :param progress_every: Files between progress lines.
-    :return: Summary, plan path, and samples of books and failures.
+    :param after_folder: Optional folder to start after; an empty string is the top folder.
+    :param first_index: Index of the first planned book.
+    :param stream: Optional stream name; without report_path its batches go under ``ingest-plans/<stream>/``.
+    :param batch: The stream's batch number, from 1.
+    :return: Summary, plan path, last folder, and samples of books and failures.
     """
     from LiuXin_alpha.ingest.embedded_metadata import (
         DEFAULT_MAX_BYTES,
         default_plan_path,
         plan_result,
         plan_store_metadata,
+        stream_batch_path,
         write_plan,
     )
 
@@ -528,12 +538,15 @@ def run_ingest_metadata_plan_job(
             limit=limit,
             max_bytes=DEFAULT_MAX_BYTES if max_bytes is None else int(max_bytes),
             progress=progress if progress_output else None,
+            after_folder=after_folder,
+            first_index=int(first_index),
         )
-    target = (
-        Path(report_path)
-        if report_path
-        else default_plan_path(database_path, int(store_id))
-    )
+    if report_path:
+        target = Path(report_path)
+    elif stream:
+        target = stream_batch_path(database_path, stream, int(batch or 1))
+    else:
+        target = default_plan_path(database_path, int(store_id))
     return plan_result(plan, write_plan(plan, target))
 
 

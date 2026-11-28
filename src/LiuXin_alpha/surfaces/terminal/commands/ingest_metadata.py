@@ -6,6 +6,8 @@ step: a Core job reads the files a ``sync store`` registered, matches them
 against the catalogue and writes a plan of the books it would add, creating
 nothing. ``ingest metadata <store> --apply <plan>`` is the write half: Core
 writes that plan, one book per transaction, re-checking each decision first.
+``ingest metadata <store> --stream`` does both in small batches, adding books
+as they are read, without a review step in between.
 """
 
 from __future__ import annotations
@@ -17,6 +19,12 @@ from collections.abc import Mapping
 from typing import Any
 
 from LiuXin_alpha.surfaces.terminal.commands.base import TerminalCommandAPI
+from LiuXin_alpha.surfaces.terminal.commands.ingest_metadata_stream import (
+    DEFAULT_BATCH_FILES,
+    StreamOptions,
+    run_stream,
+    stream_sections,
+)
 from LiuXin_alpha.surfaces.terminal.commands.sync import (
     _emit_job_log,
     _optional_positive_float,
@@ -26,14 +34,23 @@ from LiuXin_alpha.surfaces.terminal.commands.sync import (
     _wait_for_job,
 )
 
-_MODE_REQUIRED = "Pass `--dry-run` to plan, or `--apply <plan>` to write a plan."
-_DRY_RUN_ONLY = (
-    "--extensions",
-    "--max-file-mb",
-    "--background",
-    "--job-backend",
-    "--job-timeout-s",
+_MODE_REQUIRED = (
+    "Pass `--dry-run` to plan, `--apply <plan>` to write a plan, "
+    "or `--stream` to add books as they are read."
 )
+# Options each mode refuses, because they would do nothing there.
+_NOT_WITH = {
+    "--dry-run": ("--batch",),
+    "--apply": (
+        "--extensions",
+        "--max-file-mb",
+        "--background",
+        "--job-backend",
+        "--job-timeout-s",
+        "--batch",
+    ),
+    "--stream": ("--background",),
+}
 
 
 @dataclasses.dataclass(frozen=True)
@@ -43,13 +60,15 @@ class _IngestMetadataOptions:
 
     Example:
         >>> options = _parse_ingest_metadata_options(["3", "--dry-run", "--limit", "5"], usage="u")
-        >>> options.store_ref, options.limit, options.dry_run, options.apply_path
-        ('3', 5, True, None)
+        >>> options.store_ref, options.limit, options.dry_run, options.apply_path, options.stream
+        ('3', 5, True, None, False)
     """
 
     store_ref: str
     dry_run: bool
     apply_path: str | None
+    stream: bool
+    batch_files: int | None
     extensions: list[str] | None
     limit: int | None
     max_file_mb: int | None
@@ -83,6 +102,8 @@ def _parse_ingest_metadata_options(
     parser.add_argument("store_ref")
     parser.add_argument("--dry-run", dest="dry_run", action="store_true")
     parser.add_argument("--apply", dest="apply_path")
+    parser.add_argument("--stream", dest="stream", action="store_true")
+    parser.add_argument("--batch")
     parser.add_argument("--extensions")
     parser.add_argument("--limit")
     parser.add_argument("--max-file-mb")
@@ -95,7 +116,11 @@ def _parse_ingest_metadata_options(
     parser.add_argument("--no-progress", dest="show_progress", action="store_false")
     parser.add_argument("--json", dest="json_output", action="store_true")
     parser.set_defaults(
-        dry_run=False, background=False, show_progress=True, json_output=False
+        dry_run=False,
+        stream=False,
+        background=False,
+        show_progress=True,
+        json_output=False,
     )
     try:
         values = parser.parse_args(args)
@@ -107,6 +132,8 @@ def _parse_ingest_metadata_options(
         apply_path=(str(values.apply_path).strip() or None)
         if values.apply_path
         else None,
+        stream=bool(values.stream),
+        batch_files=_positive_int_option(values.batch, "--batch"),
         extensions=_split_extensions(values.extensions),
         limit=_positive_int_option(values.limit, "--limit"),
         max_file_mb=_positive_int_option(values.max_file_mb, "--max-file-mb"),
@@ -317,9 +344,34 @@ def _apply_lines(report: Mapping[str, Any]) -> list[str]:
     return lines
 
 
+def _refuse_options(args: list[str], mode: str) -> None:
+    """
+    Refuse options that would do nothing in the chosen mode.
+
+    Example:
+        >>> _refuse_options(["1", "--apply", "p.json", "--batch=5"], "--apply")
+        Traceback (most recent call last):
+        ...
+        ValueError: --batch can't be used with --apply.
+
+
+    :param args: Raw option tokens.
+    :param mode: ``--dry-run``, ``--apply`` or ``--stream``.
+    :return: None.
+    :raises ValueError: If any refused option is present.
+    """
+    given = [
+        option
+        for option in _NOT_WITH[mode]
+        if any(token == option or token.startswith(f"{option}=") for token in args)
+    ]
+    if given:
+        raise ValueError(f"{', '.join(given)} can't be used with {mode}.")
+
+
 class IngestMetadataCommand(TerminalCommandAPI):
     """
-    Plan the books a Store's unattached files would add, or write a reviewed plan.
+    Plan the books a Store's unattached files would add, write a reviewed plan, or stream both.
 
     Example:
         >>> command = IngestMetadataCommand()
@@ -332,22 +384,25 @@ class IngestMetadataCommand(TerminalCommandAPI):
     name = "metadata"
     aliases = ("embedded-metadata",)
     summary = (
-        "Plan books from a Store's files, then write the plan: "
-        "ingest metadata <store> --dry-run | --apply <plan> [options]"
+        "Plan books from a Store's files, then write the plan, or add them as read: "
+        "ingest metadata <store> --dry-run | --apply <plan> | --stream [options]"
     )
     usage = (
         "ingest metadata <store_id|store_name> --dry-run [--extensions epub,mobi] "
         "[--limit <n>] [--max-file-mb <n>] [--report <path>] [--background] [--json]"
         " | ingest metadata <store_id|store_name> --apply <plan.json> [--limit <n>] "
         "[--report <path>] [--json]"
+        " | ingest metadata <store_id|store_name> --stream [--extensions epub,mobi] "
+        "[--limit <books>] [--batch <files>] [--max-file-mb <n>] [--report <folder>] "
+        "[--no-progress] [--json]"
     )
     expose_direct = False
 
     def execute(self, browser, args: list[str]) -> bool:
         """
-        Resolve the Store, then run the dry run or the apply step and show its result.
+        Resolve the Store, then run the dry run, the apply step or a stream and show its result.
 
-        Exactly one of ``--dry-run`` and ``--apply`` is required.
+        Exactly one of ``--dry-run``, ``--apply`` and ``--stream`` is required.
 
         Example:
             >>> IngestMetadataCommand().execute(browser, ["1", "--dry-run"])  # doctest: +SKIP
@@ -357,21 +412,89 @@ class IngestMetadataCommand(TerminalCommandAPI):
         :param args: Store reference and options.
         :return: True once the job is submitted or the result shown.
         :raises ValueError: If options are invalid or conflict, or the Store is unknown.
-        :raises RuntimeError: If Core returns no job id or the job fails.
+        :raises RuntimeError: If Core returns no job id, or a job or stream batch fails.
         """
         options = _parse_ingest_metadata_options(args, usage=self.usage)
-        if options.dry_run == (options.apply_path is not None):
+        modes = [
+            mode
+            for mode, chosen in (
+                ("--dry-run", options.dry_run),
+                ("--apply", options.apply_path is not None),
+                ("--stream", options.stream),
+            )
+            if chosen
+        ]
+        if len(modes) != 1:
             raise ValueError(_MODE_REQUIRED)
+        _refuse_options(args, modes[0])
         store_row = _resolve_store_row(browser, options.store_ref)
         if options.apply_path is not None:
-            return self._apply(browser, options, args, int(store_row["store_id"]))
+            return self._apply(browser, options, int(store_row["store_id"]))
+        if options.stream:
+            return self._stream(browser, options, store_row)
         return self._plan(browser, options, int(store_row["store_id"]))
+
+    def _stream(
+        self, browser: Any, options: _IngestMetadataOptions, store_row: Any
+    ) -> bool:
+        """
+        Add books as they are read, batch by batch, then show what the stream did.
+
+        Each batch is a read-only job over whole folders followed by the apply
+        step in Core, so books land a batch at a time and each is printed as it
+        is added. The command waits for the whole stream; ``--limit`` caps the
+        books added, and running it again continues with the files left.
+
+        Example:
+            >>> command._stream(browser, options, {"store_id": 1})  # doctest: +SKIP
+
+
+        :param browser: Host providing Core commands, job queries and output.
+        :param options: Parsed options.
+        :param store_row: The Store's row.
+        :return: True once the summary is shown.
+        :raises RuntimeError: If a batch failed; the summary of what was added is shown first.
+        """
+        store = {
+            key: store_row[key] for key in ("store_id", "store_name", "store_kind")
+        }
+        totals = run_stream(
+            browser,
+            StreamOptions(
+                store_id=int(store["store_id"]),
+                extensions=options.extensions,
+                max_file_mb=options.max_file_mb,
+                limit=options.limit,
+                batch_files=options.batch_files or DEFAULT_BATCH_FILES,
+                report_folder=options.report_path,
+                job_backend=options.job_backend,
+                job_timeout_s=options.job_timeout_s,
+                show_books=options.show_progress and not options.json_output,
+            ),
+        )
+        if options.json_output:
+            browser.emit(
+                json.dumps(
+                    {"store": store, **totals.to_dict()},
+                    ensure_ascii=False,
+                    sort_keys=True,
+                    indent=2,
+                )
+            )
+        else:
+            browser.emit_detail_sections(
+                stream_sections(totals, store),
+                title="Metadata ingest stream",
+                max_cell_width=120,
+            )
+        if totals.error:
+            raise RuntimeError(totals.error)
+        return True
 
     def _apply(
         self,
         browser: Any,
         options: _IngestMetadataOptions,
-        args: list[str],
         store_id: int,
     ) -> bool:
         """
@@ -381,19 +504,14 @@ class IngestMetadataCommand(TerminalCommandAPI):
         so the job options of the dry run don't apply.
 
         Example:
-            >>> command._apply(browser, options, ["1", "--apply", "plan.json"], 1)  # doctest: +SKIP
+            >>> command._apply(browser, options, 1)  # doctest: +SKIP
 
 
         :param browser: Host providing Core commands and output.
         :param options: Parsed options.
-        :param args: Raw option tokens, to reject dry-run-only options.
         :param store_id: Store the plan must be for.
         :return: True once the result is shown.
-        :raises ValueError: If a dry-run-only option is given.
         """
-        given = [option for option in _DRY_RUN_ONLY if option in args]
-        if given:
-            raise ValueError(f"{', '.join(given)} only apply to --dry-run.")
         report = browser.execute_core_command(
             "ingest.metadata.apply",
             payload={

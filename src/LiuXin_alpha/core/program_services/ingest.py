@@ -10,6 +10,7 @@ validate that submitted paths/URLs are reachable.
 from __future__ import annotations
 
 import json
+import re
 from typing import TYPE_CHECKING, Any
 
 from LiuXin_alpha.core.errors import CoreDispatchError
@@ -29,6 +30,9 @@ if TYPE_CHECKING:
     from LiuXin_alpha.core.commands import CoreCommand
     from LiuXin_alpha.core.queries import CoreQuery
     from LiuXin_alpha.core.runtime import CoreRuntime
+
+# A stream's name becomes one folder under ``ingest-plans``.
+_STREAM_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}")
 
 
 def ingest_formats(runtime: CoreRuntime, query: CoreQuery) -> dict[str, Any]:
@@ -116,16 +120,19 @@ def ingest_metadata_plan_start(
     The job reads each file's embedded metadata through its Store, matches it
     against the catalogue and writes the plan as JSON; it creates no records.
     Without ``report_path`` the plan goes to an ``ingest-plans`` folder beside
-    the catalogue. Store existence and file readability are checked by the job.
+    the catalogue; a stream's batch goes to ``ingest-plans/<stream>/``. A stream
+    plans one batch of whole folders after ``after_folder``, numbering its books
+    from ``first_index``. Store existence and file readability are checked by
+    the job.
 
     Example:
         >>> receipt = ingest_metadata_plan_start(runtime, command)  # doctest: +SKIP
 
 
     :param runtime: Runtime supplying a path-backed database identity and job manager.
-    :param command: Command with store_id and optional extensions, limit, max_file_mb, report_path and progress_output, plus shared job fields.
+    :param command: Command with store_id and optional extensions, limit, max_file_mb, report_path, progress_output, after_folder, first_index, stream and batch, plus shared job fields.
     :return: run_ingest_metadata_plan_job submission receipt.
-    :raises CoreDispatchError: If store_id, limit or max_file_mb is not a positive integer, or no database path is available.
+    :raises CoreDispatchError: If store_id, limit, max_file_mb, first_index or batch is not a positive integer, stream is not a plain name, or no database path is available.
     """
     payload = _payload(command)
     store_id = _required_int(payload, "store_id")
@@ -133,6 +140,12 @@ def ingest_metadata_plan_start(
         raise CoreDispatchError("`store_id` must be >= 1.")
     max_file_mb = _optional_int(payload, "max_file_mb", minimum=1)
     report_path = str(payload.get("report_path") or "").strip() or None
+    after_folder = payload.get("after_folder")
+    stream = str(payload.get("stream") or "").strip() or None
+    if stream is not None and not _STREAM_NAME.fullmatch(stream):
+        raise CoreDispatchError(
+            "`stream` must be a plain name of letters, digits, dots, dashes or underscores."
+        )
     kwargs = {
         "database_path": _database_path(runtime),
         "db_type": _database_type(runtime),
@@ -146,6 +159,10 @@ def ingest_metadata_plan_start(
         "max_bytes": None if max_file_mb is None else max_file_mb * 1024 * 1024,
         "report_path": report_path,
         "progress_output": bool(payload.get("progress_output", True)),
+        "after_folder": None if after_folder is None else str(after_folder),
+        "first_index": _optional_int(payload, "first_index", minimum=1) or 1,
+        "stream": stream,
+        "batch": _optional_int(payload, "batch", minimum=1),
     }
     return _job_submit(
         runtime,
@@ -167,15 +184,16 @@ def ingest_metadata_apply(
     metadata batch that rolls back on failure and reconciles once. Every planned
     decision is re-checked first; books whose files or reused names changed are
     skipped and reported. The full report goes beside the plan unless report_path
-    is given.
+    is given. With books_in_result the result also lists every book, as a stream
+    shows them.
 
     Example:
         >>> result = ingest_metadata_apply(runtime, command)  # doctest: +SKIP
 
 
     :param runtime: Runtime supplying the metadata API, Catalog and database.
-    :param command: Command with plan_path and optional store_id, limit and report_path.
-    :return: Summary, report path, and samples of created and problem books.
+    :param command: Command with plan_path and optional store_id, limit, report_path and books_in_result.
+    :return: Summary, report path, and samples of created and problem books, plus every book when asked.
     :raises CoreDispatchError: If the plan cannot be read, is for another Store, or limit is not a positive integer.
     """
     from pathlib import Path
@@ -213,7 +231,11 @@ def ingest_metadata_apply(
         limit=limit,
     )
     target = Path(report_path) if report_path else default_report_path(plan_path)
-    return apply_result(report, write_report(report, target))
+    return apply_result(
+        report,
+        write_report(report, target),
+        include_books=bool(payload.get("books_in_result", False)),
+    )
 
 
 def ingest_remote_html_start(
