@@ -352,8 +352,9 @@ class DriverWrapperMetadataMixin(DriverWrapperBase):
         defaults, and those require all referenced columns. If the catalog exists but
         its row is missing, return None without defaulting. Decode a stored row and
         check its value, key and scope columns. Declaration decoding errors propagate;
-        missing physical references raise DatabaseIntegrityError. The read connection
-        always closes.
+        missing physical references raise DatabaseIntegrityError. Inside the calling
+        thread's managed transaction the row is read on that transaction's connection;
+        otherwise a connection is opened for the read and always closed.
 
         Example:
             >>> wrapper.get_normalized_identity_spec("works", "tag")  # doctest: +SKIP
@@ -377,9 +378,12 @@ class DriverWrapperMetadataMixin(DriverWrapperBase):
         errors propagate.
 
         Without a catalog, walk built-in defaults and omit absent tables or unsupported
-        columns. With a catalog, fetch rows ordered by table and value column, close the
-        connection, then decode and validate each row as iteration advances. An invalid
-        later declaration may raise after earlier declarations have been yielded.
+        columns. With a catalog, fetch rows ordered by table and value column, then
+        decode and validate each row as iteration advances. Inside the calling thread's
+        managed transaction the rows are read on that transaction's connection;
+        otherwise a connection is opened for the read and closed before the first
+        row is yielded. An invalid later declaration may raise after earlier
+        declarations have been yielded.
 
         Example:
             >>> wrapper.iter_normalized_identity_specs()  # doctest: +SKIP

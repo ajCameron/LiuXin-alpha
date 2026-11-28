@@ -16,6 +16,7 @@ from dataclasses import replace
 import re
 
 from collections.abc import Mapping
+from contextlib import contextmanager
 from typing import Any, Dict, Iterator, Optional, Sequence, Union
 
 from LiuXin_alpha.databases.db_types.column_types import ColumnOptions
@@ -708,6 +709,37 @@ class ValueCastingMixin(SQLDriverMixinState):
         }
         return spec if required <= available else None
 
+    @contextmanager
+    def _identity_declaration_connection(self) -> Iterator[Any]:
+        """
+        Lend the calling thread's managed transaction connection, or open one for a read.
+
+        Every catalogue write reads the normalized-identity declarations, often many
+        times per transaction. Reading them on the transaction's own connection avoids
+        opening, admitting and closing another connection each time, and shows the
+        declarations as that transaction sees them. Outside a managed transaction a
+        connection is opened for the read and closed afterwards, as before. Only the
+        calling thread's transaction is borrowed, and it is never ended here.
+
+        Example:
+            >>> with driver._identity_declaration_connection() as conn:  # doctest: +SKIP
+            ...     conn.execute("SELECT COUNT(*) FROM normalized_identities").fetchone()
+
+
+        :return: A context manager yielding a connection for one declaration read.
+        """
+        macros = vars(self).get("_macros")
+        current = getattr(macros, "current_transaction_connection", None)
+        active = current() if callable(current) else None
+        if active is not None:
+            yield active
+            return
+        conn = driver_operations(self).get_connection()
+        try:
+            yield conn
+        finally:
+            conn.close()
+
     def direct_get_normalized_identity_spec(
         self,
         table: str,
@@ -720,8 +752,9 @@ class ValueCastingMixin(SQLDriverMixinState):
         defaults, and those require all referenced columns. If the catalog exists but
         its row is missing, return None without defaulting. Decode a stored row and
         check its value, key and scope columns. Declaration decoding errors propagate;
-        missing physical references raise DatabaseIntegrityError. The read connection
-        always closes.
+        missing physical references raise DatabaseIntegrityError. Inside the calling
+        thread's managed transaction the row is read on that transaction's connection;
+        otherwise a connection is opened for the read and always closed.
 
         Example:
             ``driver.direct_get_normalized_identity_spec("genres", "genre")``
@@ -745,8 +778,7 @@ class ValueCastingMixin(SQLDriverMixinState):
                 column_name,
             )
 
-        conn = driver_operations(self).get_connection()
-        try:
+        with self._identity_declaration_connection() as conn:
             row = conn.execute(
                 """
                 SELECT
@@ -763,8 +795,6 @@ class ValueCastingMixin(SQLDriverMixinState):
                 """,
                 (table_name, column_name),
             ).fetchone()
-        finally:
-            conn.close()
         if row is None:
             return None
         spec = normalized_identity_from_db_values(*row)
@@ -790,9 +820,13 @@ class ValueCastingMixin(SQLDriverMixinState):
         Yield database identity declarations after checking physical references.
 
         Without a catalog, walk built-in defaults and omit absent tables or unsupported
-        columns. With a catalog, fetch rows ordered by table and value column, close the
-        connection, then decode and validate each row as iteration advances. An invalid
-        later declaration may raise after earlier declarations have been yielded.
+        columns. With a catalog, fetch rows ordered by table and value column, then
+        decode and validate each row as iteration advances. Inside the calling thread's
+        managed transaction the rows are read on that transaction's connection, so
+        every write in it sees the same declarations without opening another
+        connection; otherwise a connection is opened for the read and closed before
+        the first row is yielded. An invalid later declaration may raise after earlier
+        declarations have been yielded.
 
         Example:
             ``tuple(driver.direct_iter_normalized_identity_specs())`` materializes
@@ -819,8 +853,7 @@ class ValueCastingMixin(SQLDriverMixinState):
                     yield supported
             return
 
-        conn = driver_operations(self).get_connection()
-        try:
+        with self._identity_declaration_connection() as conn:
             rows = list(
                 conn.execute(
                     """
@@ -839,8 +872,6 @@ class ValueCastingMixin(SQLDriverMixinState):
                     (table, table),
                 )
             )
-        finally:
-            conn.close()
         for row in rows:
             spec = normalized_identity_from_db_values(*row)
             available = set(

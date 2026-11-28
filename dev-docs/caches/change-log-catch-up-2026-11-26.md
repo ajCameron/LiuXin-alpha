@@ -88,5 +88,5 @@ Per-book cost is now flat with catalogue size on `schema_backed`, which is the d
 
 - **`numpy_vectorized`** still reloads a whole main table for `reload_ids`, and each view of a changed link table, so its cost still grows with size. It needs row-level refresh of its arrays.
 - **Field re-projection** copies row snapshots; projecting without a deep copy would cut the catch-up's constant cost.
-- **Connections on the write path.** Each metadata write still opens several connections, each validating the schema revision (about 10 ms each locally). This is CR10's cost, outside the cache.
+- **Connections on the write path.** Fixed on 2026-11-28 for the main cause: normalized-identity declarations are now read on the open transaction's connection instead of about 13 fresh connections per book. Each write transaction still opens one connection, which validates the schema revision. See CR10 in the [caches review](../architectural_reviews/caches-review-2026-11-26.md).
 - **Automatic catch-up before reads,** as above.
