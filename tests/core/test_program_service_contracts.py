@@ -688,7 +688,7 @@ def test_program_protocol_documentation_matches_its_service_owners() -> None:
         >>> test_program_protocol_documentation_matches_its_service_owners()
 
 
-    :return: None after checking all 93 declared endpoint methods and the facade's static alias documentation.
+    :return: None after checking all 94 declared endpoint methods and the facade's static alias documentation.
     """
     from LiuXin_alpha.core.program_api import CoreProgramAPI
     from LiuXin_alpha.core.program_endpoints import handlers
@@ -719,7 +719,7 @@ def test_program_protocol_documentation_matches_its_service_owners() -> None:
                 inspect.signature(owner).parameters
             )
             checked += 1
-    assert checked == 93
+    assert checked == 94
     for name, alias in vars(CoreProgramAPI).items():
         if isinstance(alias, staticmethod):
             function = getattr(CoreProgramAPI, name)

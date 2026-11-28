@@ -33,8 +33,9 @@ class DatabaseNullRowsMixin(DatabaseMixinState):
         When present, series ID 0 has a NULL display value. Prefer agents ID 0 with
         organisation type and AGENTS_NULL_CANONICAL_NAME; otherwise use publishers ID 0
         when that legacy table exists. With no all_tables cache, attempt series and
-        agents directly. Operations are sequential with no grouped rollback, and backend
-        errors propagate.
+        agents directly. A sentinel that already holds its conventional values is left
+        untouched, so opening a catalogue records no change. Operations are sequential
+        with no grouped rollback, and backend errors propagate.
 
         Example:
             For an open writable database, db.ensure_null_rows() restores a changed
@@ -42,7 +43,7 @@ class DatabaseNullRowsMixin(DatabaseMixinState):
             organisation identity.
 
 
-        :return: None; existing sentinel rows may be updated even when already valid.
+        :return: None; a sentinel row is written only when missing or changed.
         """
 
         # Ensure the series null row
@@ -52,8 +53,9 @@ class DatabaseNullRowsMixin(DatabaseMixinState):
             if not series_0_row:
                 series_null_row = {"series_id": 0}
                 self._database.driver_wrapper.add_row(series_null_row)
-            else:
-                # Convention: the sentinel row's display value is NULL
+            elif series_0_row.get("series") is not None:
+                # Convention: the sentinel row's display value is NULL. Only a
+                # changed row is written, so opening a catalogue is not a change.
                 series_0_row["series"] = None
                 self._database.driver_wrapper.update_row(series_0_row)
 
@@ -68,15 +70,14 @@ class DatabaseNullRowsMixin(DatabaseMixinState):
                     "agent_canonical_name": AGENTS_NULL_CANONICAL_NAME,
                 }
                 self._database.driver_wrapper.add_row(agent_null_row)
-            else:
+            elif (
+                agent_0_row.get("agent_type") != "organisation"
+                or agent_0_row.get("agent_canonical_name") != AGENTS_NULL_CANONICAL_NAME
+            ):
+                # Repair the sentinel's type and canonical name only when they
+                # differ. (The name is NOT NULL in schema, so it is an intentional string.)
                 agent_0_row["agent_type"] = "organisation"
-                # Always repair/normalize the sentinel row's canonical name.
-                # (It's NOT NULL in schema, so we use a clearly intentional string.)
-                if (
-                    agent_0_row.get("agent_canonical_name")
-                    != AGENTS_NULL_CANONICAL_NAME
-                ):
-                    agent_0_row["agent_canonical_name"] = AGENTS_NULL_CANONICAL_NAME
+                agent_0_row["agent_canonical_name"] = AGENTS_NULL_CANONICAL_NAME
                 self._database.driver_wrapper.update_row(agent_0_row)
 
         # Legacy fallback (Calibre-style DBs): keep the old publishers sentinel row if that table exists.
@@ -85,6 +86,6 @@ class DatabaseNullRowsMixin(DatabaseMixinState):
             if not pub_0_row:
                 pub_null_row = {"publisher_id": 0}
                 self._database.driver_wrapper.add_row(pub_null_row)
-            else:
+            elif pub_0_row.get("publisher") is not None:
                 pub_0_row["publisher"] = None
                 self._database.driver_wrapper.update_row(pub_0_row)

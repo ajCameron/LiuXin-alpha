@@ -204,6 +204,22 @@ def install_commands(
     )
 
     command(
+        "ingest.metadata.plan",
+        api.ingest_metadata_plan_start,
+        summary="Plan, without writing, the books a Store's unattached files would add.",
+        payload_fields=(
+            field("store_id", required=True, field_type="integer"),
+            field("extensions", field_type="array|null"),
+            field("limit", field_type="integer|null"),
+            field("max_file_mb", field_type="integer|null"),
+            field("report_path", field_type="string|null"),
+            field("progress_output", field_type="boolean"),
+        ),
+        tags=("ingest", "metadata", "jobs"),
+        remote_capabilities=("execute",),
+    )
+
+    command(
         "ingest.remote-html.start",
         api.ingest_remote_html_start,
         summary="Submit remote HTML source registration as a managed job.",

@@ -25,6 +25,7 @@ from .core import (
 )
 from .db import DbUnlockCommand
 from .ingest import IngestDiskCommand
+from .ingest_metadata import IngestMetadataCommand
 from .jobs import (
     JobsCancelCommand,
     JobsListCommand,
@@ -146,6 +147,7 @@ DEFAULT_COMMAND_CLASSES = (
     NewWorkWizardCommand,
     NewManifestationWizardCommand,
     IngestDiskCommand,
+    IngestMetadataCommand,
     SyncStoreCommand,
     StoreListCommand,
     StoreShowCommand,
@@ -228,6 +230,7 @@ __all__ = [
     "RowCommand",
     "PageSizeCommand",
     "IngestDiskCommand",
+    "IngestMetadataCommand",
     "SummaryCommand",
     "SearchCommand",
     "SetCommand",

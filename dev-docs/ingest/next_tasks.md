@@ -16,6 +16,8 @@ Consolidate receipts and semantic boundaries before moving modules. Keep nested-
 
 Done when ambiguous/conflicting matches require an explicit outcome, rejected values leave no partial bibliographic change, and the receipt identifies stored versus merely discovered data.
 
+Progress **2026-11-27**: the [embedded-metadata dry run](embedded-metadata.md) is the first caller. It plans candidates from files' embedded metadata, with provenance and a decision for every match, and writes nothing. The write phase and its receipt are next.
+
 ## ING02. Pin source materialization during work
 
 **Next; STOR05.** Coordinate cache leases, source version checks and capacity reservation for nested-container work and resumed prefix downloads.

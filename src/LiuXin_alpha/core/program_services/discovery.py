@@ -171,6 +171,7 @@ _PROGRAM_AREAS: dict[str, tuple[str, ...]] = {
     "ingest": (
         "ingest.formats",
         "ingest.disk.start",
+        "ingest.metadata.plan",
         "ingest.remote-html.start",
         "ingest.web.start",
         "ingest.web.files",
@@ -205,6 +206,7 @@ _CONDITIONAL_OPERATIONS: dict[str, str] = {
     "database.vacuum": "Requires vacuum/compaction support from the selected database driver.",
     "storage.source.register": "Some source kinds require network access or external tools.",
     "ingest.disk.start": "Requires a path-backed database and readable local source.",
+    "ingest.metadata.plan": "Requires a path-backed database; remote Stores download each file through their rate limits.",
     "ingest.remote-html.start": "Requires a path-backed database and network access.",
     "ingest.web.start": "Requires a path-backed database; downloads also need a writable managed Store and sufficient space.",
     "metadata.identify.start": "Results depend on configured online metadata plugins and network access.",
