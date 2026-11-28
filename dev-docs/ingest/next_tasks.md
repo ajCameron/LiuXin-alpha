@@ -19,6 +19,7 @@ Done when ambiguous/conflicting matches require an explicit outcome, rejected va
 Progress **2026-11-28**: [embedded metadata](embedded-metadata.md) is the first caller.
 - The dry run (2026-11-27) plans candidates with provenance and a decision for every match.
 - The apply step writes a reviewed plan, one book per transaction. It re-checks every decision first and writes a per-book receipt saying what was created, skipped or not stored.
+- A stream runs both in batches of whole folders, with the same checks and receipts, for when no review is wanted.
 
 ## ING02. Pin source materialization during work
 

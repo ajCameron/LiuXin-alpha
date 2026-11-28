@@ -689,8 +689,8 @@ class ContentWorkflowsHandlers(Protocol):
 
 
         :param runtime: Runtime supplying the metadata API, Catalog and database.
-        :param command: Command with plan_path and optional store_id, limit and report_path.
-        :return: Summary, report path, and samples of created and problem books.
+        :param command: Command with plan_path and optional store_id, limit, report_path and books_in_result.
+        :return: Summary, report path, and samples of created and problem books, plus every book when asked.
         :raises CoreDispatchError: If the plan cannot be read, is for another Store, or limit is not a positive integer.
         """
         ...
@@ -709,9 +709,9 @@ class ContentWorkflowsHandlers(Protocol):
 
 
         :param runtime: Runtime supplying a path-backed database identity and job manager.
-        :param command: Command with store_id and optional extensions, limit, max_file_mb, report_path and progress_output, plus shared job fields.
+        :param command: Command with store_id and optional extensions, limit, max_file_mb, report_path, progress_output, after_folder, first_index, stream and batch, plus shared job fields.
         :return: run_ingest_metadata_plan_job submission receipt.
-        :raises CoreDispatchError: If store_id, limit or max_file_mb is not a positive integer, or no database path is available.
+        :raises CoreDispatchError: If store_id, limit, max_file_mb, first_index or batch is not a positive integer, stream is not a plain name, or no database path is available.
         """
         ...
 

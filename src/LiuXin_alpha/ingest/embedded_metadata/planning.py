@@ -204,12 +204,15 @@ class NameResolver:
         return _respelled(remembered, value)
 
 
-def plan_books(catalog: Any, facts: Sequence[FileFacts]) -> list[PlannedBook]:
+def plan_books(
+    catalog: Any, facts: Sequence[FileFacts], *, start: int = 1
+) -> list[PlannedBook]:
     """
     Group file facts into books and plan each against the catalogue.
 
     Languages are compared by the catalogue row they resolve to, so readers
-    reporting ``en`` and ``eng`` for one book still group its formats.
+    reporting ``en`` and ``eng`` for one book still group its formats. A stream
+    numbers its batches' books on from the last batch with ``start``.
 
     Example:
         >>> books = plan_books(catalog, facts)  # doctest: +SKIP
@@ -218,7 +221,8 @@ def plan_books(catalog: Any, facts: Sequence[FileFacts]) -> list[PlannedBook]:
 
 
     :param catalog: Catalog exposing ``works``, ``agents``, ``tags``, ``series`` and ``languages``.
-    :param facts: Facts for every file read, in Store-key order.
+    :param facts: Facts for every file read, in folder order.
+    :param start: Index of the first book.
     :return: Planned books in the order their first file appeared.
     """
     resolver = NameResolver(catalog)
@@ -226,7 +230,7 @@ def plan_books(catalog: Any, facts: Sequence[FileFacts]) -> list[PlannedBook]:
     identities: dict[int, BookIdentity] = {}
     seen: dict[BookIdentity, list[int]] = {}
     books = []
-    for index, group in enumerate(groups, start=1):
+    for index, group in enumerate(groups, start=start):
         books.append(_plan_book(index, group, resolver, catalog))
         identity = book_identity(group[0], language_key=resolver.language_key)
         identities[index] = identity
@@ -250,7 +254,7 @@ def group_formats(
         [['epub', 'pdf']]
 
 
-    :param facts: Facts in Store-key order.
+    :param facts: Facts in folder order.
     :param language_key: Maps a language code to the value compared; defaults to the folded code.
     :return: Groups in the order their first file appeared.
     """

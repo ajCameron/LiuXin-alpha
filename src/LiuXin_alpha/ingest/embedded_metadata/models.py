@@ -413,9 +413,11 @@ class MetadataIngestPlan:
 
     :ivar store: Store id, name, kind and root URI.
     :ivar skipped: Counts of registered files not read, by reason.
-    :ivar books: Planned books in Store-key order.
+    :ivar books: Planned books in folder order.
     :ivar failures: Files that could not be read.
     :ivar files_read: Number of files read successfully.
+    :ivar after_folder: Folder this run started after, or None from the start.
+    :ivar last_folder: Folder of the last file chosen, or None when none was.
     """
 
     store: dict[str, Any]
@@ -423,6 +425,8 @@ class MetadataIngestPlan:
     books: list[PlannedBook] = field(default_factory=list)
     failures: list[FileFailure] = field(default_factory=list)
     files_read: int = 0
+    after_folder: str | None = None
+    last_folder: str | None = None
 
     def summary(self) -> dict[str, Any]:
         """
@@ -462,14 +466,18 @@ class MetadataIngestPlan:
 
         Example:
             >>> sorted(MetadataIngestPlan(store={}).to_dict())
-            ['books', 'dry_run', 'failures', 'store', 'summary']
+            ['books', 'dry_run', 'failures', 'selection', 'store', 'summary']
 
 
-        :return: Store, summary, every book and every failure.
+        :return: Store, the folders covered, summary, every book and every failure.
         """
         return {
             "dry_run": True,
             "store": dict(self.store),
+            "selection": {
+                "after_folder": self.after_folder,
+                "last_folder": self.last_folder,
+            },
             "summary": self.summary(),
             "books": [book.to_dict() for book in self.books],
             "failures": [failure.to_dict() for failure in self.failures],

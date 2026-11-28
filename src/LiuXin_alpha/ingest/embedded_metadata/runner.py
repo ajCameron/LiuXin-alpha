@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from collections.abc import Callable, Collection, Iterator, Mapping
 from contextlib import contextmanager
 from datetime import UTC, datetime
@@ -42,6 +43,7 @@ _STORE_COLUMNS = (
 # The file readers log each failure with a traceback; the plan already records
 # every failure, so a large run would otherwise bury its progress lines.
 _READER_LOGGER = "LiuXin_alpha-default-log"
+_STREAM_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}")
 SAMPLE_SIZE = 10
 
 Progress = Callable[[int, int], None]
@@ -58,9 +60,14 @@ def plan_store_metadata(
     max_bytes: int = DEFAULT_MAX_BYTES,
     progress: Progress | None = None,
     quiet_readers: bool = True,
+    after_folder: str | None = None,
+    first_index: int = 1,
 ) -> MetadataIngestPlan:
     """
     Read every unattached file in a Store and plan the books it would add.
+
+    With ``after_folder`` and ``limit``, one call plans one batch of whole
+    folders; the plan's ``last_folder`` is where the next batch starts after.
 
     Example:
         >>> plan = plan_store_metadata(database=db, library=lib, catalog=cat, store_id=1)  # doctest: +SKIP
@@ -73,10 +80,12 @@ def plan_store_metadata(
     :param catalog: Catalog used for read-only matching.
     :param store_id: ``stores.store_id`` of the Store to read.
     :param extensions: Optional extensions to read; None reads every readable one.
-    :param limit: Optional maximum number of files to read.
+    :param limit: Optional number of files after which no new folder is started.
     :param max_bytes: Largest file to read.
     :param progress: Optional callback receiving files done and files chosen.
     :param quiet_readers: Whether to drop the readers' own error logs while reading.
+    :param after_folder: Optional folder to start after; an empty string is the top folder.
+    :param first_index: Index of the first planned book.
     :return: The plan, including skipped counts and per-file failures.
     :raises ValueError: If the Store does not exist.
     """
@@ -97,8 +106,14 @@ def plan_store_metadata(
         readable=set(known_metadata_file_types()),
         extensions=extensions,
         limit=limit,
+        after_folder=after_folder,
     )
-    plan = MetadataIngestPlan(store=store_row, skipped=skipped)
+    plan = MetadataIngestPlan(
+        store=store_row,
+        skipped=skipped,
+        after_folder=after_folder,
+        last_folder=files[-1].folder if files else None,
+    )
     facts: list[FileFacts] = []
     with (
         using_known_tags(lambda: _known_tags(catalog)),
@@ -115,7 +130,7 @@ def plan_store_metadata(
             if progress is not None:
                 progress(position, len(files))
     plan.files_read = len(facts)
-    plan.books = plan_books(catalog, facts)
+    plan.books = plan_books(catalog, facts, start=first_index)
     return plan
 
 
@@ -162,13 +177,36 @@ def default_plan_path(
     return Path(database_path).expanduser().parent / "ingest-plans" / name
 
 
+def stream_batch_path(database_path: str, stream: str, batch: int) -> Path:
+    """
+    Choose a stream batch's plan file, in the stream's folder beside the catalogue.
+
+    Example:
+        >>> stream_batch_path("/lib/books.sqlite", "metadata-stream-store-3-20261128T020000Z", 7).as_posix()
+        '/lib/ingest-plans/metadata-stream-store-3-20261128T020000Z/batch-0007.json'
+
+
+    :param database_path: Catalogue file path.
+    :param stream: Stream name, one path segment.
+    :param batch: One-based batch number.
+    :return: Path of the batch's plan.
+    :raises ValueError: If the name is not a plain file name or the batch is below 1.
+    """
+    if not _STREAM_NAME.fullmatch(stream):
+        raise ValueError(f"Not a stream name: {stream!r}")
+    if batch < 1:
+        raise ValueError("A stream batch number must be >= 1.")
+    folder = Path(database_path).expanduser().parent / "ingest-plans" / stream
+    return folder / f"batch-{batch:04d}.json"
+
+
 def plan_result(plan: MetadataIngestPlan, report_path: Path) -> dict[str, Any]:
     """
-    Build the compact job result: summary, plan path and a small sample.
+    Build the compact job result: summary, plan path, folders covered and a small sample.
 
     Example:
         >>> sorted(plan_result(MetadataIngestPlan(store={}), Path("p.json")))
-        ['books_sample', 'dry_run', 'failures_sample', 'report_path', 'store', 'summary']
+        ['books_sample', 'dry_run', 'failures_sample', 'last_folder', 'report_path', 'store', 'summary']
 
 
     :param plan: Completed plan.
@@ -178,6 +216,7 @@ def plan_result(plan: MetadataIngestPlan, report_path: Path) -> dict[str, Any]:
     return {
         "dry_run": True,
         "store": dict(plan.store),
+        "last_folder": plan.last_folder,
         "summary": plan.summary(),
         "report_path": str(report_path),
         "books_sample": [_book_line(book) for book in plan.books[:SAMPLE_SIZE]],
@@ -311,5 +350,6 @@ __all__ = [
     "default_plan_path",
     "plan_result",
     "plan_store_metadata",
+    "stream_batch_path",
     "write_plan",
 ]

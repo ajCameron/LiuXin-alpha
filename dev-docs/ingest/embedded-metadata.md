@@ -1,8 +1,10 @@
 # Reading embedded metadata at ingest
 
 Started **2026-11-27**. The step has two halves: a dry run that plans the books,
-and an apply step (added 2026-11-28) that writes a reviewed plan. This is the
-first caller for [ING01](next_tasks.md#ing01-define-candidate-to-write-receipts).
+and an apply step (added 2026-11-28) that writes a reviewed plan. A stream
+(also 2026-11-28) runs the two in small batches, adding books as they are read,
+with no review in between. This is the first caller for
+[ING01](next_tasks.md#ing01-define-candidate-to-write-receipts).
 
 ## What it does
 
@@ -30,8 +32,17 @@ ingest metadata <store_id|store_name> --apply <plan.json> [--limit <n>]
 ```
 
 It submits `ingest.metadata.apply`, which runs in the Core process (see
-[Applying a plan](#applying-a-plan)). The command needs exactly one of
-`--dry-run` and `--apply`.
+[Applying a plan](#applying-a-plan)).
+
+A stream does both without stopping for review (see [Streaming](#streaming)):
+
+```text
+ingest metadata <store_id|store_name> --stream [--extensions epub,mobi]
+    [--limit <books>] [--batch <files>] [--max-file-mb <n>] [--report <folder>]
+    [--no-progress] [--json]
+```
+
+The command needs exactly one of `--dry-run`, `--apply` and `--stream`.
 
 To try it in the terminal UI, sync a Store, then plan and apply a sample before
 doing everything:
@@ -40,6 +51,13 @@ doing everything:
 sync store 1 to-db
 ingest metadata 1 --dry-run --limit 50 --report plan.json
 ingest metadata 1 --apply plan.json
+```
+
+Or stream a few books, look at them, then stream the rest:
+
+```text
+ingest metadata 1 --stream --limit 20
+ingest metadata 1 --stream
 ```
 
 On a remote read-only Store, such as a wget or rclone HTTP Store, each file read
@@ -53,14 +71,20 @@ The code lives in [`ingest.embedded_metadata`](../../src/LiuXin_alpha/ingest/emb
 | `models` | Frozen plan records, flags and decisions; JSON projection |
 | `reading` | File selection, reading through the Store, normalisation |
 | `planning` | Name resolution, the Work check, grouping formats, duplicates within the run |
-| `runner` | One Store end to end, plan file, job result |
+| `runner` | One Store or one batch of folders end to end, plan file, job result |
 | `applying` | Loading a plan, re-checking it, writing each book, the apply report |
+
+The stream's loop is in the terminal command,
+[`ingest_metadata_stream`](../../src/LiuXin_alpha/surfaces/terminal/commands/ingest_metadata_stream.py).
 
 ## Steps
 
-1. **Select.** Take the Store's `files` rows without an Item, in key order. Count
-   the rest by reason: `already_attached`, `extension_filtered`,
-   `no_metadata_reader` or `over_limit`.
+1. **Select.** Take the Store's `files` rows without an Item, folder by folder,
+   in key order within each folder. A folder is always taken whole: `--limit`
+   stops only between folders, so a book's formats are never split between two
+   runs. Count the rest by reason: `already_attached`, `extension_filtered`,
+   `no_metadata_reader`, `earlier_folder` (a stream's earlier batches) or
+   `over_limit`.
 2. **Read.** Open each file through its Store and call the metadata readers.
    - A remote read-only Store downloads each file through its own rate limit.
    - A stream that can't seek is copied to a temporary file first.
@@ -200,5 +224,58 @@ connections: every write read its normalized-identity declarations through a new
 connection, about 13 per book. The cache catch-up is about 15%. #236 reads the
 declarations on the open transaction instead, which brings the apply step to about
 30 ms per book.
+
+## Streaming
+
+A stream adds books as it reads them, with no review step. Writes stay in the
+process that owns the cache, and job workers only read, so a stream alternates
+the two halves in batches:
+
+1. A read job plans the next whole folders, starting after the last batch's
+   folder, until it has at least `--batch` files (50 by default).
+2. Core applies that batch's plan, exactly as `--apply` would.
+3. Each book is printed as it is added, along with any unreadable files.
+
+Everything the apply step checks is still checked, and the dry run's rules
+still decide what is written: a book is always new, and names reuse only a
+unique match. Review flags such as `possible_duplicate_in_catalogue` are
+reported, not waited on. Each batch matches against the catalogue as it stands
+after the batches before it, so a book found in two folders is still flagged
+as a possible duplicate when the folders fall in different batches.
+
+`--limit <n>` stops after `n` books are added; the rest of that batch is
+`not_attempted`. Running the stream again continues with what is left, since
+attached files are not read again. Unreadable files are reported once per
+stream and retried by the next one. Interrupting a stream (Ctrl-C) stops it.
+Books already added stay, and the book being written is rolled back. The
+summary leaves out the interrupted batch, whose apply report isn't written.
+
+The command waits for the whole stream, like `--apply`, so `--background` is
+refused. `--job-backend` and `--job-timeout-s` apply to each read job. If a read
+job fails, the stream stops and says after which folder; the summary of what was
+added is shown first.
+
+Every batch's plan and apply report are kept, in
+`ingest-plans/metadata-stream-store-<id>-<UTC time>/` beside the catalogue, or in
+the folder `--report` names: `batch-0001.json`, then
+`batch-0001.applied-<UTC time>.json`, and so on. The terminal shows each book as
+it lands, then totals for the stream: books added, outcomes, review flags,
+names created and values not stored.
+
+### Cost
+
+Measured on 200 one-file books in 100 folders, against 100 existing Works:
+
+| Run | Per book |
+| --- | --- |
+| Dry run, then apply | 0.18 s |
+| Stream, `--batch 100` | 0.22 s |
+| Stream, `--batch 50` (the default) | 0.26 s |
+| Stream, `--batch 25` | 0.30 s |
+
+Each read job costs about 1.5 s to start and open the catalogue. A stream also
+matches each batch against a catalogue that has grown during the run, so the
+Work matcher's cost (see [Known limits](#known-limits)) rises as it goes. With
+the default batch, books land every 10 to 15 seconds.
 
 Return to [ingest](README.md).

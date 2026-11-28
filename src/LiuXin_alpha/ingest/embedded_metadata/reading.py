@@ -60,13 +60,18 @@ def select_files(
     readable: Collection[str],
     extensions: Collection[str] | None = None,
     limit: int | None = None,
+    after_folder: str | None = None,
 ) -> tuple[list[IngestFile], dict[str, int]]:
     """
-    Choose the registered files a dry run should read, in Store-key order.
+    Choose the registered files a dry run should read, folder by folder.
 
-    Files already attached to an Item were ingested before and are skipped, as
-    are files outside the extension filter, files with no metadata reader, and
-    files past the limit. Skips are counted by reason, not listed.
+    Files come in folder order, then key order. A folder is always taken whole,
+    so the limit can be passed by the rest of the folder it is reached in: the
+    formats of one book are never split between two runs. Files already attached
+    to an Item were ingested before and are skipped, as are files outside the
+    extension filter, files with no metadata reader, files in folders up to
+    ``after_folder`` and files past the limit. Skips are counted by reason, not
+    listed.
 
     Example:
         >>> rows = [
@@ -81,21 +86,84 @@ def select_files(
     :param rows: ``files`` rows with id, storage key, extension, item id and size.
     :param readable: Extensions that have a metadata reader.
     :param extensions: Optional extensions to keep; None keeps every readable one.
-    :param limit: Optional maximum number of files to choose.
+    :param limit: Optional number of files after which no new folder is started.
+    :param after_folder: Optional folder; it and every folder sorting before it
+        are skipped as ``earlier_folder``. An empty string is the Store's top folder.
     :return: Chosen files and per-reason skip counts.
     """
     wanted = None if extensions is None else {_extension(item) for item in extensions}
     chosen: list[IngestFile] = []
     skipped: dict[str, int] = {}
-    for row in sorted(rows, key=lambda item: str(item.get("file_storage_key") or "")):
+    for row in sorted(rows, key=_folder_order):
         reason = _skip_reason(row, readable=readable, wanted=wanted)
-        if reason is None and limit is not None and len(chosen) >= limit:
-            reason = "over_limit"
+        if reason is None:
+            reason = _position_reason(
+                _key_folder(row), chosen, limit=limit, after_folder=after_folder
+            )
         if reason is not None:
             skipped[reason] = skipped.get(reason, 0) + 1
             continue
         chosen.append(_ingest_file(row))
     return chosen, skipped
+
+
+def _folder_order(row: Mapping[str, Any]) -> tuple[str, str]:
+    """
+    Sort key putting a row's folder first, then its storage key.
+
+    Example:
+        >>> _folder_order({"file_storage_key": "a/c/d.epub"})
+        ('a/c', 'a/c/d.epub')
+
+
+    :param row: ``files`` row.
+    :return: Folder and key.
+    """
+    return (_key_folder(row), str(row.get("file_storage_key") or ""))
+
+
+def _key_folder(row: Mapping[str, Any]) -> str:
+    """
+    Return the folder part of a row's storage key.
+
+    Example:
+        >>> _key_folder({"file_storage_key": "a/b.epub"}), _key_folder({"file_storage_key": "b.epub"})
+        ('a', '')
+
+
+    :param row: ``files`` row.
+    :return: Everything before the key's last ``/``.
+    """
+    return str(row.get("file_storage_key") or "").rpartition("/")[0]
+
+
+def _position_reason(
+    folder: str,
+    chosen: list[IngestFile],
+    *,
+    limit: int | None,
+    after_folder: str | None,
+) -> str | None:
+    """
+    Decide whether a readable file falls outside this run's folders.
+
+    Example:
+        >>> _position_reason("a", [], limit=None, after_folder="b")
+        'earlier_folder'
+
+
+    :param folder: The file's folder.
+    :param chosen: Files chosen so far, in folder order.
+    :param limit: Files after which no new folder is started.
+    :param after_folder: Last folder of an earlier run, or None.
+    :return: ``earlier_folder``, ``over_limit``, or None to choose the file.
+    """
+    if after_folder is not None and folder <= after_folder:
+        return "earlier_folder"
+    if limit is not None and len(chosen) >= limit:
+        if not chosen or folder != chosen[-1].folder:
+            return "over_limit"
+    return None
 
 
 def read_file(
